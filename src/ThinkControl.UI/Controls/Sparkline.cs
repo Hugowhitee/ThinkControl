@@ -36,6 +36,12 @@ public sealed class Sparkline : FrameworkElement
         typeof(Sparkline),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty IncludeZeroProperty = DependencyProperty.Register(
+        nameof(IncludeZero),
+        typeof(bool),
+        typeof(Sparkline),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
     private INotifyCollectionChanged? _collection;
 
     public IEnumerable? Values
@@ -60,6 +66,12 @@ public sealed class Sparkline : FrameworkElement
     {
         get => (bool)GetValue(AutoRangeProperty);
         set => SetValue(AutoRangeProperty, value);
+    }
+
+    public bool IncludeZero
+    {
+        get => (bool)GetValue(IncludeZeroProperty);
+        set => SetValue(IncludeZeroProperty, value);
     }
 
     private static void OnValuesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -101,8 +113,8 @@ public sealed class Sparkline : FrameworkElement
         }
 
         List<double> values = Values?.Cast<object>()
-            .Select(value => Convert.ToDouble(value))
-            .Where(value => !double.IsNaN(value) && !double.IsInfinity(value))
+            .Select(Convert.ToDouble)
+            .Where(double.IsFinite)
             .ToList() ?? [];
 
         if (values.Count < 2)
@@ -119,25 +131,13 @@ public sealed class Sparkline : FrameworkElement
             return;
         }
 
-        double minimum = Minimum;
-        double maximum = Maximum;
-        if (AutoRange)
-        {
-            minimum = Math.Min(0, values.Min());
-            maximum = Math.Max(5, values.Max() * 1.12);
-        }
-        if (!double.IsFinite(minimum) || !double.IsFinite(maximum) || maximum <= minimum)
-        {
-            minimum = 0;
-            maximum = 1;
-        }
-
+        (double minimum, double maximum) = ResolveRange(values);
         var geometry = new StreamGeometry();
         using (StreamGeometryContext ctx = geometry.Open())
         {
             for (int i = 0; i < values.Count; i++)
             {
-                double x = values.Count == 1 ? 0 : i * width / (values.Count - 1d);
+                double x = i * width / (values.Count - 1d);
                 double normalized = Math.Clamp((values[i] - minimum) / (maximum - minimum), 0, 1);
                 double y = height - normalized * height;
                 if (i == 0)
@@ -154,7 +154,49 @@ public sealed class Sparkline : FrameworkElement
             StartLineCap = PenLineCap.Round,
             EndLineCap = PenLineCap.Round
         };
+        linePen.Freeze();
         dc.DrawGeometry(null, linePen, geometry);
+    }
+
+    private (double Min, double Max) ResolveRange(IReadOnlyList<double> values)
+    {
+        if (!AutoRange)
+        {
+            double minimum = Minimum;
+            double maximum = Maximum;
+            if (!double.IsFinite(minimum) || !double.IsFinite(maximum) || maximum <= minimum)
+                return (0, 1);
+            return (minimum, maximum);
+        }
+
+        double minimumAuto = values.Min();
+        double maximumAuto = values.Max();
+        if (IncludeZero)
+            minimumAuto = Math.Min(0, minimumAuto);
+
+        double span = maximumAuto - minimumAuto;
+        if (span < 0.001)
+        {
+            double pad = Math.Max(1, Math.Abs(maximumAuto) * 0.08);
+            if (!IncludeZero)
+                minimumAuto -= pad;
+            maximumAuto += pad;
+        }
+        else
+        {
+            double pad = span * 0.10;
+            if (!IncludeZero)
+                minimumAuto -= pad;
+            maximumAuto += pad;
+        }
+
+        if (IncludeZero)
+            minimumAuto = 0;
+
+        if (!double.IsFinite(minimumAuto) || !double.IsFinite(maximumAuto) || maximumAuto <= minimumAuto)
+            return (0, 1);
+
+        return (minimumAuto, maximumAuto);
     }
 
     private static MediaBrush TryBrush(string key, MediaBrush fallback) =>
