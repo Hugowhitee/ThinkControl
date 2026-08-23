@@ -41,7 +41,8 @@ jobs:
             'advanced-home.png',
             'advanced-fans.png',
             'advanced-keyboard.png',
-            'advanced-battery.png'
+            'advanced-battery.png',
+            'advanced-settings.png'
           )
           foreach ($name in $expected) {
             $path = Join-Path $output $name
