@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using Point = System.Windows.Point;
 
 namespace ThinkControl.UI.Controls;
 
