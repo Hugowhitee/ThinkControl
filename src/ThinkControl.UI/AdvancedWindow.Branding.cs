@@ -32,7 +32,11 @@ public partial class AdvancedWindow
             return;
         }
 
-        dockRow.Height = 48;
+        // Keep the brand row on the exact same left rail as the navigation icons.
+        // BrandWordmark's source aspect is ~3.16:1; matching it avoids Viewbox
+        // letterboxing that previously pushed the visible text to the right.
+        dockRow.Height = 44;
+        dockRow.Margin = new Thickness(8, 2, 8, 2);
         FrameworkElement? oldLabel = dockRow.Children
             .OfType<FrameworkElement>()
             .FirstOrDefault(child => Grid.GetColumn(child) == 0);
@@ -41,9 +45,9 @@ public partial class AdvancedWindow
 
         var wordmark = new BrandWordmark
         {
-            Width = 132,
+            Width = 120,
             Height = 38,
-            Margin = new Thickness(2, 0, 0, 0),
+            Margin = new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -60,15 +64,19 @@ public partial class AdvancedWindow
             compactButton.Padding = new Thickness(0);
             compactButton.BorderThickness = new Thickness(0);
             compactButton.Background = Brushes.Transparent;
-            compactButton.ToolTip = "Open compact tray view";
+            compactButton.ToolTip = "Return to compact view";
 
+            // Pair with the compact view's ↗ action: this single ↙ arrow points
+            // back toward the tray/compact surface instead of using ambiguous
+            // opposing arrows.
             var path = new Path
             {
                 Stroke = (Brush)FindResource("Tc.TextMuted"),
-                StrokeThickness = 1.35,
+                StrokeThickness = 1.4,
                 StrokeStartLineCap = PenLineCap.Round,
                 StrokeEndLineCap = PenLineCap.Round,
-                Data = Geometry.Parse("M2,2 L7,7 M2,2 L6,2 M2,2 L2,6 M14,14 L9,9 M14,14 L10,14 M14,14 L14,10")
+                StrokeLineJoin = PenLineJoin.Round,
+                Data = Geometry.Parse("M13,3 L3,13 M3,7 L3,13 L9,13")
             };
             compactButton.Content = new Viewbox { Width = 13, Height = 13, Child = path };
         }
