@@ -17,6 +17,7 @@ public partial class App : System.Windows.Application
     private bool _refreshBusy;
     private bool _keyboardPreferenceRestored;
     private bool? _lastServiceOnline;
+    private string _manufacturer = string.Empty;
     private AdvancedWindow? _advancedWindow;
 
     public AppState State { get; } = new();
@@ -49,8 +50,12 @@ public partial class App : System.Windows.Application
         State.RamText = preflight.RamText;
         State.BiosVersion = preflight.BiosVersion;
         State.MachineType = preflight.MachineType;
+        _manufacturer = preflight.Manufacturer;
 
-        DeviceValidationState validation = GetDeviceValidationState(preflight.MachineType);
+        DeviceValidationState validation = GetDeviceValidationState(
+            preflight.MachineType,
+            preflight.Manufacturer,
+            preflight.DeviceName);
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "app.started",
@@ -71,10 +76,10 @@ public partial class App : System.Windows.Application
                 ["state"] = validation.ToString()
             }));
 
-        if (validation == DeviceValidationState.NotValidated &&
+        if (validation != DeviceValidationState.Verified &&
             preferences.DiagnosticsConsent == DiagnosticsConsent.Unknown)
         {
-            PromptForUnvalidatedDevice(preflight);
+            PromptForDeviceValidation(preflight, validation);
         }
 
         KeyboardEffects = new KeyboardEffectService(HardwareClient, State);
@@ -136,6 +141,7 @@ public partial class App : System.Windows.Application
         {
             SystemStatusSnapshot system = await Task.Run(SystemStatusService.Read);
             BatteryTelemetrySnapshot battery = await Task.Run(BatteryTelemetryService.Read);
+            _manufacturer = system.Manufacturer;
 
             State.BatteryPercent = battery.Percent ?? system.BatteryPercent;
             State.BatteryStatus = battery.Charging
@@ -190,7 +196,7 @@ public partial class App : System.Windows.Application
                 RecordDiagnostic(new DiagnosticEvent(
                     DateTimeOffset.UtcNow,
                     serviceOnline ? "service.connected" : "service.disconnected",
-                    ValidationState: GetDeviceValidationState(State.MachineType),
+                    ValidationState: GetCurrentDeviceValidationState(),
                     Success: serviceOnline,
                     ErrorCode: serviceOnline ? null : "service_unavailable"));
             }
@@ -223,9 +229,12 @@ public partial class App : System.Windows.Application
             }
             else
             {
-                State.HardwareAccess = GetDeviceValidationState(State.MachineType) == DeviceValidationState.NotValidated
-                    ? "Not validated · compatibility checks active"
-                    : "Limited · hardware service offline";
+                State.HardwareAccess = GetCurrentDeviceValidationState() switch
+                {
+                    DeviceValidationState.Experimental => "Beta / Untested · Lenovo provider checks active",
+                    DeviceValidationState.NotValidated => "Not validated · Windows features available",
+                    _ => "Limited · hardware service offline"
+                };
                 State.CpuTemperatureC = null;
                 State.FanRpm = null;
                 State.FanStateText = "Lenovo managed · telemetry unavailable";
@@ -301,7 +310,7 @@ public partial class App : System.Windows.Application
             "display.refresh_auto_enabled",
             Capability: "DisplayRefresh",
             Provider: "Windows",
-            ValidationState: GetDeviceValidationState(State.MachineType),
+            ValidationState: GetCurrentDeviceValidationState(),
             Success: true));
         return true;
     }
@@ -334,7 +343,7 @@ public partial class App : System.Windows.Application
             "keyboard.effect_mode_set",
             Capability: "KeyboardBacklight",
             Provider: "ThinkControlUserSession",
-            ValidationState: GetDeviceValidationState(State.MachineType),
+            ValidationState: GetCurrentDeviceValidationState(),
             Success: true,
             Tags: new Dictionary<string, string> { ["state"] = State.KeyboardMode }));
         await RefreshStatusAsync();
@@ -369,7 +378,7 @@ public partial class App : System.Windows.Application
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "app.exit",
-            ValidationState: GetDeviceValidationState(State.MachineType),
+            ValidationState: GetCurrentDeviceValidationState(),
             Success: true));
         _statusTimer?.Stop();
         try { KeyboardEffects?.Dispose(); } catch { }
@@ -380,14 +389,21 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 
-    private void PromptForUnvalidatedDevice(SystemStatusSnapshot system)
+    private void PromptForDeviceValidation(SystemStatusSnapshot system, DeviceValidationState validation)
     {
+        bool beta = validation == DeviceValidationState.Experimental;
+        string heading = beta ? "Beta / Untested Lenovo profile" : "Device not validated";
+        string intro = beta
+            ? $"{system.DeviceName} is recognized as a Lenovo device, but this exact model has not been physically validated with ThinkControl yet."
+            : $"{system.DeviceName} has not been validated with ThinkControl yet.";
+
         MessageBoxResult answer = MessageBox.Show(
-            $"{system.DeviceName} has not been validated with ThinkControl yet.\n\n" +
+            intro + "\n\n" +
             "The normal ThinkControl interface will still open and Windows-level features remain available. " +
-            "Low-level hardware controls only activate when a known provider passes its compatibility checks.\n\n" +
+            "Lenovo hardware controls only activate when a known provider passes its compatibility/readback checks. " +
+            "Direct X9 EC fan writes remain limited to the verified 21Q6/21Q7 profile.\n\n" +
             "Help validate this device by allowing redacted compatibility diagnostics? You can change this later in Settings.",
-            "ThinkControl · Device not validated",
+            $"ThinkControl · {heading}",
             MessageBoxButton.YesNo,
             MessageBoxImage.Information);
 
@@ -398,7 +414,7 @@ public partial class App : System.Windows.Application
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "diagnostics.consent_initial",
-            ValidationState: DeviceValidationState.NotValidated,
+            ValidationState: validation,
             Success: true,
             Tags: new Dictionary<string, string> { ["state"] = consent.ToString() }));
     }
@@ -417,21 +433,38 @@ public partial class App : System.Windows.Application
             name,
             Capability: capability,
             Provider: provider,
-            ValidationState: GetDeviceValidationState(State.MachineType),
+            ValidationState: GetCurrentDeviceValidationState(),
             Success: success,
             ErrorCode: success ? null : "operation_failed",
             DurationMs: duration,
             Tags: tags));
     }
 
-    public static DeviceValidationState GetDeviceValidationState(string? machineType)
+    public static DeviceValidationState GetDeviceValidationState(string? machineType) =>
+        GetDeviceValidationState(machineType, null, null);
+
+    public static DeviceValidationState GetDeviceValidationState(
+        string? machineType,
+        string? manufacturer,
+        string? productName)
     {
         if (string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase))
             return DeviceValidationState.Verified;
 
+        if ((!string.IsNullOrWhiteSpace(manufacturer) &&
+             manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrWhiteSpace(productName) &&
+             productName.Contains("Lenovo", StringComparison.OrdinalIgnoreCase)))
+        {
+            return DeviceValidationState.Experimental;
+        }
+
         return DeviceValidationState.NotValidated;
     }
+
+    private DeviceValidationState GetCurrentDeviceValidationState() =>
+        GetDeviceValidationState(State.MachineType, _manufacturer, State.DeviceName);
 
     private async Task RestoreKeyboardPreferenceAsync()
     {
@@ -496,6 +529,20 @@ public partial class App : System.Windows.Application
 
     private static Icon CreateIcon()
     {
+        try
+        {
+            var resource = System.Windows.Application.GetResourceStream(
+                new Uri("pack://application:,,,/Assets/tray.ico", UriKind.Absolute));
+            if (resource?.Stream is not null)
+            {
+                using Icon tray = new(resource.Stream);
+                return (Icon)tray.Clone();
+            }
+        }
+        catch
+        {
+        }
+
         try
         {
             string? executable = Environment.ProcessPath;
