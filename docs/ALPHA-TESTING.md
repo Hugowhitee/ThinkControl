@@ -1,38 +1,41 @@
 # Alpha testing on the ThinkPad X9-15 Gen 1
 
-This guide is for testing ThinkControl `v0.1.0-alpha.2` on the X9 reference device, machine type `21Q6` or `21Q7`.
+This guide is for testing ThinkControl `v0.1.0-alpha.3` on the X9 reference device, machine type `21Q6` or `21Q7`.
 
 ## Before installation
 
-- Close other direct fan/EC-control utilities.
-- Keep Lenovo platform drivers/services installed, especially Lenovo Intelligent Thermal Solution and Lenovo Power Management.
+- Close other direct fan or EC-control utilities.
+- Keep Lenovo platform drivers and services installed, especially Lenovo Intelligent Thermal Solution and Lenovo Power Management.
 - Start the first test on AC power without a heavy workload.
 
-## Installer and identity
+## Installer, service and hardware setup
 
-Install the published `ThinkControl-Setup-0.1.0-alpha.2.exe` rather than a loose development build.
+Install the published `ThinkControl-Setup-0.1.0-alpha.3.exe` rather than a loose development build.
 
 Confirm:
 
 1. Setup itself is only a few MB.
-2. Setup downloads the matching `ThinkControl-Payload-0.1.0-alpha.2.zip` from GitHub Releases.
-3. The payload hash verification succeeds.
+2. Setup downloads the matching `ThinkControl-Payload-0.1.0-alpha.3.zip` from GitHub Releases.
+3. Payload hash verification succeeds.
 4. An already installed compatible .NET 10 Desktop Runtime is not downloaded again.
-5. On X9 `21Q6/21Q7`, Setup offers the pinned PawnIO 2.2.0 hardware-access task.
-6. `ThinkControlService` reaches Running.
-7. ThinkControl identifies the machine as the verified X9 profile, not Beta/Untested.
+5. Setup installs and starts `ThinkControlService` without adding X9-specific drivers itself.
+6. ThinkControl identifies the machine as the verified X9 profile, not Beta / Untested.
+7. If the verified EC provider is not ready, Hardware Setup offers the pinned PawnIO prerequisite inside the app.
+8. After Hardware Setup completes, refresh the hardware state and confirm the relevant capabilities become available.
+
+Hardware Setup is also available from Settings. Use it if the service is missing, stopped or a verified device-specific provider needs repair.
 
 ## Windows shell and UI
 
 After installation, confirm:
 
-1. The tray icon uses the current v3 TC mark.
+1. The tray icon uses the current v3 mark.
 2. Compact opens above the notification area and cannot be dragged away.
-3. Compact uses one diagonal `↖` action to open Advanced.
-4. Advanced uses the normal Windows title bar with the v3 application icon, minimize, maximize/restore and close.
-5. Hovering the native maximize button exposes Windows 11 Snap Layouts.
-6. The `↘` action returns to Compact.
-7. Settings shows Compatibility diagnostics exactly once.
+3. Clicking ThinkControl again from the notification overflow area brings the existing window back to the foreground.
+4. The Compact header keeps the ThinkControl wordmark at a fixed top-left anchor and exposes Open Advanced in the header.
+5. Advanced uses the same wordmark treatment and normal window controls.
+6. Maximize Advanced and confirm Display, Battery and Touchpad use the available width without stretching controls across the entire monitor.
+7. The action to return to Compact works repeatedly.
 8. System, Light and Dark themes render without clipping.
 
 Repeat the layout check at 100, 125 and 150 percent Windows scaling.
@@ -42,13 +45,15 @@ Repeat the layout check at 100, 125 and 150 percent Windows scaling.
 Check telemetry before changing fan state.
 
 - CPU temperature is plausible and has a sensible source label.
-- X9 fan RPM appears from the EC tachometer when PawnIO/EC access is ready.
-- RPM remains stable under normal conservative polling and does not create periodic audible fan disturbances.
+- X9 fan RPM appears from the EC tachometer when the verified EC provider is ready.
+- RPM remains stable under conservative polling and does not create periodic audible fan disturbances.
 - Fan state starts in Lenovo Auto before manual control is used.
-- Battery percentage and charge/discharge power are plausible.
+- Battery percentage and charge or discharge power are plausible.
 - Battery time estimates settle gradually rather than changing sharply on every refresh.
 
-An unavailable value is not automatically a failure. Record the provider/capability explanation shown by ThinkControl.
+A temporarily slow provider must not make ThinkControl report the Windows service as offline. After one complete status has been read, a transient provider timeout may keep the last complete status while the service itself still responds to Ping.
+
+An unavailable value is not automatically a failure. Record the provider and capability explanation shown by ThinkControl.
 
 ## Fan control
 
@@ -60,7 +65,7 @@ Continue only when ThinkControl identifies the verified X9 profile and fan contr
 4. Confirm the reported state follows each selection.
 5. Return to Lenovo Auto.
 6. After using a manual level, quit ThinkControl and confirm normal Lenovo fan behavior resumes.
-7. Repeat service stop/uninstall after a manual-level test and confirm manual ownership is released.
+7. Repeat service stop or uninstall after a manual-level test and confirm manual ownership is released.
 
 ThinkControl does not expose fan-off `0x00` or the unverified `0x40` override family.
 
@@ -68,34 +73,13 @@ If fan behavior becomes abnormal, select Lenovo Auto and stop the test. Do not r
 
 ## Quiet, Balanced and Performance
 
-These modes have two layers on the verified X9:
-
-1. Windows power mode changes immediately.
-2. ThinkControl then asks Lenovo Intelligent Thermal Solution to apply the matching X9 thermal policy.
-
-Test on AC:
-
-```text
-Quiet        -> LITSSvc 502
-Balanced     -> LITSSvc 503
-Performance  -> LITSSvc 504
-```
-
-Then test on battery:
-
-```text
-Quiet        -> LITSSvc 507
-Balanced     -> LITSSvc 508
-Performance  -> LITSSvc 509
-```
-
-Compare CPU package behavior, fan behavior and responsiveness after allowing each policy time to settle. These are thermal-policy commands, not direct fan-RPM targets, so do not expect an instant fixed RPM for each mode.
+On the verified X9, Windows power mode and Lenovo thermal policy are separate providers. Test all three modes on AC and battery and allow each policy time to settle. They are policy commands, not fixed fan-RPM targets.
 
 ## Keyboard backlight
 
 1. Test Off, Low and High.
 2. Confirm each state matches the physical keyboard.
-3. If the direct Lenovo PM/EnergyDrv provider is unavailable, confirm the validated installed Vantage ThinkKeyboard fallback is used rather than simply reporting Unavailable.
+3. If one Lenovo provider is unavailable, confirm another validated provider is used only when its own probe and readback succeed.
 4. Test Auto idle behavior.
 5. Test Breathing and observe the real Low/High transition.
 6. Test Reactive at normal typing pace.
@@ -103,32 +87,57 @@ Compare CPU package behavior, fan behavior and responsiveness after allowing eac
 
 The effects use real discrete hardware states; they do not assume a continuous backlight-brightness API.
 
+## Touchpad gestures
+
+Start with Edge gestures disabled and verify normal Windows touchpad behavior first. Then enable the default preset.
+
+1. Slide vertically from the left edge and confirm Volume changes in the expected direction.
+2. Slide vertically from the right edge and confirm Brightness changes.
+3. With seekable media active, slide horizontally from the top edge and confirm relative media seeking.
+4. Start at the top-right corner and verify horizontal intent selects Top while vertical intent selects Right.
+5. Put down a second finger during a candidate or active edge gesture and confirm ThinkControl cancels it.
+6. Tap and release an edge without moving far enough to activate; the pointer must not remain captured.
+7. Move inward in the wrong direction and confirm the gesture cancels and normal pointer movement recovers.
+8. Use Test gestures to inspect Candidate, Claimed, Active and rejected states.
+9. Change Edge width, Activation distance and Edge tolerance and verify the touchpad visual updates consistently.
+
+The cursor must restore correctly after release, cancellation, timeout, disabling gestures, application exit, lock or sleep/resume.
+
+## Haptic touchpad settings
+
+On Windows 11 24H2 or newer, open Touchpad and check the haptic section.
+
+- If Windows reports haptic feedback support, test the feedback toggle and intensity slider.
+- If Windows reports click-force support, test click sensitivity.
+- If a capability is not reported, its control must stay unavailable rather than pretending the setting exists.
+
 ## Lenovo Vantage and updates
 
-- Click the Commercial Vantage action and confirm the already installed application opens directly instead of Microsoft Store.
-- Run Check for updates and confirm it reports a normal release status rather than a raw HTTP/GitHub 404.
+- Click the Commercial Vantage action and confirm the installed application opens directly when resolvable.
+- Run Check for updates and confirm it reports a normal release status rather than a raw GitHub error.
 
 ## Display and battery
 
-Verify 60 Hz / panel maximum switching, automatic refresh behavior on AC/battery, brightness, adaptive brightness, battery percentage/power/Wh/health and filtered time estimates where exposed by Windows.
+Verify 60 Hz and panel maximum switching, automatic refresh behavior on AC and battery, brightness, adaptive brightness, battery percentage, power, Wh, health and filtered time estimates where exposed by Windows.
 
 ## Sleep and resume
 
-1. Sleep/resume while Lenovo Auto is active and confirm telemetry recovers.
-2. Test a manual fan level, return to Lenovo Auto, then sleep/resume again.
-3. Do not intentionally leave manual fan control active across sleep until Auto recovery behavior has been confirmed.
+1. Sleep and resume while Lenovo Auto is active and confirm telemetry recovers.
+2. Test a manual fan level, return to Lenovo Auto, then sleep and resume again.
+3. Test Touchpad gestures after resume and confirm cursor capture state has not leaked across sleep.
+4. Do not intentionally leave manual fan control active across sleep until Auto recovery behavior has been confirmed.
 
 ## Uninstall
 
 Uninstall ThinkControl and confirm:
 
 - `ThinkControlService` disappears;
-- ThinkControl UI/service files are removed;
-- shared PawnIO remains installed if it was installed because another program may also use it;
-- Lenovo/Intel vendor software is untouched.
+- ThinkControl UI and service files are removed;
+- a shared hardware provider such as PawnIO remains installed if it was added by Hardware Setup, because another application may also use it;
+- Lenovo and Intel vendor software is untouched.
 
 ## Reporting results
 
-Use the [bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml). Useful information includes ThinkControl version, exact model/machine type, affected section, expected/actual behavior, whether Lenovo Auto restored normal fan behavior, screenshots for visual issues and the privacy-safe support bundle when relevant.
+Use the [bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml). Include the ThinkControl version, exact model and machine type, affected section, expected and actual behavior, screenshots for visual issues and the privacy-safe support bundle when relevant.
 
 Automatic network diagnostics submission is not enabled in this prerelease.
