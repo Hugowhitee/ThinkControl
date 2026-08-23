@@ -1,10 +1,11 @@
 {
-  "version": "0.1.0-alpha.1",
-  "tag": "v0.1.0-alpha.1",
-  "title": "ThinkControl v0.1.0-alpha.1",
-  "url": "https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
+  "tag": "v0.1.0-alpha.2",
+  "title": "ThinkControl v0.1.0-alpha.2",
+  "url": "https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.2",
   "prerelease": true,
-  "installer": "ThinkControl-Setup-0.1.0-alpha.1.exe",
+  "installer": "ThinkControl-Setup-0.1.0-alpha.2.exe",
+  "payload": "ThinkControl-Payload-0.1.0-alpha.2.zip",
   "checksum": "SHA256SUMS.txt",
-  "verifiedAtUtc": "2026-08-23T12:13:38Z"
+  "verifiedAtUtc": "2026-08-23T17:59:10Z"
 }
