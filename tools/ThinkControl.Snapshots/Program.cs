@@ -100,6 +100,7 @@ internal static class Program
     private static void RenderCompact(App app, AppState state, string path)
     {
         var window = new MainWindow(app) { DataContext = state, Width = 410, Height = 640 };
+        window.PrepareBrandingForSnapshot();
         RenderWindowContent(window, path);
         window.ForceClose();
     }
