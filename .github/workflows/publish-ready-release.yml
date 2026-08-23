@@ -94,9 +94,6 @@ jobs:
         run: |
           set -euo pipefail
           tag='${{ steps.version.outputs.tag }}'
-          # A tag pushed by GITHUB_TOKEN does not reliably trigger another push-based
-          # workflow. workflow_dispatch is an explicit exception, so dispatch the
-          # already-tested package workflow at the exact immutable release tag.
           gh workflow run release.yml --ref "$tag"
           echo "Dispatched Package ThinkControl for $tag."
 
@@ -110,15 +107,16 @@ jobs:
           version='${{ steps.version.outputs.version }}'
           tag='${{ steps.version.outputs.tag }}'
           installer="ThinkControl-Setup-${version}.exe"
+          payload="ThinkControl-Payload-${version}.zip"
           checksum='SHA256SUMS.txt'
           verified='false'
 
-          # Packaging includes a full install/service/uninstall smoke test, so a
-          # newly dispatched tagged run can take a few minutes before assets appear.
-          for attempt in $(seq 1 48); do
+          for attempt in $(seq 1 60); do
             if json=$(gh release view "$tag" --json name,tagName,isPrerelease,url,assets 2>/dev/null); then
               names=$(printf '%s' "$json" | jq -r '.assets[].name')
-              if grep -Fxq "$installer" <<<"$names" && grep -Fxq "$checksum" <<<"$names"; then
+              if grep -Fxq "$installer" <<<"$names" && \
+                 grep -Fxq "$payload" <<<"$names" && \
+                 grep -Fxq "$checksum" <<<"$names"; then
                 prerelease=$(printf '%s' "$json" | jq -r '.isPrerelease')
                 if [[ "$prerelease" != 'true' ]]; then
                   echo "Release $tag exists but is not marked as a prerelease." >&2
@@ -133,16 +131,17 @@ jobs:
                   --arg title "$title" \
                   --arg url "$url" \
                   --arg installer "$installer" \
+                  --arg payload "$payload" \
                   --arg checksum "$checksum" \
-                  '{version:$version,tag:$tag,title:$title,url:$url,prerelease:true,installer:$installer,checksum:$checksum,verifiedAtUtc:(now|todateiso8601)}' \
+                  '{version:$version,tag:$tag,title:$title,url:$url,prerelease:true,installer:$installer,payload:$payload,checksum:$checksum,verifiedAtUtc:(now|todateiso8601)}' \
                   > "$RUNNER_TEMP/release-status.json"
                 verified='true'
-                echo "Verified $installer and $checksum on $tag."
+                echo "Verified $installer, $payload and $checksum on $tag."
                 break
               fi
             fi
 
-            echo "Release assets not complete yet (attempt $attempt/48)."
+            echo "Release assets not complete yet (attempt $attempt/60)."
             sleep 10
           done
 
