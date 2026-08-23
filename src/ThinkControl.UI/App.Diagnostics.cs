@@ -12,6 +12,7 @@ public partial class App
         HardwareClient.StatusObserved += HardwareClient_StatusObserved;
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
         Startup += OnBootstrapStartup;
+        Startup += OnShellIconStartup;
         Activated += OnTouchpadApplicationActivated;
         Activated += OnHardwareSetupActivated;
         Exit += OnTouchpadApplicationExit;
