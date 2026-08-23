@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 2,
+  "id": "lenovo.legion.family",
+  "displayName": "Lenovo Legion family",
+  "status": "beta-untested",
+  "match": {
+    "manufacturer": "LENOVO",
+    "productNameContains": ["Legion"]
+  },
+  "providers": {
+    "windows": ["powerMode", "display", "brightness", "batteryTelemetry"],
+    "keyboard": ["EnergyDrv", "LenovoVantageKeyboardAddin"],
+    "fanTelemetry": ["LENOVO_FAN_METHOD", "CIM_Tachometer"],
+    "thermalPolicy": ["LENOVO_GAMEZONE_DATA", "WindowsPowerMode"]
+  },
+  "capabilities": {
+    "keyboardBacklight": "probe-and-readback",
+    "fanRpm": "read-only-probe",
+    "fanControl": "vendor-wmi-only-when-self-advertised",
+    "performanceMode": "vendor-wmi-preferred",
+    "batteryTelemetry": "windows-safe",
+    "display": "windows-safe"
+  },
+  "safety": {
+    "directEcWrites": false,
+    "unknownIoctlWrites": false,
+    "remoteMetadataMayEnableWrites": false,
+    "betaRequiresProviderProbe": true
+  }
+}

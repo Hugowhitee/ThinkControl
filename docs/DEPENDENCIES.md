@@ -1,168 +1,115 @@
 # Dependencies and hardware readiness
 
-ThinkControl should never require users to manually assemble a stack of unrelated utilities before the app becomes useful. The default experience is one installer, one UAC elevation, and a clear readiness result.
+> **Current dependency model for `v0.1.0-alpha.1`.** The alpha installer is self-contained. A future small bootstrapper may change runtime acquisition later, but it is not the current install path.
 
-## Dependency policy
+ThinkControl should keep Windows-level features usable even when a device-specific low-level prerequisite is missing.
 
-Dependencies are classified as one of four types:
+## Current dependency matrix
 
-- **Required app runtime** — needed for ThinkControl itself to launch.
-- **Device-conditional hardware access** — only needed when a verified capability uses it.
-- **OEM platform component** — Lenovo/Intel software that belongs to the laptop platform and should be obtained from the OEM, not mirrored by ThinkControl.
-- **Optional integration** — useful companion software but never required for ThinkControl.
-
-ThinkControl must keep Windows-level safe features available when an optional or hardware dependency is missing.
-
-## Runtime matrix
-
-| Component | Classification | Required for | Install behavior |
+| Component | Classification | Needed for | Alpha.1 behavior |
 | --- | --- | --- | --- |
-| .NET 10 Desktop Runtime | Required app runtime | WPF UI and managed service | Bootstrapper installs the official Microsoft runtime when missing |
-| ThinkControl Service | Required ThinkControl component | privileged hardware operations and background profile enforcement | Installed and maintained by the ThinkControl bootstrapper |
-| PawnIO | Device-conditional hardware access | verified low-level sensors, ThinkPad EC telemetry and direct EC fan control | Explicit opt-in; bootstrapper downloads official signed setup and invokes normal silent install |
-| Lenovo Intelligent Thermal Solution (`LITSSVC`) | OEM platform component | verified Lenovo Intelligent Cooling/thermal policy backend | Detect only; offer Lenovo Drivers action when missing |
-| Lenovo Power Management (`IBMPMSVC` / `IBMPmDrv`) | OEM platform component | verified ThinkPad PM/ACPI commands such as keyboard features | Detect only; offer Lenovo Drivers action when missing |
-| Intel Innovation Platform Framework | OEM platform component | Windows/OEM thermal and energy policy stack | Detect/diagnose only; do not replace directly |
-| Commercial Vantage / Lenovo Vantage | Optional integration | warranty, Lenovo maintenance flows, obscure device settings | Never required; offer Open/Install link only |
-| Lenovo Service Bridge | Optional integration | Lenovo Support product detection | Never required; offer official install link only |
+| .NET runtime | App runtime | WPF UI + managed service | **Bundled in the self-contained installer payload**; no separate runtime install required |
+| ThinkControl Service | Required ThinkControl component | privileged X9 fan/keyboard operations | Installed/started/uninstalled by ThinkControl Setup |
+| PawnIO | Device-conditional hardware access | current X9 EC fan state/RPM/manual control | **Not automatically installed in alpha.1**; feature remains limited if PawnIO is absent |
+| LibreHardwareMonitorLib | Managed app dependency | CPU sensor access + PawnIO transport library | Packaged with ThinkControl; not a separate user install |
+| Lenovo Power Management / `IBMPmDrv` | OEM platform component | current X9 keyboard Off/Low/High provider | Detected/used when present; not bundled or replaced by ThinkControl |
+| Lenovo Intelligent Thermal Solution (`LITSSVC`) | OEM platform component | future verified Lenovo thermal-policy coordination | Research/detection only for alpha.1; not required by the current Windows power-mode implementation |
+| Intel Innovation Platform Framework | OEM platform component | Windows/OEM platform policy | Vendor-owned; ThinkControl does not replace it |
+| Lenovo Vantage | Optional integration | Lenovo maintenance/support/settings | Not required |
+| Lenovo Service Bridge | Optional integration | Lenovo support/product detection | Not required |
 
-## PawnIO rules
+## Self-contained .NET packaging
 
-ThinkControl does not write or ship a custom kernel driver while PawnIO can provide the verified primitive safely.
+The first alpha publishes both UI and service as self-contained `win-x64` .NET 10 applications. This increases installer size but removes a first-run runtime prerequisite and makes the package easier to smoke-test as one unit.
 
-Production rules:
+Users do not need the .NET SDK and do not need to visit the Microsoft runtime download page before installation.
 
-1. Use the **normal signed PawnIO build only**. Never install the unrestricted/developer build.
-2. Do not silently add PawnIO without telling the user that a kernel driver is being installed.
-3. Prefer on-demand download of the official PawnIO setup rather than embedding the binary in the ThinkControl repository or bootstrapper.
-4. Pin the accepted PawnIO release and SHA-256 in the ThinkControl release manifest.
-5. Verify the downloaded file before execution. Public releases should also verify Authenticode trust/publisher.
-6. Invoke the official setup in its documented normal silent mode (`-install -silent`).
-7. Interpret a reboot-required exit code and surface `Restart required` instead of reporting failure.
-8. If PawnIO is absent or unhealthy, disable only the capabilities that require it. Do not break the whole UI.
-9. Do not assume LibreHardwareMonitor being present means PawnIO is installed. Probe the actual driver/service state.
+A future smaller bootstrapper may switch ThinkControl to framework-dependent payloads and install/detect the .NET 10 Desktop Runtime. That is a distribution optimization, not current alpha behavior.
 
-## Installer experience
+## PawnIO
 
-### Recommended setup
+PawnIO is device-conditional and currently required by the X9 EC fan backend.
 
-The normal installer should present one concise summary before elevation:
+### Alpha.1 status
 
-```text
-Install ThinkControl
+- ThinkControl does not bundle PawnIO setup;
+- the installer does not automatically download/install it;
+- a missing/unhealthy PawnIO provider limits X9 fan EC features rather than preventing the whole app from launching;
+- display, battery and other Windows-level capabilities can continue independently.
 
-ThinkControl                         Required
-Microsoft .NET Desktop Runtime      Install if needed
-Hardware access (PawnIO)            Recommended on this verified ThinkPad
+### Rules for future automated PawnIO setup
 
-[ Install ]
-```
+Before ThinkControl adds one-click PawnIO installation, the release path must:
 
-The PawnIO line appears as recommended only when the detected device profile has verified capabilities that need it. On an unknown ThinkPad, the installer must not install low-level hardware access merely because the manufacturer is Lenovo.
+1. use the normal signed distribution, never an unrestricted/developer mode;
+2. pin an exact accepted version and exact release asset;
+3. verify the downloaded asset/hash before execution;
+4. verify publisher/trust when available;
+5. clearly tell the user that a kernel hardware-access driver is being installed;
+6. use the documented normal installer mode;
+7. surface reboot-required separately from failure;
+8. probe the actual provider after installation;
+9. avoid uninstalling PawnIO automatically because other tools may share it.
 
-### Advanced setup
+## OEM Lenovo / Intel components
 
-Advanced setup may allow:
+ThinkControl is not a Lenovo/Intel driver distribution system.
 
-```text
-[x] ThinkControl application
-[x] ThinkControl hardware service
-[x] Microsoft .NET Desktop Runtime (if missing)
-[x] Hardware access — PawnIO (recommended)
-[ ] Start ThinkControl with Windows
-[ ] Launch ThinkControl after setup
-```
+For OEM platform components it should:
 
-The app and service cannot be deselected in a normal install. Startup and launch-after-setup are user choices.
+- use an installed known provider only when its contract has been verified;
+- show missing/unavailable state honestly;
+- link to official Lenovo/Microsoft acquisition paths where useful;
+- never mirror a vaguely matched model-specific driver package;
+- never downgrade OEM software automatically.
 
-## First-run readiness
+The current alpha does not require Vantage or Lenovo Service Bridge to launch.
 
-ThinkControl should summarize readiness with three user-facing states:
+## Hardware readiness in the UI
 
-### Full
+Readiness is capability-specific. The app may be fully usable for Windows-level features while an X9 hardware provider is unavailable.
 
-All dependencies required by the currently verified device capabilities are available.
+Examples:
 
 ```text
-Hardware access   Full
-PawnIO            2.2.0
-Lenovo thermal    Ready
-Power management  Ready
+Display refresh       Ready
+Battery telemetry     Ready
+CPU temperature       Ready
+Fan EC access         Unavailable · PawnIO/provider missing
+Keyboard backlight    Unavailable · Lenovo PM provider missing
 ```
 
-### Limited
+ThinkControl should explain the missing provider rather than displaying a dead control or pretending the feature worked.
 
-ThinkControl works, but low-level features are unavailable because an optional/device-conditional dependency is missing.
+## Release/package security
 
-```text
-Hardware access   Limited
+Current ThinkControl-owned release artifacts are built in GitHub Actions. The package workflow:
 
-Fan RPM and custom fan control need hardware access.
-[ Install hardware access ]
-```
+- resolves the version from `version.json`;
+- verifies a tagged release matches that version exactly;
+- builds/publishes UI + service;
+- produces the Inno Setup installer;
+- smoke-tests install/service/uninstall;
+- creates `SHA256SUMS.txt`;
+- attaches the installer/checksum to a tagged GitHub Release.
 
-### Needs attention
+Authenticode signing for ThinkControl itself is still a future release-hardening step unless/until a signing certificate is configured. The absence of signing must not be hidden in documentation.
 
-An expected OEM platform component is missing or unhealthy.
+## Reboots
 
-```text
-Device software   Needs attention
-Lenovo Power Management is missing.
+The normal self-contained ThinkControl install does not inherently require a Windows reboot.
 
-[ Open Lenovo Drivers ]
-```
+A future hardware prerequisite such as PawnIO may report a restart requirement; when prerequisite automation exists, ThinkControl must surface that state separately and keep independent Windows-level capabilities usable where safe.
 
-`Needs attention` must not claim the laptop is unsafe or broken. It means only that one or more ThinkControl capabilities cannot be trusted yet.
+## Uninstall
 
-## OEM driver policy
-
-ThinkControl must not become a second Lenovo driver distribution system.
-
-For Lenovo/Intel platform components:
-
-- detect exact known services/drivers where verified;
-- show the installed version when a trustworthy source is available;
-- link to Lenovo Drivers & Software for repair/install;
-- never mirror OEM installers without explicit redistribution permission;
-- never auto-install a vaguely matched package based only on a product name;
-- never downgrade a newer OEM component automatically.
-
-A future Lenovo catalog integration may resolve exact packages by machine type, but it must remain an explicit, verified package flow.
-
-## Security and update validation
-
-The bootstrapper must be native/self-contained so it does not depend on the .NET runtime it may need to install.
-
-Downloads are treated differently by trust domain:
-
-- **ThinkControl payload:** release manifest + SHA-256; Authenticode required once public signing is enabled.
-- **Microsoft .NET runtime:** official Microsoft source; verify Authenticode trust/publisher before execution.
-- **PawnIO:** official PawnIO source; exact version and SHA-256 pinned by the ThinkControl release manifest; verify Authenticode trust when available.
-- **Lenovo software:** launch official Lenovo/Microsoft acquisition path instead of downloading opaque third-party mirrors.
-
-The bootstrapper must never execute an unverified payload just because HTTPS download succeeded.
-
-## Reboot behavior
-
-Most ThinkControl updates should not reboot Windows.
-
-If a dependency installer reports that a restart is required:
-
-- complete the ThinkControl installation where safe;
-- show `Restart required for hardware access`;
-- keep Windows-level ThinkControl features usable before restart;
-- do not repeatedly reinstall the dependency on every launch;
-- verify readiness again after restart.
-
-## Uninstall behavior
-
-Removing ThinkControl removes:
+The current ThinkControl uninstaller removes:
 
 - ThinkControl UI files;
-- ThinkControl service;
-- ThinkControl scheduled/startup entries;
-- ThinkControl-owned caches and update state (with an option to preserve profiles).
+- ThinkControl service files;
+- ThinkControl service registration;
+- installer-owned application files.
 
-It should **not uninstall shared OEM drivers**.
+It does not remove Lenovo/Intel platform components or PawnIO. Local user settings/diagnostics are user-profile data and should be treated separately from system-wide program files.
 
-PawnIO may be shared by LibreHardwareMonitor or other tools. The default ThinkControl uninstaller therefore leaves PawnIO installed and may offer a separate explicit `Remove PawnIO if unused` action only after checking that this is safe.
+See [Installer](../installer/README.md) for the actual alpha package flow.

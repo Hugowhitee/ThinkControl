@@ -1,0 +1,98 @@
+name: Publish ready release
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - version.json
+      - .github/workflows/publish-ready-release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  tag-ready-version:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release metadata
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(jq -r '.version // empty' version.json)
+          ready=$(jq -r '.releaseReady // false' version.json)
+          if [[ -z "$version" ]]; then
+            echo "version.json does not contain a version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "ready=$ready" >> "$GITHUB_OUTPUT"
+
+      - name: Explain non-release build
+        if: steps.version.outputs.ready != 'true'
+        run: echo "version.json releaseReady is false; no release will be published."
+
+      - name: Check whether tag already exists
+        if: steps.version.outputs.ready == 'true'
+        id: tagcheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.version.outputs.tag }}'
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "$tag already exists."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create exact version tag
+        if: steps.version.outputs.ready == 'true' && steps.tagcheck.outputs.exists == 'false'
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.version.outputs.tag }}'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" "$GITHUB_SHA" -m "ThinkControl $tag"
+          git push origin "$tag"
+          echo "Created $tag."
+
+      - name: Check whether GitHub release already exists
+        if: steps.version.outputs.ready == 'true'
+        id: releasecheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.version.outputs.tag }}'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release for $tag already exists; no packaging dispatch is needed."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch tested package workflow on tag
+        if: steps.version.outputs.ready == 'true' && steps.releasecheck.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.version.outputs.tag }}'
+          # A tag pushed by GITHUB_TOKEN does not reliably trigger another push-based
+          # workflow. workflow_dispatch is an explicit exception, so dispatch the
+          # already-tested package workflow at the exact immutable release tag.
+          gh workflow run release.yml --ref "$tag"
+          echo "Dispatched Package ThinkControl for $tag."

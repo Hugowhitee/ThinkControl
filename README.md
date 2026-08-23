@@ -1,273 +1,291 @@
-<p align="center">
+<div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/thinkcontrol-logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="docs/assets/thinkcontrol-logo-light.svg">
     <img alt="ThinkControl" src="docs/assets/thinkcontrol-logo-light.svg" width="430">
   </picture>
-</p>
 
-<p align="center">
-  <strong>A lightweight hardware companion for Lenovo ThinkPads.</strong><br>
-  Fast everyday controls, trustworthy telemetry and verified ThinkPad hardware access without the weight of a full OEM suite.
-</p>
+  <p><strong>Control. Quietly.</strong></p>
+  <p>A lightweight Windows hardware companion for Lenovo laptops — tray-first, fast, honest about hardware support, and built around safe capability detection.</p>
 
-<p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases"><strong>Releases</strong></a>
-  ·
-  <a href="docs/DEVICE-SUPPORT.md">Device support</a>
-  ·
-  <a href="docs/HARDWARE-SAFETY.md">Hardware safety</a>
-  ·
-  <a href="docs/DIAGNOSTICS.md">Diagnostics</a>
-  ·
-  <a href="docs/UI_EDITING.md">Edit the UI</a>
-  ·
-  <a href="https://github.com/Hugowhitee/ThinkControl/issues">Issues</a>
-</p>
+  [![Windows CI](https://img.shields.io/github/actions/workflow/status/Hugowhitee/ThinkControl/ci.yml?branch=main&label=Windows%20CI&logo=github)](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml)
+  [![Release](https://img.shields.io/github/v/release/Hugowhitee/ThinkControl?include_prereleases&label=release)](https://github.com/Hugowhitee/ThinkControl/releases)
+  [![Downloads](https://img.shields.io/github/downloads/Hugowhitee/ThinkControl/total?label=downloads)](https://github.com/Hugowhitee/ThinkControl/releases)
+  [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-red)](LICENSE)
 
-> **Current source version: `v0.1.0-alpha.1`**  
-> Pre-release development build. The installer pipeline is functional, but the first public alpha is held until the current UI and X9 hardware backends have completed final on-device validation.
+  **[Download ThinkControl](https://github.com/Hugowhitee/ThinkControl/releases)** ·
+  **[Supported devices](docs/DEVICE-SUPPORT.md)** ·
+  **[Report a bug](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)** ·
+  **[Documentation](docs/README.md)**
+</div>
 
-## What ThinkControl is
+---
 
-ThinkControl is a compact Windows tray utility inspired by the directness of G-Helper, but designed for Lenovo ThinkPads. The normal UI runs without administrator rights; a small Windows service owns only the low-level operations that actually require elevation.
+> [!IMPORTANT]
+> **ThinkControl v0.1.0-alpha.1 is an early hardware-control release.** The Lenovo ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`) is the verified reference machine. Broader Lenovo families are shipped as **Beta / Untested** profiles and only activate a hardware provider after that provider passes its own safe capability checks.
 
-The **ThinkPad X9-15 Gen 1** is the first reference machine. ThinkControl does not assume that every ThinkPad exposes the same EC registers, Lenovo services or keyboard controls. Instead, the app keeps the same product surface and marks individual capabilities as **Verified**, **Experimental** or **Not validated** depending on the evidence available for that device/provider.
+## ✨ What ThinkControl is
 
-## Highlights
+ThinkControl puts the controls that matter day-to-day in a compact Windows tray utility instead of a large OEM suite.
 
-- compact tray popup plus a larger resizable Advanced window
-- Quiet / Balanced / Performance power modes
-- CPU temperature with a lightweight 60-second sparkline
-- real ThinkPad fan RPM and discrete fan level when a validated provider is available
-- Lenovo Auto plus manual fan levels `1`–`7` on the verified X9 EC backend
-- display refresh controls, brightness and adaptive brightness
-- battery percentage, live charge/discharge power, Wh, health and a smoothed ETA
-- keyboard backlight levels plus ThinkControl Auto / Breathing / Reactive / Audio policies when the hardware-level backend is available
-- same main feature areas on unvalidated devices, with compatibility confidence shown instead of silently hiding controls
-- opt-in redacted compatibility diagnostics for devices the project has not physically validated yet
-- structured GitHub bug report form with device family, free-form exact model and optional attachments
-- system / light / dark themes
-- start with Windows and tray operation
-- GitHub Release update checks
-- installer-managed Windows hardware service
-- safe fallback to Lenovo Auto when direct fan ownership ends
+- **Performance** — Quiet / Balanced / Performance Windows modes, with room for Lenovo thermal-policy coordination when a device exposes it.
+- **Fans** — real RPM where a trustworthy tachometer exists; verified X9 fan levels `1–7`; no invented PWM percentages.
+- **Display** — Auto refresh, fixed refresh rate, brightness and adaptive brightness where Windows exposes them.
+- **Keyboard** — Off / Low / High plus ThinkControl Auto, Breathing, Reactive and experimental Audio effects over real Lenovo hardware levels.
+- **Battery** — percentage, charging state, live watts, Wh, health and smoothed time-to-full / time-remaining estimates.
+- **System** — device identity, hardware/provider status, compatibility state and diagnostics.
+- **Tray-first UI** — compact popup for everyday controls and a larger Advanced window for detail pages.
 
-## Supported devices
+ThinkControl does not fake unsupported sensors, dBA values, fan percentages or hardware capabilities.
 
-| Device | Machine type | Status | ThinkControl behavior |
-| --- | --- | --- | --- |
-| **ThinkPad X9-15 Gen 1** | **21Q6 / 21Q7** | **Reference device · alpha validation** | Full interface; X9 EC fan backend implemented; final physical alpha validation still required |
-| Other ThinkPads | varies | Experimental / Not validated | Same interface; Windows features work immediately; known hardware providers can be probed and are labeled Experimental until validated |
-| Other Lenovo laptops | varies | Not validated | Same interface; Windows features work where exposed; Lenovo-specific hardware actions require a known provider and successful compatibility checks |
-| Other Windows laptops | varies | Not validated | Same interface; Windows-level capabilities work where exposed; Lenovo-specific providers remain unavailable |
+## 📸 Interface
 
-An unvalidated laptop does **not** get a separate stripped-down edition of ThinkControl. Fans, Display, Keyboard, Battery, System and Settings remain part of the app. The difference is whether a specific hardware backend has enough evidence to safely execute that capability.
+ThinkControl renders the **real WPF application** in Windows CI with safe design-time telemetry. The snapshot suite covers compact dark/light plus Home, Performance, Fans, Display, Keyboard, Battery and Settings.
 
-ThinkControl still refuses arbitrary unknown EC/register or IOCTL writes. A device becoming **Experimental** requires a compiled known provider, a safe health check, plausible returned state and a defined fail-safe/read-back verification path. This lets compatibility grow without treating every unknown Lenovo as if it were an X9.
+Until release screenshots are promoted into this README, open the latest successful **Windows CI** run and download the `ThinkControl-UI-Snapshots` artifact.
 
-### X9-15 Gen 1 capability status
+> [!NOTE]
+> Values visible in CI snapshots such as `44°C`, `2,050 RPM`, `78%` and `18.4 W` are design-time sample telemetry — never measurements from a user's laptop.
 
-| Feature | Status |
+## ⬇️ Download & install
+
+### Recommended
+
+1. Open **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**.
+2. Open **ThinkControl v0.1.0-alpha.1**.
+3. Download `ThinkControl-Setup-0.1.0-alpha.1.exe`.
+4. Optionally verify the installer against `SHA256SUMS.txt`.
+5. Run setup and approve the Windows UAC prompt for the ThinkControl hardware service.
+6. Leave **Launch ThinkControl** enabled on the final page.
+
+The installer is self-contained; users do **not** need to install the .NET runtime separately.
+
+> [!TIP]
+> ThinkControl lives in the Windows tray. Left-click the tray icon for the compact view; use the expand control for Advanced.
+
+### Drivers and Lenovo software
+
+ThinkControl prefers hardware interfaces already supplied by Windows or Lenovo. On a clean Windows installation some device-specific controls can remain unavailable until the relevant Lenovo driver stack is installed.
+
+Common providers ThinkControl can discover include:
+
+| Provider | Typical use | ThinkControl behavior |
+| --- | --- | --- |
+| Windows power/display APIs | power mode, refresh, brightness | safe generic provider |
+| `IBMPmDrv` | ThinkPad keyboard/power-management functions | known-state read + write/readback |
+| `EnergyDrv` | ThinkBook / IdeaPad / Yoga / LOQ-style keyboard functions | known-state read + write/readback |
+| `LENOVO_FAN_METHOD` | Lenovo fan RPM | read-only |
+| `CIM_Tachometer` | generic exposed fan RPM | read-only |
+| `LENOVO_GAMEZONE_DATA` | supported Lenovo performance/thermal capabilities | only when firmware advertises the capability |
+| PawnIO + X9 EC profile | X9 fan telemetry/control | **verified X9 profile only** |
+
+The current alpha installer does **not** silently download an unpinned PawnIO package. The application still installs and runs; only the X9 direct-EC fan backend may remain unavailable until its prerequisite is present.
+
+## 💻 Compatibility
+
+ThinkControl separates **device profile confidence** from **individual capability support**. A Beta device does not get a deliberately crippled interface — each page remains available, while individual controls activate only when their provider is present and passes validation.
+
+| Family | Status | Expected providers in alpha.1 |
+| --- | --- | --- |
+| **ThinkPad X9-15 Gen 1 · 21Q6 / 21Q7** | ✅ **Verified reference** | Windows + IBMPmDrv + verified X9 EC |
+| **ThinkPad family** | 🧪 **Beta / Untested** | Windows + IBMPmDrv/Vantage + Lenovo read-only fan telemetry |
+| **ThinkBook family** | 🧪 **Beta / Untested** | Windows + EnergyDrv/Vantage + Lenovo WMI where exposed |
+| **Yoga family** | 🧪 **Beta / Untested** | Windows + capability-probed Lenovo PM/WMI providers |
+| **IdeaPad family** | 🧪 **Beta / Untested** | Windows + EnergyDrv/Vantage + Lenovo WMI where exposed |
+| **LOQ family** | 🧪 **Beta / Untested** | Windows + EnergyDrv + `LENOVO_GAMEZONE_DATA` where supported |
+| **Legion family** | 🧪 **Beta / Untested** | Windows + Lenovo GameZone/WMI providers where supported |
+| Other Lenovo | 🧪 **Generic Lenovo Beta** | Windows + safe Lenovo provider discovery |
+| Other Windows laptops | ⚪ **Generic** | Windows-level features only |
+
+### What “Beta / Untested” means
+
+A family profile means we know which **documented or independently established Lenovo provider families** are worth probing. It does **not** mean ThinkControl assumes the same EC layout or blindly writes the same values across every laptop.
+
+For Beta profiles:
+
+- read-only telemetry may activate when values are plausible;
+- Lenovo keyboard control activates only after a known-state read, and writes must read back correctly;
+- vendor WMI control is considered only when the firmware exposes the expected capability/method;
+- direct EC fan writes remain disabled unless an exact machine profile explicitly verifies them.
+
+See **[Device Support](docs/DEVICE-SUPPORT.md)** and **[Lenovo Provider Model](docs/LENOVO-PROVIDERS.md)**.
+
+## 🔥 X9-15 Gen 1 reference support
+
+The X9 is the hardware ThinkControl has been structured and diagnosed against most deeply.
+
+| Capability | v0.1.0-alpha.1 |
 | --- | --- |
-| Windows power modes | Implemented |
-| CPU temperature | Implemented; exact source is shown when available |
-| Fan RPM | Implemented through verified ThinkPad EC registers `0x84/0x85` |
-| Fan state / level | Implemented through EC register `0x2F` |
-| Lenovo Auto | Implemented as EC value `0x80` |
-| Manual fan control | Implemented as discrete levels `1`–`7` only |
-| Continuous 0–100% fan PWM | **Not supported / not faked** |
-| Display refresh | Implemented |
-| Brightness | Implemented where Windows exposes the internal panel control |
-| Adaptive brightness | Implemented where Windows/platform support is exposed |
-| Battery watts / Wh / health | Implemented from Windows ACPI battery telemetry where available |
-| Charging / battery ETA | Implemented with smoothed recent-power estimation |
-| Keyboard Off / Low / High | Known Lenovo PM backend with read-back verification; still treated as alpha hardware validation |
-| Breathing / Reactive / Audio keyboard effects | Implemented as user-session policies over the real hardware levels |
+| Windows power modes | ✅ Implemented |
+| CPU temperature | ✅ When a trustworthy provider exists |
+| Fan RPM | ✅ X9 EC `0x84/0x85` |
+| Fan state | ✅ X9 EC `0x2F` |
+| Lenovo Auto | ✅ `0x80` + readback |
+| Manual fan level | ✅ `1–7` only |
+| Fan-off `0x00` | ⛔ Blocked |
+| Unverified `0x40` override | ⛔ Never written |
+| Refresh / brightness | ✅ Windows APIs |
+| Battery watts / Wh / health | ✅ Where ACPI exposes data |
+| Smoothed charging ETA | ✅ Rolling median + slow moving average |
+| Keyboard Off / Low / High | ✅ Lenovo PM provider + readback |
+| Auto / Breathing / Reactive / Audio | ✅ ThinkControl user-session effects |
 
-ThinkControl never writes X9 fan-off `0x00` and does not expose the unverified `0x40` override state. Unknown ThinkPads never inherit X9 EC writes simply because they are Lenovo devices.
+Detailed evidence lives in **[X9-15 Gen 1 research](docs/research/x9-15-gen1.md)**.
 
-## Install
+## 🧠 Why provider detection matters
 
-### Public releases
-
-Open the **[ThinkControl Releases page](https://github.com/Hugowhitee/ThinkControl/releases)** and download the installer named like:
+Lenovo does not expose one universal laptop-control interface across every generation and product family. ThinkControl therefore routes each capability independently:
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.1.exe
+Device identity
+      ↓
+Family profile (Verified / Beta / Generic)
+      ↓
+Capability probes
+      ├─ Windows APIs
+      ├─ Lenovo WMI / ACPI providers
+      ├─ installed Lenovo PM drivers
+      └─ exact machine backend when verified
+      ↓
+read / verify / expose control
 ```
 
-Then:
+A profile can help ThinkControl choose **what to probe**, but a profile alone can never authorize arbitrary EC/IOCTL writes.
 
-1. Run the setup file.
-2. Approve the Windows UAC prompt for installing the ThinkControl hardware service.
-3. Leave **Launch ThinkControl** enabled on the final page.
-4. ThinkControl starts from the Windows tray; use the expand control for the Advanced window.
-5. On a device that has not been validated yet, ThinkControl explains that status before the normal UI opens and offers opt-in redacted compatibility diagnostics.
+## 🔋 Battery ETA
 
-The current package is self-contained, so a normal installation does **not** require manually installing the .NET SDK or runtime first.
+ThinkControl avoids the noisy “one sample = one ETA” approach. When Windows exposes energy and charge/discharge rate, it uses:
 
-### Hardware access / drivers
+- recent power samples;
+- a rolling median filter;
+- a slow EWMA-style average;
+- bounded movement between displayed estimates;
+- separate charging, discharging and near-full behavior.
 
-ThinkControl-owned files and its Windows service are installed by the setup program. Lenovo and Intel OEM packages remain vendor-owned and are diagnosed rather than blindly replaced.
+That keeps the estimate useful without making the UI jump every few seconds.
 
-The X9 fan backend uses **PawnIO** for low-level EC access. The final one-install flow will detect a device/provider that requires PawnIO and offer the pinned, signed prerequisite automatically. Until that prerequisite step is enabled in a tagged alpha, fan controls may show limited provider access on a clean Windows installation even though display, battery and other Windows-level features continue to work.
+## ⌨️ Keyboard effects
 
-ThinkControl does not require Lenovo Vantage or Lenovo Service Bridge for normal operation.
+Many Lenovo white-backlight keyboards expose discrete states rather than a verified `0–100%` brightness API. ThinkControl builds effects from the actual states:
 
-## Screenshots
+- **Static** — Off / Low / High.
+- **Auto** — High → Low → Off after idle periods.
+- **Breathing** — rate-limited Low ↔ High; if Lenovo firmware fades those transitions, ThinkControl uses that smooth fade.
+- **Reactive** — short High pulse after keyboard activity; typed keys are never stored.
+- **Audio** — experimental local loopback level response; audio samples are not retained.
 
-Runtime screenshots will live in `docs/screenshots/` after the first alpha has been visually rendered and validated on Windows. Early concept/mockup images are deliberately **not** presented here as if they were screenshots of the running application.
+## 🛡️ Hardware safety
 
-Planned snapshot set:
-
-- Compact tray popup — dark theme
-- Compact tray popup — light theme
-- Advanced Home
-- Advanced Fans
-- Advanced Keyboard effects
-- Advanced Battery telemetry
-- Installer / completion screen
-
-## Compatibility diagnostics
-
-Most users will not manually report that a feature happened to work on their laptop. ThinkControl therefore has a narrow compatibility-diagnostics system designed to learn which providers work across machines without collecting personal activity.
-
-On a Not validated device the app can offer **Help validate this device**. If enabled, ThinkControl keeps a small rotating local history of semantic technical events such as:
+The normal UI runs as the signed-in user. A small Windows service owns only operations requiring elevation.
 
 ```text
-service.connected
-capability.probe_passed
-fan.level_set
-fan.returned_to_auto
-display.refresh_set
-keyboard.level_set
-operation.failed
+ThinkControl.UI
+      │ semantic named pipe
+      ▼
+ThinkControl.Service
+      ├─ Windows APIs
+      ├─ Lenovo capability providers
+      └─ exact verified low-level device providers
 ```
 
-The diagnostics schema is allowlisted and intentionally excludes serial numbers, usernames, hostnames, MAC addresses, disk serials, personal paths, typed text and audio samples. The user can preview/export the exact redacted bundle and delete the local history from Settings.
+The UI cannot request arbitrary EC addresses, raw port I/O or generic IOCTL passthrough.
 
-Detailed automatic uploads will go through a small project endpoint into a **separate private diagnostics repository/storage**, not a hidden folder inside this public repository. The desktop application will never embed a GitHub PAT. Until that private endpoint is configured, network submission stays disabled while local preview/export remains available.
+For the X9 direct fan backend:
 
-See **[Diagnostics & compatibility telemetry](docs/DIAGNOSTICS.md)**.
+- Lenovo Auto is `0x80`;
+- manual levels are limited to `1–7`;
+- fan-off `0x00` is blocked;
+- the `0x40` override family is never written;
+- RPM polling is intentionally sparse because aggressive X9 EC tachometer polling was observed to disturb fan behavior;
+- normal service shutdown attempts to return manual fan ownership to Lenovo Auto.
 
-For normal public bugs, use the **[GitHub bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)**. It only requires the core device/version/problem fields; reproduction steps and screenshots/log attachments are optional.
+Read **[Hardware Safety](docs/HARDWARE-SAFETY.md)** before adding a new low-level provider.
 
-## Safety model
+## 🧪 Diagnostics & testing
 
-ThinkControl deliberately separates UI from hardware access:
+Unknown/Beta devices can help improve compatibility without hiding their normal ThinkControl UI.
+
+Local diagnostics are bounded and redacted and can include provider availability, operation outcome, compatibility state and sensor source. They intentionally exclude serial number, username, hostname, MAC address, disk serial, typed text and audio samples.
+
+Available actions:
+
+- Preview diagnostics;
+- Export support bundle;
+- Delete local diagnostics;
+- open the structured GitHub bug-report form.
+
+Automatic private diagnostics upload is **not enabled yet**; ThinkControl contains no GitHub PAT or private-repository credential.
+
+## 🐛 Report a bug / help validate a laptop
+
+Use the **[ThinkControl bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)**.
+
+It asks for a Lenovo family first, then the exact model/machine type. Only the essential fields are required, and screenshots/support bundles can be attached.
+
+For Beta devices, a report that simply says **what works and what does not** is useful even when there is no crash.
+
+## 🚀 Release quality
+
+Every release candidate is expected to pass:
+
+1. Windows restore/build/test;
+2. real WPF snapshot rendering;
+3. self-contained UI + service publish;
+4. Inno Setup packaging;
+5. silent install;
+6. `ThinkControlService` reaches Running;
+7. silent uninstall;
+8. service registration and files disappear;
+9. SHA-256 checksum generation.
+
+Versioning stays aligned across the app, tag, release title and installer:
 
 ```text
-ThinkControl.UI              normal user
-        |
-        | authenticated semantic named pipe
-        v
-ThinkControl.Service         elevated Windows service
-        |
-        +-- Windows APIs
-        +-- verified / experimental known providers
-        +-- PawnIO + verified ThinkPad EC profiles
+app        0.1.0-alpha.1
+tag        v0.1.0-alpha.1
+release    ThinkControl v0.1.0-alpha.1
+installer  ThinkControl-Setup-0.1.0-alpha.1.exe
 ```
 
-The UI cannot request arbitrary port writes, arbitrary EC registers or generic IOCTL passthrough. Low-level commands are semantic operations such as `SetFanLevel`, `ReturnFanToAuto` and verified keyboard-level changes.
+See **[Release Checklist](docs/RELEASE-CHECKLIST.md)**.
 
-For the X9 fan controller:
+## 🎨 Branding & UI
 
-- `0x80` = Lenovo BIOS/EC Auto
-- manual levels = `1` through `7`
-- `0x00` fan-off = blocked
-- `0x40` override/disengaged = blocked
-- RPM telemetry is intentionally sampled conservatively because aggressive tachometer reads previously correlated with audible fan cadence
-- service shutdown attempts to restore Lenovo Auto if ThinkControl owned a manual fan level
+ThinkControl uses the TC / TrackPoint visual system: graphite surfaces, white/gray UI, and ThinkPad red as the single strong accent.
 
-See **[Hardware Safety](docs/HARDWARE-SAFETY.md)** for the full contract.
+Normal interface symbols use a consistent local vector set; ThinkControl-specific identity/status artwork uses the custom asset language.
 
-## Battery ETA
+The WPF/XAML layout is deliberately separated from the privileged hardware layer, so the UI can also be edited visually in **Blend for Visual Studio**.
 
-ThinkControl does not simply divide one noisy instantaneous watt reading by remaining capacity. When Windows exposes charge/discharge rate and battery energy, ThinkControl uses recent samples, a median filter and a slow-moving weighted average for its ETA. This keeps the estimate responsive to a real change while avoiding constant large jumps caused by short CPU or charger-power spikes.
+See **[UI Editing](docs/UI_EDITING.md)**.
 
-The UI labels unavailable values as unavailable rather than inventing a number.
+## 📚 Documentation
 
-## Keyboard effects
+The documentation has a single entry point: **[docs/README.md](docs/README.md)**.
 
-The X9 keyboard appears to expose discrete hardware levels rather than a verified continuous brightness value. ThinkControl therefore treats effects as policies over real hardware levels:
+Quick links:
 
-- **Auto** — idle-aware backlight policy
-- **Breathing** — rate-limited `Low ↔ High`; intended to use Lenovo's own smooth transition between levels when present
-- **Reactive** — brief high-level pulse after keyboard activity
-- **Audio** — experimental local loopback RMS response
-
-Input contents and audio samples are not stored. The privileged service receives only semantic backlight-level requests.
-
-## Updates and versions
-
-The repository version is stored centrally and release builds use explicit semantic versions such as:
-
-```text
-ThinkControl v0.1.0-alpha.1
-ThinkControl v0.1.0
-```
-
-Tagged builds create a GitHub Release with the same visible version, the versioned installer and a `SHA256SUMS.txt` checksum. Development builds remain GitHub Actions artifacts and are not presented as stable releases.
-
-**[View all releases →](https://github.com/Hugowhitee/ThinkControl/releases)**
-
-## Development and UI editing
-
-ThinkControl uses WPF / XAML on .NET 10. Most visual work is deliberately kept in XAML so the interface can be edited with **Blend for Visual Studio** without touching fan-control logic.
-
-Useful files:
-
-```text
-src/ThinkControl.UI/MainWindow.xaml
-src/ThinkControl.UI/AdvancedWindow.xaml
-src/ThinkControl.UI/Controls/KeyboardEffectsPanel.xaml
-src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml
-src/ThinkControl.UI/Controls/DiagnosticsPanel.xaml
-src/ThinkControl.UI/App.xaml
-```
-
-See **[UI Editing](docs/UI_EDITING.md)** for the safe visual-editing workflow.
-
-## Repository layout
-
-```text
-ThinkControl/
-  src/
-    ThinkControl.UI/             WPF tray + Advanced UI
-    ThinkControl.Service/        privileged Windows service
-    ThinkControl.Core/           shared contracts / IPC / diagnostics schema
-    ThinkControl.Hardware/       hardware providers
-    ThinkControl.DeviceProfiles/ capability profiles
-  devices/
-    Lenovo/ThinkPad/X9-15-Gen1/
-  docs/
-    research/
-    assets/
-    screenshots/
-  installer/
-  tests/
-  tools/
-  .github/workflows/
-```
-
-## Documentation
-
-- [Product scope](docs/PRODUCT.md)
-- [Architecture](docs/ARCHITECTURE.md)
-- [Hardware safety](docs/HARDWARE-SAFETY.md)
 - [Device support](docs/DEVICE-SUPPORT.md)
-- [Diagnostics & compatibility telemetry](docs/DIAGNOSTICS.md)
-- [Dependencies](docs/DEPENDENCIES.md)
-- [Design rules](docs/DESIGN.md)
+- [Lenovo provider model](docs/LENOVO-PROVIDERS.md)
+- [Installation & dependencies](installer/README.md)
+- [Hardware safety](docs/HARDWARE-SAFETY.md)
+- [Diagnostics & privacy](docs/DIAGNOSTICS.md)
+- [Architecture](docs/ARCHITECTURE.md)
 - [UI editing](docs/UI_EDITING.md)
 - [X9-15 Gen 1 research](docs/research/x9-15-gen1.md)
-- [Installer behavior](installer/README.md)
 
-## Reference research
+## ⚖️ License
 
-`Hugowhitee/X9-Helper` and `Hugowhitee/Thinkpad_Fancontrol` remain research references only. ThinkControl owns a separate architecture and does not automatically inherit older assumptions or unsafe experiments.
+ThinkControl is **source-available for noncommercial use** under the **PolyForm Noncommercial License 1.0.0**.
 
-## License
+You may study, modify and redistribute ThinkControl for permitted noncommercial purposes, but commercial use requires separate permission. Redistributions and modified versions must preserve the ThinkControl required notice so users can clearly see the original project this work is based on.
 
-MIT — see [LICENSE](LICENSE).
+This is intentionally **not an OSI open-source license** because commercial use is restricted. See [LICENSE](LICENSE).
+
+Third-party components keep their own licenses; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+---
+
+<div align="center">
+  <sub>ThinkControl is an independent community project and is not affiliated with or endorsed by Lenovo.</sub>
+</div>

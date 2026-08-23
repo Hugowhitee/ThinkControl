@@ -31,7 +31,7 @@ AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoCompany={#AppPublisher}
-VersionInfoDescription=ThinkPad hardware companion
+VersionInfoDescription=Lenovo hardware companion
 VersionInfoProductName={#AppName}
 VersionInfoVersion={#NumericVersion}
 VersionInfoProductVersion={#NumericVersion}
@@ -39,6 +39,7 @@ DefaultDirName={autopf}\ThinkControl
 DefaultGroupName=ThinkControl
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
+SetupIconFile=..\src\ThinkControl.UI\Assets\tray.ico
 OutputDir=..\artifacts\installer
 OutputBaseFilename=ThinkControl-Setup-{#AppVersion}
 Compression=lzma2/max
@@ -92,8 +93,9 @@ begin
   Result := '';
   NeedsRestart := False;
 
-  { Stopping the service disposes X9HardwareController. Its safety invariant
-    returns any active manual fan level to Lenovo BIOS/Auto before process exit. }
+  { Stopping the service disposes the active Lenovo hardware controller. Its
+    safety invariant returns any verified X9 manual fan level to Lenovo Auto
+    before process exit. }
   Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#ServiceName}', '', SW_HIDE,
     ewWaitUntilTerminated, ResultCode);
 

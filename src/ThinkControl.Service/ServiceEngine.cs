@@ -4,7 +4,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using ThinkControl.Core.Ipc;
-using ThinkControl.Hardware.X9;
+using ThinkControl.Hardware.Lenovo;
 
 namespace ThinkControl.Service;
 
@@ -13,7 +13,7 @@ internal sealed class ServiceEngine : IDisposable
     private const int MaxRequestBytes = 4096;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private readonly X9HardwareController _hardware = new();
+    private readonly LenovoHardwareController _hardware = new();
     private readonly CancellationTokenSource _disposeCts = new();
     private bool _disposed;
 
@@ -30,7 +30,7 @@ internal sealed class ServiceEngine : IDisposable
                 server = CreateServerPipe();
                 await server.WaitForConnectionAsync(token).ConfigureAwait(false);
                 _ = HandleConnectionAsync(server, token);
-                server = null; // Ownership transferred to HandleConnectionAsync.
+                server = null;
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested)
             {
@@ -138,7 +138,7 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse StatusResponse()
     {
-        X9HardwareStatus status = _hardware.ReadStatus();
+        LenovoHardwareStatus status = _hardware.ReadStatus();
         var telemetry = new TelemetrySnapshot(
             status.CpuTemperatureC,
             status.CpuTemperatureSource,

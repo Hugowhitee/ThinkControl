@@ -1,79 +1,125 @@
 # Hardware safety policy
 
-These rules are release requirements, not suggestions.
+> **Applies to the current `v0.1.0-alpha.1` implementation and its future low-level providers.** This page distinguishes safeguards that are enforced in alpha.1 from requirements for later autonomous hardware control.
 
-## 1. No unverified writes
+## Enforced in alpha.1
 
-A hardware-write feature is disabled unless the exact model/family and backend have been validated. Similar model names, shared marketing families and guessed WMI/ACPI interfaces are not sufficient.
+### 1. X9-specific writes are model-gated
 
-## 2. No raw-write UI or IPC
+The current privileged fan/keyboard controller allows X9-specific writes only when the detected manufacturer is Lenovo and the machine type is `21Q6` or `21Q7`.
 
-ThinkControl exposes semantic operations only. The UI cannot request arbitrary EC registers, I/O ports, ACPI methods or IOCTL payloads.
+Other laptops may use safe Windows-level features, but they do not inherit the X9 EC/register contract.
 
-## 3. X9 fan fail-safe
+### 2. No raw-write UI or IPC
 
-For the ThinkPad X9-15 Gen 1 research backend:
+ThinkControl exposes semantic service operations only. The UI cannot request arbitrary:
 
-- fan control register: `0x2F`
-- Lenovo BIOS/EC Auto: `0x80`
-- allowed manual levels: `1` through `7`
-- fan-off `0x00`: blocked
-- disengaged/full-speed-style `0x40`: blocked until separately proven safe and needed
+- EC register writes;
+- I/O port writes;
+- ACPI method calls;
+- IOCTL payloads.
 
-The implementation must never transform a percentage into values outside the explicit allowlist.
+The X9 register/driver knowledge remains inside compiled hardware-provider code.
 
-## 4. Always retain Lenovo Auto escape path
+### 3. X9 fan write allowlist
 
-Any direct fan backend must be able to return ownership to Lenovo before it is enabled. Direct control is not considered available if Auto cannot be verified.
+Current X9 fan contract:
 
-Attempt Auto on:
+- control register: `0x2F`;
+- Lenovo BIOS/EC Auto: `0x80`;
+- allowed manual levels: `0x01` through `0x07`;
+- fan-off `0x00`: never written;
+- unverified `0x40` override family: never written.
 
-- failed manual write
-- profile reset
-- service stop
-- app uninstall/update service replacement
-- shutdown
-- sleep/hibernate
-- fatal provider error
+A percentage is never transformed into an arbitrary EC value.
 
-## 5. Deduplicate writes
+### 4. Read-back verification
 
-Do not rewrite an unchanged EC state on a timer. A user-visible graph may update every second while the hardware receives zero writes if the requested state has not changed.
+Manual fan writes and return-to-Auto are followed by EC read-back. A write that does not verify is treated as failure.
 
-## 6. Conservative tachometer access
+The current Lenovo keyboard backend similarly performs read-after-write verification for Off / Low / High.
 
-Repeated X9 tachometer reads correlated with an audible periodic fan disturbance in prior testing. RPM polling therefore has a backend-specific budget. Manual mode should prefer settle-then-sample behavior rather than constant reads.
+### 5. Failed fan write falls back toward Lenovo Auto
 
-## 7. Shared EC locking
+If a manual fan write fails after ThinkControl has attempted to take direct control, the EC backend attempts to restore Lenovo Auto before surfacing the failure.
 
-A validated ThinkPad EC backend must participate in known/shared EC mutex conventions where possible, including the ThinkPad/Windows EC locks used by the research implementation. Failure to obtain the lock is an error, not permission to bypass coordination.
+### 6. Normal service disposal returns manual fan ownership
 
-## 8. Conflicting controllers
+If the ThinkControl service/controller is disposed normally while a manual X9 level is active, it attempts to return the fan controller to Lenovo Auto.
 
-If another direct EC fan controller is active, ThinkControl direct fan control is disabled. The UI must name the conflict when possible.
+This covers normal service stop/replacement/uninstall paths that allow disposal code to run. It is **not** a guarantee for an abrupt process/kernel/power failure.
 
-## 9. Unknown devices are safe-mode devices
+### 7. Duplicate writes are suppressed
 
-Unknown ThinkPads may use supported Windows APIs and read-only diagnostics. No remote profile, issue comment or downloaded JSON can turn on new EC writes.
+An unchanged manual fan level is not continuously rewritten. UI telemetry refresh does not imply an EC write.
 
-## 10. Release-gated hardware knowledge
+### 8. Tachometer access is deliberately conservative
 
-Write addresses, IOCTL contracts and ACPI methods that affect hardware are shipped in signed/reviewed application releases. A remote catalog may update labels, support links and read-only metadata only.
+Prior X9 testing correlated aggressive repeated tachometer reads with an audible periodic fan disturbance. Alpha.1 therefore polls RPM sparsely and keeps RPM separate from any future control-loop clock.
 
-## 11. Privilege minimization
+### 9. Shared EC mutexes
 
-Only the service is privileged. Browser links, graphs, update discovery and normal settings remain in the user process.
+The X9 EC transport participates in the known ThinkPad/shared EC mutex conventions used by the proven research implementation:
 
-## 12. Diagnostics privacy
+```text
+Access_Thinkpad_EC
+Global\Access_EC
+```
 
-Never include by default:
+Failure to obtain a required lock is an error; ThinkControl does not bypass coordination by writing anyway.
 
-- serial number
-- Windows user name
-- host name
-- MAC addresses
-- disk serials
-- account IDs
-- personal file paths
+### 10. No remote hardware-write instructions
 
-An opt-in report must be previewable before submission.
+A remote support catalog, issue, diagnostics response or downloaded metadata file cannot introduce new EC addresses or arbitrary write payloads. New low-level write support must ship as compiled provider code in a normal ThinkControl version.
+
+### 11. Privilege minimization
+
+The WPF UI runs as the signed-in user. The Windows service owns the privileged low-level operations. Display UX, graphs, update discovery, keyboard-effect activity logic and normal settings do not require the UI process to run as administrator.
+
+### 12. Diagnostics exclude unique/private identifiers by design
+
+Current compatibility diagnostics exclude serial number, asset tag, Windows username, hostname, MAC addresses, disk serials, typed text and audio samples. Exported data is built from an allowlisted/redacted schema.
+
+See [Diagnostics and privacy](DIAGNOSTICS.md).
+
+## Not yet guaranteed by alpha.1
+
+The following are safety requirements for later autonomous/custom fan control, but the current manual-level alpha must **not** claim they are complete already.
+
+### Third-party fan-controller conflict detection
+
+The final autonomous controller should detect known competing direct EC fan tools and refuse direct ownership when a conflict is present.
+
+Alpha.1 does not yet provide comprehensive conflict arbitration across FanControl plugins, TPFanControl/TPFanCtrl2, NBFC-style tools or unknown EC controllers.
+
+### Full sleep/hibernate recovery lifecycle
+
+A future direct-control profile should explicitly return Auto before sleep/hibernate, release low-level handles, reopen providers after resume and revalidate state before reapplying policy.
+
+This sequence still requires implementation/physical validation before being described as guaranteed behavior.
+
+### Ungraceful-crash guardian
+
+Normal `Dispose`/service-stop cleanup cannot execute if the process is terminated abruptly. A future autonomous fan engine needs a stronger independent recovery mechanism/guardian before ThinkControl can guarantee recovery from an ungraceful service crash.
+
+### Autonomous fan-curve safety
+
+The planned custom curve engine will require:
+
+- immediate upward cooling transitions;
+- delayed downward transitions;
+- hysteresis;
+- minimum hold time;
+- write deduplication;
+- delayed Auto handoff where appropriate;
+- provider conflict checks;
+- sleep/resume revalidation;
+- fail-safe recovery.
+
+That engine is not part of `alpha.1`; current fan control is Lenovo Auto plus explicit manual levels `1–7`.
+
+## Release rule
+
+No future low-level feature should be documented as Verified merely because its code compiles or CI passes. Hardware confidence requires evidence from the actual device/provider combination.
+
+For the first X9 alpha, see [Release Checklist](RELEASE-CHECKLIST.md) for the remaining physical validation pass.
