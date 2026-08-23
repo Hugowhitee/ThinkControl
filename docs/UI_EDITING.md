@@ -19,9 +19,10 @@ The visual surface and XAML source represent the same UI. Moving or resizing sup
 - `src/ThinkControl.UI/AdvancedWindow.xaml` — full advanced window and navigation
 - `src/ThinkControl.UI/Controls/KeyboardEffectsPanel.xaml` — Auto, Breathing, Reactive and Audio keyboard effects
 - `src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml` — battery power, ETA, health and energy panel
+- `src/ThinkControl.UI/Controls/DiagnosticsPanel.xaml` — compatibility status, diagnostics consent and support actions
 - `src/ThinkControl.UI/App.xaml` — shared colors, buttons, segments, sliders and other styles
 
-The Keyboard Effects and Battery Telemetry layouts are separate XAML `UserControl`s specifically so they can be opened and edited independently in Blend.
+The Keyboard Effects, Battery Telemetry and Diagnostics layouts are separate XAML `UserControl`s specifically so they can be opened and edited independently in Blend.
 
 Avoid changing hardware or service projects for visual-only work.
 
@@ -58,13 +59,29 @@ New normal layout should be declared in XAML whenever practical. C# code-behind 
 
 Hardware safety does **not** belong in XAML. Fan ranges, device verification, privileged service rules and capability gates remain enforced in the hardware/service layers even if the UI is modified.
 
+## Automated UI snapshots
+
+CI builds the real WPF project and runs `tools/ThinkControl.Snapshots`. The renderer creates PNGs from the same compiled XAML used by the application, including:
+
+- compact dark
+- compact light
+- Advanced Home
+- Advanced Fans
+- Advanced Keyboard
+- Advanced Battery
+
+The files are uploaded as the `ThinkControl-UI-Snapshots` GitHub Actions artifact. This is useful for catching clipping, spacing regressions, missing icons or theme mistakes before merging.
+
+The snapshot data is deliberately fake **design-time data only**. It never becomes runtime telemetry and is not presented in the README as if it came from a real laptop.
+
 ## Suggested workflow
 
 1. Create a Git branch for the UI change.
 2. Open the XAML in Blend.
 3. Adjust the layout visually.
 4. Run ThinkControl and check the compact and advanced windows at 100%, 125% and 150% Windows scaling.
-5. Commit only the intended XAML/style changes.
-6. Let CI build the complete solution before merging.
+5. Let CI render the UI snapshots and inspect them.
+6. Commit only the intended XAML/style changes.
+7. Let the complete solution and installer checks pass before merging.
 
 This makes it possible to experiment with the visual design without weakening the X9 hardware protections.
