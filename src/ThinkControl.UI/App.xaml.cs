@@ -23,13 +23,20 @@ public partial class App : System.Windows.Application
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
+    public UserSettingsService UserSettings { get; } = new();
     public KeyboardEffectService KeyboardEffects { get; private set; } = null!;
     public MainWindow CompactWindow { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.System);
+
+        ThinkControlUserSettings preferences = UserSettings.Current;
+        ThemeService.Apply(preferences.Theme);
+        State.RefreshAutoEnabled = preferences.RefreshAuto;
+        State.KeyboardMode = preferences.KeyboardMode;
+        State.KeyboardBaseLevel = preferences.KeyboardBaseLevel;
+        State.KeyboardEffectSpeed = preferences.KeyboardEffectSpeed;
 
         KeyboardEffects = new KeyboardEffectService(HardwareClient, State);
         CompactWindow = new MainWindow(this) { DataContext = State };
@@ -206,6 +213,7 @@ public partial class App : System.Windows.Application
     public bool SetRefresh(int hz)
     {
         State.RefreshAutoEnabled = false;
+        UserSettings.Update(settings => settings with { RefreshAuto = false });
         bool changed = DisplayService.SetRefreshRate(hz);
         if (changed)
             State.CurrentRefreshHz = DisplayService.GetCurrentRefreshRate();
@@ -215,6 +223,7 @@ public partial class App : System.Windows.Application
     public bool EnableRefreshAuto()
     {
         State.RefreshAutoEnabled = true;
+        UserSettings.Update(settings => settings with { RefreshAuto = true });
         BatteryTelemetrySnapshot battery = BatteryTelemetryService.Read();
         ApplyRefreshAuto(onBattery: !battery.OnAc);
         return true;
@@ -222,19 +231,42 @@ public partial class App : System.Windows.Application
 
     public async Task SetKeyboardStaticLevelAsync(string level)
     {
-        await KeyboardEffects.SetStaticLevelAsync(level);
+        string normalized = level.Equals("Low", StringComparison.OrdinalIgnoreCase)
+            ? "Low"
+            : level.Equals("Off", StringComparison.OrdinalIgnoreCase) ? "Off" : "High";
+        await KeyboardEffects.SetStaticLevelAsync(normalized);
+        UserSettings.Update(settings => settings with
+        {
+            KeyboardMode = "Static",
+            KeyboardBaseLevel = normalized == "Low" ? "Low" : settings.KeyboardBaseLevel
+        });
         await RefreshStatusAsync();
     }
 
     public async Task SetKeyboardModeAsync(string mode)
     {
         await KeyboardEffects.SetModeAsync(mode);
+        UserSettings.Update(settings => settings with { KeyboardMode = State.KeyboardMode });
         await RefreshStatusAsync();
     }
 
-    public void SetKeyboardBaseLevel(string level) => KeyboardEffects.SetBaseLevel(level);
+    public void SetKeyboardBaseLevel(string level)
+    {
+        KeyboardEffects.SetBaseLevel(level);
+        UserSettings.Update(settings => settings with { KeyboardBaseLevel = State.KeyboardBaseLevel });
+    }
 
-    public void SetKeyboardEffectSpeed(double speed) => KeyboardEffects.SetSpeed(speed);
+    public void SetKeyboardEffectSpeed(double speed)
+    {
+        KeyboardEffects.SetSpeed(speed);
+        UserSettings.Update(settings => settings with { KeyboardEffectSpeed = State.KeyboardEffectSpeed });
+    }
+
+    public void ApplyTheme(ThinkControl.UI.Services.ThemeMode mode)
+    {
+        ThemeService.Apply(mode);
+        UserSettings.Update(settings => settings with { Theme = mode });
+    }
 
     public void ExitApplication()
     {
@@ -285,15 +317,26 @@ public partial class App : System.Windows.Application
 
     private static Icon CreateIcon()
     {
+        try
+        {
+            string? executable = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(executable))
+            {
+                Icon? applicationIcon = Icon.ExtractAssociatedIcon(executable);
+                if (applicationIcon is not null)
+                    return applicationIcon;
+            }
+        }
+        catch
+        {
+        }
+
         using var bitmap = new Bitmap(32, 32, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using Graphics graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        using var textBrush = new SolidBrush(Color.White);
         using var accentBrush = new SolidBrush(Color.FromArgb(227, 41, 41));
-        using var font = new Font("Segoe UI", 18, System.Drawing.FontStyle.Bold, GraphicsUnit.Pixel);
-        graphics.DrawString("T", font, textBrush, 4, 3);
-        graphics.FillEllipse(accentBrush, 21, 6, 7, 7);
+        graphics.FillEllipse(accentBrush, 4, 4, 24, 24);
 
         IntPtr handle = bitmap.GetHicon();
         try
