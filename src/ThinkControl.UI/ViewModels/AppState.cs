@@ -95,7 +95,10 @@ public sealed class AppState : INotifyPropertyChanged
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
     public string FanRpmText => FanRpm is int value ? $"{value:N0} RPM" : "— RPM";
     public string BatteryPercentText => $"{BatteryPercent}%";
-    public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
+    public string BatteryLivePowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
+    public string BatteryPowerText => BatteryPowerWatts is double watts
+        ? $"{watts:0.0} W{BatteryCompactEtaSuffix}"
+        : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
     public string BatteryHealthText => BatteryHealthPercent is double health ? $"{health:0.#}% health" : "Health —";
     public string BatteryCapacityText => BatteryRemainingWh is double remaining && BatteryFullWh is double full
@@ -107,7 +110,7 @@ public sealed class AppState : INotifyPropertyChanged
             ? $"~{FormatDuration(remaining)} remaining"
             : "Estimating…";
     public string BatteryCompactLine => BatteryPowerWatts.HasValue
-        ? $"{BatteryPowerText} · {BatteryEtaText}"
+        ? $"{BatteryLivePowerText} · {BatteryEtaText}"
         : BatteryStatus;
     public string BrightnessText => $"{Brightness}%";
     public string CurrentRefreshText => CurrentRefreshHz > 0 ? $"{CurrentRefreshHz} Hz" : "—";
@@ -120,6 +123,19 @@ public sealed class AppState : INotifyPropertyChanged
         "Auto" => "Auto · idle aware",
         _ => KeyboardStatus
     };
+
+    private string BatteryCompactEtaSuffix
+    {
+        get
+        {
+            TimeSpan? eta = BatteryEtaToFull ?? BatteryEtaRemaining;
+            if (!eta.HasValue)
+                return string.Empty;
+            if (BatteryEtaToFull.HasValue && eta.Value <= TimeSpan.FromMinutes(1))
+                return " · full";
+            return $" · ~{FormatCompactDuration(eta.Value)}";
+        }
+    }
 
     public void AddTemperature(double value)
     {
@@ -144,6 +160,7 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(BatteryPercentText));
         else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToFull) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))
         {
+            OnPropertyChanged(nameof(BatteryLivePowerText));
             OnPropertyChanged(nameof(BatteryPowerText));
             OnPropertyChanged(nameof(BatteryEtaText));
             OnPropertyChanged(nameof(BatteryCompactLine));
@@ -173,6 +190,15 @@ public sealed class AppState : INotifyPropertyChanged
         if (value.TotalHours >= 1)
             return $"{(int)value.TotalHours}h {value.Minutes:00}m";
         return $"{Math.Max(1, (int)Math.Round(value.TotalMinutes))} min";
+    }
+
+    private static string FormatCompactDuration(TimeSpan value)
+    {
+        if (value < TimeSpan.Zero)
+            value = TimeSpan.Zero;
+        if (value.TotalHours >= 1)
+            return $"{(int)value.TotalHours}h{value.Minutes:00}m";
+        return $"{Math.Max(1, (int)Math.Round(value.TotalMinutes))}m";
     }
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
