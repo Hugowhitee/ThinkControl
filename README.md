@@ -22,6 +22,12 @@
 
 ThinkControl `v0.1.0-alpha.2` is the current X9-focused prerelease. The ThinkPad X9-15 Gen 1 machine types `21Q6` and `21Q7` are the verified low-level reference profile. Other Lenovo families use capability detection and remain beta until their exact providers have been tested on physical hardware.
 
+## Platform
+
+ThinkControl is a **Windows 11 x64 application**. The installer requires Windows 11 build `22000` or later and an x64-compatible processor. Windows 10, Windows on ARM, Linux and macOS are not supported by the current release.
+
+The app targets .NET 10. Setup checks for the x64 .NET 10 Desktop Runtime and installs the pinned Microsoft runtime only when it is missing.
+
 ## What ThinkControl does
 
 | Area | Current support |
