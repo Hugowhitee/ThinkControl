@@ -12,7 +12,8 @@ public sealed record SystemStatusSnapshot(
     string BiosVersion,
     string MachineType,
     int BatteryPercent,
-    string BatteryStatus);
+    string BatteryStatus,
+    string Manufacturer);
 
 public sealed class SystemStatusService
 {
@@ -38,11 +39,17 @@ public sealed class SystemStatusService
             _ => "Power state unknown"
         };
 
-        string deviceName = string.Equals(manufacturer, "LENOVO", StringComparison.OrdinalIgnoreCase)
-            ? model
-            : model;
-
-        return new SystemStatusSnapshot(deviceName, cpu.Trim(), gpu.Trim(), ram, bios.Trim(), machineType, battery, batteryStatus);
+        string deviceName = model.Trim();
+        return new SystemStatusSnapshot(
+            deviceName,
+            cpu.Trim(),
+            gpu.Trim(),
+            ram,
+            bios.Trim(),
+            machineType,
+            battery,
+            batteryStatus,
+            manufacturer.Trim());
     }
 
     private static string? ReadFirst(string className, string property)

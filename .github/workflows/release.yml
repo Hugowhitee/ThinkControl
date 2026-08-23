@@ -22,19 +22,31 @@ jobs:
       - name: Resolve version
         shell: pwsh
         run: |
+          $metadata = Get-Content "version.json" -Raw | ConvertFrom-Json
+          $sourceVersion = [string]$metadata.version
+          if ([string]::IsNullOrWhiteSpace($sourceVersion)) {
+            throw "version.json does not contain a version"
+          }
+
           if ($env:GITHUB_REF -like 'refs/tags/v*') {
             $version = $env:GITHUB_REF_NAME.TrimStart('v')
+            if ($version -ne $sourceVersion) {
+              throw "Release tag '$env:GITHUB_REF_NAME' does not match version.json ('v$sourceVersion'). Update version.json first."
+            }
             "VERSIONED_RELEASE=1" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           }
           else {
-            $version = "0.1.0-dev.$env:GITHUB_RUN_NUMBER"
+            $version = "$sourceVersion-dev.$env:GITHUB_RUN_NUMBER"
             "VERSIONED_RELEASE=0" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           }
 
+          $coreVersion = $sourceVersion.Split('-')[0]
           $build = [int]$env:GITHUB_RUN_NUMBER % 65535
-          $numericVersion = "0.1.0.$build"
+          $numericVersion = "$coreVersion.$build"
+          "SOURCE_VERSION=$sourceVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           "APP_VERSION=$version" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           "NUMERIC_VERSION=$numericVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "ThinkControl version: $version"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -106,6 +118,134 @@ jobs:
           if ($null -eq $setup) { throw "Installer was not produced" }
           Write-Host "Installer: $($setup.Name) - $([math]::Round($setup.Length / 1MB, 1)) MB"
 
+      - name: Smoke-test installer and service lifecycle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $serviceName = 'ThinkControlService'
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          if ($null -eq $setup) { throw "Installer missing" }
+
+          $smokeDir = Join-Path $env:TEMP "ThinkControlInstallerSmoke"
+
+          function Show-ServiceDiagnostics {
+            Write-Host "--- sc.exe query $serviceName ---"
+            $query = Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('query', $serviceName) -Wait -PassThru -NoNewWindow
+            Write-Host "sc query exit code: $($query.ExitCode)"
+            Write-Host "--- sc.exe qc $serviceName ---"
+            $qc = Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('qc', $serviceName) -Wait -PassThru -NoNewWindow
+            Write-Host "sc qc exit code: $($qc.ExitCode)"
+            Write-Host "--- recent Service Control Manager events ---"
+            try {
+              Get-WinEvent -FilterHashtable @{
+                LogName='System'
+                ProviderName='Service Control Manager'
+                StartTime=(Get-Date).AddMinutes(-5)
+              } -ErrorAction Stop |
+                Where-Object { $_.Message -match 'ThinkControl' } |
+                Select-Object -First 12 TimeCreated, Id, LevelDisplayName, Message |
+                Format-List | Out-String | Write-Host
+            }
+            catch {
+              Write-Host "No readable ThinkControl Service Control Manager events: $($_.Exception.Message)"
+            }
+          }
+
+          function Remove-SmokeService {
+            Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('stop', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
+            Start-Sleep -Milliseconds 400
+            Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('delete', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
+
+            $deadline = (Get-Date).AddSeconds(20)
+            do {
+              $remaining = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+              if ($null -eq $remaining) { return }
+              Start-Sleep -Milliseconds 500
+            } while ((Get-Date) -lt $deadline)
+          }
+
+          try {
+            Write-Host "[smoke] Cleaning previous test state"
+            Remove-SmokeService
+            Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+
+            Write-Host "[smoke] Installing $($setup.Name) into $smokeDir"
+            $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
+              "/VERYSILENT",
+              "/SUPPRESSMSGBOXES",
+              "/NORESTART",
+              "/SP-",
+              "/DIR=$smokeDir"
+            ) -Wait -PassThru
+            Write-Host "[smoke] Installer exit code: $($install.ExitCode)"
+            if ($install.ExitCode -ne 0) { throw "Silent install failed with exit code $($install.ExitCode)" }
+
+            $ui = Join-Path $smokeDir "ui\ThinkControl.UI.exe"
+            $serviceExe = Join-Path $smokeDir "service\ThinkControl.Service.exe"
+            $uninstaller = Join-Path $smokeDir "unins000.exe"
+            Write-Host "[smoke] Verifying installed payload"
+            if (-not (Test-Path $ui)) { throw "Installed UI executable not found at $ui" }
+            if (-not (Test-Path $serviceExe)) { throw "Installed service executable not found at $serviceExe" }
+            if (-not (Test-Path $uninstaller)) { throw "Uninstaller not found at $uninstaller" }
+
+            Write-Host "[smoke] Waiting for $serviceName to reach Running"
+            $service = $null
+            $deadline = (Get-Date).AddSeconds(20)
+            do {
+              $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+              if ($null -ne $service) {
+                $service.Refresh()
+                Write-Host "[smoke] Service status: $($service.Status)"
+                if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) { break }
+              }
+              else {
+                Write-Host "[smoke] Service not registered yet"
+              }
+              Start-Sleep -Milliseconds 750
+            } while ((Get-Date) -lt $deadline)
+
+            if ($null -eq $service -or $service.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Running) {
+              Show-ServiceDiagnostics
+              throw "$serviceName did not reach Running state"
+            }
+
+            Write-Host "[smoke] Service is running; uninstalling"
+            $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+              "/VERYSILENT",
+              "/SUPPRESSMSGBOXES",
+              "/NORESTART"
+            ) -Wait -PassThru
+            Write-Host "[smoke] Uninstaller exit code: $($uninstall.ExitCode)"
+            if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed with exit code $($uninstall.ExitCode)" }
+
+            Write-Host "[smoke] Waiting for service registration to disappear"
+            $deadline = (Get-Date).AddSeconds(20)
+            do {
+              $serviceAfter = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+              if ($null -eq $serviceAfter) { break }
+              Write-Host "[smoke] Service still present with status $($serviceAfter.Status)"
+              Start-Sleep -Milliseconds 500
+            } while ((Get-Date) -lt $deadline)
+
+            if (Test-Path $ui) { throw "UI executable remained after uninstall" }
+            if (Test-Path $serviceExe) { throw "Service executable remained after uninstall" }
+            if ($null -ne $serviceAfter) {
+              Show-ServiceDiagnostics
+              throw "$serviceName remained registered after uninstall"
+            }
+
+            Write-Host "[smoke] Installer/service lifecycle passed"
+          }
+          catch {
+            Write-Host "[smoke] FAILURE: $($_.Exception.Message)"
+            Show-ServiceDiagnostics
+            throw
+          }
+          finally {
+            Remove-SmokeService
+            Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Create checksum
         shell: pwsh
         run: |
@@ -130,8 +270,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          gh release create $env:GITHUB_REF_NAME `
-            $setup.FullName `
-            "artifacts/installer/SHA256SUMS.txt" `
-            --title "ThinkControl $env:APP_VERSION" `
-            --generate-notes
+          $args = @(
+            'release', 'create', $env:GITHUB_REF_NAME,
+            $setup.FullName,
+            'artifacts/installer/SHA256SUMS.txt',
+            '--title', "ThinkControl v$env:APP_VERSION",
+            '--generate-notes'
+          )
+          if ($env:APP_VERSION -match '-') {
+            $args += '--prerelease'
+          }
+          & gh @args
+          if ($LASTEXITCODE -ne 0) { throw "GitHub release creation failed" }

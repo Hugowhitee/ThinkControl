@@ -3,219 +3,225 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
-        <SolidColorBrush x:Key="Tc.Window" Color="#101214" />
-        <SolidColorBrush x:Key="Tc.Surface" Color="#171A1D" />
-        <SolidColorBrush x:Key="Tc.SurfaceAlt" Color="#1D2024" />
-        <SolidColorBrush x:Key="Tc.SurfaceHover" Color="#25292E" />
-        <SolidColorBrush x:Key="Tc.Border" Color="#34383D" />
-        <SolidColorBrush x:Key="Tc.BorderStrong" Color="#474C52" />
-        <SolidColorBrush x:Key="Tc.Text" Color="#F2F3F4" />
-        <SolidColorBrush x:Key="Tc.TextMuted" Color="#A3A8AE" />
-        <SolidColorBrush x:Key="Tc.TextFaint" Color="#737980" />
-        <SolidColorBrush x:Key="Tc.Accent" Color="#E32929" />
-        <SolidColorBrush x:Key="Tc.AccentHover" Color="#F13B3B" />
-        <SolidColorBrush x:Key="Tc.Success" Color="#4CCB7A" />
-        <SolidColorBrush x:Key="Tc.Warning" Color="#E7A640" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Resources/MaterialSymbols.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <Style TargetType="TextBlock">
-            <Setter Property="FontFamily" Value="Segoe UI" />
-            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
-        </Style>
+            <SolidColorBrush x:Key="Tc.Window" Color="#101214" />
+            <SolidColorBrush x:Key="Tc.Surface" Color="#171A1D" />
+            <SolidColorBrush x:Key="Tc.SurfaceAlt" Color="#1D2024" />
+            <SolidColorBrush x:Key="Tc.SurfaceHover" Color="#25292E" />
+            <SolidColorBrush x:Key="Tc.Border" Color="#34383D" />
+            <SolidColorBrush x:Key="Tc.BorderStrong" Color="#474C52" />
+            <SolidColorBrush x:Key="Tc.Text" Color="#F2F3F4" />
+            <SolidColorBrush x:Key="Tc.TextMuted" Color="#A3A8AE" />
+            <SolidColorBrush x:Key="Tc.TextFaint" Color="#737980" />
+            <SolidColorBrush x:Key="Tc.Accent" Color="#E32929" />
+            <SolidColorBrush x:Key="Tc.AccentHover" Color="#F13B3B" />
+            <SolidColorBrush x:Key="Tc.Success" Color="#4CCB7A" />
+            <SolidColorBrush x:Key="Tc.Warning" Color="#E7A640" />
 
-        <Style TargetType="ToolTip">
-            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
-            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="8,5" />
-        </Style>
+            <Style TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+            </Style>
 
-        <Style x:Key="TcSection" TargetType="Border">
-            <Setter Property="Background" Value="{DynamicResource Tc.Surface}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Tc.Border}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="4" />
-            <Setter Property="Padding" Value="14" />
-        </Style>
+            <Style TargetType="ToolTip">
+                <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="8,5" />
+            </Style>
 
-        <Style x:Key="TcButton" TargetType="Button">
-            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,7" />
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Root"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.42" />
-                                <Setter Property="Cursor" Value="Arrow" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+            <Style x:Key="TcSection" TargetType="Border">
+                <Setter Property="Background" Value="{DynamicResource Tc.Surface}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Tc.Border}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="CornerRadius" Value="4" />
+                <Setter Property="Padding" Value="14" />
+            </Style>
 
-        <Style x:Key="TcIconButton" TargetType="Button" BasedOn="{StaticResource TcButton}">
-            <Setter Property="Width" Value="34" />
-            <Setter Property="Height" Value="34" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="FontFamily" Value="Segoe Fluent Icons" />
-            <Setter Property="FontSize" Value="15" />
-        </Style>
+            <Style x:Key="TcButton" TargetType="Button">
+                <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="12,7" />
+                <Setter Property="FontSize" Value="12" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Root"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="3"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.42" />
+                                    <Setter Property="Cursor" Value="Arrow" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <Style x:Key="TcSegment" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Tc.Border}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="12,9" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Border x:Name="Root"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3"
-                                Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
-                                <Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.42" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+            <Style x:Key="TcIconButton" TargetType="Button" BasedOn="{StaticResource TcButton}">
+                <Setter Property="Width" Value="34" />
+                <Setter Property="Height" Value="34" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="FontFamily" Value="Segoe UI" />
+                <Setter Property="FontSize" Value="15" />
+            </Style>
 
-        <Style x:Key="TcNav" TargetType="RadioButton">
-            <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Height" Value="46" />
-            <Setter Property="Padding" Value="14,0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="RadioButton">
-                        <Grid Background="{TemplateBinding Background}">
-                            <Border x:Name="Indicator" Width="2" Background="Transparent" HorizontalAlignment="Left" />
-                            <ContentPresenter Margin="{TemplateBinding Padding}"
-                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                              VerticalAlignment="Center" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
-                            </Trigger>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-                                <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
-                                <Setter TargetName="Indicator" Property="Background" Value="{DynamicResource Tc.Accent}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+            <Style x:Key="TcSegment" TargetType="RadioButton">
+                <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Tc.Border}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="12,9" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="Root"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="3"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.42" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <Style x:Key="TcSwitch" TargetType="CheckBox">
-            <Setter Property="Width" Value="42" />
-            <Setter Property="Height" Value="22" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="CheckBox">
-                        <Grid Width="42" Height="22">
-                            <Border x:Name="Track"
-                                    CornerRadius="11"
-                                    Background="{DynamicResource Tc.SurfaceAlt}"
-                                    BorderBrush="{DynamicResource Tc.BorderStrong}"
-                                    BorderThickness="1" />
-                            <Ellipse x:Name="Thumb"
-                                     Width="16" Height="16"
-                                     Margin="3"
-                                     Fill="{DynamicResource Tc.TextMuted}"
-                                     HorizontalAlignment="Left" />
-                        </Grid>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource Tc.Accent}" />
-                                <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
-                                <Setter TargetName="Thumb" Property="Fill" Value="White" />
-                                <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.4" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+            <Style x:Key="TcNav" TargetType="RadioButton">
+                <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Height" Value="46" />
+                <Setter Property="Padding" Value="14,0" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Grid Background="{TemplateBinding Background}">
+                                <Border x:Name="Indicator" Width="2" Background="Transparent" HorizontalAlignment="Left" />
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                  VerticalAlignment="Center" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                                    <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                                    <Setter TargetName="Indicator" Property="Background" Value="{DynamicResource Tc.Accent}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
 
-        <Style x:Key="TcSlider" TargetType="Slider">
-            <Setter Property="Height" Value="22" />
-            <Setter Property="Minimum" Value="0" />
-            <Setter Property="Maximum" Value="100" />
-            <Setter Property="IsMoveToPointEnabled" Value="True" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Slider">
-                        <Grid>
-                            <Track x:Name="PART_Track" VerticalAlignment="Center">
-                                <Track.DecreaseRepeatButton>
-                                    <RepeatButton Command="Slider.DecreaseLarge" Background="{DynamicResource Tc.Accent}" BorderThickness="0" Height="3" />
-                                </Track.DecreaseRepeatButton>
-                                <Track.Thumb>
-                                    <Thumb Width="13" Height="13">
-                                        <Thumb.Template>
-                                            <ControlTemplate TargetType="Thumb">
-                                                <Ellipse Fill="{DynamicResource Tc.Text}" Stroke="{DynamicResource Tc.BorderStrong}" StrokeThickness="1" />
-                                            </ControlTemplate>
-                                        </Thumb.Template>
-                                    </Thumb>
-                                </Track.Thumb>
-                                <Track.IncreaseRepeatButton>
-                                    <RepeatButton Command="Slider.IncreaseLarge" Background="{DynamicResource Tc.BorderStrong}" BorderThickness="0" Height="3" />
-                                </Track.IncreaseRepeatButton>
-                            </Track>
-                        </Grid>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+            <Style x:Key="TcSwitch" TargetType="CheckBox">
+                <Setter Property="Width" Value="42" />
+                <Setter Property="Height" Value="22" />
+                <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="CheckBox">
+                            <Grid Width="42" Height="22">
+                                <Border x:Name="Track"
+                                        CornerRadius="11"
+                                        Background="{DynamicResource Tc.SurfaceAlt}"
+                                        BorderBrush="{DynamicResource Tc.BorderStrong}"
+                                        BorderThickness="1" />
+                                <Ellipse x:Name="Thumb"
+                                         Width="16" Height="16"
+                                         Margin="3"
+                                         Fill="{DynamicResource Tc.TextMuted}"
+                                         HorizontalAlignment="Left" />
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="Track" Property="Background" Value="{DynamicResource Tc.Accent}" />
+                                    <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
+                                    <Setter TargetName="Thumb" Property="Fill" Value="White" />
+                                    <Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.4" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="TcSlider" TargetType="Slider">
+                <Setter Property="Height" Value="22" />
+                <Setter Property="Minimum" Value="0" />
+                <Setter Property="Maximum" Value="100" />
+                <Setter Property="IsMoveToPointEnabled" Value="True" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Slider">
+                            <Grid>
+                                <Track x:Name="PART_Track" VerticalAlignment="Center">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="Slider.DecreaseLarge" Background="{DynamicResource Tc.Accent}" BorderThickness="0" Height="3" />
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Width="13" Height="13">
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Ellipse Fill="{DynamicResource Tc.Text}" Stroke="{DynamicResource Tc.BorderStrong}" StrokeThickness="1" />
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="Slider.IncreaseLarge" Background="{DynamicResource Tc.BorderStrong}" BorderThickness="0" Height="3" />
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

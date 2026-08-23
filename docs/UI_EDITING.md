@@ -1,6 +1,6 @@
 # Editing the ThinkControl UI visually
 
-ThinkControl uses **WPF + XAML**. The UI should stay designer-friendly so layout and visual polish can be changed without touching the hardware backend.
+ThinkControl uses **WPF + XAML**. The UI is intentionally kept designer-friendly so layout and visual polish can be changed without touching the hardware backend.
 
 ## Recommended editor
 
@@ -16,8 +16,13 @@ The visual surface and XAML source represent the same UI. Moving or resizing sup
 ## Main files to edit
 
 - `src/ThinkControl.UI/MainWindow.xaml` — compact tray popup
-- `src/ThinkControl.UI/AdvancedWindow.xaml` — full advanced window
+- `src/ThinkControl.UI/AdvancedWindow.xaml` — full advanced window and navigation
+- `src/ThinkControl.UI/Controls/KeyboardEffectsPanel.xaml` — Auto, Breathing, Reactive and Audio keyboard effects
+- `src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml` — battery power, ETA, health and energy panel
+- `src/ThinkControl.UI/Controls/DiagnosticsPanel.xaml` — compatibility status, diagnostics consent and support actions
 - `src/ThinkControl.UI/App.xaml` — shared colors, buttons, segments, sliders and other styles
+
+The Keyboard Effects, Battery Telemetry and Diagnostics layouts are separate XAML `UserControl`s specifically so they can be opened and edited independently in Blend.
 
 Avoid changing hardware or service projects for visual-only work.
 
@@ -50,9 +55,24 @@ Those are the links between the visual XAML and ThinkControl behavior.
 
 ## Design rule for ThinkControl
 
-New UI should be declared in XAML whenever practical. C# code-behind should control behavior, not construct normal layout dynamically. This keeps the application editable in Blend and makes visual changes reviewable as XAML diffs.
+New normal layout should be declared in XAML whenever practical. C# code-behind should control behavior, not draw ordinary cards, text and controls. This keeps the application editable in Blend and makes visual changes reviewable as XAML diffs.
 
 Hardware safety does **not** belong in XAML. Fan ranges, device verification, privileged service rules and capability gates remain enforced in the hardware/service layers even if the UI is modified.
+
+## Automated UI snapshots
+
+CI builds the real WPF project and runs `tools/ThinkControl.Snapshots`. The renderer creates PNGs from the same compiled XAML used by the application, including:
+
+- compact dark
+- compact light
+- Advanced Home
+- Advanced Fans
+- Advanced Keyboard
+- Advanced Battery
+
+The files are uploaded as the `ThinkControl-UI-Snapshots` GitHub Actions artifact. This is useful for catching clipping, spacing regressions, missing icons or theme mistakes before merging.
+
+The snapshot data is deliberately fake **design-time data only**. It never becomes runtime telemetry and is not presented in the README as if it came from a real laptop.
 
 ## Suggested workflow
 
@@ -60,7 +80,8 @@ Hardware safety does **not** belong in XAML. Fan ranges, device verification, pr
 2. Open the XAML in Blend.
 3. Adjust the layout visually.
 4. Run ThinkControl and check the compact and advanced windows at 100%, 125% and 150% Windows scaling.
-5. Commit only the intended XAML/style changes.
-6. Let CI build the complete solution before merging.
+5. Let CI render the UI snapshots and inspect them.
+6. Commit only the intended XAML/style changes.
+7. Let the complete solution and installer checks pass before merging.
 
 This makes it possible to experiment with the visual design without weakening the X9 hardware protections.
