@@ -20,7 +20,7 @@ public partial class CompactDashboard
 
         var button = new WpfButton
         {
-            Height = 52,
+            Height = 45,
             Style = TryFindResource("CompactLinkRow") as Style,
             HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
