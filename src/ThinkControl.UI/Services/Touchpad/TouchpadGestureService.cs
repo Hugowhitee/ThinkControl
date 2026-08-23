@@ -91,10 +91,16 @@ internal sealed class TouchpadGestureService : IDisposable
             if (signal is null)
                 return;
 
-            if (signal.Phase == GesturePhase.Candidate && _configuration.LockCursor)
-                _cursorGuard.CaptureAtCurrentPosition();
-            else if (signal.Phase == GesturePhase.Claimed && _configuration.HideCursorWhenActive)
-                _cursorGuard.HideCursor();
+            // Do not freeze the normal pointer just because a touch happened near
+            // an edge. Capture only after direction + activation distance have
+            // positively claimed a gesture.
+            if (signal.Phase == GesturePhase.Claimed)
+            {
+                if (_configuration.LockCursor)
+                    _cursorGuard.CaptureAtCurrentPosition();
+                if (_configuration.HideCursorWhenActive)
+                    _cursorGuard.HideCursor();
+            }
 
             CompleteSignal(signal);
         }
