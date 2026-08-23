@@ -1,14 +1,16 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.1` uses a compact x64 Inno Setup bootstrap installer.
+ThinkControl `v0.1.0-alpha.2` uses a small x64 Inno Setup **web bootstrapper** plus a separate SHA-256-pinned application payload.
 
-## Release file
+## Release assets
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.1.exe
+ThinkControl-Setup-0.1.0-alpha.2.exe
+ThinkControl-Payload-0.1.0-alpha.2.zip
+SHA256SUMS.txt
 ```
 
-The installer contains the framework-dependent ThinkControl UI and hardware service. It deliberately does **not** embed a second copy of the .NET runtime in each managed payload.
+The Setup executable does not contain the ThinkControl UI/service payload or a bundled .NET runtime. The matching payload is downloaded from the same GitHub release and verified before extraction.
 
 ## Installation flow
 
@@ -16,17 +18,28 @@ Setup:
 
 1. requests one administrator elevation;
 2. checks for a compatible .NET 10 Desktop Runtime;
-3. downloads the official Microsoft x64 Desktop Runtime only when missing;
-4. verifies the pinned Microsoft runtime SHA-256 before execution;
-5. detects the Lenovo machine type from local SMBIOS information;
-6. on ThinkPad X9-15 Gen 1 machine types `21Q6` / `21Q7`, offers **X9 hardware access (PawnIO 2.2.0)**;
-7. downloads the official PawnIO 2.2.0 release only when selected and missing;
-8. verifies the PawnIO release asset against the SHA-256 published in Microsoft's Winget package repository;
-9. installs ThinkControl under Program Files;
+3. downloads the pinned official Microsoft x64 Desktop Runtime only when missing and verifies its SHA-256;
+4. downloads `ThinkControl-Payload-<version>.zip` from the matching GitHub release;
+5. verifies the payload against the SHA-256 compiled into that exact Setup build;
+6. extracts only the verified `ui/` and `service/` payload under Program Files;
+7. detects Lenovo machine type from local SMBIOS information;
+8. on ThinkPad X9-15 Gen 1 `21Q6/21Q7`, offers **X9 hardware access (PawnIO 2.2.0)**;
+9. downloads/verifies PawnIO only when selected and missing;
 10. registers and starts `ThinkControlService`;
-11. offers **Launch ThinkControl** on the completion page.
+11. creates Start-menu and optional desktop shortcuts using the canonical v3 icon;
+12. offers **Launch ThinkControl** on the completion page.
 
-A normal user does not need to visit a .NET or PawnIO download page manually.
+A normal user does not need to visit a .NET, PawnIO or payload download page manually.
+
+## ThinkControl payload verification
+
+The packaging workflow creates the application payload first, computes its SHA-256, and then compiles both the deterministic GitHub release URL and that hash into Setup.
+
+A public release installer therefore downloads only its own matching payload. A payload from another build/version cannot pass the embedded hash check.
+
+For CI only, Setup accepts a `/PAYLOAD=<local zip>` override. That local payload must still match the same compile-time SHA-256. This lets CI exercise the complete extraction/service/uninstall path before a GitHub release exists without weakening the public installer path.
+
+Windows 11's built-in `tar.exe` performs ZIP extraction. Setup verifies that both `ui/ThinkControl.UI.exe` and `service/ThinkControl.Service.exe` exist before continuing.
 
 ## Verified prerequisite pins
 
@@ -40,8 +53,6 @@ Source   https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.10/windo
 SHA-256  E82FC901C8F52D716293B2BC0830CE0DD254A06268C457A19E8FC503560A84D1
 ```
 
-The .NET download is made through Inno Setup's HTTPS downloader and the pinned SHA-256 is checked before the runtime is executed.
-
 ### PawnIO
 
 ```text
@@ -52,69 +63,54 @@ SHA-256  1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032
 Mode     -install -silent
 ```
 
-The PawnIO URL, SHA-256 and silent switch match the `namazso.PawnIO` `2.2.0` installer manifest in `microsoft/winget-pkgs`.
-
-PawnIO is device-conditional. Setup does not install it merely because a computer is manufactured by Lenovo.
+PawnIO is device-conditional. Setup does not offer it merely because a machine is manufactured by Lenovo.
 
 ## Failure behavior
 
-The required .NET runtime is an application prerequisite. If its verified download or installation fails, ThinkControl Setup stops with an explicit prerequisite error rather than installing an application that cannot start.
+The .NET runtime and ThinkControl payload are required application prerequisites. If either verified download/install/extraction fails, Setup stops with an explicit error rather than leaving a partial installation.
 
-PawnIO is different: it enables the verified X9 EC fan backend, but it is not required for the entire application. If PawnIO cannot be downloaded or installed, setup continues and reports that X9 fan RPM/manual EC control may remain unavailable. Windows display, battery, power-mode and other independent features remain usable.
-
-A prerequisite can request a Windows restart. Setup preserves that restart-required state instead of presenting it as an ordinary failure.
+PawnIO is capability-scoped. If PawnIO fails, Setup continues and reports that X9 direct EC fan RPM/manual control may remain unavailable. Independent Windows and Lenovo features remain usable.
 
 ## Upgrade behavior
 
-Running a newer ThinkControl setup over an existing installation is supported.
+Running a newer ThinkControl Setup over an existing installation is supported. Before replacing the payload, Setup stops `ThinkControlService`; normal controller disposal attempts to return an active manual X9 fan level to Lenovo Auto. Existing `ui/` and `service/` payload directories are then replaced by the newly verified payload and the service registration is updated/restarted.
 
-Before replacing the service payload, setup stops `ThinkControlService`. Normal service/controller disposal returns an active manual X9 fan level to Lenovo Auto before closing its EC provider. Inno Setup's application-closing flow handles a running ThinkControl tray process rather than failing immediately with a generic "currently running" message.
-
-The existing service registration is then updated to the new executable and restarted.
+Inno Setup's application-closing flow handles a running ThinkControl tray process instead of failing immediately with a generic "currently running" message.
 
 ## Icons and shortcuts
 
-The installer uses the same ThinkControl application icon embedded in `ThinkControl.UI.exe` for:
+The exact v3 application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs and the native Advanced-window title bar/taskbar entry. The tray uses the exact v3 mark ICO.
 
-- Setup;
-- the Start menu shortcut;
-- the optional desktop shortcut;
-- Add/Remove Programs;
-- the native Advanced-window title bar and taskbar entry.
+## Size budgets
 
-The tray notification icon remains the tray-specific asset.
-
-## Package size
-
-The release workflow publishes UI and service as framework-dependent `win-x64` applications and enforces two regression budgets:
+Package CI enforces:
 
 ```text
-Combined UI + service payload  <= 30 MB
-ThinkControl setup executable   <= 20 MB
+Combined framework-dependent UI + service  <= 30 MB uncompressed
+Compressed ThinkControl payload             <= 20 MB
+ThinkControl web bootstrap installer         <= 5 MB
 ```
 
-The actual release installer should normally be well below the previous self-contained package because the .NET runtime is downloaded only when the machine does not already have it.
+The 5 MB installer ceiling is deliberately strict: the application payload and .NET runtime must never be silently embedded back into Setup. The practical target is a roughly few-megabyte installer rather than the previous ~84 MB package.
 
 ## CI/package validation
 
-Feature-branch pushes do not run expensive Windows packaging. The package workflow is reserved for an explicit validation run or a version tag.
-
-Its lifecycle test is:
+Pull requests that change app/installer/branding/version code run the package workflow. It:
 
 ```text
-publish framework-dependent UI + service
+verify exact v3 branding
         |
         v
-measure payload size
+build + publish framework-dependent UI/service
         |
         v
-build Inno Setup
+create + SHA-256 hash external payload ZIP
         |
         v
-measure installer size
+compile small Setup with payload URL/hash
         |
         v
-silent install
+install using SHA-verified local payload override
         |
         v
 wait for ThinkControlService = Running
@@ -123,18 +119,14 @@ wait for ThinkControlService = Running
 silent uninstall
         |
         v
-verify files + service registration removed
+verify service + files removed
         |
         v
-generate SHA256SUMS.txt
+generate installer + payload checksums
 ```
 
-## Lenovo and Intel software
-
-ThinkControl Setup does not bundle or replace Lenovo/Intel platform components such as Lenovo Power Management, Lenovo Intelligent Thermal Solution, Intel Innovation Platform Framework, Lenovo Vantage or Lenovo Service Bridge.
-
-Installed official Lenovo providers may be used when their contract is supported, but OEM servicing remains owned by Lenovo/Windows Update.
+Tagged builds publish all three release assets. The release-publication workflow then verifies the installer, payload and checksum assets exist before recording the release as verified.
 
 ## Uninstall
 
-The uninstaller removes ThinkControl-owned UI/service files and unregisters `ThinkControlService`. It does not remove shared PawnIO or Lenovo/Intel platform components.
+The uninstaller stops/removes `ThinkControlService` and deletes ThinkControl-owned `ui/` and `service/` payload directories. It does not remove shared PawnIO or Lenovo/Intel platform components.
