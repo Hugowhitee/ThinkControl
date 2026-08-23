@@ -26,30 +26,37 @@ ThinkControl is a Windows 11 x64 application targeting .NET 10. Windows 10, Wind
 
 ## Preview
 
-The images below are rendered from the real WPF interface by the same snapshot tool used in CI.
+These are real WPF renders produced by ThinkControl's visual-QA pipeline. The `visual-main` branch is refreshed automatically after UI changes reach `main`, so the README does not depend on manually copied screenshots.
 
 <p align="center">
-  <img src="docs/images/preview/compact-dark.png" alt="ThinkControl compact tray interface" width="330">
+  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/compact-dark.png" alt="ThinkControl compact tray interface" width="330">
 </p>
 
 <p align="center">
-  <img src="docs/images/preview/advanced-touchpad-wide.png" alt="ThinkControl touchpad gestures page" width="820">
+  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/advanced-fans-wide.png" alt="ThinkControl cooling and fan page" width="820">
 </p>
 
 <p align="center">
-  <img src="docs/images/preview/advanced-display-wide.png" alt="ThinkControl display page" width="820">
+  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/advanced-sensors-wide.png" alt="ThinkControl sensors page" width="820">
+</p>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/advanced-touchpad-wide.png" alt="ThinkControl touchpad gestures page" width="820">
 </p>
 
 ## Features
 
 | Area | Current support |
 | --- | --- |
-| Performance | Quiet, Balanced and Performance through Windows power mode, with verified Lenovo thermal-policy coordination where available |
-| Fans | Real RPM when a trustworthy provider exists; verified X9 Lenovo Auto and manual EC levels 1 to 7 |
+| Power | Separate Battery and Plugged-in preferences using Windows Efficiency, Balanced and Performance behavior |
+| Cooling | Global Lenovo Auto, Silent, Normal and Cool behavior; custom X9 profiles use a supervised discrete 1–7 fan curve rather than fake PWM percentages |
+| Fans | Real RPM from trustworthy providers, multi-fan telemetry when the platform exposes it, manual X9 levels 1–7 and optional fan characterization |
+| Sensors | Read-only CPU, GPU, storage, memory, battery and other telemetry exposed by supported providers, with reusable hoverable time-series graphs |
+| Audio | Official Dolby profile names Dynamic, Movie, Music, Game and Voice when Dolby Access is available; profile switching uses the installed Dolby UI rather than editing undocumented state files |
 | Display | Refresh rate, automatic refresh policy, brightness and adaptive brightness through supported Windows APIs |
 | Keyboard | Off, Low and High plus ThinkControl Auto, Breathing, Reactive and experimental Audio policies on supported Lenovo hardware |
 | Touchpad | Precision Touchpad edge gestures with configurable zones, volume, brightness, relative media seek and additional ThinkControl actions |
-| Haptics | Windows haptic feedback strength and click-force settings when the Precision Touchpad reports those capabilities |
+| Haptics | Windows and HID-discovered haptic feedback/click-force controls when the Precision Touchpad exposes those capabilities |
 | Battery | Percentage, live watts and Wh, filtered ETA, cycle count, local charge history, learned charging averages and reported health trend where available |
 | System | Device identity, provider state, compatibility information, hardware recovery and privacy-safe diagnostics |
 
@@ -59,11 +66,42 @@ ThinkControl does not substitute guessed fan percentages, noise values, fake wat
 
 ThinkControl uses two surfaces.
 
-**Compact** is a fixed tray flyout for daily controls. It stays anchored near the notification area. The header opens Advanced without turning Compact into a draggable desktop window.
+**Compact** is a fixed tray flyout for daily status and navigation. It stays anchored near the notification area and surfaces battery/charging information, CPU/fan state and concise links without becoming another crowded control panel.
 
-**Advanced** is a resizable application window for detailed pages. Its content adapts to normal and maximized window sizes while keeping controls at readable widths. Navigation and page changes use short motion when Windows animations are enabled.
+**Advanced** is a resizable application window for detailed pages. Its content adapts to normal, minimum and maximized window sizes while keeping controls at readable widths. Navigation and page changes use short motion when Windows animations are enabled.
 
 The app, installer and repository use the canonical ThinkControl v3 assets under [`assets/brand/v3`](assets/brand/v3). The custom C geometry is shared across the product and the `ontrol` suffix uses the approved optical spacing in both the SVG and WPF wordmark.
+
+## Power and cooling
+
+Power policy and fan behavior are intentionally separate.
+
+- **Battery power** and **Plugged-in power** each remember their own Efficiency, Balanced or Performance preference.
+- **Cooling** is global: Lenovo Auto, Silent, Normal or Cool. A Silent choice therefore remains Silent when the charger is connected or removed.
+- Lenovo Auto returns ownership to firmware. Custom cooling is available only when ThinkControl has both a verified writable fan provider and a valid control-temperature sensor.
+- Normal curve decisions use a smoothed canonical CPU/GPU thermal input, while high raw temperatures trigger a firmware safety handoff instead of trying to out-control Lenovo firmware.
+
+On the verified X9 provider, direct writes remain discrete ThinkPad levels `1`–`7`. Level `0` and the `0x40` disengaged/full-speed family remain blocked.
+
+### Fan characterization
+
+The Fans page can characterize the verified fan levels on the real machine. ThinkControl records the RPM exposed for each real tachometer, estimates stability and can remember the first level the user considers clearly audible. Unstable steps can be avoided when a thermally safe higher stable level exists.
+
+A second fan is never synthesized. If Windows/Lenovo exposes two tachometers, both can be shown; otherwise ThinkControl reports only the fan telemetry it can actually read.
+
+## Sensors and graphs
+
+`SensorHub` collects read-only hardware telemetry from LibreHardwareMonitor plus platform-specific providers. The Sensors page exposes the real hardware name, sensor name, value, type and provider source.
+
+Cooling deliberately uses only marked canonical thermal domains. SSD, battery and unrelated board temperatures remain visible but are not averaged into CPU/GPU fan control, so a cool secondary component cannot hide a hot processor.
+
+The shared time-series chart is used by Battery and Sensors. It provides time/value axes plus hover crosshair and nearest-value selection, and the visual-QA renderer exercises these pages at multiple fixed window sizes.
+
+## Dolby audio
+
+On the ThinkPad X9-15 Gen 1 Lenovo documents the Dolby profiles **Dynamic, Movie, Music, Game and Voice**. ThinkControl exposes those official names when Dolby Access is installed.
+
+The current safe switching provider uses Windows UI Automation against the installed Dolby Access application. ThinkControl does not patch Dolby LocalState files or guess an undocumented DAX profile-number mapping. If Dolby Access is missing, ThinkControl can open its Microsoft Store listing; if the OEM Dolby backend is absent, the UI points the user toward the Lenovo audio driver instead of pretending the Store app alone supplies the processing backend.
 
 ## Touchpad gestures
 
@@ -76,11 +114,11 @@ Touchpad gestures run in the signed-in user session and use Windows Precision To
 | Top | Relative media seek |
 | Bottom | Off |
 
-Edge width, activation distance, continuation tolerance, sensitivity, direction and action are configurable. Palm rejection uses Precision Touchpad Confidence when the device exposes it. A second contact cancels an edge gesture so normal multi-touch behavior is not intentionally repurposed.
+A gesture must begin at a configured edge. Merely moving an already-active pointer into the edge no longer causes ThinkControl to claim the cursor. Edge width, activation distance, continuation tolerance, sensitivity, direction and action remain configurable under advanced tuning.
 
-The cursor is captured only while ThinkControl is deciding or handling an edge gesture and is restored on completion, cancellation, timeout or shutdown. The Touchpad page includes a live test view for recognition diagnostics.
+The cursor is captured only after a candidate has moved far enough in the expected direction and is restored on completion, cancellation, timeout or shutdown. A second contact cancels an edge gesture so normal multi-touch behavior is not intentionally repurposed.
 
-On Windows 11 24H2 or newer, ThinkControl also reads the operating system's Precision Touchpad haptic capabilities. Feedback intensity and click-force settings are enabled only when Windows reports that the hardware supports them.
+On supported Windows 11 builds ThinkControl also probes Precision Touchpad haptic capabilities. Feedback intensity and click-force settings stay visible but are enabled only when Windows/HID evidence shows the local touchpad exposes the corresponding control.
 
 ## Hardware compatibility
 
@@ -89,12 +127,13 @@ The normal UI runs as the signed-in user. Privileged Lenovo hardware operations 
 The service can run on any supported Windows laptop. Providers are evaluated independently:
 
 - Windows display, power and battery features are not tied to the X9 profile.
-- CPU temperature is shown only when a trustworthy sensor provider returns it.
-- Lenovo fan telemetry is read-only where a compatible Lenovo provider exposes it.
+- Sensor telemetry is read-only and capability discovered.
+- Lenovo fan telemetry remains read-only where a compatible provider exposes it.
 - Lenovo keyboard control activates only after a known provider passes its probe and readback checks.
 - Direct EC fan writes remain restricted to the verified ThinkPad X9-15 Gen 1 `21Q6` and `21Q7` profile.
+- ThinkControl does not use the old dual-fan EC selector `0x31` generically and does not guess an unknown X9 Fan 2 register.
 
-Unsupported controls stay unavailable rather than executing an unverified hardware path. See [Device support](docs/DEVICE-SUPPORT.md) and [Hardware safety](docs/HARDWARE-SAFETY.md).
+Unsupported controls stay unavailable rather than executing an unverified hardware path. See [Device support](docs/DEVICE-SUPPORT.md), [Cooling design](docs/COOLING-DESIGN.md) and [Hardware safety](docs/HARDWARE-SAFETY.md).
 
 ## ThinkPad X9-15 Gen 1
 
@@ -102,20 +141,23 @@ The verified X9 profile currently includes:
 
 | Capability | Implementation |
 | --- | --- |
-| Power mode | Windows Best efficiency, Balanced and Best performance with readback |
-| Lenovo thermal policy | X9 LITSSvc policy commands on AC and battery |
-| CPU temperature | Trustworthy sensor provider when present |
-| Fan RPM | X9 EC tachometer registers `0x84/0x85`, polled conservatively |
+| Power mode | Windows Efficiency, Balanced and Performance preferences stored independently for battery and AC |
+| Lenovo thermal policy | X9 LITSSvc power/thermal coordination on the currently active power source |
+| Sensors | LibreHardwareMonitor/platform inventory with canonical CPU/GPU control temperatures when available |
+| Fan RPM | X9 EC tachometer `0x84/0x85` plus read-only Lenovo/Windows fan discovery when available |
 | Fan state | X9 EC register `0x2F` |
 | Lenovo Auto | `0x80` with readback |
-| Manual fan control | Discrete levels `1` to `7` |
+| Custom cooling | Service-owned Silent, Normal and Cool curves using levels `1`–`7`, smoothing, hysteresis and safety handoff |
+| Manual fan control | Advanced discrete levels `1` to `7` |
+| Fan characterization | Per-level real RPM/stability samples and optional audible-threshold marker |
 | Fan off | `0x00` blocked |
 | Unverified override | `0x40` family never written |
 | Keyboard | Lenovo driver/provider contracts with readback and installed Vantage fallback where usable |
 | Touchpad | Precision Touchpad gestures; X9 geometry fallback is 135 x 80 mm if physical HID units are unavailable |
-| Haptics | Official Windows touchpad settings when supported by the installed Windows build and device |
+| Haptics | Windows/HID capability discovery with controls enabled only when supported locally |
+| Dolby | Dynamic, Movie, Music, Game and Voice through installed Dolby Access when available |
 
-Normal service/controller disposal attempts to return an active manual X9 fan level to Lenovo Auto before closing low-level access.
+Normal service/controller disposal attempts to return an active ThinkControl fan override to Lenovo Auto before closing low-level access.
 
 Technical findings are recorded in [X9-15 Gen 1 research](docs/research/x9-15-gen1.md).
 
@@ -131,7 +173,9 @@ Hardware Setup is also available from Settings so the service or a required prov
 
 Charging ETA waits for stable samples instead of publishing a one-sample estimate during charger negotiation. It blends recent filtered charge power with observed Wh progress and may use prior completed sessions as a bounded short-lived prior. Current measurements take over as a session develops.
 
-Battery history stays local in `%LocalAppData%\ThinkControl`. Retention is bounded, corrupt files are quarantined and writes are atomic. Charge-limit controls are not faked: until a verified Lenovo battery write provider is available, ThinkControl leaves firmware charge protection untouched and can open Commercial Vantage instead.
+The active charge graph uses a fixed time window with the newest sample arriving from the right. Completed sessions are fitted to their full duration. Hovering a time-series graph reveals the selected timestamp and value without permanently cluttering the plot.
+
+Battery history stays local in `%LocalAppData%\ThinkControl`. Retention is bounded, corrupt files are quarantined and writes are atomic. Charge-limit controls are not faked: until a verified Lenovo battery write provider is available, ThinkControl leaves firmware charge protection untouched and can open Lenovo Vantage instead.
 
 ## Install
 
@@ -155,18 +199,21 @@ See [Installer](installer/README.md) and [Dependencies](docs/DEPENDENCIES.md).
 
 ## Updates
 
-ThinkControl checks public GitHub Releases without a permanent updater service. Installing a newer setup stops the old hardware service before replacing the verified payload, then updates and restarts the service registration.
+ThinkControl checks public GitHub Releases automatically after startup and periodically while running. The Updates page still provides a manual **Check now** action. Installing a newer setup stops the old hardware service before replacing the verified payload, then updates and restarts the service registration.
 
-## Build and validation
+## Build and visual validation
 
 The repository targets .NET 10 and WPF. Windows CI restores, builds, runs Core tests and renders real WPF snapshots. Packaging CI builds the framework-dependent UI/service payload, verifies canonical branding, creates the external payload ZIP, compiles the small web bootstrapper and performs an install, service-running and uninstall smoke test.
 
 ```powershell
 dotnet restore ThinkControl.slnx
 dotnet build ThinkControl.slnx -c Release
+.\tools\visual-qa.ps1
 ```
 
-A green CI run cannot prove physical Lenovo hardware behavior. RPM, EC fan control, keyboard providers, Precision Touchpad reports and haptics still require testing on the real target device.
+The visual-QA command renders Compact plus all important Advanced pages in deterministic dark/light and normal/minimum/wide states and opens a local gallery. CI uploads the same gallery for pull requests; after changes land on `main`, the `visual-main` branch is refreshed for the inline README previews above.
+
+A green CI run cannot prove physical Lenovo hardware behavior. RPM, EC fan control, keyboard providers, Precision Touchpad reports, Dolby UI state and haptics still require testing on the real target device.
 
 ## Documentation
 
@@ -174,11 +221,13 @@ A green CI run cannot prove physical Lenovo hardware behavior. RPM, EC fan contr
 - [Device support](docs/DEVICE-SUPPORT.md)
 - [Product specification](docs/PRODUCT.md)
 - [Architecture](docs/ARCHITECTURE.md)
+- [Cooling design](docs/COOLING-DESIGN.md)
 - [Hardware safety](docs/HARDWARE-SAFETY.md)
 - [Lenovo providers](docs/LENOVO-PROVIDERS.md)
 - [Dependencies](docs/DEPENDENCIES.md)
 - [Diagnostics and privacy](docs/DIAGNOSTICS.md)
 - [Design system](docs/DESIGN.md)
+- [Visual QA](docs/VISUAL-QA.md)
 - [Alpha testing](docs/ALPHA-TESTING.md)
 - [Release checklist](docs/RELEASE-CHECKLIST.md)
 
