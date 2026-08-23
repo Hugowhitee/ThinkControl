@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media.Imaging;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -13,16 +14,22 @@ public partial class AdvancedWindow
         if (_advancedBrandingConfigured)
             return;
 
-        // Advanced uses the native Windows title bar at runtime, so the fallback
-        // XAML caption row is intentionally collapsed. Keep branding at a stable
-        // top-left anchor by replacing the small "Advanced" label in the sidebar
-        // dock row with the same BrandWordmark used by Compact.
+        try
+        {
+            Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/ThinkControl.ico", UriKind.Absolute));
+        }
+        catch
+        {
+            // The executable icon remains the fallback if WPF cannot decode it.
+        }
+
         if (NavHome.Parent is not StackPanel navStack ||
             navStack.Children.OfType<Grid>().FirstOrDefault() is not Grid dockRow)
         {
             return;
         }
 
+        dockRow.Height = 48;
         FrameworkElement? oldLabel = dockRow.Children
             .OfType<FrameworkElement>()
             .FirstOrDefault(child => Grid.GetColumn(child) == 0);
@@ -31,17 +38,15 @@ public partial class AdvancedWindow
 
         var wordmark = new BrandWordmark
         {
-            Width = 103,
-            Height = 30,
-            Margin = new Thickness(4, 0, 0, 0),
+            Width = 132,
+            Height = 38,
+            Margin = new Thickness(2, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         };
         Grid.SetColumn(wordmark, 0);
         dockRow.Children.Add(wordmark);
 
-        // The wordmark now owns the app identity in this surface. Keep only the
-        // version in the sidebar footer instead of repeating "ThinkControl" twice.
         if (navStack.Parent is Grid sidebarGrid)
         {
             StackPanel? footer = sidebarGrid.Children
