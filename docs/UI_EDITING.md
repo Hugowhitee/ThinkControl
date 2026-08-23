@@ -10,14 +10,17 @@ Open `ThinkControl.slnx`, then open the relevant `.xaml` file in the XAML Design
 
 ## Main UI files
 
-- `src/ThinkControl.UI/MainWindow.xaml`: compact tray window
-- `src/ThinkControl.UI/AdvancedWindow.xaml`: Advanced window and navigation
-- `src/ThinkControl.UI/Controls/KeyboardEffectsPanel.xaml`: keyboard effects
-- `src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml`: battery telemetry
-- `src/ThinkControl.UI/Controls/DiagnosticsPanel.xaml`: compatibility and diagnostics settings
-- `src/ThinkControl.UI/App.xaml`: shared colors, styles and controls
+- `src/ThinkControl.UI/Controls/CompactDashboard.xaml`: the actual 410 × 640 tray flyout UI;
+- `src/ThinkControl.UI/MainWindow.xaml`: minimal non-taskbar host for `CompactDashboard`;
+- `src/ThinkControl.UI/AdvancedWindow.xaml`: Advanced window shell and static pages;
+- `src/ThinkControl.UI/Controls/FansPanel.xaml`: cooling, fan telemetry and advanced fan controls;
+- `src/ThinkControl.UI/Controls/KeyboardEffectsPanel.xaml`: keyboard effects;
+- `src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml`: battery telemetry;
+- `src/ThinkControl.UI/Controls/TouchpadPanel.xaml`: Precision Touchpad gestures and haptics;
+- `src/ThinkControl.UI/Controls/DiagnosticsPanel.xaml`: compatibility and diagnostics settings;
+- `src/ThinkControl.UI/App.xaml`: shared colors, styles and controls.
 
-The larger panels are separate `UserControl` files so they can be edited independently.
+The larger panels are separate `UserControl` files so they can be edited independently. Do not recreate a second compact dashboard inside `MainWindow.xaml`; alpha.4 intentionally removed that legacy duplicate.
 
 ## Visual-only changes
 
@@ -51,22 +54,28 @@ Normal layout should be declared in XAML. Code-behind should manage behavior rat
 
 Hardware safety does not belong in XAML. Device gates, fan ranges, privileged operations and provider validation remain enforced in the service and hardware layers even when the UI is modified.
 
+## Alignment rules
+
+Advanced pages share one literal left content rail. Do not give individual pages their own centered `MaxWidth` behavior; wide-screen unused space belongs on the right. Long pages use the shared themed scrollbar and reserve a small right gutter so header actions cannot disappear underneath it.
+
+Compact is a fixed 410 × 640 surface. Changes to its runtime dimensions must also update the snapshot renderer in the same change.
+
 ## UI snapshots
 
-CI builds the real WPF application and runs `tools/ThinkControl.Snapshots`. The snapshot job renders the compiled XAML with design-time telemetry and uploads the `ThinkControl-UI-Snapshots` artifact.
+CI builds the real WPF application and runs `tools/ThinkControl.Snapshots`. The job uploads the `ThinkControl-Visual-QA` artifact.
 
-The snapshots cover the compact window and major Advanced pages in the supported themes. They are used to catch clipping, spacing regressions, missing icons and theme problems.
+The current matrix covers Compact plus every Advanced page at 1160 × 760, minimum 980 × 650 and wide 1720 × 980, with selected light/offline states. Use it to catch clipping, spacing regressions, missing icons, page recentering and theme problems.
 
-Snapshot telemetry is sample data only and must not be described as data captured from a real laptop.
+Snapshot telemetry is deterministic sample data only and must not be described as data captured from a real laptop. Generated screenshots stay in CI artifacts rather than a permanent repository branch.
 
 ## Recommended workflow
 
-1. Create a branch for the UI change.
-2. Edit the XAML in Visual Studio or Blend.
+1. Create a short-lived branch for the UI change.
+2. Edit the relevant XAML in Visual Studio or Blend.
 3. Run the application locally.
-4. Check compact and Advanced layouts at common Windows scaling levels.
-5. Inspect the CI snapshots.
-6. Keep the change limited to the intended XAML and style files where possible.
-7. Merge only after the full solution and installer checks pass.
+4. Check Compact and Advanced layouts at common Windows scaling levels.
+5. Inspect the CI visual-QA artifact at normal, minimum and wide sizes.
+6. Keep the change limited to the intended UI/style files where practical.
+7. Merge only after the full solution and installer checks pass; merged branches are then removed automatically.
 
-See [Design System](DESIGN.md) for layout and visual rules.
+See [Design System](DESIGN.md) and [Visual QA](VISUAL-QA.md) for the shared rules.
