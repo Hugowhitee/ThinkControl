@@ -69,12 +69,13 @@ internal static class AdvancedWindowEnhancer
             Tag = "Touchpad",
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
         var panel = new TouchpadPanel
         {
             MaxWidth = 1260,
-            HorizontalAlignment = HorizontalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(0, 0, 4, 0)
         };
         panel.Initialize(app);
@@ -160,8 +161,9 @@ internal static class AdvancedWindowEnhancer
 
         if (window.Resources[TouchpadPageName] is ScrollViewer touchpad && touchpad.Content is FrameworkElement content)
         {
+            touchpad.HorizontalContentAlignment = HorizontalAlignment.Stretch;
             content.MaxWidth = wide ? 1260 : Math.Min(1040, available);
-            content.HorizontalAlignment = HorizontalAlignment.Center;
+            content.HorizontalAlignment = HorizontalAlignment.Stretch;
         }
     }
 
@@ -169,8 +171,15 @@ internal static class AdvancedWindowEnhancer
     {
         if (window.FindName(scrollName) is not ScrollViewer scroll || scroll.Content is not FrameworkElement content)
             return;
+
+        // ScrollViewer does not stretch its content horizontally by default. Merely
+        // increasing MaxWidth therefore leaves the old narrow page centered inside a
+        // large maximized window. Stretch the content slot first, then cap the page
+        // itself to a useful reading width so controls grow without becoming absurdly
+        // long on ultrawide displays.
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         content.MaxWidth = Math.Max(620, maxWidth);
-        content.HorizontalAlignment = HorizontalAlignment.Center;
+        content.HorizontalAlignment = HorizontalAlignment.Stretch;
     }
 
     private static void CollapseKnownPages(AdvancedWindow window)
