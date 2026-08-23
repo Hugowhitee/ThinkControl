@@ -19,6 +19,11 @@ public sealed class KeyboardBacklightService : IDisposable
     private const uint FileShareWrite = 0x00000002;
     private const uint OpenExisting = 3;
 
+    // Production deliberately excludes EnergyDrv. ThinkControl research still
+    // classifies that interface as a lead rather than a verified X9 contract.
+    // IBMPmDrv is considered only when the exact X9 device profile is active,
+    // the known Lenovo mapping returns one of the expected states, and every
+    // write can be read back and verified before the UI reports success.
     private static readonly DriverConfig[] Drivers =
     [
         new(
@@ -33,33 +38,7 @@ public sealed class KeyboardBacklightService : IDisposable
             0x00222684,
             0x00000000,
             0x00000001,
-            0x00000002),
-        new(
-            "EnergyDrv",
-            @"\\.\EnergyDrv",
-            0x83102144,
-            0x00000032,
-            0x00000001,
-            0x00000003,
-            0x00000005,
-            null,
-            0x83102144,
-            0x00000033,
-            0x00010033,
-            0x00020033),
-        new(
-            "EnergyDrv (alternate)",
-            @"\\.\EnergyDrv",
-            0x83102144,
-            0x00000032,
-            0x00010001,
-            0x00010003,
-            0x00010005,
-            0x00010007,
-            0x83102144,
-            0x00000033,
-            0x00010033,
-            0x00020033)
+            0x00000002)
     ];
 
     private SafeFileHandle? _handle;
