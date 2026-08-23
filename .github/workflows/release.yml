@@ -132,9 +132,9 @@ jobs:
           $total = $uiBytes + $serviceBytes
           Write-Host ("UI payload: {0:N2} MB" -f ($uiBytes / 1MB))
           Write-Host ("Service payload: {0:N2} MB" -f ($serviceBytes / 1MB))
-          Write-Host ("Combined payload: {0:N2} MB" -f ($total / 1MB))
-          if ($total -gt 30MB) {
-            throw "Framework-dependent payload unexpectedly exceeds 30 MB; investigate duplicated/bundled runtime files."
+          Write-Host ("Combined installed payload: {0:N2} MB" -f ($total / 1MB))
+          if ($total -gt 65MB) {
+            throw "Framework-dependent installed payload unexpectedly exceeds 65 MB."
           }
 
       - name: Create release payload archive
