@@ -18,6 +18,7 @@ permissions:
 jobs:
   tag-ready-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -98,3 +99,75 @@ jobs:
           # already-tested package workflow at the exact immutable release tag.
           gh workflow run release.yml --ref "$tag"
           echo "Dispatched Package ThinkControl for $tag."
+
+      - name: Verify published release assets
+        if: steps.version.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version='${{ steps.version.outputs.version }}'
+          tag='${{ steps.version.outputs.tag }}'
+          installer="ThinkControl-Setup-${version}.exe"
+          checksum='SHA256SUMS.txt'
+          verified='false'
+
+          # Packaging includes a full install/service/uninstall smoke test, so a
+          # newly dispatched tagged run can take a few minutes before assets appear.
+          for attempt in $(seq 1 48); do
+            if json=$(gh release view "$tag" --json name,tagName,isPrerelease,url,assets 2>/dev/null); then
+              names=$(printf '%s' "$json" | jq -r '.assets[].name')
+              if grep -Fxq "$installer" <<<"$names" && grep -Fxq "$checksum" <<<"$names"; then
+                prerelease=$(printf '%s' "$json" | jq -r '.isPrerelease')
+                if [[ "$prerelease" != 'true' ]]; then
+                  echo "Release $tag exists but is not marked as a prerelease." >&2
+                  exit 1
+                fi
+
+                title=$(printf '%s' "$json" | jq -r '.name')
+                url=$(printf '%s' "$json" | jq -r '.url')
+                jq -n \
+                  --arg version "$version" \
+                  --arg tag "$tag" \
+                  --arg title "$title" \
+                  --arg url "$url" \
+                  --arg installer "$installer" \
+                  --arg checksum "$checksum" \
+                  '{version:$version,tag:$tag,title:$title,url:$url,prerelease:true,installer:$installer,checksum:$checksum,verifiedAtUtc:(now|todateiso8601)}' \
+                  > "$RUNNER_TEMP/release-status.json"
+                verified='true'
+                echo "Verified $installer and $checksum on $tag."
+                break
+              fi
+            fi
+
+            echo "Release assets not complete yet (attempt $attempt/48)."
+            sleep 10
+          done
+
+          if [[ "$verified" != 'true' ]]; then
+            echo "Timed out waiting for the exact release assets for $tag." >&2
+            exit 1
+          fi
+
+      - name: Record verified release status
+        if: steps.version.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/release-status.json"
+          mkdir -p .github
+          cp "$RUNNER_TEMP/release-status.json" .github/release-status.json
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/release-status.json
+          if git diff --cached --quiet; then
+            echo "Release verification marker is already current."
+            exit 0
+          fi
+
+          git commit -m "Record verified ThinkControl release"
+          git pull --rebase origin main
+          git push origin HEAD:main
