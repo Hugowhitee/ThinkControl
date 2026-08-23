@@ -2,6 +2,7 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
+using ThinkControl.Core.Diagnostics;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using Forms = System.Windows.Forms;
@@ -15,6 +16,7 @@ public partial class App : System.Windows.Application
     private DispatcherTimer? _statusTimer;
     private bool _refreshBusy;
     private bool _keyboardPreferenceRestored;
+    private bool? _lastServiceOnline;
     private AdvancedWindow? _advancedWindow;
 
     public AppState State { get; } = new();
@@ -25,6 +27,7 @@ public partial class App : System.Windows.Application
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
     public UserSettingsService UserSettings { get; } = new();
+    public DiagnosticsRecorder DiagnosticsRecorder { get; } = new();
     public KeyboardEffectService KeyboardEffects { get; private set; } = null!;
     public MainWindow CompactWindow { get; private set; } = null!;
 
@@ -38,6 +41,41 @@ public partial class App : System.Windows.Application
         State.KeyboardMode = preferences.KeyboardMode;
         State.KeyboardBaseLevel = preferences.KeyboardBaseLevel;
         State.KeyboardEffectSpeed = preferences.KeyboardEffectSpeed;
+
+        SystemStatusSnapshot preflight = SystemStatusService.Read();
+        State.DeviceName = preflight.DeviceName;
+        State.CpuName = preflight.CpuName;
+        State.GpuName = preflight.GpuName;
+        State.RamText = preflight.RamText;
+        State.BiosVersion = preflight.BiosVersion;
+        State.MachineType = preflight.MachineType;
+
+        DeviceValidationState validation = GetDeviceValidationState(preflight.MachineType);
+        RecordDiagnostic(new DiagnosticEvent(
+            DateTimeOffset.UtcNow,
+            "app.started",
+            ValidationState: validation,
+            Success: true,
+            Tags: new Dictionary<string, string>
+            {
+                ["state"] = validation.ToString(),
+                ["windowsBuild"] = Environment.OSVersion.Version.Build.ToString()
+            }));
+        RecordDiagnostic(new DiagnosticEvent(
+            DateTimeOffset.UtcNow,
+            "compatibility.device_detected",
+            ValidationState: validation,
+            Success: true,
+            Tags: new Dictionary<string, string>
+            {
+                ["state"] = validation.ToString()
+            }));
+
+        if (validation == DeviceValidationState.NotValidated &&
+            preferences.DiagnosticsConsent == DiagnosticsConsent.Unknown)
+        {
+            PromptForUnvalidatedDevice(preflight);
+        }
 
         KeyboardEffects = new KeyboardEffectService(HardwareClient, State);
         CompactWindow = new MainWindow(this) { DataContext = State };
@@ -145,7 +183,19 @@ public partial class App : System.Windows.Application
             State.AdaptiveBrightnessEnabled = display.AdaptiveBrightness;
 
             var service = await HardwareClient.GetStatusAsync();
-            if (service?.Success == true && service.Telemetry is not null)
+            bool serviceOnline = service?.Success == true && service.Telemetry is not null;
+            if (_lastServiceOnline != serviceOnline)
+            {
+                _lastServiceOnline = serviceOnline;
+                RecordDiagnostic(new DiagnosticEvent(
+                    DateTimeOffset.UtcNow,
+                    serviceOnline ? "service.connected" : "service.disconnected",
+                    ValidationState: GetDeviceValidationState(State.MachineType),
+                    Success: serviceOnline,
+                    ErrorCode: serviceOnline ? null : "service_unavailable"));
+            }
+
+            if (serviceOnline && service?.Telemetry is not null)
             {
                 State.HardwareAccess = service.Telemetry.HardwareAccess;
                 State.CpuTemperatureC = service.Telemetry.CpuTemperatureC;
@@ -173,11 +223,13 @@ public partial class App : System.Windows.Application
             }
             else
             {
-                State.HardwareAccess = "Limited · hardware service offline";
+                State.HardwareAccess = GetDeviceValidationState(State.MachineType) == DeviceValidationState.NotValidated
+                    ? "Not validated · compatibility checks active"
+                    : "Limited · hardware service offline";
                 State.CpuTemperatureC = null;
                 State.FanRpm = null;
-                State.FanStateText = "Lenovo Auto · telemetry unavailable";
-                State.KeyboardStatus = "Hardware service unavailable";
+                State.FanStateText = "Lenovo managed · telemetry unavailable";
+                State.KeyboardStatus = "Hardware backend unavailable";
                 State.CanFanControl = false;
                 State.CanFanTelemetry = false;
                 State.CanKeyboardBacklight = false;
@@ -195,35 +247,46 @@ public partial class App : System.Windows.Application
 
     public bool SetPowerMode(ThinkControlPowerMode mode)
     {
+        DateTimeOffset started = DateTimeOffset.UtcNow;
         bool changed = PowerModeService.Set(mode);
         if (changed)
             State.SelectedMode = mode.ToString();
+        RecordOperation("power.profile_set", "PerformanceMode", "Windows", changed, started,
+            new Dictionary<string, string> { ["state"] = mode.ToString() });
         return changed;
     }
 
     public bool SetBrightness(int value)
     {
+        DateTimeOffset started = DateTimeOffset.UtcNow;
         bool changed = DisplayService.SetBrightness(value);
         if (changed)
             State.Brightness = value;
+        RecordOperation("display.brightness_set", "Brightness", "Windows", changed, started);
         return changed;
     }
 
     public bool SetAdaptiveBrightness(bool enabled)
     {
+        DateTimeOffset started = DateTimeOffset.UtcNow;
         bool changed = DisplayService.SetAdaptiveBrightness(enabled);
         if (changed)
             State.AdaptiveBrightnessEnabled = enabled;
+        RecordOperation("display.adaptive_brightness_set", "AdaptiveBrightness", "Windows", changed, started,
+            new Dictionary<string, string> { ["state"] = enabled ? "enabled" : "disabled" });
         return changed;
     }
 
     public bool SetRefresh(int hz)
     {
+        DateTimeOffset started = DateTimeOffset.UtcNow;
         State.RefreshAutoEnabled = false;
         UserSettings.Update(settings => settings with { RefreshAuto = false });
         bool changed = DisplayService.SetRefreshRate(hz);
         if (changed)
             State.CurrentRefreshHz = DisplayService.GetCurrentRefreshRate();
+        RecordOperation("display.refresh_set", "DisplayRefresh", "Windows", changed, started,
+            new Dictionary<string, string> { ["state"] = hz.ToString() });
         return changed;
     }
 
@@ -233,6 +296,13 @@ public partial class App : System.Windows.Application
         UserSettings.Update(settings => settings with { RefreshAuto = true });
         BatteryTelemetrySnapshot battery = BatteryTelemetryService.Read();
         ApplyRefreshAuto(onBattery: !battery.OnAc);
+        RecordDiagnostic(new DiagnosticEvent(
+            DateTimeOffset.UtcNow,
+            "display.refresh_auto_enabled",
+            Capability: "DisplayRefresh",
+            Provider: "Windows",
+            ValidationState: GetDeviceValidationState(State.MachineType),
+            Success: true));
         return true;
     }
 
@@ -240,6 +310,7 @@ public partial class App : System.Windows.Application
     {
         string normalized = NormalizeStaticKeyboardLevel(level);
         string restingLevel = State.KeyboardBaseLevel;
+        DateTimeOffset started = DateTimeOffset.UtcNow;
         await KeyboardEffects.SetStaticLevelAsync(normalized);
         KeyboardEffects.SetBaseLevel(restingLevel);
         UserSettings.Update(settings => settings with
@@ -249,12 +320,23 @@ public partial class App : System.Windows.Application
             KeyboardBaseLevel = restingLevel
         });
         await RefreshStatusAsync();
+        bool success = State.KeyboardStatus.Contains(normalized, StringComparison.OrdinalIgnoreCase);
+        RecordOperation("keyboard.level_set", "KeyboardBacklight", "Lenovo", success, started,
+            new Dictionary<string, string> { ["state"] = normalized });
     }
 
     public async Task SetKeyboardModeAsync(string mode)
     {
         await KeyboardEffects.SetModeAsync(mode);
         UserSettings.Update(settings => settings with { KeyboardMode = State.KeyboardMode });
+        RecordDiagnostic(new DiagnosticEvent(
+            DateTimeOffset.UtcNow,
+            "keyboard.effect_mode_set",
+            Capability: "KeyboardBacklight",
+            Provider: "ThinkControlUserSession",
+            ValidationState: GetDeviceValidationState(State.MachineType),
+            Success: true,
+            Tags: new Dictionary<string, string> { ["state"] = State.KeyboardMode }));
         await RefreshStatusAsync();
     }
 
@@ -276,8 +358,19 @@ public partial class App : System.Windows.Application
         UserSettings.Update(settings => settings with { Theme = mode });
     }
 
+    public void RecordDiagnostic(DiagnosticEvent diagnosticEvent)
+    {
+        try { DiagnosticsRecorder.Record(diagnosticEvent); }
+        catch { }
+    }
+
     public void ExitApplication()
     {
+        RecordDiagnostic(new DiagnosticEvent(
+            DateTimeOffset.UtcNow,
+            "app.exit",
+            ValidationState: GetDeviceValidationState(State.MachineType),
+            Success: true));
         _statusTimer?.Stop();
         try { KeyboardEffects?.Dispose(); } catch { }
         _trayIcon?.Dispose();
@@ -285,6 +378,59 @@ public partial class App : System.Windows.Application
         _advancedWindow?.ForceClose();
         CompactWindow.ForceClose();
         Shutdown();
+    }
+
+    private void PromptForUnvalidatedDevice(SystemStatusSnapshot system)
+    {
+        MessageBoxResult answer = MessageBox.Show(
+            $"{system.DeviceName} has not been validated with ThinkControl yet.\n\n" +
+            "The normal ThinkControl interface will still open and Windows-level features remain available. " +
+            "Low-level hardware controls only activate when a known provider passes its compatibility checks.\n\n" +
+            "Help validate this device by allowing redacted compatibility diagnostics? You can change this later in Settings.",
+            "ThinkControl · Device not validated",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Information);
+
+        DiagnosticsConsent consent = answer == MessageBoxResult.Yes
+            ? DiagnosticsConsent.Enabled
+            : DiagnosticsConsent.Disabled;
+        UserSettings.Update(settings => settings with { DiagnosticsConsent = consent });
+        RecordDiagnostic(new DiagnosticEvent(
+            DateTimeOffset.UtcNow,
+            "diagnostics.consent_initial",
+            ValidationState: DeviceValidationState.NotValidated,
+            Success: true,
+            Tags: new Dictionary<string, string> { ["state"] = consent.ToString() }));
+    }
+
+    private void RecordOperation(
+        string name,
+        string capability,
+        string provider,
+        bool success,
+        DateTimeOffset started,
+        IReadOnlyDictionary<string, string>? tags = null)
+    {
+        int duration = (int)Math.Clamp((DateTimeOffset.UtcNow - started).TotalMilliseconds, 0, 600_000);
+        RecordDiagnostic(new DiagnosticEvent(
+            DateTimeOffset.UtcNow,
+            name,
+            Capability: capability,
+            Provider: provider,
+            ValidationState: GetDeviceValidationState(State.MachineType),
+            Success: success,
+            ErrorCode: success ? null : "operation_failed",
+            DurationMs: duration,
+            Tags: tags));
+    }
+
+    public static DeviceValidationState GetDeviceValidationState(string? machineType)
+    {
+        if (string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase))
+            return DeviceValidationState.Verified;
+
+        return DeviceValidationState.NotValidated;
     }
 
     private async Task RestoreKeyboardPreferenceAsync()
