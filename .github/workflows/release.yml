@@ -2,6 +2,14 @@ name: Package ThinkControl
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "installer/**"
+      - "assets/brand/**"
+      - "docs/assets/**"
+      - "version.json"
+      - ".github/workflows/release.yml"
   push:
     tags:
       - "v*"
@@ -47,6 +55,31 @@ jobs:
           "NUMERIC_VERSION=$numericVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           Write-Host "ThinkControl version: $version"
 
+      - name: Verify exact v3 branding inputs
+        shell: pwsh
+        run: |
+          $pairs = @(
+            @('assets/brand/v3/windows/ThinkControl.ico', 'src/ThinkControl.UI/Assets/ThinkControl.ico'),
+            @('assets/brand/v3/windows/ThinkControl_mark.ico', 'src/ThinkControl.UI/Assets/tray.ico'),
+            @('assets/brand/v3/wordmark/ThinkControl_wordmark_outlined_dark.svg', 'docs/assets/thinkcontrol-logo-dark.svg'),
+            @('assets/brand/v3/wordmark/ThinkControl_wordmark_outlined_light.svg', 'docs/assets/thinkcontrol-logo-light.svg')
+          )
+          foreach ($pair in $pairs) {
+            $source = (Get-FileHash $pair[0] -Algorithm SHA256).Hash
+            $target = (Get-FileHash $pair[1] -Algorithm SHA256).Hash
+            if ($source -ne $target) {
+              throw "Branding drift: $($pair[1]) is not the exact v3 source asset."
+            }
+          }
+
+          $brandMark = Get-Content 'src/ThinkControl.UI/Controls/BrandMark.xaml' -Raw
+          if ($brandMark -match 'Canvas Width="64"' -or $brandMark -match 'M7,9') {
+            throw 'Legacy hand-drawn TC geometry is still present in BrandMark.xaml.'
+          }
+          if ($brandMark -notmatch 'Canvas Width="1536"' -or $brandMark -notmatch 'Canvas.Left="1219.07"') {
+            throw 'BrandMark.xaml does not contain the exact v3 master geometry.'
+          }
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
@@ -84,7 +117,7 @@ jobs:
             -p:DebugSymbols=false `
             -o artifacts/service
 
-      - name: Verify compact payloads
+      - name: Verify compact managed payloads
         shell: pwsh
         run: |
           $ui = "artifacts/ui/ThinkControl.UI.exe"
@@ -104,39 +137,68 @@ jobs:
             throw "Framework-dependent payload unexpectedly exceeds 30 MB; investigate duplicated/bundled runtime files."
           }
 
+      - name: Create release payload archive
+        shell: pwsh
+        run: |
+          $root = "artifacts/payload-root"
+          $installerDir = "artifacts/installer"
+          New-Item "$root/ui" -ItemType Directory -Force | Out-Null
+          New-Item "$root/service" -ItemType Directory -Force | Out-Null
+          New-Item $installerDir -ItemType Directory -Force | Out-Null
+          Copy-Item "artifacts/ui/*" "$root/ui" -Recurse -Force
+          Copy-Item "artifacts/service/*" "$root/service" -Recurse -Force
+
+          $payloadFile = "ThinkControl-Payload-$env:APP_VERSION.zip"
+          $payloadPath = Join-Path $installerDir $payloadFile
+          Compress-Archive -Path "$root/*" -DestinationPath $payloadPath -CompressionLevel Optimal -Force
+
+          $payload = Get-Item $payloadPath
+          $hash = (Get-FileHash $payload.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $url = "https://github.com/Hugowhitee/ThinkControl/releases/download/v$env:SOURCE_VERSION/$payloadFile"
+          Write-Host "Payload: $payloadFile - $([math]::Round($payload.Length / 1MB, 2)) MB"
+          if ($payload.Length -gt 20MB) {
+            throw "Compressed ThinkControl payload exceeds the 20 MB budget."
+          }
+
+          "PAYLOAD_FILE=$payloadFile" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_PATH=$($payload.FullName)" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_SHA256=$hash" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_URL=$url" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y
 
-      - name: Build installer
+      - name: Build web bootstrap installer
         shell: pwsh
         run: |
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found" }
-          $ui = (Resolve-Path "artifacts/ui").Path
-          $service = (Resolve-Path "artifacts/service").Path
           & $iscc `
             "/DAppVersion=$env:APP_VERSION" `
             "/DNumericVersion=$env:NUMERIC_VERSION" `
-            "/DUiSourceDir=$ui" `
-            "/DServiceSourceDir=$service" `
+            "/DPayloadFile=$env:PAYLOAD_FILE" `
+            "/DPayloadUrl=$env:PAYLOAD_URL" `
+            "/DPayloadSha256=$env:PAYLOAD_SHA256" `
             "installer/ThinkControl.iss"
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
 
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
           if ($null -eq $setup) { throw "Installer was not produced" }
-          Write-Host "Installer: $($setup.Name) - $([math]::Round($setup.Length / 1MB, 2)) MB"
-          if ($setup.Length -gt 20MB) {
-            throw "ThinkControl installer exceeds the 20 MB compact-installer budget."
+          Write-Host "Bootstrap installer: $($setup.Name) - $([math]::Round($setup.Length / 1MB, 2)) MB"
+          if ($setup.Length -gt 5MB) {
+            throw "ThinkControl bootstrap installer exceeds the 5 MB hard budget. The application payload must not be embedded."
           }
 
-      - name: Smoke-test installer and service lifecycle
+      - name: Smoke-test bootstrap payload and service lifecycle
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $serviceName = 'ThinkControlService'
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          $payload = Get-Item $env:PAYLOAD_PATH
           if ($null -eq $setup) { throw "Installer missing" }
+          if (-not $payload.Exists) { throw "Payload missing" }
 
           $smokeDir = Join-Path $env:TEMP "ThinkControlInstallerSmoke"
 
@@ -181,13 +243,16 @@ jobs:
             Remove-SmokeService
             Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
 
-            Write-Host "[smoke] Installing $($setup.Name) into $smokeDir"
+            Write-Host "[smoke] Installing $($setup.Name) using external verified payload $($payload.Name)"
+            $payloadArg = "/PAYLOAD=`"$($payload.FullName)`""
+            $dirArg = "/DIR=`"$smokeDir`""
             $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
               "/VERYSILENT",
               "/SUPPRESSMSGBOXES",
               "/NORESTART",
               "/SP-",
-              "/DIR=$smokeDir"
+              $dirArg,
+              $payloadArg
             ) -Wait -PassThru
             Write-Host "[smoke] Installer exit code: $($install.ExitCode)"
             if ($install.ExitCode -ne 0) { throw "Silent install failed with exit code $($install.ExitCode)" }
@@ -195,12 +260,10 @@ jobs:
             $ui = Join-Path $smokeDir "ui\ThinkControl.UI.exe"
             $serviceExe = Join-Path $smokeDir "service\ThinkControl.Service.exe"
             $uninstaller = Join-Path $smokeDir "unins000.exe"
-            Write-Host "[smoke] Verifying installed payload"
             if (-not (Test-Path $ui)) { throw "Installed UI executable not found at $ui" }
             if (-not (Test-Path $serviceExe)) { throw "Installed service executable not found at $serviceExe" }
             if (-not (Test-Path $uninstaller)) { throw "Uninstaller not found at $uninstaller" }
 
-            Write-Host "[smoke] Waiting for $serviceName to reach Running"
             $service = $null
             $deadline = (Get-Date).AddSeconds(20)
             do {
@@ -210,9 +273,6 @@ jobs:
                 Write-Host "[smoke] Service status: $($service.Status)"
                 if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) { break }
               }
-              else {
-                Write-Host "[smoke] Service not registered yet"
-              }
               Start-Sleep -Milliseconds 750
             } while ((Get-Date) -lt $deadline)
 
@@ -221,22 +281,18 @@ jobs:
               throw "$serviceName did not reach Running state"
             }
 
-            Write-Host "[smoke] Service is running; uninstalling"
             $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
               "/VERYSILENT",
               "/SUPPRESSMSGBOXES",
               "/NORESTART"
             ) -Wait -PassThru
-            Write-Host "[smoke] Uninstaller exit code: $($uninstall.ExitCode)"
             if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed with exit code $($uninstall.ExitCode)" }
 
-            Write-Host "[smoke] Waiting for service registration to disappear"
             $deadline = (Get-Date).AddSeconds(20)
             $serviceAfter = $null
             do {
               $serviceAfter = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
               if ($null -eq $serviceAfter) { break }
-              Write-Host "[smoke] Service still present with status $($serviceAfter.Status)"
               Start-Sleep -Milliseconds 500
             } while ((Get-Date) -lt $deadline)
 
@@ -247,7 +303,7 @@ jobs:
               throw "$serviceName remained registered after uninstall"
             }
 
-            Write-Host "[smoke] Installer/service lifecycle passed"
+            Write-Host "[smoke] Web bootstrap + payload + service lifecycle passed"
           }
           catch {
             Write-Host "[smoke] FAILURE: $($_.Exception.Message)"
@@ -259,20 +315,26 @@ jobs:
             Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
           }
 
-      - name: Create checksum
+      - name: Create checksums
         shell: pwsh
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  $($setup.Name)" | Set-Content "artifacts/installer/SHA256SUMS.txt" -Encoding ascii
+          $payload = Get-Item $env:PAYLOAD_PATH
+          $lines = @()
+          foreach ($file in @($setup, $payload)) {
+            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $lines += "$hash  $($file.Name)"
+          }
+          $lines | Set-Content "artifacts/installer/SHA256SUMS.txt" -Encoding ascii
 
       - name: Upload development artifact
         if: env.VERSIONED_RELEASE == '0'
         uses: actions/upload-artifact@v4
         with:
-          name: ThinkControl-Setup-${{ env.APP_VERSION }}
+          name: ThinkControl-${{ env.APP_VERSION }}
           path: |
             artifacts/installer/ThinkControl-Setup-*.exe
+            artifacts/installer/ThinkControl-Payload-*.zip
             artifacts/installer/SHA256SUMS.txt
           if-no-files-found: error
 
@@ -283,9 +345,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          $payload = Get-Item $env:PAYLOAD_PATH
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,
+            $payload.FullName,
             'artifacts/installer/SHA256SUMS.txt',
             '--title', "ThinkControl v$env:APP_VERSION",
             '--generate-notes'
