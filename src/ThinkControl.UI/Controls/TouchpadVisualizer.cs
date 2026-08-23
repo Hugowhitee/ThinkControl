@@ -19,7 +19,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
     public TouchpadVisualizer()
     {
-        MinHeight = 260;
+        MinHeight = 250;
         Cursor = WpfCursors.Hand;
     }
 
@@ -57,30 +57,34 @@ public sealed class TouchpadVisualizer : FrameworkElement
         Brush surface = ResourceBrush("Tc.SurfaceAlt", Brushes.DimGray);
         Brush border = ResourceBrush("Tc.BorderStrong", Brushes.Gray);
         Brush muted = ResourceBrush("Tc.TextMuted", Brushes.Gray);
+        Brush faint = ResourceBrush("Tc.TextFaint", Brushes.Gray);
         Brush accent = ResourceBrush("Tc.Accent", Brushes.Red);
+        Brush text = ResourceBrush("Tc.Text", Brushes.White);
 
         Rect pad = PadRect();
-        dc.DrawRoundedRectangle(surface, new Pen(border, 1), pad, 8, 8);
+        dc.DrawRoundedRectangle(surface, new Pen(border, 1), pad, 10, 10);
 
-        DrawEdge(dc, pad, TouchpadEdge.Left, accent, border, muted);
-        DrawEdge(dc, pad, TouchpadEdge.Right, accent, border, muted);
-        DrawEdge(dc, pad, TouchpadEdge.Top, accent, border, muted);
-        DrawEdge(dc, pad, TouchpadEdge.Bottom, accent, border, muted);
+        // Keep the four selectors physically separated. The previous edge-width
+        // overlays met at the corners and visually read as intersecting lines.
+        DrawSelector(dc, pad, TouchpadEdge.Top, accent, muted, faint, text);
+        DrawSelector(dc, pad, TouchpadEdge.Left, accent, muted, faint, text);
+        DrawSelector(dc, pad, TouchpadEdge.Right, accent, muted, faint, text);
+        DrawSelector(dc, pad, TouchpadEdge.Bottom, accent, muted, faint, text);
 
-        DrawLabel(dc, "TOUCHPAD", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 7),
+        DrawLabel(dc, "TOUCHPAD", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 8),
             11, muted, centered: true);
         string size = _geometry.PhysicalSizeEstimated
             ? $"~{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm"
             : $"{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm";
         DrawLabel(dc, size, new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 11),
-            9.5, muted, centered: true);
+            9.5, faint, centered: true);
 
         foreach (TouchContact contact in _contacts.Where(static c => c.IsDown))
         {
             double x = pad.Left + ((contact.X - _geometry.XLogicalMin) / (double)_geometry.XRange) * pad.Width;
             double y = pad.Top + ((contact.Y - _geometry.YLogicalMin) / (double)_geometry.YRange) * pad.Height;
             Brush dot = contact.Confidence ? accent : muted;
-            dc.DrawEllipse(dot, null, new WpfPoint(x, y), 5, 5);
+            dc.DrawEllipse(dot, null, new WpfPoint(x, y), 4.5, 4.5);
         }
 
         if (_signal is not null)
@@ -88,7 +92,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             string status = _signal.Phase.ToString();
             if (!string.IsNullOrWhiteSpace(_signal.Reason))
                 status += " · " + _signal.Reason;
-            DrawLabel(dc, status, new WpfPoint(pad.Left, pad.Bottom + 14), 10, muted);
+            DrawLabel(dc, status, new WpfPoint(pad.Left, pad.Bottom + 15), 9.5, muted);
         }
     }
 
@@ -114,51 +118,51 @@ public sealed class TouchpadVisualizer : FrameworkElement
         e.Handled = true;
     }
 
-    private void DrawEdge(
+    private void DrawSelector(
         DrawingContext dc,
         Rect pad,
         TouchpadEdge edge,
         Brush accent,
-        Brush border,
-        Brush muted)
+        Brush muted,
+        Brush faint,
+        Brush text)
     {
         TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
-        double widthPx = edge is TouchpadEdge.Left or TouchpadEdge.Right
-            ? Math.Clamp(_configuration.EdgeWidthMm / _geometry.EffectiveWidthMm * pad.Width, 4, pad.Width * 0.2)
-            : Math.Clamp(_configuration.EdgeWidthMm / _geometry.EffectiveHeightMm * pad.Height, 4, pad.Height * 0.22);
-
-        Rect zone = edge switch
-        {
-            TouchpadEdge.Left => new Rect(pad.Left, pad.Top, widthPx, pad.Height),
-            TouchpadEdge.Right => new Rect(pad.Right - widthPx, pad.Top, widthPx, pad.Height),
-            TouchpadEdge.Top => new Rect(pad.Left, pad.Top, pad.Width, widthPx),
-            _ => new Rect(pad.Left, pad.Bottom - widthPx, pad.Width, widthPx)
-        };
-
         bool selected = edge == _selectedEdge;
         bool enabled = binding.Action != GestureActionKind.Disabled;
-        Brush fill = TransparentClone(selected ? accent : border, selected ? 0.24 : enabled ? 0.10 : 0.035);
-        Pen pen = new(selected ? accent : border, selected ? 1.4 : 0.7);
-        dc.DrawRectangle(fill, pen, zone);
+
+        const double gap = 18;
+        const double inset = 7;
+        double thickness = selected ? 15 : 12;
+        Rect zone = edge switch
+        {
+            TouchpadEdge.Left => new Rect(pad.Left + inset, pad.Top + gap, thickness, Math.Max(1, pad.Height - gap * 2)),
+            TouchpadEdge.Right => new Rect(pad.Right - inset - thickness, pad.Top + gap, thickness, Math.Max(1, pad.Height - gap * 2)),
+            TouchpadEdge.Top => new Rect(pad.Left + gap, pad.Top + inset, Math.Max(1, pad.Width - gap * 2), thickness),
+            _ => new Rect(pad.Left + gap, pad.Bottom - inset - thickness, Math.Max(1, pad.Width - gap * 2), thickness)
+        };
+
+        Brush baseBrush = selected ? accent : enabled ? muted : faint;
+        Brush fill = TransparentClone(baseBrush, selected ? 0.82 : enabled ? 0.24 : 0.10);
+        dc.DrawRoundedRectangle(fill, null, zone, thickness / 2, thickness / 2);
 
         string label = ActionLabel(binding.Action);
+        Brush labelBrush = selected ? accent : enabled ? muted : faint;
         if (edge == TouchpadEdge.Top)
-            DrawLabel(dc, label, new WpfPoint(pad.Left + pad.Width / 2, pad.Top + widthPx + 8), 10, selected ? accent : muted, true);
+            DrawLabel(dc, label, new WpfPoint(pad.Left + pad.Width / 2, pad.Top + 34), 9.5, labelBrush, true);
         else if (edge == TouchpadEdge.Bottom)
-            DrawLabel(dc, label, new WpfPoint(pad.Left + pad.Width / 2, pad.Bottom - widthPx - 18), 10, selected ? accent : muted, true);
+            DrawLabel(dc, label, new WpfPoint(pad.Left + pad.Width / 2, pad.Bottom - 34), 9.5, labelBrush, true);
+        else if (edge == TouchpadEdge.Left)
+            DrawLabel(dc, label, new WpfPoint(pad.Left + 30, pad.Top + pad.Height / 2), 9.2, labelBrush, centered: true);
         else
-        {
-            double x = edge == TouchpadEdge.Left ? pad.Left + widthPx + 7 : pad.Right - widthPx - 7;
-            DrawLabel(dc, label, new WpfPoint(x, pad.Top + pad.Height / 2), 9.5, selected ? accent : muted,
-                centered: edge == TouchpadEdge.Left, rightAligned: edge == TouchpadEdge.Right);
-        }
+            DrawLabel(dc, label, new WpfPoint(pad.Right - 30, pad.Top + pad.Height / 2), 9.2, labelBrush, centered: true);
     }
 
     private Rect PadRect()
     {
         const double outerX = 34;
-        const double outerTop = 24;
-        const double bottomReserve = 46;
+        const double outerTop = 20;
+        const double bottomReserve = 40;
         double availableWidth = Math.Max(100, ActualWidth - outerX * 2);
         double availableHeight = Math.Max(80, ActualHeight - outerTop - bottomReserve);
         double aspect = _geometry.EffectiveWidthMm / _geometry.EffectiveHeightMm;
