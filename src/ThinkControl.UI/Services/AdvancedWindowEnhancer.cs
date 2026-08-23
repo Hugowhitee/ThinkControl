@@ -70,7 +70,7 @@ internal static class AdvancedWindowEnhancer
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch
+            HorizontalContentAlignment = HorizontalAlignment.Center
         };
         var panel = new TouchpadPanel
         {
@@ -149,9 +149,6 @@ internal static class AdvancedWindowEnhancer
 
     private static void ApplyResponsiveLayout(AdvancedWindow window)
     {
-        // Headless snapshot windows have Width set but ActualWidth remains zero until
-        // the visual tree is arranged. Falling back to Width makes snapshot rendering
-        // exercise the same wide/maximized layout that a real SizeChanged event uses.
         double windowWidth = window.ActualWidth > 1 ? window.ActualWidth : window.Width;
         double available = Math.Max(620, windowWidth - 198);
         bool wide = available >= 1200;
@@ -165,19 +162,24 @@ internal static class AdvancedWindowEnhancer
 
         if (window.Resources[TouchpadPageName] is ScrollViewer touchpad && touchpad.Content is FrameworkElement content)
         {
-            touchpad.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            content.MaxWidth = wide ? 1260 : Math.Min(1040, available);
+            double target = Math.Min(wide ? 1260 : Math.Min(1040, available), available);
+            touchpad.HorizontalContentAlignment = HorizontalAlignment.Center;
+            content.Width = Math.Max(620, target);
+            content.MaxWidth = 1260;
             content.HorizontalAlignment = HorizontalAlignment.Stretch;
         }
     }
 
-    private static void SetContentWidth(AdvancedWindow window, string scrollName, double maxWidth)
+    private static void SetContentWidth(AdvancedWindow window, string scrollName, double targetWidth)
     {
         if (window.FindName(scrollName) is not ScrollViewer scroll || scroll.Content is not FrameworkElement content)
             return;
 
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        content.MaxWidth = Math.Max(620, maxWidth);
+        double available = Math.Max(620, (window.ActualWidth > 1 ? window.ActualWidth : window.Width) - 198);
+        double target = Math.Min(Math.Max(620, targetWidth), available);
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Center;
+        content.Width = target;
+        content.MaxWidth = target;
         content.HorizontalAlignment = HorizontalAlignment.Stretch;
     }
 
