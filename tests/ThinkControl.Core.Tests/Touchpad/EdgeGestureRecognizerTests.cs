@@ -21,6 +21,19 @@ public sealed class EdgeGestureRecognizerTests
     }
 
     [Fact]
+    public void ContactStartedAwayFromEdge_CannotBecomeGestureUntilLift()
+    {
+        var recognizer = Create();
+        Assert.Null(recognizer.ProcessFrame([Contact(1, 6750, 4000)], X9Geometry));
+        Assert.Null(recognizer.ProcessFrame([Contact(1, 13300, 4000)]));
+        Assert.Null(recognizer.ProcessFrame([Contact(1, 13300, 3600)]));
+
+        recognizer.ProcessFrame([]);
+        GestureSignal? afterLift = recognizer.ProcessFrame([Contact(2, 13300, 4000)]);
+        Assert.Equal(GesturePhase.Candidate, afterLift?.Phase);
+    }
+
+    [Fact]
     public void RightEdgeVerticalMovement_ClaimsBrightness()
     {
         var recognizer = Create();
