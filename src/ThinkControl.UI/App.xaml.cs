@@ -27,7 +27,7 @@ public partial class App : System.Windows.Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        ThemeService.Apply(ThemeMode.System);
+        ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.System);
 
         CompactWindow = new MainWindow(this) { DataContext = State };
         MainWindow = CompactWindow;
