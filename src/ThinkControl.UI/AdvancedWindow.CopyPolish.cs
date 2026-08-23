@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI;
 
@@ -13,7 +14,7 @@ public partial class AdvancedWindow
             return;
         _copyPolishConfigured = true;
 
-        foreach (Button button in FindVisualChildren<Button>(this))
+        foreach (WpfButton button in FindVisualChildren<WpfButton>(this))
         {
             if (button.Content is string text &&
                 text.Contains("Commercial Vantage", StringComparison.OrdinalIgnoreCase))
