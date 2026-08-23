@@ -1,189 +1,123 @@
-# Device support model
+# Device support
 
-## Principle
+> **Applies to ThinkControl `v0.1.0-alpha.1`.** This page describes what the current executable actually does. Future compatibility ideas live in the roadmap, not in the support table.
 
-**Capabilities, not assumptions — but the UI should not punish an unvalidated device.**
+ThinkControl keeps the same main product areas visible across Windows laptops, but hardware-specific controls are only enabled when the current build has a backend that is safe to use on that device.
 
-ThinkControl exposes the same product areas across compatible Windows laptops wherever practical. Device validation controls whether a low-level backend is trusted to perform hardware writes; it does not turn the application into a stripped-down edition.
+## Current support matrix
 
-A device can be in one of three compatibility states:
+| Device | Machine type | Windows-level features | Fan telemetry/control | Keyboard backlight | Status in `alpha.1` |
+| --- | --- | --- | --- | --- | --- |
+| **Lenovo ThinkPad X9-15 Gen 1** | **21Q6 / 21Q7** | Available where Windows exposes them | X9 EC backend implemented | Lenovo PM backend implemented | **Reference device · on-device alpha validation still required** |
+| Other ThinkPads | varies | Available where Windows exposes them | **Not enabled in alpha.1** | **Not enabled in alpha.1** | Not validated |
+| Other Lenovo laptops | varies | Available where Windows exposes them | Not enabled | Not enabled | Not validated |
+| Other Windows laptops | varies | Available where Windows exposes them | Lenovo-specific backend unavailable | Lenovo-specific backend unavailable | Not validated |
 
-- **Verified** — this exact device/profile and backend have passed on-device validation.
-- **Experimental** — the device exposes a known provider/backend and safe probes pass, but the combination has not completed full validation yet.
-- **Not validated** — ThinkControl does not yet have enough evidence to trust model-specific writes.
+The application is not a separate “lite edition” on an unvalidated machine: Performance, Fans, Display, Keyboard, Battery, System, Updates and Settings remain visible. In the current alpha, however, an unavailable low-level provider is shown as unavailable rather than being enabled speculatively.
 
-The status is visible in the app. It is not treated as a fatal startup error.
+That distinction matters: **same UI does not mean blind hardware writes.**
 
-## Identity inputs
+## What works without a model-specific ThinkPad backend
 
-Read-only identity may use:
+These capabilities use Windows APIs/telemetry and can work on any Windows laptop that exposes the relevant interface:
 
-- SMBIOS manufacturer
-- product family/name
-- machine type/model
-- BIOS version
-- ACPI device IDs
-- presence/version of Lenovo services and drivers
-- supported Windows display modes
-- presence of PawnIO
+- Quiet / Balanced / Performance Windows power mode;
+- display refresh-rate selection;
+- automatic 60 Hz / maximum refresh policy;
+- internal-panel brightness;
+- adaptive brightness where Windows/platform support exists;
+- battery percentage and AC/battery state;
+- live charge/discharge rate in watts when ACPI battery telemetry exposes it;
+- remaining/full battery energy in Wh and health where available;
+- smoothed charge/discharge ETA;
+- CPU/system temperature through safe read-only sensor providers where available;
+- themes, tray operation, updates, startup settings and diagnostics.
 
-Unique serials are not needed for feature matching and must not be collected for compatibility telemetry.
+If Windows does not expose a value, ThinkControl shows it as unavailable instead of inventing one.
 
-## Profile matching
+## ThinkPad X9-15 Gen 1 · 21Q6 / 21Q7
 
-A bundled profile contains stable identifiers and verification facts. Example:
+The current low-level service explicitly recognizes Lenovo machine types `21Q6` and `21Q7` before allowing X9-specific writes.
 
-```text
-Manufacturer: LENOVO
-Family: ThinkPad
-Product: ThinkPad X9-15 Gen 1
-Machine types: 21Q6, 21Q7
-Compatibility: Verified
-```
+| Capability | Alpha.1 implementation |
+| --- | --- |
+| Fan RPM | Read from X9 EC tachometer registers `0x84/0x85`; polling is deliberately sparse |
+| Fan state | Read from X9 EC register `0x2F` |
+| Lenovo Auto | Write `0x80` and verify read-back |
+| Manual fan control | Discrete levels `1` through `7`; duplicate writes are suppressed |
+| Fan off | `0x00` is blocked |
+| Unverified override | `0x40` family is never written |
+| Service exit | Manual ownership is returned to Lenovo Auto during normal service shutdown/disposal |
+| Keyboard Off / Low / High | Lenovo PM driver backend with read-after-write verification |
+| Keyboard Auto | ThinkControl user-session policy over Off / Low / High |
+| Breathing | Rate-limited Low ↔ High policy; uses Lenovo's own transition behavior if firmware fades between levels |
+| Reactive | Local keyboard-activity pulse; typed key contents are not stored |
+| Audio | Experimental local loopback RMS response; audio samples are not stored |
 
-Profiles and providers are versioned. A remote catalog may update support metadata, labels and read-only compatibility facts, but downloaded data must never become arbitrary executable EC/IOCTL instructions.
+The code and installer build successfully in CI, but **the current ThinkControl service/UI combination still needs a final physical alpha pass on the reference X9 before this backend should be called release-validated**. That pass includes RPM visibility, levels `1–7`, Lenovo Auto recovery, keyboard levels/effects, sleep/resume and uninstall/service cleanup on the actual machine.
 
-## Capability examples
+## What “Experimental” means
 
-- PerformanceMode
-- LenovoThermalPolicy
-- CpuTemperature
-- FanRpm
-- FanControl
-- KeyboardBacklight
-- DisplayRefresh
-- AdaptiveBrightness
-- BatteryTelemetry
-- BatteryChargeThreshold
+ThinkControl has compatibility-state types for `Verified`, `Experimental` and `Not validated`, and diagnostics are designed to collect evidence for future devices.
 
-Each capability exposes its support state and provenance. Example:
+**In `v0.1.0-alpha.1`, ThinkControl does not yet automatically promote unknown ThinkPads into writable Experimental fan/keyboard providers.** The current production low-level controller is still X9-gated.
 
-```text
-FanRpm
-State: Verified
-Provider: ThinkPad EC
-Source: EC 0x84/0x85
-```
+A future provider may become Experimental only when it is compiled into ThinkControl and has all of the following:
 
-An experimental provider can instead report:
+1. a non-destructive/read-only discovery path;
+2. structurally valid and plausible returned state;
+3. conflict detection where relevant;
+4. known semantic writes rather than arbitrary register/IOCTL access;
+5. mandatory verification/read-back where applicable;
+6. a defined restore/fail-safe path.
 
-```text
-KeyboardBacklight
-State: Experimental
-Provider: IBMPmDrv
-Health check: expected level state returned
-Write verification: required
-```
+This future expansion must happen provider by provider. A remote metadata file can never turn arbitrary EC addresses or IOCTLs into executable writes.
 
-For fallback temperature:
+## Device identification
 
-```text
-Temperature
-State: SafeReadOnly
-Provider: Windows thermal zone
-Label: System thermal sensor — approximate
-```
+Compatibility matching may use non-unique hardware information such as:
 
-Never label an ACPI thermal-zone value as `CPU Package`.
+- manufacturer;
+- model/product name;
+- machine type/model code;
+- BIOS version when relevant;
+- ACPI device IDs;
+- presence/version of required providers;
+- Windows display capabilities.
 
-## Provider selection
+ThinkControl does not need a laptop serial number, asset tag, MAC address or disk serial for support matching.
 
-A device profile does not perform I/O itself. It authorizes a compiled provider to run an allowlisted health check. Provider code owns the exact hardware contract and safety rules.
+## Diagnostics for unsupported devices
 
-A provider can become usable on an unvalidated device only when all of the following are true:
+The current app includes:
 
-1. the provider is compiled into ThinkControl and explicitly marked as eligible for experimental probing;
-2. probing is read-only or otherwise documented as non-destructive;
-3. returned state is structurally valid and plausible;
-4. no conflicting hardware controller is detected;
-5. any eventual write operation has a known semantic meaning and mandatory read-back verification;
-6. the provider has a defined fail-safe / restore path.
+- bounded local diagnostic event recording;
+- redaction/allowlisting;
+- Preview data;
+- Export support bundle;
+- Delete local diagnostics;
+- a structured GitHub bug-report form.
 
-Passing a probe can move a capability from **Not validated** to **Experimental**. It does not make the entire laptop automatically Verified.
+Automatic upload to the planned private diagnostics inbox is **not implemented yet**, so `Send diagnostics now` remains unavailable until a project-side endpoint exists. No GitHub PAT or private-repository credential is embedded in the desktop app.
 
-## Unvalidated-device behavior
+See [Diagnostics and privacy](DIAGNOSTICS.md).
 
-A Not validated laptop still sees the normal ThinkControl areas:
+## Reporting a device
 
-```text
-Performance
-Fans
-Display
-Keyboard
-Battery
-System
-Updates
-Diagnostics
-Settings
-```
+Use the structured issue form:
 
-Windows-level features work whenever Windows exposes them. Hardware-specific sections remain visible and explain their current compatibility state instead of disappearing.
+[Open a ThinkControl bug report](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)
 
-Examples:
+The form supports common ThinkPad families plus **Other ThinkPad**, **Other Lenovo** and **Other laptop / PC**, followed by a free-form exact model field. Screenshots and exported support bundles can be attached when useful.
 
-```text
-Display refresh         available if OS supports it
-Brightness              available if OS supports it
-Battery telemetry       available if Windows exposes it
-CPU telemetry           safe provider where available
-Fan RPM                 probe known read-only providers
-Fan control             Experimental only after a provider-specific health check; never arbitrary EC writes
-Keyboard backlight      Experimental only after known provider read + write/read-back verification
-Unknown raw EC writes   never exposed
-Unknown raw IOCTLs      never exposed
-```
+## Compatibility roadmap
 
-The target UX is therefore "same app, transparent confidence" rather than "supported laptop gets all features, everyone else gets a crippled app".
+After the X9 alpha is physically validated, compatibility work can expand in this order:
 
-## Compatibility diagnostics
+1. identify ThinkPads that expose an already-known provider;
+2. add safe read-only probes and diagnostics;
+3. validate telemetry on real machines;
+4. enable writes only for provider/device combinations with read-back and recovery evidence;
+5. promote those capabilities from Not validated → Experimental → Verified.
 
-ThinkControl can help grow device support without requiring every user to manually file a report.
-
-On a Not validated device, the app should offer **Help validate this device** during the compatibility check. With explicit consent, ThinkControl may keep a small local rolling diagnostic history and submit redacted compatibility summaries to a private diagnostics inbox.
-
-Useful compatibility facts include:
-
-- normal device/product name and non-unique machine type
-- ThinkControl version/channel
-- Windows version/build
-- capability/provider name
-- provider present / absent
-- health-check outcome
-- semantic operation success/failure
-- read-back verification result
-- operation duration / timeout class
-- reasonable telemetry ranges such as temperature or RPM range
-- sleep/resume recovery outcome
-
-Do not collect or upload:
-
-- serial number
-- asset tag
-- Windows username
-- hostname
-- email/account identifiers
-- MAC addresses
-- disk serials
-- personal paths or filenames
-- typed keys or key contents
-- audio samples
-- unrelated process/window contents
-
-See `docs/DIAGNOSTICS.md` for the full privacy and transport design.
-
-## Private diagnostics submission
-
-A public GitHub repository does not provide a private subfolder for incoming user logs. Detailed submissions therefore use a separate private diagnostics inbox, ideally a private repository owned by the project.
-
-The production path is:
-
-1. ThinkControl gathers only allowlisted compatibility events locally;
-2. redaction runs on-device;
-3. the user can preview what will be sent;
-4. diagnostics upload requires explicit opt-in;
-5. ThinkControl POSTs the redacted bundle to a tiny project submission service;
-6. the service authenticates with a GitHub App server-side;
-7. the service creates or updates an item in the private diagnostics repository;
-8. no GitHub PAT or private-repository credential is ever embedded in the desktop app.
-
-For ordinary bugs that do not need private logs, the public repository uses `.github/ISSUE_TEMPLATE/bug-report.yml`.
+The goal remains broad ThinkPad support, but the support table above is the authoritative description of what the current build does today.
