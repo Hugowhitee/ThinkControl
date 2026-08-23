@@ -1,10 +1,11 @@
+using ThinkControl.Core.Diagnostics;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
 
 public partial class App
 {
-    private async void PowerModeService_ModeApplied(object? sender, ThinkControlPowerMode mode)
+    private async void PowerModeService_ModeApplied(ThinkControlPowerMode mode)
     {
         DeviceValidationState validation = GetDeviceValidationState(State.MachineType, _manufacturer, State.DeviceName);
         if (validation != DeviceValidationState.Verified)
