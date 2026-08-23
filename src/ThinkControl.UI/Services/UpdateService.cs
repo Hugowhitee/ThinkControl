@@ -11,50 +11,69 @@ public sealed record UpdateCheckResult(bool Available, string Status, string? Ve
 
 public sealed class UpdateService
 {
-    private const string LatestReleaseEndpoint = "https://api.github.com/repos/Hugowhitee/ThinkControl/releases/latest";
+    private const string ReleasesEndpoint = "https://api.github.com/repos/Hugowhitee/ThinkControl/releases?per_page=10";
     private readonly HttpClient _httpClient;
 
     public UpdateService()
     {
         _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ThinkControl", CurrentVersion));
+        _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ThinkControl", SanitizeUserAgentVersion(CurrentVersion)));
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
 
-    public static string CurrentVersion =>
-        Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.1.0";
+    public static string CurrentVersion
+    {
+        get
+        {
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            string? informational = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            if (!string.IsNullOrWhiteSpace(informational))
+                return informational.Split('+')[0];
+
+            return assembly.GetName().Version?.ToString(3) ?? "0.1.0-alpha.1";
+        }
+    }
 
     public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            using HttpResponseMessage response = await _httpClient.GetAsync(LatestReleaseEndpoint, cancellationToken);
+            using HttpResponseMessage response = await _httpClient.GetAsync(ReleasesEndpoint, cancellationToken);
             if (!response.IsSuccessStatusCode)
-            {
-                string reason = response.StatusCode == System.Net.HttpStatusCode.NotFound
-                    ? "Release channel is not publicly reachable yet"
-                    : $"GitHub returned {(int)response.StatusCode}";
-                return new(false, reason);
-            }
+                return new(false, $"GitHub returned {(int)response.StatusCode}");
 
             await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using JsonDocument json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
-            string? tag = json.RootElement.TryGetProperty("tag_name", out JsonElement tagElement)
-                ? tagElement.GetString()
-                : null;
-            string? url = json.RootElement.TryGetProperty("html_url", out JsonElement urlElement)
-                ? urlElement.GetString()
-                : null;
+            if (json.RootElement.ValueKind != JsonValueKind.Array)
+                return new(false, "Release channel returned an unexpected response");
 
-            if (string.IsNullOrWhiteSpace(tag))
-                return new(false, "No release version returned");
+            SemanticVersion current = SemanticVersion.Parse(CurrentVersion);
+            bool allowPrerelease = current.PreRelease.Count > 0;
 
-            Version current = ParseVersion(CurrentVersion);
-            Version latest = ParseVersion(tag.TrimStart('v', 'V'));
-            bool available = latest > current;
-            return new(available, available ? $"{tag} is available" : $"Up to date · {tag}", tag, url);
+            foreach (JsonElement release in json.RootElement.EnumerateArray())
+            {
+                bool draft = release.TryGetProperty("draft", out JsonElement draftElement) && draftElement.GetBoolean();
+                bool prerelease = release.TryGetProperty("prerelease", out JsonElement prereleaseElement) && prereleaseElement.GetBoolean();
+                if (draft || (prerelease && !allowPrerelease))
+                    continue;
+
+                string? tag = release.TryGetProperty("tag_name", out JsonElement tagElement) ? tagElement.GetString() : null;
+                string? url = release.TryGetProperty("html_url", out JsonElement urlElement) ? urlElement.GetString() : null;
+                if (string.IsNullOrWhiteSpace(tag))
+                    continue;
+
+                SemanticVersion latest = SemanticVersion.Parse(tag.TrimStart('v', 'V'));
+                bool available = latest.CompareTo(current) > 0;
+                return new(
+                    available,
+                    available ? $"{tag} is available" : $"Up to date · {tag}",
+                    tag,
+                    url);
+            }
+
+            return new(false, "No compatible public release found");
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or FormatException)
         {
             return new(false, "Could not reach the release channel");
         }
@@ -68,9 +87,67 @@ public sealed class UpdateService
         Process.Start(new ProcessStartInfo(result.Url) { UseShellExecute = true });
     }
 
-    private static Version ParseVersion(string raw)
+    private static string SanitizeUserAgentVersion(string version)
     {
-        string stablePart = raw.Split('-', '+')[0];
-        return Version.TryParse(stablePart, out Version? version) ? version : new Version(0, 0, 0);
+        string sanitized = new(version.Where(ch => char.IsLetterOrDigit(ch) || ch is '.' or '-' or '_').ToArray());
+        return string.IsNullOrWhiteSpace(sanitized) ? "0.1.0" : sanitized;
+    }
+
+    private sealed record SemanticVersion(int Major, int Minor, int Patch, IReadOnlyList<string> PreRelease) : IComparable<SemanticVersion>
+    {
+        internal static SemanticVersion Parse(string raw)
+        {
+            string withoutBuild = raw.Split('+')[0];
+            string[] versionAndPre = withoutBuild.Split('-', 2);
+            string[] core = versionAndPre[0].Split('.');
+            if (core.Length < 3 ||
+                !int.TryParse(core[0], out int major) ||
+                !int.TryParse(core[1], out int minor) ||
+                !int.TryParse(core[2], out int patch))
+            {
+                throw new FormatException($"Invalid semantic version '{raw}'.");
+            }
+
+            IReadOnlyList<string> pre = versionAndPre.Length == 2
+                ? versionAndPre[1].Split('.', StringSplitOptions.RemoveEmptyEntries)
+                : Array.Empty<string>();
+            return new SemanticVersion(major, minor, patch, pre);
+        }
+
+        public int CompareTo(SemanticVersion? other)
+        {
+            if (other is null) return 1;
+            int core = Major.CompareTo(other.Major);
+            if (core == 0) core = Minor.CompareTo(other.Minor);
+            if (core == 0) core = Patch.CompareTo(other.Patch);
+            if (core != 0) return core;
+
+            if (PreRelease.Count == 0 && other.PreRelease.Count == 0) return 0;
+            if (PreRelease.Count == 0) return 1;
+            if (other.PreRelease.Count == 0) return -1;
+
+            int count = Math.Max(PreRelease.Count, other.PreRelease.Count);
+            for (int i = 0; i < count; i++)
+            {
+                if (i >= PreRelease.Count) return -1;
+                if (i >= other.PreRelease.Count) return 1;
+
+                string left = PreRelease[i];
+                string right = other.PreRelease[i];
+                bool leftNumeric = int.TryParse(left, out int leftNumber);
+                bool rightNumeric = int.TryParse(right, out int rightNumber);
+
+                int part = leftNumeric && rightNumeric
+                    ? leftNumber.CompareTo(rightNumber)
+                    : leftNumeric
+                        ? -1
+                        : rightNumeric
+                            ? 1
+                            : string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
+                if (part != 0) return part;
+            }
+
+            return 0;
+        }
     }
 }
