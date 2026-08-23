@@ -1,28 +1,35 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "id": "lenovo.thinkpad.x9-15-gen1",
   "displayName": "ThinkPad X9-15 Gen 1",
-  "status": "reference-machine",
+  "status": "verified-reference",
   "match": {
     "manufacturer": "LENOVO",
     "machineTypes": ["21Q6", "21Q7"]
   },
+  "providers": {
+    "windows": ["powerMode", "display", "brightness", "adaptiveBrightness", "batteryTelemetry"],
+    "keyboard": ["IBMPmDrv"],
+    "fanTelemetry": ["X9ThinkPadEc", "LENOVO_FAN_METHOD", "CIM_Tachometer"],
+    "fanControl": ["X9ThinkPadEc"],
+    "thermalPolicy": ["WindowsPowerMode", "LITSSVC-research-record"]
+  },
   "capabilities": {
-    "performanceMode": { "verification": "planned" },
+    "performanceMode": { "verification": "implemented-windows-api" },
     "lenovoThermalPolicy": { "verification": "research-verified" },
-    "cpuTemperature": { "verification": "planned" },
-    "fanRpm": { "verification": "research-verified" },
-    "fanControl": { "verification": "research-verified", "implementation": "disabled-in-v0.1" },
-    "keyboardBacklight": { "verification": "planned" },
-    "displayRefresh": { "verification": "planned-windows-api" },
-    "adaptiveBrightness": { "verification": "planned-windows-api" },
-    "batteryTelemetry": { "verification": "planned-read-only" }
+    "cpuTemperature": { "verification": "implemented-read-only-provider" },
+    "fanRpm": { "verification": "implemented-research-verified" },
+    "fanControl": { "verification": "implemented-research-verified", "implementation": "levels-1-7-plus-lenovo-auto" },
+    "keyboardBacklight": { "verification": "implemented-write-readback" },
+    "displayRefresh": { "verification": "implemented-windows-api" },
+    "adaptiveBrightness": { "verification": "implemented-windows-api-when-supported" },
+    "batteryTelemetry": { "verification": "implemented-read-only" }
   },
   "dependencies": {
     "hardwareAccess": {
       "pawnIo": {
-        "install": "recommended-when-verified-backend-enabled",
-        "capabilities": ["cpuTemperature", "fanRpm", "fanControl"]
+        "install": "required-for-direct-x9-ec-backend",
+        "capabilities": ["fanRpm", "fanControl"]
       }
     },
     "oemExpected": [
@@ -44,7 +51,8 @@
       "controlRegister": "0x2F",
       "tachometerRegisters": ["0x84", "0x85"],
       "lenovoAutoValue": "0x80",
-      "manualLevels": [1, 2, 3, 4, 5, 6, 7]
+      "manualLevels": [1, 2, 3, 4, 5, 6, 7],
+      "tachometerPolling": "sparse"
     },
     "lits": {
       "service": "LITSSVC",
@@ -53,7 +61,8 @@
     }
   },
   "safety": {
-    "hardwareWritesEnabled": false,
+    "hardwareWritesEnabled": true,
+    "hardwareWritesScope": "verified-x9-fan-and-readback-keyboard-contracts-only",
     "blockedFanValues": ["0x00", "0x40"],
     "remoteMetadataMayEnableWrites": false
   }
