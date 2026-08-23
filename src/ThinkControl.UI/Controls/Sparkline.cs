@@ -18,12 +18,48 @@ public sealed class Sparkline : FrameworkElement
         typeof(Sparkline),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender, OnValuesChanged));
 
+    public static readonly DependencyProperty MinimumProperty = DependencyProperty.Register(
+        nameof(Minimum),
+        typeof(double),
+        typeof(Sparkline),
+        new FrameworkPropertyMetadata(20d, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty MaximumProperty = DependencyProperty.Register(
+        nameof(Maximum),
+        typeof(double),
+        typeof(Sparkline),
+        new FrameworkPropertyMetadata(100d, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty AutoRangeProperty = DependencyProperty.Register(
+        nameof(AutoRange),
+        typeof(bool),
+        typeof(Sparkline),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
     private INotifyCollectionChanged? _collection;
 
     public IEnumerable? Values
     {
         get => (IEnumerable?)GetValue(ValuesProperty);
         set => SetValue(ValuesProperty, value);
+    }
+
+    public double Minimum
+    {
+        get => (double)GetValue(MinimumProperty);
+        set => SetValue(MinimumProperty, value);
+    }
+
+    public double Maximum
+    {
+        get => (double)GetValue(MaximumProperty);
+        set => SetValue(MaximumProperty, value);
+    }
+
+    public bool AutoRange
+    {
+        get => (bool)GetValue(AutoRangeProperty);
+        set => SetValue(AutoRangeProperty, value);
     }
 
     private static void OnValuesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -83,15 +119,26 @@ public sealed class Sparkline : FrameworkElement
             return;
         }
 
-        const double minTemp = 20;
-        const double maxTemp = 100;
+        double minimum = Minimum;
+        double maximum = Maximum;
+        if (AutoRange)
+        {
+            minimum = Math.Min(0, values.Min());
+            maximum = Math.Max(5, values.Max() * 1.12);
+        }
+        if (!double.IsFinite(minimum) || !double.IsFinite(maximum) || maximum <= minimum)
+        {
+            minimum = 0;
+            maximum = 1;
+        }
+
         var geometry = new StreamGeometry();
         using (StreamGeometryContext ctx = geometry.Open())
         {
             for (int i = 0; i < values.Count; i++)
             {
                 double x = values.Count == 1 ? 0 : i * width / (values.Count - 1d);
-                double normalized = Math.Clamp((values[i] - minTemp) / (maxTemp - minTemp), 0, 1);
+                double normalized = Math.Clamp((values[i] - minimum) / (maximum - minimum), 0, 1);
                 double y = height - normalized * height;
                 if (i == 0)
                     ctx.BeginFigure(new WpfPoint(x, y), false, false);
@@ -101,7 +148,12 @@ public sealed class Sparkline : FrameworkElement
         }
         geometry.Freeze();
 
-        var linePen = new MediaPen(accent, 1.6) { LineJoin = PenLineJoin.Round, StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
+        var linePen = new MediaPen(accent, 1.6)
+        {
+            LineJoin = PenLineJoin.Round,
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round
+        };
         dc.DrawGeometry(null, linePen, geometry);
     }
 
