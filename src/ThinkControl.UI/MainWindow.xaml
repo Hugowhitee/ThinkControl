@@ -33,7 +33,6 @@
                 <RowDefinition Height="54" />
             </Grid.RowDefinitions>
 
-            <!-- Header -->
             <Grid Grid.Row="0" shell:WindowChrome.IsHitTestVisibleInChrome="False">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -41,7 +40,7 @@
                     <ColumnDefinition Width="34" />
                 </Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock FontSize="22" FontWeight="SemiBold" LetterSpacing="-0.2">
+                    <TextBlock FontSize="22" FontWeight="SemiBold">
                         <Run Text="Think" /><Run Text="Control" />
                     </TextBlock>
                     <TextBlock Text="{Binding DeviceName}" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
@@ -50,7 +49,6 @@
                 <Button Grid.Column="2" Margin="6,0,0,0" Style="{StaticResource TcIconButton}" Content="×" Click="Hide_Click" ToolTip="Hide to tray" />
             </Grid>
 
-            <!-- Telemetry -->
             <Border Grid.Row="1" Style="{StaticResource TcSection}" Margin="0,0,0,8">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -79,7 +77,6 @@
                 </Grid>
             </Border>
 
-            <!-- Performance segment -->
             <Border Grid.Row="2" Style="{StaticResource TcSection}" Margin="0,0,0,8">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -109,7 +106,6 @@
                 </Grid>
             </Border>
 
-            <!-- Display is one coherent segment -->
             <Border Grid.Row="3" Style="{StaticResource TcSection}" Margin="0,0,0,8">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -144,7 +140,6 @@
                 </Grid>
             </Border>
 
-            <!-- Keyboard segment -->
             <Border Grid.Row="4" Style="{StaticResource TcSection}" Margin="0,0,0,8">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="25" /><RowDefinition Height="*" /></Grid.RowDefinitions>
@@ -165,7 +160,6 @@
                 </Grid>
             </Border>
 
-            <!-- Battery + fan quick status -->
             <Grid Grid.Row="5" Margin="0,0,0,8">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                 <Border Style="{StaticResource TcSection}" Padding="12" Margin="0,0,4,0" MouseLeftButtonUp="BatteryCard_Click" Cursor="Hand">
@@ -192,7 +186,6 @@
                 </Border>
             </Grid>
 
-            <!-- Footer -->
             <Grid Grid.Row="6">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="42" /><ColumnDefinition Width="42" /><ColumnDefinition Width="*" /><ColumnDefinition Width="44" /></Grid.ColumnDefinitions>
                 <Button Style="{StaticResource TcIconButton}" FontFamily="Segoe Fluent Icons" Content="&#xE713;" Click="OpenSettings_Click" ToolTip="Settings" />
