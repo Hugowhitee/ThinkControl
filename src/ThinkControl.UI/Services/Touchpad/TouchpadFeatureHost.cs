@@ -7,6 +7,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private readonly App _app;
     private readonly TouchpadGestureService _gestures;
     private readonly TouchpadHapticsService _haptics = new();
+    private readonly GestureOsdService _osd = new();
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
     private bool _disposed;
@@ -19,7 +20,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
             (TouchpadGestureConfiguration.Default with { Enabled = false });
 
         var actions = new GestureActionRouter(
-            new NativeInputService(),
+            new NativeInputService((label, value) =>
+                app.Dispatcher.BeginInvoke(new Action(() => _osd.Show(label, value)))),
             new MediaSessionService(),
             () => app.State.Brightness,
             QueueBrightness,
@@ -89,7 +91,11 @@ internal sealed class TouchpadFeatureHost : IDisposable
                 if (changed)
                 {
                     lastApplied = target;
-                    await _app.Dispatcher.InvokeAsync(() => _app.State.Brightness = target);
+                    await _app.Dispatcher.InvokeAsync(() =>
+                    {
+                        _app.State.Brightness = target;
+                        _osd.Show("Brightness", target);
+                    });
                 }
                 else
                 {
@@ -150,5 +156,6 @@ internal sealed class TouchpadFeatureHost : IDisposable
             return;
         _disposed = true;
         _gestures.Dispose();
+        _osd.Dispose();
     }
 }
