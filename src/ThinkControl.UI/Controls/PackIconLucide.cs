@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 
 namespace ThinkControl.UI.Controls;
@@ -9,7 +8,7 @@ namespace ThinkControl.UI.Controls;
 /// the historical PackIconLucide type name for XAML compatibility while ThinkControl
 /// migrates away from the external icon-pack dependency.
 /// </summary>
-public sealed class PackIconLucide : Control
+public sealed class PackIconLucide : System.Windows.Controls.Control
 {
     public static readonly DependencyProperty KindProperty = DependencyProperty.Register(
         nameof(Kind),
