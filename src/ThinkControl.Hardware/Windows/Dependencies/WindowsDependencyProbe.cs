@@ -30,7 +30,8 @@ public sealed class WindowsDependencyProbe
 
     public static HardwareReadiness EvaluateReadiness(
         IEnumerable<DependencyStatus> statuses,
-        bool pawnIoRequiredForVerifiedDevice)
+        bool pawnIoRequiredForVerifiedDevice,
+        IReadOnlySet<DependencyId>? expectedOemDependencies = null)
     {
         var byId = statuses.ToDictionary(status => status.Definition.Id);
 
@@ -40,16 +41,24 @@ public sealed class WindowsDependencyProbe
             return HardwareReadiness.NeedsAttention;
         }
 
-        // OEM components only elevate the whole-device state when the probe knows
-        // they are expected and positively reports a problem. Unknown means that
-        // the backend has not yet been verified and should simply stay disabled.
-        var oemProblem = byId.Values.Any(status =>
-            status.Definition.Requirement == DependencyRequirement.OemPlatform &&
-            status.State is DependencyState.Missing or DependencyState.Outdated or DependencyState.Unhealthy);
-
-        if (oemProblem)
+        // A component such as LITS may be valid on one ThinkPad family and absent
+        // by design on another. Only device-profile dependencies are allowed to
+        // elevate the whole-device state to NeedsAttention.
+        if (expectedOemDependencies is not null)
         {
-            return HardwareReadiness.NeedsAttention;
+            foreach (var id in expectedOemDependencies)
+            {
+                if (DependencyCatalog.Get(id).Requirement != DependencyRequirement.OemPlatform)
+                {
+                    continue;
+                }
+
+                if (byId.TryGetValue(id, out var status) &&
+                    status.State is DependencyState.Missing or DependencyState.Outdated or DependencyState.Unhealthy)
+                {
+                    return HardwareReadiness.NeedsAttention;
+                }
+            }
         }
 
         if (pawnIoRequiredForVerifiedDevice &&
