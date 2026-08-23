@@ -7,3 +7,5 @@ global using MessageBox = System.Windows.MessageBox;
 global using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
 global using RadioButton = System.Windows.Controls.RadioButton;
 global using UserControl = System.Windows.Controls.UserControl;
+global using Panel = System.Windows.Controls.Panel;
+global using Orientation = System.Windows.Controls.Orientation;
