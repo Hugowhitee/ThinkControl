@@ -9,6 +9,7 @@ public partial class App
     {
         HardwareClient.HardwareOperationCompleted += HardwareClient_HardwareOperationCompleted;
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
+        Startup += OnBootstrapStartup;
         Activated += OnTouchpadApplicationActivated;
         Exit += OnTouchpadApplicationExit;
     }
