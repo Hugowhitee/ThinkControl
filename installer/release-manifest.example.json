@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "version": "0.1.0-dev",
+  "channel": "dev",
+  "app": {
+    "url": "https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-dev/ThinkControl.zip",
+    "sha256": "REPLACE_WITH_RELEASE_SHA256"
+  },
+  "prerequisites": {
+    "dotnetDesktop": {
+      "major": 10,
+      "architecture": "x64",
+      "publisher": "Microsoft Corporation"
+    },
+    "pawnIo": {
+      "enabled": false,
+      "version": "2.2.0",
+      "url": "REPLACE_WITH_VERIFIED_OFFICIAL_RELEASE_ASSET",
+      "sha256": "REPLACE_WITH_INDEPENDENTLY_VERIFIED_SHA256",
+      "installArgs": "-install -silent",
+      "unrestricted": false
+    }
+  }
+}
