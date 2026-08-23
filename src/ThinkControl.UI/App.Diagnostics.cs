@@ -14,6 +14,7 @@ public partial class App
         InitializePowerProfileCoordinator();
         InitializeCoolingCoordinator();
         Startup += OnBootstrapStartup;
+        Startup += OnShellIconStartup;
         Activated += OnTouchpadApplicationActivated;
         Activated += OnHardwareSetupActivated;
         Exit += OnTouchpadApplicationExit;
