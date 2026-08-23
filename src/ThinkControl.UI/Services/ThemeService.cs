@@ -1,6 +1,8 @@
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Media;
+using MediaColor = System.Windows.Media.Color;
+using MediaColorConverter = System.Windows.Media.ColorConverter;
 
 namespace ThinkControl.UI.Services;
 
@@ -19,7 +21,7 @@ public static class ThemeService
     {
         Current = mode;
         bool light = mode == ThemeMode.Light || (mode == ThemeMode.System && SystemPrefersLight());
-        ResourceDictionary resources = Application.Current.Resources;
+        ResourceDictionary resources = System.Windows.Application.Current.Resources;
 
         SetBrush(resources, "Tc.Window", light ? "#F5F5F7" : "#101214");
         SetBrush(resources, "Tc.Surface", light ? "#FFFFFF" : "#171A1D");
@@ -51,6 +53,6 @@ public static class ThemeService
 
     private static void SetBrush(ResourceDictionary resources, string key, string color)
     {
-        resources[key] = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
+        resources[key] = new SolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString(color));
     }
 }
