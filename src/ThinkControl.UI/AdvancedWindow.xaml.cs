@@ -130,6 +130,14 @@ public partial class AdvancedWindow : Window
                 DataContext = DataContext
             });
         }
+
+        if (PageSettings.Content is System.Windows.Controls.StackPanel settingsRoot)
+        {
+            settingsRoot.Children.Add(new DiagnosticsPanel
+            {
+                DataContext = DataContext
+            });
+        }
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
