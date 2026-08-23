@@ -5,8 +5,10 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class TouchpadHidDevice : IDisposable
 {
+    private const int HidpOutput = 1;
     private const int HidpFeature = 2;
     private const ushort HidUsagePageHaptics = 0x000E;
+    private const ushort HidUsageHapticManualTrigger = 0x0021;
     private const ushort HidUsageHapticIntensity = 0x0023;
     private const ushort HidUsageButtonPressThreshold = 0x00B0;
 
@@ -120,7 +122,7 @@ internal sealed class TouchpadHidDevice : IDisposable
 
             bool supportsHapticFeedback = false;
             bool supportsClickForce = false;
-            ReadFeatureCapabilities(caps, preparsed, ref supportsHapticFeedback, ref supportsClickForce);
+            ReadHapticCapabilities(caps, preparsed, ref supportsHapticFeedback, ref supportsClickForce);
 
             bool estimated = widthMm <= 0 || heightMm <= 0;
             if (widthMm <= 0)
@@ -152,12 +154,41 @@ internal sealed class TouchpadHidDevice : IDisposable
         }
     }
 
-    private static void ReadFeatureCapabilities(
+    private static void ReadHapticCapabilities(
         TouchpadNativeMethods.HidpCaps caps,
         IntPtr preparsed,
         ref bool supportsHapticFeedback,
         ref bool supportsClickForce)
     {
+        // Windows haptic touchpads expose the Simple Haptics Controller through
+        // output reports. Manual Trigger (0x0E/0x21) is mandatory; Intensity
+        // (0x0E/0x23) is optional but is also accepted as corroborating evidence.
+        ushort outputCapsLength = caps.NumberOutputValueCaps;
+        if (outputCapsLength > 0)
+        {
+            var outputCaps = new TouchpadNativeMethods.HidpValueCaps[outputCapsLength];
+            if (TouchpadNativeMethods.HidP_GetValueCaps(
+                    HidpOutput,
+                    outputCaps,
+                    ref outputCapsLength,
+                    preparsed) == TouchpadNativeMethods.HidpStatusSuccess)
+            {
+                for (int i = 0; i < outputCapsLength; i++)
+                {
+                    TouchpadNativeMethods.HidpValueCaps cap = outputCaps[i];
+                    if (cap.UsagePage == HidUsagePageHaptics &&
+                        (ContainsUsage(cap, HidUsageHapticManualTrigger) ||
+                         ContainsUsage(cap, HidUsageHapticIntensity)))
+                    {
+                        supportsHapticFeedback = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Button Press Threshold is the optional Precision Touchpad feature report
+        // backing Windows' click-force setting.
         ushort featureCapsLength = caps.NumberFeatureValueCaps;
         if (featureCapsLength == 0)
             return;
@@ -175,11 +206,12 @@ internal sealed class TouchpadHidDevice : IDisposable
         for (int i = 0; i < featureCapsLength; i++)
         {
             TouchpadNativeMethods.HidpValueCaps cap = featureCaps[i];
-            if (cap.UsagePage == HidUsagePageHaptics && ContainsUsage(cap, HidUsageHapticIntensity))
-                supportsHapticFeedback = true;
-            else if (cap.UsagePage == TouchpadNativeMethods.HidUsagePageDigitizer &&
-                     ContainsUsage(cap, HidUsageButtonPressThreshold))
+            if (cap.UsagePage == TouchpadNativeMethods.HidUsagePageDigitizer &&
+                ContainsUsage(cap, HidUsageButtonPressThreshold))
+            {
                 supportsClickForce = true;
+                break;
+            }
         }
     }
 
