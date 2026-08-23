@@ -5,7 +5,7 @@ using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
 
-public partial class KeyboardEffectsPanel : UserControl
+public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
 {
     private bool _syncing;
     private AppState? _state;
