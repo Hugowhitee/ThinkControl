@@ -149,7 +149,11 @@ internal static class AdvancedWindowEnhancer
 
     private static void ApplyResponsiveLayout(AdvancedWindow window)
     {
-        double available = Math.Max(620, window.ActualWidth - 198);
+        // Headless snapshot windows have Width set but ActualWidth remains zero until
+        // the visual tree is arranged. Falling back to Width makes snapshot rendering
+        // exercise the same wide/maximized layout that a real SizeChanged event uses.
+        double windowWidth = window.ActualWidth > 1 ? window.ActualWidth : window.Width;
+        double available = Math.Max(620, windowWidth - 198);
         bool wide = available >= 1200;
 
         SetContentWidth(window, "PageDisplay", wide ? 1120 : Math.Min(960, available));
@@ -172,11 +176,6 @@ internal static class AdvancedWindowEnhancer
         if (window.FindName(scrollName) is not ScrollViewer scroll || scroll.Content is not FrameworkElement content)
             return;
 
-        // ScrollViewer does not stretch its content horizontally by default. Merely
-        // increasing MaxWidth therefore leaves the old narrow page centered inside a
-        // large maximized window. Stretch the content slot first, then cap the page
-        // itself to a useful reading width so controls grow without becoming absurdly
-        // long on ultrawide displays.
         scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
         content.MaxWidth = Math.Max(620, maxWidth);
         content.HorizontalAlignment = HorizontalAlignment.Stretch;
