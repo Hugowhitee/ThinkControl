@@ -1,17 +1,21 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0-alpha.1"
+  #define AppVersion "0.1.0-alpha.2"
 #endif
 
 #ifndef NumericVersion
   #define NumericVersion "0.1.0.0"
 #endif
 
-#ifndef UiSourceDir
-  #define UiSourceDir "..\artifacts\ui"
+#ifndef PayloadFile
+  #define PayloadFile "ThinkControl-Payload-0.1.0-alpha.2.zip"
 #endif
 
-#ifndef ServiceSourceDir
-  #define ServiceSourceDir "..\artifacts\service"
+#ifndef PayloadUrl
+  #define PayloadUrl "https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.2/ThinkControl-Payload-0.1.0-alpha.2.zip"
+#endif
+
+#ifndef PayloadSha256
+  #define PayloadSha256 "UNSET"
 #endif
 
 #define AppName "ThinkControl"
@@ -75,17 +79,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
 Name: "hardwareaccess"; Description: "Install X9 hardware access (PawnIO {#PawnIoVersion})"; GroupDescription: "ThinkPad X9 hardware:"; Flags: checkedonce; Check: IsVerifiedX9
 
-[Files]
-Source: "{#UiSourceDir}\*"; DestDir: "{app}\ui"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#ServiceSourceDir}\*"; DestDir: "{app}\service"; Flags: ignoreversion recursesubdirs createallsubdirs
-
 [Icons]
 Name: "{group}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ui\{#UiExeName}"
 Name: "{autodesktop}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ui\{#UiExeName}"; Tasks: desktopicon
 
 [Run]
-; `sc create` is harmless on upgrades: it returns ERROR_SERVICE_EXISTS and the
-; following `sc config` updates the existing registration to the new path.
 Filename: "{sys}\sc.exe"; Parameters: "create {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "description {#ServiceName} ""Verified ThinkControl hardware access service"""; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "config {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated
@@ -96,9 +94,14 @@ Filename: "{app}\ui\{#UiExeName}"; Description: "Launch ThinkControl"; Flags: no
 Filename: "{sys}\sc.exe"; Parameters: "stop {#ServiceName}"; Flags: runhidden waituntilterminated; RunOnceId: "StopThinkControlService"
 Filename: "{sys}\sc.exe"; Parameters: "delete {#ServiceName}"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteThinkControlService"
 
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\ui"
+Type: filesandordirs; Name: "{app}\service"
+
 [Code]
 var
   PawnIoWarning: String;
+  PayloadPath: String;
 
 function HasDotNetDesktop10(): Boolean;
 var
@@ -198,6 +201,107 @@ begin
     Result := 'Microsoft .NET 10 Desktop Runtime did not become available after setup.';
 end;
 
+function AcquirePayload(): String;
+var
+  LocalPayload: String;
+  ActualHash: String;
+begin
+  Result := '';
+  PayloadPath := '';
+  LocalPayload := ExpandConstant('{param:PAYLOAD|}');
+
+  if LocalPayload <> '' then
+  begin
+    if not FileExists(LocalPayload) then
+    begin
+      Result := 'The local ThinkControl payload specified for validation does not exist.';
+      Exit;
+    end;
+
+    if CompareText('{#PayloadSha256}', 'UNSET') = 0 then
+    begin
+      Result := 'ThinkControl setup was built without a payload checksum.';
+      Exit;
+    end;
+
+    ActualHash := GetSHA256OfFile(LocalPayload);
+    if CompareText(ActualHash, '{#PayloadSha256}') <> 0 then
+    begin
+      Result := 'The local ThinkControl payload failed SHA-256 verification.';
+      Exit;
+    end;
+
+    PayloadPath := LocalPayload;
+    Log('Using SHA-256 verified local ThinkControl payload for package validation.');
+    Exit;
+  end;
+
+  if CompareText('{#PayloadSha256}', 'UNSET') = 0 then
+  begin
+    Result := 'ThinkControl setup was built without a payload checksum.';
+    Exit;
+  end;
+
+  try
+    Log('Downloading SHA-256 pinned ThinkControl payload from the GitHub release.');
+    DownloadTemporaryFile(
+      '{#PayloadUrl}',
+      '{#PayloadFile}',
+      '{#PayloadSha256}',
+      nil);
+    PayloadPath := ExpandConstant('{tmp}\{#PayloadFile}');
+  except
+    Result := 'ThinkControl could not download its application payload from GitHub Releases: ' + GetExceptionMessage;
+  end;
+end;
+
+function ExtractPayload(): String;
+var
+  ResultCode: Integer;
+  TarPath: String;
+  Params: String;
+  AppDir: String;
+begin
+  Result := '';
+  AppDir := ExpandConstant('{app}');
+  TarPath := ExpandConstant('{sys}\tar.exe');
+
+  if (PayloadPath = '') or not FileExists(PayloadPath) then
+  begin
+    Result := 'The verified ThinkControl payload is unavailable.';
+    Exit;
+  end;
+
+  if not FileExists(TarPath) then
+  begin
+    Result := 'Windows tar.exe is unavailable; ThinkControl cannot extract its verified payload.';
+    Exit;
+  end;
+
+  ForceDirectories(AppDir);
+  DelTree(ExpandConstant('{app}\ui'), True, True, True);
+  DelTree(ExpandConstant('{app}\service'), True, True, True);
+
+  Params := '-xf "' + PayloadPath + '" -C "' + AppDir + '"';
+  if not Exec(TarPath, Params, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+  begin
+    Result := 'Windows could not start the ThinkControl payload extractor.';
+    Exit;
+  end;
+
+  if ResultCode <> 0 then
+  begin
+    Result := Format('ThinkControl payload extraction returned exit code %d.', [ResultCode]);
+    Exit;
+  end;
+
+  if not FileExists(ExpandConstant('{app}\ui\{#UiExeName}')) or
+     not FileExists(ExpandConstant('{app}\service\{#ServiceExeName}')) then
+  begin
+    Result := 'ThinkControl payload extraction completed but the required UI/service executables are missing.';
+  end;
+end;
+
 procedure InstallPawnIoIfNeeded(var NeedsRestart: Boolean);
 var
   ResultCode: Integer;
@@ -264,15 +368,19 @@ begin
   if Result <> '' then
     Exit;
 
-  { Stopping the service disposes the active Lenovo hardware controller. Its
-    safety invariant returns any verified X9 manual fan level to Lenovo Auto
-    before process exit. }
+  { Stop the old service before replacing its payload. Normal controller disposal
+    returns any verified X9 manual fan ownership to Lenovo Auto. }
   Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#ServiceName}', '', SW_HIDE,
     ewWaitUntilTerminated, ResultCode);
-
-  { Give Service Control Manager a short window to release the old service EXE
-    before Inno replaces the payload during an upgrade. }
   Sleep(1200);
+
+  Result := AcquirePayload();
+  if Result <> '' then
+    Exit;
+
+  Result := ExtractPayload();
+  if Result <> '' then
+    Exit;
 
   InstallPawnIoIfNeeded(NeedsRestart);
 end;
@@ -283,8 +391,6 @@ var
 begin
   if CurStep = ssPostInstall then
   begin
-    { Automatic recovery is intentionally conservative: restart the service after
-      ordinary failures, but do not create an endless restart loop. }
     Exec(ExpandConstant('{sys}\sc.exe'),
       'failure {#ServiceName} reset= 86400 actions= restart/5000',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
