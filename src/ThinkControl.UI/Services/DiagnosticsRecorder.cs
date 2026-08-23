@@ -253,15 +253,16 @@ public sealed class DiagnosticsRecorder
 
     private static string SanitizeSimple(string value, int maxLength)
     {
+        char directorySeparator = Path.DirectorySeparatorChar;
         string sanitized = value.Replace(Environment.UserName, "[redacted]", StringComparison.OrdinalIgnoreCase)
             .Replace(Environment.MachineName, "[redacted]", StringComparison.OrdinalIgnoreCase)
-            .Replace('\', '/');
+            .Replace(directorySeparator, '/');
 
-        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace('\', '/');
+        string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile).Replace(directorySeparator, '/');
         if (!string.IsNullOrWhiteSpace(home))
             sanitized = sanitized.Replace(home, "[user]", StringComparison.OrdinalIgnoreCase);
 
-        sanitized = new string(sanitized.Where(ch => !char.IsControl(ch) || ch == ' ').ToArray()).Trim();
+        sanitized = new string(sanitized.Where(ch => !char.IsControl(ch) || ch == (char)32).ToArray()).Trim();
         return sanitized.Length <= maxLength ? sanitized : sanitized[..maxLength];
     }
 }
