@@ -1,4 +1,5 @@
 using System.Management;
+using System.Text.RegularExpressions;
 
 namespace ThinkControl.Hardware.X9;
 
@@ -20,18 +21,20 @@ public static class DeviceIdentity
     public static HardwareDeviceIdentity Read()
     {
         string manufacturer = string.Empty;
-        string productName = string.Empty;
-        string machineType = string.Empty;
+        string model = string.Empty;
+        string systemSku = string.Empty;
+        string productVersion = string.Empty;
 
         try
         {
             using var computer = new ManagementObjectSearcher(
                 "root\\cimv2",
-                "SELECT Manufacturer,Model FROM Win32_ComputerSystem");
+                "SELECT Manufacturer,Model,SystemSKUNumber FROM Win32_ComputerSystem");
             foreach (ManagementObject item in computer.Get())
             {
                 manufacturer = Convert.ToString(item["Manufacturer"])?.Trim() ?? string.Empty;
-                productName = Convert.ToString(item["Model"])?.Trim() ?? string.Empty;
+                model = Convert.ToString(item["Model"])?.Trim() ?? string.Empty;
+                systemSku = Convert.ToString(item["SystemSKUNumber"])?.Trim() ?? string.Empty;
                 item.Dispose();
                 break;
             }
@@ -47,9 +50,7 @@ public static class DeviceIdentity
                 "SELECT Version FROM Win32_ComputerSystemProduct");
             foreach (ManagementObject item in product.Get())
             {
-                string version = Convert.ToString(item["Version"])?.Trim() ?? string.Empty;
-                if (!string.IsNullOrWhiteSpace(version))
-                    productName = version;
+                productVersion = Convert.ToString(item["Version"])?.Trim() ?? string.Empty;
                 item.Dispose();
                 break;
             }
@@ -58,66 +59,35 @@ public static class DeviceIdentity
         {
         }
 
-        try
-        {
-            using var enclosure = new ManagementObjectSearcher(
-                "root\\cimv2",
-                "SELECT SMBIOSAssetTag FROM Win32_SystemEnclosure");
-            // Deliberately do not consume asset tags or serials. The query remains
-            // intentionally unused as a reminder that ThinkControl must not need
-            // unique device identifiers for capability resolution.
-            _ = enclosure;
-        }
-        catch
-        {
-        }
-
-        try
-        {
-            using var baseBoard = new ManagementObjectSearcher(
-                "root\\cimv2",
-                "SELECT Product FROM Win32_BaseBoard");
-            foreach (ManagementObject item in baseBoard.Get())
-            {
-                string candidate = Convert.ToString(item["Product"])?.Trim() ?? string.Empty;
-                item.Dispose();
-
-                string prefix = candidate.Length >= 4 ? candidate[..4].ToUpperInvariant() : candidate.ToUpperInvariant();
-                if (VerifiedMachineTypes.Contains(prefix, StringComparer.OrdinalIgnoreCase))
-                {
-                    machineType = prefix;
-                    break;
-                }
-            }
-        }
-        catch
-        {
-        }
-
-        if (string.IsNullOrWhiteSpace(machineType))
-            machineType = TryReadMachineTypeFromModel(productName);
-
+        string machineType = FirstVerifiedMachineType(systemSku, model, productVersion);
         bool lenovo = manufacturer.Contains("LENOVO", StringComparison.OrdinalIgnoreCase);
         bool verified = lenovo && VerifiedMachineTypes.Contains(machineType, StringComparer.OrdinalIgnoreCase);
 
+        string productName = !string.IsNullOrWhiteSpace(productVersion) ? productVersion : model;
         if (verified && !productName.Contains("ThinkPad", StringComparison.OrdinalIgnoreCase))
             productName = "ThinkPad X9-15 Gen 1";
 
         return new HardwareDeviceIdentity(manufacturer, productName, machineType, verified);
     }
 
-    private static string TryReadMachineTypeFromModel(string model)
+    private static string FirstVerifiedMachineType(params string[] candidates)
     {
-        if (string.IsNullOrWhiteSpace(model))
-            return string.Empty;
-
-        string compact = model.Trim().ToUpperInvariant();
-        foreach (string machineType in VerifiedMachineTypes)
+        foreach (string candidate in candidates)
         {
-            if (compact.Contains(machineType, StringComparison.Ordinal))
-                return machineType;
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            foreach (string verified in VerifiedMachineTypes)
+            {
+                if (candidate.Contains(verified, StringComparison.OrdinalIgnoreCase))
+                    return verified;
+            }
+
+            Match match = Regex.Match(candidate, @"(?:MT[_ -]?)?(?<mt>[A-Z0-9]{4})(?:[_ -]|$)", RegexOptions.IgnoreCase);
+            if (match.Success)
+                return match.Groups["mt"].Value.ToUpperInvariant();
         }
 
-        return compact.Length >= 4 ? compact[..4] : compact;
+        return string.Empty;
     }
 }
