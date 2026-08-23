@@ -5,14 +5,11 @@
              IsHitTestVisible="False">
     <Viewbox Stretch="Uniform">
         <Canvas Width="64" Height="64">
-            <!-- Heavy orthographic TC mark from the ThinkControl asset language. -->
             <Path Fill="{DynamicResource Tc.Text}"
                   Data="M7,9 L35,9 L35,19 L26,19 L26,49 L15,49 L15,19 L7,19 Z" />
             <Path Fill="{DynamicResource Tc.Text}"
-                  FillRule="EvenOdd"
                   Data="M33,15 C40,9 51,8 59,13 L53,22 C48,19 43,19 39,22 C35,25 33,29 33,34 C33,39 35,43 39,46 C43,49 48,49 53,46 L59,55 C51,60 40,59 33,53 C26,48 22,41 22,34 C22,27 26,20 33,15 Z M37,27 C35,29 34,31 34,34 C34,37 35,39 37,41 C39,43 42,44 45,44 C48,44 50,43 52,41 L52,27 C50,25 48,24 45,24 C42,24 39,25 37,27 Z" />
             <Ellipse Width="10" Height="10" Canvas.Left="40" Canvas.Top="29" Fill="{DynamicResource Tc.Accent}" />
-            <Ellipse Width="3" Height="3" Canvas.Left="43.5" Canvas.Top="32.5" Fill="#70FFFFFF" />
         </Canvas>
     </Viewbox>
 </UserControl>
