@@ -29,6 +29,16 @@ public partial class AdvancedWindow
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         DiagnosticsPanelControl?.Refresh();
+
+        // Dynamic feature panels normally subscribe to the live app/service state.
+        // Snapshot windows deliberately use a deterministic AppState instead, so
+        // prepare the fan panel from that state to exercise the active layout
+        // rather than accidentally capturing an all-unavailable service state.
+        if (DataContext is ViewModels.AppState snapshotState &&
+            PageFans?.Content is Controls.FansPanel fansPanel)
+        {
+            fansPanel.PrepareForSnapshot(snapshotState);
+        }
     }
 
     public void NavigateTouchpad()
