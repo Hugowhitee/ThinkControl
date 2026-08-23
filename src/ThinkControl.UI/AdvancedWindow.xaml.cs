@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfButton = System.Windows.Controls.Button;
@@ -18,7 +17,6 @@ public partial class AdvancedWindow : Window
     private bool _forceClose;
     private bool _syncing;
     private bool _positioned;
-    private bool _enhancedPagesBuilt;
     private UpdateCheckResult? _lastUpdate;
 
     public AdvancedWindow(App app)
@@ -104,40 +102,8 @@ public partial class AdvancedWindow : Window
             state.PropertyChanged += State_PropertyChanged;
 
         StartupSwitch.IsChecked = StartupService.IsEnabled();
-        BuildEnhancedPages();
         SyncControls();
         ShowPage(GetSelectedPage());
-    }
-
-    private void BuildEnhancedPages()
-    {
-        if (_enhancedPagesBuilt)
-            return;
-        _enhancedPagesBuilt = true;
-
-        if (PageKeyboard.Content is System.Windows.Controls.StackPanel keyboardRoot)
-        {
-            keyboardRoot.Children.Add(new KeyboardEffectsPanel
-            {
-                DataContext = DataContext
-            });
-        }
-
-        if (PageBattery.Content is System.Windows.Controls.StackPanel batteryRoot)
-        {
-            batteryRoot.Children.Add(new BatteryTelemetryPanel
-            {
-                DataContext = DataContext
-            });
-        }
-
-        if (PageSettings.Content is System.Windows.Controls.StackPanel settingsRoot)
-        {
-            settingsRoot.Children.Add(new DiagnosticsPanel
-            {
-                DataContext = DataContext
-            });
-        }
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
