@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.ViewModels;
 
@@ -14,6 +15,8 @@ internal static class AdvancedWindowEnhancer
     private const string HomePolishedKey = "ThinkControl.Advanced.HomePolished";
     private const string TouchpadNavName = "ThinkControl.Dynamic.NavTouchpad";
     private const string TouchpadPageName = "ThinkControl.Dynamic.PageTouchpad";
+    private const string SensorsNavName = "ThinkControl.Dynamic.NavSensors";
+    private const string SensorsPageName = "ThinkControl.Dynamic.PageSensors";
 
     internal static void Ensure(AdvancedWindow window, App app)
     {
@@ -25,6 +28,7 @@ internal static class AdvancedWindowEnhancer
 
         window.Resources[EnhancedKey] = true;
         AddTouchpadPage(window, app);
+        AddSensorsPage(window);
         PolishHome(window);
         window.SizeChanged += (_, _) => ApplyResponsiveLayout(window);
         AttachPageMotion(window);
@@ -34,6 +38,12 @@ internal static class AdvancedWindowEnhancer
     internal static void SelectTouchpad(AdvancedWindow window)
     {
         if (window.Resources[TouchpadNavName] is RadioButton nav)
+            nav.IsChecked = true;
+    }
+
+    internal static void SelectSensors(AdvancedWindow window)
+    {
+        if (window.Resources[SensorsNavName] is RadioButton nav)
             nav.IsChecked = true;
     }
 
@@ -92,6 +102,7 @@ internal static class AdvancedWindowEnhancer
         touchpadNav.Checked += (_, _) =>
         {
             CollapseKnownPages(window);
+            HideDynamicPage(window, SensorsPageName);
             scroll.Visibility = Visibility.Visible;
             panel.Initialize(app);
             AnimateElement(scroll);
@@ -99,6 +110,85 @@ internal static class AdvancedWindowEnhancer
 
         foreach (RadioButton button in KnownNav(window))
             button.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
+    }
+
+    private static void AddSensorsPage(AdvancedWindow window)
+    {
+        if (window.FindName("NavFans") is not RadioButton fans ||
+            window.FindName("NavDisplay") is not RadioButton display ||
+            fans.Parent is not Panel navPanel ||
+            window.FindName("PageHome") is not FrameworkElement home ||
+            home.Parent is not Grid pageHost)
+        {
+            return;
+        }
+
+        var sensorsNav = new RadioButton
+        {
+            GroupName = "Nav",
+            Tag = "Sensors",
+            Style = window.TryFindResource("TcNav") as Style
+        };
+        var navContent = new StackPanel { Orientation = Orientation.Horizontal };
+        navContent.Children.Add(CreateSensorsIcon(window));
+        navContent.Children.Add(new TextBlock { Text = "Sensors" });
+        sensorsNav.Content = navContent;
+
+        int displayIndex = navPanel.Children.IndexOf(display);
+        navPanel.Children.Insert(Math.Max(0, displayIndex), sensorsNav);
+
+        var scroll = new ScrollViewer
+        {
+            Tag = "Sensors",
+            Visibility = Visibility.Collapsed,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
+        };
+        var panel = new SensorsPanel
+        {
+            MaxWidth = 1040,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 0, 4, 0)
+        };
+        scroll.Content = panel;
+        pageHost.Children.Add(scroll);
+
+        window.Resources[SensorsNavName] = sensorsNav;
+        window.Resources[SensorsPageName] = scroll;
+
+        sensorsNav.Checked += (_, _) =>
+        {
+            CollapseKnownPages(window);
+            HideDynamicPage(window, TouchpadPageName);
+            scroll.Visibility = Visibility.Visible;
+            AnimateElement(scroll);
+        };
+
+        foreach (RadioButton button in KnownNav(window))
+            button.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
+        if (window.Resources[TouchpadNavName] is RadioButton touchpadNav)
+            touchpadNav.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
+    }
+
+    private static FrameworkElement CreateSensorsIcon(FrameworkElement owner)
+    {
+        var path = new Path
+        {
+            Stroke = owner.TryFindResource("Tc.TextMuted") as Brush ?? Brushes.Gray,
+            StrokeThickness = 1.35,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
+            Data = Geometry.Parse("M1,8 L4,8 L6,3 L9,13 L11,8 L15,8")
+        };
+        return new Viewbox
+        {
+            Width = 15,
+            Height = 15,
+            Margin = new Thickness(0, 0, 12, 0),
+            Child = path
+        };
     }
 
     private static void PolishHome(AdvancedWindow window)
@@ -152,7 +242,8 @@ internal static class AdvancedWindowEnhancer
         var fanText = new StackPanel();
         AddText(fanText, "FANS", 9.5, "Tc.TextMuted", FontWeights.SemiBold);
         AddBoundText(fanText, nameof(AppState.FanRpmText), 23, null, FontWeights.Light, new Thickness(0, 8, 0, 0));
-        AddBoundText(fanText, nameof(AppState.FanStateText), 10, "Tc.TextMuted", null, new Thickness(0, 4, 0, 0));
+        AddBoundText(fanText, nameof(AppState.FanCountText), 9.5, "Tc.TextFaint", null, new Thickness(0, 3, 0, 0));
+        AddBoundText(fanText, nameof(AppState.FanStateText), 10, "Tc.TextMuted", null, new Thickness(0, 3, 0, 0));
         fan.Child = fanText;
         Grid.SetColumn(fan, 2);
         row.Children.Add(fan);
@@ -254,14 +345,20 @@ internal static class AdvancedWindowEnhancer
         SetContentWidth(window, "PageUpdates", Math.Min(820, available));
         SetContentWidth(window, "PageSettings", Math.Min(860, available));
 
-        if (window.Resources[TouchpadPageName] is ScrollViewer touchpad && touchpad.Content is FrameworkElement content)
-        {
-            touchpad.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            content.Width = double.NaN;
-            content.MinWidth = 0;
-            content.MaxWidth = Math.Min(1040, available);
-            content.HorizontalAlignment = HorizontalAlignment.Stretch;
-        }
+        ResizeDynamicPage(window, TouchpadPageName, Math.Min(1040, available));
+        ResizeDynamicPage(window, SensorsPageName, Math.Min(1040, available));
+    }
+
+    private static void ResizeDynamicPage(AdvancedWindow window, string resourceName, double maxWidth)
+    {
+        if (window.Resources[resourceName] is not ScrollViewer scroll || scroll.Content is not FrameworkElement content)
+            return;
+
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        content.Width = double.NaN;
+        content.MinWidth = 0;
+        content.MaxWidth = maxWidth;
+        content.HorizontalAlignment = HorizontalAlignment.Stretch;
     }
 
     private static void SetContentWidth(AdvancedWindow window, string scrollName, double maxWidth)
@@ -284,6 +381,12 @@ internal static class AdvancedWindowEnhancer
             if (window.FindName(name) is FrameworkElement element)
                 element.Visibility = Visibility.Collapsed;
         }
+    }
+
+    private static void HideDynamicPage(AdvancedWindow window, string resourceName)
+    {
+        if (window.Resources[resourceName] is FrameworkElement element)
+            element.Visibility = Visibility.Collapsed;
     }
 
     private static IEnumerable<RadioButton> KnownNav(AdvancedWindow window)
