@@ -1,6 +1,7 @@
 using ThinkControl.Core.Touchpad;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.Services.Touchpad;
+using UserThemeMode = ThinkControl.UI.Services.ThemeMode;
 
 namespace ThinkControl.UI;
 
@@ -70,7 +71,7 @@ public partial class App
 
     internal void ResetGeneralDefaults()
     {
-        ApplyTheme(ThemeMode.System);
+        ApplyTheme(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);
     }
 
@@ -84,7 +85,7 @@ public partial class App
         // trust/onboarding state, not appearance or control preferences. Preserve
         // them while every user-adjustable ThinkControl preference is reset.
         UserSettings.Update(_ => new ThinkControlUserSettings(
-            Theme: ThemeMode.System,
+            Theme: UserThemeMode.System,
             RefreshAuto: true,
             KeyboardMode: "Auto",
             KeyboardBaseLevel: "High",
@@ -94,7 +95,7 @@ public partial class App
             TouchpadGestures: touchpadDefaults,
             HardwareSetupPromptedVersion: current.HardwareSetupPromptedVersion));
 
-        ThemeService.Apply(ThemeMode.System);
+        ThemeService.Apply(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);
         State.RefreshAutoEnabled = true;
 
