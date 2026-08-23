@@ -11,6 +11,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   tag-ready-version:
@@ -38,7 +39,7 @@ jobs:
 
       - name: Explain non-release build
         if: steps.version.outputs.ready != 'true'
-        run: echo "version.json releaseReady is false; no public tag will be created."
+        run: echo "version.json releaseReady is false; no release will be published."
 
       - name: Check whether tag already exists
         if: steps.version.outputs.ready == 'true'
@@ -49,7 +50,7 @@ jobs:
           tag='${{ steps.version.outputs.tag }}'
           if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "$tag already exists; keeping the published release immutable."
+            echo "$tag already exists."
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
@@ -64,4 +65,34 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -a "$tag" "$GITHUB_SHA" -m "ThinkControl $tag"
           git push origin "$tag"
-          echo "Created $tag. The Package ThinkControl workflow will publish the matching GitHub prerelease."
+          echo "Created $tag."
+
+      - name: Check whether GitHub release already exists
+        if: steps.version.outputs.ready == 'true'
+        id: releasecheck
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.version.outputs.tag }}'
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release for $tag already exists; no packaging dispatch is needed."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Dispatch tested package workflow on tag
+        if: steps.version.outputs.ready == 'true' && steps.releasecheck.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag='${{ steps.version.outputs.tag }}'
+          # A tag pushed by GITHUB_TOKEN does not reliably trigger another push-based
+          # workflow. workflow_dispatch is an explicit exception, so dispatch the
+          # already-tested package workflow at the exact immutable release tag.
+          gh workflow run release.yml --ref "$tag"
+          echo "Dispatched Package ThinkControl for $tag."
