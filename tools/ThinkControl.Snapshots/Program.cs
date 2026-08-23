@@ -22,7 +22,7 @@ internal static class Program
         app.InitializeComponent();
         AppState state = CreateDemoState();
 
-        ThemeService.Apply(ThemeMode.Dark);
+        ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.Dark);
         RenderCompact(app, state, Path.Combine(output, "compact-dark.png"));
         RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home.png"));
         RenderAdvanced(app, state, "Performance", Path.Combine(output, "advanced-performance.png"));
@@ -32,7 +32,7 @@ internal static class Program
         RenderAdvanced(app, state, "Battery", Path.Combine(output, "advanced-battery.png"));
         RenderAdvanced(app, state, "Settings", Path.Combine(output, "advanced-settings.png"));
 
-        ThemeService.Apply(ThemeMode.Light);
+        ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.Light);
         RenderCompact(app, state, Path.Combine(output, "compact-light.png"));
         RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home-light.png"));
 
