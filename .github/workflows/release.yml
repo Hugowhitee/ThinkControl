@@ -22,19 +22,31 @@ jobs:
       - name: Resolve version
         shell: pwsh
         run: |
+          $metadata = Get-Content "version.json" -Raw | ConvertFrom-Json
+          $sourceVersion = [string]$metadata.version
+          if ([string]::IsNullOrWhiteSpace($sourceVersion)) {
+            throw "version.json does not contain a version"
+          }
+
           if ($env:GITHUB_REF -like 'refs/tags/v*') {
             $version = $env:GITHUB_REF_NAME.TrimStart('v')
+            if ($version -ne $sourceVersion) {
+              throw "Release tag '$env:GITHUB_REF_NAME' does not match version.json ('v$sourceVersion'). Update version.json first."
+            }
             "VERSIONED_RELEASE=1" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           }
           else {
-            $version = "0.1.0-dev.$env:GITHUB_RUN_NUMBER"
+            $version = "$sourceVersion-dev.$env:GITHUB_RUN_NUMBER"
             "VERSIONED_RELEASE=0" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           }
 
+          $coreVersion = $sourceVersion.Split('-')[0]
           $build = [int]$env:GITHUB_RUN_NUMBER % 65535
-          $numericVersion = "0.1.0.$build"
+          $numericVersion = "$coreVersion.$build"
+          "SOURCE_VERSION=$sourceVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           "APP_VERSION=$version" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           "NUMERIC_VERSION=$numericVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "ThinkControl version: $version"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -140,9 +152,6 @@ jobs:
           }
 
           function Remove-SmokeService {
-            # A missing service is the expected state after a successful uninstall.
-            # Start-Process lets us treat sc.exe's 1060/non-zero result as best-effort
-            # cleanup instead of turning it into a PowerShell terminating error.
             Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('stop', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
             Start-Sleep -Milliseconds 400
             Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('delete', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
@@ -261,8 +270,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          gh release create $env:GITHUB_REF_NAME `
-            $setup.FullName `
-            "artifacts/installer/SHA256SUMS.txt" `
-            --title "ThinkControl $env:APP_VERSION" `
-            --generate-notes
+          $args = @(
+            'release', 'create', $env:GITHUB_REF_NAME,
+            $setup.FullName,
+            'artifacts/installer/SHA256SUMS.txt',
+            '--title', "ThinkControl v$env:APP_VERSION",
+            '--generate-notes'
+          )
+          if ($env:APP_VERSION -match '-') {
+            $args += '--prerelease'
+          }
+          & gh @args
+          if ($LASTEXITCODE -ne 0) { throw "GitHub release creation failed" }
