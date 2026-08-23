@@ -34,7 +34,6 @@
                 <RowDefinition Height="48" />
             </Grid.RowDefinitions>
 
-            <!-- Header -->
             <Grid Grid.Row="0" shell:WindowChrome.IsHitTestVisibleInChrome="False">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -56,7 +55,6 @@
                 </Button>
             </Grid>
 
-            <!-- Telemetry -->
             <Border Grid.Row="1" Style="{StaticResource TcSection}" Margin="0,0,0,7">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -85,7 +83,6 @@
                 </Grid>
             </Border>
 
-            <!-- Performance -->
             <Border Grid.Row="2" Style="{StaticResource TcSection}" Margin="0,0,0,7">
                 <Grid>
                     <Grid.RowDefinitions>
@@ -96,35 +93,30 @@
                         <TextBlock Text="Performance" FontSize="10.5" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <Button HorizontalAlignment="Right" Width="24" Height="20" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="›" FontSize="19" Click="OpenSection_Click" Tag="Performance" ToolTip="Open Performance" />
                     </Grid>
-                    <Grid Grid.Row="1" Margin="0,7,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
-                            <ColumnDefinition />
-                            <ColumnDefinition />
-                        </Grid.ColumnDefinitions>
-                        <RadioButton x:Name="QuietMode" GroupName="CompactMode" Style="{StaticResource TcSegment}" Click="Mode_Click" Tag="Quiet" Margin="0,0,4,0" ToolTip="Prefer efficiency and lower thermal activity">
-                            <StackPanel><TextBlock Text="Quiet" HorizontalAlignment="Center" /><TextBlock Text="Efficient" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,2,0,0" /></StackPanel>
+                    <Grid Grid.Row="1" Margin="0,5,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <RadioButton x:Name="QuietMode" GroupName="CompactMode" Style="{StaticResource TcSegment}" Padding="8,3" Click="Mode_Click" Tag="Quiet" Margin="0,0,4,0" ToolTip="Prefer efficiency and lower thermal activity">
+                            <StackPanel><TextBlock Text="Quiet" HorizontalAlignment="Center" /><TextBlock Text="Efficient" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,1,0,0" /></StackPanel>
                         </RadioButton>
-                        <RadioButton x:Name="BalancedMode" Grid.Column="1" GroupName="CompactMode" Style="{StaticResource TcSegment}" Click="Mode_Click" Tag="Balanced" Margin="2,0" ToolTip="Balanced Windows power behavior">
-                            <StackPanel><TextBlock Text="Balanced" HorizontalAlignment="Center" /><TextBlock Text="Everyday" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,2,0,0" /></StackPanel>
+                        <RadioButton x:Name="BalancedMode" Grid.Column="1" GroupName="CompactMode" Style="{StaticResource TcSegment}" Padding="8,3" Click="Mode_Click" Tag="Balanced" Margin="2,0" ToolTip="Balanced Windows power behavior">
+                            <StackPanel><TextBlock Text="Balanced" HorizontalAlignment="Center" /><TextBlock Text="Everyday" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,1,0,0" /></StackPanel>
                         </RadioButton>
-                        <RadioButton x:Name="PerformanceMode" Grid.Column="2" GroupName="CompactMode" Style="{StaticResource TcSegment}" Click="Mode_Click" Tag="Performance" Margin="4,0,0,0" ToolTip="Prefer maximum performance response">
-                            <StackPanel><TextBlock Text="Performance" HorizontalAlignment="Center" /><TextBlock Text="Maximum" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,2,0,0" /></StackPanel>
+                        <RadioButton x:Name="PerformanceMode" Grid.Column="2" GroupName="CompactMode" Style="{StaticResource TcSegment}" Padding="8,3" Click="Mode_Click" Tag="Performance" Margin="4,0,0,0" ToolTip="Prefer maximum performance response">
+                            <StackPanel><TextBlock Text="Performance" HorizontalAlignment="Center" /><TextBlock Text="Maximum" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,1,0,0" /></StackPanel>
                         </RadioButton>
                     </Grid>
                 </Grid>
             </Border>
 
-            <!-- Display: one segment with internal separators -->
             <Border Grid.Row="3" Style="{StaticResource TcSection}" Margin="0,0,0,7">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="20" />
-                        <RowDefinition Height="42" />
+                        <RowDefinition Height="38" />
                         <RowDefinition Height="1" />
-                        <RowDefinition Height="36" />
+                        <RowDefinition Height="31" />
                         <RowDefinition Height="1" />
-                        <RowDefinition Height="35" />
+                        <RowDefinition Height="31" />
                     </Grid.RowDefinitions>
                     <Grid>
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -133,11 +125,11 @@
                         </StackPanel>
                         <Button HorizontalAlignment="Right" Width="24" Height="20" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="›" FontSize="19" Click="OpenSection_Click" Tag="Display" ToolTip="Open Display" />
                     </Grid>
-                    <Grid Grid.Row="1" Margin="0,7,0,5">
+                    <Grid Grid.Row="1" Margin="0,5,0,4">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <RadioButton x:Name="RefreshAuto" GroupName="CompactRefresh" Style="{StaticResource TcSegment}" Content="Auto" Click="RefreshAuto_Click" Margin="0,0,4,0" />
-                        <RadioButton x:Name="Refresh60" Grid.Column="1" GroupName="CompactRefresh" Style="{StaticResource TcSegment}" Content="60 Hz" Click="Refresh60_Click" Margin="2,0" />
-                        <RadioButton x:Name="RefreshMax" Grid.Column="2" GroupName="CompactRefresh" Style="{StaticResource TcSegment}" Content="Max" Click="RefreshMax_Click" Margin="4,0,0,0" />
+                        <RadioButton x:Name="RefreshAuto" GroupName="CompactRefresh" Style="{StaticResource TcSegment}" Padding="8,3" Content="Auto" Click="RefreshAuto_Click" Margin="0,0,4,0" />
+                        <RadioButton x:Name="Refresh60" Grid.Column="1" GroupName="CompactRefresh" Style="{StaticResource TcSegment}" Padding="8,3" Content="60 Hz" Click="Refresh60_Click" Margin="2,0" />
+                        <RadioButton x:Name="RefreshMax" Grid.Column="2" GroupName="CompactRefresh" Style="{StaticResource TcSegment}" Padding="8,3" Content="Max" Click="RefreshMax_Click" Margin="4,0,0,0" />
                     </Grid>
                     <Border Grid.Row="2" Background="{DynamicResource Tc.Border}" />
                     <Grid Grid.Row="3">
@@ -154,7 +146,6 @@
                 </Grid>
             </Border>
 
-            <!-- Keyboard -->
             <Border Grid.Row="4" Style="{StaticResource TcSection}" Margin="0,0,0,7">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="20" /><RowDefinition Height="*" /></Grid.RowDefinitions>
@@ -165,17 +156,16 @@
                         </StackPanel>
                         <Button HorizontalAlignment="Right" Width="24" Height="20" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="›" FontSize="19" Click="OpenSection_Click" Tag="Keyboard" ToolTip="Open Keyboard effects" />
                     </Grid>
-                    <Grid Grid.Row="1" Margin="0,7,0,0">
+                    <Grid Grid.Row="1" Margin="0,5,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <RadioButton x:Name="KeyboardOff" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Content="Off" Tag="Off" Click="Keyboard_Click" Margin="0,0,3,0" />
-                        <RadioButton x:Name="KeyboardLow" Grid.Column="1" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Content="Low" Tag="Low" Click="Keyboard_Click" Margin="1,0" />
-                        <RadioButton x:Name="KeyboardHigh" Grid.Column="2" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Content="High" Tag="High" Click="Keyboard_Click" Margin="1,0" />
-                        <RadioButton x:Name="KeyboardAuto" Grid.Column="3" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Content="Auto" Tag="Auto" Click="Keyboard_Click" Margin="3,0,0,0" />
+                        <RadioButton x:Name="KeyboardOff" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Padding="8,3" Content="Off" Tag="Off" Click="Keyboard_Click" Margin="0,0,3,0" />
+                        <RadioButton x:Name="KeyboardLow" Grid.Column="1" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Padding="8,3" Content="Low" Tag="Low" Click="Keyboard_Click" Margin="1,0" />
+                        <RadioButton x:Name="KeyboardHigh" Grid.Column="2" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Padding="8,3" Content="High" Tag="High" Click="Keyboard_Click" Margin="1,0" />
+                        <RadioButton x:Name="KeyboardAuto" Grid.Column="3" GroupName="CompactKeyboard" Style="{StaticResource TcSegment}" Padding="8,3" Content="Auto" Tag="Auto" Click="Keyboard_Click" Margin="3,0,0,0" />
                     </Grid>
                 </Grid>
             </Border>
 
-            <!-- Quick status links -->
             <Grid Grid.Row="5" Margin="0,0,0,7">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                 <Border Style="{StaticResource TcSection}" Padding="10" Margin="0,0,4,0" MouseLeftButtonUp="BatteryCard_Click" Cursor="Hand">
@@ -203,7 +193,6 @@
                 </Border>
             </Grid>
 
-            <!-- Footer -->
             <Grid Grid.Row="6">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="38" /><ColumnDefinition Width="38" /><ColumnDefinition Width="*" /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
                 <Button Style="{StaticResource TcIconButton}" Click="OpenSettings_Click" ToolTip="Settings">
@@ -214,7 +203,7 @@
                 </Button>
                 <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="10,0,8,0">
                     <TextBlock Text="{Binding HardwareAccess}" FontSize="9" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="v0.1.0-alpha.1" FontSize="8.5" Foreground="{DynamicResource Tc.TextFaint}" />
+                    <TextBlock Text="{Binding AppVersion}" FontSize="8.5" Foreground="{DynamicResource Tc.TextFaint}" />
                 </StackPanel>
                 <Button Grid.Column="3" x:Name="ExpandButton" Width="38" Height="38" Style="{StaticResource TcButton}" Click="Expand_Click" ToolTip="Open advanced window">
                     <Viewbox Width="14" Height="14">
