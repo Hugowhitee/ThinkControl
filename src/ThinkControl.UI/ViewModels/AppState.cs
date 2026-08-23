@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.ViewModels;
 
@@ -90,6 +91,7 @@ public sealed class AppState : INotifyPropertyChanged
     public bool CanKeyboardBacklight { get => _canKeyboardBacklight; set => Set(ref _canKeyboardBacklight, value); }
     public bool CanCpuTemperature { get => _canCpuTemperature; set => Set(ref _canCpuTemperature, value); }
 
+    public string AppVersion => $"v{UpdateService.CurrentVersion}";
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
     public string FanRpmText => FanRpm is int value ? $"{value:N0} RPM" : "— RPM";
     public string BatteryPercentText => $"{BatteryPercent}%";
