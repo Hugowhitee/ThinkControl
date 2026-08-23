@@ -21,7 +21,8 @@ public sealed record BatteryTelemetrySnapshot(
 /// Reads the Windows ACPI battery telemetry exposed by root\wmi and turns the noisy
 /// charge/discharge rate into a deliberately slow-moving estimate. The displayed
 /// watt value can remain close to the live sensor, while ETA waits for a short warm-up
-/// and then blends filtered charge power with observed Wh progress when available.
+/// and then blends filtered charge power, observed Wh progress and a bounded prior
+/// learned from previous charge sessions when one is available.
 /// </summary>
 public sealed class BatteryTelemetryService
 {
@@ -44,8 +45,19 @@ public sealed class BatteryTelemetryService
     private DateTimeOffset? _modeStartedAt;
     private double? _smoothedPowerWatts;
     private double? _smoothedEtaSeconds;
+    private double? _historicalChargePowerWatts;
     private bool _lastCharging;
     private bool _lastDischarging;
+
+    public void SetHistoricalChargePower(double? watts)
+    {
+        lock (_gate)
+        {
+            _historicalChargePowerWatts = watts is > 0.4 and < 200
+                ? watts.Value
+                : null;
+        }
+    }
 
     public BatteryTelemetrySnapshot Read()
     {
@@ -114,8 +126,6 @@ public sealed class BatteryTelemetryService
                         : 2;
                     double alphaEta = EwmaAlpha(dtSecondsEta, EtaHalfLife.TotalSeconds);
 
-                    // Bound one update to ±20% of the previous estimate. Real tapering
-                    // still moves the ETA, just without flickering on every 2 s poll.
                     double bounded = rawEtaSeconds.Value;
                     if (_smoothedEtaSeconds is > 30)
                     {
@@ -168,9 +178,6 @@ public sealed class BatteryTelemetryService
         if (elapsed < EtaWarmup)
             return false;
 
-        // Charger negotiation, background load and ACPI startup samples can briefly
-        // report only a watt or two. At normal state-of-charge this creates absurd
-        // multi-hour ETAs, so keep showing "Estimating…" until that transient settles.
         if (percent is < 90 && _smoothedPowerWatts.Value < EarlyChargingPowerFloorWatts && elapsed < LowPowerGrace)
             return false;
 
@@ -186,11 +193,24 @@ public sealed class BatteryTelemetryService
         double robustWindowPower = Percentile(_powerWindow, elapsed < LowPowerGrace ? 0.65 : 0.50);
         double effectivePower = Lerp(_smoothedPowerWatts.Value, robustWindowPower, 0.50);
 
+        // A learned session median is useful as an early prior, but it may come from
+        // a different charger or workload. Keep it tightly bounded to current data
+        // and fade its influence quickly as this session accumulates real samples.
+        if (_historicalChargePowerWatts is > 0.4 && effectivePower >= EarlyChargingPowerFloorWatts && elapsed < TimeSpan.FromMinutes(5))
+        {
+            double boundedHistory = Math.Clamp(
+                _historicalChargePowerWatts.Value,
+                effectivePower * 0.60,
+                effectivePower * 1.80);
+            double historyWeight = elapsed < TimeSpan.FromSeconds(90)
+                ? 0.35
+                : elapsed < TimeSpan.FromMinutes(3) ? 0.20 : 0.10;
+            effectivePower = Lerp(effectivePower, boundedHistory, historyWeight);
+        }
+
         double? observedCapacityPower = GetObservedCapacityChargePower(now);
         if (observedCapacityPower is > 0.4)
         {
-            // Capacity reporting can be quantized, so constrain it relative to the
-            // filtered ACPI power before giving it most of the weight.
             double constrainedObserved = Math.Clamp(
                 observedCapacityPower.Value,
                 effectivePower * 0.50,
@@ -304,9 +324,6 @@ public sealed class BatteryTelemetryService
                 percent = Math.Clamp((int)Math.Round(fallback * 100d), 0, 100);
         }
 
-        // ChargeRate and DischargeRate are separate ACPI fields and are expressed
-        // in mW on Windows battery WMI. Keep PowerWatts positive and let the state
-        // describe the direction; this is clearer in the UI than a signed number.
         double? powerWatts = null;
         if (charging && chargeRateMw is > 0)
             powerWatts = chargeRateMw.Value / 1000d;
