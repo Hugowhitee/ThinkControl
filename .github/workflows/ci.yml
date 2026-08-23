@@ -28,7 +28,7 @@ jobs:
       - name: Test
         run: dotnet test tests/ThinkControl.Core.Tests/ThinkControl.Core.Tests.csproj --configuration Release --no-build --no-restore
 
-      - name: Render WPF UI snapshots
+      - name: Render WPF visual QA
         shell: pwsh
         run: |
           $output = Join-Path $PWD "artifacts\snapshots"
@@ -38,31 +38,49 @@ jobs:
             -- $output
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
 
-          $expected = @(
+          $expectedPng = @(
             'compact-dark.png',
+            'compact-on-battery.png',
             'compact-light.png',
             'advanced-home.png',
+            'advanced-performance.png',
             'advanced-fans.png',
             'advanced-display.png',
             'advanced-keyboard.png',
             'advanced-battery.png',
             'advanced-touchpad.png',
+            'advanced-system.png',
+            'advanced-updates.png',
             'advanced-settings.png',
+            'advanced-home-min.png',
+            'advanced-battery-min.png',
+            'advanced-touchpad-min.png',
+            'advanced-keyboard-min.png',
+            'advanced-system-min.png',
             'advanced-home-wide.png',
             'advanced-display-wide.png',
             'advanced-touchpad-wide.png',
             'advanced-battery-wide.png',
+            'advanced-system-service-offline.png',
+            'advanced-keyboard-unavailable.png',
+            'advanced-home-light.png',
             'advanced-touchpad-light.png'
           )
-          foreach ($name in $expected) {
+          foreach ($name in $expectedPng) {
             $path = Join-Path $output $name
             if (-not (Test-Path $path)) { throw "Missing UI snapshot: $name" }
             if ((Get-Item $path).Length -lt 5000) { throw "UI snapshot is unexpectedly small: $name" }
           }
 
-      - name: Upload UI snapshots
+          foreach ($name in @('gallery.html', 'manifest.json', 'README.md')) {
+            $path = Join-Path $output $name
+            if (-not (Test-Path $path)) { throw "Missing visual QA file: $name" }
+            if ((Get-Item $path).Length -lt 500) { throw "Visual QA file is unexpectedly small: $name" }
+          }
+
+      - name: Upload visual QA gallery
         uses: actions/upload-artifact@v4
         with:
-          name: ThinkControl-UI-Snapshots
-          path: artifacts/snapshots/*.png
+          name: ThinkControl-Visual-QA
+          path: artifacts/snapshots/**
           if-no-files-found: error

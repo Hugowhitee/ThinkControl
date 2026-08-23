@@ -5,19 +5,32 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class TouchpadHidDevice : IDisposable
 {
+    private const int HidpOutput = 1;
+    private const int HidpFeature = 2;
+    private const ushort HidUsagePageHaptics = 0x000E;
+    private const ushort HidUsageHapticManualTrigger = 0x0021;
+    private const ushort HidUsageHapticIntensity = 0x0023;
+    private const ushort HidUsageButtonPressThreshold = 0x00B0;
+
     private readonly IntPtr _preparsedData;
     private readonly ushort[] _contactCollections;
 
     internal TouchpadGeometry Geometry { get; }
+    internal bool SupportsHapticFeedback { get; }
+    internal bool SupportsClickForce { get; }
 
     private TouchpadHidDevice(
         IntPtr preparsedData,
         ushort[] contactCollections,
-        TouchpadGeometry geometry)
+        TouchpadGeometry geometry,
+        bool supportsHapticFeedback,
+        bool supportsClickForce)
     {
         _preparsedData = preparsedData;
         _contactCollections = contactCollections;
         Geometry = geometry;
+        SupportsHapticFeedback = supportsHapticFeedback;
+        SupportsClickForce = supportsClickForce;
     }
 
     internal static TouchpadHidDevice? Create(
@@ -107,6 +120,10 @@ internal sealed class TouchpadHidDevice : IDisposable
             if (!haveX || !haveY || contacts.Count == 0)
                 return null;
 
+            bool supportsHapticFeedback = false;
+            bool supportsClickForce = false;
+            ReadHapticCapabilities(caps, preparsed, ref supportsHapticFeedback, ref supportsClickForce);
+
             bool estimated = widthMm <= 0 || heightMm <= 0;
             if (widthMm <= 0)
                 widthMm = fallbackWidthMm;
@@ -123,13 +140,88 @@ internal sealed class TouchpadHidDevice : IDisposable
                 estimated);
 
             keep = true;
-            return new TouchpadHidDevice(preparsed, contacts.Order().ToArray(), geometry);
+            return new TouchpadHidDevice(
+                preparsed,
+                contacts.Order().ToArray(),
+                geometry,
+                supportsHapticFeedback,
+                supportsClickForce);
         }
         finally
         {
             if (!keep)
                 Marshal.FreeHGlobal(preparsed);
         }
+    }
+
+    private static void ReadHapticCapabilities(
+        TouchpadNativeMethods.HidpCaps caps,
+        IntPtr preparsed,
+        ref bool supportsHapticFeedback,
+        ref bool supportsClickForce)
+    {
+        // Device-initiated click feedback exposes Haptic Intensity (0x0E/0x23)
+        // as a feature report. Host-initiated haptics use a separate Simple Haptics
+        // Controller with Manual Trigger (0x0E/0x21) in output reports. Either is
+        // strong generic evidence that this Precision Touchpad has haptic hardware.
+        ushort featureCapsLength = caps.NumberFeatureValueCaps;
+        if (featureCapsLength > 0)
+        {
+            var featureCaps = new TouchpadNativeMethods.HidpValueCaps[featureCapsLength];
+            if (TouchpadNativeMethods.HidP_GetValueCaps(
+                    HidpFeature,
+                    featureCaps,
+                    ref featureCapsLength,
+                    preparsed) == TouchpadNativeMethods.HidpStatusSuccess)
+            {
+                for (int i = 0; i < featureCapsLength; i++)
+                {
+                    TouchpadNativeMethods.HidpValueCaps cap = featureCaps[i];
+                    if (cap.UsagePage == HidUsagePageHaptics &&
+                        ContainsUsage(cap, HidUsageHapticIntensity))
+                    {
+                        supportsHapticFeedback = true;
+                    }
+                    else if (cap.UsagePage == TouchpadNativeMethods.HidUsagePageDigitizer &&
+                             ContainsUsage(cap, HidUsageButtonPressThreshold))
+                    {
+                        supportsClickForce = true;
+                    }
+                }
+            }
+        }
+
+        ushort outputCapsLength = caps.NumberOutputValueCaps;
+        if (supportsHapticFeedback || outputCapsLength == 0)
+            return;
+
+        var outputCaps = new TouchpadNativeMethods.HidpValueCaps[outputCapsLength];
+        if (TouchpadNativeMethods.HidP_GetValueCaps(
+                HidpOutput,
+                outputCaps,
+                ref outputCapsLength,
+                preparsed) != TouchpadNativeMethods.HidpStatusSuccess)
+        {
+            return;
+        }
+
+        for (int i = 0; i < outputCapsLength; i++)
+        {
+            TouchpadNativeMethods.HidpValueCaps cap = outputCaps[i];
+            if (cap.UsagePage == HidUsagePageHaptics &&
+                ContainsUsage(cap, HidUsageHapticManualTrigger))
+            {
+                supportsHapticFeedback = true;
+                break;
+            }
+        }
+    }
+
+    private static bool ContainsUsage(TouchpadNativeMethods.HidpValueCaps cap, ushort usage)
+    {
+        if (!cap.IsRange)
+            return cap.UsageMin == usage;
+        return usage >= cap.UsageMin && usage <= cap.UsageMax;
     }
 
     internal IReadOnlyList<TouchContact> ParseReport(IntPtr report, uint reportLength)

@@ -27,6 +27,11 @@ public partial class TouchpadPanel : UserControl
     public TouchpadPanel()
     {
         InitializeComponent();
+        HapticStrengthSlider.Minimum = 0;
+        HapticStrengthSlider.Maximum = 100;
+        ClickForceSlider.Minimum = 0;
+        ClickForceSlider.Maximum = 100;
+
         _settingsSaveTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromMilliseconds(180)
@@ -58,6 +63,7 @@ public partial class TouchpadPanel : UserControl
     {
         if (ReferenceEquals(_app, app))
         {
+            _host?.EnsureInputStarted();
             SyncAll();
             return;
         }
@@ -69,8 +75,11 @@ public partial class TouchpadPanel : UserControl
         _host.TouchpadDetected += Host_TouchpadDetected;
         _host.ContactFrameReceived += Host_ContactFrameReceived;
         _configuration = _host.Configuration.Sanitize();
-        if (_configuration.Enabled)
-            _host.EnsureInputStarted();
+
+        // Raw Input registration is passive until the user touches the pad. Keep it
+        // active while this feature host lives so HID capabilities can be discovered
+        // even when edge gestures themselves are disabled.
+        _host.EnsureInputStarted();
         SyncAll();
     }
 
@@ -134,33 +143,35 @@ public partial class TouchpadPanel : UserControl
         bool feedbackAvailable = status.ApiAvailable && status.TouchpadPresent && status.FeedbackSupported;
         bool clickForceAvailable = feedbackAvailable && status.ClickForceSupported;
 
-        HapticSwitch.Visibility = feedbackAvailable ? Visibility.Visible : Visibility.Collapsed;
-        HapticStrengthHeader.Visibility = feedbackAvailable ? Visibility.Visible : Visibility.Collapsed;
-        HapticStrengthSlider.Visibility = feedbackAvailable ? Visibility.Visible : Visibility.Collapsed;
-        ClickForceHeader.Visibility = clickForceAvailable ? Visibility.Visible : Visibility.Collapsed;
-        ClickForceSlider.Visibility = clickForceAvailable ? Visibility.Visible : Visibility.Collapsed;
+        // Never make the feature disappear. Unsupported/unavailable controls remain
+        // visible and disabled so the user can see both the capability and its state.
+        HapticSwitch.Visibility = Visibility.Visible;
+        HapticStrengthHeader.Visibility = Visibility.Visible;
+        HapticStrengthSlider.Visibility = Visibility.Visible;
+        ClickForceHeader.Visibility = Visibility.Visible;
+        ClickForceSlider.Visibility = Visibility.Visible;
 
         HapticSwitch.IsEnabled = feedbackAvailable;
         HapticStrengthSlider.IsEnabled = feedbackAvailable;
         ClickForceSlider.IsEnabled = clickForceAvailable;
-        HapticSwitch.IsChecked = feedbackAvailable && status.FeedbackEnabled;
+        HapticSwitch.IsChecked = status.FeedbackEnabled;
         HapticStrengthSlider.Value = status.FeedbackIntensity;
         ClickForceSlider.Value = status.ClickForceSensitivity;
         HapticStrengthValue.Text = $"{status.FeedbackIntensity}%";
         ClickForceValue.Text = $"{status.ClickForceSensitivity}%";
-        HapticStatusText.Margin = feedbackAvailable
-            ? new Thickness(0, 4, 70, 0)
-            : new Thickness(0, 4, 0, 0);
+        HapticStatusText.Margin = new Thickness(0, 4, 70, 0);
 
         HapticStatusText.Text = status.ApiAvailable
             ? !status.TouchpadPresent
-                ? "Windows does not currently report a Precision Touchpad."
+                ? "No Windows Precision Touchpad is currently detected."
                 : status.FeedbackSupported
                     ? status.ClickForceSupported
-                        ? "Windows haptics and click force are available on this touchpad."
-                        : "Windows haptic feedback is available; click force is not exposed by this touchpad."
-                    : "This Precision Touchpad does not expose configurable haptic feedback."
-            : status.Error ?? "Haptic settings are unavailable.";
+                        ? "Haptic feedback and click sensitivity are available."
+                        : "Haptic feedback is available; click sensitivity is not exposed by this touchpad."
+                    : "This Precision Touchpad does not report configurable haptic feedback."
+            : status.FeedbackSupported
+                ? $"Haptic hardware detected, but {status.Error ?? "Windows settings access is unavailable"}."
+                : status.Error ?? "Haptic settings are unavailable.";
     }
 
     private void OnEdgeSelected(TouchpadEdge edge)
@@ -321,6 +332,7 @@ public partial class TouchpadPanel : UserControl
             InputStatusText.Text = geometry.PhysicalSizeEstimated
                 ? "Precision Touchpad · size estimated"
                 : "Precision Touchpad detected";
+            SyncHaptics();
         });
     }
 
@@ -329,8 +341,6 @@ public partial class TouchpadPanel : UserControl
         if (!_testMode)
             return;
 
-        // The Raw Input producer does not retain this list, but make the test UI's
-        // ownership explicit so later parser optimizations can safely reuse buffers.
         TouchContact[] snapshot = contacts.ToArray();
         Dispatcher.InvokeAsync(() =>
         {

@@ -15,8 +15,6 @@ public partial class App
             _bootstrapWindow.Show();
             _bootstrapWindow.UpdateLayout();
 
-            // Force one paint before the existing synchronous preflight work starts.
-            // The normal dispatcher loop takes over as soon as startup returns.
             Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
             Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(CloseBootstrap));
             Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
@@ -32,6 +30,12 @@ public partial class App
     {
         AttachTrayActivationRecovery();
         ApplyTrayIconPolish();
+        StartAutomaticUpdateChecks();
+
+        // Do not depend solely on a later Application.Activated event for hardware
+        // onboarding. The first real window can already be active by the time the
+        // bootstrap closes, which previously left the System page on "Checking…".
+        OnHardwareSetupActivated(this, EventArgs.Empty);
     }
 
     private void CloseBootstrap()

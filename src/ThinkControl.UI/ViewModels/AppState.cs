@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using ThinkControl.Core.Ipc;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.ViewModels;
@@ -9,6 +11,8 @@ public sealed class AppState : INotifyPropertyChanged
 {
     private string _deviceName = "ThinkPad";
     private double? _cpuTemperatureC;
+    private double? _controlTemperatureC;
+    private string _controlTemperatureSource = "Unavailable";
     private int? _fanRpm;
     private string _fanStateText = "Lenovo Auto";
     private int _batteryPercent;
@@ -41,27 +45,32 @@ public sealed class AppState : INotifyPropertyChanged
     private string _biosVersion = "—";
     private string _machineType = "—";
     private string _thermalSolution = "—";
-    private string _driverStatus = "Checking…";
+    private string _driverStatus = "Checking hardware service…";
     private string _keyboardStatus = "Unavailable";
     private string _keyboardMode = "Auto";
     private string _keyboardBaseLevel = "High";
     private double _keyboardEffectSpeed = 1.0;
     private string _selectedMode = "Balanced";
-    private string _updateStatus = "Not checked";
+    private string _updateStatus = "Checking automatically…";
     private bool _canFanControl;
     private bool _canFanTelemetry;
     private bool _canKeyboardBacklight;
     private bool _canCpuTemperature;
+    private bool _canSensorTelemetry;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<double> TemperatureHistory { get; } = new();
-    public ObservableCollection<double> BatteryChargePowerHistory { get; } = new();
-    public ObservableCollection<double> BatteryHealthTrendHistory { get; } = new();
+    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
+    public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();
     public ObservableCollection<string> RecentChargeSessions { get; } = new();
+    public ObservableCollection<FanTelemetrySnapshot> Fans { get; } = new();
+    public ObservableCollection<HardwareSensorSnapshot> Sensors { get; } = new();
 
     public string DeviceName { get => _deviceName; set => Set(ref _deviceName, value); }
     public double? CpuTemperatureC { get => _cpuTemperatureC; set => Set(ref _cpuTemperatureC, value); }
+    public double? ControlTemperatureC { get => _controlTemperatureC; set => Set(ref _controlTemperatureC, value); }
+    public string ControlTemperatureSource { get => _controlTemperatureSource; set => Set(ref _controlTemperatureSource, value); }
     public int? FanRpm { get => _fanRpm; set => Set(ref _fanRpm, value); }
     public string FanStateText { get => _fanStateText; set => Set(ref _fanStateText, value); }
     public int BatteryPercent { get => _batteryPercent; set => Set(ref _batteryPercent, Math.Clamp(value, 0, 100)); }
@@ -105,10 +114,19 @@ public sealed class AppState : INotifyPropertyChanged
     public bool CanFanTelemetry { get => _canFanTelemetry; set => Set(ref _canFanTelemetry, value); }
     public bool CanKeyboardBacklight { get => _canKeyboardBacklight; set => Set(ref _canKeyboardBacklight, value); }
     public bool CanCpuTemperature { get => _canCpuTemperature; set => Set(ref _canCpuTemperature, value); }
+    public bool CanSensorTelemetry { get => _canSensorTelemetry; set => Set(ref _canSensorTelemetry, value); }
 
     public string AppVersion => $"v{UpdateService.CurrentVersion}";
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
+    public string ControlTemperatureText => ControlTemperatureC is double value ? $"{value:0.0} °C" : "— °C";
     public string FanRpmText => FanRpm is int value ? $"{value:N0} RPM" : "— RPM";
+    public string FanCountText => Fans.Count switch
+    {
+        0 => "No fan telemetry",
+        1 => "1 fan reading",
+        _ => $"{Fans.Count} fan readings"
+    };
+    public string SensorCountText => Sensors.Count == 1 ? "1 live sensor" : $"{Sensors.Count:N0} live sensors";
     public string BatteryPercentText => $"{BatteryPercent}%";
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
@@ -144,14 +162,32 @@ public sealed class AppState : INotifyPropertyChanged
             TemperatureHistory.RemoveAt(0);
     }
 
+    public void ApplyHardwareTelemetry(
+        IReadOnlyList<FanTelemetrySnapshot>? fans,
+        IReadOnlyList<HardwareSensorSnapshot>? sensors)
+    {
+        ReplaceCollection(Fans, fans ?? Array.Empty<FanTelemetrySnapshot>());
+        ReplaceCollection(Sensors, sensors ?? Array.Empty<HardwareSensorSnapshot>());
+        OnPropertyChanged(nameof(FanCountText));
+        OnPropertyChanged(nameof(SensorCountText));
+    }
+
+    public void ClearHardwareTelemetry()
+    {
+        ReplaceCollection(Fans, Array.Empty<FanTelemetrySnapshot>());
+        ReplaceCollection(Sensors, Array.Empty<HardwareSensorSnapshot>());
+        OnPropertyChanged(nameof(FanCountText));
+        OnPropertyChanged(nameof(SensorCountText));
+    }
+
     public void ApplyBatteryHistory(BatteryHistoryView history)
     {
         BatteryChargeCurveLabel = history.ChargeCurveLabel;
         BatteryCurrentSessionText = history.CurrentSessionText;
         BatteryTypicalChargeText = history.TypicalChargeText;
         BatteryHealthTrendText = history.HealthTrendText;
-        ReplaceCollection(BatteryChargePowerHistory, history.ChargePowerWatts);
-        ReplaceCollection(BatteryHealthTrendHistory, history.HealthTrendPercent);
+        ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
+        ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);
         ReplaceCollection(RecentChargeSessions, history.RecentSessions);
     }
 
@@ -175,6 +211,8 @@ public sealed class AppState : INotifyPropertyChanged
 
         if (propertyName == nameof(CpuTemperatureC))
             OnPropertyChanged(nameof(CpuTemperatureText));
+        else if (propertyName == nameof(ControlTemperatureC))
+            OnPropertyChanged(nameof(ControlTemperatureText));
         else if (propertyName == nameof(FanRpm))
             OnPropertyChanged(nameof(FanRpmText));
         else if (propertyName == nameof(BatteryPercent))

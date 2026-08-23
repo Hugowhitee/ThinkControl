@@ -14,10 +14,6 @@ public partial class App
             return;
 
         _trayActivationRecoveryAttached = true;
-
-        // Alpha.2 already has a left-click handler that toggles Compact. Keep it for
-        // compatibility with the existing tray lifecycle, but queue this handler
-        // afterwards so an explicit tray click always ends with ThinkControl visible.
         _trayIcon.MouseUp += TrayIcon_EnsureForeground;
 
         if (_trayIcon.ContextMenuStrip is { Items.Count: > 0 } menu)
@@ -41,9 +37,6 @@ public partial class App
 
     private void QueueTrayActivation()
     {
-        // Explorer's hidden-icons flyout can still own focus during MouseUp. Waiting
-        // for ApplicationIdle prevents Compact.Window_Deactivated from immediately
-        // hiding the popup we just opened.
         Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
             new Action(ShowThinkControlFromTray));
@@ -51,25 +44,19 @@ public partial class App
 
     public void ShowThinkControlFromTray()
     {
-        if (_advancedWindow is { IsVisible: true } advanced)
-        {
-            if (advanced.WindowState == WindowState.Minimized)
-                advanced.WindowState = WindowState.Normal;
-            advanced.ShowAdvanced(animate: false);
-            return;
-        }
-
         if (CompactWindow is null)
             return;
 
-        // Cancel a stale fade-out started by Window_Deactivated while Explorer was
-        // closing its hidden-icons surface, then restore the existing popup instance.
+        // A tray click always means "show the tray/docked view". If Advanced was
+        // previously open, park it instead of unexpectedly restoring the large
+        // window from Explorer's hidden-icons flyout.
+        if (_advancedWindow is { IsVisible: true } advanced)
+            advanced.HideAnimated();
+
         CompactWindow.BeginAnimation(UIElement.OpacityProperty, null);
         CompactWindow.Opacity = 1;
         CompactWindow.ShowNearTray(animate: !CompactWindow.IsVisible);
 
-        // ShowNearTray uses Topmost to win foreground placement. Drop it again once
-        // focus has settled so ThinkControl behaves like a normal tray utility.
         Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
         {
             if (!CompactWindow.IsVisible)

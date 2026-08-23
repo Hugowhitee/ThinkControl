@@ -128,8 +128,15 @@ public sealed class EdgeGestureRecognizer
                 candidates.Add(edge);
         }
 
+        // Edge gestures must genuinely START at an enabled edge. Without this
+        // lockout, a normal pointer movement that began in the middle of the pad
+        // could become a candidate later when it happened to reach an edge,
+        // unexpectedly capturing/freezing the cursor until the finger was lifted.
         if (candidates.Count == 0)
+        {
+            _lockoutUntilAllLift = true;
             return null;
+        }
 
         _candidateEdges = candidates.ToArray();
         _contactId = contact.ContactId;

@@ -25,6 +25,8 @@ internal sealed class WindowsTouchpadInput : IDisposable
 
     internal TouchpadGeometry? Geometry { get; private set; }
     internal bool IsStarted => _registered;
+    internal bool HapticFeedbackSupported { get; private set; }
+    internal bool ClickForceSupported { get; private set; }
 
     internal bool Start()
     {
@@ -131,7 +133,11 @@ internal sealed class WindowsTouchpadInput : IDisposable
             _fallbackWidthMm,
             _fallbackHeightMm);
         if (created is not null)
+        {
             _devices.Add(rawDevice, created);
+            HapticFeedbackSupported |= created.SupportsHapticFeedback;
+            ClickForceSupported |= created.SupportsClickForce;
+        }
         return created;
     }
 

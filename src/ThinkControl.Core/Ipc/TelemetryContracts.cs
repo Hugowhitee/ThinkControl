@@ -18,6 +18,24 @@ public sealed record ServiceResponse(
     TelemetrySnapshot? Telemetry = null,
     HardwareCapabilitySnapshot? Capabilities = null);
 
+public sealed record FanTelemetrySnapshot(
+    string Id,
+    string Label,
+    int Rpm,
+    string Source,
+    bool Primary = false);
+
+public sealed record HardwareSensorSnapshot(
+    string Id,
+    string HardwareName,
+    string HardwareType,
+    string Name,
+    string SensorType,
+    double Value,
+    string Unit,
+    bool ControlTemperature,
+    string Source);
+
 public sealed record TelemetrySnapshot(
     double? CpuTemperatureC,
     string? CpuTemperatureSource,
@@ -26,10 +44,16 @@ public sealed record TelemetrySnapshot(
     string FanState,
     string HardwareAccess,
     string KeyboardBacklight,
-    string? ThermalSolutionVersion = null);
+    string? ThermalSolutionVersion = null,
+    IReadOnlyList<FanTelemetrySnapshot>? Fans = null,
+    IReadOnlyList<HardwareSensorSnapshot>? Sensors = null,
+    double? ControlTemperatureC = null,
+    string? ControlTemperatureSource = null);
 
 public sealed record HardwareCapabilitySnapshot(
     bool FanTelemetry,
     bool FanControl,
     bool KeyboardBacklight,
-    bool CpuTemperature);
+    bool CpuTemperature,
+    bool SensorTelemetry = false,
+    int FanCount = 0);

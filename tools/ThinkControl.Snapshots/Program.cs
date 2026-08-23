@@ -1,8 +1,11 @@
 using System.IO;
+using System.Text;
+using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ThinkControl.UI;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 
@@ -10,6 +13,8 @@ namespace ThinkControl.Snapshots;
 
 internal static class Program
 {
+    private sealed record SnapshotEntry(string File, string Surface, string State, int Width, int Height);
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -20,49 +25,67 @@ internal static class Program
 
         var app = new App();
         app.InitializeComponent();
-        AppState state = CreateDemoState();
+        var snapshots = new List<SnapshotEntry>();
+
+        AppState charging = CreateDemoState(charging: true, hardwareReady: true);
+        AppState onBattery = CreateDemoState(charging: false, hardwareReady: true);
+        AppState serviceOffline = CreateDemoState(charging: true, hardwareReady: false);
 
         ThemeService.Apply(ThemeMode.Dark);
-        RenderCompact(app, state, Path.Combine(output, "compact-dark.png"));
-        RenderAdvanced(app, state, "Home", 1160, 760, Path.Combine(output, "advanced-home.png"));
-        RenderAdvanced(app, state, "Performance", 1160, 760, Path.Combine(output, "advanced-performance.png"));
-        RenderAdvanced(app, state, "Fans", 1160, 760, Path.Combine(output, "advanced-fans.png"));
-        RenderAdvanced(app, state, "Display", 1160, 760, Path.Combine(output, "advanced-display.png"));
-        RenderAdvanced(app, state, "Keyboard", 1160, 760, Path.Combine(output, "advanced-keyboard.png"));
-        RenderAdvanced(app, state, "Battery", 1160, 760, Path.Combine(output, "advanced-battery.png"));
-        RenderAdvanced(app, state, "Touchpad", 1160, 760, Path.Combine(output, "advanced-touchpad.png"));
-        RenderAdvanced(app, state, "Settings", 1160, 760, Path.Combine(output, "advanced-settings.png"));
+        RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
+        RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
-        RenderAdvanced(app, state, "Home", 1720, 980, Path.Combine(output, "advanced-home-wide.png"));
-        RenderAdvanced(app, state, "Display", 1720, 980, Path.Combine(output, "advanced-display-wide.png"));
-        RenderAdvanced(app, state, "Touchpad", 1720, 980, Path.Combine(output, "advanced-touchpad-wide.png"));
-        RenderAdvanced(app, state, "Battery", 1720, 980, Path.Combine(output, "advanced-battery-wide.png"));
+        foreach (string page in new[] { "Home", "Performance", "Fans", "Display", "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings" })
+            RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
+
+        // The minimum supported Advanced viewport catches the horizontal overflow
+        // and awkward spacing bugs that are easy to miss in wide screenshots.
+        foreach (string page in new[] { "Home", "Battery", "Touchpad", "Keyboard", "System" })
+            RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
+
+        foreach (string page in new[] { "Home", "Display", "Touchpad", "Battery" })
+            RenderAdvanced(app, charging, page, 1720, 980, output, snapshots, $"advanced-{page.ToLowerInvariant()}-wide.png", "wide window");
+
+        RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
+        RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
 
         ThemeService.Apply(ThemeMode.Light);
-        RenderCompact(app, state, Path.Combine(output, "compact-light.png"));
-        RenderAdvanced(app, state, "Home", 1160, 760, Path.Combine(output, "advanced-home-light.png"));
-        RenderAdvanced(app, state, "Touchpad", 1160, 760, Path.Combine(output, "advanced-touchpad-light.png"));
+        RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
+        RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
+        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
 
-        Console.WriteLine($"Rendered ThinkControl snapshots to {output}");
+        WriteManifest(output, snapshots);
+        WriteGallery(output, snapshots);
+        WriteMarkdownGallery(output, snapshots);
+
+        Console.WriteLine($"Rendered {snapshots.Count} ThinkControl visual-QA snapshots to {output}");
+        Console.WriteLine($"Open {Path.Combine(output, "gallery.html")} to review them as one gallery.");
         return 0;
     }
 
-    private static AppState CreateDemoState()
+    private static AppState CreateDemoState(bool charging, bool hardwareReady)
     {
         var state = new AppState
         {
             DeviceName = "ThinkPad X9-15 Gen 1",
-            CpuTemperatureC = 44,
-            FanRpm = 2050,
-            FanStateText = "Level 3",
-            BatteryPercent = 78,
-            BatteryStatus = "Charging",
-            BatteryPowerWatts = 18.4,
-            BatterySmoothedPowerWatts = 17.8,
+            CpuTemperatureC = hardwareReady ? 44 : null,
+            FanRpm = hardwareReady ? 2050 : null,
+            FanStateText = hardwareReady ? "Level 3" : "Lenovo managed · telemetry unavailable",
+            BatteryPercent = charging ? 78 : 63,
+            BatteryCharging = charging,
+            BatteryStatus = charging ? "Charging" : "On battery",
+            BatteryPowerWatts = charging ? 18.4 : 7.2,
+            BatterySmoothedPowerWatts = charging ? 17.8 : 6.9,
             BatteryHealthPercent = 97.6,
-            BatteryRemainingWh = 56.2,
+            BatteryRemainingWh = charging ? 56.2 : 45.4,
             BatteryFullWh = 72.0,
-            BatteryEtaToFull = TimeSpan.FromMinutes(52),
+            BatteryEtaToFull = charging ? TimeSpan.FromMinutes(52) : null,
+            BatteryEtaRemaining = charging ? null : TimeSpan.FromHours(6.4),
+            BatteryCycleCount = 12,
+            BatteryChargeCurveLabel = "Current charge · full session curve",
+            BatteryCurrentSessionText = "61% → 78% · 43 min · 17.8 W avg · +12.1 Wh",
+            BatteryTypicalChargeText = "Typical 18.1 W · 8 sessions",
+            BatteryHealthTrendText = "Health trend · 97.6% · stable",
             BatterySource = "Windows ACPI battery",
             Brightness = 68,
             BrightnessAvailable = true,
@@ -71,41 +94,79 @@ internal static class Program
             CurrentRefreshHz = 120,
             MaxRefreshHz = 120,
             RefreshAutoEnabled = true,
-            HardwareAccess = "Verified · X9 profile · EC + Lenovo keyboard",
+            HardwareAccess = hardwareReady
+                ? "Full · verified X9 EC + Lenovo keyboard provider"
+                : "Limited · hardware service offline",
             CpuName = "Intel Core Ultra 7 258V",
             GpuName = "Intel Arc 140V",
             RamText = "32 GB",
-            BiosVersion = "N4CETxxW",
+            BiosVersion = "N4CET44W (1.20)",
             MachineType = "21Q6",
-            ThermalSolution = "Lenovo Intelligent Thermal Solution",
-            DriverStatus = "Hardware access ready",
-            KeyboardStatus = "High",
-            KeyboardMode = "Breathing",
+            ThermalSolution = hardwareReady ? "Lenovo Intelligent Thermal Solution" : "—",
+            DriverStatus = hardwareReady
+                ? "Ready"
+                : "ThinkControl hardware service stopped · repair available",
+            KeyboardStatus = hardwareReady ? "High" : "Hardware backend unavailable",
+            KeyboardMode = hardwareReady ? "Breathing" : "Auto",
             KeyboardBaseLevel = "Low",
             KeyboardEffectSpeed = 1.0,
             SelectedMode = "Balanced",
             UpdateStatus = "Up to date · v0.1.0-alpha.3",
-            CanFanControl = true,
-            CanFanTelemetry = true,
-            CanKeyboardBacklight = true,
-            CanCpuTemperature = true
+            CanFanControl = hardwareReady,
+            CanFanTelemetry = hardwareReady,
+            CanKeyboardBacklight = hardwareReady,
+            CanCpuTemperature = hardwareReady
         };
 
         for (int i = 0; i < 60; i++)
             state.TemperatureHistory.Add(43 + Math.Sin(i / 4d) * 2 + (i % 11 == 0 ? 1 : 0));
 
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        for (int i = 0; i <= 43; i++)
+        {
+            double watts = 18.8 - i * 0.028 + Math.Sin(i / 3.5) * 0.55;
+            state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(now - TimeSpan.FromMinutes(43 - i), watts));
+        }
+
+        for (int i = 0; i < 8; i++)
+        {
+            double health = 98.0 - i * 0.055 + Math.Sin(i * 0.8) * 0.06;
+            state.BatteryHealthTrendTimeline.Add(new TimeSeriesPoint(now - TimeSpan.FromDays((7 - i) * 21), health));
+        }
+
+        state.RecentChargeSessions.Add("Today · 61% → 78% · 43 min · 17.8 W avg · +12.1 Wh");
+        state.RecentChargeSessions.Add("21 Aug · 34% → 91% · 2h 12m · 18.3 W avg · +40.6 Wh");
+        state.RecentChargeSessions.Add("20 Aug · 52% → 86% · 1h 18m · 17.9 W avg · +24.0 Wh");
         return state;
     }
 
-    private static void RenderCompact(App app, AppState state, string path)
+    private static void RenderCompact(
+        App app,
+        AppState state,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
     {
-        var window = new MainWindow(app) { DataContext = state, Width = 410, Height = 640 };
+        const int width = 410;
+        const int height = 640;
+        var window = new MainWindow(app) { DataContext = state, Width = width, Height = height };
         window.PrepareBrandingForSnapshot();
-        RenderWindowContent(window, path);
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "Compact", stateName, width, height));
         window.ForceClose();
     }
 
-    private static void RenderAdvanced(App app, AppState state, string page, double width, double height, string path)
+    private static void RenderAdvanced(
+        App app,
+        AppState state,
+        string page,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
     {
         var window = new AdvancedWindow(app) { DataContext = state, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
@@ -113,7 +174,8 @@ internal static class Program
             window.NavigateTouchpad();
         else
             window.Navigate(page);
-        RenderWindowContent(window, path);
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, $"Advanced · {page}", stateName, width, height));
         window.ForceClose();
     }
 
@@ -139,4 +201,48 @@ internal static class Program
         encoder.Save(stream);
         Console.WriteLine($"Rendered {Path.GetFileName(path)} ({pixelWidth}x{pixelHeight})");
     }
+
+    private static void WriteManifest(string output, IReadOnlyCollection<SnapshotEntry> snapshots)
+    {
+        string json = JsonSerializer.Serialize(new
+        {
+            generatedAt = DateTimeOffset.UtcNow,
+            snapshots
+        }, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(Path.Combine(output, "manifest.json"), json, Encoding.UTF8);
+    }
+
+    private static void WriteGallery(string output, IReadOnlyCollection<SnapshotEntry> snapshots)
+    {
+        var html = new StringBuilder();
+        html.AppendLine("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
+        html.AppendLine("<title>ThinkControl Visual QA</title><style>body{font-family:Segoe UI,system-ui;background:#0f1113;color:#f2f3f4;margin:0;padding:32px}h1{margin:0 0 6px}p{color:#9fa5ac;margin:0 0 28px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:22px}.card{background:#171a1d;border:1px solid #34383d;border-radius:8px;padding:12px}.meta{display:flex;justify-content:space-between;gap:10px;margin:0 2px 10px;font-size:13px;color:#a3a8ae}.card img{display:block;width:100%;height:auto;background:#101214;border-radius:4px;box-shadow:0 12px 32px #0008}.wide{grid-column:1/-1}.wide img{max-width:1400px;margin:auto}</style></head><body>");
+        html.AppendLine("<h1>ThinkControl Visual QA</h1><p>Deterministic WPF snapshots. Review alignment, clipping, hierarchy and state handling at fixed viewport sizes before merging UI changes.</p><div class=\"grid\">");
+        foreach (SnapshotEntry snapshot in snapshots)
+        {
+            string css = snapshot.Width >= 1500 ? "card wide" : "card";
+            html.Append("<article class=\"").Append(css).Append("\"><div class=\"meta\"><strong>")
+                .Append(Html(snapshot.Surface)).Append("</strong><span>")
+                .Append(Html(snapshot.State)).Append(" · ").Append(snapshot.Width).Append('×').Append(snapshot.Height)
+                .Append("</span></div><a href=\"").Append(snapshot.File).Append("\"><img loading=\"lazy\" src=\"")
+                .Append(snapshot.File).Append("\" alt=\"").Append(Html(snapshot.Surface)).Append("\"></a></article>");
+        }
+        html.AppendLine("</div></body></html>");
+        File.WriteAllText(Path.Combine(output, "gallery.html"), html.ToString(), Encoding.UTF8);
+    }
+
+    private static void WriteMarkdownGallery(string output, IReadOnlyCollection<SnapshotEntry> snapshots)
+    {
+        var markdown = new StringBuilder("# ThinkControl Visual QA\n\nGenerated from the real WPF interface. Click an image for the full-size render.\n\n");
+        foreach (SnapshotEntry snapshot in snapshots)
+        {
+            markdown.Append("## ").Append(snapshot.Surface).Append(" — ").Append(snapshot.State).Append("\n\n")
+                .Append(snapshot.Width).Append('×').Append(snapshot.Height).Append("\n\n")
+                .Append("[![").Append(snapshot.Surface).Append("](").Append(snapshot.File).Append(")](").Append(snapshot.File).Append(")\n\n");
+        }
+        File.WriteAllText(Path.Combine(output, "README.md"), markdown.ToString(), Encoding.UTF8);
+    }
+
+    private static string Html(string value) =>
+        value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;").Replace("\"", "&quot;");
 }

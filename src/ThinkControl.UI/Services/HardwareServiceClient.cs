@@ -20,16 +20,24 @@ public sealed class HardwareServiceClient
     private ServiceResponse? _lastValidStatus;
 
     public event EventHandler<HardwareOperationResult>? HardwareOperationCompleted;
+    public event EventHandler<ServiceResponse?>? StatusObserved;
 
     public async Task<ServiceResponse?> GetStatusAsync(CancellationToken cancellationToken = default)
     {
-        // A cold status read can include Windows telemetry, Lenovo WMI, keyboard
-        // probing and optional EC initialization. Alpha.2 treated anything slower
-        // than 450 ms as a dead service, which could blank every hardware feature
-        // even while the service was healthy. Give discovery a realistic window and
-        // retry once after a short yield; interactive write commands remain strict.
+        ServiceResponse? response = await GetStatusCoreAsync(cancellationToken);
+        try { StatusObserved?.Invoke(this, response); }
+        catch { }
+        return response;
+    }
+
+    private async Task<ServiceResponse?> GetStatusCoreAsync(CancellationToken cancellationToken)
+    {
+        // A cold status read can initialize LibreHardwareMonitor, Lenovo WMI,
+        // keyboard providers and the verified EC backend. Keep this generous on
+        // first contact; the call is asynchronous and interactive writes use much
+        // tighter timeouts.
         ServiceRequest request = new(ThinkControlProtocol.Version, "GetStatus");
-        ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 2200);
+        ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 4200);
         if (IsValidStatus(response))
         {
             _lastValidStatus = response;
@@ -47,7 +55,7 @@ public sealed class HardwareServiceClient
             return null;
         }
 
-        response = await SendAsync(request, cancellationToken, timeoutMs: 1600);
+        response = await SendAsync(request, cancellationToken, timeoutMs: 2400);
         if (IsValidStatus(response))
         {
             _lastValidStatus = response;
@@ -56,11 +64,9 @@ public sealed class HardwareServiceClient
         if (response is not null || cancellationToken.IsCancellationRequested)
             return response;
 
-        // A slow provider probe is not the same as a dead Windows service. Ping is
-        // intentionally provider-free and fast. If it succeeds, reuse the last
-        // complete snapshot rather than blanking RPM/temp/capabilities during a
-        // transient WMI/EC discovery stall. No stale snapshot is invented on first
-        // launch; until one valid read exists the caller still sees unavailable data.
+        // A slow provider refresh is not the same as a dead Windows service.
+        // Ping is provider-free and fast. Reuse the last complete snapshot only
+        // when the service itself is demonstrably still alive.
         if (await PingAsync(cancellationToken).ConfigureAwait(false) && _lastValidStatus is not null)
         {
             return _lastValidStatus with

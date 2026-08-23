@@ -13,13 +13,13 @@
         <Border Style="{StaticResource TcSection}">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="270" />
+                    <ColumnDefinition Width="245" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Margin="0,0,24,0">
                     <TextBlock Text="CHARGE" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <controls:BatteryGauge Width="230" Height="66" HorizontalAlignment="Left" Margin="0,11,0,0"
+                    <controls:BatteryGauge Width="205" Height="60" HorizontalAlignment="Left" Margin="0,11,0,0"
                                            Percent="{Binding BatteryPercent}"
                                            IsCharging="{Binding BatteryCharging}" />
                     <Grid Margin="0,10,0,0">
@@ -72,19 +72,22 @@
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="150" />
+                    <RowDefinition Height="190" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid>
                     <TextBlock Text="{Binding BatteryChargeCurveLabel}" FontWeight="SemiBold" />
-                    <TextBlock Text="{Binding BatteryPowerText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="11" />
+                    <TextBlock Text="Hover the line for exact time and power" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
                 </Grid>
-                <controls:Sparkline Grid.Row="1" Margin="0,12,0,0"
-                                    Values="{Binding BatteryChargePowerHistory}"
-                                    AutoRange="True"
-                                    IncludeZero="True" />
+                <controls:TimeSeriesChart Grid.Row="1" Margin="0,10,0,0"
+                                          Values="{Binding BatteryChargePowerTimeline}"
+                                          Unit="W"
+                                          ValueFormat="0.0"
+                                          IncludeZero="True"
+                                          IsLive="{Binding BatteryCharging}"
+                                          LiveWindowMinutes="60" />
                 <TextBlock Grid.Row="2" Text="{Binding BatteryCurrentSessionText}" Foreground="{DynamicResource Tc.TextMuted}"
-                           FontSize="10.5" Margin="0,9,0,0" TextWrapping="Wrap" />
+                           FontSize="10.5" Margin="0,8,0,0" TextWrapping="Wrap" />
             </Grid>
         </Border>
 
@@ -98,16 +101,17 @@
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="100" />
+                        <RowDefinition Height="125" />
                     </Grid.RowDefinitions>
                     <Grid>
                         <TextBlock Text="Battery health trend" FontWeight="SemiBold" />
                         <TextBlock Text="{Binding BatteryHealthTrendText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" />
                     </Grid>
-                    <controls:Sparkline Grid.Row="1" Margin="0,10,0,0"
-                                        Values="{Binding BatteryHealthTrendHistory}"
-                                        AutoRange="True"
-                                        IncludeZero="False" />
+                    <controls:TimeSeriesChart Grid.Row="1" Margin="0,8,0,0"
+                                              Values="{Binding BatteryHealthTrendTimeline}"
+                                              Unit="%"
+                                              ValueFormat="0.0"
+                                              IncludeZero="False" />
                 </Grid>
             </Border>
 
@@ -116,7 +120,7 @@
                     <TextBlock Text="Charge protection" FontWeight="SemiBold" />
                     <TextBlock Text="A charge limit is only written when a verified Lenovo battery provider exposes it. Until then ThinkControl leaves the firmware setting untouched."
                                Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,8,0,0" />
-                    <Button Content="Open Commercial Vantage" Style="{StaticResource TcButton}" HorizontalAlignment="Left"
+                    <Button Content="Open Lenovo Vantage" Style="{StaticResource TcButton}" HorizontalAlignment="Left"
                             Margin="0,13,0,0" Click="OpenVantage_Click" />
                 </StackPanel>
             </Border>

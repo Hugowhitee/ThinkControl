@@ -140,6 +140,28 @@ internal sealed class ServiceEngine : IDisposable
     private ServiceResponse StatusResponse()
     {
         LenovoHardwareStatus status = _hardware.ReadStatus();
+        FanTelemetrySnapshot[] fans = status.Fans
+            .Select((fan, index) => new FanTelemetrySnapshot(
+                fan.Id,
+                fan.Label,
+                fan.Rpm,
+                fan.Source,
+                Primary: index == 0))
+            .ToArray();
+
+        HardwareSensorSnapshot[] sensors = status.Sensors
+            .Select(sensor => new HardwareSensorSnapshot(
+                sensor.Id,
+                sensor.HardwareName,
+                sensor.HardwareType,
+                sensor.Name,
+                sensor.SensorType,
+                sensor.Value,
+                sensor.Unit,
+                sensor.ControlTemperature,
+                sensor.Source))
+            .ToArray();
+
         var telemetry = new TelemetrySnapshot(
             status.CpuTemperatureC,
             status.CpuTemperatureSource,
@@ -148,13 +170,19 @@ internal sealed class ServiceEngine : IDisposable
             status.FanState,
             status.HardwareAccess,
             status.KeyboardBacklight,
-            ThermalSolutionVersion: null);
+            ThermalSolutionVersion: null,
+            Fans: fans,
+            Sensors: sensors,
+            ControlTemperatureC: status.ControlTemperatureC,
+            ControlTemperatureSource: status.ControlTemperatureSource);
 
         var capabilities = new HardwareCapabilitySnapshot(
             status.CanFanTelemetry,
             status.CanFanControl,
             status.CanKeyboardBacklight,
-            status.CanCpuTemperature);
+            status.CanCpuTemperature,
+            SensorTelemetry: status.CanSensorTelemetry,
+            FanCount: fans.Length);
 
         return new ServiceResponse(
             ThinkControlProtocol.Version,

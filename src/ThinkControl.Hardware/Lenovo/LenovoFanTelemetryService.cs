@@ -2,11 +2,12 @@ using System.Management;
 
 namespace ThinkControl.Hardware.Lenovo;
 
-internal sealed record LenovoFanReading(int Rpm, string Label, string Source);
+public sealed record LenovoFanReading(string Id, int Rpm, string Label, string Source);
 
 /// <summary>
 /// Read-only fan telemetry discovery for Lenovo and generic Windows surfaces.
-/// No setters are invoked here.
+/// No setters are invoked here. The first provider that returns plausible data
+/// wins so one physical tachometer is not duplicated across WMI/CIM surfaces.
 /// </summary>
 internal static class LenovoFanTelemetryService
 {
@@ -37,19 +38,19 @@ internal static class LenovoFanTelemetryService
                 using (fanMethod)
                 {
                     // Lenovo firmware normally exposes fan IDs 0/1. Probe ID 2 as
-                    // well for newer multi-fan designs, but stop at the first invalid
-                    // method response and accept only plausible RPM values.
+                    // well for newer multi-fan designs. This is a read-only method;
+                    // no EC fan-selector register is touched.
                     for (int fanId = 0; fanId < 3; fanId++)
                     {
                         if (!TryInvokeCurrentFanSpeed(fanMethod, fanId, out int rpm))
                             continue;
-
                         if (!IsPlausibleRpm(rpm))
                             continue;
 
                         result.Add(new LenovoFanReading(
+                            $"lenovo-wmi-{fanId}",
                             rpm,
-                            $"Fan #{fanId + 1}",
+                            $"Fan {fanId + 1}",
                             "Lenovo WMI · LENOVO_FAN_METHOD"));
                     }
                 }
@@ -96,13 +97,13 @@ internal static class LenovoFanTelemetryService
     private static IReadOnlyList<LenovoFanReading> ReadLenovoDesktopFanClasses()
     {
         var result = new List<LenovoFanReading>(2);
-        (string ClassName, string Label)[] classes =
+        (string ClassName, string Id, string Label)[] classes =
         {
-            ("Lenovo_DT_GetCPUFan", "CPU fan"),
-            ("Lenovo_DT_GetSYSFan", "System fan")
+            ("Lenovo_DT_GetCPUFan", "lenovo-desktop-cpu", "CPU fan"),
+            ("Lenovo_DT_GetSYSFan", "lenovo-desktop-system", "System fan")
         };
 
-        foreach ((string className, string label) in classes)
+        foreach ((string className, string id, string label) in classes)
         {
             try
             {
@@ -121,7 +122,7 @@ internal static class LenovoFanTelemetryService
                         if (!IsPlausibleRpm(rpm))
                             continue;
 
-                        result.Add(new LenovoFanReading(rpm, label, $"Lenovo WMI · {className}"));
+                        result.Add(new LenovoFanReading(id, rpm, label, $"Lenovo WMI · {className}"));
                         break;
                     }
                 }
@@ -141,8 +142,9 @@ internal static class LenovoFanTelemetryService
         {
             using var searcher = new ManagementObjectSearcher(
                 "root\\cimv2",
-                "SELECT Name,CurrentReading FROM CIM_Tachometer");
+                "SELECT DeviceID,Name,CurrentReading FROM CIM_Tachometer");
 
+            int index = 0;
             foreach (ManagementObject item in searcher.Get())
             {
                 using (item)
@@ -155,7 +157,13 @@ internal static class LenovoFanTelemetryService
                         continue;
 
                     string name = Convert.ToString(item["Name"])?.Trim() ?? "Fan";
-                    result.Add(new LenovoFanReading(rpm, name, "Windows CIM_Tachometer"));
+                    string deviceId = Convert.ToString(item["DeviceID"])?.Trim() ?? index.ToString();
+                    result.Add(new LenovoFanReading(
+                        $"cim-{SanitizeId(deviceId)}",
+                        rpm,
+                        string.IsNullOrWhiteSpace(name) ? $"Fan {index + 1}" : name,
+                        "Windows CIM_Tachometer"));
+                    index++;
                     if (result.Count >= 3)
                         break;
                 }
@@ -166,6 +174,14 @@ internal static class LenovoFanTelemetryService
         }
 
         return result;
+    }
+
+    private static string SanitizeId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return "fan";
+        char[] chars = value.Select(ch => char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : '-').ToArray();
+        return new string(chars).Trim('-');
     }
 
     private static bool IsPlausibleRpm(int rpm) => rpm is >= 0 and <= 12000;
