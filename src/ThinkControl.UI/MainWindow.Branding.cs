@@ -38,6 +38,7 @@ public partial class MainWindow
         titleStack.Children.Insert(0, new BrandWordmark
         {
             Height = 27,
+            Margin = new Thickness(3, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         });
