@@ -10,6 +10,8 @@ public partial class AdvancedWindow
     private const int DwmwaBorderColor = 34;
     private const int DwmwaCaptionColor = 35;
     private const int DwmwaTextColor = 36;
+    private const double AdvancedContentMaxWidth = 1040;
+    private const double AdvancedContentChromeReserve = 224;
     private bool _uiConsistencyConfigured;
 
     private static readonly string[] ConsistentPageNames =
@@ -91,7 +93,9 @@ public partial class AdvancedWindow
     private void ApplyConsistentPageRail()
     {
         double windowWidth = ActualWidth > 1 ? ActualWidth : Width;
-        double pageWidth = Math.Min(1040, Math.Max(520, windowWidth - 204));
+        double pageWidth = Math.Min(
+            AdvancedContentMaxWidth,
+            Math.Max(520, windowWidth - AdvancedContentChromeReserve));
 
         foreach (string pageName in ConsistentPageNames)
         {
@@ -108,6 +112,9 @@ public partial class AdvancedWindow
 
     private static void ApplyPageRail(ScrollViewer scroll, double pageWidth)
     {
+        // All pages share one literal left rail. Width is explicit rather than
+        // centered via MaxWidth, and a small right gutter is kept free for the
+        // themed scrollbar so header actions can never be clipped underneath it.
         scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
         scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
 
@@ -116,9 +123,9 @@ public partial class AdvancedWindow
 
         content.Width = pageWidth;
         content.MinWidth = 0;
-        content.MaxWidth = 1040;
+        content.MaxWidth = AdvancedContentMaxWidth;
         content.HorizontalAlignment = HorizontalAlignment.Left;
-        content.Margin = new Thickness(0, 0, 4, 0);
+        content.Margin = new Thickness(0, 0, 12, 0);
     }
 
     private static void ApplySliderAvailability(Slider slider)
