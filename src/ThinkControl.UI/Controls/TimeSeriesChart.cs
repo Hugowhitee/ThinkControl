@@ -100,7 +100,7 @@ public sealed class TimeSeriesChart : FrameworkElement
     public TimeSeriesChart()
     {
         MinHeight = 110;
-        Cursor = Cursors.Cross;
+        Cursor = System.Windows.Input.Cursors.Cross;
         SnapsToDevicePixels = true;
     }
 
@@ -351,7 +351,7 @@ public sealed class TimeSeriesChart : FrameworkElement
         new(
             text,
             CultureInfo.CurrentUICulture,
-            FlowDirection.LeftToRight,
+            System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             size,
             brush,
