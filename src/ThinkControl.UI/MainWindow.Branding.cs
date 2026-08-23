@@ -42,6 +42,38 @@ public partial class MainWindow
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         });
+
+        MoveExpandButtonIntoHeader(header);
         _compactBrandingConfigured = true;
+    }
+
+    private void MoveExpandButtonIntoHeader(Grid header)
+    {
+        if (FindName("ExpandButton") is not Button expand ||
+            expand.Parent is not Grid footer)
+        {
+            return;
+        }
+
+        Button? hide = header.Children.OfType<Button>().FirstOrDefault();
+        if (hide is null)
+            return;
+
+        footer.Children.Remove(expand);
+        if (footer.ColumnDefinitions.Count >= 4)
+            footer.ColumnDefinitions[3].Width = new GridLength(0);
+
+        if (header.ColumnDefinitions.Count == 2)
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+
+        Grid.SetColumn(hide, 2);
+        Grid.SetColumn(expand, 1);
+        expand.Width = 30;
+        expand.Height = 30;
+        expand.Margin = new Thickness(0);
+        if (TryFindResource("TcIconButton") is Style iconStyle)
+            expand.Style = iconStyle;
+        expand.ToolTip = "Open Advanced";
+        header.Children.Add(expand);
     }
 }
