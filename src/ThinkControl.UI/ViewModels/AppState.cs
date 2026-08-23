@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.ViewModels;
@@ -41,13 +42,13 @@ public sealed class AppState : INotifyPropertyChanged
     private string _biosVersion = "—";
     private string _machineType = "—";
     private string _thermalSolution = "—";
-    private string _driverStatus = "Checking…";
+    private string _driverStatus = "Checking hardware service…";
     private string _keyboardStatus = "Unavailable";
     private string _keyboardMode = "Auto";
     private string _keyboardBaseLevel = "High";
     private double _keyboardEffectSpeed = 1.0;
     private string _selectedMode = "Balanced";
-    private string _updateStatus = "Not checked";
+    private string _updateStatus = "Checking automatically…";
     private bool _canFanControl;
     private bool _canFanTelemetry;
     private bool _canKeyboardBacklight;
@@ -56,8 +57,8 @@ public sealed class AppState : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<double> TemperatureHistory { get; } = new();
-    public ObservableCollection<double> BatteryChargePowerHistory { get; } = new();
-    public ObservableCollection<double> BatteryHealthTrendHistory { get; } = new();
+    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
+    public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();
     public ObservableCollection<string> RecentChargeSessions { get; } = new();
 
     public string DeviceName { get => _deviceName; set => Set(ref _deviceName, value); }
@@ -150,8 +151,8 @@ public sealed class AppState : INotifyPropertyChanged
         BatteryCurrentSessionText = history.CurrentSessionText;
         BatteryTypicalChargeText = history.TypicalChargeText;
         BatteryHealthTrendText = history.HealthTrendText;
-        ReplaceCollection(BatteryChargePowerHistory, history.ChargePowerWatts);
-        ReplaceCollection(BatteryHealthTrendHistory, history.HealthTrendPercent);
+        ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
+        ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);
         ReplaceCollection(RecentChargeSessions, history.RecentSessions);
     }
 
