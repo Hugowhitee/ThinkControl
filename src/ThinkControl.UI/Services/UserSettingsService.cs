@@ -13,7 +13,8 @@ public sealed record ThinkControlUserSettings(
     string KeyboardStaticLevel = "High",
     double KeyboardEffectSpeed = 1.0,
     DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Unknown,
-    TouchpadGestureConfiguration? TouchpadGestures = null);
+    TouchpadGestureConfiguration? TouchpadGestures = null,
+    string HardwareSetupPromptedVersion = "");
 
 public sealed class UserSettingsService
 {
@@ -105,6 +106,9 @@ public sealed class UserSettingsService
             : DiagnosticsConsent.Unknown;
         TouchpadGestureConfiguration touchpad = (settings.TouchpadGestures ??
             (TouchpadGestureConfiguration.Default with { Enabled = false })).Sanitize();
+        string hardwarePrompt = settings.HardwareSetupPromptedVersion?.Trim() ?? string.Empty;
+        if (hardwarePrompt.Length > 64)
+            hardwarePrompt = hardwarePrompt[..64];
 
         return settings with
         {
@@ -113,7 +117,8 @@ public sealed class UserSettingsService
             KeyboardStaticLevel = staticLevel,
             KeyboardEffectSpeed = speed,
             DiagnosticsConsent = consent,
-            TouchpadGestures = touchpad
+            TouchpadGestures = touchpad,
+            HardwareSetupPromptedVersion = hardwarePrompt
         };
     }
 }
