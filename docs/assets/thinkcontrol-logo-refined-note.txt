@@ -1,0 +1,1 @@
+ThinkControl wordmark refinement: keep the approved v3 custom C/red dot geometry unchanged; align Think visually with the C and render the trailing “ontrol” at 87.5% scale with a baseline-preserving offset. This replaces the earlier same-size trailing letters.
