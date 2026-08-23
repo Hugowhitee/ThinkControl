@@ -147,9 +147,13 @@
         </Border>
 
         <Grid Margin="2,10,2,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
             <TextBlock Text="History: local only · max 1 MB · one year of compact summaries" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" />
             <TextBlock Grid.Column="1" Text="{Binding BatterySource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}"
-                       HorizontalAlignment="Right" TextTrimming="CharacterEllipsis" />
+                       HorizontalAlignment="Right" Margin="18,0,0,0" TextTrimming="CharacterEllipsis" />
         </Grid>
     </StackPanel>
 </UserControl>
