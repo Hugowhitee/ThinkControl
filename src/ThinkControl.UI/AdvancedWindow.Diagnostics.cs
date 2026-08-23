@@ -9,6 +9,7 @@ public partial class AdvancedWindow
         base.OnContentRendered(e);
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        AdvancedFeaturePages.Ensure(this, _app);
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
@@ -21,6 +22,7 @@ public partial class AdvancedWindow
     {
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        AdvancedFeaturePages.Ensure(this, _app);
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
@@ -33,6 +35,7 @@ public partial class AdvancedWindow
     {
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        AdvancedFeaturePages.Ensure(this, _app);
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
@@ -43,9 +46,21 @@ public partial class AdvancedWindow
     {
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        AdvancedFeaturePages.Ensure(this, _app);
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
         AdvancedWindowEnhancer.SelectSensors(this);
+    }
+
+    public void NavigateAudio()
+    {
+        ConfigureAdvancedBranding();
+        AdvancedWindowEnhancer.Ensure(this, _app);
+        AdvancedFeaturePages.Ensure(this, _app);
+        ConfigureResetDefaults();
+        ConfigureSliderCommitBehavior();
+        ConfigureCopyPolish();
+        AdvancedFeaturePages.SelectAudio(this);
     }
 }
