@@ -1,242 +1,226 @@
 # Architecture
 
-## Goals
+> **Current architecture for `v0.1.0-alpha.1`.** Future architecture is called out explicitly as roadmap; this file does not present planned components as already running.
 
-ThinkControl must stay small, testable and safe while crossing a privilege boundary for low-level ThinkPad access. The architecture therefore separates user experience, orchestration, device matching and hardware I/O.
+ThinkControl separates the normal-user WPF interface from the privileged operations required for low-level ThinkPad hardware access.
 
 ```text
 ThinkControl.UI (normal user)
         |
-        | Windows-authenticated named pipe
+        | semantic Windows named pipe
         v
-ThinkControl.Service (privileged)
+ThinkControl.Service (LocalSystem Windows service)
         |
         +-- ThinkControl.Core
         +-- ThinkControl.DeviceProfiles
         +-- ThinkControl.Hardware
-              +-- Windows APIs
-              +-- Lenovo services/APIs
-              +-- PawnIO (when installed)
-              +-- verified ThinkPad EC backend
+              +-- Windows APIs / WMI
+              +-- LibreHardwareMonitor read-only sensors
+              +-- Lenovo PM keyboard provider
+              +-- PawnIO-backed X9 EC provider
 ```
 
-## Project responsibilities
+## Projects in alpha.1
 
 ### ThinkControl.Core
 
-Platform-neutral contracts and domain logic:
+Contains shared contracts and types, including:
 
-- device identity
-- capability model
-- fan states and telemetry DTOs
-- profile definitions
-- IPC request/response contracts
-- coordinator state machines
-- redaction rules that can be unit tested without hardware
+- semantic IPC request/response DTOs;
+- hardware capability snapshots;
+- telemetry contracts;
+- diagnostics contracts and compatibility-state types.
 
-Core must not call WMI, Win32, ACPI, PawnIO, Lenovo drivers or UI frameworks.
+Core does not own WPF or direct device I/O.
 
 ### ThinkControl.DeviceProfiles
 
-Matches an observed device to bundled, versioned support metadata. It answers what has been verified, not how to perform an operation.
+Contains bundled device-profile metadata. In alpha.1 the privileged X9 hardware implementation still performs an explicit `21Q6` / `21Q7` machine-type gate before X9-specific writes.
 
-A profile may describe identifiers and verified capability facts. Remote metadata must never be able to introduce new hardware-write addresses or methods. New write support ships only in a normal application release.
+Profiles do not contain remotely executable EC/register instructions.
 
 ### ThinkControl.Hardware
 
-Contains Windows and Lenovo provider implementations behind Core contracts:
+Current implementations include:
 
-- Windows display/power/battery providers
-- Lenovo Intelligent Thermal Solution integration
-- Lenovo Power Management integration when a command is proven
-- PawnIO-backed sensor/EC transport
-- ThinkPad EC fan backend for validated devices
-- conflict detection and platform diagnostics
+- CPU temperature reader with LibreHardwareMonitor and safe ACPI fallback;
+- X9 machine identity gate;
+- PawnIO-backed ThinkPad EC transport;
+- X9 fan state/RPM/manual-level backend;
+- Lenovo PM keyboard backlight backend.
 
-Provider implementations may expose semantic operations such as `SetFanLevel(4)`. They must not expose arbitrary port/register writes to the UI or IPC layer.
+The current hardware assembly does **not** contain a universal ThinkPad fan controller or a generic writable Experimental-provider engine.
 
 ### ThinkControl.Service
 
-The only privileged process. It owns:
+The Windows service currently owns:
 
-- provider discovery
-- capability resolution
-- hardware-write authorization
-- fan-control state machine
-- profile enforcement
-- EC mutex ownership
-- sleep/resume handling
-- rollback to Lenovo Auto
-- privileged diagnostics
+- the `X9HardwareController` lifetime;
+- X9 machine-type authorization for low-level writes;
+- semantic named-pipe operations;
+- service-process privilege boundary;
+- normal service-stop disposal and return-to-Lenovo-Auto behavior.
 
-Closing the UI does not stop a running hardware profile.
+It currently exposes semantic operations such as:
+
+```text
+Ping
+GetStatus
+SetFanLevel
+ReturnFanToAuto
+SetKeyboardBacklight
+```
+
+It does not expose raw EC, port or arbitrary IOCTL commands.
 
 ### ThinkControl.UI
 
-Normal-user WPF process. It owns:
+The WPF process owns:
 
-- tray icon
-- compact popup
-- Advanced window
-- graphs and presentation
-- theme/settings
-- update UX
-- support links
+- tray icon and compact popup;
+- Advanced window/navigation;
+- Windows power mode control;
+- display refresh/brightness/adaptive-brightness controls;
+- battery watts/Wh/health/ETA calculation;
+- keyboard Auto/Breathing/Reactive/Audio policies;
+- settings/themes/startup;
+- update checks;
+- local compatibility diagnostics;
+- user-facing status and support links.
 
-The UI never opens raw hardware devices directly.
+Keyboard effect logic intentionally stays in the signed-in user session because it needs interactive idle/input/audio state. The privileged service receives only semantic Off/Low/High level requests.
 
 ## IPC boundary
 
-Planned pipe name: `\\.\pipe\ThinkControl.Service.v1`.
+The implemented protocol is versioned and uses the pipe name defined by `ThinkControlProtocol.PipeName` (`ThinkControl.Service.v1`).
 
-Authentication should rely on Windows identities and a restrictive pipe ACL, not an application secret embedded in the executable. The service validates the connecting Windows token and protocol version before accepting commands.
+The service creates a restrictive Windows pipe ACL for LocalSystem, administrators and local interactive users. Requests are length-bounded JSON messages and are validated against the protocol version.
 
-The protocol must be:
-
-- versioned
-- length bounded
-- cancellation aware
-- semantic rather than raw-hardware oriented
-- explicit about capability errors and conflicts
-
-Examples of acceptable operations:
-
-- `GetDeviceState`
-- `SetPerformanceProfile(Quiet)`
-- `SetFanState(Level4)`
-- `ReturnFanToAuto`
-
-Explicitly forbidden IPC operations:
-
-- `WriteEc(register, value)`
-- `WritePort(port, value)`
-- arbitrary IOCTL passthrough
-
-## Capability resolution
+Allowed operations are semantic. Explicitly unavailable operations include:
 
 ```text
-SMBIOS / Windows identity
-        +
-ACPI/services/drivers present
-        +
-bundled verified device profile
-        +
-provider self-check
-        +
-conflict check
-        =
-CapabilitySet
+WriteEc(register, value)
+WritePort(port, value)
+RawIoctl(...)
 ```
 
-The UI renders from `CapabilitySet`. Unsupported controls are omitted or clearly explained; no inert placeholder buttons.
+This keeps low-level address knowledge inside compiled hardware providers.
 
-Suggested states:
+## Current capability resolution
 
-- Unavailable
-- SafeReadOnly
-- Verified
-- BlockedByConflict
-- ExperimentalReadOnly
+In alpha.1 there are two practical classes of capability:
 
-A write-capable feature requires all of:
+### Windows/read-only capabilities
 
-1. exact profile match
-2. verified backend compiled into this release
-3. provider health check passes
-4. no conflicting controller owns the hardware
-5. safety policy allows the requested state
+The UI can use Windows-supported or safe read-only providers when they are present, for example display modes, brightness, battery telemetry and temperature sensors.
+
+### X9 low-level capabilities
+
+Fan and Lenovo keyboard writes are currently enabled only when the hardware layer recognizes Lenovo X9 machine type `21Q6` or `21Q7` and the required provider opens successfully.
+
+The core contains richer compatibility-state types (`Verified`, `Experimental`, `Not validated`) for future expansion, but alpha.1 does **not** automatically turn an unknown ThinkPad into a writable Experimental EC device.
+
+See [Device Support](DEVICE-SUPPORT.md).
+
+## X9 fan backend
+
+The current fan backend exposes only hardware states that have an explicit X9 mapping:
+
+```text
+Lenovo Auto   -> 0x80
+Level 1       -> 0x01
+...
+Level 7       -> 0x07
+```
+
+Safety invariants in the current implementation:
+
+- fan-off `0x00` is never offered as a write;
+- `0x40` override-family states are never written;
+- manual writes are deduplicated;
+- writes are verified with read-back;
+- EC access uses shared ThinkPad/EC mutexes;
+- tachometer polling is deliberately conservative;
+- normal service disposal attempts to return manual fan ownership to Lenovo Auto.
+
+RPM is telemetry, not a control-loop clock.
+
+## What the current fan backend is not
+
+Alpha.1 does not yet contain the autonomous custom fan-curve controller originally designed for later versions. The following are roadmap items:
+
+- temperature-to-level curve evaluation;
+- immediate-up / delayed-down logic;
+- hysteresis;
+- minimum hold timers;
+- full third-party EC-controller conflict arbitration;
+- a separate guardian capable of recovering from an ungraceful service process crash.
+
+Manual levels and Lenovo Auto are real alpha.1 features; the autonomous curve engine is not.
 
 ## Performance coordination
 
-One `PerformanceCoordinator` owns the combined user profile. It may coordinate:
+Alpha.1 uses the supported Windows user-configured AC/DC power mode API for Quiet / Balanced / Performance.
 
-- Windows Energy Mode
-- Lenovo Intelligent Thermal policy through LITS when verified
-- fan policy
-- AC/battery-specific display behavior later
+Lenovo Intelligent Thermal Solution (LITS) coordination has been researched, but a production `PerformanceCoordinator` that combines Windows mode, LITS and a future custom fan policy is still roadmap work.
 
-No independent timer should repeatedly fight Windows, LITS or another ThinkControl component. Writes occur on intentional state transitions or recovery, not on every telemetry tick.
+## Sleep / resume
 
-## Fan engine
+The service is structured so provider state is owned by one hardware-controller lifetime and normal service shutdown disposes that state safely.
 
-The fan engine is a state machine over semantic states:
+A complete sleep/resume reinitialization and recovery sequence still requires physical validation and additional lifecycle work before it should be claimed as complete. See [Release Checklist](RELEASE-CHECKLIST.md).
+
+## Installer architecture in alpha.1
+
+The current installer is **not** the earlier proposed 1–3 MB bootstrapper. The first alpha intentionally uses a self-contained x64 package for reliability:
 
 ```text
-LenovoAuto
-ManualLevel1
-ManualLevel2
-...
-ManualLevel7
+Inno Setup
+   |
+   +-- self-contained ThinkControl.UI
+   +-- self-contained ThinkControl.Service
+   +-- service registration / start
+   +-- uninstall service cleanup
 ```
 
-For the X9 backend the mapping to EC values lives only inside the validated backend/profile boundary.
+The resulting development installer is roughly tens of megabytes because it carries the .NET runtime. CI performs a real silent install/service-start/uninstall smoke test.
 
-The engine separates:
+A smaller runtime/bootstrap distribution can be revisited later once the hardware/product path is stable.
 
-- temperature sampling
-- desired-state calculation
-- transition filtering (hysteresis/hold/down-delay)
-- hardware commit
-- RPM telemetry scheduling
+PawnIO prerequisite installation is not yet automated in alpha.1.
 
-This is critical because repeated EC writes or tachometer reads can themselves influence observed fan behavior.
+## Updates and releases
 
-## RPM scheduling
+`version.json` is the release source of truth. The release-ready workflow creates the exact `v<version>` tag from `main`, and that tag triggers the tested packaging workflow.
 
-RPM is telemetry, not the control loop clock.
+Tagged releases produce a versioned installer and SHA-256 checksum. ThinkControl does not run a permanent updater service.
 
-For the X9 manual path, the initial design is event-driven: after a fan-level change, wait for the fan to settle, take one RPM reading, then avoid continuous tachometer polling until a later state change or explicit refresh. Lenovo Auto may use a conservative periodic interval only after A/B validation shows the reads do not create an audible cadence.
+## Diagnostics
 
-## Sleep, resume and shutdown
+The current UI implements bounded local compatibility diagnostics under the user's local app-data directory. Data is allowlisted/redacted and can be previewed, exported and deleted.
 
-Before service stop, shutdown, sleep or hibernate, a direct-control backend must attempt `LenovoAuto` and release EC resources.
+The planned private upload endpoint is not deployed yet; network submission remains disabled and no GitHub PAT is embedded in the application.
 
-On resume:
-
-1. wait for platform/EC readiness
-2. reopen providers
-3. re-identify the device
-4. re-run capability/conflict checks
-5. read current state
-6. reapply the selected profile only if still safe
-
-No stale PawnIO/EC handle may be reused across sleep.
-
-## Conflicts
-
-Direct EC fan control is mutually exclusive with known tools such as FanControl ThinkPad plugins, TPFanControl/TPFanCtrl2 and NBFC-style EC controllers. When a conflict is detected, only the direct fan-control capability is blocked; safe display/performance functions may remain available.
-
-## Installer and updates
-
-The intended installer is a small bootstrapper rather than a self-contained 50+ MB application bundle. It should:
-
-1. validate OS/architecture
-2. install/detect .NET Desktop Runtime
-3. fetch a release manifest from GitHub Releases
-4. download the payload
-5. verify SHA-256 (and later Authenticode/signed manifest)
-6. install UI + service
-7. optionally install verified PawnIO hardware access
-
-The UI checks GitHub Releases at a low frequency. Updating is explicit. The same bootstrapper can perform the elevated service replacement so there is no permanent updater service.
-
-## Logging and diagnostics
-
-- UI logs: `%LocalAppData%\ThinkControl\Logs`
-- service logs: `%ProgramData%\ThinkControl\Logs`
-- bounded rolling files
-- no serial/MAC/user name in normal logs
-- diagnostics export shows a preview before submission
-- service failures log the attempted semantic operation and provider, not secrets or arbitrary memory
-
-## Dependency rule
+## Dependency direction
 
 ```text
 UI ------------> Core
 Service -------> Core, Hardware, DeviceProfiles
 Hardware ------> Core
 DeviceProfiles -> Core
-Core ----------> nothing project-specific
+Core ----------> no ThinkControl project
 ```
 
-A later architecture test should enforce these references.
+## Roadmap architecture
+
+Later releases may add, only after validation:
+
+- a generic provider registry with safe read-only discovery on more ThinkPads;
+- per-capability Experimental promotion;
+- Lenovo LITS coordination;
+- autonomous custom fan-curve state machine;
+- stronger sleep/resume and ungraceful-crash recovery;
+- private opt-in diagnostics submission;
+- a smaller bootstrap-style installer.
+
+Those are target architecture, not hidden alpha.1 behavior.
