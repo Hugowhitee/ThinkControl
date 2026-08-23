@@ -14,7 +14,9 @@
     <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
-    <Resource Include="Assets\ThinkControl.ico" />
+    <Resource Include="Assets\ThinkControl.ico"
+              CopyToOutputDirectory="PreserveNewest"
+              CopyToPublishDirectory="PreserveNewest" />
     <Resource Include="Assets\tray.ico" />
     <None Include="..\..\THIRD_PARTY_NOTICES.md"
           Link="THIRD_PARTY_NOTICES.md"
