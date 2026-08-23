@@ -32,7 +32,7 @@ public sealed class UpdateService
             if (!string.IsNullOrWhiteSpace(informational))
                 return informational.Split('+')[0];
 
-            return assembly.GetName().Version?.ToString(3) ?? "0.1.0-alpha.1";
+            return assembly.GetName().Version?.ToString(3) ?? "0.1.0-alpha.2";
         }
     }
 
