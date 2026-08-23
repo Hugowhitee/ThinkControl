@@ -8,6 +8,7 @@ public sealed record ThinkControlUserSettings(
     bool RefreshAuto = true,
     string KeyboardMode = "Auto",
     string KeyboardBaseLevel = "High",
+    string KeyboardStaticLevel = "High",
     double KeyboardEffectSpeed = 1.0);
 
 public sealed class UserSettingsService
@@ -88,11 +89,18 @@ public sealed class UserSettingsService
             _ => "Auto"
         };
         string baseLevel = settings.KeyboardBaseLevel == "Low" ? "Low" : "High";
+        string staticLevel = settings.KeyboardStaticLevel switch
+        {
+            "Off" => "Off",
+            "Low" => "Low",
+            _ => "High"
+        };
         double speed = Math.Clamp(settings.KeyboardEffectSpeed, 0.5, 2.0);
         return settings with
         {
             KeyboardMode = mode,
             KeyboardBaseLevel = baseLevel,
+            KeyboardStaticLevel = staticLevel,
             KeyboardEffectSpeed = speed
         };
     }
