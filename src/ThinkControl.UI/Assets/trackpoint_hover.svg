@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="g" cx="34%" cy="28%" r="72%">
+      <stop offset="0%" stop-color="#FF463B"/>
+      <stop offset="70%" stop-color="#F0382C"/>
+      <stop offset="100%" stop-color="#B61A13"/>
+    </radialGradient>
+  </defs>
+  <circle cx="256" cy="256" r="181.76" fill="url(#g)"/>
+  <circle cx="256" cy="256" r="181.76" fill="none" stroke="#FF5A50" stroke-width="2.304"/>
+  <g fill="#BC1A14" opacity="0.75">
+    <circle cx="190.57" cy="157.85" r="10.24"/><circle cx="223.28" cy="157.85" r="10.24"/><circle cx="256" cy="157.85" r="10.24"/><circle cx="288.72" cy="157.85" r="10.24"/><circle cx="321.43" cy="157.85" r="10.24"/>
+    <circle cx="157.85" cy="190.57" r="10.24"/><circle cx="190.57" cy="190.57" r="10.24"/><circle cx="223.28" cy="190.57" r="10.24"/><circle cx="256" cy="190.57" r="10.24"/><circle cx="288.72" cy="190.57" r="10.24"/><circle cx="321.43" cy="190.57" r="10.24"/><circle cx="354.15" cy="190.57" r="10.24"/>
+    <circle cx="157.85" cy="223.28" r="10.24"/><circle cx="190.57" cy="223.28" r="10.24"/><circle cx="223.28" cy="223.28" r="10.24"/><circle cx="256" cy="223.28" r="10.24"/><circle cx="288.72" cy="223.28" r="10.24"/><circle cx="321.43" cy="223.28" r="10.24"/><circle cx="354.15" cy="223.28" r="10.24"/>
+    <circle cx="157.85" cy="256" r="10.24"/><circle cx="190.57" cy="256" r="10.24"/><circle cx="223.28" cy="256" r="10.24"/><circle cx="256" cy="256" r="10.24"/><circle cx="288.72" cy="256" r="10.24"/><circle cx="321.43" cy="256" r="10.24"/><circle cx="354.15" cy="256" r="10.24"/>
+    <circle cx="157.85" cy="288.72" r="10.24"/><circle cx="190.57" cy="288.72" r="10.24"/><circle cx="223.28" cy="288.72" r="10.24"/><circle cx="256" cy="288.72" r="10.24"/><circle cx="288.72" cy="288.72" r="10.24"/><circle cx="321.43" cy="288.72" r="10.24"/><circle cx="354.15" cy="288.72" r="10.24"/>
+    <circle cx="157.85" cy="321.43" r="10.24"/><circle cx="190.57" cy="321.43" r="10.24"/><circle cx="223.28" cy="321.43" r="10.24"/><circle cx="256" cy="321.43" r="10.24"/><circle cx="288.72" cy="321.43" r="10.24"/><circle cx="321.43" cy="321.43" r="10.24"/><circle cx="354.15" cy="321.43" r="10.24"/>
+    <circle cx="190.57" cy="354.15" r="10.24"/><circle cx="223.28" cy="354.15" r="10.24"/><circle cx="256" cy="354.15" r="10.24"/><circle cx="288.72" cy="354.15" r="10.24"/><circle cx="321.43" cy="354.15" r="10.24"/>
+  </g>
+</svg>
