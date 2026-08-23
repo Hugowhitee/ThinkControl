@@ -6,6 +6,9 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class WindowsTouchpadInput : IDisposable
 {
+    private const uint RidiDeviceInfo = 0x2000000B;
+    private const uint MaxProbeDevices = 1024;
+
     private readonly MessageWindow _window;
     private readonly Dictionary<IntPtr, TouchpadHidDevice> _devices = new();
     private readonly double _fallbackWidthMm;
@@ -48,7 +51,82 @@ internal sealed class WindowsTouchpadInput : IDisposable
             devices,
             1,
             checked((uint)Marshal.SizeOf<TouchpadNativeMethods.RawInputDevice>()));
+
+        // Raw Input normally teaches us about a device on the first WM_INPUT frame.
+        // Enumerate already-connected PTP collections as well so haptic capability
+        // detection is ready as soon as the Touchpad page opens, without requiring
+        // the user to touch the pad first.
+        if (_registered)
+            ProbeConnectedTouchpads();
+
         return _registered;
+    }
+
+    private void ProbeConnectedTouchpads()
+    {
+        uint entrySize = checked((uint)Marshal.SizeOf<RawInputDeviceListEntry>());
+
+        // Device lists can change between the size query and the fill call. Retry a
+        // few times on ERROR_INSUFFICIENT_BUFFER/UINT_MAX rather than treating hotplug
+        // during startup as a permanent detection failure.
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            uint count = 0;
+            if (GetRawInputDeviceCount(IntPtr.Zero, ref count, entrySize) != 0 ||
+                count == 0 || count > MaxProbeDevices)
+            {
+                return;
+            }
+
+            var entries = new RawInputDeviceListEntry[checked((int)count)];
+            uint capacity = count;
+            uint copied = FillRawInputDeviceList(entries, ref capacity, entrySize);
+            if (copied == uint.MaxValue)
+                continue;
+
+            int limit = Math.Min(entries.Length, checked((int)copied));
+            for (int index = 0; index < limit; index++)
+            {
+                RawInputDeviceListEntry entry = entries[index];
+                if (entry.Type != TouchpadNativeMethods.RimTypeHid ||
+                    !IsPrecisionTouchpad(entry.Device))
+                {
+                    continue;
+                }
+
+                TouchpadHidDevice? device = GetOrCreateDevice(entry.Device);
+                if (device is null)
+                    continue;
+
+                Geometry ??= device.Geometry;
+
+                // Fire for every newly observed PTP. Capability flags are aggregate,
+                // so this also refreshes the UI if a second device adds haptics or
+                // click-force support while the first device supplied the geometry.
+                TouchpadDetected?.Invoke(Geometry);
+            }
+
+            return;
+        }
+    }
+
+    private static bool IsPrecisionTouchpad(IntPtr rawDevice)
+    {
+        var info = new RawInputDeviceInfo
+        {
+            Size = checked((uint)Marshal.SizeOf<RawInputDeviceInfo>())
+        };
+        uint size = info.Size;
+        uint result = GetRawInputDeviceInfoForProbe(
+            rawDevice,
+            RidiDeviceInfo,
+            ref info,
+            ref size);
+
+        return result != uint.MaxValue &&
+               info.Type == TouchpadNativeMethods.RimTypeHid &&
+               info.Hid.UsagePage == TouchpadNativeMethods.HidUsagePageDigitizer &&
+               info.Hid.Usage == TouchpadNativeMethods.HidUsageTouchPad;
     }
 
     private void ProcessRawInput(IntPtr rawInputHandle)
@@ -170,6 +248,53 @@ internal sealed class WindowsTouchpadInput : IDisposable
         _devices.Clear();
         _window.Dispose();
     }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RawInputDeviceListEntry
+    {
+        internal IntPtr Device;
+        internal uint Type;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RawInputHidInfo
+    {
+        internal uint VendorId;
+        internal uint ProductId;
+        internal uint VersionNumber;
+        internal ushort UsagePage;
+        internal ushort Usage;
+    }
+
+    // RID_DEVICE_INFO's union is 24 bytes because the keyboard arm is larger than
+    // RID_DEVICE_INFO_HID. Keep the native 32-byte outer size even though we only
+    // consume the HID arm at offset 8.
+    [StructLayout(LayoutKind.Explicit, Size = 32)]
+    private struct RawInputDeviceInfo
+    {
+        [FieldOffset(0)] internal uint Size;
+        [FieldOffset(4)] internal uint Type;
+        [FieldOffset(8)] internal RawInputHidInfo Hid;
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetRawInputDeviceList", SetLastError = true)]
+    private static extern uint GetRawInputDeviceCount(
+        IntPtr deviceList,
+        ref uint deviceCount,
+        uint size);
+
+    [DllImport("user32.dll", EntryPoint = "GetRawInputDeviceList", SetLastError = true)]
+    private static extern uint FillRawInputDeviceList(
+        [Out] RawInputDeviceListEntry[] deviceList,
+        ref uint deviceCount,
+        uint size);
+
+    [DllImport("user32.dll", EntryPoint = "GetRawInputDeviceInfoW", ExactSpelling = true, SetLastError = true)]
+    private static extern uint GetRawInputDeviceInfoForProbe(
+        IntPtr device,
+        uint command,
+        ref RawInputDeviceInfo data,
+        ref uint size);
 
     private sealed class MessageWindow : Forms.NativeWindow, IDisposable
     {
