@@ -8,7 +8,7 @@ internal sealed class TouchpadGestureService : IDisposable
     private readonly EdgeGestureRecognizer _recognizer;
     private readonly CursorGestureGuard _cursorGuard;
     private readonly GestureActionRouter _actions;
-    private readonly Timer _watchdog;
+    private readonly System.Threading.Timer _watchdog;
     private readonly object _gate = new();
 
     private TouchpadGestureConfiguration _configuration;
@@ -28,11 +28,12 @@ internal sealed class TouchpadGestureService : IDisposable
         _input = new WindowsTouchpadInput(fallbackWidthMm, fallbackHeightMm);
         _input.FrameReceived += OnFrameReceived;
         _input.TouchpadDetected += geometry => TouchpadDetected?.Invoke(geometry);
-        _watchdog = new Timer(OnWatchdog, null, Timeout.Infinite, Timeout.Infinite);
+        _watchdog = new System.Threading.Timer(OnWatchdog, null, Timeout.Infinite, Timeout.Infinite);
     }
 
     internal event Action<GestureSignal>? GestureChanged;
     internal event Action<TouchpadGeometry>? TouchpadDetected;
+    internal event Action<IReadOnlyList<TouchContact>, TouchpadGeometry>? ContactFrameReceived;
 
     internal TouchpadGeometry? Geometry => _input.Geometry;
     internal bool IsRunning => _input.IsStarted;
@@ -84,6 +85,8 @@ internal sealed class TouchpadGestureService : IDisposable
                 return;
 
             _lastFrame = DateTimeOffset.UtcNow;
+            ContactFrameReceived?.Invoke(contacts, geometry);
+
             GestureSignal? signal = _recognizer.ProcessFrame(contacts, geometry);
             if (signal is null)
                 return;

@@ -6,16 +6,6 @@ public partial class App
 {
     private TouchpadFeatureHost? _touchpadFeature;
 
-    public App()
-    {
-        Activated += OnTouchpadApplicationActivated;
-        Exit += (_, _) =>
-        {
-            try { _touchpadFeature?.Dispose(); }
-            catch { }
-        };
-    }
-
     internal TouchpadFeatureHost TouchpadFeature =>
         _touchpadFeature ??= new TouchpadFeatureHost(this);
 
@@ -23,5 +13,11 @@ public partial class App
     {
         if (UserSettings.Current.TouchpadGestures?.Enabled == true)
             TouchpadFeature.EnsureInputStarted();
+    }
+
+    private void OnTouchpadApplicationExit(object? sender, ExitEventArgs e)
+    {
+        try { _touchpadFeature?.Dispose(); }
+        catch { }
     }
 }

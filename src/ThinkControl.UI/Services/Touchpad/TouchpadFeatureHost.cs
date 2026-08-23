@@ -36,10 +36,12 @@ internal sealed class TouchpadFeatureHost : IDisposable
             fallbackHeightMm: x9 ? 80.0 : 60.0);
         _gestures.GestureChanged += signal => GestureChanged?.Invoke(signal);
         _gestures.TouchpadDetected += geometry => TouchpadDetected?.Invoke(geometry);
+        _gestures.ContactFrameReceived += (contacts, geometry) => ContactFrameReceived?.Invoke(contacts, geometry);
     }
 
     internal event Action<GestureSignal>? GestureChanged;
     internal event Action<TouchpadGeometry>? TouchpadDetected;
+    internal event Action<IReadOnlyList<TouchContact>, TouchpadGeometry>? ContactFrameReceived;
 
     internal TouchpadGestureConfiguration Configuration => _gestures.Configuration;
     internal TouchpadGeometry? Geometry => _gestures.Geometry;
