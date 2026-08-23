@@ -26,7 +26,6 @@
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <!-- Title bar -->
             <Grid Grid.Row="0" Margin="16,0,8,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -40,7 +39,7 @@
                     <Ellipse Width="4" Height="4" Fill="{DynamicResource Tc.Accent}" Margin="4,0,0,8" VerticalAlignment="Center" />
                     <Border Width="1" Height="18" Background="{DynamicResource Tc.BorderStrong}" Margin="14,0" />
                     <TextBlock Text="{Binding DeviceName}" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="v0.1.0-alpha.1" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" Margin="10,1,0,0" />
+                    <TextBlock Text="{Binding AppVersion}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" Margin="10,1,0,0" />
                 </StackPanel>
                 <Button Grid.Column="1" Style="{StaticResource TcIconButton}" Click="Dock_Click" ToolTip="Return to compact popup" shell:WindowChrome.IsHitTestVisibleInChrome="True">
                     <Viewbox Width="13" Height="13">
@@ -64,13 +63,12 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Navigation -->
                 <Border Grid.Column="0" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="0,1,1,0" Background="{DynamicResource Tc.Surface}">
                     <Grid>
                         <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="48" /></Grid.RowDefinitions>
                         <StackPanel Margin="0,10,0,0">
                             <RadioButton x:Name="NavHome" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Home" Checked="Nav_Checked" IsChecked="True">
-                                <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Home" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Home" /></StackPanel>
+                                <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="House" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Home" /></StackPanel>
                             </RadioButton>
                             <RadioButton x:Name="NavPerformance" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Performance" Checked="Nav_Checked">
                                 <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Gauge" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Performance" /></StackPanel>
@@ -99,13 +97,12 @@
                         </StackPanel>
                         <StackPanel Grid.Row="1" Margin="16,0,12,10" VerticalAlignment="Bottom">
                             <TextBlock Text="ThinkControl" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
-                            <TextBlock Text="0.1.0-alpha.1 · alpha" FontSize="9" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding AppVersion}" FontSize="9" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" />
                         </StackPanel>
                     </Grid>
                 </Border>
 
                 <Grid Grid.Column="1" Margin="14">
-                    <!-- Home -->
                     <ScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                             <Grid>
@@ -166,7 +163,7 @@
                             <Grid Margin="0,14,0,0">
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                 <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" Height="142">
-                                    <StackPanel><Grid><TextBlock Text="Keyboard" FontWeight="SemiBold" FontSize="11" /><Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="Open ›" Click="HomeOpenPage_Click" Tag="Keyboard" /></Grid><TextBlock Text="{Binding KeyboardModeText}" FontSize="14" Margin="0,14,0,0" TextWrapping="Wrap" /><TextBlock Text="Hardware level: {Binding KeyboardStatus}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" Margin="0,5,0,0" /></StackPanel>
+                                    <StackPanel><Grid><TextBlock Text="Keyboard" FontWeight="SemiBold" FontSize="11" /><Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="Open ›" Click="HomeOpenPage_Click" Tag="Keyboard" /></Grid><TextBlock Text="{Binding KeyboardModeText}" FontSize="14" Margin="0,14,0,0" TextWrapping="Wrap" /><TextBlock Text="{Binding KeyboardStatus, StringFormat=Hardware level: {0}}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" Margin="0,5,0,0" /></StackPanel>
                                 </Border>
                                 <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0" Height="142">
                                     <StackPanel><TextBlock Text="Compatibility" FontWeight="SemiBold" FontSize="11" /><TextBlock Text="{Binding HardwareAccess}" FontSize="13" Margin="0,14,0,0" TextWrapping="Wrap" /><TextBlock Text="Verified · Experimental · Not validated" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" Margin="0,6,0,0" /></StackPanel>
@@ -178,7 +175,6 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- Performance -->
                     <ScrollViewer x:Name="PagePerformance" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
                             <TextBlock Text="Performance" FontSize="24" FontWeight="SemiBold" />
@@ -196,7 +192,6 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- Fans -->
                     <ScrollViewer x:Name="PageFans" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
                             <TextBlock Text="Fans" FontSize="24" FontWeight="SemiBold" />
@@ -223,7 +218,6 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- Display -->
                     <ScrollViewer x:Name="PageDisplay" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
                             <TextBlock Text="Display" FontSize="24" FontWeight="SemiBold" />
@@ -241,7 +235,6 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- Keyboard -->
                     <ScrollViewer x:Name="PageKeyboard" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel MaxWidth="900" HorizontalAlignment="Left"><TextBlock Text="Keyboard" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Hardware levels and ThinkControl effects are kept separate: Off / Low / High are device states, while Auto / Breathing / Reactive / Audio are user-session policies." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
                             <Border Style="{StaticResource TcSection}"><StackPanel><Grid><TextBlock Text="Backlight level" FontWeight="SemiBold" /><TextBlock Text="{Binding KeyboardStatus}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" /></Grid><Grid Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="AdvancedKeyboardOff" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Off" Tag="Off" Click="Keyboard_Click" Margin="0,0,5,0" /><RadioButton x:Name="AdvancedKeyboardLow" Grid.Column="1" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Low" Tag="Low" Click="Keyboard_Click" Margin="2,0" /><RadioButton x:Name="AdvancedKeyboardHigh" Grid.Column="2" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="High" Tag="High" Click="Keyboard_Click" Margin="2,0" /><RadioButton x:Name="AdvancedKeyboardAuto" Grid.Column="3" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Auto" Tag="Auto" Click="Keyboard_Click" Margin="5,0,0,0" /></Grid></StackPanel></Border>
@@ -249,19 +242,15 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <!-- Battery -->
                     <ScrollViewer x:Name="PageBattery" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="900" HorizontalAlignment="Left"><TextBlock Text="Battery" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Battery power, energy, health and ETA are read from Windows/ACPI when available. Missing values stay unavailable instead of being invented." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><Border Style="{StaticResource TcSection}" Margin="0,0,7,0"><StackPanel><TextBlock Text="Charge" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryPercentText}" FontSize="38" FontWeight="Light" Margin="0,7,0,0" /><TextBlock Text="{Binding BatteryCompactLine}" Margin="0,5,0,0" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" /></StackPanel></Border><Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0"><StackPanel><TextBlock Text="Charge threshold" FontWeight="SemiBold" /><TextBlock Text="Visible, but not enabled until a compatible write provider passes validation on this device." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,12,0,0" TextWrapping="Wrap" /><Button Content="Set limit" Style="{StaticResource TcButton}" IsEnabled="False" HorizontalAlignment="Left" Margin="0,16,0,0" /></StackPanel></Border></Grid></StackPanel></ScrollViewer>
 
-                    <!-- System -->
                     <ScrollViewer x:Name="PageSystem" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="960" HorizontalAlignment="Left"><TextBlock Text="System" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Only non-unique hardware identity is shown here. Serial numbers, MAC addresses and disk IDs are not collected." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
-                        <Border Style="{StaticResource TcSection}"><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="CPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding CpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="GPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding GpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="RAM" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding RamText}" Margin="0,4,0,0" /></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="BIOS" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding BiosVersion}" Margin="0,4,12,13" /><TextBlock Text="Machine type" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding MachineType}" Margin="0,4,12,13" /><TextBlock Text="Hardware access" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding HardwareAccess}" Margin="0,4,12,0" TextWrapping="Wrap" /></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Thermal solution" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding ThermalSolution}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="Drivers" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding DriverStatus}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="ThinkControl" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="v0.1.0-alpha.1" Margin="0,4,0,0" /></StackPanel></Grid></Border>
+                        <Border Style="{StaticResource TcSection}"><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="CPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding CpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="GPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding GpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="RAM" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding RamText}" Margin="0,4,0,0" /></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="BIOS" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding BiosVersion}" Margin="0,4,12,13" /><TextBlock Text="Machine type" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding MachineType}" Margin="0,4,12,13" /><TextBlock Text="Hardware access" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding HardwareAccess}" Margin="0,4,12,0" TextWrapping="Wrap" /></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Thermal solution" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding ThermalSolution}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="Drivers" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding DriverStatus}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="ThinkControl" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding AppVersion}" Margin="0,4,0,0" /></StackPanel></Grid></Border>
                         <Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel><TextBlock Text="Lenovo software &amp; support" FontWeight="SemiBold" /><WrapPanel Margin="0,12,0,0"><Button Content="Lenovo Support" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="https://support.lenovo.com/" Click="OpenUrl_Click" /><Button Content="Drivers &amp; Software" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="https://support.lenovo.com/us/en/downloads" Click="OpenUrl_Click" /><Button Content="Commercial Vantage" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="ms-windows-store://search/?query=Lenovo%20Commercial%20Vantage" Click="OpenUrl_Click" /><Button Content="Windows Power" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="ms-settings:powersleep" Click="OpenUrl_Click" /></WrapPanel></StackPanel></Border>
                     </StackPanel></ScrollViewer>
 
-                    <!-- Updates -->
-                    <ScrollViewer x:Name="PageUpdates" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><TextBlock Text="Updates" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="ThinkControl uses GitHub Releases as the update channel. Update installation remains explicit; there is no permanent updater service." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Current version" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="v0.1.0-alpha.1" FontSize="28" FontWeight="Light" Margin="0,5,0,16" /><TextBlock Text="{Binding UpdateStatus}" FontSize="13" /><StackPanel Orientation="Horizontal" Margin="0,15,0,0"><Button Content="Check for updates" Style="{StaticResource TcButton}" Click="CheckUpdates_Click" /><Button x:Name="OpenReleaseButton" Content="Open release" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="OpenRelease_Click" IsEnabled="False" /></StackPanel></StackPanel></Border></StackPanel></ScrollViewer>
+                    <ScrollViewer x:Name="PageUpdates" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><TextBlock Text="Updates" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="ThinkControl uses GitHub Releases as the update channel. Update installation remains explicit; there is no permanent updater service." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Current version" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding AppVersion}" FontSize="28" FontWeight="Light" Margin="0,5,0,16" /><TextBlock Text="{Binding UpdateStatus}" FontSize="13" /><StackPanel Orientation="Horizontal" Margin="0,15,0,0"><Button Content="Check for updates" Style="{StaticResource TcButton}" Click="CheckUpdates_Click" /><Button x:Name="OpenReleaseButton" Content="Open release" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="OpenRelease_Click" IsEnabled="False" /></StackPanel></StackPanel></Border></StackPanel></ScrollViewer>
 
-                    <!-- Settings -->
                     <ScrollViewer x:Name="PageSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><TextBlock Text="Settings" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Keep the daily surface compact; deeper preferences and compatibility tools live here." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Theme" FontWeight="SemiBold" /><Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="ThemeSystem" GroupName="Theme" Style="{StaticResource TcSegment}" Content="System" Tag="System" Click="Theme_Click" Margin="0,0,6,0" IsChecked="True" /><RadioButton Grid.Column="1" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Dark" Tag="Dark" Click="Theme_Click" Margin="3,0" /><RadioButton Grid.Column="2" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Light" Tag="Light" Click="Theme_Click" Margin="6,0,0,0" /></Grid></StackPanel></Border><Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><Grid><StackPanel><TextBlock Text="Start with Windows" FontWeight="SemiBold" /><TextBlock Text="Launch ThinkControl directly into the tray after sign-in." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,70,0" /></StackPanel><CheckBox x:Name="StartupSwitch" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" /></Grid></Border><Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel><TextBlock Text="Background behavior" FontWeight="SemiBold" /><TextBlock Text="Closing either window hides it to the tray. Use Quit from the tray menu to stop ThinkControl completely." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,7,0,0" TextWrapping="Wrap" /></StackPanel></Border></StackPanel></ScrollViewer>
                 </Grid>
             </Grid>
