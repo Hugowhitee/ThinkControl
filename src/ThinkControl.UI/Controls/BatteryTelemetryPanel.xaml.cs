@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
+using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
 
@@ -23,14 +24,14 @@ public partial class BatteryTelemetryPanel : System.Windows.Controls.UserControl
         if (answer != MessageBoxResult.Yes)
             return;
 
-        Services.BatteryHistoryView view = app.BatteryHistoryService.Clear();
+        BatteryHistoryView view = app.BatteryHistoryService.Clear();
         app.State.ApplyBatteryHistory(view);
         app.BatteryTelemetryService.SetHistoricalChargePower(view.TypicalChargePowerWatts);
     }
 
     private void OpenVantage_Click(object sender, RoutedEventArgs e)
     {
-        if (Services.LenovoSoftwareLauncher.TryOpenVantage())
+        if (LenovoSoftwareLauncher.TryOpenVantage())
             return;
 
         try
