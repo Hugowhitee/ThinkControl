@@ -35,9 +35,7 @@ It does not depend on WPF or direct hardware I/O.
 
 ### ThinkControl.DeviceProfiles
 
-Contains bundled profile metadata used to identify device families and exact verified models.
-
-Profiles select provider candidates. They do not contain remotely executable EC register writes or arbitrary hardware commands.
+Contains bundled profile metadata used to identify device families and exact verified models. Profiles select provider candidates. They do not contain remotely executable EC register writes or arbitrary hardware commands.
 
 ### ThinkControl.Hardware
 
@@ -47,7 +45,8 @@ Contains hardware implementations such as:
 - machine identity checks;
 - PawnIO-backed ThinkPad EC transport;
 - the verified X9 fan backend;
-- Lenovo PM keyboard backlight providers.
+- Lenovo PM / EnergyDrv keyboard backlight providers;
+- validated installed-Lenovo-component fallbacks where implemented.
 
 This project owns low-level device knowledge. The current alpha does not contain a universal writable ThinkPad fan backend.
 
@@ -77,14 +76,19 @@ It does not expose generic EC, port or IOCTL operations.
 
 The WPF application owns:
 
-- notification-area integration and compact window;
-- Advanced window and navigation;
+- notification-area integration and the compact tray flyout;
+- the native-window Advanced surface and navigation;
 - Windows power mode controls;
 - display refresh and brightness controls;
 - battery telemetry and time estimates;
 - keyboard effects that depend on the interactive user session;
 - themes, startup settings and update checks;
 - local diagnostics and support actions.
+
+The two window surfaces intentionally have different chrome:
+
+- **Compact** is borderless, non-resizable and anchored above the notification area. It has no draggable caption region.
+- **Advanced** is a standard Windows application window with the native title bar, app icon, minimize/maximize/restore/close buttons, taskbar presence, system menu and Windows 11 Snap Layouts.
 
 Keyboard effects remain in the user session because they depend on idle state, keyboard activity or local audio level. The service receives only semantic hardware-level requests.
 
@@ -110,7 +114,7 @@ ThinkControl resolves capabilities independently.
 
 Windows-level features can use supported operating-system APIs without a Lenovo-specific profile. Examples include display modes, brightness and battery telemetry.
 
-Low-level writes require a provider with its own authorization and validation rules. The current X9 fan backend requires Lenovo machine type `21Q6` or `21Q7` and a working low-level transport.
+Low-level writes require a provider with its own authorization and validation rules. The current X9 fan backend requires Lenovo machine type `21Q6` or `21Q7` and a working low-level transport. Machine-type parsing explicitly prioritizes these verified Lenovo codes before generic four-character token matching.
 
 See [Device Support](DEVICE-SUPPORT.md) for the current support model.
 
@@ -134,15 +138,21 @@ The backend enforces the following rules:
 - writes are verified with readback;
 - shared EC mutexes are used;
 - RPM polling is conservative;
-- normal service disposal attempts to return manual control to Lenovo Auto.
+- normal service disposal attempts to return manual control to Lenovo Auto before the EC transport closes.
 
 RPM telemetry is not used as a high-frequency control-loop clock.
 
 ## Performance control
 
-The current release uses Windows power mode APIs for Quiet, Balanced and Performance.
+Quiet, Balanced and Performance use the effective Windows power-mode surface first and the documented user-configured AC/DC mode surface as a fallback. Changes are read back where the API allows it.
 
-Lenovo thermal-policy integration has been researched, but it is not part of the completed alpha architecture.
+This is intentionally a policy-level control. ThinkControl does not pretend these three buttons are direct fan-PWM values.
+
+## Keyboard control
+
+The privileged keyboard path probes known Lenovo driver contracts before any write. `IBMPmDrv` and known `EnergyDrv` encodings are accepted only after a recognized read state. Writes are read back.
+
+When the direct driver path is unavailable, ThinkControl can probe the installed Lenovo Vantage ThinkKeyboard component as a local fallback. Presence alone is not enough: an invocation must be validated before it becomes an active provider.
 
 ## Sleep and resume
 
@@ -150,21 +160,28 @@ The service owns hardware-provider lifetime and performs cleanup during normal s
 
 ## Installation
 
-The current release uses a self-contained x64 Inno Setup package containing the UI, service and .NET runtime.
+The release uses a compact x64 Inno Setup bootstrap package. The ThinkControl UI and service are framework-dependent so the .NET runtime is not duplicated inside each process payload.
 
 ```text
 Inno Setup
+   |-- prerequisite detection
+   |     |-- .NET 10 Desktop Runtime when missing
+   |     `-- PawnIO 2.2.0 on verified X9 when selected/missing
    |-- ThinkControl.UI
    |-- ThinkControl.Service
    |-- service registration and start
    `-- uninstall cleanup
 ```
 
-PawnIO installation is not automated in the first alpha.
+Prerequisite downloads use pinned versions and SHA-256 verification. PawnIO remains optional for the application as a whole: failure limits the X9 EC capability rather than blocking unrelated Windows features.
+
+## Branding assets
+
+The repository keeps the approved ThinkControl v3 master artwork as the branding source. Production app/tray/installer icons and README wordmarks are exports of that source rather than recreated letterforms. Runtime status variants preserve the same geometry and change only the status-dot color.
 
 ## Updates
 
-`version.json` is the repository version source. Tagged releases build a versioned installer and SHA-256 checksum. ThinkControl does not install a permanent updater service.
+`version.json` is the repository version source. Tagged releases build a versioned installer and SHA-256 checksum. ThinkControl does not install a permanent updater service. The update client handles an empty/not-yet-published release channel as a normal state rather than exposing a raw HTTP error.
 
 ## Diagnostics
 
@@ -188,10 +205,10 @@ Later releases may add:
 
 - broader provider discovery across Lenovo families;
 - additional per-capability validation states;
-- Lenovo thermal-policy coordination;
+- deeper Lenovo thermal-policy coordination where a stable contract is established;
 - autonomous fan curves;
 - stronger sleep/resume and crash recovery;
 - private opt-in diagnostics submission;
-- a smaller installer bootstrap path.
+- Authenticode signing and mature update/rollback handling.
 
 These are roadmap items, not active alpha behavior.
