@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Media;
+using WpfColor = System.Windows.Media.Color;
 using WpfPoint = System.Windows.Point;
 using WpfRect = System.Windows.Rect;
 
@@ -127,8 +128,8 @@ public sealed class BatteryGauge : FrameworkElement
         if (fillWidth <= 0.5 || innerHeight <= 0.5)
             return;
 
-        Color fillColor = IsCharging
-            ? Color.FromRgb(58, 170, 93)
+        WpfColor fillColor = IsCharging
+            ? WpfColor.FromRgb(58, 170, 93)
             : InterpolateBatteryColor(percent);
         var fillBrush = new SolidColorBrush(fillColor);
         fillBrush.Freeze();
@@ -149,7 +150,7 @@ public sealed class BatteryGauge : FrameworkElement
         var clip = new RectangleGeometry(fill, radius, radius);
         dc.PushClip(clip);
 
-        var stripeBrush = new SolidColorBrush(Color.FromArgb(50, 255, 255, 255));
+        var stripeBrush = new SolidColorBrush(WpfColor.FromArgb(50, 255, 255, 255));
         stripeBrush.Freeze();
         var stripePen = new Pen(stripeBrush, 5.5)
         {
@@ -172,23 +173,23 @@ public sealed class BatteryGauge : FrameworkElement
         dc.Pop();
     }
 
-    private static Color InterpolateBatteryColor(int percent)
+    private static WpfColor InterpolateBatteryColor(int percent)
     {
-        Color red = Color.FromRgb(210, 66, 66);
-        Color amber = Color.FromRgb(210, 160, 55);
-        Color green = Color.FromRgb(64, 166, 96);
+        WpfColor red = WpfColor.FromRgb(210, 66, 66);
+        WpfColor amber = WpfColor.FromRgb(210, 160, 55);
+        WpfColor green = WpfColor.FromRgb(64, 166, 96);
 
         if (percent <= 50)
             return Lerp(red, amber, percent / 50d);
         return Lerp(amber, green, (percent - 50) / 50d);
     }
 
-    private static Color Lerp(Color from, Color to, double amount)
+    private static WpfColor Lerp(WpfColor from, WpfColor to, double amount)
     {
         amount = Math.Clamp(amount, 0d, 1d);
         byte r = (byte)Math.Round(from.R + (to.R - from.R) * amount);
         byte g = (byte)Math.Round(from.G + (to.G - from.G) * amount);
         byte b = (byte)Math.Round(from.B + (to.B - from.B) * amount);
-        return Color.FromRgb(r, g, b);
+        return WpfColor.FromRgb(r, g, b);
     }
 }
