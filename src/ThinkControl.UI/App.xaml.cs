@@ -20,8 +20,10 @@ public partial class App : System.Windows.Application
     public DisplayService DisplayService { get; } = new();
     public PowerModeService PowerModeService { get; } = new();
     public SystemStatusService SystemStatusService { get; } = new();
+    public BatteryTelemetryService BatteryTelemetryService { get; } = new();
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
+    public KeyboardEffectService KeyboardEffects { get; private set; } = null!;
     public MainWindow CompactWindow { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
@@ -29,6 +31,7 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
         ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.System);
 
+        KeyboardEffects = new KeyboardEffectService(HardwareClient, State);
         CompactWindow = new MainWindow(this) { DataContext = State };
         MainWindow = CompactWindow;
         CreateTrayIcon();
@@ -86,8 +89,22 @@ public partial class App : System.Windows.Application
         try
         {
             SystemStatusSnapshot system = await Task.Run(SystemStatusService.Read);
-            State.BatteryPercent = system.BatteryPercent;
-            State.BatteryStatus = system.BatteryStatus;
+            BatteryTelemetrySnapshot battery = await Task.Run(BatteryTelemetryService.Read);
+
+            State.BatteryPercent = battery.Percent ?? system.BatteryPercent;
+            State.BatteryStatus = battery.Charging
+                ? "Charging"
+                : battery.OnAc
+                    ? State.BatteryPercent >= 100 ? "Fully charged" : "Plugged in"
+                    : battery.Discharging ? "On battery" : system.BatteryStatus;
+            State.BatteryPowerWatts = battery.PowerWatts;
+            State.BatterySmoothedPowerWatts = battery.SmoothedPowerWatts;
+            State.BatteryHealthPercent = battery.HealthPercent;
+            State.BatteryRemainingWh = battery.RemainingCapacityWh;
+            State.BatteryFullWh = battery.FullChargeCapacityWh;
+            State.BatteryEtaToFull = battery.EstimatedTimeToFull;
+            State.BatteryEtaRemaining = battery.EstimatedTimeRemaining;
+            State.BatterySource = battery.Source;
 
             if (forceSystemInfo || State.CpuName == "—")
             {
@@ -99,7 +116,7 @@ public partial class App : System.Windows.Application
                 State.MachineType = system.MachineType;
             }
 
-            ThinkControlPowerMode? mode = PowerModeService.GetCurrent(system.BatteryStatus.StartsWith("On battery", StringComparison.OrdinalIgnoreCase));
+            ThinkControlPowerMode? mode = PowerModeService.GetCurrent(!battery.OnAc);
             if (mode.HasValue)
                 State.SelectedMode = mode.Value.ToString();
 
@@ -154,7 +171,7 @@ public partial class App : System.Windows.Application
             }
 
             if (State.RefreshAutoEnabled)
-                ApplyRefreshAuto(system.BatteryStatus);
+                ApplyRefreshAuto(onBattery: !battery.OnAc);
         }
         finally
         {
@@ -198,14 +215,31 @@ public partial class App : System.Windows.Application
     public bool EnableRefreshAuto()
     {
         State.RefreshAutoEnabled = true;
-        SystemStatusSnapshot system = SystemStatusService.Read();
-        ApplyRefreshAuto(system.BatteryStatus);
+        BatteryTelemetrySnapshot battery = BatteryTelemetryService.Read();
+        ApplyRefreshAuto(onBattery: !battery.OnAc);
         return true;
     }
+
+    public async Task SetKeyboardStaticLevelAsync(string level)
+    {
+        await KeyboardEffects.SetStaticLevelAsync(level);
+        await RefreshStatusAsync();
+    }
+
+    public async Task SetKeyboardModeAsync(string mode)
+    {
+        await KeyboardEffects.SetModeAsync(mode);
+        await RefreshStatusAsync();
+    }
+
+    public void SetKeyboardBaseLevel(string level) => KeyboardEffects.SetBaseLevel(level);
+
+    public void SetKeyboardEffectSpeed(double speed) => KeyboardEffects.SetSpeed(speed);
 
     public void ExitApplication()
     {
         _statusTimer?.Stop();
+        try { KeyboardEffects?.Dispose(); } catch { }
         _trayIcon?.Dispose();
         _ownedTrayIcon?.Dispose();
         _advancedWindow?.ForceClose();
@@ -213,10 +247,9 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 
-    private void ApplyRefreshAuto(string batteryStatus)
+    private void ApplyRefreshAuto(bool onBattery)
     {
         IReadOnlyList<int> supported = DisplayService.GetSupportedRefreshRates();
-        bool onBattery = batteryStatus.StartsWith("On battery", StringComparison.OrdinalIgnoreCase);
         int target = onBattery && supported.Contains(60)
             ? 60
             : supported.DefaultIfEmpty(State.CurrentRefreshHz).Max();
