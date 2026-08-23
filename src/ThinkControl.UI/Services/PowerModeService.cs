@@ -16,13 +16,12 @@ public sealed class PowerModeService
     private static readonly Guid BestPerformance = new("ded574b5-45a0-4f42-8737-46345c09c238");
     private static bool _effectiveOverlayAvailable = true;
 
+    public event EventHandler<ThinkControlPowerMode>? ModeApplied;
+
     public bool Set(ThinkControlPowerMode mode)
     {
         Guid guid = ToGuid(mode);
 
-        // Persist the user's requested mode for both power sources first. Modern
-        // Lenovo thermal stacks (including the X9 Intelligent Cooling/IPF path)
-        // observe the Windows power-mode surface rather than needing a fake PWM.
         bool configured = false;
         try
         {
@@ -37,12 +36,15 @@ public sealed class PowerModeService
         {
         }
 
-        // The configured API can store a preference without immediately changing
-        // the effective overlay. Apply the effective mode as well and read it back.
-        if (TrySetEffective(guid))
-            return true;
+        bool effective = TrySetEffective(guid);
+        bool changed = effective || configured;
+        if (changed)
+        {
+            try { ModeApplied?.Invoke(this, mode); }
+            catch { }
+        }
 
-        return configured;
+        return changed;
     }
 
     public ThinkControlPowerMode? GetCurrent(bool onBattery)
