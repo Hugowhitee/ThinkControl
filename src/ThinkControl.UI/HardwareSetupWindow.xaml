@@ -1,0 +1,111 @@
+<Window x:Class="ThinkControl.UI.HardwareSetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
+        Title="ThinkControl Hardware setup"
+        Width="590" Height="430"
+        MinWidth="590" MinHeight="430"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{DynamicResource Tc.Window}"
+        Foreground="{DynamicResource Tc.Text}"
+        FontFamily="Segoe UI"
+        Icon="Assets/ThinkControl.ico">
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Orientation="Horizontal">
+            <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
+            <StackPanel>
+                <TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock Text="ThinkControl checks hardware components after installation so setup stays device-independent."
+                           Foreground="{DynamicResource Tc.TextMuted}"
+                           FontSize="11"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource TcSection}" Margin="0,22,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="ThinkControl hardware service" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ServiceStatusText"
+                               Text="Checking..."
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="10.5"
+                               Margin="0,5,0,0" />
+                    <TextBlock Text="Provides safe privileged access to supported Lenovo hardware providers."
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               FontSize="9.5"
+                               Margin="0,4,16,0" />
+                </StackPanel>
+                <Button x:Name="RepairServiceButton"
+                        Grid.Column="1"
+                        Content="Repair service"
+                        Style="{StaticResource TcButton}"
+                        MinWidth="112"
+                        VerticalAlignment="Center"
+                        Click="RepairService_Click" />
+            </Grid>
+        </Border>
+
+        <Border x:Name="LowLevelCard" Grid.Row="2" Style="{StaticResource TcSection}" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Low-level hardware access" FontWeight="SemiBold" />
+                    <TextBlock x:Name="LowLevelStatusText"
+                               Text="Checking..."
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="10.5"
+                               Margin="0,5,0,0" />
+                    <TextBlock Text="Only offered when the detected device profile requires a verified low-level provider."
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               FontSize="9.5"
+                               Margin="0,4,16,0" />
+                </StackPanel>
+                <Button x:Name="InstallLowLevelButton"
+                        Grid.Column="1"
+                        Content="Install component"
+                        Style="{StaticResource TcButton}"
+                        MinWidth="128"
+                        VerticalAlignment="Center"
+                        Click="InstallLowLevel_Click" />
+            </Grid>
+        </Border>
+
+        <TextBlock x:Name="ResultText"
+                   Grid.Row="3"
+                   TextWrapping="Wrap"
+                   Foreground="{DynamicResource Tc.TextMuted}"
+                   FontSize="10.5"
+                   VerticalAlignment="Center"
+                   Margin="2,12,2,8" />
+
+        <Grid Grid.Row="4">
+            <TextBlock Text="Windows may ask for administrator permission when repairing or installing a hardware component."
+                       Foreground="{DynamicResource Tc.TextFaint}"
+                       FontSize="9.5"
+                       VerticalAlignment="Center" />
+            <Button Content="Continue"
+                    HorizontalAlignment="Right"
+                    Style="{StaticResource TcButton}"
+                    MinWidth="92"
+                    Click="Continue_Click" />
+        </Grid>
+    </Grid>
+</Window>
