@@ -1,11 +1,13 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
+using WpfButton = System.Windows.Controls.Button;
+using WpfCheckBox = System.Windows.Controls.CheckBox;
+using WpfSlider = System.Windows.Controls.Slider;
 
 namespace ThinkControl.UI;
 
@@ -162,9 +164,9 @@ public partial class AdvancedWindow : Window
             AdvancedKeyboardHigh.IsChecked = keyboard.Contains("High", StringComparison.OrdinalIgnoreCase);
             AdvancedKeyboardAuto.IsChecked = keyboard.Contains("Auto", StringComparison.OrdinalIgnoreCase);
 
-            foreach (Button button in FindVisualChildren<Button>(PageFans))
+            foreach (WpfButton button in FindVisualChildren<WpfButton>(PageFans))
             {
-                if (button.Tag is string tag && int.TryParse(tag, out _) || Equals(button.Content, "Lenovo Auto"))
+                if ((button.Tag is string tag && int.TryParse(tag, out _)) || Equals(button.Content, "Lenovo Auto"))
                     button.IsEnabled = state.CanFanControl;
             }
         }
@@ -262,14 +264,14 @@ public partial class AdvancedWindow : Window
 
     private void BrightnessSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_syncing || !IsLoaded || sender is not Slider slider || !slider.IsMouseCaptureWithin)
+        if (_syncing || !IsLoaded || sender is not WpfSlider slider || !slider.IsMouseCaptureWithin)
             return;
         _app.SetBrightness((int)Math.Round(e.NewValue));
     }
 
     private void AdaptiveSwitch_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || sender is not CheckBox toggle)
+        if (_syncing || sender is not WpfCheckBox toggle)
             return;
         if (!_app.SetAdaptiveBrightness(toggle.IsChecked == true))
             SyncControls();
@@ -319,7 +321,8 @@ public partial class AdvancedWindow : Window
 
     private void Theme_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || sender is not FrameworkElement { Tag: string raw } || !Enum.TryParse(raw, out ThemeMode mode))
+        if (_syncing || sender is not FrameworkElement { Tag: string raw } ||
+            !Enum.TryParse(raw, out ThinkControl.UI.Services.ThemeMode mode))
             return;
         ThemeService.Apply(mode);
     }
@@ -331,7 +334,7 @@ public partial class AdvancedWindow : Window
             StartupSwitch.IsChecked = !requested;
     }
 
-    private static void OpenUrl_Click(object sender, RoutedEventArgs e)
+    private void OpenUrl_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: string target } || string.IsNullOrWhiteSpace(target))
             return;
