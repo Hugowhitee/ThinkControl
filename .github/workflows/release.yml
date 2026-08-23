@@ -106,6 +106,54 @@ jobs:
           if ($null -eq $setup) { throw "Installer was not produced" }
           Write-Host "Installer: $($setup.Name) - $([math]::Round($setup.Length / 1MB, 1)) MB"
 
+      - name: Smoke-test installer and service lifecycle
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          if ($null -eq $setup) { throw "Installer missing" }
+
+          $smokeDir = Join-Path $env:TEMP "ThinkControlInstallerSmoke"
+          Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+
+          # Clean up an interrupted earlier runner attempt before installing.
+          & sc.exe stop ThinkControlService 2>$null | Out-Null
+          & sc.exe delete ThinkControlService 2>$null | Out-Null
+          Start-Sleep -Milliseconds 500
+
+          $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART",
+            "/SP-",
+            "/DIR=$smokeDir"
+          ) -Wait -PassThru
+          if ($install.ExitCode -ne 0) { throw "Silent install failed with exit code $($install.ExitCode)" }
+
+          $ui = Join-Path $smokeDir "ui\ThinkControl.UI.exe"
+          $serviceExe = Join-Path $smokeDir "service\ThinkControl.Service.exe"
+          $uninstaller = Join-Path $smokeDir "unins000.exe"
+          if (-not (Test-Path $ui)) { throw "Installed UI executable not found" }
+          if (-not (Test-Path $serviceExe)) { throw "Installed service executable not found" }
+          if (-not (Test-Path $uninstaller)) { throw "Uninstaller not found" }
+
+          $service = Get-Service -Name ThinkControlService -ErrorAction Stop
+          $service.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running, [TimeSpan]::FromSeconds(15))
+          if ($service.Status -ne 'Running') { throw "ThinkControlService did not reach Running state" }
+
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+            "/VERYSILENT",
+            "/SUPPRESSMSGBOXES",
+            "/NORESTART"
+          ) -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed with exit code $($uninstall.ExitCode)" }
+
+          Start-Sleep -Seconds 2
+          if (Test-Path $ui) { throw "UI executable remained after uninstall" }
+          if (Test-Path $serviceExe) { throw "Service executable remained after uninstall" }
+
+          $serviceAfter = Get-Service -Name ThinkControlService -ErrorAction SilentlyContinue
+          if ($null -ne $serviceAfter) { throw "ThinkControlService remained registered after uninstall" }
+
       - name: Create checksum
         shell: pwsh
         run: |
