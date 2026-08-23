@@ -15,6 +15,21 @@ internal static class Program
 {
     private sealed record SnapshotEntry(string File, string Surface, string State, int Width, int Height);
 
+    private static readonly string[] AdvancedPages =
+    [
+        "Home",
+        "Performance",
+        "Fans",
+        "Sensors",
+        "Display",
+        "Keyboard",
+        "Touchpad",
+        "Battery",
+        "System",
+        "Updates",
+        "Settings"
+    ];
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -35,12 +50,13 @@ internal static class Program
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
-        foreach (string page in new[] { "Home", "Performance", "Fans", "Display", "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings" })
+        foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
 
-        // The minimum supported Advanced viewport catches the horizontal overflow
-        // and awkward spacing bugs that are easy to miss in wide screenshots.
-        foreach (string page in new[] { "Home", "Battery", "Touchpad", "Keyboard", "System" })
+        // Render every Advanced page at the minimum supported viewport. This makes
+        // alignment, scrollbar, wrapping and clipping regressions visible regardless
+        // of which page a future UI change touches.
+        foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
 
         foreach (string page in new[] { "Home", "Display", "Touchpad", "Battery" })
@@ -172,6 +188,8 @@ internal static class Program
         window.PrepareEnhancedUiForSnapshot();
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
             window.NavigateTouchpad();
+        else if (string.Equals(page, "Sensors", StringComparison.OrdinalIgnoreCase))
+            window.NavigateSensors();
         else
             window.Navigate(page);
         RenderWindowContent(window, Path.Combine(output, fileName));
