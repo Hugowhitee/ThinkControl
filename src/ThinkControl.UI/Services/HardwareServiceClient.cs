@@ -17,6 +17,7 @@ public sealed record HardwareOperationResult(
 public sealed class HardwareServiceClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private ServiceResponse? _lastValidStatus;
 
     public event EventHandler<HardwareOperationResult>? HardwareOperationCompleted;
 
@@ -29,6 +30,11 @@ public sealed class HardwareServiceClient
         // retry once after a short yield; interactive write commands remain strict.
         ServiceRequest request = new(ThinkControlProtocol.Version, "GetStatus");
         ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 2200);
+        if (IsValidStatus(response))
+        {
+            _lastValidStatus = response;
+            return response;
+        }
         if (response is not null || cancellationToken.IsCancellationRequested)
             return response;
 
@@ -41,7 +47,38 @@ public sealed class HardwareServiceClient
             return null;
         }
 
-        return await SendAsync(request, cancellationToken, timeoutMs: 1600);
+        response = await SendAsync(request, cancellationToken, timeoutMs: 1600);
+        if (IsValidStatus(response))
+        {
+            _lastValidStatus = response;
+            return response;
+        }
+        if (response is not null || cancellationToken.IsCancellationRequested)
+            return response;
+
+        // A slow provider probe is not the same as a dead Windows service. Ping is
+        // intentionally provider-free and fast. If it succeeds, reuse the last
+        // complete snapshot rather than blanking RPM/temp/capabilities during a
+        // transient WMI/EC discovery stall. No stale snapshot is invented on first
+        // launch; until one valid read exists the caller still sees unavailable data.
+        if (await PingAsync(cancellationToken).ConfigureAwait(false) && _lastValidStatus is not null)
+        {
+            return _lastValidStatus with
+            {
+                Error = "Hardware service is online; provider refresh timed out. Showing the last complete status."
+            };
+        }
+
+        return null;
+    }
+
+    public async Task<bool> PingAsync(CancellationToken cancellationToken = default)
+    {
+        ServiceResponse? response = await SendAsync(
+            new ServiceRequest(ThinkControlProtocol.Version, "Ping"),
+            cancellationToken,
+            timeoutMs: 500);
+        return response?.Success == true;
     }
 
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
@@ -84,6 +121,9 @@ public sealed class HardwareServiceClient
 
         return response;
     }
+
+    private static bool IsValidStatus(ServiceResponse? response) =>
+        response?.Success == true && response.Telemetry is not null;
 
     private static async Task<ServiceResponse?> SendAsync(
         ServiceRequest request,
