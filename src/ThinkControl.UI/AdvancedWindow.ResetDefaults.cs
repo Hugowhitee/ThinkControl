@@ -1,7 +1,11 @@
 using System.Windows;
-using System.Windows.Controls;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
+using WpfButton = System.Windows.Controls.Button;
+using WpfGrid = System.Windows.Controls.Grid;
+using WpfScrollViewer = System.Windows.Controls.ScrollViewer;
+using WpfStackPanel = System.Windows.Controls.StackPanel;
+using WpfTextBlock = System.Windows.Controls.TextBlock;
 
 namespace ThinkControl.UI;
 
@@ -71,24 +75,24 @@ public partial class AdvancedWindow
     }
 
     private void AddPageReset(
-        ScrollViewer page,
+        WpfScrollViewer page,
         string label,
         string tooltip,
         Func<Task> reset)
     {
-        if (page.Content is not StackPanel stack ||
+        if (page.Content is not WpfStackPanel stack ||
             stack.Children.Count == 0 ||
-            stack.Children[0] is not TextBlock title)
+            stack.Children[0] is not WpfTextBlock title)
         {
             return;
         }
 
         stack.Children.RemoveAt(0);
 
-        var header = new Grid();
+        var header = new WpfGrid();
         header.Children.Add(title);
 
-        Button button = CreateResetButton(label, tooltip);
+        WpfButton button = CreateResetButton(label, tooltip);
         button.Click += async (_, _) =>
         {
             button.IsEnabled = false;
@@ -102,19 +106,19 @@ public partial class AdvancedWindow
     private void AddTouchpadReset()
     {
         TouchpadPanel? panel = FindVisualChildren<TouchpadPanel>(this).FirstOrDefault();
-        if (panel?.Content is not Grid root)
+        if (panel?.Content is not WpfGrid root)
             return;
 
-        Grid? header = root.Children
-            .OfType<Grid>()
-            .FirstOrDefault(child => Grid.GetRow(child) == 0);
-        StackPanel? actions = header?.Children
-            .OfType<StackPanel>()
-            .FirstOrDefault(child => Grid.GetColumn(child) == 1);
-        if (actions is null || actions.Children.OfType<Button>().Any(button => Equals(button.Tag, TouchpadResetButtonTag)))
+        WpfGrid? header = root.Children
+            .OfType<WpfGrid>()
+            .FirstOrDefault(child => WpfGrid.GetRow(child) == 0);
+        WpfStackPanel? actions = header?.Children
+            .OfType<WpfStackPanel>()
+            .FirstOrDefault(child => WpfGrid.GetColumn(child) == 1);
+        if (actions is null || actions.Children.OfType<WpfButton>().Any(button => Equals(button.Tag, TouchpadResetButtonTag)))
             return;
 
-        Button reset = CreateResetButton(
+        WpfButton reset = CreateResetButton(
             "Reset",
             "Restore edge gestures to ThinkControl defaults and Windows haptic feedback to enabled, 50% feedback and 50% click sensitivity.");
         reset.Tag = TouchpadResetButtonTag;
@@ -136,7 +140,7 @@ public partial class AdvancedWindow
         actions.Children.Insert(0, reset);
     }
 
-    private Button CreateResetButton(string label, string tooltip) => new()
+    private WpfButton CreateResetButton(string label, string tooltip) => new()
     {
         Content = label,
         ToolTip = tooltip,
@@ -151,15 +155,15 @@ public partial class AdvancedWindow
 
     private async Task ResetAllDefaultsAsync()
     {
-        MessageBoxResult answer = MessageBox.Show(
+        System.Windows.MessageBoxResult answer = System.Windows.MessageBox.Show(
             "Reset all ThinkControl preferences to their defaults?\n\n" +
             "This restores Balanced performance, Lenovo Auto fans, Auto refresh, keyboard defaults, touchpad gesture defaults, Windows haptic defaults, System theme and disables Start with Windows. " +
             "Display brightness, adaptive brightness, diagnostics consent and battery history are kept because they are not portable ThinkControl defaults.",
             "ThinkControl · Reset all",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question);
 
-        if (answer != MessageBoxResult.Yes)
+        if (answer != System.Windows.MessageBoxResult.Yes)
             return;
 
         await _app.ResetAllDefaultsAsync();
