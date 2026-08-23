@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using System.Windows.Shapes;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI.Services;
@@ -30,7 +32,7 @@ internal static class AdvancedFeaturePages
 
     internal static void SelectAudio(AdvancedWindow window)
     {
-        if (window.Resources[AudioNavKey] is RadioButton nav)
+        if (window.Resources.Contains(AudioNavKey) && window.Resources[AudioNavKey] is RadioButton nav)
             nav.IsChecked = true;
     }
 
@@ -40,6 +42,7 @@ internal static class AdvancedFeaturePages
             return;
         var panel = new PerformancePanel
         {
+            DataContext = window.DataContext,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             MaxWidth = 940,
             Margin = new Thickness(0, 0, 2, 0)
@@ -56,6 +59,7 @@ internal static class AdvancedFeaturePages
             return;
         var panel = new FansPanel
         {
+            DataContext = window.DataContext,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             MaxWidth = 1040,
             Margin = new Thickness(0, 0, 2, 0)
@@ -84,15 +88,7 @@ internal static class AdvancedFeaturePages
             Style = window.TryFindResource("TcNav") as Style
         };
         var navContent = new StackPanel { Orientation = Orientation.Horizontal };
-        navContent.Children.Add(new TextBlock
-        {
-            Text = "◖))",
-            Width = 15,
-            FontSize = 10,
-            Foreground = window.TryFindResource("Tc.TextMuted") as System.Windows.Media.Brush,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 12, 0)
-        });
+        navContent.Children.Add(CreateAudioIcon(window));
         navContent.Children.Add(new TextBlock { Text = "Audio" });
         nav.Content = navContent;
 
@@ -109,6 +105,7 @@ internal static class AdvancedFeaturePages
         };
         var panel = new AudioPanel
         {
+            DataContext = window.DataContext,
             HorizontalAlignment = HorizontalAlignment.Stretch,
             MaxWidth = 940,
             Margin = new Thickness(0, 0, 2, 0)
@@ -135,6 +132,27 @@ internal static class AdvancedFeaturePages
         }
     }
 
+    private static Viewbox CreateAudioIcon(FrameworkElement owner)
+    {
+        Brush stroke = owner.TryFindResource("Tc.TextMuted") as Brush ?? Brushes.Gray;
+        var path = new Path
+        {
+            Stroke = stroke,
+            StrokeThickness = 1.45,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round,
+            Data = Geometry.Parse("M2,6 L5,6 L9,3 L9,13 L5,10 L2,10 Z M11,6 C12.5,7 12.5,9 11,10 M13,4 C16,6 16,10 13,12")
+        };
+        return new Viewbox
+        {
+            Width = 15,
+            Height = 15,
+            Margin = new Thickness(0, 0, 12, 0),
+            Child = path
+        };
+    }
+
     private static void Resize(AdvancedWindow window)
     {
         double width = window.ActualWidth > 1 ? window.ActualWidth : window.Width;
@@ -143,7 +161,7 @@ internal static class AdvancedFeaturePages
             performanceContent.MaxWidth = Math.Min(940, available);
         if (window.FindName("PageFans") is ScrollViewer fans && fans.Content is FrameworkElement fansContent)
             fansContent.MaxWidth = Math.Min(1040, available);
-        if (window.Resources[AudioPageKey] is ScrollViewer audio && audio.Content is FrameworkElement audioContent)
+        if (window.Resources.Contains(AudioPageKey) && window.Resources[AudioPageKey] is ScrollViewer audio && audio.Content is FrameworkElement audioContent)
             audioContent.MaxWidth = Math.Min(940, available);
     }
 
@@ -162,7 +180,7 @@ internal static class AdvancedFeaturePages
 
     private static void HideDynamic(AdvancedWindow window, string key)
     {
-        if (window.Resources[key] is FrameworkElement element)
+        if (window.Resources.Contains(key) && window.Resources[key] is FrameworkElement element)
             element.Visibility = Visibility.Collapsed;
     }
 
@@ -178,9 +196,9 @@ internal static class AdvancedFeaturePages
                 yield return button;
         }
 
-        if (window.Resources["ThinkControl.Dynamic.NavTouchpad"] is RadioButton touchpad)
+        if (window.Resources.Contains("ThinkControl.Dynamic.NavTouchpad") && window.Resources["ThinkControl.Dynamic.NavTouchpad"] is RadioButton touchpad)
             yield return touchpad;
-        if (window.Resources["ThinkControl.Dynamic.NavSensors"] is RadioButton sensors)
+        if (window.Resources.Contains("ThinkControl.Dynamic.NavSensors") && window.Resources["ThinkControl.Dynamic.NavSensors"] is RadioButton sensors)
             yield return sensors;
     }
 }
