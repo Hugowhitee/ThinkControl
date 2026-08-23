@@ -19,13 +19,19 @@ public partial class App
             // The normal dispatcher loop takes over as soon as startup returns.
             Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
             Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(CloseBootstrap));
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(AttachTrayActivationRecovery));
+            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
         }
         catch
         {
             _bootstrapWindow = null;
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(AttachTrayActivationRecovery));
+            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
         }
+    }
+
+    private void ApplyPostStartupShellPolish()
+    {
+        AttachTrayActivationRecovery();
+        ApplyTrayIconPolish();
     }
 
     private void CloseBootstrap()
