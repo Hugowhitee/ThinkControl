@@ -1,8 +1,8 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_refined_dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_refined_light.svg">
-    <img alt="ThinkControl" src="assets/brand/v3/wordmark/ThinkControl_wordmark_refined_light.svg" width="430">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_light.svg">
+    <img alt="ThinkControl" src="assets/brand/v3/wordmark/ThinkControl_wordmark_light.svg" width="430">
   </picture>
 
   <p>Windows controls and hardware telemetry for Lenovo laptops.</p>
@@ -49,7 +49,7 @@ ThinkControl deliberately uses two Windows surfaces.
 
 **Advanced** is a normal resizable Windows application window. Windows owns the native title bar, app icon, minimize, maximize/restore, close, system menu and Windows 11 Snap Layouts. A matching `↘` action returns to Compact.
 
-The app, tray, installer and repository artwork use the canonical ThinkControl v3 assets under [`assets/brand/v3`](assets/brand/v3). The custom C/red dot remains the exact approved v3 geometry. The production wordmark keeps the outlined `Think` geometry and uses the approved smaller, baseline-aligned `ontrol` refinement. CI rejects legacy hand-drawn TC geometry and branding drift.
+The app, tray, installer and repository artwork use the canonical ThinkControl v3 assets under [`assets/brand/v3`](assets/brand/v3). The custom C/red dot remains the exact approved v3 geometry. `Think` and `ontrol` use the same outlined scale; the custom C is baseline-aligned and visually grouped with `ontrol`, so the wordmark reads as `Think` + `Control`. CI rejects legacy hand-drawn TC geometry, duplicate wordmark variants and branding drift.
 
 ## Battery history and ETA
 

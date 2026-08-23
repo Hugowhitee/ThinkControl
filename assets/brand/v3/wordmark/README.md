@@ -1,1 +1,10 @@
-Exact outlined ThinkControl wordmarks from asset pack v3. The dark file is for dark surfaces; the light file is for light surfaces. These are vector outlines, so the README does not depend on a font being installed.
+# ThinkControl wordmark
+
+Production wordmarks are single-source:
+
+- `ThinkControl_wordmark_dark.svg` for dark surfaces
+- `ThinkControl_wordmark_light.svg` for light surfaces
+
+Both are path-based and use the exact approved v3 custom C/red-dot geometry. `Think` and `ontrol` share the same outlined scale. The C is baseline-aligned and visually grouped with `ontrol` so the mark reads as `Think` + `Control`.
+
+Do not create `outlined`, `refined`, documentation-copy, or other parallel production variants. Update these canonical files and the WPF `BrandWordmark` together when the production alignment changes.
