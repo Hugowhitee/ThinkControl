@@ -67,7 +67,8 @@ public partial class AdvancedWindow
     {
         // Keep navigation and page canvas on one base surface. Selected items and
         // cards provide the hierarchy; the whole left rail no longer needs a third
-        // near-black background color.
+        // near-black background color. Keep a dynamic resource reference so a live
+        // Dark/Light/System switch updates the sidebar immediately.
         if (Content is not Border { Child: Grid rootGrid })
             return;
 
@@ -78,8 +79,7 @@ public partial class AdvancedWindow
             .OfType<Border>()
             .FirstOrDefault(border => Grid.GetColumn(border) == 0);
 
-        if (sidebar is not null && TryFindResource("Tc.Window") is Brush windowBrush)
-            sidebar.Background = windowBrush;
+        sidebar?.SetResourceReference(Border.BackgroundProperty, "Tc.Window");
     }
 
     private void ApplyConsistentPageRail()
