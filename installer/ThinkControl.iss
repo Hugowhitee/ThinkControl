@@ -76,7 +76,7 @@ UsePreviousGroup=yes
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
 Name: "hardwareaccess"; Description: "Install X9 hardware access (PawnIO {#PawnIoVersion})"; GroupDescription: "ThinkPad X9 hardware:"; Flags: checkedonce; Check: IsVerifiedX9
 
 [Icons]
