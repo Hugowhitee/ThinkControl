@@ -1,6 +1,6 @@
 # Device support
 
-This document describes compatibility for ThinkControl `v0.1.0-alpha.1`.
+This document describes compatibility for ThinkControl `v0.1.0-alpha.2`.
 
 ThinkControl evaluates support per capability. A family profile selects reasonable providers to probe, but it does not make every feature available on every model.
 
@@ -8,15 +8,13 @@ ThinkControl evaluates support per capability. A family profile selects reasonab
 
 ### Verified
 
-The relevant provider and capability have been tested on the actual hardware used by ThinkControl.
-
-Current reference device:
+The relevant low-level profile is explicitly authorized for the hardware model. Current reference device:
 
 - Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
 ### Beta
 
-ThinkControl recognizes the Lenovo family and can probe known provider types, but the exact model has not been fully validated by this project. Individual controls still require a successful probe and, for writable features, a valid readback path.
+ThinkControl recognizes the Lenovo family and can probe known provider types, but the exact model has not been fully validated by this project. Writable controls still require a recognized provider and readback/contract validation.
 
 ### Generic
 
@@ -24,109 +22,77 @@ No Lenovo-specific profile is assumed. Windows-level features can still work whe
 
 ## Current matrix
 
-| Device family | Windows features | Fan telemetry | Keyboard backlight | Low-level fan control | Status |
-| --- | --- | --- | --- | --- | --- |
-| ThinkPad X9-15 Gen 1, `21Q6` / `21Q7` | Supported | X9 EC plus safe fallbacks | `IBMPmDrv` | Lenovo Auto and levels 1 to 7 | Verified reference |
-| Other ThinkPads | Supported | Lenovo WMI/CIM when exposed | `IBMPmDrv` when verified | Exact provider or profile required | Beta |
-| ThinkBook | Supported | Lenovo WMI/CIM when exposed | `EnergyDrv` when verified | Supported vendor provider required | Beta |
-| Yoga | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM provider when verified | Supported vendor provider required | Beta |
-| IdeaPad | Supported | Lenovo WMI/CIM when exposed | `EnergyDrv` when verified | Supported vendor provider required | Beta |
-| LOQ | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM provider | GameZone provider only when firmware reports support | Beta |
-| Legion | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM or lighting provider | GameZone provider only when firmware reports support | Beta |
-| Other Lenovo | Supported | Conservative read-only discovery | Known provider discovery | Disabled without a verified provider | Beta |
-| Other Windows laptops | Where Windows supports it | Generic read-only sensors only | Lenovo backend unavailable | Unavailable | Generic |
+| Device family | Windows features | Fan telemetry | Keyboard backlight | Low-level fan control | Lenovo thermal policy | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| ThinkPad X9-15 Gen 1 `21Q6/21Q7` | Supported | Verified X9 EC tachometer | Lenovo PM/EnergyDrv + validated Vantage fallback | Lenovo Auto + levels 1 to 7 | Verified-profile LITSSvc commands | Verified reference |
+| Other ThinkPads | Supported | Lenovo WMI/CIM when exposed | `IBMPmDrv` when verified | Exact provider/profile required | No X9 command reuse | Beta |
+| ThinkBook | Supported | Lenovo WMI/CIM when exposed | `EnergyDrv` when verified | Supported vendor provider required | Capability-specific only | Beta |
+| Yoga | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM provider when verified | Supported vendor provider required | Capability-specific only | Beta |
+| IdeaPad | Supported | Lenovo WMI/CIM when exposed | `EnergyDrv` when verified | Supported vendor provider required | Capability-specific only | Beta |
+| LOQ | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM provider | GameZone only when firmware reports support | Capability-specific only | Beta |
+| Legion | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM/lighting provider | GameZone only when firmware reports support | Capability-specific only | Beta |
+| Other Lenovo | Supported | Conservative read-only discovery | Known provider discovery | Disabled without verified provider | X9 commands disabled | Beta |
+| Other Windows laptops | Where Windows supports it | Generic read-only sensors only | Lenovo backend unavailable | Unavailable | Unavailable | Generic |
 
 ## Windows-level features
 
-These features do not require a model-specific Lenovo profile when Windows exposes the necessary interface:
+These can work without a model-specific Lenovo profile when Windows exposes the necessary interface:
 
 - Quiet, Balanced and Performance power modes;
-- display refresh-rate selection;
-- automatic 60 Hz and maximum-refresh policy;
-- internal display brightness;
-- adaptive brightness;
-- battery percentage and power source;
-- charge and discharge rate in watts;
-- battery energy in Wh and estimated health;
-- filtered time-to-full or time-remaining estimates;
+- display refresh-rate selection and automatic refresh policy;
+- internal display brightness and adaptive brightness;
+- battery percentage, power source, watts, Wh, health and filtered time estimates;
 - read-only temperature sensors;
 - themes, tray operation, startup settings, updates and diagnostics.
 
-Unavailable data is shown as unavailable rather than replaced with an estimate that looks like a hardware reading.
+Unavailable data is shown as unavailable rather than replaced with a value that looks like real hardware telemetry.
 
 ## Lenovo keyboard providers
 
-ThinkControl currently knows the following Lenovo PM driver families:
+ThinkControl knows Lenovo PM driver families including `IBMPmDrv` and `EnergyDrv`. A provider is accepted only when its read operation returns a recognized state; writable operations require readback verification.
 
-- `IBMPmDrv`, commonly found on ThinkPads;
-- `EnergyDrv`, used on several ThinkBook, IdeaPad, Yoga and LOQ platforms.
-
-A provider is accepted only when its read operation returns a recognized state. Writable operations require readback verification.
+On supported systems, the installed Lenovo Vantage ThinkKeyboard component can be probed as a fallback. Presence alone does not enable the provider.
 
 ## Fan telemetry
 
 Read-only RPM can be obtained from several sources:
 
-1. the verified X9 EC tachometer when the X9 profile is active;
+1. verified X9 EC tachometer on X9 `21Q6/21Q7`;
 2. `LENOVO_FAN_METHOD.Fan_GetCurrentFanSpeed` when exposed;
-3. `Lenovo_DT_GetCPUFan` or `Lenovo_DT_GetSYSFan` when exposed;
+3. `Lenovo_DT_GetCPUFan` / `Lenovo_DT_GetSYSFan` when exposed;
 4. Windows `CIM_Tachometer`;
-5. other read-only sensor providers that identify a real fan tachometer.
+5. other read-only providers that identify a real fan tachometer.
 
-Missing WMI classes or providers are normal compatibility results.
-
-## Lenovo GameZone WMI
-
-Some Legion, LOQ and related Lenovo platforms expose `LENOVO_GAMEZONE_DATA`. ThinkControl treats it as a capability-based vendor provider. The class and relevant support query must exist before a control is enabled.
-
-The presence of the class alone does not authorize every method.
+Missing WMI classes/providers are normal compatibility results.
 
 ## ThinkPad X9-15 Gen 1
 
-The X9 low-level fan backend is restricted to machine type `21Q6` or `21Q7`.
+The X9 low-level profile is restricted to machine type `21Q6` or `21Q7`. Machine-type parsing prioritizes those codes so Lenovo SKU strings cannot accidentally classify the reference X9 as an unrelated four-character token.
 
 | Capability | Implementation |
 | --- | --- |
-| Fan RPM | EC tachometer registers `0x84/0x85` with conservative polling |
-| Fan state | EC register `0x2F` |
+| Fan RPM | EC tachometer `0x84/0x85`, conservative polling |
+| Fan state | EC `0x2F` |
 | Lenovo Auto | `0x80` with readback |
 | Manual fan control | Levels `1` through `7` |
 | Fan off | `0x00` blocked |
 | Unverified override | `0x40` family never written |
 | Normal service exit | Attempts to return manual control to Lenovo Auto |
-| Keyboard Off, Low and High | Lenovo PM provider with readback |
-| Keyboard Auto | User-session policy over supported hardware states |
-| Breathing | Rate-limited Low and High transitions |
-| Reactive | Local keyboard-activity response without storing typed content |
-| Audio | Experimental local loopback level response without retaining audio samples |
+| Power modes | Windows Best efficiency / Balanced / Best performance |
+| Lenovo Intelligent Cooling | AC `502/503/504`, DC `507/508/509`, semantic X9-only service operation |
+| Keyboard Off/Low/High | Lenovo PM/EnergyDrv with readback and validated Vantage fallback |
+| Keyboard effects | User-session Auto/Breathing/Reactive/experimental Audio policies |
 
-The underlying research is documented in [research/x9-15-gen1.md](research/x9-15-gen1.md).
+The Lenovo Intelligent Cooling commands are thermal-policy commands, not direct fan-RPM/PWM controls.
 
 ## Device identification
 
-Compatibility matching may use:
+Compatibility matching may use manufacturer, model/product name, Lenovo machine type, BIOS version when relevant, ACPI/PnP IDs, installed provider versions and Windows display capabilities.
 
-- manufacturer;
-- model and product name;
-- Lenovo machine type;
-- BIOS version when relevant;
-- ACPI and PnP device IDs;
-- installed provider versions;
-- Windows display capabilities.
-
-ThinkControl does not require the laptop serial number, asset tag, MAC address or disk serial for compatibility matching.
+ThinkControl does not require laptop serial number, asset tag, MAC address or disk serial for compatibility matching.
 
 ## Adding support for another device
 
-A useful validation report normally includes:
-
-1. exact product name and Lenovo machine type;
-2. relevant Lenovo drivers and services;
-3. provider or WMI availability;
-4. plausible read-only telemetry;
-5. readback results for reversible controls;
-6. a support bundle from the actual laptop when needed.
-
-Deep ACPI or driver analysis is reserved for capabilities that cannot be explained by an established provider.
+A useful validation report normally includes exact product name/machine type, relevant Lenovo drivers/services, provider/WMI availability, plausible read-only telemetry, readback results for reversible controls and a privacy-safe support bundle when needed.
 
 Use the [bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml) to report a device or compatibility issue.
