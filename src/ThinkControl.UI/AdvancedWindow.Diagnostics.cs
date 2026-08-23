@@ -35,4 +35,13 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
+
+    public void NavigateSensors()
+    {
+        ConfigureAdvancedBranding();
+        AdvancedWindowEnhancer.Ensure(this, _app);
+        ConfigureSliderCommitBehavior();
+        ConfigureCopyPolish();
+        AdvancedWindowEnhancer.SelectSensors(this);
+    }
 }
