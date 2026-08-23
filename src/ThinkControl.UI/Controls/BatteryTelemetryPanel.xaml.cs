@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using ThinkControl.UI.Services;
+using WpfApplication = System.Windows.Application;
 
 namespace ThinkControl.UI.Controls;
 
@@ -13,7 +14,7 @@ public partial class BatteryTelemetryPanel : System.Windows.Controls.UserControl
 
     private void ClearHistory_Click(object sender, RoutedEventArgs e)
     {
-        if (Application.Current is not App app)
+        if (WpfApplication.Current is not App app)
             return;
 
         MessageBoxResult answer = MessageBox.Show(
