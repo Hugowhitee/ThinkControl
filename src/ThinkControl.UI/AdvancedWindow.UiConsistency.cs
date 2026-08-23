@@ -55,6 +55,12 @@ public partial class AdvancedWindow
             {
                 nav.Checked += (_, _) => Dispatcher.BeginInvoke(new Action(NeutralizeHorizontalPageMotion));
             }
+
+            foreach (Slider slider in FindVisualChildren<Slider>(this))
+            {
+                ApplySliderAvailability(slider);
+                slider.IsEnabledChanged += (_, _) => ApplySliderAvailability(slider);
+            }
         }
 
         ApplySidebarPalette();
@@ -113,6 +119,11 @@ public partial class AdvancedWindow
         content.MaxWidth = 1040;
         content.HorizontalAlignment = HorizontalAlignment.Left;
         content.Margin = new Thickness(0, 0, 4, 0);
+    }
+
+    private static void ApplySliderAvailability(Slider slider)
+    {
+        slider.Opacity = slider.IsEnabled ? 1.0 : 0.42;
     }
 
     private void NeutralizeHorizontalPageMotion()
