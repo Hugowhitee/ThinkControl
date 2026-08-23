@@ -2,7 +2,6 @@ name: Package ThinkControl
 
 on:
   workflow_dispatch:
-  pull_request:
   push:
     tags:
       - "v*"
@@ -13,7 +12,7 @@ permissions:
 jobs:
   package:
     runs-on: windows-latest
-    timeout-minutes: 35
+    timeout-minutes: 25
 
     steps:
       - name: Checkout
@@ -65,7 +64,7 @@ jobs:
           dotnet publish src/ThinkControl.UI/ThinkControl.UI.csproj `
             -c Release `
             -r win-x64 `
-            --self-contained true `
+            --self-contained false `
             -p:Version=$env:APP_VERSION `
             -p:InformationalVersion=$env:APP_VERSION `
             -p:DebugType=None `
@@ -78,14 +77,14 @@ jobs:
           dotnet publish src/ThinkControl.Service/ThinkControl.Service.csproj `
             -c Release `
             -r win-x64 `
-            --self-contained true `
+            --self-contained false `
             -p:Version=$env:APP_VERSION `
             -p:InformationalVersion=$env:APP_VERSION `
             -p:DebugType=None `
             -p:DebugSymbols=false `
             -o artifacts/service
 
-      - name: Verify payloads
+      - name: Verify compact payloads
         shell: pwsh
         run: |
           $ui = "artifacts/ui/ThinkControl.UI.exe"
@@ -94,6 +93,16 @@ jobs:
           if (-not (Test-Path $service)) { throw "Service executable is missing" }
           if ((Get-Item $ui).Length -lt 100000) { throw "UI executable is unexpectedly small" }
           if ((Get-Item $service).Length -lt 100000) { throw "Service executable is unexpectedly small" }
+
+          $uiBytes = (Get-ChildItem artifacts/ui -Recurse -File | Measure-Object Length -Sum).Sum
+          $serviceBytes = (Get-ChildItem artifacts/service -Recurse -File | Measure-Object Length -Sum).Sum
+          $total = $uiBytes + $serviceBytes
+          Write-Host ("UI payload: {0:N2} MB" -f ($uiBytes / 1MB))
+          Write-Host ("Service payload: {0:N2} MB" -f ($serviceBytes / 1MB))
+          Write-Host ("Combined payload: {0:N2} MB" -f ($total / 1MB))
+          if ($total -gt 30MB) {
+            throw "Framework-dependent payload unexpectedly exceeds 30 MB; investigate duplicated/bundled runtime files."
+          }
 
       - name: Install Inno Setup
         shell: pwsh
@@ -116,7 +125,10 @@ jobs:
 
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
           if ($null -eq $setup) { throw "Installer was not produced" }
-          Write-Host "Installer: $($setup.Name) - $([math]::Round($setup.Length / 1MB, 1)) MB"
+          Write-Host "Installer: $($setup.Name) - $([math]::Round($setup.Length / 1MB, 2)) MB"
+          if ($setup.Length -gt 20MB) {
+            throw "ThinkControl installer exceeds the 20 MB compact-installer budget."
+          }
 
       - name: Smoke-test installer and service lifecycle
         shell: pwsh
@@ -220,6 +232,7 @@ jobs:
 
             Write-Host "[smoke] Waiting for service registration to disappear"
             $deadline = (Get-Date).AddSeconds(20)
+            $serviceAfter = $null
             do {
               $serviceAfter = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
               if ($null -eq $serviceAfter) { break }
