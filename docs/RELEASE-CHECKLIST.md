@@ -1,47 +1,61 @@
 # Release checklist
 
-This checklist is for the first public prerelease and later tagged builds.
+This checklist applies to tagged prereleases and later stable builds.
 
-## Automated gates
+## Automated checks
 
-- [x] .NET solution restores and builds on Windows CI.
-- [x] WPF UI snapshots render in dark and light themes.
-- [x] Self-contained x64 UI publishes.
-- [x] Self-contained x64 hardware service publishes.
-- [x] Inno Setup produces a versioned installer.
-- [x] Silent install succeeds in CI.
-- [x] `ThinkControlService` reaches Running in CI.
-- [x] Silent uninstall removes UI/service files and service registration.
-- [x] SHA-256 checksum is generated.
-- [x] Tagged prereleases use the visible title `ThinkControl v<version>`.
+- [x] Restore and build the .NET solution on Windows CI.
+- [x] Render WPF UI snapshots in Light and Dark themes.
+- [x] Publish the self-contained x64 UI.
+- [x] Publish the self-contained x64 hardware service.
+- [x] Build a versioned Inno Setup installer.
+- [x] Complete a silent install in CI.
+- [x] Confirm `ThinkControlService` reaches `Running`.
+- [x] Complete a silent uninstall.
+- [x] Confirm ThinkControl files and service registration are removed.
+- [x] Generate a SHA-256 checksum.
+- [x] Keep the application, tag, release and installer versions aligned.
 
-## Reference-device validation
+## X9 reference-device validation
 
-The first alpha may be published as a prerelease before all items below are complete, but it must remain clearly labelled alpha until they pass on the ThinkPad X9-15 Gen 1 reference machine.
+The first alpha remains a prerelease until the relevant hardware behavior has been checked on the ThinkPad X9-15 Gen 1.
 
-- [ ] Confirm installed service starts on the physical X9.
-- [ ] Confirm CPU sensor name/value.
-- [ ] Confirm fan RPM is stable with conservative polling.
+- [ ] Confirm the installed service starts normally.
+- [ ] Confirm the CPU sensor source and value.
+- [ ] Confirm fan RPM remains stable with conservative polling.
 - [ ] Confirm Lenovo Auto.
-- [ ] Confirm manual fan levels 1–7.
-- [ ] Confirm service/app close returns manual fan ownership safely.
-- [ ] Confirm keyboard Off / Low / High.
-- [ ] Tune and confirm Breathing against the real Lenovo fade.
+- [ ] Confirm manual fan levels 1 through 7.
+- [ ] Confirm normal app and service shutdown returns manual fan control safely.
+- [ ] Confirm keyboard Off, Low and High.
+- [ ] Tune and confirm Breathing against the physical keyboard transition.
 - [ ] Confirm Auto and Reactive keyboard effects.
-- [ ] Confirm sleep/resume behavior.
-- [ ] Inspect installed UI at normal Windows scaling.
+- [ ] Confirm sleep and resume behavior.
+- [ ] Inspect the installed UI at common Windows scaling levels.
 
 ## Distribution
 
-- [x] `version.json` is the source version.
-- [x] Release-ready versions can create their exact `v<version>` tag from `main`.
-- [x] The tag triggers the tested package workflow.
-- [ ] Confirm the GitHub prerelease is visible after the release-candidate PR merges.
-- [ ] Download and install the published asset once on the reference machine.
+- [x] `version.json` is the release version source.
+- [x] Release-ready builds can create the exact `v<version>` tag from `main`.
+- [x] The tag starts the tested packaging workflow.
+- [ ] Install the published release asset on the X9 reference device.
+- [ ] Verify the published checksum against the downloaded installer.
 
-## Post-alpha work
+## Documentation
 
-- installer-managed pinned PawnIO prerequisite for devices that require it;
-- additional ThinkPad provider validation;
-- private opt-in diagnostics endpoint;
-- autonomous custom fan-curve engine and stronger ungraceful-crash recovery.
+Before a release is promoted beyond alpha:
+
+- [ ] README support claims match the actual release.
+- [ ] Device Support reflects the tested hardware state.
+- [ ] Hardware Safety reflects all writable providers in the release.
+- [ ] Installer documentation matches the shipped prerequisite behavior.
+- [ ] Third-party notices include every redistributed dependency that requires notice.
+
+## Later release work
+
+The following items are not required for making the first alpha downloadable, but are expected before a mature release where applicable:
+
+- installer-managed pinned PawnIO setup;
+- additional Lenovo model validation;
+- private opt-in diagnostics submission;
+- autonomous fan curves with lifecycle and recovery safeguards;
+- broader accessibility and real-device scaling validation.

@@ -1,10 +1,10 @@
 # ThinkControl installer
 
-> **Current packaging for `v0.1.0-alpha.1`.** The first alpha uses a self-contained x64 Inno Setup installer. The earlier small bootstrapper design is a future optimization, not the current download.
+ThinkControl `v0.1.0-alpha.1` uses a self-contained x64 Inno Setup package.
 
-## Current alpha installer
+## Release file
 
-The release pipeline publishes one Windows setup file:
+The current release installer is named:
 
 ```text
 ThinkControl-Setup-0.1.0-alpha.1.exe
@@ -12,77 +12,79 @@ ThinkControl-Setup-0.1.0-alpha.1.exe
 
 It contains:
 
-- self-contained ThinkControl WPF UI;
-- self-contained ThinkControl Windows service;
-- the .NET runtime required by those published binaries;
-- ThinkControl third-party notices;
-- service installation/start/uninstall logic.
+- the ThinkControl WPF application;
+- `ThinkControlService`;
+- the .NET runtime required by both published applications;
+- required ThinkControl notices;
+- service registration, startup and uninstall logic.
 
-A user therefore does **not** need to install the .NET SDK or Desktop Runtime manually before running the alpha setup.
+Users do not need the .NET SDK or Desktop Runtime before installing ThinkControl.
 
-## Install behavior
+## Installation behavior
 
-The current Inno Setup package:
+Setup:
 
-1. requires administrative elevation for installation;
+1. requests administrator permission;
 2. installs ThinkControl under Program Files by default;
-3. installs the UI and hardware service as separate payload directories;
-4. registers `ThinkControlService` as the Windows service;
+3. installs the UI and service payloads;
+4. registers `ThinkControlService`;
 5. starts the service;
-6. offers **Launch ThinkControl** on the completion page;
-7. provides a normal Windows uninstaller.
+6. offers to launch ThinkControl when setup completes;
+7. creates a normal Windows uninstall entry.
 
-If a previous ThinkControl UI process is running during upgrade, setup can request that it be closed rather than silently failing with a vague “currently running” state.
+During an upgrade, setup can request that a running ThinkControl UI process is closed before files are replaced.
 
-## What CI verifies
+## CI package test
 
-The `Package ThinkControl` workflow performs a real Windows lifecycle test on every release candidate:
+The packaging workflow performs a full Windows lifecycle check:
 
 ```text
-build UI + service
-       ↓
-build Inno Setup installer
-       ↓
-silent install into a clean test directory
-       ↓
-verify ThinkControl.UI.exe
-verify ThinkControl.Service.exe
-       ↓
-wait for ThinkControlService = Running
-       ↓
-silent uninstall
-       ↓
-verify files removed
-verify service registration removed
-       ↓
-generate SHA256SUMS.txt
+Build UI and service
+        |
+        v
+Build installer
+        |
+        v
+Silent install
+        |
+        v
+Verify UI and service files
+        |
+        v
+Verify ThinkControlService is Running
+        |
+        v
+Silent uninstall
+        |
+        v
+Verify files and service registration are removed
+        |
+        v
+Generate SHA256SUMS.txt
 ```
 
-The public prerelease is created only by the tag packaging path after the same build/package logic succeeds.
+Tagged releases use the same packaging path after the build and test stages pass.
 
-## PawnIO in alpha.1
+## PawnIO
 
-PawnIO is required for the current X9 EC fan backend, but **alpha.1 does not yet install PawnIO automatically**.
+PawnIO is required for the current X9 EC fan backend, but `alpha.1` does not install it automatically.
 
-This means a clean installation can successfully install/run ThinkControl while X9 fan EC telemetry/control remains unavailable until the verified PawnIO prerequisite exists on the machine.
+A clean ThinkControl installation therefore remains valid when PawnIO is absent. Only the affected X9 EC capability is unavailable.
 
-ThinkControl must not silently fetch an unpinned kernel driver just to make the first installer look more complete.
+Before automated PawnIO installation is added, setup must:
 
-Future one-click prerequisite handling must:
+- use a pinned accepted release;
+- verify the exact package or checksum;
+- use the normal signed distribution;
+- clearly identify that a kernel hardware-access driver will be installed;
+- report restart requirements separately from installation failures;
+- verify the provider after installation.
 
-- use the normal signed PawnIO distribution only;
-- use an exact accepted version;
-- pin and verify the exact downloaded asset/hash;
-- verify publisher/trust where available;
-- tell the user that hardware access installs a kernel driver;
-- distinguish success, failure and restart-required states;
-- probe the actual provider after installation.
+ThinkControl should not remove PawnIO automatically during uninstall because other applications may use it.
 
-PawnIO should not be removed automatically on ThinkControl uninstall because other monitoring software can share it.
+## Lenovo and Intel components
 
-## Lenovo / Intel components
-
-The setup does not bundle or replace Lenovo/Intel platform software such as:
+ThinkControl Setup does not bundle or replace OEM platform software such as:
 
 - Lenovo Power Management;
 - Lenovo Intelligent Thermal Solution;
@@ -90,42 +92,35 @@ The setup does not bundle or replace Lenovo/Intel platform software such as:
 - Lenovo Vantage;
 - Lenovo Service Bridge.
 
-These remain vendor-owned. ThinkControl diagnoses missing capabilities or links to official support rather than mirroring model-specific OEM installers without a verified package-resolution flow.
+These components remain vendor-owned. ThinkControl may detect and use an installed provider when the relevant contract is supported.
 
 ## Release naming
 
-`version.json` is the source version. A release-ready merge to `main` creates the exact tag:
+`version.json` is the version source for the repository.
+
+For `v0.1.0-alpha.1`:
 
 ```text
-v0.1.0-alpha.1
+Tag       v0.1.0-alpha.1
+Release   ThinkControl v0.1.0-alpha.1
+Installer ThinkControl-Setup-0.1.0-alpha.1.exe
+Checksum  SHA256SUMS.txt
 ```
 
-The tag packaging workflow verifies the version match and publishes:
-
-```text
-Release title: ThinkControl v0.1.0-alpha.1
-Installer:     ThinkControl-Setup-0.1.0-alpha.1.exe
-Checksum:      SHA256SUMS.txt
-```
-
-Versions containing `-alpha`, `-beta`, etc. are created as GitHub prereleases.
+Versions containing `alpha`, `beta` or another prerelease suffix are published as GitHub prereleases.
 
 ## Updates
 
-The current UI can check GitHub Releases for a newer version. ThinkControl does not install a permanent updater service.
+The application can check GitHub Releases for a newer version. ThinkControl does not install a permanent updater service.
 
-A polished in-app upgrade/rollback flow can be expanded later; alpha.1 focuses on a reliable normal installer/uninstaller and explicit release downloads.
+A more automated upgrade or rollback experience can be added later without changing the current service ownership model.
 
 ## Uninstall
 
-The current uninstaller removes ThinkControl-owned UI/service files and unregisters the ThinkControl Windows service. The lifecycle is smoke-tested in CI.
+The uninstaller removes ThinkControl-owned application files and unregisters the ThinkControl Windows service. It does not remove PawnIO or Lenovo and Intel platform software.
 
-It does not remove Lenovo/Intel platform components or PawnIO.
+## Future packaging
 
-## Future smaller bootstrapper
+A later release may use a smaller framework-dependent bootstrap installer. That would reduce initial package size but add runtime acquisition, network verification and rollback requirements.
 
-A later stable release can replace the self-contained setup with a small native/bootstrap download that installs/detects the .NET Desktop Runtime and downloads a verified framework-dependent ThinkControl payload.
-
-That design can reduce the initial installer size, but it adds another network/update/rollback layer. It is intentionally deferred until the core hardware and release path are stable.
-
-If implemented later, it must verify all downloaded payloads and remain an on-demand updater path rather than introducing an always-running updater service.
+The current self-contained package is retained while the hardware and release paths are still being validated.

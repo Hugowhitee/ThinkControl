@@ -1,96 +1,105 @@
 # Alpha testing on the ThinkPad X9-15 Gen 1
 
-This guide is for testing a development or prerelease build on the X9 reference device (machine type 21Q6 or 21Q7).
+This guide is for testing a prerelease build on the X9 reference device, machine type `21Q6` or `21Q7`.
 
-## Before installing
+## Before installation
 
-- Close other fan-control or EC-control utilities.
-- Leave Lenovo's normal platform drivers/services installed.
-- Keep the laptop connected to AC power for the first hardware test.
-- Do not start with a heavy workload running.
+- Close other fan-control and EC-control utilities.
+- Keep Lenovo platform drivers and services installed.
+- Connect AC power for the first hardware test.
+- Start without a heavy workload running.
 
-ThinkControl's installer installs the UI and `ThinkControlService`. A clean machine may still need the verified PawnIO prerequisite before X9 EC fan telemetry/control can become available; Windows-level features such as display and battery telemetry do not depend on that EC path.
+ThinkControl Setup installs the UI and `ThinkControlService`. Direct X9 EC fan access may also require PawnIO. Windows-level display and battery features do not depend on that EC provider.
 
-## First launch
+## Basic checks
 
-Confirm these basic items first:
+After installation, confirm:
 
-1. ThinkControl appears in the Windows tray.
-2. The compact popup opens and closes normally.
-3. Advanced opens from the compact popup and can dock back.
-4. The detected device name/machine type is correct.
-5. System, Dark and Light themes render without clipping.
+1. ThinkControl appears in the Windows notification area.
+2. The compact window opens and hides normally.
+3. The Advanced window opens and returns to the compact view correctly.
+4. The detected model and machine type are correct.
+5. System, Light and Dark themes render without clipping.
 
-## Telemetry
+## Read-only telemetry
 
-Check the read-only values before changing fan state:
+Check telemetry before changing fan state.
 
-- CPU temperature appears and the source is sensible.
-- Fan RPM appears only if the X9 EC provider is available.
-- Fan state reports Lenovo Auto before manual control is used.
-- Battery percentage and charging/discharging power look plausible.
-- Charging ETA settles gradually instead of jumping dramatically every refresh.
+- CPU temperature is plausible and has a sensible source label.
+- Fan RPM appears only when a valid fan provider is available.
+- Fan state starts in Lenovo Auto before manual control is used.
+- Battery percentage and charge/discharge power are plausible.
+- Battery time estimates settle gradually rather than changing sharply on every refresh.
 
-If a value is unavailable, do not treat a dash (`—`) as a failure by itself. Record which capability/provider is unavailable in Settings > Compatibility diagnostics.
+An unavailable value is not automatically a failure. Record which provider or capability is missing when reporting the result.
 
 ## Fan control
 
-Only continue when ThinkControl identifies the verified X9 profile and fan control is available.
+Continue only when ThinkControl identifies the verified X9 profile and fan control is available.
 
-1. Start in **Lenovo Auto**.
-2. Select Level 1 and wait for the fan to settle.
-3. Progress through Levels 2–7 one at a time.
-4. Confirm the reported state follows the selected level.
-5. Return to **Lenovo Auto**.
-6. Close/quit ThinkControl after a manual level has been used, then confirm normal Lenovo fan behavior resumes.
+1. Start in Lenovo Auto.
+2. Select Level 1 and allow the fan to settle.
+3. Test Levels 2 through 7 one at a time.
+4. Confirm the reported state follows each selection.
+5. Return to Lenovo Auto.
+6. After using a manual level, quit ThinkControl and confirm normal Lenovo fan behavior resumes.
 
-ThinkControl deliberately does not expose fan-off `0x00` or the unverified `0x40` override states.
+ThinkControl does not expose fan-off `0x00` or the unverified `0x40` override states.
 
-If fan behavior sounds abnormal, immediately select **Lenovo Auto** and stop the test. Do not run another EC fan controller at the same time.
+If fan behavior becomes abnormal, select Lenovo Auto and stop the test. Do not run another direct EC fan controller at the same time.
 
 ## Keyboard backlight
 
-When the Lenovo PM backend is available:
+When the Lenovo PM provider is available:
 
-1. Test Off, Low and High individually.
-2. Confirm each state matches the actual keyboard.
+1. Test Off, Low and High.
+2. Confirm each state matches the physical keyboard.
 3. Test Auto idle behavior.
-4. Test Breathing and observe whether Lenovo's own transition between Low and High produces a smooth effect.
+4. Test Breathing and observe the real transition between Low and High.
 5. Test Reactive at a normal typing pace.
-6. Treat Audio mode as experimental and verify only that it responds without causing excessive writes or UI lag.
+6. Treat Audio mode as experimental and confirm it responds without excessive writes or UI lag.
 
-ThinkControl effects are software policies over the real hardware levels; they are not presented as a native continuous 0–100% backlight API.
+The effects use the supported discrete hardware states. They do not assume a continuous backlight-brightness interface.
 
-## Display and battery
+## Display
 
 Verify:
 
-- 60 Hz and panel maximum switch correctly.
-- Auto refresh chooses the intended AC/battery refresh rate.
-- Brightness follows the slider.
-- Adaptive brightness switch changes only when Windows exposes that setting.
-- Battery W/Wh/health values are plausible when exposed by ACPI.
-- ETA becomes more stable after several samples.
+- 60 Hz and the panel maximum switch correctly;
+- Auto chooses the expected refresh rate on AC and battery;
+- brightness follows the slider;
+- adaptive brightness changes only when Windows exposes the setting.
+
+## Battery
+
+Verify:
+
+- percentage and power source are correct;
+- live power is plausible;
+- Wh and health values are plausible when available;
+- time estimates become more stable after several samples.
 
 ## Sleep and resume
 
-After the basic checks pass:
+After the basic tests pass:
 
-1. Put Windows to sleep while Lenovo Auto is active; resume and verify telemetry recovers.
-2. Select a manual fan level, return to Lenovo Auto, then sleep/resume again.
-3. Do not intentionally leave a manual fan level active across a sleep test until Lenovo Auto recovery has been confirmed in the normal path.
+1. Sleep and resume while Lenovo Auto is active, then confirm telemetry recovers.
+2. Test a manual fan level, return to Lenovo Auto, then sleep and resume again.
+3. Do not intentionally leave manual fan control active across a sleep test until the normal Auto recovery path is confirmed.
 
-## Reporting a problem
+## Reporting results
 
-Use the repository's Bug Report issue form for normal problems. The form accepts an exact free-form laptop model and optional screenshots/log attachments.
+Use the [bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml) for problems or compatibility results.
 
-For compatibility details, Settings > Compatibility diagnostics can preview or export the redacted local support bundle. Network diagnostics submission remains disabled until the private project endpoint is configured.
+Useful information includes:
 
-Useful information in a report:
-
-- exact ThinkControl version shown in the app;
-- exact laptop model/machine type;
+- ThinkControl version;
+- exact laptop model and machine type;
 - affected section;
-- expected vs actual behavior;
+- expected behavior;
+- actual behavior;
 - whether Lenovo Auto restored normal fan behavior;
-- screenshot if the problem is visual.
+- screenshot for visual issues;
+- exported support bundle when relevant.
+
+Automatic network diagnostics submission is not enabled in the current release.

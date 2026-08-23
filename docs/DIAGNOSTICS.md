@@ -1,47 +1,37 @@
-# Diagnostics and compatibility telemetry
+# Diagnostics and privacy
 
-ThinkControl uses diagnostics to answer a narrow engineering question: **which capabilities work reliably on which hardware, and how did a verified/experimental backend behave?**
+ThinkControl diagnostics are intended for compatibility and hardware troubleshooting. They are not advertising analytics.
 
-Diagnostics are not advertising analytics and are not intended to profile the user.
+## Purpose
 
-## Goals
+Diagnostics can help determine:
 
-- discover compatibility on devices the project owner does not physically have
-- catch provider failures that users may never file manually
-- distinguish a missing backend from a backend that is present but failing
-- measure hardware-operation reliability without collecting personal activity
-- make it easier to promote an Experimental device/capability to Verified
+- which providers are available on a device;
+- why a capability is unavailable;
+- whether a hardware operation succeeded and verified correctly;
+- whether a provider is reliable enough to promote from beta to verified support.
 
 ## Consent
 
-Detailed upload is opt-in.
+Detailed network submission is opt-in. The current release does not provide automatic private diagnostics upload.
 
-Recommended first-run flow for a Not validated device:
-
-```text
-This device has not been validated with ThinkControl yet.
-
-ThinkControl can run safe compatibility checks and, if you allow it,
-send redacted technical diagnostics to help validate this model.
-
-[Allow diagnostics]   [Not now]
-```
-
-The user can change this later in Settings > Diagnostics.
-
-ThinkControl may keep a small local diagnostic history needed for troubleshooting even when upload is disabled, but the local file follows the same redaction rules and has a short retention window.
+ThinkControl may keep a small local diagnostic history for troubleshooting. Local data follows the same field restrictions and retention rules described below.
 
 ## Compatibility states
 
-- `Verified`
-- `Experimental`
-- `NotValidated`
+Compatibility can be tracked per provider or capability rather than only per laptop.
 
-The state is per capability/provider where possible. A laptop can therefore have a Verified display backend, Experimental keyboard backend and NotValidated fan-control backend at the same time.
+Current terminology:
 
-## Events worth recording
+- Verified
+- Beta or experimental
+- Not validated
 
-Examples:
+A laptop can therefore have a verified Windows display path and an unvalidated low-level fan path at the same time.
+
+## Diagnostic events
+
+Events should describe application and hardware operations semantically. Examples include:
 
 ```text
 app.started
@@ -60,159 +50,121 @@ service.connected
 service.disconnected
 system.sleep
 system.resume
-hardware.conflict_detected
 operation.timeout
 operation.failed
 ```
 
-Events should be semantic. Never record arbitrary raw memory, arbitrary EC dumps or unrelated device state just because it is available.
+Do not store arbitrary memory, bulk EC dumps or unrelated device state simply because it is accessible.
 
-## Allowed fields
+## Allowed data
 
-A diagnostic envelope may include:
+A diagnostic record may include:
 
-- ThinkControl version and channel
-- event schema version
-- UTC timestamp rounded to a useful resolution
-- OS name/version/build
-- normal manufacturer/product name
-- non-unique ThinkPad machine type/model code
-- BIOS version where useful for compatibility
-- capability name
-- provider/backend name
-- compatibility state
-- operation name
-- success/failure
-- categorized error code
-- operation duration
-- whether a write was read-back verified
-- fan level / Lenovo Auto state
-- bounded RPM or temperature observations
-- installed ThinkControl prerequisite/provider versions
-- sleep/resume lifecycle outcome
+- ThinkControl version and channel;
+- event schema version;
+- UTC timestamp;
+- Windows version and build;
+- manufacturer and normal product name;
+- non-unique Lenovo machine type;
+- BIOS version when relevant;
+- capability and provider name;
+- compatibility state;
+- operation name and result;
+- categorized error code;
+- operation duration;
+- whether a write passed readback verification;
+- fan level or Lenovo Auto state;
+- bounded RPM or temperature observations;
+- installed ThinkControl prerequisite versions;
+- sleep and resume outcome.
 
-## Always redact / never collect
+## Data that must not be collected
 
-- serial number
-- asset tag
-- UUID intended to identify the physical laptop
-- Windows username
-- hostname
-- email/account name or ID
-- IP address when it can be avoided by application-layer storage
-- MAC addresses
-- disk serials
-- browser history
-- document names
-- personal filesystem paths
-- clipboard contents
-- typed key values or text
-- raw keyboard event contents
-- microphone/audio samples
-- screenshots unless the user explicitly attaches one
-- unrelated running-process/window lists
+ThinkControl diagnostics exclude:
 
-The app may observe **that keyboard activity occurred** for a Reactive backlight effect. That activity is not diagnostic data and must not be persisted.
+- serial number;
+- asset tag;
+- unique hardware UUID used to identify a physical laptop;
+- Windows username;
+- hostname;
+- email address or account ID;
+- MAC address;
+- disk serial number;
+- browser history;
+- document names;
+- clipboard contents;
+- typed keys or text;
+- microphone or loopback audio samples;
+- screenshots unless the user explicitly attaches one;
+- unrelated process or window inventories.
 
-The Audio backlight effect reduces loopback audio to a local RMS level. Audio samples and RMS history are not diagnostic data and must not be uploaded.
+Keyboard activity used by the Reactive backlight effect is not persisted. Audio used by the Audio effect is reduced to a local level measurement and the audio samples are not retained.
 
 ## Local storage
 
-Recommended path:
+Recommended location:
 
 ```text
 %LOCALAPPDATA%\ThinkControl\Diagnostics\
 ```
 
-Recommended format:
+Recommended policy:
 
-- rolling JSON Lines (`.jsonl`)
-- small bounded files
-- no unbounded debug log
-- retention measured in days, not months
-- rotate by size and date
+- JSON Lines format;
+- bounded files;
+- maximum three rolling files;
+- maximum 1 MB per file;
+- maximum seven days retention;
+- rotation by size and date.
 
-Suggested defaults:
+## Redaction
 
-- maximum 3 rolling files
-- maximum 1 MB per file
-- maximum 7 days retention
+Redaction happens before any data leaves the machine.
 
-## Redaction pipeline
+1. Build records from strongly typed allowlisted fields.
+2. Reject fields outside the schema.
+3. Sanitize free-form error text.
+4. Remove accidental user-profile fragments.
+5. Remove non-ThinkControl filesystem paths where possible.
+6. Show the final data in Preview before manual submission.
 
-Redaction happens **before** data leaves the laptop.
+Structured error categories are preferred over raw exception text in shared diagnostics.
 
-1. construct diagnostics from strongly typed allowlisted fields;
-2. reject fields that are not in the schema;
-3. sanitize free-form error messages;
-4. replace accidental username/home-directory fragments;
-5. remove path-like strings unless they point to a ThinkControl-owned directory;
-6. preview the final envelope in the UI;
-7. upload only after consent.
+## Future private submission
 
-Prefer structured error codes over raw exception text in uploaded summaries.
+Detailed diagnostics should not be posted automatically to the public ThinkControl repository.
 
-## Private transport
+A future private submission path should use a project-controlled HTTPS endpoint. Any GitHub or storage credential must remain on the server side. ThinkControl must not embed a GitHub personal access token in the desktop application.
 
-Do not upload detailed logs directly into the public `Hugowhitee/ThinkControl` repository.
+## Network cadence
 
-A public repository does not have a private folder for incoming issue data. The intended architecture is:
+If private opt-in submission is implemented later, it should send small event summaries at meaningful points rather than streaming sensor data.
 
-```text
-ThinkControl desktop app
-        |
-        | HTTPS, redacted JSON/ZIP
-        v
-ThinkControl diagnostics endpoint
-        |
-        | server-side GitHub App credential
-        v
-private diagnostics repository / storage
-```
-
-The private repository can be something like `Hugowhitee/ThinkControl-Diagnostics` and should not contain source secrets from the desktop application.
-
-No GitHub PAT is embedded in ThinkControl.
-
-## Upload cadence
-
-With consent enabled, prefer low-volume meaningful summaries rather than continuous streaming.
-
-Good triggers:
-
-- after the first compatibility scan on a new Not validated device
-- after a provider changes state
-- after repeated hardware-operation failure
-- after successful completion of an Experimental validation sequence
-- at most one small periodic health summary per day while the app is actively used
-
-Do not send a network request for every sensor poll, keypress, RPM sample or brightness change.
+Appropriate triggers include first compatibility scan, provider state changes and repeated hardware-operation failures. Every keypress, RPM poll or brightness change should not produce a network request.
 
 ## User controls
 
-Settings > Diagnostics should expose:
+Diagnostics settings should provide:
 
-- compatibility state
-- diagnostics upload toggle
-- last upload status/time
-- `Preview data`
-- `Export support bundle`
-- `Send diagnostics now`
-- `Open public bug report`
-- `Delete local diagnostics`
+- compatibility status;
+- upload consent when a private endpoint exists;
+- last submission status;
+- Preview data;
+- Export support bundle;
+- Send diagnostics now when supported;
+- Open bug report;
+- Delete local diagnostics.
 
-The user should be able to use ThinkControl with diagnostics upload disabled.
+ThinkControl remains usable with network diagnostics disabled.
 
 ## Public bug reports
 
-The repository provides a structured issue form at `.github/ISSUE_TEMPLATE/bug-report.yml`.
+The repository issue form asks for the information normally needed to reproduce a problem:
 
-Public reports intentionally ask for only a few required fields:
+- device family;
+- exact model;
+- ThinkControl version;
+- affected area;
+- problem description.
 
-- device family
-- exact model
-- ThinkControl version
-- affected area
-- problem description
-
-Everything else is optional, including reproduction steps and attachments.
+Screenshots, reproduction steps and support bundles are optional unless a specific issue requires them.

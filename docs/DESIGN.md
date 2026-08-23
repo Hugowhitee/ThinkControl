@@ -1,57 +1,55 @@
-# ThinkControl design system
+# Design system
 
-ThinkControl is a compact Windows hardware utility. The interface should feel precise, quiet and native to a desktop control panel rather than like a gaming dashboard or a collection of decorative cards.
+ThinkControl is a compact Windows hardware utility. The interface should feel precise, restrained and consistent with a desktop settings application.
 
-## Core visual language
+## Visual language
 
 Use:
 
-- Segoe UI and normal Windows text rendering
-- Google Material Symbols Outlined for functional icons
-- one restrained ThinkControl accent plus system state colors
-- 1 px borders and separators
-- small corner radii, generally 2-4 px for controls and 4-7 px for window surfaces
-- compact spacing and strong alignment
-- clear selected, hover, disabled and focus states
-- System, Light and Dark themes
-- subtle elevation only where it clarifies window hierarchy
-- flat or lightly tinted surfaces
+- Segoe UI with normal Windows text rendering;
+- Material Symbols Outlined for functional icons;
+- one restrained ThinkControl accent plus system state colors;
+- thin borders and separators;
+- small control radii;
+- compact spacing and strong alignment;
+- clear selected, hover, disabled and focus states;
+- System, Light and Dark themes;
+- subtle elevation only when it clarifies hierarchy.
 
 Avoid:
 
-- decorative gradients
-- brushed-metal, carbon or heavy-noise textures
-- large rounded cards
-- nested card layouts without structural purpose
-- speedometer-style gauges
-- oversized headings and excessive empty padding
-- emoji as product icons
-- mixed icon families
-- glow-heavy gaming effects
-- fake precision
-- controls that look active when their backend is unavailable
+- decorative gradients or textures;
+- large rounded cards without structural purpose;
+- nested cards for simple rows;
+- dashboard gauges for ordinary settings;
+- oversized headings and excessive padding;
+- emoji as interface icons;
+- mixed icon families;
+- glow-heavy effects;
+- fabricated precision;
+- enabled-looking controls when the backend is unavailable.
 
 ## Information hierarchy
 
-ThinkControl has two UI densities:
+ThinkControl has two interface densities.
 
-### Compact
+### Compact window
 
-The tray popup is for settings and telemetry a user may check or change frequently. It should be readable at a glance and require little pointer travel.
+The tray window contains frequently checked telemetry and frequently changed settings.
 
-Priority order:
+Typical order:
 
-1. device identity
-2. temperature and fan state
-3. performance profile
-4. display controls
-5. keyboard backlight
-6. battery/fan quick links
-7. Settings, System and Advanced access
+1. device identity;
+2. temperature and fan state;
+3. performance mode;
+4. display controls;
+5. keyboard backlight;
+6. battery and fan shortcuts;
+7. Settings, System and Advanced access.
 
-### Advanced
+### Advanced window
 
-The Advanced window is for deeper controls, compatibility information and less frequently used settings. It may use more whitespace, but it should still behave like a dense system utility rather than a marketing page.
+The Advanced window contains detailed controls and information without turning the compact window into a full settings application.
 
 Navigation:
 
@@ -67,44 +65,36 @@ Navigation:
 
 ## Typography
 
-Use a small number of levels consistently:
+Use a small number of text levels consistently.
 
-- window/product title: approximately 20 px
-- Advanced page title: approximately 24 px
-- major telemetry: 24-38 px depending on context
-- normal controls/body text: 10.5-12 px
-- metadata/helper text: 9-10.5 px
+| Role | Typical size |
+| --- | --- |
+| Product or compact-window title | about 20 px |
+| Advanced page title | about 24 px |
+| Major telemetry | 24 to 38 px, depending on context |
+| Normal control and body text | 10.5 to 12 px |
+| Metadata and helper text | 9 to 10.5 px |
 
-Large numeric telemetry may use a light font weight. Labels should remain compact and should not compete visually with the value they describe.
+Large numeric telemetry may use a lighter weight. Labels should not compete visually with the value they describe.
 
 ## Icons
 
-ThinkControl uses a curated subset of Google Material Symbols Outlined represented as local WPF vector geometry.
+ThinkControl uses a curated local subset of Material Symbols Outlined represented as WPF vector geometry.
 
-Icons are used for recognition, not decoration. Appropriate uses include:
+Use icons for recognition and navigation, not as decoration. Text-first segmented controls such as Quiet, Balanced, Performance, 60 Hz and Max do not need separate icons.
 
-- Advanced navigation
-- Settings and System actions
-- update/attention states
-- tray actions
-- dock/expand actions
+Normal product UI should use one icon family unless a native Windows control is clearer.
 
-Text-first segmented controls such as `Quiet`, `Balanced`, `Performance`, `60 Hz` and `Max` do not need individual icons.
+## Compact layout
 
-All product UI should use the same icon family unless a Windows-native window control is clearer.
-
-## Compact popup
-
-The compact popup is a fixed-size tray surface intended to open near the taskbar work area.
-
-Current layout:
+The compact window should remain close to its existing size unless a feature genuinely requires more space.
 
 ```text
 ThinkControl
 ThinkPad model
 
 CPU temperature        Fan RPM
-60-second temperature sparkline
+Temperature history
 
 Performance
 [ Quiet ] [ Balanced ] [ Performance ]
@@ -119,189 +109,79 @@ Keyboard
 
 Battery status      Fan state
 
-Settings   System           Expand
+Settings   System   Advanced
 ```
-
-The popup should remain close to its current 410 × 640 logical-pixel envelope unless a feature genuinely requires more room.
 
 ### Telemetry
 
-CPU temperature and fan RPM are displayed only when the active provider can identify their source reliably.
+Temperature and RPM are shown only when the provider identifies the value reliably. Source details belong in tooltips or Advanced pages rather than occupying permanent compact-window space.
 
-Source details belong in tooltips or Advanced rather than permanently occupying compact space.
+Approximate data must stay labelled as approximate. An ACPI thermal-zone reading should not be renamed to `CPU Package`.
 
-Examples of valid source descriptions:
+### Temperature history
 
-```text
-CPU Package
-LibreHardwareMonitor / PawnIO
-```
+The compact temperature graph is secondary information.
 
-```text
-ThinkPad EC tachometer
-EC 0x84/0x85
-```
+- about 60 seconds of history;
+- thin line;
+- minimal axes and grid;
+- no decorative area fill;
+- attention colors only for real states or thresholds.
 
-Approximate sources must be labeled as approximate. An ACPI thermal-zone reading must not be renamed to `CPU Package`.
+### Performance
 
-### Sparkline
-
-The compact temperature graph is context, not the focus of the application.
-
-- approximately 60 seconds of history
-- thin line
-- minimal grid/axes
-- no area gradient
-- no decorative warning color
-- warning/accent colors only for real states or thresholds
-
-### Performance modes
-
-The primary labels are:
-
-- Quiet
-- Balanced
-- Performance
-
-Short secondary text may describe intent, such as `Efficient`, `Everyday` or `Maximum`.
-
-Do not show watts, dBA or other numeric characteristics unless ThinkControl has a measured/configured source for that exact value.
+Primary labels are Quiet, Balanced and Performance. Do not display wattage, dBA or other numeric claims unless ThinkControl has a real source for that exact value.
 
 ### Display
 
-Refresh rate, brightness and adaptive brightness belong in one coherent Display section.
-
-Refresh controls should use:
-
-- Auto
-- 60 Hz
-- Max
-
-`Max` resolves to the actual panel maximum rather than hardcoding a refresh rate into the layout.
+Refresh rate, brightness and adaptive brightness belong in one Display section. The refresh choices are Auto, 60 Hz and Max. Max resolves to the actual built-in panel maximum.
 
 ### Keyboard
 
-The compact surface exposes hardware-facing daily states:
-
-- Off
-- Low
-- High
-- Auto
-
-More complex ThinkControl effects belong in the Advanced Keyboard page.
-
-### Footer and window actions
-
-The footer contains only high-value actions and quiet status information.
-
-The expand button opens the Advanced window. The Advanced window provides a corresponding dock/back-to-popup action. Closing either surface hides ThinkControl to the tray rather than quitting the process.
+The compact window exposes Off, Low, High and Auto. More complex effects belong in the Advanced Keyboard page.
 
 ## Advanced window
 
-The Advanced window uses a left navigation rail and one content page at a time.
+The Advanced window uses a left navigation rail and one content page at a time. Dedicated pages should contain only controls related to that subject.
 
-The Home page summarizes:
-
-- CPU
-- Fan
-- Battery
-- Performance
-- Display
-- Keyboard
-- compatibility/readiness
-- update state
-
-Dedicated pages provide deeper controls without duplicating unrelated settings.
+The Home page summarizes the most useful current state, including CPU, fan, battery, performance, display, keyboard, compatibility and update information.
 
 ## Capability states
 
-Unavailable hardware should not appear as a normal enabled control.
+Unavailable hardware should not look like a normal working control.
 
-Preferred patterns:
+Use either:
 
-- disable a control when its location is important for discoverability, with a concise reason nearby; or
-- replace the action area with a short compatibility explanation.
+- a disabled control with a short explanation when preserving its location helps discoverability; or
+- a concise compatibility message in place of the action.
 
-Examples:
-
-```text
-Fan control
-Hardware access unavailable
-```
-
-```text
-Keyboard backlight
-Lenovo Power Management provider not available
-```
-
-Compatibility wording should describe ThinkControl's confidence, not imply that the laptop itself is faulty.
-
-## Hardware readiness
-
-Healthy readiness should stay visually quiet.
-
-Only surface an attention state when the user can act on it, for example:
-
-```text
-Hardware access limited
-[ Review ]
-```
-
-or:
-
-```text
-Device software needs attention
-[ Open Lenovo Drivers ]
-```
-
-Do not permanently show green `OK` badges throughout the interface.
+Healthy state should remain visually quiet. Avoid filling the interface with permanent green status badges.
 
 ## Fan controls
 
-The X9 interface represents the real backend states:
+The verified X9 fan interface uses Lenovo Auto and discrete levels 1 through 7. The UI must not convert those states into a fake percentage.
 
-- Lenovo Auto
-- Level 1 through Level 7
-
-Manual fan controls must not be presented as percentages. Any future curve editor uses the discrete levels as its source of truth; a graph is only a visualization of that table.
-
-Current fan level should appear close to fan RPM because the two values describe the same physical state.
+Current fan state should appear close to fan RPM because both values describe the same subsystem.
 
 ## Battery presentation
 
-Compact battery information prioritizes:
+Compact battery information prioritizes percentage, live power and time estimate. The Advanced Battery page can add average power, energy, health and provider details.
 
-- percentage
-- live power
-- ETA when available
-
-The Advanced Battery page can additionally show:
-
-- filtered average power
-- energy remaining/full
-- health
-- source/provider
-
-ETA wording should remain approximate (`~52 min`, `~1h 20m`) because it is derived from recent power use rather than a fixed promise.
+Time estimates are approximate and should be formatted accordingly.
 
 ## Motion
 
-Motion is subtle and functional:
+Animation should be short and functional.
 
-- roughly 120-180 ms for state/window transitions
-- no long easing sequences
-- no animation that delays a hardware action
-- respect Windows Animation Effects accessibility settings
+- roughly 120 to 180 ms for ordinary state transitions;
+- no long easing sequences;
+- no animation that delays a hardware command;
+- respect Windows animation accessibility settings.
 
-Because compact and Advanced are separate WPF windows, the expand/dock transition should create a light visual handoff rather than attempting a fragile cross-HWND morph.
+The compact and Advanced surfaces are separate WPF windows. Use a simple handoff rather than a fragile cross-window morph.
 
 ## Accessibility and scaling
 
-The interface must remain usable with:
+The interface must remain usable with keyboard navigation, visible focus, all supported themes and common Windows scaling levels including 100, 125 and 150 percent.
 
-- keyboard navigation
-- visible focus
-- Windows Light/Dark/System themes
-- common desktop scaling levels including 100%, 125% and 150%
-
-CI-rendered snapshots are used to catch clipping, missing icons and obvious layout regressions, but physical-device testing remains necessary for DPI, taskbar placement and interaction behavior.
+CI snapshots are used to catch obvious clipping, icon and layout regressions. Real-device testing remains necessary for taskbar placement, DPI behavior and interaction quality.

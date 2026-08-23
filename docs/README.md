@@ -1,78 +1,65 @@
 # ThinkControl documentation
 
-This is the technical documentation hub for ThinkControl.
+This directory contains product, hardware and development documentation for ThinkControl.
 
-If you only want to install the app, start at the main **[README](../README.md)** and **[Releases](https://github.com/Hugowhitee/ThinkControl/releases)** page.
+For installation, start with the main [README](../README.md) and the [Releases](https://github.com/Hugowhitee/ThinkControl/releases) page.
 
-## Start here
+## Documentation index
 
-| Topic | Document | Use it for |
-| --- | --- | --- |
-| Device compatibility | [Device Support](DEVICE-SUPPORT.md) | Verified, Beta / Untested and generic device behavior |
-| Lenovo hardware backends | [Lenovo Provider Model](LENOVO-PROVIDERS.md) | How ThinkControl discovers Lenovo capabilities safely |
-| Safety rules | [Hardware Safety](HARDWARE-SAFETY.md) | Rules for EC, drivers, IOCTLs and hardware writes |
-| Architecture | [Architecture](ARCHITECTURE.md) | UI/service/core/hardware boundaries |
-| Product behavior | [Product Specification](PRODUCT.md) | What ThinkControl is intended to do |
-| UI | [Design](DESIGN.md) · [UI Editing](UI_EDITING.md) | Visual rules and Blend/XAML editing |
-| Diagnostics | [Diagnostics & Privacy](DIAGNOSTICS.md) | Local logs, redaction and support bundles |
-| Dependencies | [Dependencies](DEPENDENCIES.md) | Windows/Lenovo/PawnIO dependency model |
-| Release | [Release Checklist](RELEASE-CHECKLIST.md) | Packaging and prerelease acceptance |
-| Alpha testing | [Alpha Testing](ALPHA-TESTING.md) | Physical validation and reporting |
+| Document | Purpose |
+| --- | --- |
+| [Device Support](DEVICE-SUPPORT.md) | Current device and capability support |
+| [Lenovo Providers](LENOVO-PROVIDERS.md) | Lenovo driver, WMI and hardware provider model |
+| [Hardware Safety](HARDWARE-SAFETY.md) | Rules for privileged and low-level hardware access |
+| [Architecture](ARCHITECTURE.md) | Project boundaries, service architecture and IPC |
+| [Product Specification](PRODUCT.md) | Current product behavior and scope |
+| [Design System](DESIGN.md) | UI layout, typography, controls and visual rules |
+| [UI Editing](UI_EDITING.md) | Editing WPF/XAML with Visual Studio and Blend |
+| [Diagnostics and Privacy](DIAGNOSTICS.md) | Local diagnostics, redaction and support bundles |
+| [Dependencies](DEPENDENCIES.md) | Runtime, Lenovo software and PawnIO requirements |
+| [Alpha Testing](ALPHA-TESTING.md) | Physical validation on the X9 reference device |
+| [Release Checklist](RELEASE-CHECKLIST.md) | Packaging and release checks |
+| [v0.1 Acceptance](V0.1-ACCEPTANCE.md) | Acceptance criteria for the first alpha |
 
-## Device research
+## Compatibility terminology
 
-### Verified reference
+### Verified
 
-- **[ThinkPad X9-15 Gen 1 · 21Q6 / 21Q7](research/x9-15-gen1.md)** — detailed hardware research, including EC fan registers, LITS/ThinkSmartSense observations, Lenovo PM driver findings and negative fan-interface results.
+The relevant capability has been tested on the actual device or provider combination used by ThinkControl. The current reference device is the ThinkPad X9-15 Gen 1 with machine type `21Q6` or `21Q7`.
 
-The X9 research record is intentionally much deeper than a normal Beta profile. New Lenovo families do **not** need the same reverse-engineering depth before ThinkControl can offer Windows-level features or capability-probed Lenovo providers.
+### Beta
 
-## Compatibility levels
+ThinkControl recognizes the device family and has known providers that are reasonable to probe, but the exact model has not been fully validated by this project. Individual controls still require a successful capability check.
 
-### ✅ Verified
+### Generic
 
-A real machine has been tested and the relevant hardware provider behavior has been validated. The first reference profile is the ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`).
+Only platform-independent providers are assumed. Windows-level features may work without any Lenovo-specific profile.
 
-### 🧪 Beta / Untested
+These labels describe validation depth. They do not grant low-level hardware access by themselves.
 
-ThinkControl recognizes the Lenovo family and knows which established providers are appropriate to probe, but that exact model has not been physically validated by the ThinkControl project.
+## Device profiles
 
-Beta does **not** authorize guessed low-level writes. Each provider must still pass its own probe/read/readback contract.
-
-### ⚪ Generic
-
-ThinkControl has no Lenovo family profile for the machine. Safe Windows APIs can still work; Lenovo-specific hardware controls activate only if a generic provider contract can prove itself without model-specific assumptions.
-
-## Family profiles
-
-Machine-readable profiles live under `devices/Lenovo/`:
+Machine-readable Lenovo profiles live under `devices/Lenovo/`.
 
 ```text
 devices/Lenovo/
-├─ ThinkPad/
-│  ├─ X9-15-Gen1/        verified exact profile
-│  └─ _family/           Beta / Untested family profile
-├─ ThinkBook/_family/
-├─ Yoga/_family/
-├─ IdeaPad/_family/
-├─ LOQ/_family/
-├─ Legion/_family/
-└─ _generic/
+|-- ThinkPad/
+|   |-- X9-15-Gen1/
+|   `-- _family/
+|-- ThinkBook/_family/
+|-- Yoga/_family/
+|-- IdeaPad/_family/
+|-- LOQ/_family/
+|-- Legion/_family/
+`-- _generic/
 ```
 
-Family profiles define **provider candidates**, not unrestricted device access.
+Profiles identify provider candidates. Exact EC registers or unverified write payloads are not loaded from remote metadata.
 
-## Contributing device support
+## Device research
 
-Useful evidence for a new Lenovo model is usually much smaller than the original X9 investigation:
+The detailed X9 research record is available at [research/x9-15-gen1.md](research/x9-15-gen1.md). It documents the evidence used to establish the first verified low-level provider.
 
-1. exact product name and four-character Lenovo machine type;
-2. which Lenovo services/drivers are present;
-3. which safe WMI/provider probes exist;
-4. whether read-only telemetry returns plausible values;
-5. whether a reversible control can be read back after a change;
-6. a support bundle or bug report from the real machine.
+Most new devices should not require the same level of reverse engineering. Useful validation data normally includes the exact model and machine type, relevant Lenovo drivers and services, provider availability, plausible read-only telemetry and readback results for reversible controls.
 
-A deep ACPI/driver trace is only needed when no established provider exists or a capability behaves differently from known Lenovo families.
-
-Use the **[bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)** for validation reports and attach a ThinkControl support bundle when useful.
+Use the [bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml) for compatibility reports. An exported ThinkControl support bundle can be attached when needed.

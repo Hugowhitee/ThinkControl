@@ -1,16 +1,21 @@
 # Third-party notices
 
-ThinkControl includes a small curated subset of **Google Material Symbols Outlined** converted from the official 20 px SVG assets into local WPF vector geometry.
+ThinkControl redistributes a curated subset of Google Material Symbols Outlined as local WPF vector geometry.
 
-- Project: Material Symbols / Material Design Icons
-- Upstream: https://github.com/google/material-design-icons
-- License: Apache License 2.0
-- ThinkControl modification: selected upstream icon paths are represented as WPF `Geometry` resources for local, dependency-free rendering.
+## Material Symbols
 
-Material Symbols are not used as a bundled font and ThinkControl does not depend on the Google Fonts service at runtime.
+Project: Google Material Symbols / Material Design Icons
 
-The upstream license text is available at:
+Upstream: https://github.com/google/material-design-icons
+
+License: Apache License 2.0
+
+ThinkControl uses selected icon paths from the official SVG assets and represents them as WPF `Geometry` resources. Material Symbols are not bundled as a font and ThinkControl does not require the Google Fonts service at runtime.
+
+Upstream license:
 
 https://github.com/google/material-design-icons/blob/master/LICENSE
 
-This notice is copied into the published ThinkControl UI payload and therefore ships with installer builds that redistribute the selected icon geometry.
+This notice is included with published ThinkControl application payloads that redistribute the selected icon geometry.
+
+Other external packages retain the licenses declared by their respective distributions and package metadata.
