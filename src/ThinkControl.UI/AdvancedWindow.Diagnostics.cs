@@ -10,6 +10,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         ConfigureBatteryPage();
+        ConfigureHardwareSetupEntry();
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -17,6 +18,9 @@ public partial class AdvancedWindow
     {
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        ConfigureBatteryPage();
+        ConfigureHardwareSetupEntry();
+        DiagnosticsPanelControl?.Refresh();
     }
 
     public void NavigateTouchpad()
