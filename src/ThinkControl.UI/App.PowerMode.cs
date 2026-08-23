@@ -5,19 +5,11 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
-    /// <summary>
-    /// Applies the Windows power mode and, only on the verified X9 21Q6/21Q7
-    /// profile, also asks Lenovo Intelligent Thermal Solution to apply its
-    /// corresponding AC/DC policy. Windows mode remains the primary supported
-    /// surface; a missing Lenovo pipe never prevents the Windows change.
-    /// </summary>
-    public async Task<bool> SetPowerModeWithLenovoAsync(ThinkControlPowerMode mode)
+    private async void PowerModeService_ModeApplied(object? sender, ThinkControlPowerMode mode)
     {
-        bool windowsChanged = SetPowerMode(mode);
         DeviceValidationState validation = GetDeviceValidationState(State.MachineType, _manufacturer, State.DeviceName);
-
         if (validation != DeviceValidationState.Verified)
-            return windowsChanged;
+            return;
 
         DateTimeOffset started = DateTimeOffset.UtcNow;
         var response = await HardwareClient.SetThermalModeAsync(mode.ToString());
@@ -35,14 +27,7 @@ public partial class App
             Tags: new Dictionary<string, string>
             {
                 ["state"] = mode.ToString(),
-                ["windowsApplied"] = windowsChanged ? "true" : "false"
+                ["windowsApplied"] = "true"
             }));
-
-        // A Lenovo policy response can succeed even if the Windows overlay API is
-        // unavailable on a future build, and vice versa. Either is a real change.
-        if (thermalApplied)
-            State.SelectedMode = mode.ToString();
-
-        return windowsChanged || thermalApplied;
     }
 }
