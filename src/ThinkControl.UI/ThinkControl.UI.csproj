@@ -9,7 +9,6 @@
     <ProjectReference Include="..\ThinkControl.Core\ThinkControl.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="MahApps.Metro.IconPacks.Lucide" Version="6.2.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="System.Management" Version="10.0.0" />
   </ItemGroup>
