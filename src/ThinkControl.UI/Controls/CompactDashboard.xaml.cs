@@ -69,10 +69,8 @@ public partial class CompactDashboard : UserControl
         CoolingQuickGroup.IsEnabled = false;
         try
         {
-            if (!await _app.SetCoolingProfileAsync(profile))
-                await _app.RefreshStatusAsync();
-            else
-                await _app.RefreshStatusAsync();
+            await _app.SetCoolingProfileAsync(profile);
+            await _app.RefreshStatusAsync();
         }
         finally
         {
