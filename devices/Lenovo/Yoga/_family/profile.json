@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 2,
+  "id": "lenovo.yoga.family",
+  "displayName": "Lenovo Yoga family",
+  "status": "beta-untested",
+  "match": {
+    "manufacturer": "LENOVO",
+    "productNameContains": ["Yoga", "YOGA"]
+  },
+  "providers": {
+    "windows": ["powerMode", "display", "brightness", "adaptiveBrightness", "batteryTelemetry"],
+    "keyboard": ["EnergyDrv", "IBMPmDrv", "LenovoVantageKeyboardAddin"],
+    "fanTelemetry": ["LENOVO_FAN_METHOD", "CIM_Tachometer"],
+    "thermalPolicy": ["LENOVO_GAMEZONE_DATA-when-supported", "WindowsPowerMode"]
+  },
+  "capabilities": {
+    "keyboardBacklight": "probe-and-readback",
+    "fanRpm": "read-only-probe",
+    "fanControl": "vendor-wmi-only-when-self-advertised",
+    "performanceMode": "vendor-wmi-or-windows",
+    "batteryTelemetry": "windows-safe",
+    "display": "windows-safe"
+  },
+  "safety": {
+    "directEcWrites": false,
+    "unknownIoctlWrites": false,
+    "remoteMetadataMayEnableWrites": false,
+    "betaRequiresProviderProbe": true
+  }
+}
