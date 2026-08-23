@@ -94,6 +94,8 @@ public partial class MainWindow : Window
             or nameof(AppState.AdaptiveBrightnessEnabled)
             or nameof(AppState.AdaptiveBrightnessAvailable)
             or nameof(AppState.KeyboardStatus)
+            or nameof(AppState.KeyboardMode)
+            or nameof(AppState.CanKeyboardBacklight)
             or nameof(AppState.HardwareAccess))
         {
             Dispatcher.Invoke(SyncControls);
@@ -120,18 +122,17 @@ public partial class MainWindow : Window
 
             AdaptiveSwitch.IsChecked = state.AdaptiveBrightnessEnabled == true;
 
-            bool keyboardAvailable = !state.KeyboardStatus.Contains("unavailable", StringComparison.OrdinalIgnoreCase) &&
-                                     !state.KeyboardStatus.Contains("Unavailable", StringComparison.OrdinalIgnoreCase);
+            bool keyboardAvailable = state.CanKeyboardBacklight;
             KeyboardOff.IsEnabled = keyboardAvailable;
             KeyboardLow.IsEnabled = keyboardAvailable;
             KeyboardHigh.IsEnabled = keyboardAvailable;
             KeyboardAuto.IsEnabled = keyboardAvailable;
 
-            string keyboard = state.KeyboardStatus;
-            KeyboardOff.IsChecked = keyboard.Contains("Off", StringComparison.OrdinalIgnoreCase);
-            KeyboardLow.IsChecked = keyboard.Contains("Low", StringComparison.OrdinalIgnoreCase);
-            KeyboardHigh.IsChecked = keyboard.Contains("High", StringComparison.OrdinalIgnoreCase);
-            KeyboardAuto.IsChecked = keyboard.Contains("Auto", StringComparison.OrdinalIgnoreCase);
+            bool isStatic = state.KeyboardMode == "Static";
+            KeyboardOff.IsChecked = isStatic && state.KeyboardStatus.Contains("Off", StringComparison.OrdinalIgnoreCase);
+            KeyboardLow.IsChecked = isStatic && state.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase);
+            KeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
+            KeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
         }
         finally
         {
@@ -212,10 +213,12 @@ public partial class MainWindow : Window
         if (_syncing || sender is not FrameworkElement { Tag: string value })
             return;
 
-        var result = await _app.HardwareClient.SetKeyboardBacklightAsync(value);
-        if (result?.Success != true)
-            SyncControls();
-        await _app.RefreshStatusAsync();
+        if (value == "Auto")
+            await _app.SetKeyboardModeAsync("Auto");
+        else
+            await _app.SetKeyboardStaticLevelAsync(value);
+
+        SyncControls();
     }
 
     private void Window_Deactivated(object sender, EventArgs e)

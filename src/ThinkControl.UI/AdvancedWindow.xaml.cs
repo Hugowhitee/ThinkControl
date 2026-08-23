@@ -1,13 +1,17 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfButton = System.Windows.Controls.Button;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
+using WpfRadioButton = System.Windows.Controls.RadioButton;
 using WpfSlider = System.Windows.Controls.Slider;
+using WpfTextBlock = System.Windows.Controls.TextBlock;
 
 namespace ThinkControl.UI;
 
@@ -17,7 +21,16 @@ public partial class AdvancedWindow : Window
     private bool _forceClose;
     private bool _syncing;
     private bool _positioned;
+    private bool _enhancedPagesBuilt;
     private UpdateCheckResult? _lastUpdate;
+
+    private WpfRadioButton? _effectAuto;
+    private WpfRadioButton? _effectBreathing;
+    private WpfRadioButton? _effectReactive;
+    private WpfRadioButton? _effectAudio;
+    private WpfRadioButton? _effectBaseLow;
+    private WpfRadioButton? _effectBaseHigh;
+    private WpfSlider? _effectSpeed;
 
     public AdvancedWindow(App app)
     {
@@ -102,8 +115,228 @@ public partial class AdvancedWindow : Window
             state.PropertyChanged += State_PropertyChanged;
 
         StartupSwitch.IsChecked = StartupService.IsEnabled();
+        BuildEnhancedPages();
         SyncControls();
         ShowPage(GetSelectedPage());
+    }
+
+    private void BuildEnhancedPages()
+    {
+        if (_enhancedPagesBuilt)
+            return;
+        _enhancedPagesBuilt = true;
+        BuildKeyboardEffectsSection();
+        BuildBatteryTelemetrySection();
+    }
+
+    private void BuildKeyboardEffectsSection()
+    {
+        if (PageKeyboard.Content is not StackPanel root)
+            return;
+
+        var border = new Border
+        {
+            Style = (Style)FindResource("TcSection"),
+            Margin = new Thickness(0, 14, 0, 0)
+        };
+        var content = new StackPanel();
+        border.Child = content;
+
+        var heading = new Grid();
+        heading.Children.Add(new WpfTextBlock
+        {
+            Text = "Effects",
+            FontWeight = FontWeights.SemiBold
+        });
+        var stateText = new WpfTextBlock
+        {
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Foreground = (Brush)FindResource("Tc.TextMuted")
+        };
+        stateText.SetBinding(TextBlock.TextProperty, new Binding(nameof(AppState.KeyboardModeText)));
+        heading.Children.Add(stateText);
+        content.Children.Add(heading);
+
+        content.Children.Add(new WpfTextBlock
+        {
+            Text = "ThinkControl uses the X9's verified Off / Low / High levels as building blocks. If Lenovo firmware fades level changes, Breathing inherits that smooth transition without pretending the keyboard has a 0–100% PWM API.",
+            Foreground = (Brush)FindResource("Tc.TextMuted"),
+            FontSize = 10.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 7, 0, 12)
+        });
+
+        var effects = new Grid();
+        for (int i = 0; i < 4; i++) effects.ColumnDefinitions.Add(new ColumnDefinition());
+        _effectAuto = CreateEffectButton("Auto", "Auto", 0, effects, new Thickness(0, 0, 5, 0));
+        _effectBreathing = CreateEffectButton("Breathing", "Breathing", 1, effects, new Thickness(2, 0, 2, 0));
+        _effectReactive = CreateEffectButton("Reactive", "Reactive", 2, effects, new Thickness(2, 0, 2, 0));
+        _effectAudio = CreateEffectButton("Audio", "Audio", 3, effects, new Thickness(5, 0, 0, 0));
+        content.Children.Add(effects);
+
+        var baseGrid = new Grid { Margin = new Thickness(0, 14, 0, 0) };
+        baseGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+        baseGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        baseGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        baseGrid.Children.Add(new WpfTextBlock
+        {
+            Text = "Resting level",
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Brush)FindResource("Tc.TextMuted")
+        });
+        _effectBaseLow = CreateBaseLevelButton("Low", 1, baseGrid, new Thickness(0, 0, 4, 0));
+        _effectBaseHigh = CreateBaseLevelButton("High", 2, baseGrid, new Thickness(4, 0, 0, 0));
+        content.Children.Add(baseGrid);
+
+        var speedGrid = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+        speedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+        speedGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        speedGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(62) });
+        speedGrid.Children.Add(new WpfTextBlock
+        {
+            Text = "Effect speed",
+            VerticalAlignment = VerticalAlignment.Center,
+            Foreground = (Brush)FindResource("Tc.TextMuted")
+        });
+        _effectSpeed = new WpfSlider
+        {
+            Minimum = 0.5,
+            Maximum = 2.0,
+            SmallChange = 0.1,
+            LargeChange = 0.25,
+            Value = _app.State.KeyboardEffectSpeed,
+            Style = (Style)FindResource("TcSlider"),
+            Margin = new Thickness(0, 0, 12, 0)
+        };
+        _effectSpeed.ValueChanged += EffectSpeed_ValueChanged;
+        Grid.SetColumn(_effectSpeed, 1);
+        speedGrid.Children.Add(_effectSpeed);
+        var speedText = new WpfTextBlock
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        speedText.SetBinding(TextBlock.TextProperty, new Binding(nameof(AppState.KeyboardEffectSpeed)) { StringFormat = "{0:0.0}×" });
+        Grid.SetColumn(speedText, 2);
+        speedGrid.Children.Add(speedText);
+        content.Children.Add(speedGrid);
+
+        content.Children.Add(new WpfTextBlock
+        {
+            Text = "Reactive responds to keyboard activity only. Audio mode reads a local loopback RMS level and stores no audio. Hardware writes are deduplicated and rate-limited.",
+            Foreground = (Brush)FindResource("Tc.TextFaint"),
+            FontSize = 9.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 10, 0, 0)
+        });
+
+        root.Children.Add(border);
+    }
+
+    private WpfRadioButton CreateEffectButton(string content, string tag, int column, Grid parent, Thickness margin)
+    {
+        var button = new WpfRadioButton
+        {
+            Content = content,
+            Tag = tag,
+            GroupName = "AdvancedKeyboardEffect",
+            Style = (Style)FindResource("TcSegment"),
+            Margin = margin
+        };
+        button.Click += KeyboardEffect_Click;
+        Grid.SetColumn(button, column);
+        parent.Children.Add(button);
+        return button;
+    }
+
+    private WpfRadioButton CreateBaseLevelButton(string content, int column, Grid parent, Thickness margin)
+    {
+        var button = new WpfRadioButton
+        {
+            Content = content,
+            Tag = content,
+            GroupName = "AdvancedKeyboardBase",
+            Style = (Style)FindResource("TcSegment"),
+            Margin = margin
+        };
+        button.Click += KeyboardBaseLevel_Click;
+        Grid.SetColumn(button, column);
+        parent.Children.Add(button);
+        return button;
+    }
+
+    private void BuildBatteryTelemetrySection()
+    {
+        if (PageBattery.Content is not StackPanel root)
+            return;
+
+        var border = new Border
+        {
+            Style = (Style)FindResource("TcSection"),
+            Margin = new Thickness(0, 14, 0, 0)
+        };
+        var content = new StackPanel();
+        border.Child = content;
+        content.Children.Add(new WpfTextBlock { Text = "Live telemetry", FontWeight = FontWeights.SemiBold });
+
+        var metrics = new Grid { Margin = new Thickness(0, 13, 0, 0) };
+        for (int i = 0; i < 4; i++) metrics.ColumnDefinitions.Add(new ColumnDefinition());
+        AddBatteryMetric(metrics, 0, "POWER", nameof(AppState.BatteryPowerText));
+        AddBatteryMetric(metrics, 1, "ETA", nameof(AppState.BatteryEtaText));
+        AddBatteryMetric(metrics, 2, "HEALTH", nameof(AppState.BatteryHealthText));
+        AddBatteryMetric(metrics, 3, "ENERGY", nameof(AppState.BatteryCapacityText));
+        content.Children.Add(metrics);
+
+        var detail = new Grid { Margin = new Thickness(0, 15, 0, 0) };
+        detail.ColumnDefinitions.Add(new ColumnDefinition());
+        detail.ColumnDefinitions.Add(new ColumnDefinition());
+        var average = CreateBoundText(nameof(AppState.BatteryAveragePowerText), 11, "Tc.TextMuted");
+        detail.Children.Add(average);
+        var source = CreateBoundText(nameof(AppState.BatterySource), 10.5, "Tc.TextFaint");
+        source.HorizontalAlignment = HorizontalAlignment.Right;
+        Grid.SetColumn(source, 1);
+        detail.Children.Add(source);
+        content.Children.Add(detail);
+
+        content.Children.Add(new WpfTextBlock
+        {
+            Text = "ETA is calculated from remaining battery energy and a median-filtered moving average of the recent charge/discharge rate. It deliberately changes slowly instead of copying a noisy one-sample estimate.",
+            Foreground = (Brush)FindResource("Tc.TextFaint"),
+            FontSize = 9.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 9, 0, 0)
+        });
+
+        root.Children.Add(border);
+    }
+
+    private void AddBatteryMetric(Grid parent, int column, string label, string bindingPath)
+    {
+        var stack = new StackPanel { Margin = new Thickness(column == 0 ? 0 : 10, 0, 0, 0) };
+        stack.Children.Add(new WpfTextBlock
+        {
+            Text = label,
+            FontSize = 9.5,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = (Brush)FindResource("Tc.TextMuted")
+        });
+        WpfTextBlock value = CreateBoundText(bindingPath, 16, "Tc.Text");
+        value.Margin = new Thickness(0, 5, 0, 0);
+        stack.Children.Add(value);
+        Grid.SetColumn(stack, column);
+        parent.Children.Add(stack);
+    }
+
+    private WpfTextBlock CreateBoundText(string path, double size, string brushResource)
+    {
+        var text = new WpfTextBlock
+        {
+            FontSize = size,
+            Foreground = (Brush)FindResource(brushResource),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        text.SetBinding(TextBlock.TextProperty, new Binding(path));
+        return text;
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -124,6 +357,9 @@ public partial class AdvancedWindow : Window
             or nameof(AppState.AdaptiveBrightnessEnabled)
             or nameof(AppState.AdaptiveBrightnessAvailable)
             or nameof(AppState.KeyboardStatus)
+            or nameof(AppState.KeyboardMode)
+            or nameof(AppState.KeyboardBaseLevel)
+            or nameof(AppState.KeyboardEffectSpeed)
             or nameof(AppState.CanKeyboardBacklight)
             or nameof(AppState.CanFanControl))
         {
@@ -158,11 +394,24 @@ public partial class AdvancedWindow : Window
             HomeAdaptiveSwitch.IsChecked = DisplayAdaptiveSwitch.IsChecked = state.AdaptiveBrightnessEnabled == true;
 
             AdvancedKeyboardOff.IsEnabled = AdvancedKeyboardLow.IsEnabled = AdvancedKeyboardHigh.IsEnabled = AdvancedKeyboardAuto.IsEnabled = state.CanKeyboardBacklight;
-            string keyboard = state.KeyboardStatus;
-            AdvancedKeyboardOff.IsChecked = keyboard.Contains("Off", StringComparison.OrdinalIgnoreCase);
-            AdvancedKeyboardLow.IsChecked = keyboard.Contains("Low", StringComparison.OrdinalIgnoreCase);
-            AdvancedKeyboardHigh.IsChecked = keyboard.Contains("High", StringComparison.OrdinalIgnoreCase);
-            AdvancedKeyboardAuto.IsChecked = keyboard.Contains("Auto", StringComparison.OrdinalIgnoreCase);
+            bool isStatic = state.KeyboardMode == "Static";
+            AdvancedKeyboardOff.IsChecked = isStatic && state.KeyboardStatus.Contains("Off", StringComparison.OrdinalIgnoreCase);
+            AdvancedKeyboardLow.IsChecked = isStatic && state.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase);
+            AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
+            AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
+
+            if (_effectAuto is not null)
+            {
+                _effectAuto.IsEnabled = _effectBreathing!.IsEnabled = _effectReactive!.IsEnabled = _effectAudio!.IsEnabled = state.CanKeyboardBacklight;
+                _effectAuto.IsChecked = state.KeyboardMode == "Auto";
+                _effectBreathing.IsChecked = state.KeyboardMode == "Breathing";
+                _effectReactive.IsChecked = state.KeyboardMode == "Reactive";
+                _effectAudio.IsChecked = state.KeyboardMode == "Audio";
+                _effectBaseLow!.IsChecked = state.KeyboardBaseLevel == "Low";
+                _effectBaseHigh!.IsChecked = state.KeyboardBaseLevel == "High";
+                if (_effectSpeed is not null && !_effectSpeed.IsMouseCaptureWithin)
+                    _effectSpeed.Value = state.KeyboardEffectSpeed;
+            }
 
             foreach (WpfButton button in FindVisualChildren<WpfButton>(PageFans))
             {
@@ -281,10 +530,36 @@ public partial class AdvancedWindow : Window
     {
         if (_syncing || sender is not FrameworkElement { Tag: string value })
             return;
-        var response = await _app.HardwareClient.SetKeyboardBacklightAsync(value);
-        if (response?.Success != true)
-            SyncControls();
-        await _app.RefreshStatusAsync();
+
+        if (value == "Auto")
+            await _app.SetKeyboardModeAsync("Auto");
+        else
+            await _app.SetKeyboardStaticLevelAsync(value);
+
+        SyncControls();
+    }
+
+    private async void KeyboardEffect_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || sender is not FrameworkElement { Tag: string mode })
+            return;
+        await _app.SetKeyboardModeAsync(mode);
+        SyncControls();
+    }
+
+    private void KeyboardBaseLevel_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || sender is not FrameworkElement { Tag: string level })
+            return;
+        _app.SetKeyboardBaseLevel(level);
+        SyncControls();
+    }
+
+    private void EffectSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_syncing || !IsLoaded || sender is not WpfSlider slider || !slider.IsMouseCaptureWithin)
+            return;
+        _app.SetKeyboardEffectSpeed(e.NewValue);
     }
 
     private async void FanAuto_Click(object sender, RoutedEventArgs e)

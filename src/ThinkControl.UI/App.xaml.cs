@@ -20,15 +20,25 @@ public partial class App : System.Windows.Application
     public DisplayService DisplayService { get; } = new();
     public PowerModeService PowerModeService { get; } = new();
     public SystemStatusService SystemStatusService { get; } = new();
+    public BatteryTelemetryService BatteryTelemetryService { get; } = new();
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
+    public UserSettingsService UserSettings { get; } = new();
+    public KeyboardEffectService KeyboardEffects { get; private set; } = null!;
     public MainWindow CompactWindow { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.System);
 
+        ThinkControlUserSettings preferences = UserSettings.Current;
+        ThemeService.Apply(preferences.Theme);
+        State.RefreshAutoEnabled = preferences.RefreshAuto;
+        State.KeyboardMode = preferences.KeyboardMode;
+        State.KeyboardBaseLevel = preferences.KeyboardBaseLevel;
+        State.KeyboardEffectSpeed = preferences.KeyboardEffectSpeed;
+
+        KeyboardEffects = new KeyboardEffectService(HardwareClient, State);
         CompactWindow = new MainWindow(this) { DataContext = State };
         MainWindow = CompactWindow;
         CreateTrayIcon();
@@ -86,8 +96,22 @@ public partial class App : System.Windows.Application
         try
         {
             SystemStatusSnapshot system = await Task.Run(SystemStatusService.Read);
-            State.BatteryPercent = system.BatteryPercent;
-            State.BatteryStatus = system.BatteryStatus;
+            BatteryTelemetrySnapshot battery = await Task.Run(BatteryTelemetryService.Read);
+
+            State.BatteryPercent = battery.Percent ?? system.BatteryPercent;
+            State.BatteryStatus = battery.Charging
+                ? "Charging"
+                : battery.OnAc
+                    ? State.BatteryPercent >= 100 ? "Fully charged" : "Plugged in"
+                    : battery.Discharging ? "On battery" : system.BatteryStatus;
+            State.BatteryPowerWatts = battery.PowerWatts;
+            State.BatterySmoothedPowerWatts = battery.SmoothedPowerWatts;
+            State.BatteryHealthPercent = battery.HealthPercent;
+            State.BatteryRemainingWh = battery.RemainingCapacityWh;
+            State.BatteryFullWh = battery.FullChargeCapacityWh;
+            State.BatteryEtaToFull = battery.EstimatedTimeToFull;
+            State.BatteryEtaRemaining = battery.EstimatedTimeRemaining;
+            State.BatterySource = battery.Source;
 
             if (forceSystemInfo || State.CpuName == "—")
             {
@@ -99,7 +123,7 @@ public partial class App : System.Windows.Application
                 State.MachineType = system.MachineType;
             }
 
-            ThinkControlPowerMode? mode = PowerModeService.GetCurrent(system.BatteryStatus.StartsWith("On battery", StringComparison.OrdinalIgnoreCase));
+            ThinkControlPowerMode? mode = PowerModeService.GetCurrent(!battery.OnAc);
             if (mode.HasValue)
                 State.SelectedMode = mode.Value.ToString();
 
@@ -154,7 +178,7 @@ public partial class App : System.Windows.Application
             }
 
             if (State.RefreshAutoEnabled)
-                ApplyRefreshAuto(system.BatteryStatus);
+                ApplyRefreshAuto(onBattery: !battery.OnAc);
         }
         finally
         {
@@ -189,6 +213,7 @@ public partial class App : System.Windows.Application
     public bool SetRefresh(int hz)
     {
         State.RefreshAutoEnabled = false;
+        UserSettings.Update(settings => settings with { RefreshAuto = false });
         bool changed = DisplayService.SetRefreshRate(hz);
         if (changed)
             State.CurrentRefreshHz = DisplayService.GetCurrentRefreshRate();
@@ -198,14 +223,55 @@ public partial class App : System.Windows.Application
     public bool EnableRefreshAuto()
     {
         State.RefreshAutoEnabled = true;
-        SystemStatusSnapshot system = SystemStatusService.Read();
-        ApplyRefreshAuto(system.BatteryStatus);
+        UserSettings.Update(settings => settings with { RefreshAuto = true });
+        BatteryTelemetrySnapshot battery = BatteryTelemetryService.Read();
+        ApplyRefreshAuto(onBattery: !battery.OnAc);
         return true;
+    }
+
+    public async Task SetKeyboardStaticLevelAsync(string level)
+    {
+        string normalized = level.Equals("Low", StringComparison.OrdinalIgnoreCase)
+            ? "Low"
+            : level.Equals("Off", StringComparison.OrdinalIgnoreCase) ? "Off" : "High";
+        await KeyboardEffects.SetStaticLevelAsync(normalized);
+        UserSettings.Update(settings => settings with
+        {
+            KeyboardMode = "Static",
+            KeyboardBaseLevel = normalized == "Low" ? "Low" : settings.KeyboardBaseLevel
+        });
+        await RefreshStatusAsync();
+    }
+
+    public async Task SetKeyboardModeAsync(string mode)
+    {
+        await KeyboardEffects.SetModeAsync(mode);
+        UserSettings.Update(settings => settings with { KeyboardMode = State.KeyboardMode });
+        await RefreshStatusAsync();
+    }
+
+    public void SetKeyboardBaseLevel(string level)
+    {
+        KeyboardEffects.SetBaseLevel(level);
+        UserSettings.Update(settings => settings with { KeyboardBaseLevel = State.KeyboardBaseLevel });
+    }
+
+    public void SetKeyboardEffectSpeed(double speed)
+    {
+        KeyboardEffects.SetSpeed(speed);
+        UserSettings.Update(settings => settings with { KeyboardEffectSpeed = State.KeyboardEffectSpeed });
+    }
+
+    public void ApplyTheme(ThinkControl.UI.Services.ThemeMode mode)
+    {
+        ThemeService.Apply(mode);
+        UserSettings.Update(settings => settings with { Theme = mode });
     }
 
     public void ExitApplication()
     {
         _statusTimer?.Stop();
+        try { KeyboardEffects?.Dispose(); } catch { }
         _trayIcon?.Dispose();
         _ownedTrayIcon?.Dispose();
         _advancedWindow?.ForceClose();
@@ -213,10 +279,9 @@ public partial class App : System.Windows.Application
         Shutdown();
     }
 
-    private void ApplyRefreshAuto(string batteryStatus)
+    private void ApplyRefreshAuto(bool onBattery)
     {
         IReadOnlyList<int> supported = DisplayService.GetSupportedRefreshRates();
-        bool onBattery = batteryStatus.StartsWith("On battery", StringComparison.OrdinalIgnoreCase);
         int target = onBattery && supported.Contains(60)
             ? 60
             : supported.DefaultIfEmpty(State.CurrentRefreshHz).Max();
@@ -252,15 +317,26 @@ public partial class App : System.Windows.Application
 
     private static Icon CreateIcon()
     {
+        try
+        {
+            string? executable = Environment.ProcessPath;
+            if (!string.IsNullOrWhiteSpace(executable))
+            {
+                Icon? applicationIcon = Icon.ExtractAssociatedIcon(executable);
+                if (applicationIcon is not null)
+                    return applicationIcon;
+            }
+        }
+        catch
+        {
+        }
+
         using var bitmap = new Bitmap(32, 32, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
         using Graphics graphics = Graphics.FromImage(bitmap);
         graphics.Clear(Color.Transparent);
         graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
-        using var textBrush = new SolidBrush(Color.White);
         using var accentBrush = new SolidBrush(Color.FromArgb(227, 41, 41));
-        using var font = new Font("Segoe UI", 18, System.Drawing.FontStyle.Bold, GraphicsUnit.Pixel);
-        graphics.DrawString("T", font, textBrush, 4, 3);
-        graphics.FillEllipse(accentBrush, 21, 6, 7, 7);
+        graphics.FillEllipse(accentBrush, 4, 4, 24, 24);
 
         IntPtr handle = bitmap.GetHicon();
         try
