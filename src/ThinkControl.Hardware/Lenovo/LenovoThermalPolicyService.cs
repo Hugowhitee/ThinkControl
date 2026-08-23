@@ -1,5 +1,6 @@
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using ThinkControl.Hardware.X9;
 
 namespace ThinkControl.Hardware.Lenovo;
 
@@ -136,7 +137,6 @@ public static class LenovoThermalPolicyService
         if (!GetSystemPowerStatus(out SystemPowerStatus status))
             return false;
 
-        // 0 = offline, 1 = online, 255 = unknown.
         if (status.AcLineStatus == 255)
             return false;
 
