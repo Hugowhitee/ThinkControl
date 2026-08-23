@@ -22,6 +22,7 @@ public sealed class AppState : INotifyPropertyChanged
     private TimeSpan? _batteryEtaToFull;
     private TimeSpan? _batteryEtaRemaining;
     private int? _batteryCycleCount;
+    private string _batteryChargeCurveLabel = "Charge curve · learning";
     private string _batteryCurrentSessionText = "No active charge session";
     private string _batteryTypicalChargeText = "Typical charge · learning";
     private string _batteryHealthTrendText = "Health trend · learning";
@@ -74,6 +75,7 @@ public sealed class AppState : INotifyPropertyChanged
     public TimeSpan? BatteryEtaToFull { get => _batteryEtaToFull; set => Set(ref _batteryEtaToFull, value); }
     public TimeSpan? BatteryEtaRemaining { get => _batteryEtaRemaining; set => Set(ref _batteryEtaRemaining, value); }
     public int? BatteryCycleCount { get => _batteryCycleCount; set => Set(ref _batteryCycleCount, value); }
+    public string BatteryChargeCurveLabel { get => _batteryChargeCurveLabel; set => Set(ref _batteryChargeCurveLabel, value); }
     public string BatteryCurrentSessionText { get => _batteryCurrentSessionText; set => Set(ref _batteryCurrentSessionText, value); }
     public string BatteryTypicalChargeText { get => _batteryTypicalChargeText; set => Set(ref _batteryTypicalChargeText, value); }
     public string BatteryHealthTrendText { get => _batteryHealthTrendText; set => Set(ref _batteryHealthTrendText, value); }
@@ -144,10 +146,11 @@ public sealed class AppState : INotifyPropertyChanged
 
     public void ApplyBatteryHistory(BatteryHistoryView history)
     {
+        BatteryChargeCurveLabel = history.ChargeCurveLabel;
         BatteryCurrentSessionText = history.CurrentSessionText;
         BatteryTypicalChargeText = history.TypicalChargeText;
         BatteryHealthTrendText = history.HealthTrendText;
-        ReplaceCollection(BatteryChargePowerHistory, history.CurrentChargePowerWatts);
+        ReplaceCollection(BatteryChargePowerHistory, history.ChargePowerWatts);
         ReplaceCollection(BatteryHealthTrendHistory, history.HealthTrendPercent);
         ReplaceCollection(RecentChargeSessions, history.RecentSessions);
     }
