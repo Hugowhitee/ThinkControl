@@ -16,7 +16,7 @@ public sealed class PowerModeService
     private static readonly Guid BestPerformance = new("ded574b5-45a0-4f42-8737-46345c09c238");
     private static bool _effectiveOverlayAvailable = true;
 
-    public event EventHandler<ThinkControlPowerMode>? ModeApplied;
+    public event Action<ThinkControlPowerMode>? ModeApplied;
 
     public bool Set(ThinkControlPowerMode mode)
     {
@@ -40,7 +40,7 @@ public sealed class PowerModeService
         bool changed = effective || configured;
         if (changed)
         {
-            try { ModeApplied?.Invoke(this, mode); }
+            try { ModeApplied?.Invoke(mode); }
             catch { }
         }
 
