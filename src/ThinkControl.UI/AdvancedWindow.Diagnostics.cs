@@ -9,6 +9,7 @@ public partial class AdvancedWindow
         base.OnContentRendered(e);
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        ConfigureSliderCommitBehavior();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         DiagnosticsPanelControl?.Refresh();
@@ -18,6 +19,7 @@ public partial class AdvancedWindow
     {
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        ConfigureSliderCommitBehavior();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         DiagnosticsPanelControl?.Refresh();
@@ -27,6 +29,7 @@ public partial class AdvancedWindow
     {
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
+        ConfigureSliderCommitBehavior();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
 }
