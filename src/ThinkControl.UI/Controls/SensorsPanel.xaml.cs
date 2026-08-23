@@ -1,11 +1,133 @@
+using System.Collections.ObjectModel;
+using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.Core.Ipc;
+using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
 
 public partial class SensorsPanel : UserControl
 {
+    private static readonly TimeSpan HistoryWindow = TimeSpan.FromMinutes(15);
+    private const int MaxPointsPerSensor = 900;
+
+    private readonly Dictionary<string, ObservableCollection<TimeSeriesPoint>> _history = new(StringComparer.OrdinalIgnoreCase);
+    private App? _app;
+    private string? _selectedSensorId;
+
     public SensorsPanel()
     {
         InitializeComponent();
+        Loaded += SensorsPanel_Loaded;
+        Unloaded += SensorsPanel_Unloaded;
+    }
+
+    private void SensorsPanel_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_app is null && Application.Current is App app)
+        {
+            _app = app;
+            _app.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
+        }
+
+        SelectPreferredSensor();
+    }
+
+    private void SensorsPanel_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (_app is not null)
+            _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
+        _app = null;
+    }
+
+    private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
+    {
+        HardwareSensorSnapshot[] sensors = response?.Success == true && response.Telemetry?.Sensors is not null
+            ? response.Telemetry.Sensors.ToArray()
+            : [];
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        Dispatcher.BeginInvoke(() =>
+        {
+            foreach (HardwareSensorSnapshot sensor in sensors)
+            {
+                if (!_history.TryGetValue(sensor.Id, out ObservableCollection<TimeSeriesPoint>? points))
+                {
+                    points = [];
+                    _history[sensor.Id] = points;
+                }
+
+                if (points.Count == 0 || now - points[^1].At >= TimeSpan.FromMilliseconds(750))
+                    points.Add(new TimeSeriesPoint(now, sensor.Value));
+
+                DateTimeOffset cutoff = now - HistoryWindow;
+                while (points.Count > 0 && (points[0].At < cutoff || points.Count > MaxPointsPerSensor))
+                    points.RemoveAt(0);
+            }
+
+            SelectPreferredSensor();
+            RefreshGraph();
+        });
+    }
+
+    private void SensorPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SensorPicker.SelectedItem is HardwareSensorSnapshot sensor)
+            _selectedSensorId = sensor.Id;
+        RefreshGraph();
+    }
+
+    private void SelectPreferredSensor()
+    {
+        if (DataContext is not AppState state || state.Sensors.Count == 0)
+            return;
+
+        HardwareSensorSnapshot? desired = null;
+        if (!string.IsNullOrWhiteSpace(_selectedSensorId))
+            desired = state.Sensors.FirstOrDefault(sensor => string.Equals(sensor.Id, _selectedSensorId, StringComparison.OrdinalIgnoreCase));
+        desired ??= state.Sensors.FirstOrDefault(sensor => sensor.ControlTemperature);
+        desired ??= state.Sensors.FirstOrDefault();
+
+        if (desired is null)
+            return;
+        _selectedSensorId = desired.Id;
+        if (SensorPicker.SelectedItem is not HardwareSensorSnapshot selected ||
+            !string.Equals(selected.Id, desired.Id, StringComparison.OrdinalIgnoreCase))
+        {
+            SensorPicker.SelectedItem = desired;
+        }
+    }
+
+    private void RefreshGraph()
+    {
+        if (DataContext is not AppState state || string.IsNullOrWhiteSpace(_selectedSensorId))
+        {
+            SensorChart.Values = null;
+            return;
+        }
+
+        HardwareSensorSnapshot? sensor = state.Sensors.FirstOrDefault(item =>
+            string.Equals(item.Id, _selectedSensorId, StringComparison.OrdinalIgnoreCase));
+        if (sensor is null)
+            return;
+
+        if (!_history.TryGetValue(sensor.Id, out ObservableCollection<TimeSeriesPoint>? points))
+        {
+            points = [];
+            _history[sensor.Id] = points;
+            points.Add(new TimeSeriesPoint(DateTimeOffset.UtcNow, sensor.Value));
+        }
+
+        SensorChart.Values = points;
+        SensorChart.Unit = sensor.Unit;
+        SensorChart.ValueFormat = sensor.SensorType switch
+        {
+            "Temperature" => "0.0",
+            "Load" => "0.0",
+            "Power" => "0.00",
+            _ => "0.##"
+        };
+        SensorChart.IncludeZero = sensor.SensorType is "Load" or "Control";
+        GraphSubtitle.Text = $"{sensor.HardwareName} · {sensor.Name} · {sensor.Source}";
     }
 }
