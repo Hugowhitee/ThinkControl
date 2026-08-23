@@ -30,6 +30,10 @@ jobs:
           default_branch="main"
           declare -A candidates=()
 
+          # visual-main used to contain generated screenshots. Visual QA now lives
+          # only in Actions artifacts, so the generated branch is deliberately pruned.
+          candidates["visual-main"]=1
+
           # Branches from merged PRs are safe to remove even when the PR was
           # squash-merged and their original commit SHAs are not ancestors of main.
           while IFS= read -r branch; do
