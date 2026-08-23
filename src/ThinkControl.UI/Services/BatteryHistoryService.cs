@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text;
 using System.Text.Json;
 
 namespace ThinkControl.UI.Services;
@@ -17,6 +18,8 @@ public sealed class BatteryHistoryService
 {
     private const int MaximumSessions = 20;
     private const int MaximumPointsPerSession = 720;
+    private const long MaximumHistoryBytes = 512 * 1024;
+    private static readonly TimeSpan HistoryRetention = TimeSpan.FromDays(90);
     private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ResumeGap = TimeSpan.FromMinutes(20);
 
@@ -31,6 +34,7 @@ public sealed class BatteryHistoryService
         Directory.CreateDirectory(root);
         _path = Path.Combine(root, "battery-history.json");
         _document = Load();
+        TrimDocument(DateTimeOffset.UtcNow);
     }
 
     public BatteryHistoryView Record(bool charging, int percent, double? watts)
@@ -83,12 +87,35 @@ public sealed class BatteryHistoryService
         }
 
         if (changed)
+        {
+            TrimDocument(now);
             Save();
+        }
 
         return BuildView();
     }
 
     public BatteryHistoryView GetView() => BuildView();
+
+    public BatteryHistoryView Clear()
+    {
+        _document = new HistoryDocument();
+        try
+        {
+            if (File.Exists(_path))
+                File.Delete(_path);
+            string temp = _path + ".tmp";
+            if (File.Exists(temp))
+                File.Delete(temp);
+        }
+        catch
+        {
+            // The in-memory history is already cleared. A locked file can be
+            // overwritten on the next successful save rather than blocking the UI.
+        }
+
+        return BuildView();
+    }
 
     private void FinalizeActive(DateTimeOffset endedAt, int endPercent)
     {
@@ -102,11 +129,30 @@ public sealed class BatteryHistoryService
 
         TimeSpan duration = endedAt - active.StartedAt;
         if (duration >= TimeSpan.FromMinutes(2) || active.EndPercent > active.StartPercent)
-        {
             _document.Sessions.Insert(0, active);
-            if (_document.Sessions.Count > MaximumSessions)
-                _document.Sessions.RemoveRange(MaximumSessions, _document.Sessions.Count - MaximumSessions);
-        }
+    }
+
+    private void TrimDocument(DateTimeOffset now)
+    {
+        DateTimeOffset oldestAllowed = now - HistoryRetention;
+        _document.Sessions.RemoveAll(session =>
+            (session.EndedAt ?? session.StartedAt) < oldestAllowed);
+
+        foreach (ChargeSession session in _document.Sessions)
+            TrimPoints(session);
+        if (_document.ActiveSession is not null)
+            TrimPoints(_document.ActiveSession);
+
+        _document.Sessions = _document.Sessions
+            .OrderByDescending(session => session.EndedAt ?? session.StartedAt)
+            .Take(MaximumSessions)
+            .ToList();
+    }
+
+    private static void TrimPoints(ChargeSession session)
+    {
+        if (session.Points.Count > MaximumPointsPerSession)
+            session.Points.RemoveRange(0, session.Points.Count - MaximumPointsPerSession);
     }
 
     private BatteryHistoryView BuildView()
@@ -172,11 +218,20 @@ public sealed class BatteryHistoryService
         {
             if (!File.Exists(_path))
                 return new HistoryDocument();
+
+            var info = new FileInfo(_path);
+            if (info.Length > MaximumHistoryBytes)
+            {
+                File.Delete(_path);
+                return new HistoryDocument();
+            }
+
             string json = File.ReadAllText(_path);
             return JsonSerializer.Deserialize<HistoryDocument>(json) ?? new HistoryDocument();
         }
         catch
         {
+            TryQuarantineCorruptFile();
             return new HistoryDocument();
         }
     }
@@ -185,14 +240,44 @@ public sealed class BatteryHistoryService
     {
         try
         {
-            string temp = _path + ".tmp";
+            TrimDocument(DateTimeOffset.UtcNow);
             string json = JsonSerializer.Serialize(_document, new JsonSerializerOptions { WriteIndented = false });
+            if (Encoding.UTF8.GetByteCount(json) > MaximumHistoryBytes)
+            {
+                // This should be unreachable with the normal caps, but keep a final
+                // disk-growth guard in case the schema expands in a future release.
+                _document.Sessions = _document.Sessions.Take(5).ToList();
+                foreach (ChargeSession session in _document.Sessions)
+                {
+                    if (session.Points.Count > 180)
+                        session.Points.RemoveRange(0, session.Points.Count - 180);
+                }
+                json = JsonSerializer.Serialize(_document, new JsonSerializerOptions { WriteIndented = false });
+            }
+
+            string temp = _path + ".tmp";
             File.WriteAllText(temp, json);
             File.Move(temp, _path, true);
         }
         catch
         {
             // History is optional UI context; never let persistence affect charging telemetry.
+        }
+    }
+
+    private void TryQuarantineCorruptFile()
+    {
+        try
+        {
+            if (!File.Exists(_path))
+                return;
+            string quarantine = _path + ".corrupt";
+            if (File.Exists(quarantine))
+                File.Delete(quarantine);
+            File.Move(_path, quarantine);
+        }
+        catch
+        {
         }
     }
 
