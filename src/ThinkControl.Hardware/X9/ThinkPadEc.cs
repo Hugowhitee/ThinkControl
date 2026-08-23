@@ -272,9 +272,12 @@ internal sealed class ThinkPadEc : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true;
+
         try
         {
+            // Keep the backend usable while returning ownership. Marking the
+            // object disposed before this call would make WithEcLock reject the
+            // cleanup operation and could leave a manual level active.
             if (_manualControlEngaged)
             {
                 try { ReturnToBios(); } catch { }
@@ -282,6 +285,7 @@ internal sealed class ThinkPadEc : IDisposable
         }
         finally
         {
+            _disposed = true;
             _ports.Close();
             _globalEcMutex.Dispose();
             _thinkPadMutex.Dispose();
