@@ -1,6 +1,10 @@
 using System.Windows;
 using System.Windows.Media;
+using WpfApplication = System.Windows.Application;
+using WpfBrush = System.Windows.Media.Brush;
+using WpfBrushes = System.Windows.Media.Brushes;
 using WpfColor = System.Windows.Media.Color;
+using WpfPen = System.Windows.Media.Pen;
 using WpfPoint = System.Windows.Point;
 using WpfRect = System.Windows.Rect;
 
@@ -105,9 +109,9 @@ public sealed class BatteryGauge : FrameworkElement
         if (width < 20 || height < 16)
             return;
 
-        Brush borderBrush = Application.Current?.TryFindResource("Tc.BorderStrong") as Brush ?? Brushes.Gray;
-        Brush surfaceBrush = Application.Current?.TryFindResource("Tc.Surface") as Brush ?? Brushes.Transparent;
-        var borderPen = new Pen(borderBrush, 1.4);
+        WpfBrush borderBrush = WpfApplication.Current?.TryFindResource("Tc.BorderStrong") as WpfBrush ?? WpfBrushes.Gray;
+        WpfBrush surfaceBrush = WpfApplication.Current?.TryFindResource("Tc.Surface") as WpfBrush ?? WpfBrushes.Transparent;
+        var borderPen = new WpfPen(borderBrush, 1.4);
         borderPen.Freeze();
 
         double terminalWidth = Math.Max(4, width * 0.045);
@@ -152,7 +156,7 @@ public sealed class BatteryGauge : FrameworkElement
 
         var stripeBrush = new SolidColorBrush(WpfColor.FromArgb(50, 255, 255, 255));
         stripeBrush.Freeze();
-        var stripePen = new Pen(stripeBrush, 5.5)
+        var stripePen = new WpfPen(stripeBrush, 5.5)
         {
             StartLineCap = PenLineCap.Flat,
             EndLineCap = PenLineCap.Flat
