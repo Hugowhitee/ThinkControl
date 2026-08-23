@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Media;
+using MediaBrush = System.Windows.Media.Brush;
 
 namespace ThinkControl.UI.Controls;
 
@@ -42,9 +43,9 @@ public sealed class Sparkline : FrameworkElement
         if (width <= 1 || height <= 1)
             return;
 
-        Brush border = TryBrush("Tc.Border", Brushes.DimGray);
-        Brush muted = TryBrush("Tc.TextFaint", Brushes.Gray);
-        Brush accent = TryBrush("Tc.Accent", Brushes.Red);
+        MediaBrush border = TryBrush("Tc.Border", Brushes.DimGray);
+        MediaBrush muted = TryBrush("Tc.TextFaint", Brushes.Gray);
+        MediaBrush accent = TryBrush("Tc.Accent", Brushes.Red);
 
         var gridPen = new Pen(border, 0.6);
         gridPen.Freeze();
@@ -100,6 +101,6 @@ public sealed class Sparkline : FrameworkElement
         dc.DrawGeometry(null, linePen, geometry);
     }
 
-    private static Brush TryBrush(string key, Brush fallback) =>
-        Application.Current?.TryFindResource(key) as Brush ?? fallback;
+    private static MediaBrush TryBrush(string key, MediaBrush fallback) =>
+        System.Windows.Application.Current?.TryFindResource(key) as MediaBrush ?? fallback;
 }
