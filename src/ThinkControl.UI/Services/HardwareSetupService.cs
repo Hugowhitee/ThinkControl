@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
 
@@ -63,7 +64,7 @@ internal sealed class HardwareSetupService
         string? root = uiDirectory is null ? null : Directory.GetParent(uiDirectory)?.FullName;
         string? serviceExe = root is null ? null : Path.Combine(root, "service", "ThinkControl.Service.exe");
 
-        if (serviceExe is null || !File.Exists(serviceExe))
+        if (string.IsNullOrWhiteSpace(serviceExe) || !File.Exists(serviceExe))
             return new(false, false, "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the application payload.");
 
         string escapedExe = serviceExe.Replace("\"", "\"\"");
