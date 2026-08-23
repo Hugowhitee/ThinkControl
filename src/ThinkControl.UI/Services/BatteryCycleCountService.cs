@@ -19,8 +19,9 @@ public static class BatteryCycleCountService
                     object? raw = item.Properties["CycleCount"]?.Value;
                     if (raw is null)
                         continue;
+
                     int value = Convert.ToInt32(raw);
-                    if (value > 0)
+                    if (value is >= 0 and < 100000)
                         return value;
                 }
                 finally
