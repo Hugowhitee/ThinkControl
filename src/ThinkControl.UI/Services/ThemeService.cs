@@ -17,10 +17,13 @@ public static class ThemeService
 {
     public static ThemeMode Current { get; private set; } = ThemeMode.System;
 
+    public static bool IsLightEffective =>
+        Current == ThemeMode.Light || (Current == ThemeMode.System && SystemPrefersLight());
+
     public static void Apply(ThemeMode mode)
     {
         Current = mode;
-        bool light = mode == ThemeMode.Light || (mode == ThemeMode.System && SystemPrefersLight());
+        bool light = IsLightEffective;
         ResourceDictionary resources = System.Windows.Application.Current.Resources;
 
         SetBrush(resources, "Tc.Window", light ? "#F5F5F7" : "#101214");
