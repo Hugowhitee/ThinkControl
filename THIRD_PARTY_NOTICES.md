@@ -1,6 +1,6 @@
 # Third-party notices
 
-ThinkControl redistributes a curated subset of Google Material Symbols Outlined as local WPF vector geometry.
+ThinkControl redistributes selected third-party material and adapts selected open-source implementation techniques as described below.
 
 ## Material Symbols
 
@@ -16,6 +16,36 @@ Upstream license:
 
 https://github.com/google/material-design-icons/blob/master/LICENSE
 
-This notice is included with published ThinkControl application payloads that redistribute the selected icon geometry.
+## EdgeSlide
+
+Project: EdgeSlide
+
+Upstream: https://github.com/puttingpixelstogether-ops/edgeslide
+
+License: MIT License
+
+ThinkControl's Precision Touchpad input implementation was informed by and adapts selected Raw Input, HID descriptor parsing and HID interoperability techniques from EdgeSlide. ThinkControl's gesture recognition, action routing, cursor handling, haptic settings and WPF interface are implemented as ThinkControl-specific components.
+
+MIT License
+
+Copyright (c) 2026 Amazing SAS
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 Other external packages retain the licenses declared by their respective distributions and package metadata.
