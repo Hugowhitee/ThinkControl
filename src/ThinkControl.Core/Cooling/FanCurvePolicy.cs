@@ -33,7 +33,7 @@ public static class FanCurvePolicy
                 requested = level;
         }
 
-        if (currentLevel is not >= 1 or > 7 || requested >= currentLevel.Value)
+        if (!currentLevel.HasValue || currentLevel.Value < 1 || currentLevel.Value > 7 || requested >= currentLevel.Value)
             return requested;
 
         // Downshifts are intentionally sticky. The temperature has to clear the
