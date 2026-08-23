@@ -1,0 +1,1 @@
+Exact outlined ThinkControl wordmarks from asset pack v3. The dark file is for dark surfaces; the light file is for light surfaces. These are vector outlines, so the README does not depend on a font being installed.
