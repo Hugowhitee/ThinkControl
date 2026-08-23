@@ -22,6 +22,36 @@ public partial class SensorsPanel : UserControl
         Unloaded += SensorsPanel_Unloaded;
     }
 
+    internal void PrepareForSnapshot(AppState state)
+    {
+        DataContext = state;
+        SelectPreferredSensor();
+
+        HardwareSensorSnapshot? sensor = state.Sensors.FirstOrDefault(item =>
+            string.Equals(item.Id, _selectedSensorId, StringComparison.OrdinalIgnoreCase));
+        if (sensor is not null)
+        {
+            var points = new ObservableCollection<TimeSeriesPoint>();
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            for (int i = 0; i <= 30; i++)
+            {
+                double phase = i / 4.2;
+                double amplitude = sensor.SensorType switch
+                {
+                    "Temperature" => 1.35,
+                    "Load" => Math.Max(2.0, sensor.Value * 0.12),
+                    "Power" => Math.Max(0.35, sensor.Value * 0.07),
+                    _ => Math.Max(0.2, Math.Abs(sensor.Value) * 0.025)
+                };
+                double value = sensor.Value + Math.Sin(phase) * amplitude + Math.Cos(i / 7.0) * amplitude * 0.28;
+                points.Add(new TimeSeriesPoint(now - TimeSpan.FromSeconds((30 - i) * 30), value));
+            }
+            _history[sensor.Id] = points;
+        }
+
+        RefreshGraph();
+    }
+
     private void SensorsPanel_Loaded(object sender, RoutedEventArgs e)
     {
         if (_app is null && System.Windows.Application.Current is App app)
