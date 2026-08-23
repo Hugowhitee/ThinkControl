@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Shapes;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -28,9 +29,6 @@ public partial class AdvancedWindow
         if (brandStack is null || brandStack.Children.Count < 2)
             return;
 
-        // Replace only the old plain title + dot. Device and version metadata stay
-        // exactly where they are, while both compact and Advanced now use the same
-        // approved BrandWordmark control from one fixed top-left header anchor.
         brandStack.Children.RemoveAt(0);
         if (brandStack.Children.Count > 0 && brandStack.Children[0] is Ellipse)
             brandStack.Children.RemoveAt(0);
