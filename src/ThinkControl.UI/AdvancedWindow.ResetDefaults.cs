@@ -8,6 +8,7 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private const string ResetDefaultsConfiguredKey = "ThinkControl.Advanced.ResetDefaultsConfigured";
+    private const string TouchpadResetButtonTag = "ThinkControl.Touchpad.ResetDefaults";
 
     private void ConfigureResetDefaults()
     {
@@ -60,6 +61,8 @@ public partial class AdvancedWindow
                 SyncControls();
             });
 
+        AddTouchpadReset();
+
         AddPageReset(
             PageSettings,
             "Reset all",
@@ -85,18 +88,7 @@ public partial class AdvancedWindow
         var header = new Grid();
         header.Children.Add(title);
 
-        var button = new Button
-        {
-            Content = label,
-            ToolTip = tooltip,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            MinWidth = 0,
-            MinHeight = 28,
-            Padding = new Thickness(10, 4, 10, 4),
-            FontSize = 10.5,
-            Style = TryFindResource("TcButton") as Style
-        };
+        Button button = CreateResetButton(label, tooltip);
         button.Click += async (_, _) =>
         {
             button.IsEnabled = false;
@@ -106,6 +98,56 @@ public partial class AdvancedWindow
         header.Children.Add(button);
         stack.Children.Insert(0, header);
     }
+
+    private void AddTouchpadReset()
+    {
+        TouchpadPanel? panel = FindVisualChildren<TouchpadPanel>(this).FirstOrDefault();
+        if (panel?.Content is not Grid root)
+            return;
+
+        Grid? header = root.Children
+            .OfType<Grid>()
+            .FirstOrDefault(child => Grid.GetRow(child) == 0);
+        StackPanel? actions = header?.Children
+            .OfType<StackPanel>()
+            .FirstOrDefault(child => Grid.GetColumn(child) == 1);
+        if (actions is null || actions.Children.OfType<Button>().Any(button => Equals(button.Tag, TouchpadResetButtonTag)))
+            return;
+
+        Button reset = CreateResetButton(
+            "Reset",
+            "Restore edge gestures to ThinkControl defaults and Windows haptic feedback to enabled, 50% feedback and 50% click sensitivity.");
+        reset.Tag = TouchpadResetButtonTag;
+        reset.Margin = new Thickness(0, 0, 14, 0);
+        reset.Click += async (_, _) =>
+        {
+            reset.IsEnabled = false;
+            try
+            {
+                _app.ResetTouchpadDefaults();
+                await _app.RefreshStatusAsync();
+                panel.Initialize(_app);
+            }
+            finally
+            {
+                reset.IsEnabled = true;
+            }
+        };
+        actions.Children.Insert(0, reset);
+    }
+
+    private Button CreateResetButton(string label, string tooltip) => new()
+    {
+        Content = label,
+        ToolTip = tooltip,
+        HorizontalAlignment = HorizontalAlignment.Right,
+        VerticalAlignment = VerticalAlignment.Center,
+        MinWidth = 0,
+        MinHeight = 28,
+        Padding = new Thickness(10, 4, 10, 4),
+        FontSize = 10.5,
+        Style = TryFindResource("TcButton") as Style
+    };
 
     private async Task ResetAllDefaultsAsync()
     {
@@ -126,7 +168,7 @@ public partial class AdvancedWindow
         SyncControls();
 
         foreach (TouchpadPanel panel in FindVisualChildren<TouchpadPanel>(this))
-            panel.RefreshFromSettings();
+            panel.Initialize(_app);
 
         DiagnosticsPanelControl?.Refresh();
     }
