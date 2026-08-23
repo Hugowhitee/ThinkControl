@@ -82,7 +82,7 @@ jobs:
             $wordmark = Get-Content $wordmarkPath -Raw
             if ($wordmark -notmatch 'viewBox="0 0 455 144"' -or
                 $wordmark -notmatch 'translate\(203\.500947 33\.452652\)' -or
-                $wordmark -notmatch 'translate\(-18 -0\.5\)') {
+                $wordmark -notmatch 'translate\(-6 -0\.5\)') {
               throw "Canonical wordmark alignment drifted: $wordmarkPath"
             }
           }
@@ -122,7 +122,7 @@ jobs:
           if ($brandWordmark -notmatch 'Canvas Width="455"' -or
               $brandWordmark -notmatch 'Canvas.Left="203\.500947"' -or
               $brandWordmark -notmatch 'Canvas.Top="33\.452652"' -or
-              $brandWordmark -notmatch 'TranslateTransform X="-18" Y="-0\.5"') {
+              $brandWordmark -notmatch 'TranslateTransform X="-6" Y="-0\.5"') {
             throw 'WPF wordmark layout does not match the canonical v3 production alignment.'
           }
 
