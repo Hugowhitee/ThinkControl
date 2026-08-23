@@ -5,9 +5,10 @@ using System.Text.Json;
 namespace ThinkControl.UI.Services;
 
 public sealed record BatteryHistoryView(
-    IReadOnlyList<double> CurrentChargePowerWatts,
+    IReadOnlyList<double> ChargePowerWatts,
     IReadOnlyList<double> HealthTrendPercent,
     IReadOnlyList<string> RecentSessions,
+    string ChargeCurveLabel,
     string CurrentSessionText,
     string TypicalChargeText,
     string HealthTrendText,
@@ -200,13 +201,20 @@ public sealed class BatteryHistoryService
     private BatteryHistoryView BuildView()
     {
         ChargeSession? active = _document.ActiveSession;
-        IReadOnlyList<double> currentPower = active?.Points
+        ChargeSession? curveSession = active ?? _document.Sessions.FirstOrDefault(session => session.Points.Count >= 2);
+        IReadOnlyList<double> chargePower = curveSession?.Points
             .Where(point => point.Watts is > 0)
             .Select(point => point.Watts!.Value)
             .ToArray() ?? [];
 
+        string curveLabel = active is not null
+            ? "Current charge · full session curve"
+            : curveSession is not null
+                ? "Last charge · full retained session curve"
+                : "Charge curve · learning";
+
         string currentText = active is null
-            ? "No active charge session"
+            ? curveSession is null ? "No charge sessions recorded yet" : FormatSession(curveSession)
             : FormatCurrentSession(active);
 
         IReadOnlyList<string> sessions = _document.Sessions
@@ -232,9 +240,10 @@ public sealed class BatteryHistoryService
         string healthTrendText = FormatHealthTrend(health);
 
         return new BatteryHistoryView(
-            currentPower,
+            chargePower,
             health,
             sessions,
+            curveLabel,
             currentText,
             typicalText,
             healthTrendText,
