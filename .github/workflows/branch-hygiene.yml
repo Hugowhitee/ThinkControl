@@ -1,0 +1,66 @@
+name: Branch hygiene
+
+on:
+  pull_request:
+    types: [closed]
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/branch-hygiene.yml"
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  cleanup:
+    if: github.event_name == 'push' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Delete merged and fully-contained branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repo="$GITHUB_REPOSITORY"
+          default_branch="main"
+          declare -A candidates=()
+
+          # Branches from merged PRs are safe to remove even when the PR was
+          # squash-merged and their original commit SHAs are not ancestors of main.
+          while IFS= read -r branch; do
+            [[ -n "$branch" && "$branch" != "$default_branch" ]] && candidates["$branch"]=1
+          done < <(
+            gh pr list --repo "$repo" --state merged --limit 200 \
+              --json headRefName --jq '.[].headRefName'
+          )
+
+          # Also prune abandoned branches that contain no commits not already in
+          # main. This catches temporary setup/retry branches that never had a PR.
+          while IFS= read -r branch; do
+            [[ -z "$branch" || "$branch" == "$default_branch" ]] && continue
+
+            ahead=$(gh api "repos/$repo/compare/${default_branch}...${branch}" \
+              --jq '.ahead_by' 2>/dev/null || printf '1')
+            if [[ "$ahead" == "0" ]]; then
+              candidates["$branch"]=1
+            fi
+          done < <(gh api --paginate "repos/$repo/branches?per_page=100" --jq '.[].name')
+
+          if [[ ${#candidates[@]} -eq 0 ]]; then
+            echo "No stale branches found."
+            exit 0
+          fi
+
+          for branch in "${!candidates[@]}"; do
+            [[ "$branch" == "$default_branch" ]] && continue
+
+            if gh api "repos/$repo/git/ref/heads/$branch" >/dev/null 2>&1; then
+              echo "Deleting stale branch: $branch"
+              gh api --method DELETE "repos/$repo/git/refs/heads/$branch"
+            fi
+          done

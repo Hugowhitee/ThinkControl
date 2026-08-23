@@ -1,8 +1,8 @@
 # Architecture
 
-This document describes the architecture used by ThinkControl `v0.1.0-alpha.2`.
+This document describes the architecture used by ThinkControl `v0.1.0-alpha.3`.
 
-ThinkControl separates the desktop interface from privileged hardware access.
+ThinkControl separates the signed-in desktop application from privileged hardware access.
 
 ```text
 ThinkControl.UI
@@ -16,8 +16,8 @@ ThinkControl.Service
       `-- ThinkControl.Hardware
             |-- Windows APIs and WMI
             |-- read-only sensor providers
-            |-- Lenovo PM / EnergyDrv providers
-            |-- verified X9 Lenovo thermal policy
+            |-- Lenovo provider contracts
+            |-- verified X9 thermal policy
             `-- verified X9 EC provider
 ```
 
@@ -25,19 +25,19 @@ ThinkControl.Service
 
 ### ThinkControl.Core
 
-Contains shared IPC, capability, telemetry, diagnostics and compatibility contracts. It does not depend on WPF or direct hardware I/O.
+Shared contracts, telemetry models, diagnostics, compatibility state and platform-independent gesture recognition. Core does not depend on WPF or direct hardware I/O.
 
 ### ThinkControl.DeviceProfiles
 
-Contains bundled profile metadata used to identify device families and exact verified models. Profiles select provider candidates; they do not authorize arbitrary low-level writes.
+Device-family and verified-model metadata. Profiles select provider candidates and verified low-level behavior. A profile does not authorize arbitrary hardware writes.
 
 ### ThinkControl.Hardware
 
-Owns hardware implementations including CPU temperature readers, machine identity, PawnIO-backed ThinkPad EC transport, the verified X9 fan backend, Lenovo keyboard contracts, read-only Lenovo telemetry and the verified X9 Lenovo Intelligent Cooling policy bridge.
+Hardware implementations and provider probes. This includes machine identity, CPU temperature readers, Lenovo telemetry, keyboard contracts, the X9 thermal-policy bridge and the verified X9 EC backend.
 
 ### ThinkControl.Service
 
-The Windows service owns elevated/restricted hardware operations and provider lifetime. Its semantic operations include:
+The Windows service owns elevated hardware operations and provider lifetime. Its public operations are semantic:
 
 ```text
 Ping
@@ -48,26 +48,28 @@ SetKeyboardBacklight
 SetThermalMode
 ```
 
-It never exposes generic EC, port or IOCTL passthrough.
-
-`SetThermalMode` is gated by the service-side machine identity and only invokes the observed Lenovo Intelligent Cooling commands on verified X9 machine types `21Q6` and `21Q7`.
+The service does not expose generic EC, port or IOCTL passthrough.
 
 ### ThinkControl.UI
 
-The WPF application owns tray integration, Windows power mode, display controls, battery telemetry, keyboard effects, themes, startup behavior, update checks and local diagnostics.
+The WPF application owns the tray interface, Advanced window, Windows power and display controls, battery telemetry, keyboard effects, Precision Touchpad gestures, haptic settings, startup behavior, update checks and local diagnostics.
 
-The two window surfaces intentionally use different chrome:
+Interactive input stays in the signed-in user session. The service receives only semantic hardware requests.
 
-- **Compact** is borderless, non-resizable, fixed above the notification area and has no draggable caption region.
-- **Advanced** is a standard Windows application window with the native title bar, v3 app icon, minimize/maximize/restore/close buttons, taskbar presence, system menu and Windows 11 Snap Layouts.
+## Window model
 
-Keyboard effects stay in the interactive user session because they depend on idle state, keyboard activity or local audio level. The service receives only semantic hardware-level requests.
+ThinkControl has two user surfaces.
+
+- **Compact** is a fixed tray flyout for daily controls.
+- **Advanced** is a normal resizable Windows window with native caption controls, Snap Layouts and responsive content widths.
+
+Both use the shared ThinkControl wordmark and design resources.
 
 ## IPC boundary
 
-The current pipe is `ThinkControl.Service.v1`. Access is restricted to appropriate local Windows identities and requests are versioned, length-bounded JSON messages.
+The current pipe is `ThinkControl.Service.v1`. Requests are versioned and length-bounded. Access is restricted to appropriate local Windows identities.
 
-Raw operations such as these are intentionally absent:
+These operations are intentionally absent:
 
 ```text
 WriteEc(register, value)
@@ -77,13 +79,19 @@ RawIoctl(...)
 
 ## Capability resolution
 
-Windows-level features can use supported OS APIs without a Lenovo-specific profile. Low-level writes require a provider with its own authorization and validation rules.
+ThinkControl resolves capabilities independently instead of treating a laptop as either fully supported or unsupported.
 
-Machine-type parsing prioritizes verified X9 codes `21Q6` and `21Q7` before generic token matching so a Lenovo SKU cannot be misclassified as another four-character token.
+Windows-level features can work without a Lenovo-specific profile. Lenovo providers activate only after their own probes succeed. Direct EC writes require an exact verified device profile.
 
-## X9 fan backend
+Machine-type parsing prioritizes the verified X9 codes `21Q6` and `21Q7` before generic token matching.
 
-The verified mapping is:
+Unsupported controls stay visible when useful for context, but remain disabled and report why the provider is unavailable.
+
+## ThinkPad X9-15 Gen 1
+
+Direct EC fan writes are restricted to machine types `21Q6` and `21Q7`.
+
+Verified fan values are:
 
 ```text
 Lenovo Auto  0x80
@@ -92,13 +100,13 @@ Level 1      0x01
 Level 7      0x07
 ```
 
-The backend blocks fan-off `0x00` and the unverified `0x40` family, suppresses duplicate writes, uses readback, shares the standard EC mutexes, polls RPM conservatively and attempts to return manual ownership to Lenovo Auto during normal service disposal.
+The backend blocks fan-off `0x00` and the unverified `0x40` family. It uses readback, suppresses duplicate writes, shares the standard EC mutexes and polls RPM conservatively.
 
-RPM telemetry is not used as a high-frequency control-loop clock.
+Normal controller disposal attempts to return an active manual fan state to Lenovo Auto.
 
-## X9 performance / thermal policy
+## X9 performance policy
 
-Windows Quiet, Balanced and Performance map to Best efficiency, Balanced and Best performance first. After a successful Windows mode change, the verified X9 profile asynchronously coordinates Lenovo Intelligent Cooling through `LITSSvc`:
+Windows Quiet, Balanced and Performance map to the corresponding Windows power mode first. On the verified X9 profile, ThinkControl can then coordinate Lenovo Intelligent Cooling through `LITSSvc`.
 
 ```text
 AC Quiet        502
@@ -109,19 +117,25 @@ DC Balanced     508
 DC Performance  509
 ```
 
-The Lenovo contract writes one UInt32 command and reads one Int32 response. Because Lenovo has not published response-value semantics, ThinkControl treats a complete response as the protocol readback boundary rather than inventing a 0/nonzero success rule.
-
-This is thermal-policy coordination, not direct fan PWM/RPM control.
+This is thermal-policy coordination. It is not direct PWM or RPM control.
 
 ## Keyboard control
 
-The privileged keyboard path probes known Lenovo contracts before any write. `IBMPmDrv` and known `EnergyDrv` encodings are accepted only after a recognized read state, and writes are read back.
+The privileged keyboard path probes known Lenovo contracts before writing. Recognized states are read back after a change.
 
-When the direct driver path is unavailable, ThinkControl can probe the installed Lenovo Vantage ThinkKeyboard component as a local fallback. Presence alone is not sufficient; the invocation must validate.
+When a direct driver path is unavailable, ThinkControl may probe installed Lenovo components as a local fallback. Presence alone is not considered support.
 
-## Installation architecture
+## Precision Touchpad gestures
 
-`v0.1.0-alpha.2` separates the web bootstrapper from the application payload:
+Precision Touchpad Raw HID input is handled in `ThinkControl.UI` because it belongs to the interactive user session.
+
+The pure recognizer lives in Core and is replay-tested without WPF or hardware dependencies. Windows-specific HID parsing, cursor capture, media actions and haptic settings stay in the UI platform layer.
+
+The default gesture preset is left Volume, right Brightness and top relative Media Seek. A second contact cancels an edge gesture. Precision Touchpad Confidence is used when the device reports it.
+
+## Installation
+
+The installer is device-neutral.
 
 ```text
 ThinkControl-Setup-<version>.exe
@@ -133,21 +147,23 @@ ThinkControl-Payload-<version>.zip
         `-- service/
 ```
 
-UI and service are framework-dependent `win-x64` applications, preventing duplicate .NET runtime copies. Setup downloads the pinned Microsoft .NET 10 Desktop Runtime only when missing and offers pinned PawnIO 2.2.0 only on verified X9 hardware.
+UI and service are framework-dependent `win-x64` applications. This avoids embedding duplicate .NET runtimes.
 
-For CI smoke testing, the same installer accepts a local payload override, verifies it against the exact compile-time SHA-256 and runs the same extraction/service lifecycle without requiring a temporary public release.
+Setup installs ThinkControl and `ThinkControlService`, and installs the Microsoft .NET 10 Desktop Runtime only when it is missing. Device-specific low-level prerequisites are handled later by the in-app Hardware Setup flow and are only offered when the detected verified profile requires them.
 
-Uninstall removes the extracted `ui/` and `service/` directories and unregisters the service. Shared PawnIO and vendor software are not removed.
+Packaging CI enforces size budgets for the bootstrapper, compressed payload and installed application payload.
 
-## Branding architecture
+## Branding
 
-`assets/brand/v3` is the canonical branding source. The production app icon, tray icon and README wordmarks are byte-for-byte copies of their canonical v3 assets. The WPF `BrandMark` uses the exact traced 1536×1536 master geometry.
+`assets/brand/v3` is the canonical branding source. Packaging CI verifies the production app icon, tray icon and wordmark alignment against those assets.
 
-Packaging CI rejects branding drift and explicitly fails if the legacy hand-drawn 64×64 TC geometry reappears.
+The special C geometry is shared across the product. The `ontrol` suffix uses the approved optical spacing in both the SVG and WPF wordmark.
 
-## Updates and release publication
+## Release publication
 
-`version.json` is the release version source. A release-ready commit on `main` creates the exact version tag, dispatches the package workflow and waits for all three release assets:
+`version.json` is the release version source.
+
+A release-ready change is merged to `main`, normal CI validates that exact commit, and `publish-release.yml` creates or resumes the matching version tag only after CI succeeds. The tagged `release.yml` workflow builds and publishes:
 
 ```text
 ThinkControl-Setup-<version>.exe
@@ -155,7 +171,13 @@ ThinkControl-Payload-<version>.zip
 SHA256SUMS.txt
 ```
 
-A verified release marker is then written back to `.github/release-status.json`. ThinkControl itself does not install a permanent updater service.
+GitHub Releases and those published assets are the release source of truth. Release verification does not write status commits back to `main`.
+
+## Branch hygiene
+
+Merged feature branches are deleted automatically. The hygiene workflow also removes abandoned branches that contain no commits not already present in `main`.
+
+Tags are not branches and are retained as immutable release references.
 
 ## Diagnostics
 
@@ -170,7 +192,3 @@ Hardware       -> Core
 DeviceProfiles -> Core
 Core           -> no ThinkControl project
 ```
-
-## Planned work
-
-Later releases may add broader Lenovo model validation, additional provider states, autonomous fan curves with lifecycle recovery, private opt-in diagnostics submission, Authenticode signing and mature update/rollback handling.
