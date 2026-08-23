@@ -33,8 +33,8 @@ public static class ThemeService
         SetBrush(resources, "Tc.Border", light ? "#D5D8DC" : "#34383D");
         SetBrush(resources, "Tc.BorderStrong", light ? "#B9BDC3" : "#474C52");
         SetBrush(resources, "Tc.Text", light ? "#15171A" : "#F2F3F4");
-        SetBrush(resources, "Tc.TextMuted", light ? "#5E646B" : "#A3A8AE");
-        SetBrush(resources, "Tc.TextFaint", light ? "#80868D" : "#737980");
+        SetBrush(resources, "Tc.TextMuted", light ? "#555C64" : "#A8ADB4");
+        SetBrush(resources, "Tc.TextFaint", light ? "#737A82" : "#858B92");
         SetBrush(resources, "Tc.Accent", "#E32929");
         SetBrush(resources, "Tc.AccentHover", "#F13B3B");
         SetBrush(resources, "Tc.Success", light ? "#168A45" : "#4CCB7A");
