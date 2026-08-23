@@ -37,6 +37,8 @@ internal sealed class TouchpadGestureService : IDisposable
 
     internal TouchpadGeometry? Geometry => _input.Geometry;
     internal bool IsRunning => _input.IsStarted;
+    internal bool HapticFeedbackSupported => _input.HapticFeedbackSupported;
+    internal bool ClickForceSupported => _input.ClickForceSupported;
     internal TouchpadGestureConfiguration Configuration => _configuration;
 
     internal bool Start()
@@ -91,9 +93,6 @@ internal sealed class TouchpadGestureService : IDisposable
             if (signal is null)
                 return;
 
-            // Do not freeze the normal pointer just because a touch happened near
-            // an edge. Capture only after direction + activation distance have
-            // positively claimed a gesture.
             if (signal.Phase == GesturePhase.Claimed)
             {
                 if (_configuration.LockCursor)
