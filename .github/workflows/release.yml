@@ -1,0 +1,136 @@
+name: Package ThinkControl
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -like 'refs/tags/v*') {
+            $version = $env:GITHUB_REF_NAME.TrimStart('v')
+            "VERSIONED_RELEASE=1" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+          else {
+            $version = "0.1.0-dev.$env:GITHUB_RUN_NUMBER"
+            "VERSIONED_RELEASE=0" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          }
+
+          $build = [int]$env:GITHUB_RUN_NUMBER % 65535
+          $numericVersion = "0.1.0.$build"
+          "APP_VERSION=$version" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "NUMERIC_VERSION=$numericVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ThinkControl.slnx
+
+      - name: Build
+        run: dotnet build ThinkControl.slnx -c Release --no-restore
+
+      - name: Publish UI
+        shell: pwsh
+        run: |
+          dotnet publish src/ThinkControl.UI/ThinkControl.UI.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:Version=$env:APP_VERSION `
+            -p:InformationalVersion=$env:APP_VERSION `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/ui
+
+      - name: Publish hardware service
+        shell: pwsh
+        run: |
+          dotnet publish src/ThinkControl.Service/ThinkControl.Service.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:Version=$env:APP_VERSION `
+            -p:InformationalVersion=$env:APP_VERSION `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o artifacts/service
+
+      - name: Verify payloads
+        shell: pwsh
+        run: |
+          $ui = "artifacts/ui/ThinkControl.UI.exe"
+          $service = "artifacts/service/ThinkControl.Service.exe"
+          if (-not (Test-Path $ui)) { throw "UI executable is missing" }
+          if (-not (Test-Path $service)) { throw "Service executable is missing" }
+          if ((Get-Item $ui).Length -lt 100000) { throw "UI executable is unexpectedly small" }
+          if ((Get-Item $service).Length -lt 100000) { throw "Service executable is unexpectedly small" }
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found" }
+          $ui = (Resolve-Path "artifacts/ui").Path
+          $service = (Resolve-Path "artifacts/service").Path
+          & $iscc `
+            "/DAppVersion=$env:APP_VERSION" `
+            "/DNumericVersion=$env:NUMERIC_VERSION" `
+            "/DUiSourceDir=$ui" `
+            "/DServiceSourceDir=$service" `
+            "installer/ThinkControl.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          if ($null -eq $setup) { throw "Installer was not produced" }
+          Write-Host "Installer: $($setup.Name) - $([math]::Round($setup.Length / 1MB, 1)) MB"
+
+      - name: Create checksum
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          $hash = (Get-FileHash $setup.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  $($setup.Name)" | Set-Content "artifacts/installer/SHA256SUMS.txt" -Encoding ascii
+
+      - name: Upload development artifact
+        if: env.VERSIONED_RELEASE == '0'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThinkControl-Setup-${{ env.APP_VERSION }}
+          path: |
+            artifacts/installer/ThinkControl-Setup-*.exe
+            artifacts/installer/SHA256SUMS.txt
+          if-no-files-found: error
+
+      - name: Publish tagged GitHub release
+        if: env.VERSIONED_RELEASE == '1'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          gh release create $env:GITHUB_REF_NAME `
+            $setup.FullName `
+            "artifacts/installer/SHA256SUMS.txt" `
+            --title "ThinkControl $env:APP_VERSION" `
+            --generate-notes
