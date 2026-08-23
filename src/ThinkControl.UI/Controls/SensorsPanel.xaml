@@ -1,21 +1,78 @@
 <UserControl x:Class="ThinkControl.UI.Controls.SensorsPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
              Background="Transparent">
+    <UserControl.Resources>
+        <Style x:Key="SensorComboItem" TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger>
+                            <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /><Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SensorCombo" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="MinHeight" Value="32" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource SensorComboItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="ComboBorder" MinHeight="32" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="4" SnapsToDevicePixels="True">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="30" /></Grid.ColumnDefinitions>
+                                                <ContentPresenter Margin="10,0,6,0" VerticalAlignment="Center" HorizontalAlignment="Left" Content="{TemplateBinding Content}" />
+                                                <Path Grid.Column="1" Width="8" Height="5" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource Tc.TextMuted}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M0,0 L4,4 L8,0" />
+                                            </Grid>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboBorder" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger>
+                                            <Trigger Property="IsChecked" Value="True"><Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" /></Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False" StaysOpen="False" PopupAnimation="Fade" IsOpen="{TemplateBinding IsDropDownOpen}">
+                                <Border MinWidth="300" MaxHeight="310" Margin="0,3,0,0" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="4">
+                                    <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto"><ItemsPresenter /></ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger></ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <StackPanel>
         <TextBlock Text="Sensors" FontSize="24" FontWeight="SemiBold" />
         <TextBlock Text="Live read-only hardware telemetry. ThinkControl shows the values reported by the active providers without inventing missing sensors."
-                   Foreground="{DynamicResource Tc.TextMuted}"
-                   Margin="0,6,0,18"
-                   TextWrapping="Wrap" />
+                   Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Grid Margin="0,0,0,14">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="1.25*" />
-                <ColumnDefinition Width="1*" />
-                <ColumnDefinition Width="1*" />
-            </Grid.ColumnDefinitions>
-
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*" /><ColumnDefinition Width="1*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions>
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" MinHeight="112">
                 <StackPanel>
                     <TextBlock Text="CONTROL TEMPERATURE" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -23,7 +80,6 @@
                     <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
-
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0" MinHeight="112">
                 <StackPanel>
                     <TextBlock Text="FANS" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -31,7 +87,6 @@
                     <TextBlock Text="Read-only tachometers" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
-
             <Border Grid.Column="2" Style="{StaticResource TcSection}" Margin="7,0,0,0" MinHeight="112">
                 <StackPanel>
                     <TextBlock Text="TELEMETRY" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -43,6 +98,32 @@
 
         <Border Style="{StaticResource TcSection}" Margin="0,0,0,14">
             <StackPanel>
+                <Grid Margin="0,0,0,9">
+                    <StackPanel>
+                        <TextBlock Text="Live sensor graph" FontSize="11" FontWeight="SemiBold" />
+                        <TextBlock x:Name="GraphSubtitle" Text="Choose a sensor to graph its measured values." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,3,0,0" />
+                    </StackPanel>
+                    <ComboBox x:Name="SensorPicker" Width="300" Height="32" HorizontalAlignment="Right" VerticalAlignment="Top"
+                              Style="{StaticResource SensorCombo}" ItemsSource="{Binding Sensors}" SelectionChanged="SensorPicker_SelectionChanged">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding HardwareName}" Foreground="{DynamicResource Tc.TextMuted}" />
+                                    <TextBlock Text=" · " Foreground="{DynamicResource Tc.TextFaint}" />
+                                    <TextBlock Text="{Binding Name}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Grid>
+                <controls:TimeSeriesChart x:Name="SensorChart" Height="190" ValueFormat="0.##" LiveWindowMinutes="15" IsLive="True" />
+                <TextBlock Text="Hover the line for the exact timestamp and measured value. History is session-local and bounded; ThinkControl does not write a permanent sensor log by default."
+                           FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="50,5,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource TcSection}" Margin="0,0,0,14">
+            <StackPanel>
                 <Grid Margin="0,0,0,10">
                     <TextBlock Text="Fan telemetry" FontSize="11" FontWeight="SemiBold" />
                     <TextBlock Text="{Binding FanStateText}" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -51,11 +132,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="0,0,0,1" MinHeight="38">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="150" />
-                                    <ColumnDefinition Width="130" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="150" /><ColumnDefinition Width="130" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
                                 <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" VerticalAlignment="Center" FontSize="13" />
                                 <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextTrimming="CharacterEllipsis" />
@@ -75,47 +152,29 @@
                     <TextBlock Text="All live sensors" FontSize="11" FontWeight="SemiBold" />
                     <TextBlock Text="Control inputs are marked in red" HorizontalAlignment="Right" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" />
                 </Grid>
-
                 <Grid Height="30" Background="{DynamicResource Tc.SurfaceAlt}">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="1.25*" />
-                        <ColumnDefinition Width="1.6*" />
-                        <ColumnDefinition Width="115" />
-                        <ColumnDefinition Width="110" />
-                    </Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*" /><ColumnDefinition Width="1.6*" /><ColumnDefinition Width="115" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                     <TextBlock Text="Hardware" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
                     <TextBlock Grid.Column="1" Text="Sensor" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
                     <TextBlock Grid.Column="2" Text="Value" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
                     <TextBlock Grid.Column="3" Text="Type" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
                 </Grid>
-
                 <ItemsControl ItemsSource="{Binding Sensors}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid MinHeight="34">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="1.25*" />
-                                    <ColumnDefinition Width="1.6*" />
-                                    <ColumnDefinition Width="115" />
-                                    <ColumnDefinition Width="110" />
-                                </Grid.ColumnDefinitions>
-
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="1.25*" /><ColumnDefinition Width="1.6*" /><ColumnDefinition Width="115" /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
                                 <StackPanel Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center">
-                                    <Ellipse Width="5" Height="5" Margin="0,0,7,0" Fill="Transparent">
+                                    <Ellipse Width="5" Height="5" Margin="0,0,7,0">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse">
                                                 <Setter Property="Fill" Value="Transparent" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding ControlTemperature}" Value="True">
-                                                        <Setter Property="Fill" Value="{DynamicResource Tc.Accent}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
+                                                <Style.Triggers><DataTrigger Binding="{Binding ControlTemperature}" Value="True"><Setter Property="Fill" Value="{DynamicResource Tc.Accent}" /></DataTrigger></Style.Triggers>
                                             </Style>
                                         </Ellipse.Style>
                                     </Ellipse>
                                     <TextBlock Text="{Binding HardwareName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                 </StackPanel>
-
                                 <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center">
                                     <TextBlock Text="{Binding Value, StringFormat={}{0:0.##}}" />

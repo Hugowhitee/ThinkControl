@@ -36,6 +36,27 @@ public sealed record HardwareSensorSnapshot(
     bool ControlTemperature,
     string Source);
 
+public sealed record FanCalibrationFanSnapshot(
+    string Id,
+    string Label,
+    int MedianRpm,
+    int SpreadRpm,
+    bool Stable);
+
+public sealed record FanLevelCalibrationSnapshot(
+    int Level,
+    IReadOnlyList<FanCalibrationFanSnapshot> Fans,
+    bool Stable);
+
+public sealed record FanCharacterizationSnapshot(
+    bool Running,
+    int? CurrentLevel,
+    int CompletedLevels,
+    int TotalLevels,
+    string Status,
+    int? AudibleFromLevel,
+    IReadOnlyList<FanLevelCalibrationSnapshot> Levels);
+
 public sealed record TelemetrySnapshot(
     double? CpuTemperatureC,
     string? CpuTemperatureSource,
@@ -48,7 +69,13 @@ public sealed record TelemetrySnapshot(
     IReadOnlyList<FanTelemetrySnapshot>? Fans = null,
     IReadOnlyList<HardwareSensorSnapshot>? Sensors = null,
     double? ControlTemperatureC = null,
-    string? ControlTemperatureSource = null);
+    string? ControlTemperatureSource = null,
+    string CoolingProfile = "Lenovo Auto",
+    int? CoolingAppliedLevel = null,
+    double? CoolingSmoothedTemperatureC = null,
+    string CoolingStatus = "Lenovo firmware owns fan control",
+    bool CoolingSafetyOverride = false,
+    FanCharacterizationSnapshot? FanCharacterization = null);
 
 public sealed record HardwareCapabilitySnapshot(
     bool FanTelemetry,

@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
@@ -35,24 +36,37 @@ internal static class Program
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
-        foreach (string page in new[] { "Home", "Performance", "Fans", "Display", "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings" })
+        foreach (string page in new[]
+        {
+            "Home", "Performance", "Fans", "Sensors", "Display", "Audio", "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings"
+        })
+        {
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
+        }
 
-        // The minimum supported Advanced viewport catches the horizontal overflow
-        // and awkward spacing bugs that are easy to miss in wide screenshots.
-        foreach (string page in new[] { "Home", "Battery", "Touchpad", "Keyboard", "System" })
+        // Minimum-size renders are mandatory for the pages with dense cards,
+        // tables or segmented controls; this catches the horizontal overflow bugs
+        // that repeatedly slipped through wide screenshots during alpha testing.
+        foreach (string page in new[]
+        {
+            "Home", "Performance", "Fans", "Sensors", "Audio", "Battery", "Touchpad", "Keyboard", "System"
+        })
+        {
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
+        }
 
-        foreach (string page in new[] { "Home", "Display", "Touchpad", "Battery" })
+        foreach (string page in new[] { "Home", "Fans", "Sensors", "Audio", "Display", "Touchpad", "Battery" })
             RenderAdvanced(app, charging, page, 1720, 980, output, snapshots, $"advanced-{page.ToLowerInvariant()}-wide.png", "wide window");
 
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
+        RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
+        RenderAdvanced(app, charging, "Sensors", 1160, 760, output, snapshots, "advanced-sensors-light.png", "normal · light");
 
         WriteManifest(output, snapshots);
         WriteGallery(output, snapshots);
@@ -69,8 +83,10 @@ internal static class Program
         {
             DeviceName = "ThinkPad X9-15 Gen 1",
             CpuTemperatureC = hardwareReady ? 44 : null,
+            ControlTemperatureC = hardwareReady ? 47.2 : null,
+            ControlTemperatureSource = hardwareReady ? "CPU Package · hottest canonical domain" : "Unavailable",
             FanRpm = hardwareReady ? 2050 : null,
-            FanStateText = hardwareReady ? "Level 3" : "Lenovo managed · telemetry unavailable",
+            FanStateText = hardwareReady ? "Normal · level 3" : "Lenovo managed · telemetry unavailable",
             BatteryPercent = charging ? 78 : 63,
             BatteryCharging = charging,
             BatteryStatus = charging ? "Charging" : "On battery",
@@ -115,8 +131,24 @@ internal static class Program
             CanFanControl = hardwareReady,
             CanFanTelemetry = hardwareReady,
             CanKeyboardBacklight = hardwareReady,
-            CanCpuTemperature = hardwareReady
+            CanCpuTemperature = hardwareReady,
+            CanSensorTelemetry = hardwareReady
         };
+
+        if (hardwareReady)
+        {
+            state.ApplyHardwareTelemetry(
+            [
+                new FanTelemetrySnapshot("fan-ec-primary", "System fan", 2050, "ThinkPad X9 EC tachometer 0x84/0x85", true)
+            ],
+            [
+                new HardwareSensorSnapshot("cpu-package", "Intel Core Ultra 7 258V", "Cpu", "CPU Package", "Temperature", 47.2, "°C", true, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("cpu-power", "Intel Core Ultra 7 258V", "Cpu", "CPU Package", "Power", 12.8, "W", false, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("gpu-temp", "Intel Arc 140V", "GpuIntel", "GPU Core", "Temperature", 43.5, "°C", true, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("gpu-load", "Intel Arc 140V", "GpuIntel", "GPU Core", "Load", 18.0, "%", false, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("ssd-temp", "NVMe SSD", "Storage", "Temperature", "Temperature", 39.0, "°C", false, "LibreHardwareMonitor")
+            ]);
+        }
 
         for (int i = 0; i < 60; i++)
             state.TemperatureHistory.Add(43 + Math.Sin(i / 4d) * 2 + (i % 11 == 0 ? 1 : 0));
@@ -140,13 +172,7 @@ internal static class Program
         return state;
     }
 
-    private static void RenderCompact(
-        App app,
-        AppState state,
-        string output,
-        ICollection<SnapshotEntry> snapshots,
-        string fileName,
-        string stateName)
+    private static void RenderCompact(App app, AppState state, string output, ICollection<SnapshotEntry> snapshots, string fileName, string stateName)
     {
         const int width = 410;
         const int height = 640;
@@ -157,21 +183,16 @@ internal static class Program
         window.ForceClose();
     }
 
-    private static void RenderAdvanced(
-        App app,
-        AppState state,
-        string page,
-        int width,
-        int height,
-        string output,
-        ICollection<SnapshotEntry> snapshots,
-        string fileName,
-        string stateName)
+    private static void RenderAdvanced(App app, AppState state, string page, int width, int height, string output, ICollection<SnapshotEntry> snapshots, string fileName, string stateName)
     {
         var window = new AdvancedWindow(app) { DataContext = state, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
             window.NavigateTouchpad();
+        else if (string.Equals(page, "Sensors", StringComparison.OrdinalIgnoreCase))
+            window.NavigateSensors();
+        else if (string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase))
+            window.NavigateAudio();
         else
             window.Navigate(page);
         RenderWindowContent(window, Path.Combine(output, fileName));
@@ -183,7 +204,6 @@ internal static class Program
     {
         if (window.Content is not FrameworkElement root)
             throw new InvalidOperationException($"{window.GetType().Name} has no renderable content.");
-
         double width = window.Width;
         double height = window.Height;
         root.Measure(new Size(width, height));
@@ -204,11 +224,7 @@ internal static class Program
 
     private static void WriteManifest(string output, IReadOnlyCollection<SnapshotEntry> snapshots)
     {
-        string json = JsonSerializer.Serialize(new
-        {
-            generatedAt = DateTimeOffset.UtcNow,
-            snapshots
-        }, new JsonSerializerOptions { WriteIndented = true });
+        string json = JsonSerializer.Serialize(new { generatedAt = DateTimeOffset.UtcNow, snapshots }, new JsonSerializerOptions { WriteIndented = true });
         File.WriteAllText(Path.Combine(output, "manifest.json"), json, Encoding.UTF8);
     }
 

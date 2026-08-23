@@ -14,7 +14,11 @@ public sealed record ThinkControlUserSettings(
     double KeyboardEffectSpeed = 1.0,
     DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Unknown,
     TouchpadGestureConfiguration? TouchpadGestures = null,
-    string HardwareSetupPromptedVersion = "");
+    string HardwareSetupPromptedVersion = "",
+    string BatteryPowerMode = "",
+    string AcPowerMode = "",
+    string CoolingProfile = "Lenovo Auto",
+    string DolbyProfile = "Dynamic");
 
 public sealed class UserSettingsService
 {
@@ -110,6 +114,24 @@ public sealed class UserSettingsService
         if (hardwarePrompt.Length > 64)
             hardwarePrompt = hardwarePrompt[..64];
 
+        string batteryPower = NormalizePowerPreference(settings.BatteryPowerMode);
+        string acPower = NormalizePowerPreference(settings.AcPowerMode);
+        string cooling = settings.CoolingProfile?.Trim() switch
+        {
+            "Silent" => "Silent",
+            "Normal" => "Normal",
+            "Cool" => "Cool",
+            _ => "Lenovo Auto"
+        };
+        string dolby = settings.DolbyProfile?.Trim() switch
+        {
+            "Movie" => "Movie",
+            "Music" => "Music",
+            "Game" => "Game",
+            "Voice" => "Voice",
+            _ => "Dynamic"
+        };
+
         return settings with
         {
             KeyboardMode = mode,
@@ -118,7 +140,19 @@ public sealed class UserSettingsService
             KeyboardEffectSpeed = speed,
             DiagnosticsConsent = consent,
             TouchpadGestures = touchpad,
-            HardwareSetupPromptedVersion = hardwarePrompt
+            HardwareSetupPromptedVersion = hardwarePrompt,
+            BatteryPowerMode = batteryPower,
+            AcPowerMode = acPower,
+            CoolingProfile = cooling,
+            DolbyProfile = dolby
         };
     }
+
+    private static string NormalizePowerPreference(string? value) => value?.Trim() switch
+    {
+        "Efficiency" or "Quiet" => "Quiet",
+        "Balanced" => "Balanced",
+        "Performance" => "Performance",
+        _ => string.Empty
+    };
 }

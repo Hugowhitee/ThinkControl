@@ -13,7 +13,11 @@ public partial class CompactDashboard : UserControl
         InitializeComponent();
     }
 
-    internal void Initialize(App app) => _app = app;
+    internal void Initialize(App app)
+    {
+        _app = app;
+        EnsureAudioRow();
+    }
 
     private void Expand_Click(object sender, RoutedEventArgs e) => _app?.OpenAdvanced("Home");
 

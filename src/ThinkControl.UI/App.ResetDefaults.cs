@@ -10,20 +10,15 @@ public partial class App
     internal const int DefaultHapticFeedbackIntensity = 50;
     internal const int DefaultHapticClickSensitivity = 50;
 
-    internal bool ResetPerformanceDefaults() =>
-        SetPowerMode(ThinkControlPowerMode.Balanced);
-
-    internal async Task<bool> ResetFanDefaultsAsync()
+    internal bool ResetPerformanceDefaults()
     {
-        var response = await HardwareClient.ReturnFanToAutoAsync();
-        if (response?.Success != true)
-        {
-            State.HardwareAccess = response?.Error ?? "Fan control unavailable";
-            return false;
-        }
-
-        return true;
+        bool battery = SetPowerPreference(ThinkControlPowerMode.Balanced, onBattery: true);
+        bool ac = SetPowerPreference(ThinkControlPowerMode.Balanced, onBattery: false);
+        return battery && ac;
     }
+
+    internal async Task<bool> ResetFanDefaultsAsync() =>
+        await SetCoolingProfileAsync("Lenovo Auto");
 
     internal void ResetDisplayDefaults()
     {
@@ -93,7 +88,11 @@ public partial class App
             KeyboardEffectSpeed: 1.0,
             DiagnosticsConsent: current.DiagnosticsConsent,
             TouchpadGestures: touchpadDefaults,
-            HardwareSetupPromptedVersion: current.HardwareSetupPromptedVersion));
+            HardwareSetupPromptedVersion: current.HardwareSetupPromptedVersion,
+            BatteryPowerMode: "Balanced",
+            AcPowerMode: "Balanced",
+            CoolingProfile: "Lenovo Auto",
+            DolbyProfile: "Dynamic"));
 
         ThemeService.Apply(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);

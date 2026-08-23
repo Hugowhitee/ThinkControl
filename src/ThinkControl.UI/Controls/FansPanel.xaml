@@ -1,0 +1,118 @@
+<UserControl x:Class="ThinkControl.UI.Controls.FansPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel>
+        <TextBlock Text="Fans" FontSize="24" FontWeight="SemiBold" />
+        <TextBlock Text="Cooling is independent from battery and plugged-in power profiles. ThinkControl uses real ThinkPad levels 1–7, temperature smoothing and hysteresis; Lenovo Auto always remains the firmware fallback."
+                   Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
+
+        <Border Style="{StaticResource TcSection}">
+            <StackPanel>
+                <Grid>
+                    <TextBlock Text="Cooling profile" FontWeight="SemiBold" />
+                    <TextBlock x:Name="ProfileStatusText" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" />
+                </Grid>
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <RadioButton x:Name="AutoProfile" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Lenovo Auto" Tag="Lenovo Auto" Click="Profile_Click" Margin="0,0,5,0" />
+                    <RadioButton x:Name="SilentProfile" Grid.Column="1" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Silent" Tag="Silent" Click="Profile_Click" Margin="2,0" />
+                    <RadioButton x:Name="NormalProfile" Grid.Column="2" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Normal" Tag="Normal" Click="Profile_Click" Margin="2,0" />
+                    <RadioButton x:Name="CoolProfile" Grid.Column="3" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Cool" Tag="Cool" Click="Profile_Click" Margin="5,0,0,0" />
+                </Grid>
+                <TextBlock x:Name="CoolingDetailText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,10,0,0" />
+            </StackPanel>
+        </Border>
+
+        <Grid Margin="0,14,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="1.15*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions>
+            <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
+                <StackPanel>
+                    <TextBlock Text="Thermal control" FontWeight="SemiBold" />
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Control temperature" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
+                            <TextBlock Text="{Binding ControlTemperatureText}" FontSize="28" FontWeight="Light" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
+                            <TextBlock Text="Applied level" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" />
+                            <TextBlock x:Name="AppliedLevelText" Text="—" FontSize="22" FontWeight="Light" Margin="0,6,0,0" HorizontalAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
+                <StackPanel>
+                    <Grid><TextBlock Text="Fan telemetry" FontWeight="SemiBold" /><TextBlock Text="{Binding FanCountText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" /></Grid>
+                    <ItemsControl ItemsSource="{Binding Fans}" Margin="0,9,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,3,0,3">
+                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
+                                    <TextBlock Text="{Binding Label}" FontSize="10.5" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" HorizontalAlignment="Right" FontSize="10.5" />
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock Text="No second fan is invented: another row appears only when a real provider exposes another tachometer." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+            <StackPanel>
+                <Grid>
+                    <StackPanel>
+                        <TextBlock Text="Fan characterization" FontWeight="SemiBold" />
+                        <TextBlock Text="One-time test: ThinkControl validates level 7 first, then measures levels 1–7. It returns to Lenovo Auto when finished, cancelled or unsafe." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                        <Button x:Name="CharacterizeButton" Content="Characterize fans" Style="{StaticResource TcButton}" Click="Characterize_Click" />
+                        <Button x:Name="StopCharacterizationButton" Content="Stop" Style="{StaticResource TcButton}" Click="StopCharacterization_Click" Margin="8,0,0,0" Visibility="Collapsed" />
+                    </StackPanel>
+                </Grid>
+                <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="7" Margin="0,14,0,0" Visibility="Collapsed" />
+                <Grid Margin="0,10,0,0">
+                    <TextBlock x:Name="CharacterizationStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
+                    <Button x:Name="MarkAudibleButton" HorizontalAlignment="Right" Content="Clearly audible here" Style="{StaticResource TcButton}" Click="MarkAudible_Click" Visibility="Collapsed" />
+                </Grid>
+                <ItemsControl x:Name="CalibrationResults" Margin="0,10,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,3,0,3">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="70" /><ColumnDefinition /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" />
+                                <TextBlock Grid.Column="1" Text="{Binding RpmText}" FontSize="10" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="{Binding StabilityText}" HorizontalAlignment="Right" FontSize="10" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <Expander Header="Advanced manual control" Margin="0,14,0,0">
+            <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
+                <StackPanel>
+                    <TextBlock Text="Manual fan level" FontWeight="SemiBold" />
+                    <TextBlock Text="Manual mode temporarily stops the selected custom profile. Level 0 and disengaged/full-speed 0x40 remain intentionally blocked." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <Grid Margin="0,13,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <Button Content="1" Style="{StaticResource TcButton}" Tag="1" Click="ManualLevel_Click" Margin="0,0,4,0" />
+                        <Button Grid.Column="1" Content="2" Style="{StaticResource TcButton}" Tag="2" Click="ManualLevel_Click" Margin="2,0" />
+                        <Button Grid.Column="2" Content="3" Style="{StaticResource TcButton}" Tag="3" Click="ManualLevel_Click" Margin="2,0" />
+                        <Button Grid.Column="3" Content="4" Style="{StaticResource TcButton}" Tag="4" Click="ManualLevel_Click" Margin="2,0" />
+                        <Button Grid.Column="4" Content="5" Style="{StaticResource TcButton}" Tag="5" Click="ManualLevel_Click" Margin="2,0" />
+                        <Button Grid.Column="5" Content="6" Style="{StaticResource TcButton}" Tag="6" Click="ManualLevel_Click" Margin="2,0" />
+                        <Button Grid.Column="6" Content="7" Style="{StaticResource TcButton}" Tag="7" Click="ManualLevel_Click" Margin="4,0,0,0" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Expander>
+    </StackPanel>
+</UserControl>

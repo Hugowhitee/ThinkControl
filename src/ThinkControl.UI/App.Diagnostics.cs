@@ -11,6 +11,8 @@ public partial class App
         HardwareClient.HardwareOperationCompleted += HardwareClient_HardwareOperationCompleted;
         HardwareClient.StatusObserved += HardwareClient_StatusObserved;
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
+        InitializePowerProfileCoordinator();
+        InitializeCoolingCoordinator();
         Startup += OnBootstrapStartup;
         Activated += OnTouchpadApplicationActivated;
         Activated += OnHardwareSetupActivated;
@@ -23,11 +25,23 @@ public partial class App
         {
             if (response?.Success == true && response.Telemetry is not null)
             {
-                State.ControlTemperatureC = response.Telemetry.ControlTemperatureC;
-                State.ControlTemperatureSource = response.Telemetry.ControlTemperatureSource ?? "Unavailable";
-                State.ApplyHardwareTelemetry(response.Telemetry.Fans, response.Telemetry.Sensors);
+                TelemetrySnapshot telemetry = response.Telemetry;
+                State.ControlTemperatureC = telemetry.ControlTemperatureC;
+                State.ControlTemperatureSource = telemetry.ControlTemperatureSource ?? "Unavailable";
+                State.ApplyHardwareTelemetry(telemetry.Fans, telemetry.Sensors);
+
+                string profile = telemetry.CoolingProfile;
+                if (!string.IsNullOrWhiteSpace(profile) && !profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase))
+                {
+                    State.FanStateText = telemetry.CoolingAppliedLevel is int level
+                        ? $"{profile} · level {level}"
+                        : profile;
+                }
+
                 if (response.Capabilities is not null)
                     State.CanSensorTelemetry = response.Capabilities.SensorTelemetry;
+
+                _ = TryRestoreCoolingPreferenceAsync(response);
                 return;
             }
 
@@ -37,10 +51,9 @@ public partial class App
             State.ClearHardwareTelemetry();
         }
 
-        if (Dispatcher.CheckAccess())
-            Apply();
-        else
-            Dispatcher.BeginInvoke(Apply);
+        // Queue behind the current GetStatus continuation so the richer cooling
+        // summary wins over the legacy raw fan-state assignment in alpha.3.
+        Dispatcher.BeginInvoke(Apply);
     }
 
     private void HardwareClient_HardwareOperationCompleted(object? sender, HardwareOperationResult operation)
@@ -49,6 +62,10 @@ public partial class App
         {
             "SetFanLevel" => ("fan.level_set", "FanControl", "ThinkPadEC"),
             "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", "ThinkPadEC"),
+            "SetCoolingProfile" => ("fan.cooling_profile_set", "FanControl", "FanSupervisor"),
+            "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
+            "MarkFanLevelAudible" => ("fan.audible_level_marked", "FanControl", "FanSupervisor"),
+            "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),
             "SetThermalMode" => ("thermal.policy_set", "ThermalPolicy", "LenovoLITS"),
             _ => ("hardware.operation", "Hardware", "ThinkControlService")
         };

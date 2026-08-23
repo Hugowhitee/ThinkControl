@@ -14,13 +14,20 @@ internal sealed class ServiceEngine : IDisposable
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly LenovoHardwareController _hardware = new();
+    private readonly FanSupervisor _fanSupervisor;
     private readonly CancellationTokenSource _disposeCts = new();
     private bool _disposed;
+
+    internal ServiceEngine()
+    {
+        _fanSupervisor = new FanSupervisor(_hardware);
+    }
 
     internal async Task RunAsync(CancellationToken cancellationToken)
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
         CancellationToken token = linked.Token;
+        _fanSupervisor.Start(token);
 
         while (!token.IsCancellationRequested)
         {
@@ -126,6 +133,10 @@ internal sealed class ServiceEngine : IDisposable
                 "GetStatus" => StatusResponse(),
                 "SetFanLevel" => SetFanLevel(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
+                "SetCoolingProfile" => SetCoolingProfile(request.Value),
+                "StartFanCharacterization" => StartFanCharacterization(),
+                "MarkFanLevelAudible" => MarkFanLevelAudible(),
+                "StopFanCharacterization" => StopFanCharacterization(),
                 "SetKeyboardBacklight" => SetKeyboardBacklight(request.Value),
                 "SetThermalMode" => SetThermalMode(request.Value),
                 _ => Error("Unsupported operation. Raw EC, port and IOCTL passthrough are never exposed by ThinkControl.")
@@ -140,6 +151,7 @@ internal sealed class ServiceEngine : IDisposable
     private ServiceResponse StatusResponse()
     {
         LenovoHardwareStatus status = _hardware.ReadStatus();
+        CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
         FanTelemetrySnapshot[] fans = status.Fans
             .Select((fan, index) => new FanTelemetrySnapshot(
                 fan.Id,
@@ -174,7 +186,13 @@ internal sealed class ServiceEngine : IDisposable
             Fans: fans,
             Sensors: sensors,
             ControlTemperatureC: status.ControlTemperatureC,
-            ControlTemperatureSource: status.ControlTemperatureSource);
+            ControlTemperatureSource: status.ControlTemperatureSource,
+            CoolingProfile: cooling.Profile,
+            CoolingAppliedLevel: cooling.AppliedLevel,
+            CoolingSmoothedTemperatureC: cooling.SmoothedTemperatureC,
+            CoolingStatus: cooling.Status,
+            CoolingSafetyOverride: cooling.SafetyOverride,
+            FanCharacterization: cooling.Characterization);
 
         var capabilities = new HardwareCapabilitySnapshot(
             status.CanFanTelemetry,
@@ -196,17 +214,39 @@ internal sealed class ServiceEngine : IDisposable
         if (!int.TryParse(raw, out int level))
             return Error("Fan level is missing or invalid.");
 
-        return _hardware.SetFanLevel(level, out string? error)
+        return _fanSupervisor.SetManualLevel(level, out string? error)
             ? StatusResponse()
             : Error(error ?? "Fan level rejected.");
     }
 
-    private ServiceResponse ReturnFanToAuto()
-    {
-        return _hardware.ReturnFanToAuto(out string? error)
+    private ServiceResponse ReturnFanToAuto() =>
+        _fanSupervisor.ReturnToAuto(out string? error)
             ? StatusResponse()
             : Error(error ?? "Lenovo Auto rejected.");
+
+    private ServiceResponse SetCoolingProfile(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Error("Cooling profile is missing.");
+        return _fanSupervisor.SetProfile(value, out string? error)
+            ? StatusResponse()
+            : Error(error ?? "Cooling profile rejected.");
     }
+
+    private ServiceResponse StartFanCharacterization() =>
+        _fanSupervisor.StartCharacterization(out string? error)
+            ? StatusResponse()
+            : Error(error ?? "Fan characterization could not start.");
+
+    private ServiceResponse MarkFanLevelAudible() =>
+        _fanSupervisor.MarkCurrentLevelAudible(out string? error)
+            ? StatusResponse()
+            : Error(error ?? "Audible fan level could not be recorded.");
+
+    private ServiceResponse StopFanCharacterization() =>
+        _fanSupervisor.StopCharacterization(out string? error)
+            ? StatusResponse()
+            : Error(error ?? "Fan characterization could not stop.");
 
     private ServiceResponse SetKeyboardBacklight(string? value)
     {
@@ -248,6 +288,7 @@ internal sealed class ServiceEngine : IDisposable
             return;
         _disposed = true;
         _disposeCts.Cancel();
+        _fanSupervisor.Dispose();
         _hardware.Dispose();
         _disposeCts.Dispose();
     }

@@ -127,6 +127,9 @@ public sealed class AppState : INotifyPropertyChanged
         _ => $"{Fans.Count} fan readings"
     };
     public string SensorCountText => Sensors.Count == 1 ? "1 live sensor" : $"{Sensors.Count:N0} live sensors";
+    public string SelectedModeDisplay => SelectedMode.Equals(nameof(ThinkControlPowerMode.Quiet), StringComparison.OrdinalIgnoreCase)
+        ? "Efficiency"
+        : SelectedMode;
     public string BatteryPercentText => $"{BatteryPercent}%";
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
@@ -162,9 +165,7 @@ public sealed class AppState : INotifyPropertyChanged
             TemperatureHistory.RemoveAt(0);
     }
 
-    public void ApplyHardwareTelemetry(
-        IReadOnlyList<FanTelemetrySnapshot>? fans,
-        IReadOnlyList<HardwareSensorSnapshot>? sensors)
+    public void ApplyHardwareTelemetry(IReadOnlyList<FanTelemetrySnapshot>? fans, IReadOnlyList<HardwareSensorSnapshot>? sensors)
     {
         ReplaceCollection(Fans, fans ?? Array.Empty<FanTelemetrySnapshot>());
         ReplaceCollection(Sensors, sensors ?? Array.Empty<HardwareSensorSnapshot>());
@@ -195,7 +196,6 @@ public sealed class AppState : INotifyPropertyChanged
     {
         if (target.Count == values.Count && target.SequenceEqual(values))
             return;
-
         target.Clear();
         foreach (T value in values)
             target.Add(value);
@@ -215,6 +215,8 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(ControlTemperatureText));
         else if (propertyName == nameof(FanRpm))
             OnPropertyChanged(nameof(FanRpmText));
+        else if (propertyName == nameof(SelectedMode))
+            OnPropertyChanged(nameof(SelectedModeDisplay));
         else if (propertyName == nameof(BatteryPercent))
             OnPropertyChanged(nameof(BatteryPercentText));
         else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToFull) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))

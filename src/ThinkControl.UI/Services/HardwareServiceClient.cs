@@ -32,10 +32,6 @@ public sealed class HardwareServiceClient
 
     private async Task<ServiceResponse?> GetStatusCoreAsync(CancellationToken cancellationToken)
     {
-        // A cold status read can initialize LibreHardwareMonitor, Lenovo WMI,
-        // keyboard providers and the verified EC backend. Keep this generous on
-        // first contact; the call is asynchronous and interactive writes use much
-        // tighter timeouts.
         ServiceRequest request = new(ThinkControlProtocol.Version, "GetStatus");
         ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 4200);
         if (IsValidStatus(response))
@@ -64,9 +60,6 @@ public sealed class HardwareServiceClient
         if (response is not null || cancellationToken.IsCancellationRequested)
             return response;
 
-        // A slow provider refresh is not the same as a dead Windows service.
-        // Ping is provider-free and fast. Reuse the last complete snapshot only
-        // when the service itself is demonstrably still alive.
         if (await PingAsync(cancellationToken).ConfigureAwait(false) && _lastValidStatus is not null)
         {
             return _lastValidStatus with
@@ -93,6 +86,18 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> ReturnFanToAutoAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken);
 
+    public async Task<ServiceResponse?> SetCoolingProfileAsync(string profile, CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 1800);
+
+    public async Task<ServiceResponse?> StartFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("StartFanCharacterization", null, cancellationToken, timeoutMs: 1800);
+
+    public async Task<ServiceResponse?> MarkFanLevelAudibleAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("MarkFanLevelAudible", null, cancellationToken, timeoutMs: 1200);
+
+    public async Task<ServiceResponse?> StopFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("StopFanCharacterization", null, cancellationToken, timeoutMs: 1800);
+
     public async Task<ServiceResponse?> SetKeyboardBacklightAsync(string value, CancellationToken cancellationToken = default) =>
         await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "SetKeyboardBacklight", value), cancellationToken, timeoutMs: 1400);
 
@@ -111,6 +116,12 @@ public sealed class HardwareServiceClient
             cancellationToken,
             timeoutMs);
         stopwatch.Stop();
+
+        if (IsValidStatus(response))
+        {
+            _lastValidStatus = response;
+            try { StatusObserved?.Invoke(this, response); } catch { }
+        }
 
         try
         {
