@@ -34,7 +34,7 @@ public partial class App
 
         try
         {
-            HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(State.MachineType);
+            HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync();
             if (!status.NeedsAttention)
                 return;
 
@@ -47,8 +47,26 @@ public partial class App
         }
         catch
         {
-            // Hardware onboarding must never interfere with normal application startup.
+            State.DriverStatus = "Hardware service status unavailable";
         }
+    }
+
+    internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
+    {
+        HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(State.MachineType);
+        State.DriverStatus = DescribeHardwareSetup(status);
+        return status;
+    }
+
+    private static string DescribeHardwareSetup(HardwareSetupStatus status)
+    {
+        if (!status.ServiceInstalled)
+            return "ThinkControl hardware service not installed";
+        if (!status.ServiceRunning)
+            return "ThinkControl hardware service stopped · repair available";
+        if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
+            return "Service running · low-level hardware access needs setup";
+        return "Ready";
     }
 
     public void OpenHardwareSetup()
