@@ -1,12 +1,12 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.3` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
+ThinkControl `v0.1.0-alpha.4` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
 
 ## Release assets
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.3.exe
-ThinkControl-Payload-0.1.0-alpha.3.zip
+ThinkControl-Setup-0.1.0-alpha.4.exe
+ThinkControl-Payload-0.1.0-alpha.4.zip
 SHA256SUMS.txt
 ```
 
@@ -79,7 +79,7 @@ Inno Setup's application-closing flow handles a running ThinkControl tray proces
 
 ## Icons and shortcuts
 
-The canonical v3 application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs and the Advanced window. The notification-area icon uses the canonical v3 mark.
+The canonical v3 multi-resolution application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs, the Advanced window and the Notification Area. Alpha.4 intentionally no longer uses a different tiny tray raster because its 16 px result was visually broken.
 
 ## Size budgets
 

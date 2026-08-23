@@ -30,6 +30,12 @@ jobs:
           default_branch="main"
           declare -A candidates=()
 
+          # Known superseded/generated branches. They must be deleted, not merged:
+          # merging them would reintroduce stale or generated output into main.
+          candidates["visual-main"]=1
+          candidates["noop-temp"]=1
+          candidates["polish/windows-ui-consistency"]=1
+
           # Branches from merged PRs are safe to remove even when the PR was
           # squash-merged and their original commit SHAs are not ancestors of main.
           while IFS= read -r branch; do

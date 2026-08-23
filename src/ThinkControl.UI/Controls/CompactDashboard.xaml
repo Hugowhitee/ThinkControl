@@ -9,8 +9,14 @@
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="4"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
         </Style>
         <Style x:Key="CompactLinkRow" TargetType="Button">
-            <Setter Property="Height" Value="52" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="45" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="5" Padding="8,0"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        </Style>
+        <Style x:Key="CompactCoolingSegment" TargetType="RadioButton" BasedOn="{StaticResource TcSegment}">
+            <Setter Property="Height" Value="22" />
+            <Setter Property="Padding" Value="2,0" />
+            <Setter Property="FontSize" Value="8.5" />
+            <Setter Property="Margin" Value="1,0" />
         </Style>
     </UserControl.Resources>
 
@@ -45,8 +51,28 @@
 
             <Grid Grid.Row="2" Margin="0,0,0,9">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                <Border Style="{StaticResource TcSection}" Padding="11" Margin="0,0,5,0" Cursor="Hand" MouseLeftButtonUp="Performance_Click"><StackPanel><TextBlock Text="CPU" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" /><TextBlock Text="{Binding CpuTemperatureText}" FontSize="20" FontWeight="Light" Margin="0,3,0,0" /><TextBlock Text="{Binding SelectedModeDisplay}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" /></StackPanel></Border>
-                <Border Grid.Column="1" Style="{StaticResource TcSection}" Padding="11" Margin="5,0,0,0" Cursor="Hand" MouseLeftButtonUp="Fans_Click"><StackPanel><TextBlock Text="FANS" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" /><TextBlock Text="{Binding FanRpmText}" FontSize="18" FontWeight="Light" Margin="0,4,0,0" /><TextBlock Text="{Binding FanStateText}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" /></StackPanel></Border>
+                <Border Style="{StaticResource TcSection}" Padding="11" Margin="0,0,5,0" Cursor="Hand" MouseLeftButtonUp="Performance_Click">
+                    <StackPanel>
+                        <TextBlock Text="CPU" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
+                        <TextBlock Text="{Binding CpuTemperatureText}" FontSize="20" FontWeight="Light" Margin="0,3,0,0" />
+                        <TextBlock Text="{Binding SelectedModeDisplay}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource TcSection}" Padding="9" Margin="5,0,0,0" Cursor="Hand" MouseLeftButtonUp="Fans_Click">
+                    <Grid>
+                        <Grid.RowDefinitions><RowDefinition Height="18" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                        <Grid>
+                            <TextBlock Text="FANS" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding FanRpmText}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                        <UniformGrid x:Name="CoolingQuickGroup" Grid.Row="1" Rows="1" Columns="4" Margin="-1,6,-1,0" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsEnabled="{Binding CanFanControl}">
+                            <RadioButton x:Name="CompactFanAuto" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Auto" Tag="Lenovo Auto" Click="CoolingQuick_Click" />
+                            <RadioButton x:Name="CompactFanSilent" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Silent" Tag="Silent" Click="CoolingQuick_Click" />
+                            <RadioButton x:Name="CompactFanNormal" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Normal" Tag="Normal" Click="CoolingQuick_Click" />
+                            <RadioButton x:Name="CompactFanCool" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Cool" Tag="Cool" Click="CoolingQuick_Click" />
+                        </UniformGrid>
+                    </Grid>
+                </Border>
             </Grid>
 
             <Border Grid.Row="3" Background="{DynamicResource Tc.Border}" />

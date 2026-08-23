@@ -10,6 +10,8 @@ namespace ThinkControl.UI.Controls;
 
 public sealed class TouchpadVisualizer : FrameworkElement
 {
+    private const double PadCornerRadius = 4;
+
     private TouchpadGestureConfiguration _configuration =
         TouchpadGestureConfiguration.Default with { Enabled = false };
     private TouchpadGeometry _geometry = new(0, 13500, 0, 8000, 135, 80, true);
@@ -62,18 +64,18 @@ public sealed class TouchpadVisualizer : FrameworkElement
         Brush text = ResourceBrush("Tc.Text", Brushes.White);
 
         Rect pad = PadRect();
-        dc.DrawRoundedRectangle(surface, null, pad, 10, 10);
+        dc.DrawRoundedRectangle(surface, null, pad, PadCornerRadius, PadCornerRadius);
 
         // The recognizer accepts a contact anywhere inside EdgeWidthMm from a
         // physical edge. Render those exact full-edge bands instead of decorative
         // rounded pills, including the real overlapping corner candidate areas.
-        dc.PushClip(new RectangleGeometry(pad, 10, 10));
+        dc.PushClip(new RectangleGeometry(pad, PadCornerRadius, PadCornerRadius));
         foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>().Where(edge => edge != _selectedEdge))
             DrawEdgeBand(dc, pad, edge, accent, muted, faint);
         DrawEdgeBand(dc, pad, _selectedEdge, accent, muted, faint);
         dc.Pop();
 
-        dc.DrawRoundedRectangle(null, new Pen(border, 1), pad, 10, 10);
+        dc.DrawRoundedRectangle(null, new Pen(border, 1), pad, PadCornerRadius, PadCornerRadius);
         DrawEdgeLabels(dc, pad, accent, muted, faint);
 
         DrawLabel(dc, "START AT AN EDGE", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 8),

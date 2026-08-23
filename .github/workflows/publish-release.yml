@@ -63,12 +63,14 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git tag -a "$RELEASE_TAG" "$RELEASE_SHA" -m "ThinkControl $RELEASE_TAG"
             git push origin "$RELEASE_TAG"
-            echo "Pushed $RELEASE_TAG. The tag push will run Package ThinkControl once."
-            exit 0
+            echo "Pushed $RELEASE_TAG."
+          else
+            echo "Tag $RELEASE_TAG already exists without a public release."
           fi
 
-          # A previous tagged package run may have failed after creating the tag.
-          # In that recovery case there is no new tag push to trigger packaging, so
-          # dispatch the existing tagged workflow explicitly.
-          echo "Tag $RELEASE_TAG already exists without a public release; retrying packaging."
+          # Events created with GITHUB_TOKEN do not normally trigger another
+          # workflow automatically. Explicitly dispatch the already validated
+          # packaging workflow at the release tag so installer publication cannot
+          # stall after the tag is created.
           gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$RELEASE_TAG"
+          echo "Dispatched Package ThinkControl for $RELEASE_TAG."

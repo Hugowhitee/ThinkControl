@@ -34,6 +34,22 @@ public partial class AdvancedWindow
         "ThinkControl.Dynamic.PageAudio"
     ];
 
+    private static readonly string[] NavigationOrder =
+    [
+        "Home",
+        "Performance",
+        "Fans",
+        "Sensors",
+        "Battery",
+        "Display",
+        "Audio",
+        "Keyboard",
+        "Touchpad",
+        "System",
+        "Updates",
+        "Settings"
+    ];
+
     private void ConfigureAdvancedUiConsistency()
     {
         if (!_uiConsistencyConfigured)
@@ -74,10 +90,43 @@ public partial class AdvancedWindow
             }
         }
 
+        ApplyNavigationOrder();
         ApplySidebarPalette();
         ApplyConsistentPageRail();
         ApplyConsistentCaptionPalette();
         NeutralizeHorizontalPageMotion();
+    }
+
+    private void ApplyNavigationOrder()
+    {
+        if (NavHome.Parent is not StackPanel navStack)
+            return;
+
+        Dictionary<string, RadioButton> navByTag = navStack.Children
+            .OfType<RadioButton>()
+            .Where(button => string.Equals(button.GroupName, "Nav", StringComparison.Ordinal))
+            .Where(button => button.Tag is string)
+            .ToDictionary(button => (string)button.Tag, StringComparer.OrdinalIgnoreCase);
+
+        // The dock/compact control is a non-nav child at the top of this stack.
+        // Remove only navigation buttons, then append them in one stable task flow.
+        // This keeps dynamic Audio/Sensors/Touchpad pages from landing in different
+        // positions depending on which feature helper happened to run first.
+        foreach (RadioButton button in navByTag.Values)
+            navStack.Children.Remove(button);
+
+        foreach (string tag in NavigationOrder)
+        {
+            if (navByTag.TryGetValue(tag, out RadioButton? button))
+                navStack.Children.Add(button);
+        }
+
+        // Preserve any future tagged pages instead of hiding them accidentally.
+        foreach (RadioButton button in navByTag.Values.Where(button =>
+                     button.Tag is string tag && !NavigationOrder.Contains(tag, StringComparer.OrdinalIgnoreCase)))
+        {
+            navStack.Children.Add(button);
+        }
     }
 
     private void ApplySidebarPalette()

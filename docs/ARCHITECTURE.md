@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture used by ThinkControl `v0.1.0-alpha.3`.
+This document describes the architecture used by ThinkControl `v0.1.0-alpha.4`.
 
 ThinkControl separates the signed-in desktop application from privileged hardware access.
 
@@ -60,8 +60,8 @@ Interactive input stays in the signed-in user session. The service receives only
 
 ThinkControl has two user surfaces.
 
-- **Compact** is a fixed tray flyout for daily controls.
-- **Advanced** is a normal resizable Windows window with native caption controls, Snap Layouts and responsive content widths.
+- **Compact** is a fixed 410 × 640 tray flyout implemented only by `CompactDashboard`. The former hidden alpha XAML dashboard was removed in alpha.4 rather than compiling two compact UIs and discarding one at runtime.
+- **Advanced** is a normal resizable Windows window. Every page uses one stable left content rail at normal, minimum and wide widths; unused wide-screen space grows on the right instead of recentering each page independently.
 
 Both use the shared ThinkControl wordmark and design resources.
 
@@ -119,6 +119,12 @@ DC Performance  509
 
 This is thermal-policy coordination. It is not direct PWM or RPM control.
 
+## Cooling profiles
+
+Cooling ownership is separate from Windows power policy. Lenovo Auto returns fan ownership to firmware; Silent, Normal and Cool use the verified supervised controller only when the writable provider and control-temperature input are both valid.
+
+The Compact flyout exposes those same four semantic profiles as a quick Fan noise control. It does not introduce a second cooling implementation.
+
 ## Keyboard control
 
 The privileged keyboard path probes known Lenovo contracts before writing. Recognized states are read back after a change.
@@ -132,6 +138,8 @@ Precision Touchpad Raw HID input is handled in `ThinkControl.UI` because it belo
 The pure recognizer lives in Core and is replay-tested without WPF or hardware dependencies. Windows-specific HID parsing, cursor capture, media actions and haptic settings stay in the UI platform layer.
 
 The default gesture preset is left Volume, right Brightness and top relative Media Seek. A second contact cancels an edge gesture. Precision Touchpad Confidence is used when the device reports it.
+
+The Touchpad visual renders the recognizer's real full edge-width bands rather than decorative pseudo-buttons. Haptic capability discovery combines Windows touchpad parameters with generic HID evidence and probes already connected Precision Touchpads before the first physical touch.
 
 ## Installation
 
@@ -155,15 +163,23 @@ Packaging CI enforces size budgets for the bootstrapper, compressed payload and 
 
 ## Branding
 
-`assets/brand/v3` is the canonical branding source. Packaging CI verifies the production app icon, tray icon and wordmark alignment against those assets.
+`assets/brand/v3` is the canonical branding source. Alpha.4 uses one proven multi-resolution Windows icon across the executable/taskbar, installer shortcuts and Notification Area; the tray compatibility asset is byte-identical to that canonical icon.
 
-The special C geometry is shared across the product. The `ontrol` suffix uses the approved optical spacing in both the SVG and WPF wordmark.
+Packaging CI verifies the production icon mappings and wordmark alignment against the canonical assets. The special C geometry is shared across the product and the `ontrol` suffix uses the approved optical spacing in both the SVG and WPF wordmark.
+
+## Visual QA
+
+The real WPF interface is rendered in CI. Compact is rendered at its actual 410 × 640 runtime size; every Advanced page is rendered at 1160 × 760, 980 × 650 and 1720 × 980.
+
+Generated screenshots live only in Actions artifacts. Alpha.4 removes the former generated `visual-main` source branch so repository branches contain source, not rendered output.
 
 ## Release publication
 
 `version.json` is the release version source.
 
-A release-ready change is merged to `main`, normal CI validates that exact commit, and `publish-release.yml` creates or resumes the matching version tag only after CI succeeds. The tagged `release.yml` workflow builds and publishes:
+A release-ready change is merged to `main`, normal CI validates that exact commit, and `publish-release.yml` creates or resumes the matching version tag only after CI succeeds. Because `GITHUB_TOKEN` tag pushes do not automatically start another workflow, the publisher explicitly dispatches the tagged `release.yml` packaging workflow.
+
+The tagged packaging run builds and publishes:
 
 ```text
 ThinkControl-Setup-<version>.exe
@@ -175,7 +191,7 @@ GitHub Releases and those published assets are the release source of truth. Rele
 
 ## Branch hygiene
 
-Merged feature branches are deleted automatically. The hygiene workflow also removes abandoned branches that contain no commits not already present in `main`.
+Merged feature/release branches are deleted automatically. The hygiene workflow also removes fully-contained abandoned branches and known superseded/generated branches that must not be merged back into `main`.
 
 Tags are not branches and are retained as immutable release references.
 

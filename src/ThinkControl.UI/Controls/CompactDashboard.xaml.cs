@@ -1,12 +1,15 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
 
 public partial class CompactDashboard : UserControl
 {
     private App? _app;
+    private bool _syncingCooling;
 
     public CompactDashboard()
     {
@@ -15,8 +18,67 @@ public partial class CompactDashboard : UserControl
 
     internal void Initialize(App app)
     {
-        _app = app;
+        if (!ReferenceEquals(_app, app))
+        {
+            if (_app is not null)
+                _app.State.PropertyChanged -= State_PropertyChanged;
+            _app = app;
+            app.State.PropertyChanged += State_PropertyChanged;
+        }
+
         EnsureAudioRow();
+        SyncCoolingProfile();
+    }
+
+    private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AppState.FanStateText) or nameof(AppState.CanFanControl))
+            Dispatcher.BeginInvoke(SyncCoolingProfile);
+    }
+
+    private void SyncCoolingProfile()
+    {
+        if (_app is null)
+            return;
+
+        string profile = _app.State.FanStateText
+            .Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault() ?? "Lenovo Auto";
+        if (profile is not ("Silent" or "Normal" or "Cool"))
+            profile = "Lenovo Auto";
+
+        _syncingCooling = true;
+        try
+        {
+            CompactFanAuto.IsChecked = profile == "Lenovo Auto";
+            CompactFanSilent.IsChecked = profile == "Silent";
+            CompactFanNormal.IsChecked = profile == "Normal";
+            CompactFanCool.IsChecked = profile == "Cool";
+        }
+        finally
+        {
+            _syncingCooling = false;
+        }
+    }
+
+    private async void CoolingQuick_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncingCooling || _app is null || sender is not FrameworkElement { Tag: string profile })
+            return;
+
+        // Temporarily prevent double-clicks without replacing the CanFanControl
+        // binding that owns this group's normal availability.
+        CoolingQuickGroup.SetCurrentValue(IsEnabledProperty, false);
+        try
+        {
+            await _app.SetCoolingProfileAsync(profile);
+            await _app.RefreshStatusAsync();
+        }
+        finally
+        {
+            CoolingQuickGroup.SetCurrentValue(IsEnabledProperty, _app.State.CanFanControl);
+            SyncCoolingProfile();
+        }
     }
 
     private void Expand_Click(object sender, RoutedEventArgs e) => _app?.OpenAdvanced("Home");

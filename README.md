@@ -20,29 +20,9 @@
 
 ## Current prerelease
 
-ThinkControl `v0.1.0-alpha.3` is the current prerelease. The ThinkPad X9-15 Gen 1 machine types `21Q6` and `21Q7` are the verified low-level reference profile. Other Lenovo devices use capability detection and remain beta until their exact hardware providers have been validated on physical hardware.
+ThinkControl `v0.1.0-alpha.4` is the current prerelease. The ThinkPad X9-15 Gen 1 machine types `21Q6` and `21Q7` are the verified low-level reference profile. Other Lenovo devices use capability detection and remain beta until their exact hardware providers have been validated on physical hardware.
 
 ThinkControl is a Windows 11 x64 application targeting .NET 10. Windows 10, Windows on ARM, Linux and macOS are not supported by the current release.
-
-## Preview
-
-These are real WPF renders produced by ThinkControl's visual-QA pipeline. The `visual-main` branch is refreshed automatically after UI changes reach `main`, so the README does not depend on manually copied screenshots.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/compact-dark.png" alt="ThinkControl compact tray interface" width="330">
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/advanced-fans-wide.png" alt="ThinkControl cooling and fan page" width="820">
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/advanced-sensors-wide.png" alt="ThinkControl sensors page" width="820">
-</p>
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/Hugowhitee/ThinkControl/visual-main/advanced-touchpad-wide.png" alt="ThinkControl touchpad gestures page" width="820">
-</p>
 
 ## Features
 
@@ -66,9 +46,9 @@ ThinkControl does not substitute guessed fan percentages, noise values, fake wat
 
 ThinkControl uses two surfaces.
 
-**Compact** is a fixed tray flyout for daily status and navigation. It stays anchored near the notification area and surfaces battery/charging information, CPU/fan state and concise links without becoming another crowded control panel.
+**Compact** is a fixed 410 × 640 tray flyout for daily status and navigation. It stays anchored near the notification area and surfaces battery/charging information, CPU/fan state, quick **Auto / Silent / Normal / Cool** fan-noise profiles and concise links without becoming another crowded control panel.
 
-**Advanced** is a resizable application window for detailed pages. Its content adapts to normal, minimum and maximized window sizes while keeping controls at readable widths. Navigation and page changes use short motion when Windows animations are enabled.
+**Advanced** is a resizable application window for detailed pages. Every page uses the same left content rail at normal, minimum and wide window sizes. Navigation is ordered by task flow: Home, Performance, Fans, Sensors, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings.
 
 The app, installer and repository use the canonical ThinkControl v3 assets under [`assets/brand/v3`](assets/brand/v3). The custom C geometry is shared across the product and the `ontrol` suffix uses the approved optical spacing in both the SVG and WPF wordmark.
 
@@ -182,13 +162,13 @@ Battery history stays local in `%LocalAppData%\ThinkControl`. Retention is bound
 Download the small installer from [Releases](https://github.com/Hugowhitee/ThinkControl/releases):
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.3.exe
+ThinkControl-Setup-0.1.0-alpha.4.exe
 ```
 
 The installer is a web bootstrapper. It downloads the matching release payload:
 
 ```text
-ThinkControl-Payload-0.1.0-alpha.3.zip
+ThinkControl-Payload-0.1.0-alpha.4.zip
 ```
 
 The payload SHA-256 is compiled into the installer and verified before extraction. Setup checks for the x64 .NET 10 Desktop Runtime, installs the ThinkControl UI and service under Program Files, registers `ThinkControlService`, creates shortcuts and can launch ThinkControl after completion.
@@ -211,7 +191,7 @@ dotnet build ThinkControl.slnx -c Release
 .\tools\visual-qa.ps1
 ```
 
-The visual-QA command renders Compact plus all important Advanced pages in deterministic dark/light and normal/minimum/wide states and opens a local gallery. CI uploads the same gallery for pull requests; after changes land on `main`, the `visual-main` branch is refreshed for the inline README previews above.
+The visual-QA command renders the real 410 × 640 Compact flyout plus every Advanced page in deterministic normal/minimum/wide states. Pull-request CI uploads the gallery as a `ThinkControl-Visual-QA` artifact. Generated screenshots are not maintained on a separate repository branch.
 
 A green CI run cannot prove physical Lenovo hardware behavior. RPM, EC fan control, keyboard providers, Precision Touchpad reports, Dolby UI state and haptics still require testing on the real target device.
 
