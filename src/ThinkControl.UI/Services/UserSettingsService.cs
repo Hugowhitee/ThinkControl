@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using ThinkControl.Core.Diagnostics;
 
 namespace ThinkControl.UI.Services;
 
@@ -9,7 +10,8 @@ public sealed record ThinkControlUserSettings(
     string KeyboardMode = "Auto",
     string KeyboardBaseLevel = "High",
     string KeyboardStaticLevel = "High",
-    double KeyboardEffectSpeed = 1.0);
+    double KeyboardEffectSpeed = 1.0,
+    DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Unknown);
 
 public sealed class UserSettingsService
 {
@@ -96,12 +98,17 @@ public sealed class UserSettingsService
             _ => "High"
         };
         double speed = Math.Clamp(settings.KeyboardEffectSpeed, 0.5, 2.0);
+        DiagnosticsConsent consent = Enum.IsDefined(settings.DiagnosticsConsent)
+            ? settings.DiagnosticsConsent
+            : DiagnosticsConsent.Unknown;
+
         return settings with
         {
             KeyboardMode = mode,
             KeyboardBaseLevel = baseLevel,
             KeyboardStaticLevel = staticLevel,
-            KeyboardEffectSpeed = speed
+            KeyboardEffectSpeed = speed,
+            DiagnosticsConsent = consent
         };
     }
 }
