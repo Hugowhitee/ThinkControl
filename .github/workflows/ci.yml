@@ -13,10 +13,44 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
+
       - name: Restore
         run: dotnet restore ThinkControl.slnx
+
       - name: Build
         run: dotnet build ThinkControl.slnx --configuration Release --no-restore
+
+      - name: Render WPF UI snapshots
+        shell: pwsh
+        run: |
+          $output = Join-Path $PWD "artifacts\snapshots"
+          dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj `
+            --configuration Release `
+            --no-build `
+            -- $output
+          if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
+
+          $expected = @(
+            'compact-dark.png',
+            'compact-light.png',
+            'advanced-home.png',
+            'advanced-fans.png',
+            'advanced-keyboard.png',
+            'advanced-battery.png'
+          )
+          foreach ($name in $expected) {
+            $path = Join-Path $output $name
+            if (-not (Test-Path $path)) { throw "Missing UI snapshot: $name" }
+            if ((Get-Item $path).Length -lt 5000) { throw "UI snapshot is unexpectedly small: $name" }
+          }
+
+      - name: Upload UI snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: ThinkControl-UI-Snapshots
+          path: artifacts/snapshots/*.png
+          if-no-files-found: error
