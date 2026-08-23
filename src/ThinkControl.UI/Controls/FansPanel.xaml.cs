@@ -15,25 +15,18 @@ public partial class FansPanel : UserControl
     {
         InitializeComponent();
         CalibrationResults.ItemsSource = _calibrationRows;
-        Unloaded += (_, _) => Detach();
     }
 
     internal void Initialize(App app)
     {
         if (ReferenceEquals(_app, app))
             return;
-        Detach();
+        if (_app is not null)
+            _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
         _app = app;
         DataContext = app.State;
         app.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
         _ = app.RefreshStatusAsync();
-    }
-
-    private void Detach()
-    {
-        if (_app is not null)
-            _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
-        _app = null;
     }
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
