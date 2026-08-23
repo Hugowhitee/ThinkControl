@@ -124,7 +124,7 @@ internal static class Program
             KeyboardBaseLevel = "Low",
             KeyboardEffectSpeed = 1.0,
             SelectedMode = "Balanced",
-            UpdateStatus = "Up to date · v0.1.0-alpha.3",
+            UpdateStatus = "Up to date · v0.1.0-alpha.4",
             CanFanControl = hardwareReady,
             CanFanTelemetry = hardwareReady,
             CanKeyboardBacklight = hardwareReady,
@@ -174,7 +174,6 @@ internal static class Program
         const int width = 410;
         const int height = 640;
         var window = new MainWindow(app) { DataContext = state, Width = width, Height = height };
-        window.PrepareBrandingForSnapshot();
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, "Compact", stateName, width, height));
         window.ForceClose();
