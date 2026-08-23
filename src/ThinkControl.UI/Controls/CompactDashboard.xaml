@@ -67,12 +67,14 @@
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <controls:BrandWordmark Width="138" Height="34" HorizontalAlignment="Left" />
-                    <TextBlock Text="{Binding DeviceName}" Margin="2,-2,0,0" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" />
+                    <!-- 455:144 source aspect ratio keeps the visible wordmark flush-left
+                         instead of centering it inside an unnecessarily wide Viewbox. -->
+                    <controls:BrandWordmark Width="108" Height="34" HorizontalAlignment="Left" />
+                    <TextBlock Text="{Binding DeviceName}" Margin="2,-2,0,0" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <Button Style="{StaticResource CompactCaptionButton}" Click="Expand_Click" ToolTip="Open full ThinkControl">
-                        <Viewbox Width="13" Height="13"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,14 L14,2 M8,2 L14,2 L14,8" /></Viewbox>
+                    <Button Style="{StaticResource CompactCaptionButton}" Click="Expand_Click" ToolTip="Open full window">
+                        <Viewbox Width="13" Height="13"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,13 L13,3 M7,3 L13,3 L13,9" /></Viewbox>
                     </Button>
                     <Button Style="{StaticResource CompactCaptionButton}" Click="Hide_Click" ToolTip="Hide to tray">
                         <Viewbox Width="12" Height="12"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,2 L14,14 M14,2 L2,14" /></Viewbox>
@@ -88,10 +90,10 @@
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock Text="{Binding BatteryPercentText}" FontSize="24" FontWeight="Light" />
-                            <TextBlock Text="  Battery" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
+                            <TextBlock Text="  Battery" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
                         </StackPanel>
-                        <TextBlock Text="{Binding BatteryStatus}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,1,0,0" />
-                        <TextBlock Text="{Binding BatteryCompactLine}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding BatteryStatus}" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,1,0,0" />
+                        <TextBlock Text="{Binding BatteryCompactLine}" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <TextBlock Grid.Column="2" Text="›" FontSize="20" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
@@ -101,16 +103,16 @@
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                 <Border Style="{StaticResource TcSection}" Padding="11" Margin="0,0,5,0" Cursor="Hand" MouseLeftButtonUp="Performance_Click">
                     <StackPanel>
-                        <TextBlock Text="CPU" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
+                        <TextBlock Text="CPU" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
                         <TextBlock Text="{Binding CpuTemperatureText}" FontSize="20" FontWeight="Light" Margin="0,3,0,0" />
-                        <TextBlock Text="{Binding SelectedMode}" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding SelectedMode}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Border>
                 <Border Grid.Column="1" Style="{StaticResource TcSection}" Padding="11" Margin="5,0,0,0" Cursor="Hand" MouseLeftButtonUp="Fans_Click">
                     <StackPanel>
-                        <TextBlock Text="FANS" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
+                        <TextBlock Text="FANS" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
                         <TextBlock Text="{Binding FanRpmText}" FontSize="18" FontWeight="Light" Margin="0,4,0,0" />
-                        <TextBlock Text="{Binding FanStateText}" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding FanStateText}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Border>
             </Grid>
@@ -122,8 +124,8 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions>
                         <controls:PackIconLucide Kind="Gauge" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="Performance" FontSize="11" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="{Binding SelectedMode}" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="Performance" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding SelectedMode}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
                 </Button>
@@ -131,11 +133,11 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions>
                         <controls:PackIconLucide Kind="Monitor" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="Display" FontSize="11" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="Display" FontSize="12" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding CurrentRefreshText}" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
-                            <TextBlock Text=" · " FontSize="10" Foreground="{DynamicResource Tc.TextFaint}" />
-                            <TextBlock Text="{Binding BrightnessText}" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
+                            <TextBlock Text="{Binding CurrentRefreshText}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" />
+                            <TextBlock Text=" · " FontSize="11" Foreground="{DynamicResource Tc.TextFaint}" />
+                            <TextBlock Text="{Binding BrightnessText}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" />
                         </StackPanel>
                         <TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
@@ -144,8 +146,8 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions>
                         <controls:PackIconLucide Kind="Keyboard" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="Keyboard" FontSize="11" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="{Binding KeyboardModeText}" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="Keyboard" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding KeyboardModeText}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
                 </Button>
@@ -153,16 +155,16 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions>
                         <controls:PackIconLucide Kind="Laptop" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="System" FontSize="11" VerticalAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="{Binding HardwareAccess}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="1" Text="System" FontSize="12" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="{Binding HardwareAccess}" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         <TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                     </Grid>
                 </Button>
             </StackPanel>
 
             <Grid Grid.Row="5" Margin="4,4,4,0">
-                <TextBlock Text="{Binding AppVersion}" FontSize="8.5" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
-                <Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="9.5" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" Cursor="Hand" />
+                <TextBlock Text="{Binding AppVersion}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
+                <Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" Cursor="Hand" />
             </Grid>
         </Grid>
     </Border>
