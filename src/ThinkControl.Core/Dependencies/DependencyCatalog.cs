@@ -49,5 +49,5 @@ public static class DependencyCatalog
 
     public static DependencyDefinition Get(DependencyId id) => Definitions[id];
 
-    public static IReadOnlyCollection<DependencyDefinition> All => Definitions.Values;
+    public static IReadOnlyCollection<DependencyDefinition> All => Definitions.Values.ToArray();
 }
