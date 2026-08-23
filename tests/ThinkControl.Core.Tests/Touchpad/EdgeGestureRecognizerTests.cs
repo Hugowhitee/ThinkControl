@@ -1,4 +1,5 @@
 using ThinkControl.Core.Touchpad;
+using Xunit;
 
 namespace ThinkControl.Core.Tests.Touchpad;
 
@@ -14,9 +15,7 @@ public sealed class EdgeGestureRecognizerTests
     public void ContactAwayFromEdge_DoesNotStartGesture()
     {
         var recognizer = Create();
-
         GestureSignal? signal = recognizer.ProcessFrame([Contact(1, 6750, 4000)], X9Geometry);
-
         Assert.Null(signal);
         Assert.False(recognizer.HasCandidateOrActiveGesture);
     }
@@ -25,10 +24,8 @@ public sealed class EdgeGestureRecognizerTests
     public void RightEdgeVerticalMovement_ClaimsBrightness()
     {
         var recognizer = Create();
-
         GestureSignal? candidate = recognizer.ProcessFrame([Contact(1, 13300, 5000)], X9Geometry);
         GestureSignal? claimed = recognizer.ProcessFrame([Contact(1, 13300, 4700)]);
-
         Assert.Equal(GesturePhase.Candidate, candidate?.Phase);
         Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
         Assert.Equal(TouchpadEdge.Right, claimed?.Edge);
@@ -41,9 +38,7 @@ public sealed class EdgeGestureRecognizerTests
     {
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 13300, 5000)], X9Geometry);
-
         GestureSignal? cancelled = recognizer.ProcessFrame([Contact(1, 12900, 5000)]);
-
         Assert.Equal(GesturePhase.Cancelled, cancelled?.Phase);
         Assert.Equal("Wrong direction", cancelled?.Reason);
         Assert.False(recognizer.HasCandidateOrActiveGesture);
@@ -54,9 +49,7 @@ public sealed class EdgeGestureRecognizerTests
     {
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 6500, 150)], X9Geometry);
-
         GestureSignal? claimed = recognizer.ProcessFrame([Contact(1, 6850, 150)]);
-
         Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
         Assert.Equal(TouchpadEdge.Top, claimed?.Edge);
         Assert.Equal(GestureActionKind.MediaSeek, claimed?.Action);
@@ -67,9 +60,7 @@ public sealed class EdgeGestureRecognizerTests
     {
         var recognizer = Create();
         GestureSignal? candidate = recognizer.ProcessFrame([Contact(1, 13300, 150)], X9Geometry);
-
         GestureSignal? claimed = recognizer.ProcessFrame([Contact(1, 12950, 150)]);
-
         Assert.Equal(GesturePhase.Candidate, candidate?.Phase);
         Assert.Null(candidate?.Edge);
         Assert.Equal(TouchpadEdge.Top, claimed?.Edge);
@@ -81,9 +72,7 @@ public sealed class EdgeGestureRecognizerTests
     {
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 13300, 150)], X9Geometry);
-
         GestureSignal? claimed = recognizer.ProcessFrame([Contact(1, 13300, 450)]);
-
         Assert.Equal(TouchpadEdge.Right, claimed?.Edge);
         Assert.Equal(GestureActionKind.Brightness, claimed?.Action);
     }
@@ -94,14 +83,12 @@ public sealed class EdgeGestureRecognizerTests
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 13300, 5000)], X9Geometry);
         recognizer.ProcessFrame([Contact(1, 13300, 4700)]);
-
         GestureSignal? cancelled = recognizer.ProcessFrame([
             Contact(1, 13300, 4600),
             Contact(2, 7000, 4000)]);
         GestureSignal? whileLocked = recognizer.ProcessFrame([Contact(1, 13300, 4500)]);
         recognizer.ProcessFrame([]);
         GestureSignal? afterLift = recognizer.ProcessFrame([Contact(3, 13300, 5000)]);
-
         Assert.Equal(GesturePhase.Cancelled, cancelled?.Phase);
         Assert.Equal("Second finger detected", cancelled?.Reason);
         Assert.Null(whileLocked);
@@ -112,11 +99,9 @@ public sealed class EdgeGestureRecognizerTests
     public void LowConfidenceContact_NeverStartsGesture()
     {
         var recognizer = Create();
-
         GestureSignal? signal = recognizer.ProcessFrame([
             Contact(1, 13300, 5000) with { Confidence = false }
         ], X9Geometry);
-
         Assert.Null(signal);
         Assert.False(recognizer.HasCandidateOrActiveGesture);
     }
@@ -127,11 +112,9 @@ public sealed class EdgeGestureRecognizerTests
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 13300, 5000)], X9Geometry);
         recognizer.ProcessFrame([Contact(1, 13300, 4700)]);
-
         GestureSignal? cancelled = recognizer.ProcessFrame([
             Contact(1, 13300, 4500) with { Confidence = false }
         ]);
-
         Assert.Equal(GesturePhase.Cancelled, cancelled?.Phase);
         Assert.Equal("Low-confidence contact", cancelled?.Reason);
     }
@@ -142,9 +125,7 @@ public sealed class EdgeGestureRecognizerTests
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 13300, 5000)], X9Geometry);
         recognizer.ProcessFrame([Contact(1, 13300, 4700)]);
-
         GestureSignal? cancelled = recognizer.ProcessFrame([Contact(1, 11500, 4400)]);
-
         Assert.Equal(GesturePhase.Cancelled, cancelled?.Phase);
         Assert.Equal("Gesture left edge tolerance", cancelled?.Reason);
     }
@@ -155,9 +136,7 @@ public sealed class EdgeGestureRecognizerTests
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 13300, 5000)], X9Geometry);
         recognizer.ProcessFrame([Contact(1, 13300, 4700)]);
-
         GestureSignal? released = recognizer.ProcessFrame([]);
-
         Assert.Equal(GesturePhase.Released, released?.Phase);
         Assert.Equal(TouchpadEdge.Right, released?.Edge);
         Assert.Equal(GestureActionKind.Brightness, released?.Action);
@@ -165,14 +144,12 @@ public sealed class EdgeGestureRecognizerTests
     }
 
     [Fact]
-    public void DisabledConfiguration_CancelsExistingCandidate()
+    public void DisabledConfiguration_DropsExistingCandidate()
     {
         var recognizer = Create();
         recognizer.ProcessFrame([Contact(1, 13300, 5000)], X9Geometry);
         recognizer.SetConfiguration(TouchpadGestureConfiguration.Default with { Enabled = false });
-
         GestureSignal? signal = recognizer.ProcessFrame([Contact(1, 13300, 4700)]);
-
         Assert.Null(signal);
         Assert.False(recognizer.HasCandidateOrActiveGesture);
     }
