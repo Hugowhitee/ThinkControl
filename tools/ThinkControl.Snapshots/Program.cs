@@ -25,12 +25,16 @@ internal static class Program
         ThemeService.Apply(ThemeMode.Dark);
         RenderCompact(app, state, Path.Combine(output, "compact-dark.png"));
         RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home.png"));
+        RenderAdvanced(app, state, "Performance", Path.Combine(output, "advanced-performance.png"));
         RenderAdvanced(app, state, "Fans", Path.Combine(output, "advanced-fans.png"));
+        RenderAdvanced(app, state, "Display", Path.Combine(output, "advanced-display.png"));
         RenderAdvanced(app, state, "Keyboard", Path.Combine(output, "advanced-keyboard.png"));
         RenderAdvanced(app, state, "Battery", Path.Combine(output, "advanced-battery.png"));
+        RenderAdvanced(app, state, "Settings", Path.Combine(output, "advanced-settings.png"));
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, state, Path.Combine(output, "compact-light.png"));
+        RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home-light.png"));
 
         Console.WriteLine($"Rendered ThinkControl snapshots to {output}");
         return 0;
@@ -60,7 +64,7 @@ internal static class Program
             CurrentRefreshHz = 120,
             MaxRefreshHz = 120,
             RefreshAutoEnabled = true,
-            HardwareAccess = "Full · verified X9 profile · EC + Lenovo keyboard",
+            HardwareAccess = "Verified · X9 profile · EC + Lenovo keyboard",
             CpuName = "Intel Core Ultra 7 258V",
             GpuName = "Intel Arc 140V",
             RamText = "32 GB",
@@ -93,7 +97,7 @@ internal static class Program
         {
             DataContext = state,
             Width = 410,
-            Height = 780
+            Height = 640
         };
         RenderWindowContent(window, path);
         window.ForceClose();
