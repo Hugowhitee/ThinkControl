@@ -15,6 +15,8 @@ public partial class MainWindow
         ConfigureCompactBranding();
     }
 
+    public void PrepareBrandingForSnapshot() => ConfigureCompactBranding();
+
     private void ConfigureCompactBranding()
     {
         if (_compactBrandingConfigured)
