@@ -20,8 +20,29 @@ public sealed class HardwareServiceClient
 
     public event EventHandler<HardwareOperationResult>? HardwareOperationCompleted;
 
-    public async Task<ServiceResponse?> GetStatusAsync(CancellationToken cancellationToken = default) =>
-        await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "GetStatus"), cancellationToken);
+    public async Task<ServiceResponse?> GetStatusAsync(CancellationToken cancellationToken = default)
+    {
+        // A cold status read can include Windows telemetry, Lenovo WMI, keyboard
+        // probing and optional EC initialization. Alpha.2 treated anything slower
+        // than 450 ms as a dead service, which could blank every hardware feature
+        // even while the service was healthy. Give discovery a realistic window and
+        // retry once after a short yield; interactive write commands remain strict.
+        ServiceRequest request = new(ThinkControlProtocol.Version, "GetStatus");
+        ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 2200);
+        if (response is not null || cancellationToken.IsCancellationRequested)
+            return response;
+
+        try
+        {
+            await Task.Delay(140, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return null;
+        }
+
+        return await SendAsync(request, cancellationToken, timeoutMs: 1600);
+    }
 
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken);
@@ -30,7 +51,7 @@ public sealed class HardwareServiceClient
         await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken);
 
     public async Task<ServiceResponse?> SetKeyboardBacklightAsync(string value, CancellationToken cancellationToken = default) =>
-        await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "SetKeyboardBacklight", value), cancellationToken);
+        await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "SetKeyboardBacklight", value), cancellationToken, timeoutMs: 1400);
 
     public async Task<ServiceResponse?> SetThermalModeAsync(string value, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 3200);
@@ -39,7 +60,7 @@ public sealed class HardwareServiceClient
         string operation,
         string? value,
         CancellationToken cancellationToken,
-        int timeoutMs = 450)
+        int timeoutMs = 650)
     {
         var stopwatch = Stopwatch.StartNew();
         ServiceResponse? response = await SendAsync(
