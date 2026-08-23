@@ -47,13 +47,13 @@ public partial class CompactDashboard
         icon.Child = iconCanvas;
         grid.Children.Add(icon);
 
-        var label = new TextBlock { Text = "Audio", FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+        var label = new TextBlock { Text = "Audio", FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
         Grid.SetColumn(label, 1);
         grid.Children.Add(label);
 
         var value = new TextBlock
         {
-            FontSize = 10,
+            FontSize = 11,
             Foreground = TryFindResource("Tc.TextMuted") as Brush,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
@@ -75,16 +75,16 @@ public partial class CompactDashboard
         grid.Children.Add(arrow);
 
         button.Content = grid;
-        int systemIndex = -1;
+        int keyboardIndex = -1;
         for (int i = 0; i < links.Children.Count; i++)
         {
-            if (links.Children[i] is WpfButton existing && existing.Tag?.ToString() == "System")
+            if (links.Children[i] is WpfButton existing && existing.Tag?.ToString() == "Keyboard")
             {
-                systemIndex = i;
+                keyboardIndex = i;
                 break;
             }
         }
-        links.Children.Insert(systemIndex >= 0 ? systemIndex : links.Children.Count, button);
+        links.Children.Insert(keyboardIndex >= 0 ? keyboardIndex : links.Children.Count, button);
         _audioRowAdded = true;
     }
 }
