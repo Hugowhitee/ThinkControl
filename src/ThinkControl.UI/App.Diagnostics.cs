@@ -11,6 +11,7 @@ public partial class App
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
         Startup += OnBootstrapStartup;
         Activated += OnTouchpadApplicationActivated;
+        Activated += OnHardwareSetupActivated;
         Exit += OnTouchpadApplicationExit;
     }
 
