@@ -7,7 +7,7 @@ internal sealed class GestureActionRouter
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
     private readonly Func<int> _getBrightness;
-    private readonly Func<int, bool> _setBrightness;
+    private readonly Action<int> _queueBrightness;
     private readonly Func<int, Task> _stepKeyboard;
     private readonly Func<int, bool> _stepPerformance;
 
@@ -19,14 +19,14 @@ internal sealed class GestureActionRouter
         NativeInputService nativeInput,
         MediaSessionService media,
         Func<int> getBrightness,
-        Func<int, bool> setBrightness,
+        Action<int> queueBrightness,
         Func<int, Task> stepKeyboard,
         Func<int, bool> stepPerformance)
     {
         _nativeInput = nativeInput;
         _media = media;
         _getBrightness = getBrightness;
-        _setBrightness = setBrightness;
+        _queueBrightness = queueBrightness;
         _stepKeyboard = stepKeyboard;
         _stepPerformance = stepPerformance;
     }
@@ -110,21 +110,13 @@ internal sealed class GestureActionRouter
             _brightnessAtStart + (int)Math.Round(ToPositiveControlDelta(signal, travelMm) * 1.25),
             0,
             100);
-        _setBrightness(target);
+        _queueBrightness(target);
     }
 
-    private static double ToPositiveControlDelta(GestureSignal signal, double value)
-    {
-        // For vertical edges, upward movement has negative Y but should mean
-        // "increase". On horizontal edges, moving right should mean increase.
-        return signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -value : value;
-    }
+    private static double ToPositiveControlDelta(GestureSignal signal, double value) =>
+        signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -value : value;
 
-    private void ApplyStepped(
-        double deltaMm,
-        double millimetresPerStep,
-        Func<bool> increase,
-        Func<bool> decrease)
+    private void ApplyStepped(double deltaMm, double millimetresPerStep, Func<bool> increase, Func<bool> decrease)
     {
         _stepAccumulator += deltaMm;
         while (Math.Abs(_stepAccumulator) >= millimetresPerStep)

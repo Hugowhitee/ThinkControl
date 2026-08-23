@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using ThinkControl.Core.Diagnostics;
+using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Services;
 
@@ -11,7 +12,8 @@ public sealed record ThinkControlUserSettings(
     string KeyboardBaseLevel = "High",
     string KeyboardStaticLevel = "High",
     double KeyboardEffectSpeed = 1.0,
-    DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Unknown);
+    DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Unknown,
+    TouchpadGestureConfiguration? TouchpadGestures = null);
 
 public sealed class UserSettingsService
 {
@@ -52,7 +54,7 @@ public sealed class UserSettingsService
         try
         {
             if (!File.Exists(_path))
-                return new ThinkControlUserSettings();
+                return Sanitize(new ThinkControlUserSettings());
 
             string json = File.ReadAllText(_path);
             ThinkControlUserSettings? settings = JsonSerializer.Deserialize<ThinkControlUserSettings>(json, JsonOptions);
@@ -60,7 +62,7 @@ public sealed class UserSettingsService
         }
         catch
         {
-            return new ThinkControlUserSettings();
+            return Sanitize(new ThinkControlUserSettings());
         }
     }
 
@@ -101,6 +103,8 @@ public sealed class UserSettingsService
         DiagnosticsConsent consent = Enum.IsDefined(settings.DiagnosticsConsent)
             ? settings.DiagnosticsConsent
             : DiagnosticsConsent.Unknown;
+        TouchpadGestureConfiguration touchpad = (settings.TouchpadGestures ??
+            (TouchpadGestureConfiguration.Default with { Enabled = false })).Sanitize();
 
         return settings with
         {
@@ -108,7 +112,8 @@ public sealed class UserSettingsService
             KeyboardBaseLevel = baseLevel,
             KeyboardStaticLevel = staticLevel,
             KeyboardEffectSpeed = speed,
-            DiagnosticsConsent = consent
+            DiagnosticsConsent = consent,
+            TouchpadGestures = touchpad
         };
     }
 }
