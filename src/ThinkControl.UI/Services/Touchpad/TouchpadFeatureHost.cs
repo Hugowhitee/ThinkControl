@@ -48,7 +48,10 @@ internal sealed class TouchpadFeatureHost : IDisposable
     internal TouchpadGestureConfiguration Configuration => _gestures.Configuration;
     internal TouchpadGeometry? Geometry => _gestures.Geometry;
     internal bool IsInputRunning => _gestures.IsRunning;
-    internal TouchpadHapticStatus HapticStatus => _haptics.Read();
+    internal TouchpadHapticStatus HapticStatus => _haptics.Read(
+        hidTouchpadPresent: _gestures.Geometry is not null,
+        hidFeedbackSupported: _gestures.HapticFeedbackSupported,
+        hidClickForceSupported: _gestures.ClickForceSupported);
 
     internal bool EnsureInputStarted() => !_disposed && _gestures.Start();
 
