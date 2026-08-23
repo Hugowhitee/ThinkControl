@@ -7,6 +7,7 @@ public partial class AdvancedWindow
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
+        ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         ConfigureBatteryPage();
         DiagnosticsPanelControl?.Refresh();
@@ -14,11 +15,13 @@ public partial class AdvancedWindow
 
     public void PrepareEnhancedUiForSnapshot()
     {
+        ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
     }
 
     public void NavigateTouchpad()
     {
+        ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
