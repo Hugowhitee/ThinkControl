@@ -24,7 +24,7 @@ public partial class SensorsPanel : UserControl
 
     private void SensorsPanel_Loaded(object sender, RoutedEventArgs e)
     {
-        if (_app is null && Application.Current is App app)
+        if (_app is null && System.Windows.Application.Current is App app)
         {
             _app = app;
             _app.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
