@@ -1,0 +1,7 @@
+{
+  "source": "ThinkControl_TC_Exact_Asset_Pack_v3",
+  "geometryPolicy": "exact-traced-master",
+  "markViewBox": "0 0 1536 1536",
+  "brandRed": "#D50D10",
+  "notes": "Do not redraw or simplify the approved C and TrackPoint dot geometry."
+}
