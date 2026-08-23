@@ -1,123 +1,180 @@
 # Device support
 
-> **Applies to ThinkControl `v0.1.0-alpha.1`.** This page describes what the current executable actually does. Future compatibility ideas live in the roadmap, not in the support table.
+> [!IMPORTANT]
+> This page applies to **ThinkControl `v0.1.0-alpha.1`** and describes the current compatibility model. A family being listed as **Beta / Untested** means ThinkControl knows safe provider candidates for that family; it does not mean every control is guaranteed to work on every model.
 
-ThinkControl keeps the same main product areas visible across Windows laptops, but hardware-specific controls are only enabled when the current build has a backend that is safe to use on that device.
+ThinkControl keeps the same main product areas visible across supported Windows laptops. Individual hardware controls activate from **capability detection**, not from an assumption that all Lenovo devices share one EC or driver interface.
+
+## Compatibility levels
+
+### ✅ Verified
+
+A real machine/profile has been validated by the ThinkControl project and can use the exact providers enabled by that profile.
+
+Current verified reference:
+
+- **Lenovo ThinkPad X9-15 Gen 1** — machine types `21Q6 / 21Q7`.
+
+### 🧪 Beta / Untested
+
+ThinkControl recognizes the Lenovo family and probes established Lenovo provider types that are appropriate for it. The exact laptop has not yet been physically validated by ThinkControl.
+
+A Beta device can still have working fan RPM, keyboard backlight and other controls if the provider proves itself. **Beta never means “guess the X9 EC layout”.**
+
+### ⚪ Generic
+
+The device has no known Lenovo family profile. Safe Windows-level features remain available. Lenovo-specific features are exposed only when a generic provider can be discovered without model-specific assumptions.
 
 ## Current support matrix
 
-| Device | Machine type | Windows-level features | Fan telemetry/control | Keyboard backlight | Status in `alpha.1` |
+| Device family | Windows features | Fan telemetry | Keyboard backlight | Low-level fan control | Status |
 | --- | --- | --- | --- | --- | --- |
-| **Lenovo ThinkPad X9-15 Gen 1** | **21Q6 / 21Q7** | Available where Windows exposes them | X9 EC backend implemented | Lenovo PM backend implemented | **Reference device · on-device alpha validation still required** |
-| Other ThinkPads | varies | Available where Windows exposes them | **Not enabled in alpha.1** | **Not enabled in alpha.1** | Not validated |
-| Other Lenovo laptops | varies | Available where Windows exposes them | Not enabled | Not enabled | Not validated |
-| Other Windows laptops | varies | Available where Windows exposes them | Lenovo-specific backend unavailable | Lenovo-specific backend unavailable | Not validated |
+| **ThinkPad X9-15 Gen 1 · 21Q6 / 21Q7** | ✅ | ✅ X9 EC + safe fallbacks | ✅ `IBMPmDrv` | ✅ Lenovo Auto + levels `1–7` | **Verified reference** |
+| **Other ThinkPads** | ✅ | 🧪 Lenovo WMI/CIM when exposed | 🧪 `IBMPmDrv` when read/readback passes | Exact-profile only | **Beta / Untested** |
+| **ThinkBook** | ✅ | 🧪 Lenovo WMI/CIM when exposed | 🧪 `EnergyDrv` when read/readback passes | Vendor provider only when independently supported | **Beta / Untested** |
+| **Yoga** | ✅ | 🧪 Lenovo WMI/CIM when exposed | 🧪 compatible Lenovo PM provider when proven | Vendor provider only when independently supported | **Beta / Untested** |
+| **IdeaPad** | ✅ | 🧪 Lenovo WMI/CIM when exposed | 🧪 `EnergyDrv` when proven | Vendor provider only when independently supported | **Beta / Untested** |
+| **LOQ** | ✅ | 🧪 Lenovo WMI/CIM | 🧪 Lenovo PM provider | `LENOVO_GAMEZONE_DATA` only when firmware advertises support | **Beta / Untested** |
+| **Legion** | ✅ | 🧪 Lenovo WMI/CIM | 🧪 Lenovo PM/lighting provider where exposed | `LENOVO_GAMEZONE_DATA` only when firmware advertises support | **Beta / Untested** |
+| **Other Lenovo** | ✅ | 🧪 safe read-only discovery | 🧪 safe known-driver discovery | Disabled without a matching provider/profile | **Generic Lenovo Beta** |
+| **Other Windows laptops** | ✅ where Windows exposes it | generic sensor providers only | Lenovo-specific backend unavailable | unavailable | **Generic** |
 
-The application is not a separate “lite edition” on an unvalidated machine: Performance, Fans, Display, Keyboard, Battery, System, Updates and Settings remain visible. In the current alpha, however, an unavailable low-level provider is shown as unavailable rather than being enabled speculatively.
+## Windows-level features
 
-That distinction matters: **same UI does not mean blind hardware writes.**
-
-## What works without a model-specific ThinkPad backend
-
-These capabilities use Windows APIs/telemetry and can work on any Windows laptop that exposes the relevant interface:
+These capabilities can work without a model-specific Lenovo profile:
 
 - Quiet / Balanced / Performance Windows power mode;
 - display refresh-rate selection;
 - automatic 60 Hz / maximum refresh policy;
 - internal-panel brightness;
-- adaptive brightness where Windows/platform support exists;
+- adaptive brightness where supported;
 - battery percentage and AC/battery state;
-- live charge/discharge rate in watts when ACPI battery telemetry exposes it;
-- remaining/full battery energy in Wh and health where available;
-- smoothed charge/discharge ETA;
-- CPU/system temperature through safe read-only sensor providers where available;
+- charge/discharge rate in watts when ACPI exposes it;
+- remaining/full battery energy in Wh and estimated health;
+- smoothed time-to-full / time-remaining estimate;
+- CPU/system temperature through trustworthy read-only providers;
 - themes, tray operation, updates, startup settings and diagnostics.
 
 If Windows does not expose a value, ThinkControl shows it as unavailable instead of inventing one.
 
+## Lenovo provider discovery
+
+ThinkControl `alpha.1` contains the beginning of a cross-Lenovo provider router.
+
+### Keyboard
+
+Known contracts include:
+
+- **`IBMPmDrv`** — common on ThinkPads;
+- **`EnergyDrv`** — used across multiple ThinkBook / IdeaPad / Yoga / LOQ-style platforms.
+
+The driver is not selected merely because the model name looks compatible. ThinkControl first executes the known GET contract and requires a recognized Off / Low / High state. A write is accepted only when the state can be read back correctly afterward.
+
+### Fan RPM
+
+Read-only fan telemetry is probed through:
+
+1. the exact verified X9 EC tachometer when that profile is active;
+2. Lenovo `LENOVO_FAN_METHOD` / `Fan_GetCurrentFanSpeed`;
+3. Lenovo `Lenovo_DT_GetCPUFan` / `Lenovo_DT_GetSYSFan` classes;
+4. Windows `CIM_Tachometer`;
+5. other trustworthy read-only sensor providers.
+
+Missing WMI classes are treated as a normal “not supported here” result.
+
+### Lenovo GameZone WMI
+
+Legion, LOQ and some adjacent Lenovo platforms expose `LENOVO_GAMEZONE_DATA`. ThinkControl treats this as a capability-driven vendor provider: the class and relevant support query must exist before a control can be considered.
+
+The mere presence of the class never authorizes every method on every Lenovo device.
+
+See **[Lenovo Provider Model](LENOVO-PROVIDERS.md)** for the provider rules and family profiles.
+
 ## ThinkPad X9-15 Gen 1 · 21Q6 / 21Q7
 
-The current low-level service explicitly recognizes Lenovo machine types `21Q6` and `21Q7` before allowing X9-specific writes.
+The direct X9 fan backend is still more strictly gated than all Beta providers.
 
 | Capability | Alpha.1 implementation |
 | --- | --- |
-| Fan RPM | Read from X9 EC tachometer registers `0x84/0x85`; polling is deliberately sparse |
-| Fan state | Read from X9 EC register `0x2F` |
-| Lenovo Auto | Write `0x80` and verify read-back |
-| Manual fan control | Discrete levels `1` through `7`; duplicate writes are suppressed |
-| Fan off | `0x00` is blocked |
-| Unverified override | `0x40` family is never written |
-| Service exit | Manual ownership is returned to Lenovo Auto during normal service shutdown/disposal |
-| Keyboard Off / Low / High | Lenovo PM driver backend with read-after-write verification |
-| Keyboard Auto | ThinkControl user-session policy over Off / Low / High |
-| Breathing | Rate-limited Low ↔ High policy; uses Lenovo's own transition behavior if firmware fades between levels |
-| Reactive | Local keyboard-activity pulse; typed key contents are not stored |
-| Audio | Experimental local loopback RMS response; audio samples are not stored |
+| Fan RPM | X9 EC tachometer registers `0x84/0x85`; sparse polling |
+| Fan state | X9 EC register `0x2F` |
+| Lenovo Auto | `0x80` + readback verification |
+| Manual fan control | discrete levels `1–7`; duplicate writes suppressed |
+| Fan off | `0x00` blocked |
+| Unverified override | `0x40` family never written |
+| Service exit | normal shutdown attempts to return manual control to Lenovo Auto |
+| Keyboard Off / Low / High | Lenovo PM driver + readback verification |
+| Keyboard Auto | ThinkControl user-session policy over real hardware states |
+| Breathing | rate-limited Low ↔ High |
+| Reactive | local keyboard-activity pulse; no typed contents retained |
+| Audio | experimental local loopback RMS; no audio retained |
 
-The code and installer build successfully in CI, but **the current ThinkControl service/UI combination still needs a final physical alpha pass on the reference X9 before this backend should be called release-validated**. That pass includes RPM visibility, levels `1–7`, Lenovo Auto recovery, keyboard levels/effects, sleep/resume and uninstall/service cleanup on the actual machine.
+The original X9 diagnostics went much deeper than a normal device profile because they were used to establish the first safe low-level ThinkControl backend. The findings are preserved in **[X9-15 Gen 1 research](research/x9-15-gen1.md)**.
 
-## What “Experimental” means
+## Why other Lenovo models do not need the same research depth
 
-ThinkControl has compatibility-state types for `Verified`, `Experimental` and `Not validated`, and diagnostics are designed to collect evidence for future devices.
+Most devices can be added or improved using existing provider knowledge instead of repeating the complete X9 investigation.
 
-**In `v0.1.0-alpha.1`, ThinkControl does not yet automatically promote unknown ThinkPads into writable Experimental fan/keyboard providers.** The current production low-level controller is still X9-gated.
+A normal Beta validation needs roughly:
 
-A future provider may become Experimental only when it is compiled into ThinkControl and has all of the following:
+1. exact Lenovo product name and four-character machine type;
+2. inventory of relevant Lenovo drivers/services;
+3. safe WMI/provider existence checks;
+4. plausible read-only telemetry;
+5. readback of reversible controls;
+6. a report/support bundle from the actual laptop.
 
-1. a non-destructive/read-only discovery path;
-2. structurally valid and plausible returned state;
-3. conflict detection where relevant;
-4. known semantic writes rather than arbitrary register/IOCTL access;
-5. mandatory verification/read-back where applicable;
-6. a defined restore/fail-safe path.
-
-This future expansion must happen provider by provider. A remote metadata file can never turn arbitrary EC addresses or IOCTLs into executable writes.
+Deep ACPI dumps, driver analysis or Process Monitor traces are reserved for features for which no established Lenovo provider is available.
 
 ## Device identification
 
-Compatibility matching may use non-unique hardware information such as:
+Support matching may use:
 
 - manufacturer;
 - model/product name;
-- machine type/model code;
+- Lenovo machine type/model code;
 - BIOS version when relevant;
-- ACPI device IDs;
-- presence/version of required providers;
+- ACPI/PnP device IDs;
+- presence/version of Lenovo providers;
 - Windows display capabilities.
 
-ThinkControl does not need a laptop serial number, asset tag, MAC address or disk serial for support matching.
+ThinkControl does **not** need a laptop serial number, asset tag, MAC address or disk serial for compatibility matching.
 
-## Diagnostics for unsupported devices
+## Diagnostics for Beta and unknown devices
 
-The current app includes:
+The app includes bounded and redacted local diagnostics with:
 
-- bounded local diagnostic event recording;
-- redaction/allowlisting;
+- provider/capability status;
+- semantic operation outcome;
 - Preview data;
 - Export support bundle;
 - Delete local diagnostics;
-- a structured GitHub bug-report form.
+- structured GitHub bug reporting.
 
-Automatic upload to the planned private diagnostics inbox is **not implemented yet**, so `Send diagnostics now` remains unavailable until a project-side endpoint exists. No GitHub PAT or private-repository credential is embedded in the desktop app.
+Automatic private diagnostics upload is **not enabled yet**. No GitHub PAT/private-repository secret is embedded in the desktop application.
 
-See [Diagnostics and privacy](DIAGNOSTICS.md).
+See **[Diagnostics & Privacy](DIAGNOSTICS.md)**.
 
 ## Reporting a device
 
-Use the structured issue form:
+Use the structured form:
 
-[Open a ThinkControl bug report](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)
+**[Open a ThinkControl bug report](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)**
 
-The form supports common ThinkPad families plus **Other ThinkPad**, **Other Lenovo** and **Other laptop / PC**, followed by a free-form exact model field. Screenshots and exported support bundles can be attached when useful.
+For a Beta laptop, a short report of **which controls work, which are unavailable and the exact model/machine type** can be enough to move compatibility forward. Attach an exported support bundle when useful.
 
-## Compatibility roadmap
+## Promotion path
 
-After the X9 alpha is physically validated, compatibility work can expand in this order:
+A device/capability normally progresses as:
 
-1. identify ThinkPads that expose an already-known provider;
-2. add safe read-only probes and diagnostics;
-3. validate telemetry on real machines;
-4. enable writes only for provider/device combinations with read-back and recovery evidence;
-5. promote those capabilities from Not validated → Experimental → Verified.
+```text
+Generic
+   ↓
+Beta / Untested family provider
+   ↓
+Beta tested on real machine
+   ↓
+Verified exact/family capability
+```
 
-The goal remains broad ThinkPad support, but the support table above is the authoritative description of what the current build does today.
+Writes are promoted capability by capability. Remote metadata can never turn an arbitrary EC register or unknown IOCTL into an executable write.
