@@ -67,14 +67,17 @@
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center">
-                    <!-- 455:144 source aspect ratio keeps the visible wordmark flush-left
-                         instead of centering it inside an unnecessarily wide Viewbox. -->
-                    <controls:BrandWordmark Width="108" Height="34" HorizontalAlignment="Left" />
+                    <!-- Match the canonical 455:144 aspect exactly. The source has
+                         ~6 px of visible left whitespace at this render size, so a
+                         -6 px optical offset puts the first visible letter on the
+                         same left rail as the cards below. -->
+                    <controls:BrandWordmark Width="108" Height="34" Margin="-6,0,0,0" HorizontalAlignment="Left" />
                     <TextBlock Text="{Binding DeviceName}" Margin="2,-2,0,0" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
                     <Button Style="{StaticResource CompactCaptionButton}" Click="Expand_Click" ToolTip="Open full window">
-                        <Viewbox Width="13" Height="13"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M3,13 L13,3 M7,3 L13,3 L13,9" /></Viewbox>
+                        <!-- Docked popup sits bottom-right; the full window opens up-left. -->
+                        <Viewbox Width="13" Height="13"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M13,13 L3,3 M3,9 L3,3 L9,3" /></Viewbox>
                     </Button>
                     <Button Style="{StaticResource CompactCaptionButton}" Click="Hide_Click" ToolTip="Hide to tray">
                         <Viewbox Width="12" Height="12"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,2 L14,14 M14,2 L2,14" /></Viewbox>
