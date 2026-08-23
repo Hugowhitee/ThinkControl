@@ -1,0 +1,255 @@
+<Window x:Class="ThinkControl.UI.AdvancedWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        Title="ThinkControl"
+        Width="1160" Height="760"
+        MinWidth="980" MinHeight="650"
+        WindowStyle="None"
+        ResizeMode="CanResize"
+        Background="{DynamicResource Tc.Window}"
+        Foreground="{DynamicResource Tc.Text}"
+        FontFamily="Segoe UI">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="52" CornerRadius="7" GlassFrameThickness="0" ResizeBorderThickness="6" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Border Background="{DynamicResource Tc.Window}"
+            BorderBrush="{DynamicResource Tc.BorderStrong}"
+            BorderThickness="1"
+            CornerRadius="7">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="52" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- Top bar -->
+            <Grid Grid.Row="0" Margin="16,0,8,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="40" />
+                    <ColumnDefinition Width="40" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="ThinkControl" FontSize="20" FontWeight="SemiBold" />
+                    <Border Width="1" Height="18" Background="{DynamicResource Tc.BorderStrong}" Margin="14,0" />
+                    <TextBlock Text="{Binding DeviceName}" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+                <Button Grid.Column="1" Style="{StaticResource TcIconButton}" Click="Dock_Click" ToolTip="Return to compact popup" shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Viewbox Width="14" Height="14">
+                        <Path Stroke="{DynamicResource Tc.Text}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M1,1 L7,7 M1,1 L6,1 M1,1 L1,6 M15,15 L9,9 M15,15 L10,15 M15,15 L15,10" />
+                    </Viewbox>
+                </Button>
+                <Button Grid.Column="2" Style="{StaticResource TcIconButton}" Content="—" Click="Minimize_Click" ToolTip="Minimize" shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+                <Button Grid.Column="3" Style="{StaticResource TcIconButton}" Content="□" Click="Maximize_Click" ToolTip="Maximize / restore" shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+                <Button Grid.Column="4" Style="{StaticResource TcIconButton}" Content="×" Click="Close_Click" ToolTip="Hide to tray" shell:WindowChrome.IsHitTestVisibleInChrome="True" />
+            </Grid>
+
+            <Grid Grid.Row="1">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="174" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Navigation -->
+                <Border Grid.Column="0" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="0,1,1,0" Background="{DynamicResource Tc.Surface}">
+                    <StackPanel Margin="0,10,0,0">
+                        <RadioButton x:Name="NavHome" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Home" Checked="Nav_Checked" IsChecked="True">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE80F;" Width="27" FontSize="15" /><TextBlock Text="Home" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavPerformance" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Performance" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE9D9;" Width="27" FontSize="15" /><TextBlock Text="Performance" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavFans" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Fans" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="◎" Width="27" FontSize="16" /><TextBlock Text="Fans" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavDisplay" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Display" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE7F4;" Width="27" FontSize="15" /><TextBlock Text="Display" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavKeyboard" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Keyboard" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE765;" Width="27" FontSize="15" /><TextBlock Text="Keyboard" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavBattery" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Battery" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE850;" Width="27" FontSize="15" /><TextBlock Text="Battery" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavSystem" GroupName="Nav" Style="{StaticResource TcNav}" Tag="System" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE770;" Width="27" FontSize="15" /><TextBlock Text="System" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavUpdates" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Updates" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE72C;" Width="27" FontSize="15" /><TextBlock Text="Updates" /></StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="NavSettings" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Settings" Checked="Nav_Checked">
+                            <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe Fluent Icons" Text="&#xE713;" Width="27" FontSize="15" /><TextBlock Text="Settings" /></StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+                </Border>
+
+                <!-- Pages -->
+                <Grid Grid.Column="1" Margin="14">
+                    <!-- HOME -->
+                    <ScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="1*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" Height="190">
+                                    <Grid>
+                                        <Grid.RowDefinitions><RowDefinition Height="68" /><RowDefinition /></Grid.RowDefinitions>
+                                        <StackPanel><TextBlock Text="CPU" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding CpuTemperatureText}" FontSize="32" FontWeight="Light" Margin="0,4,0,0" /></StackPanel>
+                                        <Grid Grid.Row="1" Margin="0,7,0,0"><controls:Sparkline Values="{Binding TemperatureHistory}" /><TextBlock Text="60 sec" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,4,3" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" /></Grid>
+                                    </Grid>
+                                </Border>
+                                <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0" Height="190">
+                                    <StackPanel>
+                                        <TextBlock Text="FAN" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                                        <TextBlock Text="{Binding FanRpmText}" FontSize="25" FontWeight="Light" Margin="0,8,0,0" />
+                                        <TextBlock Text="{Binding FanStateText}" Foreground="{DynamicResource Tc.Accent}" FontSize="11" Margin="0,5,0,0" TextWrapping="Wrap" />
+                                        <Button Content="Fan settings" Style="{StaticResource TcButton}" Margin="0,20,0,0" Click="HomeOpenPage_Click" Tag="Fans" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Style="{StaticResource TcSection}" Margin="7,0,0,0" Height="190">
+                                    <StackPanel>
+                                        <TextBlock Text="BATTERY" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                                        <TextBlock Text="{Binding BatteryPercentText}" FontSize="32" FontWeight="Light" Margin="0,7,0,0" />
+                                        <TextBlock Text="{Binding BatteryStatus}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="11" Margin="0,4,0,0" />
+                                        <Button Content="Battery details" Style="{StaticResource TcButton}" Margin="0,20,0,0" Click="HomeOpenPage_Click" Tag="Battery" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" Height="176">
+                                    <StackPanel>
+                                        <Grid><TextBlock Text="Performance mode" FontSize="11" FontWeight="SemiBold" /><Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="Open ›" Click="HomeOpenPage_Click" Tag="Performance" /></Grid>
+                                        <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                            <RadioButton x:Name="HomeQuiet" GroupName="HomeMode" Style="{StaticResource TcSegment}" Tag="Quiet" Click="Mode_Click" Margin="0,0,5,0"><StackPanel><TextBlock Text="Quiet" HorizontalAlignment="Center" /><TextBlock Text="≈29 dB*" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,4,0,0" /></StackPanel></RadioButton>
+                                            <RadioButton x:Name="HomeBalanced" Grid.Column="1" GroupName="HomeMode" Style="{StaticResource TcSegment}" Tag="Balanced" Click="Mode_Click" Margin="2,0"><StackPanel><TextBlock Text="Balanced" HorizontalAlignment="Center" /><TextBlock Text="≈36 dB*" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,4,0,0" /></StackPanel></RadioButton>
+                                            <RadioButton x:Name="HomePerformance" Grid.Column="2" GroupName="HomeMode" Style="{StaticResource TcSegment}" Tag="Performance" Click="Mode_Click" Margin="5,0,0,0"><StackPanel><TextBlock Text="Performance" HorizontalAlignment="Center" /><TextBlock Text="≈43 dB*" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Center" Margin="0,4,0,0" /></StackPanel></RadioButton>
+                                        </Grid>
+                                        <TextBlock Text="* Estimated acoustic target only; not a live dB measurement." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,10,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0" Height="176">
+                                    <StackPanel>
+                                        <Grid><TextBlock Text="Display" FontSize="11" FontWeight="SemiBold" /><Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="Open ›" Click="HomeOpenPage_Click" Tag="Display" /></Grid>
+                                        <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                            <RadioButton x:Name="HomeRefreshAuto" GroupName="HomeRefresh" Style="{StaticResource TcSegment}" Content="Auto" Click="RefreshAuto_Click" Margin="0,0,5,0" />
+                                            <RadioButton x:Name="HomeRefresh60" Grid.Column="1" GroupName="HomeRefresh" Style="{StaticResource TcSegment}" Content="60 Hz" Click="Refresh60_Click" Margin="2,0" />
+                                            <RadioButton x:Name="HomeRefreshMax" Grid.Column="2" GroupName="HomeRefresh" Style="{StaticResource TcSegment}" Content="Max" Click="RefreshMax_Click" Margin="5,0,0,0" />
+                                        </Grid>
+                                        <Grid Margin="0,13,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="86" /><ColumnDefinition /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions><TextBlock Text="Brightness" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" FontSize="11" /><Slider x:Name="HomeBrightnessSlider" Grid.Column="1" Style="{StaticResource TcSlider}" Value="{Binding Brightness}" IsEnabled="{Binding BrightnessAvailable}" ValueChanged="BrightnessSlider_ValueChanged" /><TextBlock Grid.Column="2" Text="{Binding BrightnessText}" VerticalAlignment="Center" HorizontalAlignment="Right" FontSize="10.5" /></Grid>
+                                        <Grid Margin="0,8,0,0"><TextBlock Text="Adaptive brightness" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" FontSize="11" /><CheckBox x:Name="HomeAdaptiveSwitch" HorizontalAlignment="Right" Style="{StaticResource TcSwitch}" IsEnabled="{Binding AdaptiveBrightnessAvailable}" Click="AdaptiveSwitch_Click" /></Grid>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <Grid Margin="0,14,0,0">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" Height="150">
+                                    <StackPanel><Grid><TextBlock Text="Keyboard backlight" FontWeight="SemiBold" FontSize="11" /><Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" Content="Open ›" Click="HomeOpenPage_Click" Tag="Keyboard" /></Grid><TextBlock Text="{Binding KeyboardStatus}" FontSize="18" Margin="0,14,0,0" /><TextBlock Text="Off · Low · High · Auto" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,0,0" /></StackPanel>
+                                </Border>
+                                <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0" Height="150">
+                                    <StackPanel><TextBlock Text="Hardware access" FontWeight="SemiBold" FontSize="11" /><TextBlock Text="{Binding HardwareAccess}" FontSize="15" Margin="0,14,0,0" TextWrapping="Wrap" /><TextBlock Text="Low-level controls remain capability-gated." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,6,0,0" /></StackPanel>
+                                </Border>
+                                <Border Grid.Column="2" Style="{StaticResource TcSection}" Margin="7,0,0,0" Height="150">
+                                    <StackPanel><TextBlock Text="Updates" FontWeight="SemiBold" FontSize="11" /><TextBlock Text="{Binding UpdateStatus}" FontSize="13" Margin="0,14,0,0" TextWrapping="Wrap" /><Button Content="Check now" Style="{StaticResource TcButton}" HorizontalAlignment="Left" Margin="0,11,0,0" Click="CheckUpdates_Click" /></StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- PERFORMANCE -->
+                    <ScrollViewer x:Name="PagePerformance" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                            <TextBlock Text="Performance" FontSize="24" FontWeight="SemiBold" />
+                            <TextBlock Text="Choose the Windows 11 user power mode. Lenovo thermal policy remains under the verified Lenovo backend when available." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
+                            <Border Style="{StaticResource TcSection}">
+                                <Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                    <RadioButton x:Name="PerfQuiet" GroupName="PerfMode" Style="{StaticResource TcSegment}" Tag="Quiet" Click="Mode_Click" Margin="0,0,7,0" Padding="18,20"><StackPanel><TextBlock Text="Quiet" FontSize="16" HorizontalAlignment="Center" /><TextBlock Text="Best power efficiency" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" HorizontalAlignment="Center" Margin="0,6,0,0" /><TextBlock Text="≈29 dB*" Foreground="{DynamicResource Tc.Accent}" FontSize="11" HorizontalAlignment="Center" Margin="0,9,0,0" /></StackPanel></RadioButton>
+                                    <RadioButton x:Name="PerfBalanced" Grid.Column="1" GroupName="PerfMode" Style="{StaticResource TcSegment}" Tag="Balanced" Click="Mode_Click" Margin="4,0"><StackPanel><TextBlock Text="Balanced" FontSize="16" HorizontalAlignment="Center" /><TextBlock Text="Balanced efficiency and response" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" HorizontalAlignment="Center" Margin="0,6,0,0" /><TextBlock Text="≈36 dB*" Foreground="{DynamicResource Tc.Accent}" FontSize="11" HorizontalAlignment="Center" Margin="0,9,0,0" /></StackPanel></RadioButton>
+                                    <RadioButton x:Name="PerfPerformance" Grid.Column="2" GroupName="PerfMode" Style="{StaticResource TcSegment}" Tag="Performance" Click="Mode_Click" Margin="7,0,0,0"><StackPanel><TextBlock Text="Performance" FontSize="16" HorizontalAlignment="Center" /><TextBlock Text="Best performance bias" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" HorizontalAlignment="Center" Margin="0,6,0,0" /><TextBlock Text="≈43 dB*" Foreground="{DynamicResource Tc.Accent}" FontSize="11" HorizontalAlignment="Center" Margin="0,9,0,0" /></StackPanel></RadioButton>
+                                </Grid>
+                            </Border>
+                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+                                <StackPanel><TextBlock Text="About the noise estimate" FontWeight="SemiBold" /><TextBlock Margin="0,7,0,0" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Text="The dB values are profile labels for the UI, not live microphone measurements. Actual fan noise depends on load, temperature, fan age and environment. We will replace them with calibrated model-specific ranges when measurements are available." /></StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- FANS -->
+                    <ScrollViewer x:Name="PageFans" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                            <TextBlock Text="Fans" FontSize="24" FontWeight="SemiBold" />
+                            <TextBlock Text="The X9 uses discrete ThinkPad EC states. ThinkControl never pretends this is a continuous 0–100% PWM fan." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
+                            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="2*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions>
+                                <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" Height="210"><Grid><Grid.RowDefinitions><RowDefinition Height="75" /><RowDefinition /></Grid.RowDefinitions><Grid><StackPanel><TextBlock Text="Fan speed" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding FanRpmText}" FontSize="30" FontWeight="Light" Margin="0,6,0,0" /></StackPanel><StackPanel HorizontalAlignment="Right"><TextBlock Text="Current state" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" HorizontalAlignment="Right" /><TextBlock Text="{Binding FanStateText}" Foreground="{DynamicResource Tc.Accent}" FontSize="13" Margin="0,7,0,0" HorizontalAlignment="Right" /></StackPanel></Grid><controls:Sparkline Grid.Row="1" Values="{Binding TemperatureHistory}" /></Grid></Border>
+                                <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0"><StackPanel><TextBlock Text="Safety" FontWeight="SemiBold" /><TextBlock Text="{Binding HardwareAccess}" Margin="0,10,0,0" TextWrapping="Wrap" /><TextBlock Text="Fan off (0x00) and unverified 0x40 remain blocked." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,9,0,0" TextWrapping="Wrap" /></StackPanel></Border>
+                            </Grid>
+                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+                                <StackPanel>
+                                    <Grid><TextBlock Text="Manual level" FontWeight="SemiBold" /><Button Content="Lenovo Auto" Style="{StaticResource TcButton}" HorizontalAlignment="Right" Click="FanAuto_Click" /></Grid>
+                                    <Grid Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                        <Button Content="1" Style="{StaticResource TcButton}" Tag="1" Click="FanLevel_Click" Margin="0,0,4,0" />
+                                        <Button Grid.Column="1" Content="2" Style="{StaticResource TcButton}" Tag="2" Click="FanLevel_Click" Margin="2,0" />
+                                        <Button Grid.Column="2" Content="3" Style="{StaticResource TcButton}" Tag="3" Click="FanLevel_Click" Margin="2,0" />
+                                        <Button Grid.Column="3" Content="4" Style="{StaticResource TcButton}" Tag="4" Click="FanLevel_Click" Margin="2,0" />
+                                        <Button Grid.Column="4" Content="5" Style="{StaticResource TcButton}" Tag="5" Click="FanLevel_Click" Margin="2,0" />
+                                        <Button Grid.Column="5" Content="6" Style="{StaticResource TcButton}" Tag="6" Click="FanLevel_Click" Margin="2,0" />
+                                        <Button Grid.Column="6" Content="7" Style="{StaticResource TcButton}" Tag="7" Click="FanLevel_Click" Margin="4,0,0,0" />
+                                    </Grid>
+                                    <TextBlock Text="Controls only succeed when the privileged service identifies a verified X9 profile and grants FanControl capability." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,11,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- DISPLAY -->
+                    <ScrollViewer x:Name="PageDisplay" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="900" HorizontalAlignment="Left">
+                            <TextBlock Text="Display" FontSize="24" FontWeight="SemiBold" />
+                            <TextBlock Text="Refresh rate, panel brightness and Windows adaptive brightness stay together as one display segment." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" />
+                            <Border Style="{StaticResource TcSection}"><StackPanel>
+                                <TextBlock Text="Refresh rate" FontWeight="SemiBold" />
+                                <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="DisplayRefreshAuto" GroupName="DisplayRefresh" Style="{StaticResource TcSegment}" Content="Auto" Click="RefreshAuto_Click" Margin="0,0,6,0" /><RadioButton x:Name="DisplayRefresh60" Grid.Column="1" GroupName="DisplayRefresh" Style="{StaticResource TcSegment}" Content="60 Hz" Click="Refresh60_Click" Margin="3,0" /><RadioButton x:Name="DisplayRefreshMax" Grid.Column="2" GroupName="DisplayRefresh" Style="{StaticResource TcSegment}" Content="Max" Click="RefreshMax_Click" Margin="6,0,0,0" /></Grid>
+                                <TextBlock Text="Auto uses 60 Hz on battery when supported and the panel maximum on AC." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,8,0,0" />
+                            </StackPanel></Border>
+                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel>
+                                <Grid><TextBlock Text="Brightness" FontWeight="SemiBold" /><TextBlock Text="{Binding BrightnessText}" HorizontalAlignment="Right" /></Grid>
+                                <Slider x:Name="DisplayBrightnessSlider" Style="{StaticResource TcSlider}" Value="{Binding Brightness}" IsEnabled="{Binding BrightnessAvailable}" ValueChanged="BrightnessSlider_ValueChanged" Margin="0,13,0,0" />
+                                <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,14" />
+                                <Grid><StackPanel><TextBlock Text="Adaptive brightness" FontWeight="SemiBold" /><TextBlock Text="Let Windows use the ambient-light sensor when this display exposes the setting." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,70,0" TextWrapping="Wrap" /></StackPanel><CheckBox x:Name="DisplayAdaptiveSwitch" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TcSwitch}" IsEnabled="{Binding AdaptiveBrightnessAvailable}" Click="AdaptiveSwitch_Click" /></Grid>
+                            </StackPanel></Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- KEYBOARD -->
+                    <ScrollViewer x:Name="PageKeyboard" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel MaxWidth="900" HorizontalAlignment="Left"><TextBlock Text="Keyboard" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="ThinkPad keyboard backlight controls are only enabled when a verified Lenovo PM backend answers correctly." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
+                            <Border Style="{StaticResource TcSection}"><StackPanel><Grid><TextBlock Text="Backlight" FontWeight="SemiBold" /><TextBlock Text="{Binding KeyboardStatus}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" /></Grid><Grid Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="AdvancedKeyboardOff" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Off" Tag="Off" Click="Keyboard_Click" Margin="0,0,5,0" /><RadioButton x:Name="AdvancedKeyboardLow" Grid.Column="1" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Low" Tag="Low" Click="Keyboard_Click" Margin="2,0" /><RadioButton x:Name="AdvancedKeyboardHigh" Grid.Column="2" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="High" Tag="High" Click="Keyboard_Click" Margin="2,0" /><RadioButton x:Name="AdvancedKeyboardAuto" Grid.Column="3" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Auto" Tag="Auto" Click="Keyboard_Click" Margin="5,0,0,0" /></Grid></StackPanel></Border>
+                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel><TextBlock Text="Auto behavior" FontWeight="SemiBold" /><TextBlock Text="Active: High     Idle 15 s: Low     Idle 35 s: Off" Margin="0,11,0,0" /><TextBlock Text="Auto is a ThinkControl policy, not a claim that every ThinkPad firmware exposes a native Auto backlight state." Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" FontSize="10.5" Margin="0,7,0,0" /></StackPanel></Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <!-- BATTERY -->
+                    <ScrollViewer x:Name="PageBattery" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="900" HorizontalAlignment="Left"><TextBlock Text="Battery" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Read-only battery telemetry is available now. Charge thresholds stay locked until a model-specific backend is verified." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><Border Style="{StaticResource TcSection}" Margin="0,0,7,0"><StackPanel><TextBlock Text="Charge" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryPercentText}" FontSize="38" FontWeight="Light" Margin="0,7,0,0" /><TextBlock Text="{Binding BatteryStatus}" Margin="0,5,0,0" /></StackPanel></Border><Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0"><StackPanel><TextBlock Text="Charge threshold" FontWeight="SemiBold" /><TextBlock Text="Not enabled for this profile yet" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,12,0,0" /><Button Content="Set limit" Style="{StaticResource TcButton}" IsEnabled="False" HorizontalAlignment="Left" Margin="0,16,0,0" /></StackPanel></Border></Grid></StackPanel></ScrollViewer>
+
+                    <!-- SYSTEM -->
+                    <ScrollViewer x:Name="PageSystem" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="960" HorizontalAlignment="Left"><TextBlock Text="System" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Only non-unique hardware identity is shown here. Serial numbers, MAC addresses and disk IDs are not collected." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
+                        <Border Style="{StaticResource TcSection}"><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="CPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding CpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="GPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding GpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="RAM" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding RamText}" Margin="0,4,0,0" /></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="BIOS" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding BiosVersion}" Margin="0,4,12,13" /><TextBlock Text="Platform" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding MachineType}" Margin="0,4,12,13" /><TextBlock Text="Hardware access" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding HardwareAccess}" Margin="0,4,12,0" TextWrapping="Wrap" /></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Thermal solution" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding ThermalSolution}" Margin="0,4,0,13" /><TextBlock Text="Drivers" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="{Binding DriverStatus}" Margin="0,4,0,13" /><TextBlock Text="ThinkControl" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" /><TextBlock Text="v0.1" Margin="0,4,0,0" /></StackPanel></Grid></Border>
+                        <Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel><TextBlock Text="Lenovo software & support" FontWeight="SemiBold" /><WrapPanel Margin="0,12,0,0"><Button Content="Lenovo Support" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="https://support.lenovo.com/" Click="OpenUrl_Click" /><Button Content="Drivers &amp; Software" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="https://support.lenovo.com/us/en/downloads" Click="OpenUrl_Click" /><Button Content="Commercial Vantage" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="ms-windows-store://search/?query=Lenovo%20Commercial%20Vantage" Click="OpenUrl_Click" /><Button Content="Windows Power" Style="{StaticResource TcButton}" Margin="0,0,8,8" Tag="ms-settings:powersleep" Click="OpenUrl_Click" /></WrapPanel></StackPanel></Border>
+                    </StackPanel></ScrollViewer>
+
+                    <!-- UPDATES -->
+                    <ScrollViewer x:Name="PageUpdates" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><TextBlock Text="Updates" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="ThinkControl uses GitHub Releases as the update channel. Update installation remains explicit; there is no permanent updater service." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Current version" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="v0.1" FontSize="28" FontWeight="Light" Margin="0,5,0,16" /><TextBlock Text="{Binding UpdateStatus}" FontSize="13" /><StackPanel Orientation="Horizontal" Margin="0,15,0,0"><Button Content="Check for updates" Style="{StaticResource TcButton}" Click="CheckUpdates_Click" /><Button x:Name="OpenReleaseButton" Content="Open release" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="OpenRelease_Click" IsEnabled="False" /></StackPanel></StackPanel></Border></StackPanel></ScrollViewer>
+
+                    <!-- SETTINGS -->
+                    <ScrollViewer x:Name="PageSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><TextBlock Text="Settings" FontSize="24" FontWeight="SemiBold" /><TextBlock Text="Keep the daily surface small; deeper preferences live here." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Theme" FontWeight="SemiBold" /><Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="ThemeSystem" GroupName="Theme" Style="{StaticResource TcSegment}" Content="System" Tag="System" Click="Theme_Click" Margin="0,0,6,0" IsChecked="True" /><RadioButton Grid.Column="1" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Dark" Tag="Dark" Click="Theme_Click" Margin="3,0" /><RadioButton Grid.Column="2" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Light" Tag="Light" Click="Theme_Click" Margin="6,0,0,0" /></Grid></StackPanel></Border><Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><Grid><StackPanel><TextBlock Text="Start with Windows" FontWeight="SemiBold" /><TextBlock Text="Launch ThinkControl directly into the tray after sign-in." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,70,0" /></StackPanel><CheckBox x:Name="StartupSwitch" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" /></Grid></Border><Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel><TextBlock Text="Background behavior" FontWeight="SemiBold" /><TextBlock Text="Closing either window hides it to the tray. Use Quit from the tray menu to stop ThinkControl completely." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,7,0,0" TextWrapping="Wrap" /></StackPanel></Border></StackPanel></ScrollViewer>
+                </Grid>
+            </Grid>
+        </Grid>
+    </Border>
+</Window>
