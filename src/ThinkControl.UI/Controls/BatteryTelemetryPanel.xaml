@@ -22,7 +22,7 @@
 
                 <StackPanel>
                     <TextBlock Text="POWER" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <TextBlock Text="{Binding BatteryPowerText}" d:Text="18.4 W" FontSize="16" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding BatteryLivePowerText}" d:Text="18.4 W" FontSize="16" Margin="0,5,0,0" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 
                 <StackPanel Grid.Column="1" Margin="10,0,0,0">
@@ -51,7 +51,7 @@
             </Grid>
 
             <TextBlock Margin="0,9,0,0"
-                       Text="ETA is calculated from remaining battery energy and a median-filtered moving average of the recent charge/discharge rate. It deliberately changes slowly instead of copying a noisy one-sample estimate."
+                       Text="ETA uses recent battery energy and a filtered charging-rate average, so short power spikes do not make the estimate jump around."
                        Foreground="{DynamicResource Tc.TextFaint}"
                        FontSize="9.5"
                        TextWrapping="Wrap" />
