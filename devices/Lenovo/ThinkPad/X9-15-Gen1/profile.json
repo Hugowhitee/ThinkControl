@@ -18,6 +18,26 @@
     "adaptiveBrightness": { "verification": "planned-windows-api" },
     "batteryTelemetry": { "verification": "planned-read-only" }
   },
+  "dependencies": {
+    "hardwareAccess": {
+      "pawnIo": {
+        "install": "recommended-when-verified-backend-enabled",
+        "capabilities": ["cpuTemperature", "fanRpm", "fanControl"]
+      }
+    },
+    "oemExpected": [
+      {
+        "id": "lenovoIntelligentThermalSolution",
+        "service": "LITSSVC",
+        "capabilities": ["lenovoThermalPolicy"]
+      },
+      {
+        "id": "lenovoPowerManagement",
+        "service": "IBMPMSVC",
+        "capabilities": ["keyboardBacklight"]
+      }
+    ]
+  },
   "research": {
     "fan": {
       "transport": "classic-thinkpad-ec",
