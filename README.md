@@ -1,13 +1,13 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/thinkcontrol-logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="docs/assets/thinkcontrol-logo-light.svg">
-    <img alt="ThinkControl" src="docs/assets/thinkcontrol-logo-light.svg" width="430">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_refined_dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_refined_light.svg">
+    <img alt="ThinkControl" src="assets/brand/v3/wordmark/ThinkControl_wordmark_refined_light.svg" width="430">
   </picture>
 
   <p>Windows controls and hardware telemetry for Lenovo laptops.</p>
 
-  [![Windows CI](https://img.shields.io/github/actions/workflow/status/Hugowhitee/ThinkControl/ci.yml?branch=main&label=Windows%20CI&logo=windows11&logoColor=white)](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml)
+  [![Windows CI](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml)
   [![Release](https://img.shields.io/github/v/release/Hugowhitee/ThinkControl?include_prereleases&label=release)](https://github.com/Hugowhitee/ThinkControl/releases)
   [![Downloads](https://img.shields.io/github/downloads/Hugowhitee/ThinkControl/total?label=downloads)](https://github.com/Hugowhitee/ThinkControl/releases)
   [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-555)](LICENSE)
@@ -36,7 +36,7 @@ The app targets .NET 10. Setup checks for the x64 .NET 10 Desktop Runtime and in
 | Fans | Real RPM where a reliable tachometer exists; verified X9 Lenovo Auto and manual EC levels 1 to 7 |
 | Display | Refresh rate, automatic refresh policy, brightness and adaptive brightness where Windows exposes them |
 | Keyboard | Off, Low and High plus Auto, Breathing, Reactive and experimental Audio policies on supported Lenovo hardware |
-| Battery | Percentage, charging state, live watts, Wh, health and filtered time estimates where available |
+| Battery | Percentage, live watts/Wh, filtered ETA, cycle count, bounded local charge history, learned charging averages and reported health trend where available |
 | System | Exact device identity, provider status, compatibility information and privacy-safe diagnostics |
 
 ThinkControl never substitutes guessed fan percentages, noise values, fake wattage targets or invented sensor names for real hardware data.
@@ -49,7 +49,15 @@ ThinkControl deliberately uses two Windows surfaces.
 
 **Advanced** is a normal resizable Windows application window. Windows owns the native title bar, app icon, minimize, maximize/restore, close, system menu and Windows 11 Snap Layouts. A matching `↘` action returns to Compact.
 
-The app, tray, installer and repository artwork use the canonical ThinkControl v3 asset pack under [`assets/brand/v3`](assets/brand/v3). CI rejects legacy hand-drawn TC geometry or copies that drift from the approved v3 ICO/SVG sources.
+The app, tray, installer and repository artwork use the canonical ThinkControl v3 assets under [`assets/brand/v3`](assets/brand/v3). The custom C/red dot remains the exact approved v3 geometry. The production wordmark keeps the outlined `Think` geometry and uses the approved smaller, baseline-aligned `ontrol` refinement. CI rejects legacy hand-drawn TC geometry and branding drift.
+
+## Battery history and ETA
+
+Charging ETA waits for stable samples instead of publishing a one-sample estimate during charger negotiation. It blends recent filtered charge power with observed Wh progress and may use prior completed charge sessions as a bounded short-lived prior. Current measurements take over as the session develops, so changing chargers does not permanently bias the estimate.
+
+The Battery page reuses the same graph language as temperature telemetry and adds a percentage-driven battery gauge. While charging, the filled portion turns green and shows a subtle animated diagonal flow; the animation is disconnected when the control is hidden or charging stops.
+
+Battery history stays local in `%LocalAppData%\ThinkControl`. Recent sessions retain sparse full charge curves; older sessions are compacted to summaries for charging averages and reported health trends. Retention is limited to one year / 240 summaries, only 20 sessions keep detailed curves, the history file has a 1 MB cap, corrupt files are quarantined, writes are atomic and the UI provides **Clear history**. Charge-limit controls are not faked: until a verified Lenovo battery write provider is available, ThinkControl leaves firmware charge protection untouched and opens Commercial Vantage instead.
 
 ## Install
 
@@ -72,7 +80,7 @@ The payload SHA-256 is pinned inside that installer build and verified before ex
 3. on verified X9 `21Q6/21Q7`, offers the pinned PawnIO 2.2.0 prerequisite for EC fan telemetry/control;
 4. installs the UI and privileged hardware service under Program Files;
 5. registers and starts `ThinkControlService`;
-6. creates the Start menu entry and optional desktop shortcut using the exact v3 Windows icon;
+6. creates the Start menu entry and selects the desktop shortcut by default using the approved v3 Windows icon;
 7. offers **Launch ThinkControl** when setup completes.
 
 Package CI enforces a **5 MB hard ceiling** on the bootstrap installer and a separate size budget on the compressed application payload. The previous ~84 MB installer / ~300 MB installed-runtime duplication is no longer the packaging model.
@@ -97,7 +105,7 @@ The X9 reference profile recognizes machine types `21Q6` and `21Q7` from Lenovo 
 | Keyboard Off / Low / High | Lenovo PM/EnergyDrv contracts with readback and installed Vantage ThinkKeyboard fallback |
 | Keyboard effects | User-session policies over verified hardware levels |
 | Refresh / brightness | Windows display APIs |
-| Battery power / Wh / health | Windows/ACPI when exposed |
+| Battery power / Wh / health / cycles | Windows/ACPI/WMI when exposed |
 
 Lenovo Intelligent Cooling commands are treated as **thermal policy**, not as fake direct fan-RPM control. Direct X9 fan control remains the verified EC backend.
 
@@ -146,7 +154,7 @@ Installing a newer ThinkControl setup over an existing copy stops the old hardwa
 
 ## Build and validation
 
-The repository targets .NET 10 and WPF. Windows CI performs restore/build plus real WPF snapshot rendering. Packaging CI builds the framework-dependent UI/service payload, verifies exact v3 branding, creates the external payload ZIP, builds the small web bootstrapper and performs a full bootstrap install → service Running → uninstall → cleanup lifecycle test.
+The repository targets .NET 10 and WPF. Windows CI performs restore/build plus real WPF snapshot rendering. Packaging CI builds the framework-dependent UI/service payload, verifies approved v3 branding, creates the external payload ZIP, builds the small web bootstrapper and performs a full bootstrap install → service Running → uninstall → cleanup lifecycle test.
 
 ```powershell
 dotnet restore ThinkControl.slnx
