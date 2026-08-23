@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using ThinkControl.Core.Touchpad;
+using WpfPoint = System.Windows.Point;
 
 namespace ThinkControl.UI.Controls;
 
@@ -54,7 +55,6 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
         Brush surface = ResourceBrush("Tc.SurfaceAlt", Brushes.DimGray);
         Brush border = ResourceBrush("Tc.BorderStrong", Brushes.Gray);
-        Brush text = ResourceBrush("Tc.Text", Brushes.White);
         Brush muted = ResourceBrush("Tc.TextMuted", Brushes.Gray);
         Brush accent = ResourceBrush("Tc.Accent", Brushes.Red);
 
@@ -66,12 +66,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
         DrawEdge(dc, pad, TouchpadEdge.Top, accent, border, muted);
         DrawEdge(dc, pad, TouchpadEdge.Bottom, accent, border, muted);
 
-        DrawLabel(dc, "TOUCHPAD", new Point(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 7),
+        DrawLabel(dc, "TOUCHPAD", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 7),
             11, muted, centered: true);
         string size = _geometry.PhysicalSizeEstimated
             ? $"~{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm"
             : $"{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm";
-        DrawLabel(dc, size, new Point(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 11),
+        DrawLabel(dc, size, new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 11),
             9.5, muted, centered: true);
 
         foreach (TouchContact contact in _contacts.Where(static c => c.IsDown))
@@ -79,7 +79,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             double x = pad.Left + ((contact.X - _geometry.XLogicalMin) / (double)_geometry.XRange) * pad.Width;
             double y = pad.Top + ((contact.Y - _geometry.YLogicalMin) / (double)_geometry.YRange) * pad.Height;
             Brush dot = contact.Confidence ? accent : muted;
-            dc.DrawEllipse(dot, null, new Point(x, y), 5, 5);
+            dc.DrawEllipse(dot, null, new WpfPoint(x, y), 5, 5);
         }
 
         if (_signal is not null)
@@ -87,14 +87,14 @@ public sealed class TouchpadVisualizer : FrameworkElement
             string status = _signal.Phase.ToString();
             if (!string.IsNullOrWhiteSpace(_signal.Reason))
                 status += " · " + _signal.Reason;
-            DrawLabel(dc, status, new Point(pad.Left, pad.Bottom + 14), 10, muted);
+            DrawLabel(dc, status, new WpfPoint(pad.Left, pad.Bottom + 14), 10, muted);
         }
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
-        Point point = e.GetPosition(this);
+        WpfPoint point = e.GetPosition(this);
         Rect pad = PadRect();
         if (!pad.Contains(point))
             return;
@@ -142,13 +142,13 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
         string label = ActionLabel(binding.Action);
         if (edge == TouchpadEdge.Top)
-            DrawLabel(dc, label, new Point(pad.Left + pad.Width / 2, pad.Top + widthPx + 8), 10, selected ? accent : muted, true);
+            DrawLabel(dc, label, new WpfPoint(pad.Left + pad.Width / 2, pad.Top + widthPx + 8), 10, selected ? accent : muted, true);
         else if (edge == TouchpadEdge.Bottom)
-            DrawLabel(dc, label, new Point(pad.Left + pad.Width / 2, pad.Bottom - widthPx - 18), 10, selected ? accent : muted, true);
+            DrawLabel(dc, label, new WpfPoint(pad.Left + pad.Width / 2, pad.Bottom - widthPx - 18), 10, selected ? accent : muted, true);
         else
         {
             double x = edge == TouchpadEdge.Left ? pad.Left + widthPx + 7 : pad.Right - widthPx - 7;
-            DrawLabel(dc, label, new Point(x, pad.Top + pad.Height / 2), 9.5, selected ? accent : muted,
+            DrawLabel(dc, label, new WpfPoint(x, pad.Top + pad.Height / 2), 9.5, selected ? accent : muted,
                 centered: edge == TouchpadEdge.Left, rightAligned: edge == TouchpadEdge.Right);
         }
     }
@@ -174,7 +174,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
     private void DrawLabel(
         DrawingContext dc,
         string value,
-        Point point,
+        WpfPoint point,
         double size,
         Brush brush,
         bool centered = false,
@@ -191,7 +191,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             pixelsPerDip);
         double x = centered ? point.X - formatted.Width / 2 : rightAligned ? point.X - formatted.Width : point.X;
         double y = point.Y - formatted.Height / 2;
-        dc.DrawText(formatted, new Point(x, y));
+        dc.DrawText(formatted, new WpfPoint(x, y));
     }
 
     private Brush ResourceBrush(string key, Brush fallback) =>

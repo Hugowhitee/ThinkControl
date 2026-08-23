@@ -10,6 +10,9 @@ namespace ThinkControl.UI.Controls;
 /// </summary>
 public sealed class PackIconLucide : System.Windows.Controls.Control
 {
+    private static readonly Geometry TouchpadGeometry = Geometry.Parse(
+        "M216-744H744V-672H216ZM216-672H288V-288H216ZM672-672H744V-288H672ZM216-288H744V-216H216ZM396-336H564V-300H396Z");
+
     public static readonly DependencyProperty KindProperty = DependencyProperty.Register(
         nameof(Kind),
         typeof(string),
@@ -26,21 +29,30 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
     {
         base.OnRender(drawingContext);
 
-        string? resourceKey = Kind switch
+        Geometry? source;
+        if (Kind == "Touchpad")
         {
-            "House" => "Tc.Icon.Home",
-            "Gauge" => "Tc.Icon.Performance",
-            "Fan" => "Tc.Icon.Fan",
-            "Monitor" => "Tc.Icon.Display",
-            "Keyboard" => "Tc.Icon.Keyboard",
-            "Battery" => "Tc.Icon.Battery",
-            "Laptop" => "Tc.Icon.System",
-            "RefreshCw" => "Tc.Icon.Updates",
-            "Settings" => "Tc.Icon.Settings",
-            _ => null
-        };
+            source = TouchpadGeometry;
+        }
+        else
+        {
+            string? resourceKey = Kind switch
+            {
+                "House" => "Tc.Icon.Home",
+                "Gauge" => "Tc.Icon.Performance",
+                "Fan" => "Tc.Icon.Fan",
+                "Monitor" => "Tc.Icon.Display",
+                "Keyboard" => "Tc.Icon.Keyboard",
+                "Battery" => "Tc.Icon.Battery",
+                "Laptop" => "Tc.Icon.System",
+                "RefreshCw" => "Tc.Icon.Updates",
+                "Settings" => "Tc.Icon.Settings",
+                _ => null
+            };
+            source = resourceKey is null ? null : TryFindResource(resourceKey) as Geometry;
+        }
 
-        if (resourceKey is null || TryFindResource(resourceKey) is not Geometry source)
+        if (source is null)
             return;
 
         double width = Math.Max(0, ActualWidth);
@@ -56,8 +68,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         double top = (height - contentHeight) / 2d;
 
         Geometry geometry = source.CloneCurrentValue();
-        // Material Symbols SVGs use viewBox="0 -960 960 960". Translate the
-        // negative-y source coordinates into WPF's positive local drawing space.
         geometry.Transform = new MatrixTransform(
             scale, 0,
             0, scale,

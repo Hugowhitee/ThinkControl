@@ -24,17 +24,24 @@ internal static class Program
 
         ThemeService.Apply(ThemeMode.Dark);
         RenderCompact(app, state, Path.Combine(output, "compact-dark.png"));
-        RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home.png"));
-        RenderAdvanced(app, state, "Performance", Path.Combine(output, "advanced-performance.png"));
-        RenderAdvanced(app, state, "Fans", Path.Combine(output, "advanced-fans.png"));
-        RenderAdvanced(app, state, "Display", Path.Combine(output, "advanced-display.png"));
-        RenderAdvanced(app, state, "Keyboard", Path.Combine(output, "advanced-keyboard.png"));
-        RenderAdvanced(app, state, "Battery", Path.Combine(output, "advanced-battery.png"));
-        RenderAdvanced(app, state, "Settings", Path.Combine(output, "advanced-settings.png"));
+        RenderAdvanced(app, state, "Home", 1160, 760, Path.Combine(output, "advanced-home.png"));
+        RenderAdvanced(app, state, "Performance", 1160, 760, Path.Combine(output, "advanced-performance.png"));
+        RenderAdvanced(app, state, "Fans", 1160, 760, Path.Combine(output, "advanced-fans.png"));
+        RenderAdvanced(app, state, "Display", 1160, 760, Path.Combine(output, "advanced-display.png"));
+        RenderAdvanced(app, state, "Keyboard", 1160, 760, Path.Combine(output, "advanced-keyboard.png"));
+        RenderAdvanced(app, state, "Battery", 1160, 760, Path.Combine(output, "advanced-battery.png"));
+        RenderAdvanced(app, state, "Touchpad", 1160, 760, Path.Combine(output, "advanced-touchpad.png"));
+        RenderAdvanced(app, state, "Settings", 1160, 760, Path.Combine(output, "advanced-settings.png"));
+
+        RenderAdvanced(app, state, "Home", 1720, 980, Path.Combine(output, "advanced-home-wide.png"));
+        RenderAdvanced(app, state, "Display", 1720, 980, Path.Combine(output, "advanced-display-wide.png"));
+        RenderAdvanced(app, state, "Touchpad", 1720, 980, Path.Combine(output, "advanced-touchpad-wide.png"));
+        RenderAdvanced(app, state, "Battery", 1720, 980, Path.Combine(output, "advanced-battery-wide.png"));
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, state, Path.Combine(output, "compact-light.png"));
-        RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home-light.png"));
+        RenderAdvanced(app, state, "Home", 1160, 760, Path.Combine(output, "advanced-home-light.png"));
+        RenderAdvanced(app, state, "Touchpad", 1160, 760, Path.Combine(output, "advanced-touchpad-light.png"));
 
         Console.WriteLine($"Rendered ThinkControl snapshots to {output}");
         return 0;
@@ -97,10 +104,14 @@ internal static class Program
         window.ForceClose();
     }
 
-    private static void RenderAdvanced(App app, AppState state, string page, string path)
+    private static void RenderAdvanced(App app, AppState state, string page, double width, double height, string path)
     {
-        var window = new AdvancedWindow(app) { DataContext = state, Width = 1160, Height = 760 };
-        window.Navigate(page);
+        var window = new AdvancedWindow(app) { DataContext = state, Width = width, Height = height };
+        window.PrepareEnhancedUiForSnapshot();
+        if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
+            window.NavigateTouchpad();
+        else
+            window.Navigate(page);
         RenderWindowContent(window, path);
         window.ForceClose();
     }

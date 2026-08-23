@@ -46,7 +46,13 @@ jobs:
             'advanced-display.png',
             'advanced-keyboard.png',
             'advanced-battery.png',
-            'advanced-settings.png'
+            'advanced-touchpad.png',
+            'advanced-settings.png',
+            'advanced-home-wide.png',
+            'advanced-display-wide.png',
+            'advanced-touchpad-wide.png',
+            'advanced-battery-wide.png',
+            'advanced-touchpad-light.png'
           )
           foreach ($name in $expected) {
             $path = Join-Path $output $name

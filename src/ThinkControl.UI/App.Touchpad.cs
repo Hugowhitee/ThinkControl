@@ -1,3 +1,4 @@
+using System.Windows;
 using ThinkControl.UI.Services.Touchpad;
 
 namespace ThinkControl.UI;
