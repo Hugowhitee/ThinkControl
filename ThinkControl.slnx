@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ThinkControl.Core/ThinkControl.Core.csproj" />
+    <Project Path="src/ThinkControl.DeviceProfiles/ThinkControl.DeviceProfiles.csproj" />
+    <Project Path="src/ThinkControl.Hardware/ThinkControl.Hardware.csproj" />
+    <Project Path="src/ThinkControl.Service/ThinkControl.Service.csproj" />
+    <Project Path="src/ThinkControl.UI/ThinkControl.UI.csproj" />
+  </Folder>
+</Solution>

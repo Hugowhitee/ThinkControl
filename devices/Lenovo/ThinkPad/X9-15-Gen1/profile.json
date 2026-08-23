@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "id": "lenovo.thinkpad.x9-15-gen1",
+  "displayName": "ThinkPad X9-15 Gen 1",
+  "status": "reference-machine",
+  "match": {
+    "manufacturer": "LENOVO",
+    "machineTypes": ["21Q6", "21Q7"]
+  },
+  "capabilities": {
+    "performanceMode": { "verification": "planned" },
+    "lenovoThermalPolicy": { "verification": "research-verified" },
+    "cpuTemperature": { "verification": "planned" },
+    "fanRpm": { "verification": "research-verified" },
+    "fanControl": { "verification": "research-verified", "implementation": "disabled-in-v0.1" },
+    "keyboardBacklight": { "verification": "planned" },
+    "displayRefresh": { "verification": "planned-windows-api" },
+    "adaptiveBrightness": { "verification": "planned-windows-api" },
+    "batteryTelemetry": { "verification": "planned-read-only" }
+  },
+  "research": {
+    "fan": {
+      "transport": "classic-thinkpad-ec",
+      "controlRegister": "0x2F",
+      "tachometerRegisters": ["0x84", "0x85"],
+      "lenovoAutoValue": "0x80",
+      "manualLevels": [1, 2, 3, 4, 5, 6, 7]
+    },
+    "lits": {
+      "service": "LITSSVC",
+      "acpiDevice": "ACPI\\LEN0100",
+      "pipe": "com.lenovo.its.pipe.setting"
+    }
+  },
+  "safety": {
+    "hardwareWritesEnabled": false,
+    "blockedFanValues": ["0x00", "0x40"],
+    "remoteMetadataMayEnableWrites": false
+  }
+}

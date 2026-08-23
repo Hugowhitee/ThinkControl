@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "foundation/**", "feature/**", "fix/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore
+        run: dotnet restore ThinkControl.slnx
+      - name: Build
+        run: dotnet build ThinkControl.slnx --configuration Release --no-restore
