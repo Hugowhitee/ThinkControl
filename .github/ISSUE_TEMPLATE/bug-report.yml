@@ -7,13 +7,13 @@ body:
       value: |
         Thanks for helping improve ThinkControl. Keep this report short if you want — only the core fields are required.
 
-        **Public issues are public.** Do not paste serial numbers, usernames, hostnames, MAC addresses or personal file paths. ThinkControl's in-app diagnostics flow is the preferred way to submit detailed hardware logs privately once that endpoint is enabled.
+        **Public issues are public.** Do not paste serial numbers, usernames, hostnames, MAC addresses or personal file paths. Use the in-app support-bundle export for redacted hardware diagnostics.
 
   - type: dropdown
     id: device_family
     attributes:
       label: Device family
-      description: Pick the closest family. Choose a custom option if yours is not listed.
+      description: Pick the closest family.
       options:
         - ThinkPad X9
         - ThinkPad X1
@@ -24,6 +24,11 @@ body:
         - ThinkPad Z series
         - ThinkPad Yoga / 2-in-1
         - Other ThinkPad
+        - ThinkBook
+        - Yoga
+        - IdeaPad
+        - LOQ
+        - Legion
         - Other Lenovo laptop
         - Other laptop / PC
     validations:
@@ -50,7 +55,7 @@ body:
     attributes:
       label: ThinkControl version
       description: Visible in ThinkControl Settings / Updates and in the installer/release name.
-      placeholder: "e.g. v0.1.0-alpha.1"
+      placeholder: "e.g. v0.1.0-alpha.2"
     validations:
       required: true
 
@@ -59,19 +64,22 @@ body:
     attributes:
       label: Area
       options:
-        - Installer / startup
+        - Web installer / payload download
+        - Install / upgrade / uninstall
         - Tray / compact UI
-        - Advanced UI
+        - Advanced / Windows title bar
         - Fan control / fan level
         - Fan RPM / telemetry
         - CPU temperature
-        - Performance modes
+        - Performance / Lenovo thermal policy
         - Display / refresh rate
         - Brightness / adaptive brightness
         - Keyboard backlight / effects
         - Battery / watts / ETA
+        - Lenovo Vantage launch
         - Updates
         - Diagnostics / compatibility
+        - Branding / icons
         - Other
     validations:
       required: true
@@ -110,7 +118,7 @@ body:
     id: attachments
     attributes:
       label: Screenshots / recordings / diagnostics
-      description: Optional. Drag files or images directly into this box. Prefer the in-app private diagnostics submission for detailed logs when available.
+      description: Optional. Drag screenshots, a screen recording or a redacted support bundle here.
       placeholder: "Drag screenshots, a screen recording or a redacted support bundle here."
 
   - type: textarea
