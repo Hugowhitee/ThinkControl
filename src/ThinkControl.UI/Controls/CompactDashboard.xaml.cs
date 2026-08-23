@@ -66,7 +66,9 @@ public partial class CompactDashboard : UserControl
         if (_syncingCooling || _app is null || sender is not FrameworkElement { Tag: string profile })
             return;
 
-        CoolingQuickGroup.IsEnabled = false;
+        // Temporarily prevent double-clicks without replacing the CanFanControl
+        // binding that owns this group's normal availability.
+        CoolingQuickGroup.SetCurrentValue(IsEnabledProperty, false);
         try
         {
             await _app.SetCoolingProfileAsync(profile);
@@ -74,7 +76,7 @@ public partial class CompactDashboard : UserControl
         }
         finally
         {
-            CoolingQuickGroup.SetBinding(IsEnabledProperty, nameof(AppState.CanFanControl));
+            CoolingQuickGroup.SetCurrentValue(IsEnabledProperty, _app.State.CanFanControl);
             SyncCoolingProfile();
         }
     }
