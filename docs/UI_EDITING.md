@@ -1,6 +1,6 @@
 # Editing the ThinkControl UI visually
 
-ThinkControl uses **WPF + XAML**. The UI should stay designer-friendly so layout and visual polish can be changed without touching the hardware backend.
+ThinkControl uses **WPF + XAML**. The UI is intentionally kept designer-friendly so layout and visual polish can be changed without touching the hardware backend.
 
 ## Recommended editor
 
@@ -16,8 +16,12 @@ The visual surface and XAML source represent the same UI. Moving or resizing sup
 ## Main files to edit
 
 - `src/ThinkControl.UI/MainWindow.xaml` — compact tray popup
-- `src/ThinkControl.UI/AdvancedWindow.xaml` — full advanced window
+- `src/ThinkControl.UI/AdvancedWindow.xaml` — full advanced window and navigation
+- `src/ThinkControl.UI/Controls/KeyboardEffectsPanel.xaml` — Auto, Breathing, Reactive and Audio keyboard effects
+- `src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml` — battery power, ETA, health and energy panel
 - `src/ThinkControl.UI/App.xaml` — shared colors, buttons, segments, sliders and other styles
+
+The Keyboard Effects and Battery Telemetry layouts are separate XAML `UserControl`s specifically so they can be opened and edited independently in Blend.
 
 Avoid changing hardware or service projects for visual-only work.
 
@@ -50,7 +54,7 @@ Those are the links between the visual XAML and ThinkControl behavior.
 
 ## Design rule for ThinkControl
 
-New UI should be declared in XAML whenever practical. C# code-behind should control behavior, not construct normal layout dynamically. This keeps the application editable in Blend and makes visual changes reviewable as XAML diffs.
+New normal layout should be declared in XAML whenever practical. C# code-behind should control behavior, not draw ordinary cards, text and controls. This keeps the application editable in Blend and makes visual changes reviewable as XAML diffs.
 
 Hardware safety does **not** belong in XAML. Fan ranges, device verification, privileged service rules and capability gates remain enforced in the hardware/service layers even if the UI is modified.
 
