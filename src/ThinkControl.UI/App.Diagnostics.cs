@@ -1,4 +1,5 @@
 using ThinkControl.Core.Diagnostics;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -8,11 +9,38 @@ public partial class App
     public App()
     {
         HardwareClient.HardwareOperationCompleted += HardwareClient_HardwareOperationCompleted;
+        HardwareClient.StatusObserved += HardwareClient_StatusObserved;
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
         Startup += OnBootstrapStartup;
         Activated += OnTouchpadApplicationActivated;
         Activated += OnHardwareSetupActivated;
         Exit += OnTouchpadApplicationExit;
+    }
+
+    private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
+    {
+        void Apply()
+        {
+            if (response?.Success == true && response.Telemetry is not null)
+            {
+                State.ControlTemperatureC = response.Telemetry.ControlTemperatureC;
+                State.ControlTemperatureSource = response.Telemetry.ControlTemperatureSource ?? "Unavailable";
+                State.ApplyHardwareTelemetry(response.Telemetry.Fans, response.Telemetry.Sensors);
+                if (response.Capabilities is not null)
+                    State.CanSensorTelemetry = response.Capabilities.SensorTelemetry;
+                return;
+            }
+
+            State.ControlTemperatureC = null;
+            State.ControlTemperatureSource = "Unavailable";
+            State.CanSensorTelemetry = false;
+            State.ClearHardwareTelemetry();
+        }
+
+        if (Dispatcher.CheckAccess())
+            Apply();
+        else
+            Dispatcher.BeginInvoke(Apply);
     }
 
     private void HardwareClient_HardwareOperationCompleted(object? sender, HardwareOperationResult operation)
