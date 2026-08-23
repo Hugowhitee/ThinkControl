@@ -10,6 +10,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         ConfigureSliderCommitBehavior();
+        ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         DiagnosticsPanelControl?.Refresh();
@@ -20,6 +21,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         ConfigureSliderCommitBehavior();
+        ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         DiagnosticsPanelControl?.Refresh();
@@ -30,6 +32,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         ConfigureSliderCommitBehavior();
+        ConfigureCopyPolish();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
 }
