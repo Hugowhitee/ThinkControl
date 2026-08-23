@@ -160,56 +160,58 @@ internal sealed class TouchpadHidDevice : IDisposable
         ref bool supportsHapticFeedback,
         ref bool supportsClickForce)
     {
-        // Windows haptic touchpads expose the Simple Haptics Controller through
-        // output reports. Manual Trigger (0x0E/0x21) is mandatory; Intensity
-        // (0x0E/0x23) is optional but is also accepted as corroborating evidence.
-        ushort outputCapsLength = caps.NumberOutputValueCaps;
-        if (outputCapsLength > 0)
+        // Device-initiated click feedback exposes Haptic Intensity (0x0E/0x23)
+        // as a feature report. Host-initiated haptics use a separate Simple Haptics
+        // Controller with Manual Trigger (0x0E/0x21) in output reports. Either is
+        // strong generic evidence that this Precision Touchpad has haptic hardware.
+        ushort featureCapsLength = caps.NumberFeatureValueCaps;
+        if (featureCapsLength > 0)
         {
-            var outputCaps = new TouchpadNativeMethods.HidpValueCaps[outputCapsLength];
+            var featureCaps = new TouchpadNativeMethods.HidpValueCaps[featureCapsLength];
             if (TouchpadNativeMethods.HidP_GetValueCaps(
-                    HidpOutput,
-                    outputCaps,
-                    ref outputCapsLength,
+                    HidpFeature,
+                    featureCaps,
+                    ref featureCapsLength,
                     preparsed) == TouchpadNativeMethods.HidpStatusSuccess)
             {
-                for (int i = 0; i < outputCapsLength; i++)
+                for (int i = 0; i < featureCapsLength; i++)
                 {
-                    TouchpadNativeMethods.HidpValueCaps cap = outputCaps[i];
+                    TouchpadNativeMethods.HidpValueCaps cap = featureCaps[i];
                     if (cap.UsagePage == HidUsagePageHaptics &&
-                        (ContainsUsage(cap, HidUsageHapticManualTrigger) ||
-                         ContainsUsage(cap, HidUsageHapticIntensity)))
+                        ContainsUsage(cap, HidUsageHapticIntensity))
                     {
                         supportsHapticFeedback = true;
-                        break;
+                    }
+                    else if (cap.UsagePage == TouchpadNativeMethods.HidUsagePageDigitizer &&
+                             ContainsUsage(cap, HidUsageButtonPressThreshold))
+                    {
+                        supportsClickForce = true;
                     }
                 }
             }
         }
 
-        // Button Press Threshold is the optional Precision Touchpad feature report
-        // backing Windows' click-force setting.
-        ushort featureCapsLength = caps.NumberFeatureValueCaps;
-        if (featureCapsLength == 0)
+        ushort outputCapsLength = caps.NumberOutputValueCaps;
+        if (supportsHapticFeedback || outputCapsLength == 0)
             return;
 
-        var featureCaps = new TouchpadNativeMethods.HidpValueCaps[featureCapsLength];
+        var outputCaps = new TouchpadNativeMethods.HidpValueCaps[outputCapsLength];
         if (TouchpadNativeMethods.HidP_GetValueCaps(
-                HidpFeature,
-                featureCaps,
-                ref featureCapsLength,
+                HidpOutput,
+                outputCaps,
+                ref outputCapsLength,
                 preparsed) != TouchpadNativeMethods.HidpStatusSuccess)
         {
             return;
         }
 
-        for (int i = 0; i < featureCapsLength; i++)
+        for (int i = 0; i < outputCapsLength; i++)
         {
-            TouchpadNativeMethods.HidpValueCaps cap = featureCaps[i];
-            if (cap.UsagePage == TouchpadNativeMethods.HidUsagePageDigitizer &&
-                ContainsUsage(cap, HidUsageButtonPressThreshold))
+            TouchpadNativeMethods.HidpValueCaps cap = outputCaps[i];
+            if (cap.UsagePage == HidUsagePageHaptics &&
+                ContainsUsage(cap, HidUsageHapticManualTrigger))
             {
-                supportsClickForce = true;
+                supportsHapticFeedback = true;
                 break;
             }
         }
