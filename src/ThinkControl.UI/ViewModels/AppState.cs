@@ -23,6 +23,8 @@ public sealed class AppState : INotifyPropertyChanged
     private TimeSpan? _batteryEtaRemaining;
     private int? _batteryCycleCount;
     private string _batteryCurrentSessionText = "No active charge session";
+    private string _batteryTypicalChargeText = "Typical charge · learning";
+    private string _batteryHealthTrendText = "Health trend · learning";
     private string _batterySource = "Windows battery";
     private int _brightness = 50;
     private bool _brightnessAvailable;
@@ -54,6 +56,7 @@ public sealed class AppState : INotifyPropertyChanged
 
     public ObservableCollection<double> TemperatureHistory { get; } = new();
     public ObservableCollection<double> BatteryChargePowerHistory { get; } = new();
+    public ObservableCollection<double> BatteryHealthTrendHistory { get; } = new();
     public ObservableCollection<string> RecentChargeSessions { get; } = new();
 
     public string DeviceName { get => _deviceName; set => Set(ref _deviceName, value); }
@@ -72,6 +75,8 @@ public sealed class AppState : INotifyPropertyChanged
     public TimeSpan? BatteryEtaRemaining { get => _batteryEtaRemaining; set => Set(ref _batteryEtaRemaining, value); }
     public int? BatteryCycleCount { get => _batteryCycleCount; set => Set(ref _batteryCycleCount, value); }
     public string BatteryCurrentSessionText { get => _batteryCurrentSessionText; set => Set(ref _batteryCurrentSessionText, value); }
+    public string BatteryTypicalChargeText { get => _batteryTypicalChargeText; set => Set(ref _batteryTypicalChargeText, value); }
+    public string BatteryHealthTrendText { get => _batteryHealthTrendText; set => Set(ref _batteryHealthTrendText, value); }
     public string BatterySource { get => _batterySource; set => Set(ref _batterySource, value); }
     public int Brightness { get => _brightness; set => Set(ref _brightness, value); }
     public bool BrightnessAvailable { get => _brightnessAvailable; set => Set(ref _brightnessAvailable, value); }
@@ -140,7 +145,10 @@ public sealed class AppState : INotifyPropertyChanged
     public void ApplyBatteryHistory(BatteryHistoryView history)
     {
         BatteryCurrentSessionText = history.CurrentSessionText;
+        BatteryTypicalChargeText = history.TypicalChargeText;
+        BatteryHealthTrendText = history.HealthTrendText;
         ReplaceCollection(BatteryChargePowerHistory, history.CurrentChargePowerWatts);
+        ReplaceCollection(BatteryHealthTrendHistory, history.HealthTrendPercent);
         ReplaceCollection(RecentChargeSessions, history.RecentSessions);
     }
 
