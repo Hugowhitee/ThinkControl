@@ -15,7 +15,14 @@ public partial class App
 
     private void OnTouchpadApplicationActivated(object? sender, EventArgs e)
     {
+        // BootstrapWindow can activate before the normal app runtime exists. Do not
+        // construct the touchpad host until preflight has populated the machine type
+        // and the real tray/compact surface has been created.
+        if (_trayIcon is null || CompactWindow is null)
+            return;
+
         EnsureTrayActivationBehavior();
+        NormalizeCompactTopmostAfterActivation();
 
         if (UserSettings.Current.TouchpadGestures?.Enabled == true)
             TouchpadFeature.EnsureInputStarted();
@@ -66,8 +73,6 @@ public partial class App
         CompactWindow.Opacity = 1;
         CompactWindow.ShowNearTray(animate: !wasVisible);
 
-        // ShowNearTray uses a short topmost pulse to guarantee foreground placement.
-        // Return to normal z-order immediately after Explorer has yielded focus.
         Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
         {
             if (!CompactWindow.IsVisible)
@@ -75,6 +80,15 @@ public partial class App
 
             CompactWindow.Topmost = false;
             CompactWindow.Activate();
+        }));
+    }
+
+    private void NormalizeCompactTopmostAfterActivation()
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+        {
+            if (CompactWindow?.IsVisible == true)
+                CompactWindow.Topmost = false;
         }));
     }
 
