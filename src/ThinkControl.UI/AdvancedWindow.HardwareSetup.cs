@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI;
 
@@ -39,7 +41,7 @@ public partial class AdvancedWindow
             Margin = new Thickness(0, 5, 0, 0)
         });
 
-        var button = new Button
+        var button = new WpfButton
         {
             Content = "Open setup",
             Style = TryFindResource("TcButton") as Style,
