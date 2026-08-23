@@ -4,6 +4,8 @@
   "master": "master/ThinkControl_TC_mark.svg",
   "windowsApp": "windows/ThinkControl.ico",
   "windowsMark": "windows/ThinkControl_mark.ico",
-  "readmeDark": "wordmark/ThinkControl_wordmark_dark.svg",
-  "readmeLight": "wordmark/ThinkControl_wordmark_light.svg"
+  "readmeDark": "wordmark/ThinkControl_wordmark_outlined_dark.svg",
+  "readmeLight": "wordmark/ThinkControl_wordmark_outlined_light.svg",
+  "wpfMasterViewBox": "0 0 1536 1536",
+  "legacyWpfGeometryAllowed": false
 }
