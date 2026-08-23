@@ -1,5 +1,7 @@
 name: Publish ready release
 
+# Idempotent publication guard: touching this workflow safely rechecks an existing
+# ready tag and dispatches packaging only when the matching GitHub release is absent.
 on:
   push:
     branches:
