@@ -1,5 +1,6 @@
 using System.Windows.Controls;
 using System.Windows.Input;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
 namespace ThinkControl.UI;
 
