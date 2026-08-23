@@ -1,5 +1,6 @@
 using ThinkControl.Core.Touchpad;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.Services.Touchpad;
 
 namespace ThinkControl.UI;
 
