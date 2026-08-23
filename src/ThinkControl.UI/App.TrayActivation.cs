@@ -15,10 +15,9 @@ public partial class App
 
         _trayActivationRecoveryAttached = true;
 
-        // The original alpha.2 handler toggles Compact. Keep compatibility with
-        // existing callers, but make a direct tray click end in a visible,
-        // foreground ThinkControl surface. This also fixes restoring a minimized
-        // Advanced window, where Window.Activate() by itself is insufficient.
+        // Alpha.2 already has a left-click handler that toggles Compact. Keep it for
+        // compatibility with the existing tray lifecycle, but queue this handler
+        // afterwards so an explicit tray click always ends with ThinkControl visible.
         _trayIcon.MouseUp += TrayIcon_EnsureForeground;
 
         if (_trayIcon.ContextMenuStrip is { Items.Count: > 0 } menu)
@@ -29,22 +28,24 @@ public partial class App
             oldOpen.Dispose();
 
             var open = new Forms.ToolStripMenuItem("Open ThinkControl");
-            open.Click += (_, _) => Dispatcher.BeginInvoke(
-                DispatcherPriority.Normal,
-                new Action(ShowThinkControlFromTray));
+            open.Click += (_, _) => QueueTrayActivation();
             menu.Items.Insert(Math.Max(0, index), open);
         }
     }
 
     private void TrayIcon_EnsureForeground(object? sender, Forms.MouseEventArgs e)
     {
-        if (e.Button != Forms.MouseButtons.Left)
-            return;
+        if (e.Button == Forms.MouseButtons.Left)
+            QueueTrayActivation();
+    }
 
-        // Queue after the legacy MouseUp handler so its toggle cannot leave the
-        // application hidden as the final state.
+    private void QueueTrayActivation()
+    {
+        // Explorer's hidden-icons flyout can still own focus during MouseUp. Waiting
+        // for ApplicationIdle prevents Compact.Window_Deactivated from immediately
+        // hiding the popup we just opened.
         Dispatcher.BeginInvoke(
-            DispatcherPriority.Normal,
+            DispatcherPriority.ApplicationIdle,
             new Action(ShowThinkControlFromTray));
     }
 
@@ -58,7 +59,28 @@ public partial class App
             return;
         }
 
+        if (CompactWindow is null)
+            return;
+
+        // Cancel a stale fade-out started by Window_Deactivated while Explorer was
+        // closing its hidden-icons surface, then restore the existing popup instance.
+        CompactWindow.BeginAnimation(UIElement.OpacityProperty, null);
+        CompactWindow.Opacity = 1;
         CompactWindow.ShowNearTray(animate: !CompactWindow.IsVisible);
-        CompactWindow.Activate();
+
+        // ShowNearTray uses Topmost to win foreground placement. Drop it again once
+        // focus has settled so ThinkControl behaves like a normal tray utility.
+        Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+        {
+            if (!CompactWindow.IsVisible)
+            {
+                CompactWindow.BeginAnimation(UIElement.OpacityProperty, null);
+                CompactWindow.Opacity = 1;
+                CompactWindow.ShowNearTray(animate: false);
+            }
+
+            CompactWindow.Activate();
+            CompactWindow.Topmost = false;
+        }));
     }
 }
