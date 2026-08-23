@@ -7,12 +7,11 @@
 
   <p>Windows controls and hardware telemetry for Lenovo laptops.</p>
 
-  [![Windows CI](https://img.shields.io/github/actions/workflow/status/Hugowhitee/ThinkControl/ci.yml?branch=main&label=Windows%20CI&logo=github)](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml)
-  [![Release](https://img.shields.io/github/v/release/Hugowhitee/ThinkControl?include_prereleases&label=release)](https://github.com/Hugowhitee/ThinkControl/releases)
-  [![Downloads](https://img.shields.io/github/downloads/Hugowhitee/ThinkControl/total?label=downloads)](https://github.com/Hugowhitee/ThinkControl/releases)
-  [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-red)](LICENSE)
+  [![Windows CI](https://img.shields.io/github/actions/workflow/status/Hugowhitee/ThinkControl/ci.yml?branch=main&label=Windows%20CI&logo=windows11&logoColor=white)](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml)
+  [![Status](https://img.shields.io/badge/status-alpha-orange)](docs/ALPHA-TESTING.md)
+  [![License](https://img.shields.io/badge/license-PolyForm%20Noncommercial-555)](LICENSE)
 
-  **[Download](https://github.com/Hugowhitee/ThinkControl/releases)** |
+  **[Releases](https://github.com/Hugowhitee/ThinkControl/releases)** |
   **[Device support](docs/DEVICE-SUPPORT.md)** |
   **[Documentation](docs/README.md)** |
   **[Report a bug](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)**
@@ -20,126 +19,126 @@
 
 ## Status
 
-ThinkControl `v0.1.0-alpha.1` is a prerelease. The ThinkPad X9-15 Gen 1 (`21Q6` and `21Q7`) is the reference device used for the first hardware implementation. Other Lenovo families use capability detection and should be treated as beta until tested on the exact model.
+ThinkControl `v0.1.0-alpha.1` is being finalized as the first prerelease. The ThinkPad X9-15 Gen 1 (`21Q6` and `21Q7`) is the reference device for the first low-level hardware implementation. Other Lenovo families use capability detection and remain beta until tested on the exact model/provider combination.
+
+`releaseReady` remains disabled until the packaged build passes its final validation. The Releases page may therefore be empty while the alpha is being prepared.
 
 ## Features
 
-ThinkControl runs from the Windows notification area and provides a compact view for common controls plus a larger Advanced window for detailed settings.
-
 | Area | Current support |
 | --- | --- |
-| Performance | Quiet, Balanced and Performance Windows power modes |
-| Fans | Real RPM where a reliable source is available; X9 Lenovo Auto and manual levels 1 to 7 |
+| Performance | Quiet, Balanced and Performance through the effective Windows power-mode surface used by the Lenovo thermal stack |
+| Fans | Real RPM where a reliable tachometer exists; verified X9 Lenovo Auto and manual levels 1 to 7 |
 | Display | Refresh rate, automatic refresh policy, brightness and adaptive brightness where Windows exposes them |
-| Keyboard | Off, Low and High plus Auto, Breathing, Reactive and experimental Audio effects on supported Lenovo hardware |
-| Battery | Percentage, charging state, power in watts, energy in Wh, health and filtered time estimates where available |
+| Keyboard | Off, Low and High plus Auto, Breathing, Reactive and experimental Audio policies on supported Lenovo hardware |
+| Battery | Percentage, charging state, live watts, energy in Wh, health and filtered time estimates where available |
 | System | Device identity, provider status, compatibility information and diagnostics |
 
-ThinkControl does not substitute estimated percentages for fan RPM or expose controls that have no working backend.
+ThinkControl never substitutes guessed fan percentages, noise values or sensor names for real hardware data.
+
+## Interface
+
+ThinkControl deliberately uses two different Windows surfaces:
+
+- **Compact** is a fixed tray flyout for everyday controls. It stays anchored above the notification area and does not behave like a movable desktop window.
+- **Advanced** is a normal resizable Windows application window. Windows owns its title bar, app icon, minimize/maximize/restore/close controls, system menu and Snap Layouts.
+
+The compact expand control opens Advanced; the Advanced sidebar contains one directional control to return to the tray flyout.
 
 ## Install
 
-1. Open [GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases).
-2. Download `ThinkControl-Setup-0.1.0-alpha.1.exe` from the current release.
-3. Optionally verify it with `SHA256SUMS.txt`.
-4. Run the installer and approve the Windows administrator prompt required to install the hardware service.
-5. Leave `Launch ThinkControl` enabled if you want to start it immediately.
+The release download is a small x64 bootstrap-style Inno Setup executable:
 
-The installer is self-contained. A separate .NET runtime is not required.
+```text
+ThinkControl-Setup-0.1.0-alpha.1.exe
+```
 
-Some low-level X9 fan functions currently depend on PawnIO. ThinkControl still runs without it; only the affected hardware backend remains unavailable.
+Setup performs the prerequisite work itself:
 
-See [installer/README.md](installer/README.md) for packaging and dependency details.
+1. installs the ThinkControl UI and privileged hardware service;
+2. checks for the .NET 10 Desktop Runtime;
+3. if needed, downloads the official Microsoft .NET Desktop Runtime `10.0.10` x64 installer and verifies its pinned SHA-256 before execution;
+4. on the verified X9 profile, offers **X9 hardware access (PawnIO 2.2.0)** and verifies the exact official PawnIO release asset against the published Winget-package SHA-256;
+5. registers and starts `ThinkControlService`;
+6. offers **Launch ThinkControl** when setup completes.
 
-## Device support
+The .NET runtime and PawnIO are downloaded only when needed; they are not duplicated inside the ThinkControl installer. If X9 hardware access cannot be installed, ThinkControl still installs and keeps independent Windows/Lenovo features available while explaining the limitation.
 
-Support is evaluated per capability. A recognized model family helps ThinkControl choose appropriate providers, but it does not authorize model-specific hardware writes by itself.
-
-| Device | Status | Notes |
-| --- | --- | --- |
-| ThinkPad X9-15 Gen 1, `21Q6` / `21Q7` | Verified reference | Windows APIs, Lenovo PM driver and the X9 EC fan backend |
-| Other ThinkPads | Beta | Windows features and supported Lenovo providers when detected |
-| ThinkBook, Yoga and IdeaPad | Beta | Windows features plus compatible Lenovo providers when detected |
-| LOQ and Legion | Beta | Windows features and supported Lenovo WMI providers where available |
-| Other Lenovo laptops | Beta | Windows features plus conservative provider discovery |
-| Other Windows laptops | Generic | Windows-level features only |
-
-See [Device Support](docs/DEVICE-SUPPORT.md) for the detailed matrix.
+See [installer/README.md](installer/README.md) and [Dependencies](docs/DEPENDENCIES.md).
 
 ## ThinkPad X9-15 Gen 1
 
-The X9 is the current reference device for low-level fan and keyboard work.
+The X9 reference profile recognizes machine types `21Q6` and `21Q7` from Lenovo SMBIOS identity rather than serial number.
 
-| Capability | Current state |
+| Capability | Current implementation |
 | --- | --- |
-| Windows power modes | Implemented |
-| CPU temperature | Available when a trustworthy sensor provider is present |
-| Fan RPM | X9 EC tachometer registers `0x84/0x85` |
+| Windows power mode | Effective overlay + user-configured AC/DC mode with readback |
+| CPU temperature | Trustworthy sensor provider when present |
+| Fan RPM | X9 EC tachometer registers `0x84/0x85` with conservative polling |
 | Fan state | X9 EC register `0x2F` |
 | Lenovo Auto | `0x80` with readback |
-| Manual fan control | Levels `1` to `7` |
-| Fan off | Blocked |
-| Unverified `0x40` override | Never written |
-| Refresh rate and brightness | Windows APIs |
-| Battery power, energy and health | Available when ACPI exposes the required data |
-| Keyboard Off, Low and High | Lenovo PM provider with readback |
-| Keyboard effects | User-session policies over the supported hardware levels |
+| Manual fan control | Discrete levels `1` to `7` |
+| Fan off | `0x00` blocked |
+| Unverified override | `0x40` family never written |
+| Keyboard Off / Low / High | Lenovo PM/EnergyDrv provider with readback; installed Lenovo Vantage ThinkKeyboard add-in is a fallback |
+| Keyboard effects | User-session policies over verified hardware levels |
+| Refresh / brightness | Windows display APIs |
+| Battery power / Wh / health | Windows/ACPI when exposed |
+
+An important safety invariant is that normal service/controller disposal returns active manual X9 fan control to Lenovo Auto before closing the EC provider.
 
 Technical findings are recorded in [X9-15 Gen 1 research](docs/research/x9-15-gen1.md).
 
+## Lenovo integration
+
+ThinkControl prefers supported Windows surfaces and capability probes instead of assuming every Lenovo laptop has the same firmware interface.
+
+Known provider families currently include:
+
+- Windows power, display and battery APIs;
+- `IBMPmDrv` and `EnergyDrv` keyboard contracts with readback verification;
+- installed official Lenovo Vantage ThinkKeyboard components as a keyboard fallback;
+- Lenovo read-only WMI/CIM fan telemetry where exposed;
+- the exact verified X9 EC backend for direct X9 fan access.
+
+**Commercial Vantage** is launched through its installed Windows protocol/AUMID when available. The Microsoft Store is only a fallback when Windows cannot find an installed Vantage app.
+
+See [Lenovo Providers](docs/LENOVO-PROVIDERS.md).
+
 ## Hardware safety
 
-The normal UI runs as the signed-in user. Privileged hardware operations are isolated in `ThinkControl.Service` and exposed to the UI through semantic commands rather than raw EC, port or IOCTL access.
+The normal WPF application runs as the signed-in user. Privileged hardware operations are isolated in `ThinkControl.Service` and exposed through semantic named-pipe operations rather than arbitrary EC, port or IOCTL passthrough.
 
 For the verified X9 fan backend:
 
-- Lenovo Auto is `0x80`.
-- Manual levels are limited to `1` through `7`.
-- Fan-off `0x00` is blocked.
-- The unverified `0x40` family is never written.
-- Writes are read back where supported.
-- RPM polling is intentionally conservative.
-- Normal service shutdown attempts to return manual fan control to Lenovo Auto.
+- Lenovo Auto is `0x80`;
+- manual levels are limited to `1` through `7`;
+- fan-off `0x00` is blocked;
+- the unverified `0x40` family is never written;
+- writes use readback where supported;
+- RPM polling is intentionally conservative;
+- normal provider/service disposal attempts to return manual ownership to Lenovo Auto.
 
-See [Hardware Safety](docs/HARDWARE-SAFETY.md) before changing a low-level provider.
+See [Hardware Safety](docs/HARDWARE-SAFETY.md).
 
-## Architecture
+## Updates
 
-```text
-ThinkControl.UI
-      |
-      | named pipe
-      v
-ThinkControl.Service
-      |
-      +-- Windows APIs
-      +-- Lenovo capability providers
-      +-- verified device-specific providers
-```
+ThinkControl checks GitHub Releases without a permanent updater service. Before the first public release exists, the Updates page reports that no public release has been published instead of surfacing a raw GitHub 404.
 
-The UI never receives a generic raw hardware-write interface. Device-specific register knowledge stays inside the hardware layer.
+Installing a newer ThinkControl setup over an existing copy stops the old hardware service safely before replacing its files. Inno Setup uses its normal application-closing flow for a running tray process.
 
-See [Architecture](docs/ARCHITECTURE.md) for project boundaries and IPC details.
+## Build and validation
 
-## Diagnostics and privacy
+The repository targets .NET 10 and WPF. To conserve Windows runner minutes, normal feature-branch pushes do not run CI. The Windows CI workflow runs for pull requests and `main` and performs restore/build plus real WPF snapshot rendering.
 
-ThinkControl can keep bounded local diagnostics for compatibility work and support bundles. The diagnostic schema excludes serial numbers, usernames, hostnames, MAC addresses, disk serials, typed text and audio samples.
-
-Automatic private diagnostics upload is not enabled in the current release.
-
-See [Diagnostics and Privacy](docs/DIAGNOSTICS.md).
-
-## Build and test
-
-The repository uses .NET 10 and WPF. Release candidates are built and tested on Windows in GitHub Actions, including UI snapshots, installer creation, service startup and uninstall checks.
+The separate package workflow is reserved for an explicit packaging check or a version tag. It publishes framework-dependent UI/service payloads, enforces payload/installer size budgets, builds Inno Setup, performs a silent install, waits for `ThinkControlService` to reach `Running`, uninstalls, verifies cleanup and generates `SHA256SUMS.txt`.
 
 ```powershell
 dotnet restore ThinkControl.slnx
 dotnet build ThinkControl.slnx -c Release
-dotnet test ThinkControl.slnx -c Release
 ```
 
-Release packaging uses Inno Setup. Version metadata is stored in `version.json`.
+Physical X9 validation still matters for hardware claims; a green VM/CI build cannot prove a fan or keyboard provider on the real laptop.
 
 ## Documentation
 
