@@ -1,8 +1,6 @@
-using System.Windows.Controls;
-
 namespace ThinkControl.UI.Controls;
 
-public partial class BrandMark : UserControl
+public partial class BrandMark : System.Windows.Controls.UserControl
 {
     public BrandMark()
     {
