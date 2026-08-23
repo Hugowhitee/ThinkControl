@@ -5,57 +5,93 @@ This checklist applies to tagged prereleases and later stable builds.
 ## Automated checks
 
 - [x] Restore and build the .NET solution on Windows CI.
-- [x] Render WPF UI snapshots in Light and Dark themes.
-- [x] Publish the self-contained x64 UI.
-- [x] Publish the self-contained x64 hardware service.
-- [x] Build a versioned Inno Setup installer.
-- [x] Complete a silent install in CI.
+- [x] Render real WPF UI snapshots in Light and Dark themes.
+- [x] Publish framework-dependent x64 UI and hardware service.
+- [x] Enforce the combined uncompressed payload size budget.
+- [x] Create a separate compressed `ThinkControl-Payload-<version>.zip`.
+- [x] Compute the payload SHA-256 before compiling Setup.
+- [x] Build a versioned Inno Setup web bootstrapper with the exact payload URL/hash.
+- [x] Enforce a 5 MB hard installer-size budget.
+- [x] Smoke-test the bootstrapper using the same SHA-verified payload through the CI local override.
 - [x] Confirm `ThinkControlService` reaches `Running`.
 - [x] Complete a silent uninstall.
-- [x] Confirm ThinkControl files and service registration are removed.
-- [x] Generate a SHA-256 checksum.
-- [x] Keep the application, tag, release and installer versions aligned.
+- [x] Confirm extracted UI/service files and service registration are removed.
+- [x] Generate SHA-256 checksums for installer and payload.
+- [x] Keep application, tag, release, installer and payload versions aligned.
 
-## X9 reference-device validation
+## Installer prerequisites
 
-The first alpha remains a prerelease until the relevant hardware behavior has been checked on the ThinkPad X9-15 Gen 1.
+- [x] Detect an installed compatible .NET 10 Desktop Runtime.
+- [x] Pin the Microsoft x64 runtime download and SHA-256 when acquisition is needed.
+- [x] Detect X9 machine type before offering direct EC hardware access.
+- [x] Pin PawnIO 2.2.0 to the official release URL and Winget-published SHA-256.
+- [x] Keep PawnIO failure capability-scoped rather than blocking unrelated features.
+- [x] Do not remove shared PawnIO during ThinkControl uninstall.
 
-- [ ] Confirm the installed service starts normally.
-- [ ] Confirm the CPU sensor source and value.
-- [ ] Confirm fan RPM remains stable with conservative polling.
-- [ ] Confirm Lenovo Auto.
-- [ ] Confirm manual fan levels 1 through 7.
-- [ ] Confirm normal app and service shutdown returns manual fan control safely.
-- [ ] Confirm keyboard Off, Low and High.
-- [ ] Tune and confirm Breathing against the physical keyboard transition.
-- [ ] Confirm Auto and Reactive keyboard effects.
-- [ ] Confirm sleep and resume behavior.
-- [ ] Inspect the installed UI at common Windows scaling levels.
+## Branding and Windows shell
 
-## Distribution
+- [x] Approved ThinkControl v3 master geometry is stored under `assets/brand/v3`.
+- [x] Executable/installer ICO is byte-for-byte the canonical v3 Windows icon.
+- [x] Tray ICO is byte-for-byte the canonical v3 mark icon.
+- [x] README dark/light wordmarks are byte-for-byte canonical v3 outlined assets.
+- [x] WPF `BrandMark` uses the exact traced 1536×1536 v3 master geometry.
+- [x] Legacy hand-drawn 64×64 TC geometry is removed.
+- [x] Unused legacy app branding asset is removed.
+- [x] Package CI rejects branding drift and legacy TC geometry.
+- [x] Compact remains a fixed non-draggable tray flyout.
+- [x] Advanced uses the native Windows title bar and taskbar entry.
+
+## X9 hardware policy
+
+- [x] `21Q6` / `21Q7` parsing is prioritized so X9 is not reported as Beta/Untested.
+- [x] Direct fan writes remain restricted to the verified X9 profile.
+- [x] RPM uses the verified EC tachometer route and conservative polling.
+- [x] Normal service/controller disposal returns manual fan control to Lenovo Auto where possible.
+- [x] Lenovo keyboard writes use known provider contracts with readback.
+- [x] Installed Vantage ThinkKeyboard components are fallback-only and must validate.
+- [x] Windows Quiet/Balanced/Performance remains the primary power-mode surface.
+- [x] Verified X9 additionally coordinates LITSSvc AC 502/503/504 and DC 507/508/509 policy commands.
+- [x] X9 Lenovo policy is semantic, profile-gated and not described as direct fan RPM/PWM control.
+
+## Integration regressions
+
+- [x] Compatibility diagnostics renders once in Settings.
+- [x] Commercial Vantage resolves/opens the installed app before any Store fallback.
+- [x] Update checking reports a friendly release-channel state instead of a raw GitHub 404.
+- [x] Compact/Advanced dock actions use matching diagonal direction icons.
+- [x] Native Windows maximize/restore state is owned by the standard Advanced title bar.
+
+## Release publication
 
 - [x] `version.json` is the release version source.
-- [x] Release-ready builds can create the exact `v<version>` tag from `main`.
-- [x] The tag starts the tested packaging workflow.
-- [ ] Install the published release asset on the X9 reference device.
-- [ ] Verify the published checksum against the downloaded installer.
+- [x] `releaseReady` gates publication to `main`.
+- [x] A release-ready main commit creates the exact `v<version>` tag.
+- [x] The tag dispatches the tested package workflow.
+- [x] Publication waits for all three release assets: Setup, Payload and `SHA256SUMS.txt`.
+- [x] The verified release marker records the payload as well as installer/checksum.
 
-## Documentation
+## Physical X9 validation after publication
 
-Before a release is promoted beyond alpha:
-
-- [ ] README support claims match the actual release.
-- [ ] Device Support reflects the tested hardware state.
-- [ ] Hardware Safety reflects all writable providers in the release.
-- [ ] Installer documentation matches the shipped prerequisite behavior.
-- [ ] Third-party notices include every redistributed dependency that requires notice.
+- [ ] Install the published `v0.1.0-alpha.2` Setup on the X9.
+- [ ] Confirm the installer is only a few MB and fetches the matching payload from GitHub.
+- [ ] Verify installer/payload hashes against `SHA256SUMS.txt`.
+- [ ] Confirm the installed footprint is far below the old duplicate-runtime layout.
+- [ ] Confirm X9 is identified as verified, not Beta/Untested.
+- [ ] Confirm CPU sensor source/value.
+- [ ] Confirm stable fan RPM, Lenovo Auto and manual levels 1 through 7.
+- [ ] Confirm Quiet/Balanced/Performance policy behavior on AC and battery.
+- [ ] Confirm keyboard Off/Low/High and effect behavior.
+- [ ] Confirm Commercial Vantage direct launch.
+- [ ] Confirm update checking on the published build.
+- [ ] Test sleep/resume.
+- [ ] Inspect Compact/Advanced at 100, 125 and 150 percent scaling.
+- [ ] Confirm Compact cannot be dragged.
+- [ ] Confirm Advanced native title bar, v3 icon, Snap Layouts and maximize/restore.
 
 ## Later release work
 
-The following items are not required for making the first alpha downloadable, but are expected before a mature release where applicable:
-
-- installer-managed pinned PawnIO setup;
 - additional Lenovo model validation;
 - private opt-in diagnostics submission;
 - autonomous fan curves with lifecycle and recovery safeguards;
-- broader accessibility and real-device scaling validation.
+- broader accessibility and real-device scaling validation;
+- Authenticode signing and mature update/rollback handling.

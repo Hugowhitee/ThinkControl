@@ -32,15 +32,20 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> SetKeyboardBacklightAsync(string value, CancellationToken cancellationToken = default) =>
         await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "SetKeyboardBacklight", value), cancellationToken);
 
+    public async Task<ServiceResponse?> SetThermalModeAsync(string value, CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 3200);
+
     private async Task<ServiceResponse?> SendTrackedAsync(
         string operation,
         string? value,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        int timeoutMs = 450)
     {
         var stopwatch = Stopwatch.StartNew();
         ServiceResponse? response = await SendAsync(
             new ServiceRequest(ThinkControlProtocol.Version, operation, value),
-            cancellationToken);
+            cancellationToken,
+            timeoutMs);
         stopwatch.Stop();
 
         try
@@ -59,7 +64,10 @@ public sealed class HardwareServiceClient
         return response;
     }
 
-    private static async Task<ServiceResponse?> SendAsync(ServiceRequest request, CancellationToken cancellationToken)
+    private static async Task<ServiceResponse?> SendAsync(
+        ServiceRequest request,
+        CancellationToken cancellationToken,
+        int timeoutMs = 450)
     {
         try
         {
@@ -70,7 +78,7 @@ public sealed class HardwareServiceClient
                 PipeOptions.Asynchronous);
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(450));
+            timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
             await pipe.ConnectAsync(timeoutCts.Token);
 
             string requestJson = JsonSerializer.Serialize(request, JsonOptions) + "\n";

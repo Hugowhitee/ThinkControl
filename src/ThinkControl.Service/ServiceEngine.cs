@@ -127,6 +127,7 @@ internal sealed class ServiceEngine : IDisposable
                 "SetFanLevel" => SetFanLevel(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
                 "SetKeyboardBacklight" => SetKeyboardBacklight(request.Value),
+                "SetThermalMode" => SetThermalMode(request.Value),
                 _ => Error("Unsupported operation. Raw EC, port and IOCTL passthrough are never exposed by ThinkControl.")
             };
         }
@@ -187,6 +188,16 @@ internal sealed class ServiceEngine : IDisposable
         return _hardware.SetKeyboardBacklight(value, out string? error)
             ? StatusResponse()
             : Error(error ?? "Keyboard level rejected.");
+    }
+
+    private ServiceResponse SetThermalMode(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Error("Thermal mode is missing.");
+
+        return LenovoThermalPolicyService.TrySetX9Policy(_hardware.Identity, value, out string? detail)
+            ? new ServiceResponse(ThinkControlProtocol.Version, true, detail)
+            : Error(detail ?? "Lenovo thermal policy rejected the request.");
     }
 
     private static ServiceResponse Error(string message) =>

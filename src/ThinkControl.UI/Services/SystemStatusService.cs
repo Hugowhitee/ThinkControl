@@ -17,15 +17,18 @@ public sealed record SystemStatusSnapshot(
 
 public sealed class SystemStatusService
 {
+    private static readonly string[] VerifiedX9MachineTypes = ["21Q6", "21Q7"];
+
     public SystemStatusSnapshot Read()
     {
         string manufacturer = ReadFirst("Win32_ComputerSystem", "Manufacturer") ?? "";
         string model = ReadFirst("Win32_ComputerSystem", "Model") ?? "ThinkPad";
+        string productVersion = ReadFirst("Win32_ComputerSystemProduct", "Version") ?? "";
         string cpu = ReadFirst("Win32_Processor", "Name") ?? "—";
         string gpu = ReadFirst("Win32_VideoController", "Name") ?? "—";
         string bios = ReadFirst("Win32_BIOS", "SMBIOSBIOSVersion") ?? "—";
         string? sku = ReadFirst("Win32_ComputerSystem", "SystemSKUNumber");
-        string machineType = ParseMachineType(sku, model);
+        string machineType = ParseMachineType(sku, model, productVersion);
         string ram = FormatRam(ReadFirstUlong("Win32_ComputerSystem", "TotalPhysicalMemory"));
 
         Forms.PowerStatus power = Forms.SystemInformation.PowerStatus;
@@ -39,7 +42,7 @@ public sealed class SystemStatusService
             _ => "Power state unknown"
         };
 
-        string deviceName = model.Trim();
+        string deviceName = SelectDeviceName(productVersion, model);
         return new SystemStatusSnapshot(
             deviceName,
             cpu.Trim(),
@@ -86,16 +89,61 @@ public sealed class SystemStatusService
         return $"{Math.Round(gib):0} GB";
     }
 
-    private static string ParseMachineType(string? sku, string model)
+    private static string SelectDeviceName(string productVersion, string model)
     {
-        if (!string.IsNullOrWhiteSpace(sku))
+        string version = productVersion.Trim();
+        if (!string.IsNullOrWhiteSpace(version) &&
+            !string.Equals(version, "ThinkPad", StringComparison.OrdinalIgnoreCase) &&
+            (version.Contains("ThinkPad", StringComparison.OrdinalIgnoreCase) ||
+             version.Contains("ThinkBook", StringComparison.OrdinalIgnoreCase) ||
+             version.Contains("Yoga", StringComparison.OrdinalIgnoreCase) ||
+             version.Contains("IdeaPad", StringComparison.OrdinalIgnoreCase) ||
+             version.Contains("Legion", StringComparison.OrdinalIgnoreCase) ||
+             version.Contains("LOQ", StringComparison.OrdinalIgnoreCase)))
         {
-            Match match = Regex.Match(sku, @"(?:MT[_ -]?)?(?<mt>[A-Z0-9]{4})(?:[_ -]|$)", RegexOptions.IgnoreCase);
-            if (match.Success)
-                return match.Groups["mt"].Value.ToUpperInvariant();
+            return version;
         }
 
-        Match modelMatch = Regex.Match(model, @"^(?<mt>[A-Z0-9]{4})", RegexOptions.IgnoreCase);
-        return modelMatch.Success ? modelMatch.Groups["mt"].Value.ToUpperInvariant() : "—";
+        return model.Trim();
+    }
+
+    private static string ParseMachineType(params string?[] candidates)
+    {
+        // Exact verified identifiers get first priority. Lenovo SystemSKUNumber
+        // often looks like LENOVO_MT_21Q6_BU_Think_..., so taking the first four
+        // letters would incorrectly classify an X9 as "LENO".
+        foreach (string verified in VerifiedX9MachineTypes)
+        {
+            foreach (string? candidate in candidates)
+            {
+                if (!string.IsNullOrWhiteSpace(candidate) &&
+                    candidate.Contains(verified, StringComparison.OrdinalIgnoreCase))
+                {
+                    return verified;
+                }
+            }
+        }
+
+        foreach (string? candidate in candidates)
+        {
+            if (string.IsNullOrWhiteSpace(candidate))
+                continue;
+
+            Match explicitMatch = Regex.Match(
+                candidate,
+                @"(?:MTM?|TYPE)[_ -]?(?<mt>[0-9][A-Z0-9]{3})(?:[_ -]|$)",
+                RegexOptions.IgnoreCase);
+            if (explicitMatch.Success)
+                return explicitMatch.Groups["mt"].Value.ToUpperInvariant();
+
+            Match tokenMatch = Regex.Match(
+                candidate,
+                @"(?<![A-Z0-9])(?<mt>[0-9][A-Z0-9]{3})(?![A-Z0-9])",
+                RegexOptions.IgnoreCase);
+            if (tokenMatch.Success)
+                return tokenMatch.Groups["mt"].Value.ToUpperInvariant();
+        }
+
+        return "—";
     }
 }

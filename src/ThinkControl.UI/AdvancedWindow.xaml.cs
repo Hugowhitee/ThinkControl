@@ -1,18 +1,28 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
+using System.Windows.Shell;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfButton = System.Windows.Controls.Button;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
+using WpfGrid = System.Windows.Controls.Grid;
 using WpfSlider = System.Windows.Controls.Slider;
+using WpfStackPanel = System.Windows.Controls.StackPanel;
+using WpfTextBlock = System.Windows.Controls.TextBlock;
+using WpfViewbox = System.Windows.Controls.Viewbox;
 
 namespace ThinkControl.UI;
 
 public partial class AdvancedWindow : Window
 {
+    private const int DwmwaUseImmersiveDarkMode = 20;
+
     private readonly App _app;
     private bool _forceClose;
     private bool _syncing;
@@ -23,8 +33,95 @@ public partial class AdvancedWindow : Window
     {
         _app = app;
         InitializeComponent();
+        ConfigureNativeWindow();
         Loaded += OnLoaded;
         Closing += OnClosing;
+        SourceInitialized += (_, _) => ApplyThemeToChrome();
+    }
+
+    private void ConfigureNativeWindow()
+    {
+        // Advanced is a normal Windows application window. Let Windows own the
+        // caption buttons, maximize/restore state, Snap Layouts and system menu.
+        WindowChrome.SetWindowChrome(this, null);
+        WindowStyle = WindowStyle.SingleBorderWindow;
+        ResizeMode = ResizeMode.CanResize;
+        ShowInTaskbar = true;
+
+        // The XAML keeps the old custom caption as a harmless fallback for Blend.
+        // At runtime its row is collapsed so there is exactly one title bar.
+        if (Content is System.Windows.Controls.Border rootBorder)
+        {
+            rootBorder.CornerRadius = new CornerRadius(0);
+            rootBorder.BorderThickness = new Thickness(0);
+            if (rootBorder.Child is WpfGrid rootGrid && rootGrid.RowDefinitions.Count >= 2)
+                rootGrid.RowDefinitions[0].Height = new GridLength(0);
+        }
+
+        AddDockControl();
+    }
+
+    private void AddDockControl()
+    {
+        if (NavHome.Parent is not WpfStackPanel navStack)
+            return;
+
+        var dockRow = new WpfGrid
+        {
+            Height = 40,
+            Margin = new Thickness(10, 2, 8, 2)
+        };
+        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
+        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
+
+        var label = new WpfTextBlock
+        {
+            Text = "Advanced",
+            FontSize = 10,
+            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextFaint"),
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(4, 0, 0, 0)
+        };
+        dockRow.Children.Add(label);
+
+        var path = new Path
+        {
+            Stroke = (System.Windows.Media.Brush)FindResource("Tc.TextMuted"),
+            StrokeThickness = 1.5,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Data = Geometry.Parse("M2,2 L14,14 M8,14 L14,14 L14,8")
+        };
+        var viewbox = new WpfViewbox { Width = 14, Height = 14, Child = path };
+        var button = new WpfButton
+        {
+            Width = 32,
+            Height = 32,
+            ToolTip = "Return to compact popup",
+            Content = viewbox,
+            Style = (Style)FindResource("TcIconButton")
+        };
+        button.Click += Dock_Click;
+        WpfGrid.SetColumn(button, 1);
+        dockRow.Children.Add(button);
+        navStack.Children.Insert(0, dockRow);
+    }
+
+    public void ApplyThemeToChrome()
+    {
+        if (!IsSourceInitialized)
+            return;
+
+        try
+        {
+            IntPtr hwnd = new WindowInteropHelper(this).Handle;
+            int useDark = ThemeService.IsLightEffective ? 0 : 1;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int));
+        }
+        catch
+        {
+            // Native caption theming is cosmetic; never block the window.
+        }
     }
 
     public void ShowAdvanced(bool animate)
@@ -40,7 +137,10 @@ public partial class AdvancedWindow : Window
         if (!IsVisible)
             Show();
 
-        WindowState = WindowState.Normal;
+        if (WindowState == WindowState.Minimized)
+            WindowState = WindowState.Normal;
+
+        ApplyThemeToChrome();
         Activate();
 
         if (animate)
@@ -104,6 +204,7 @@ public partial class AdvancedWindow : Window
         StartupSwitch.IsChecked = StartupService.IsEnabled();
         SyncControls();
         ShowPage(GetSelectedPage());
+        ApplyThemeToChrome();
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -340,6 +441,13 @@ public partial class AdvancedWindow : Window
 
     private void OpenUrl_Click(object sender, RoutedEventArgs e)
     {
+        if (sender is WpfButton button &&
+            button.Content?.ToString()?.Contains("Vantage", StringComparison.OrdinalIgnoreCase) == true &&
+            LenovoSoftwareLauncher.TryOpenVantage())
+        {
+            return;
+        }
+
         if (sender is not FrameworkElement { Tag: string target } || string.IsNullOrWhiteSpace(target))
             return;
         try
@@ -363,4 +471,7 @@ public partial class AdvancedWindow : Window
                 yield return descendant;
         }
     }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attribute, ref int value, int valueSize);
 }

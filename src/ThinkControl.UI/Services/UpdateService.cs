@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
@@ -12,6 +13,7 @@ public sealed record UpdateCheckResult(bool Available, string Status, string? Ve
 public sealed class UpdateService
 {
     private const string ReleasesEndpoint = "https://api.github.com/repos/Hugowhitee/ThinkControl/releases?per_page=10";
+    private const string ReleasesPage = "https://github.com/Hugowhitee/ThinkControl/releases";
     private readonly HttpClient _httpClient;
 
     public UpdateService()
@@ -30,7 +32,7 @@ public sealed class UpdateService
             if (!string.IsNullOrWhiteSpace(informational))
                 return informational.Split('+')[0];
 
-            return assembly.GetName().Version?.ToString(3) ?? "0.1.0-alpha.1";
+            return assembly.GetName().Version?.ToString(3) ?? "0.1.0-alpha.2";
         }
     }
 
@@ -39,13 +41,15 @@ public sealed class UpdateService
         try
         {
             using HttpResponseMessage response = await _httpClient.GetAsync(ReleasesEndpoint, cancellationToken);
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return new(false, "No public release published yet", Url: ReleasesPage);
             if (!response.IsSuccessStatusCode)
-                return new(false, $"GitHub returned {(int)response.StatusCode}");
+                return new(false, "Release channel is temporarily unavailable", Url: ReleasesPage);
 
             await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using JsonDocument json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
             if (json.RootElement.ValueKind != JsonValueKind.Array)
-                return new(false, "Release channel returned an unexpected response");
+                return new(false, "Release channel returned an unexpected response", Url: ReleasesPage);
 
             SemanticVersion current = SemanticVersion.Parse(CurrentVersion);
             bool allowPrerelease = current.PreRelease.Count > 0;
@@ -62,29 +66,36 @@ public sealed class UpdateService
                 if (string.IsNullOrWhiteSpace(tag))
                     continue;
 
-                SemanticVersion latest = SemanticVersion.Parse(tag.TrimStart('v', 'V'));
+                SemanticVersion latest;
+                try
+                {
+                    latest = SemanticVersion.Parse(tag.TrimStart('v', 'V'));
+                }
+                catch (FormatException)
+                {
+                    continue;
+                }
+
                 bool available = latest.CompareTo(current) > 0;
                 return new(
                     available,
                     available ? $"{tag} is available" : $"Up to date · {tag}",
                     tag,
-                    url);
+                    string.IsNullOrWhiteSpace(url) ? ReleasesPage : url);
             }
 
-            return new(false, "No compatible public release found");
+            return new(false, "No compatible public release yet", Url: ReleasesPage);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or FormatException)
         {
-            return new(false, "Could not reach the release channel");
+            return new(false, "Could not reach the release channel", Url: ReleasesPage);
         }
     }
 
     public static void OpenRelease(UpdateCheckResult result)
     {
-        if (string.IsNullOrWhiteSpace(result.Url))
-            return;
-
-        Process.Start(new ProcessStartInfo(result.Url) { UseShellExecute = true });
+        string target = string.IsNullOrWhiteSpace(result.Url) ? ReleasesPage : result.Url;
+        Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
     }
 
     private static string SanitizeUserAgentVersion(string version)

@@ -2,7 +2,7 @@
 
 ThinkControl is a Windows utility for Lenovo laptop controls and hardware telemetry. It provides a compact tray interface for common settings and an Advanced window for less frequent controls and diagnostics.
 
-Current release: `v0.1.0-alpha.1`.
+Current prerelease: `v0.1.0-alpha.2`.
 
 Reference device: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -30,37 +30,38 @@ The tray window contains the controls and telemetry most likely to be used durin
 - compact battery status;
 - links to detailed pages and settings.
 
+Compact is a fixed borderless flyout anchored above the notification area. It is not draggable. A single diagonal `↖` action opens Advanced.
+
 ### Advanced window
 
-The Advanced window contains the following pages:
+Advanced contains Home, Performance, Fans, Display, Keyboard, Battery, System, Updates and Settings.
 
-- Home
-- Performance
-- Fans
-- Display
-- Keyboard
-- Battery
-- System
-- Updates
-- Settings
+It uses the native Windows title bar so Windows owns the app icon, minimize, maximize/restore, close, system menu and Snap Layouts. A `↘` action returns to Compact.
 
-It is a normal resizable WPF window. Closing the UI keeps ThinkControl available in the notification area unless the user explicitly quits the application.
+## Branding
+
+The app, tray, installer and repository wordmarks use the approved ThinkControl v3 asset pack stored under `assets/brand/v3`.
+
+CI checks that:
+
+- the application ICO exactly matches the canonical v3 Windows icon;
+- the tray ICO exactly matches the canonical v3 mark icon;
+- README dark/light wordmarks exactly match the canonical v3 outlined wordmarks;
+- the old hand-drawn 64×64 TC geometry is not present in the WPF `BrandMark` control.
 
 ## Performance
 
-ThinkControl exposes three Windows power modes:
+ThinkControl exposes three modes:
 
-| ThinkControl | Windows mode |
-| --- | --- |
-| Quiet | Best efficiency |
-| Balanced | Balanced |
-| Performance | Best performance |
+| ThinkControl | Windows mode | Verified X9 Lenovo policy |
+| --- | --- | --- |
+| Quiet | Best efficiency | AC 502 / DC 507 |
+| Balanced | Balanced | AC 503 / DC 508 |
+| Performance | Best performance | AC 504 / DC 509 |
 
-The current alpha uses Windows power mode APIs. Lenovo thermal-policy coordination remains separate work and is not presented as a completed feature.
+Windows power mode remains the supported OS-level surface. On the verified X9 `21Q6/21Q7` profile, ThinkControl also sends the observed Lenovo Intelligent Cooling policy command through `LITSSvc` after the Windows change. This is thermal-policy coordination, not direct fan RPM control.
 
 ## Fans
-
-### X9 implementation
 
 On the verified X9 profile, the service supports:
 
@@ -75,61 +76,31 @@ On the verified X9 profile, the service supports:
 
 ThinkControl does not expose an arbitrary PWM percentage. Fan-off `0x00` is blocked and the unverified `0x40` override family is never written.
 
-### Future fan control
-
-The first alpha does not include an autonomous temperature-based fan curve. A future curve engine will need its own hysteresis, hold timing, conflict detection, sleep/resume handling and recovery rules before it can be enabled.
-
 ## Display
 
-Where Windows exposes the required capability, ThinkControl supports:
-
-- current and maximum refresh rate;
-- automatic refresh policy;
-- explicit 60 Hz selection;
-- panel maximum selection;
-- internal display brightness;
-- adaptive brightness.
+Where Windows exposes the required capability, ThinkControl supports current/maximum refresh rate, automatic refresh policy, explicit 60 Hz selection, panel maximum selection, internal display brightness and adaptive brightness.
 
 Automatic refresh can use 60 Hz on battery and the panel maximum on AC power when both modes are available.
 
 ## Keyboard
 
-Supported hardware levels are Off, Low and High.
+Supported hardware levels are Off, Low and High. ThinkControl can build Auto, Breathing, Reactive and experimental Audio behavior on top of those real states.
 
-ThinkControl can build user-session behavior on top of those states:
-
-- Auto
-- Breathing
-- Reactive
-- Audio reactive, experimental
-
-The effects are software policies over actual hardware levels. They are not presented as native firmware animation modes or a continuous 0 to 100 percent backlight API.
-
-Low-level keyboard writes require a recognized provider and readback verification.
+Low-level keyboard writes require a recognized Lenovo provider and readback verification. The installed Lenovo Vantage ThinkKeyboard component can be used as a fallback when the direct Lenovo PM/EnergyDrv contract is unavailable.
 
 ## Battery
 
-When Windows and ACPI expose the required data, ThinkControl can display:
+When Windows and ACPI expose the required data, ThinkControl can display charge percentage, charging/discharging state, live and filtered power in watts, remaining/full-charge energy in Wh, estimated health and filtered time remaining/time to full.
 
-- charge percentage;
-- charging or discharging state;
-- live power in watts;
-- filtered recent power;
-- remaining and full-charge energy in Wh;
-- estimated battery health;
-- estimated time remaining or time to full.
+Time estimates use recent filtered samples so short power spikes do not cause large changes on every refresh.
 
-Time estimates use filtered recent samples so short power spikes do not cause large changes on every refresh.
-
-Charge-threshold control is not implemented in `v0.1.0-alpha.1`.
+Charge-threshold control is not implemented in `v0.1.0-alpha.2`.
 
 ## Compatibility
 
 Compatibility is evaluated per provider and capability. Device profiles help select reasonable providers to probe, but a profile does not authorize arbitrary low-level writes.
 
-The X9 `21Q6/21Q7` profile is the current verified low-level reference. Other laptops can still use Windows-level features and supported read-only or reversible Lenovo providers when detected.
-
-See [Device Support](DEVICE-SUPPORT.md).
+The X9 `21Q6/21Q7` profile is the verified low-level reference. Other laptops can still use Windows-level features and supported read-only or reversible Lenovo providers when detected.
 
 ## Diagnostics and privacy
 
@@ -137,39 +108,16 @@ ThinkControl provides bounded local diagnostics, support-bundle export and struc
 
 Automatic private diagnostics upload is not enabled in the current release.
 
-See [Diagnostics and Privacy](DIAGNOSTICS.md).
-
 ## Installation
 
-The release installer contains the WPF UI, Windows service and required .NET runtime. CI verifies installation, service startup and uninstall.
+`v0.1.0-alpha.2` uses a small Inno Setup web bootstrapper plus a separate framework-dependent release payload.
 
-PawnIO is not installed automatically in the current alpha. The application remains usable without it, but the X9 EC fan backend may be unavailable until the prerequisite is installed.
+The bootstrapper verifies the matching payload SHA-256 before extraction, installs the .NET 10 Desktop Runtime only when missing, and offers pinned PawnIO 2.2.0 only on the verified X9 profile. CI tests the full bootstrap install, service startup and uninstall lifecycle.
 
 See [Installer](../installer/README.md) and [Dependencies](DEPENDENCIES.md).
 
 ## Current scope limits
 
-ThinkControl does not provide:
-
-- arbitrary EC register editing;
-- arbitrary port I/O;
-- arbitrary IOCTL passthrough;
-- unverified fan-off or override states;
-- private Intel IPF control calls;
-- custom CPU power-limit controls;
-- undervolting;
-- automatic low-level write support for every Lenovo model.
+ThinkControl does not provide arbitrary EC register editing, arbitrary port I/O, arbitrary IOCTL passthrough, unverified fan-off/override states, private Intel IPF control calls, custom CPU power-limit controls, undervolting or automatic low-level write support for every Lenovo model.
 
 New low-level features require a documented provider contract and a defined safety model.
-
-## Roadmap
-
-Planned work after the first alpha includes:
-
-- broader physical validation across Lenovo models;
-- installer-managed, pinned PawnIO setup where required;
-- additional Lenovo provider support;
-- touchpad edge gestures and haptic settings;
-- custom fan curves after lifecycle and recovery requirements are complete;
-- additional battery and keyboard capabilities;
-- continued accessibility and UI refinement.

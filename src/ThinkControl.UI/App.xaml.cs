@@ -16,6 +16,7 @@ public partial class App : System.Windows.Application
     private DispatcherTimer? _statusTimer;
     private bool _refreshBusy;
     private bool _keyboardPreferenceRestored;
+    private bool _batteryCycleRead;
     private bool? _lastServiceOnline;
     private string _manufacturer = string.Empty;
     private AdvancedWindow? _advancedWindow;
@@ -25,6 +26,7 @@ public partial class App : System.Windows.Application
     public PowerModeService PowerModeService { get; } = new();
     public SystemStatusService SystemStatusService { get; } = new();
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
+    public BatteryHistoryService BatteryHistoryService { get; } = new();
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
     public UserSettingsService UserSettings { get; } = new();
@@ -144,6 +146,7 @@ public partial class App : System.Windows.Application
             _manufacturer = system.Manufacturer;
 
             State.BatteryPercent = battery.Percent ?? system.BatteryPercent;
+            State.BatteryCharging = battery.Charging;
             State.BatteryStatus = battery.Charging
                 ? "Charging"
                 : battery.OnAc
@@ -157,6 +160,22 @@ public partial class App : System.Windows.Application
             State.BatteryEtaToFull = battery.EstimatedTimeToFull;
             State.BatteryEtaRemaining = battery.EstimatedTimeRemaining;
             State.BatterySource = battery.Source;
+
+            if (!_batteryCycleRead)
+            {
+                State.BatteryCycleCount = await Task.Run(BatteryCycleCountService.Read);
+                _batteryCycleRead = true;
+            }
+
+            BatteryHistoryView batteryHistory = BatteryHistoryService.Record(
+                battery.Charging,
+                State.BatteryPercent,
+                battery.PowerWatts,
+                battery.RemainingCapacityWh,
+                battery.FullChargeCapacityWh,
+                battery.DesignCapacityWh);
+            State.ApplyBatteryHistory(batteryHistory);
+            BatteryTelemetryService.SetHistoricalChargePower(batteryHistory.TypicalChargePowerWatts);
 
             if (forceSystemInfo || State.CpuName == "—")
             {
@@ -365,6 +384,12 @@ public partial class App : System.Windows.Application
     {
         ThemeService.Apply(mode);
         UserSettings.Update(settings => settings with { Theme = mode });
+    }
+
+    public void ClearBatteryHistory()
+    {
+        State.ApplyBatteryHistory(BatteryHistoryService.Clear());
+        BatteryTelemetryService.SetHistoricalChargePower(null);
     }
 
     public void RecordDiagnostic(DiagnosticEvent diagnosticEvent)
