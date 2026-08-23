@@ -12,6 +12,7 @@ public sealed class AppState : INotifyPropertyChanged
     private int? _fanRpm;
     private string _fanStateText = "Lenovo Auto";
     private int _batteryPercent;
+    private bool _batteryCharging;
     private string _batteryStatus = "Unknown";
     private double? _batteryPowerWatts;
     private double? _batterySmoothedPowerWatts;
@@ -20,6 +21,8 @@ public sealed class AppState : INotifyPropertyChanged
     private double? _batteryFullWh;
     private TimeSpan? _batteryEtaToFull;
     private TimeSpan? _batteryEtaRemaining;
+    private int? _batteryCycleCount;
+    private string _batteryCurrentSessionText = "No active charge session";
     private string _batterySource = "Windows battery";
     private int _brightness = 50;
     private bool _brightnessAvailable;
@@ -50,12 +53,15 @@ public sealed class AppState : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<double> TemperatureHistory { get; } = new();
+    public ObservableCollection<double> BatteryChargePowerHistory { get; } = new();
+    public ObservableCollection<string> RecentChargeSessions { get; } = new();
 
     public string DeviceName { get => _deviceName; set => Set(ref _deviceName, value); }
     public double? CpuTemperatureC { get => _cpuTemperatureC; set => Set(ref _cpuTemperatureC, value); }
     public int? FanRpm { get => _fanRpm; set => Set(ref _fanRpm, value); }
     public string FanStateText { get => _fanStateText; set => Set(ref _fanStateText, value); }
-    public int BatteryPercent { get => _batteryPercent; set => Set(ref _batteryPercent, value); }
+    public int BatteryPercent { get => _batteryPercent; set => Set(ref _batteryPercent, Math.Clamp(value, 0, 100)); }
+    public bool BatteryCharging { get => _batteryCharging; set => Set(ref _batteryCharging, value); }
     public string BatteryStatus { get => _batteryStatus; set => Set(ref _batteryStatus, value); }
     public double? BatteryPowerWatts { get => _batteryPowerWatts; set => Set(ref _batteryPowerWatts, value); }
     public double? BatterySmoothedPowerWatts { get => _batterySmoothedPowerWatts; set => Set(ref _batterySmoothedPowerWatts, value); }
@@ -64,6 +70,8 @@ public sealed class AppState : INotifyPropertyChanged
     public double? BatteryFullWh { get => _batteryFullWh; set => Set(ref _batteryFullWh, value); }
     public TimeSpan? BatteryEtaToFull { get => _batteryEtaToFull; set => Set(ref _batteryEtaToFull, value); }
     public TimeSpan? BatteryEtaRemaining { get => _batteryEtaRemaining; set => Set(ref _batteryEtaRemaining, value); }
+    public int? BatteryCycleCount { get => _batteryCycleCount; set => Set(ref _batteryCycleCount, value); }
+    public string BatteryCurrentSessionText { get => _batteryCurrentSessionText; set => Set(ref _batteryCurrentSessionText, value); }
     public string BatterySource { get => _batterySource; set => Set(ref _batterySource, value); }
     public int Brightness { get => _brightness; set => Set(ref _brightness, value); }
     public bool BrightnessAvailable { get => _brightnessAvailable; set => Set(ref _brightnessAvailable, value); }
@@ -98,6 +106,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
     public string BatteryHealthText => BatteryHealthPercent is double health ? $"{health:0.#}% health" : "Health —";
+    public string BatteryCycleCountText => BatteryCycleCount is int cycles ? $"{cycles:N0} cycles" : "Cycles —";
     public string BatteryCapacityText => BatteryRemainingWh is double remaining && BatteryFullWh is double full
         ? $"{remaining:0.#} / {full:0.#} Wh"
         : "Capacity —";
@@ -128,6 +137,23 @@ public sealed class AppState : INotifyPropertyChanged
             TemperatureHistory.RemoveAt(0);
     }
 
+    public void ApplyBatteryHistory(BatteryHistoryView history)
+    {
+        BatteryCurrentSessionText = history.CurrentSessionText;
+        ReplaceCollection(BatteryChargePowerHistory, history.CurrentChargePowerWatts);
+        ReplaceCollection(RecentChargeSessions, history.RecentSessions);
+    }
+
+    private static void ReplaceCollection<T>(ObservableCollection<T> target, IReadOnlyList<T> values)
+    {
+        if (target.Count == values.Count && target.SequenceEqual(values))
+            return;
+
+        target.Clear();
+        foreach (T value in values)
+            target.Add(value);
+    }
+
     private bool Set<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
     {
         if (EqualityComparer<T>.Default.Equals(field, value))
@@ -152,6 +178,8 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(BatteryAveragePowerText));
         else if (propertyName == nameof(BatteryHealthPercent))
             OnPropertyChanged(nameof(BatteryHealthText));
+        else if (propertyName == nameof(BatteryCycleCount))
+            OnPropertyChanged(nameof(BatteryCycleCountText));
         else if (propertyName is nameof(BatteryRemainingWh) or nameof(BatteryFullWh))
             OnPropertyChanged(nameof(BatteryCapacityText));
         else if (propertyName == nameof(Brightness))
