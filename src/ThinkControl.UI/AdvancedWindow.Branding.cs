@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ThinkControl.UI.Controls;
 
@@ -46,6 +47,29 @@ public partial class AdvancedWindow
         };
         Grid.SetColumn(wordmark, 0);
         dockRow.Children.Add(wordmark);
+
+        Button? compactButton = dockRow.Children
+            .OfType<Button>()
+            .FirstOrDefault(child => Grid.GetColumn(child) == 1);
+        if (compactButton is not null)
+        {
+            compactButton.Width = 30;
+            compactButton.Height = 30;
+            compactButton.Padding = new Thickness(0);
+            compactButton.BorderThickness = new Thickness(0);
+            compactButton.Background = Brushes.Transparent;
+            compactButton.ToolTip = "Open compact tray view";
+
+            var path = new Path
+            {
+                Stroke = (Brush)FindResource("Tc.TextMuted"),
+                StrokeThickness = 1.35,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round,
+                Data = Geometry.Parse("M2,2 L7,7 M2,2 L6,2 M2,2 L2,6 M14,14 L9,9 M14,14 L10,14 M14,14 L14,10")
+            };
+            compactButton.Content = new Viewbox { Width = 13, Height = 13, Child = path };
+        }
 
         if (navStack.Parent is Grid sidebarGrid)
         {
