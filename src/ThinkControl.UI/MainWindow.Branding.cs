@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.UI.Controls;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI;
 
@@ -49,13 +50,13 @@ public partial class MainWindow
 
     private void MoveExpandButtonIntoHeader(Grid header)
     {
-        if (FindName("ExpandButton") is not Button expand ||
+        if (FindName("ExpandButton") is not WpfButton expand ||
             expand.Parent is not Grid footer)
         {
             return;
         }
 
-        Button? hide = header.Children.OfType<Button>().FirstOrDefault();
+        WpfButton? hide = header.Children.OfType<WpfButton>().FirstOrDefault();
         if (hide is null)
             return;
 
