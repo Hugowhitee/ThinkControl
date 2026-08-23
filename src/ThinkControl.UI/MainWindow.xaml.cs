@@ -5,6 +5,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Shell;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 
@@ -21,19 +22,28 @@ public partial class MainWindow : Window
         _app = app;
         InitializeComponent();
         ConfigureDockedPopup();
+
+        // The original alpha popup XAML remains as a compile-time compatibility
+        // surface for its handlers, but the runtime docked UI is now a dedicated,
+        // calmer dashboard instead of another mini Advanced window.
+        var dashboard = new CompactDashboard();
+        dashboard.Initialize(app);
+        Content = dashboard;
+        Width = 400;
+        Height = 540;
+        MinWidth = 380;
+        MinHeight = 500;
+
         Loaded += OnLoaded;
         Closing += OnClosing;
     }
 
     private void ConfigureDockedPopup()
     {
-        // Compact is a tray flyout, not a normal movable application window.
-        // A zero-height chrome caption prevents the old invisible drag region from
-        // letting the popup wander away from the notification area.
         WindowChrome.SetWindowChrome(this, new WindowChrome
         {
             CaptionHeight = 0,
-            CornerRadius = new CornerRadius(7),
+            CornerRadius = new CornerRadius(8),
             GlassFrameThickness = new Thickness(0),
             ResizeBorderThickness = new Thickness(0),
             UseAeroCaptionButtons = false
@@ -134,6 +144,9 @@ public partial class MainWindow : Window
 
     private void SyncControls()
     {
+        // These controls belong to the legacy alpha XAML that remains compiled so
+        // older snapshots and event contracts do not break. The new CompactDashboard
+        // binds directly to AppState and does not require manual synchronization.
         if (DataContext is not AppState state)
             return;
 
