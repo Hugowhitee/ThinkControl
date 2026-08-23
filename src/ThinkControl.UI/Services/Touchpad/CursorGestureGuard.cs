@@ -5,7 +5,6 @@ internal sealed class CursorGestureGuard : IDisposable
     private bool _captured;
     private bool _previousClipKnown;
     private TouchpadNativeMethods.Rect _previousClip;
-    private int _visibilityAdjustments;
 
     internal bool IsCaptured => _captured;
 
@@ -33,29 +32,8 @@ internal sealed class CursorGestureGuard : IDisposable
         return true;
     }
 
-    internal void HideCursor()
-    {
-        if (!_captured || _visibilityAdjustments > 0)
-            return;
-
-        // ShowCursor uses a process-global display counter. Record exactly how many
-        // decrements we perform so cleanup restores the previous counter instead of
-        // blindly forcing a visibility state.
-        int result;
-        do
-        {
-            result = TouchpadNativeMethods.ShowCursor(false);
-            _visibilityAdjustments++;
-        }
-        while (result >= 0 && _visibilityAdjustments < 32);
-    }
-
     internal void Release()
     {
-        for (int i = 0; i < _visibilityAdjustments; i++)
-            TouchpadNativeMethods.ShowCursor(true);
-        _visibilityAdjustments = 0;
-
         if (_captured)
         {
             if (_previousClipKnown)
