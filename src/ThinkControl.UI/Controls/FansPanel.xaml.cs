@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.Core.Ipc;
+using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
 
@@ -27,6 +28,46 @@ public partial class FansPanel : UserControl
         DataContext = app.State;
         app.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
         _ = app.RefreshStatusAsync();
+    }
+
+    internal void PrepareForSnapshot(AppState state)
+    {
+        DataContext = state;
+        string profile = state.FanStateText.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault() ?? "Lenovo Auto";
+        if (profile is not ("Silent" or "Normal" or "Cool"))
+            profile = "Lenovo Auto";
+
+        _syncing = true;
+        try
+        {
+            AutoProfile.IsChecked = profile == "Lenovo Auto";
+            SilentProfile.IsChecked = profile == "Silent";
+            NormalProfile.IsChecked = profile == "Normal";
+            CoolProfile.IsChecked = profile == "Cool";
+            SilentProfile.IsEnabled = NormalProfile.IsEnabled = CoolProfile.IsEnabled = state.CanFanControl;
+            ProfileStatusText.Text = profile;
+            CoolingDetailText.Text = state.CanFanControl
+                ? $"{profile} cooling · {state.ControlTemperatureText} control temperature"
+                : "Custom cooling is unavailable until the verified hardware provider is ready.";
+
+            string? levelPart = state.FanStateText.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault(part => part.StartsWith("level ", StringComparison.OrdinalIgnoreCase));
+            AppliedLevelText.Text = levelPart is null
+                ? "Auto"
+                : char.ToUpperInvariant(levelPart[0]) + levelPart[1..];
+
+            CharacterizeButton.IsEnabled = state.CanFanControl;
+            StopCharacterizationButton.Visibility = Visibility.Collapsed;
+            CharacterizationProgress.Visibility = Visibility.Collapsed;
+            CharacterizationStatusText.Text = "Ready to characterize this machine";
+            MarkAudibleButton.Visibility = Visibility.Collapsed;
+            _calibrationRows.Clear();
+        }
+        finally
+        {
+            _syncing = false;
+        }
     }
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
