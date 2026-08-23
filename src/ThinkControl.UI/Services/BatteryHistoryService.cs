@@ -6,20 +6,25 @@ namespace ThinkControl.UI.Services;
 
 public sealed record BatteryHistoryView(
     IReadOnlyList<double> CurrentChargePowerWatts,
+    IReadOnlyList<double> HealthTrendPercent,
     IReadOnlyList<string> RecentSessions,
-    string CurrentSessionText);
+    string CurrentSessionText,
+    string TypicalChargeText,
+    string HealthTrendText,
+    double? TypicalChargePowerWatts);
 
 /// <summary>
-/// Keeps a small local-only history of charging sessions. Samples are intentionally
-/// sparse so ThinkControl can show useful AccuBattery-like context without adding a
-/// database dependency or writing to disk every two-second UI refresh.
+/// Keeps a local-only charging history. Recent sessions retain sparse curve points;
+/// older sessions retain only compact summaries so long-term averages and health
+/// trends remain useful without allowing the history file to grow indefinitely.
 /// </summary>
 public sealed class BatteryHistoryService
 {
-    private const int MaximumSessions = 20;
+    private const int MaximumSessionSummaries = 240;
+    private const int MaximumDetailedSessions = 20;
     private const int MaximumPointsPerSession = 720;
-    private const long MaximumHistoryBytes = 512 * 1024;
-    private static readonly TimeSpan HistoryRetention = TimeSpan.FromDays(90);
+    private const long MaximumHistoryBytes = 1024 * 1024;
+    private static readonly TimeSpan HistoryRetention = TimeSpan.FromDays(365);
     private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan ResumeGap = TimeSpan.FromMinutes(20);
 
@@ -37,7 +42,13 @@ public sealed class BatteryHistoryService
         TrimDocument(DateTimeOffset.UtcNow);
     }
 
-    public BatteryHistoryView Record(bool charging, int percent, double? watts)
+    public BatteryHistoryView Record(
+        bool charging,
+        int percent,
+        double? watts,
+        double? remainingWh,
+        double? fullChargeWh,
+        double? designWh)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool changed = false;
@@ -48,7 +59,7 @@ public sealed class BatteryHistoryService
             if (active is not null && active.Points.Count > 0 &&
                 now - active.Points[^1].At > ResumeGap)
             {
-                FinalizeActive(active.Points[^1].At, active.EndPercent);
+                FinalizeActive(active.Points[^1].At, active.EndPercent, active.EndRemainingWh);
                 active = null;
                 changed = true;
             }
@@ -59,13 +70,21 @@ public sealed class BatteryHistoryService
                 {
                     StartedAt = now,
                     StartPercent = percent,
-                    EndPercent = percent
+                    EndPercent = percent,
+                    StartRemainingWh = remainingWh,
+                    EndRemainingWh = remainingWh,
+                    FullChargeCapacityWh = fullChargeWh,
+                    DesignCapacityWh = designWh
                 };
                 _document.ActiveSession = active;
                 changed = true;
             }
 
             active.EndPercent = percent;
+            active.EndRemainingWh = remainingWh ?? active.EndRemainingWh;
+            active.FullChargeCapacityWh = fullChargeWh ?? active.FullChargeCapacityWh;
+            active.DesignCapacityWh = designWh ?? active.DesignCapacityWh;
+
             ChargePoint? last = active.Points.Count > 0 ? active.Points[^1] : null;
             if (last is null || now - last.At >= SampleInterval)
             {
@@ -73,7 +92,8 @@ public sealed class BatteryHistoryService
                 {
                     At = now,
                     Percent = percent,
-                    Watts = watts is > 0 and < 500 ? watts.Value : null
+                    Watts = watts is > 0 and < 500 ? watts.Value : null,
+                    RemainingWh = remainingWh
                 });
                 if (active.Points.Count > MaximumPointsPerSession)
                     active.Points.RemoveRange(0, active.Points.Count - MaximumPointsPerSession);
@@ -82,7 +102,7 @@ public sealed class BatteryHistoryService
         }
         else if (active is not null)
         {
-            FinalizeActive(now, percent);
+            FinalizeActive(now, percent, remainingWh);
             changed = true;
         }
 
@@ -107,17 +127,19 @@ public sealed class BatteryHistoryService
             string temp = _path + ".tmp";
             if (File.Exists(temp))
                 File.Delete(temp);
+            string corrupt = _path + ".corrupt";
+            if (File.Exists(corrupt))
+                File.Delete(corrupt);
         }
         catch
         {
-            // The in-memory history is already cleared. A locked file can be
-            // overwritten on the next successful save rather than blocking the UI.
+            // In-memory state is already empty; a locked file can be replaced later.
         }
 
         return BuildView();
     }
 
-    private void FinalizeActive(DateTimeOffset endedAt, int endPercent)
+    private void FinalizeActive(DateTimeOffset endedAt, int endPercent, double? endRemainingWh)
     {
         ChargeSession? active = _document.ActiveSession;
         if (active is null)
@@ -125,11 +147,23 @@ public sealed class BatteryHistoryService
 
         active.EndedAt = endedAt;
         active.EndPercent = endPercent;
+        active.EndRemainingWh = endRemainingWh ?? active.EndRemainingWh;
+        PopulateSummary(active);
         _document.ActiveSession = null;
 
         TimeSpan duration = endedAt - active.StartedAt;
         if (duration >= TimeSpan.FromMinutes(2) || active.EndPercent > active.StartPercent)
             _document.Sessions.Insert(0, active);
+    }
+
+    private static void PopulateSummary(ChargeSession session)
+    {
+        session.AveragePowerWatts = AveragePointPower(session);
+        if (session.StartRemainingWh is double start && session.EndRemainingWh is double end && end > start)
+            session.EnergyAddedWh = end - start;
+
+        if (session.FullChargeCapacityWh is > 0 && session.DesignCapacityWh is > 0)
+            session.HealthPercent = session.FullChargeCapacityWh.Value / session.DesignCapacityWh.Value * 100d;
     }
 
     private void TrimDocument(DateTimeOffset now)
@@ -138,15 +172,23 @@ public sealed class BatteryHistoryService
         _document.Sessions.RemoveAll(session =>
             (session.EndedAt ?? session.StartedAt) < oldestAllowed);
 
-        foreach (ChargeSession session in _document.Sessions)
-            TrimPoints(session);
-        if (_document.ActiveSession is not null)
-            TrimPoints(_document.ActiveSession);
-
         _document.Sessions = _document.Sessions
             .OrderByDescending(session => session.EndedAt ?? session.StartedAt)
-            .Take(MaximumSessions)
+            .Take(MaximumSessionSummaries)
             .ToList();
+
+        for (int i = 0; i < _document.Sessions.Count; i++)
+        {
+            ChargeSession session = _document.Sessions[i];
+            PopulateSummary(session);
+            if (i < MaximumDetailedSessions)
+                TrimPoints(session);
+            else
+                session.Points.Clear();
+        }
+
+        if (_document.ActiveSession is not null)
+            TrimPoints(_document.ActiveSession);
     }
 
     private static void TrimPoints(ChargeSession session)
@@ -172,35 +214,98 @@ public sealed class BatteryHistoryService
             .Select(FormatSession)
             .ToArray();
 
-        return new BatteryHistoryView(currentPower, sessions, currentText);
+        double[] usefulChargePowers = _document.Sessions
+            .Where(IsUsefulChargeSession)
+            .Select(session => session.AveragePowerWatts!.Value)
+            .Take(40)
+            .ToArray();
+        double? typicalPower = usefulChargePowers.Length == 0 ? null : Median(usefulChargePowers);
+        string typicalText = typicalPower is double typical
+            ? $"Typical {typical:0.#} W · {usefulChargePowers.Length} sessions"
+            : "Typical charge · learning";
+
+        double[] health = _document.Sessions
+            .Where(session => session.HealthPercent is > 0 and <= 130)
+            .OrderBy(session => session.EndedAt ?? session.StartedAt)
+            .Select(session => session.HealthPercent!.Value)
+            .ToArray();
+        string healthTrendText = FormatHealthTrend(health);
+
+        return new BatteryHistoryView(
+            currentPower,
+            health,
+            sessions,
+            currentText,
+            typicalText,
+            healthTrendText,
+            typicalPower);
+    }
+
+    private static bool IsUsefulChargeSession(ChargeSession session)
+    {
+        TimeSpan duration = (session.EndedAt ?? session.StartedAt) - session.StartedAt;
+        return duration >= TimeSpan.FromMinutes(5) &&
+               session.AveragePowerWatts is > 0.4 and < 200 &&
+               session.EndPercent - session.StartPercent >= 3;
     }
 
     private static string FormatCurrentSession(ChargeSession session)
     {
         TimeSpan duration = DateTimeOffset.UtcNow - session.StartedAt;
-        string average = AveragePower(session) is double watts ? $" · {watts:0.#} W avg" : string.Empty;
-        return $"{session.StartPercent}% → {session.EndPercent}% · {FormatDuration(duration)}{average}";
+        double? averagePower = AveragePointPower(session);
+        string average = averagePower is double watts ? $" · {watts:0.#} W avg" : string.Empty;
+        string energy = session.StartRemainingWh is double start && session.EndRemainingWh is double end && end > start
+            ? $" · +{end - start:0.#} Wh"
+            : string.Empty;
+        return $"{session.StartPercent}% → {session.EndPercent}% · {FormatDuration(duration)}{average}{energy}";
     }
 
     private static string FormatSession(ChargeSession session)
     {
-        DateTimeOffset ended = session.EndedAt ?? session.Points.LastOrDefault()?.At ?? session.StartedAt;
+        DateTimeOffset ended = session.EndedAt ?? session.StartedAt;
         TimeSpan duration = ended - session.StartedAt;
         DateTimeOffset local = session.StartedAt.ToLocalTime();
         string date = local.Date == DateTimeOffset.Now.Date
             ? "Today"
             : local.ToString("d MMM", CultureInfo.CurrentCulture);
-        string average = AveragePower(session) is double watts ? $" · {watts:0.#} W avg" : string.Empty;
-        return $"{date} · {session.StartPercent}% → {session.EndPercent}% · {FormatDuration(duration)}{average}";
+        string average = session.AveragePowerWatts is double watts ? $" · {watts:0.#} W avg" : string.Empty;
+        string energy = session.EnergyAddedWh is double wh ? $" · +{wh:0.#} Wh" : string.Empty;
+        return $"{date} · {session.StartPercent}% → {session.EndPercent}% · {FormatDuration(duration)}{average}{energy}";
     }
 
-    private static double? AveragePower(ChargeSession session)
+    private static string FormatHealthTrend(IReadOnlyList<double> health)
+    {
+        if (health.Count == 0)
+            return "Health trend · learning";
+        if (health.Count == 1)
+            return $"Health trend · {health[0]:0.#}%";
+
+        double recent = health[^1];
+        int compareIndex = Math.Max(0, health.Count - Math.Min(10, health.Count));
+        double baseline = health[compareIndex];
+        double delta = recent - baseline;
+        string trend = Math.Abs(delta) < 0.15 ? "stable" : delta > 0 ? $"+{delta:0.#} pp" : $"{delta:0.#} pp";
+        return $"Health trend · {recent:0.#}% · {trend}";
+    }
+
+    private static double? AveragePointPower(ChargeSession session)
     {
         double[] values = session.Points
             .Where(point => point.Watts is > 0)
             .Select(point => point.Watts!.Value)
             .ToArray();
-        return values.Length == 0 ? null : values.Average();
+        return values.Length == 0 ? session.AveragePowerWatts : values.Average();
+    }
+
+    private static double Median(IEnumerable<double> values)
+    {
+        double[] sorted = values.OrderBy(value => value).ToArray();
+        if (sorted.Length == 0)
+            return 0;
+        int middle = sorted.Length / 2;
+        return sorted.Length % 2 == 0
+            ? (sorted[middle - 1] + sorted[middle]) / 2d
+            : sorted[middle];
     }
 
     private static string FormatDuration(TimeSpan duration)
@@ -244,14 +349,9 @@ public sealed class BatteryHistoryService
             string json = JsonSerializer.Serialize(_document, new JsonSerializerOptions { WriteIndented = false });
             if (Encoding.UTF8.GetByteCount(json) > MaximumHistoryBytes)
             {
-                // This should be unreachable with the normal caps, but keep a final
-                // disk-growth guard in case the schema expands in a future release.
-                _document.Sessions = _document.Sessions.Take(5).ToList();
-                foreach (ChargeSession session in _document.Sessions)
-                {
-                    if (session.Points.Count > 180)
-                        session.Points.RemoveRange(0, session.Points.Count - 180);
-                }
+                _document.Sessions = _document.Sessions.Take(80).ToList();
+                for (int i = 10; i < _document.Sessions.Count; i++)
+                    _document.Sessions[i].Points.Clear();
                 json = JsonSerializer.Serialize(_document, new JsonSerializerOptions { WriteIndented = false });
             }
 
@@ -283,6 +383,7 @@ public sealed class BatteryHistoryService
 
     private sealed class HistoryDocument
     {
+        public int SchemaVersion { get; set; } = 2;
         public ChargeSession? ActiveSession { get; set; }
         public List<ChargeSession> Sessions { get; set; } = [];
     }
@@ -293,6 +394,13 @@ public sealed class BatteryHistoryService
         public DateTimeOffset? EndedAt { get; set; }
         public int StartPercent { get; set; }
         public int EndPercent { get; set; }
+        public double? StartRemainingWh { get; set; }
+        public double? EndRemainingWh { get; set; }
+        public double? EnergyAddedWh { get; set; }
+        public double? AveragePowerWatts { get; set; }
+        public double? FullChargeCapacityWh { get; set; }
+        public double? DesignCapacityWh { get; set; }
+        public double? HealthPercent { get; set; }
         public List<ChargePoint> Points { get; set; } = [];
     }
 
@@ -301,5 +409,6 @@ public sealed class BatteryHistoryService
         public DateTimeOffset At { get; set; }
         public int Percent { get; set; }
         public double? Watts { get; set; }
+        public double? RemainingWh { get; set; }
     }
 }
