@@ -1,0 +1,128 @@
+name: Bug report
+description: Report a ThinkControl bug or hardware compatibility problem
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve ThinkControl. Keep this report short if you want — only the core fields are required.
+
+        **Public issues are public.** Do not paste serial numbers, usernames, hostnames, MAC addresses or personal file paths. ThinkControl's in-app diagnostics flow is the preferred way to submit detailed hardware logs privately once that endpoint is enabled.
+
+  - type: dropdown
+    id: device_family
+    attributes:
+      label: Device family
+      description: Pick the closest family. Choose a custom option if yours is not listed.
+      options:
+        - ThinkPad X9
+        - ThinkPad X1
+        - ThinkPad T series
+        - ThinkPad P series
+        - ThinkPad E series
+        - ThinkPad L series
+        - ThinkPad Z series
+        - ThinkPad Yoga / 2-in-1
+        - Other ThinkPad
+        - Other Lenovo laptop
+        - Other laptop / PC
+    validations:
+      required: true
+
+  - type: input
+    id: exact_model
+    attributes:
+      label: Exact model
+      description: The normal product name is enough. Do not include the serial number.
+      placeholder: "e.g. ThinkPad X9-15 Gen 1"
+    validations:
+      required: true
+
+  - type: input
+    id: machine_type
+    attributes:
+      label: Machine type
+      description: Optional. For ThinkPads this is usually a short model code such as 21Q6 or 21Q7.
+      placeholder: "e.g. 21Q6"
+
+  - type: input
+    id: version
+    attributes:
+      label: ThinkControl version
+      description: Visible in ThinkControl Settings / Updates and in the installer/release name.
+      placeholder: "e.g. v0.1.0-alpha.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Installer / startup
+        - Tray / compact UI
+        - Advanced UI
+        - Fan control / fan level
+        - Fan RPM / telemetry
+        - CPU temperature
+        - Performance modes
+        - Display / refresh rate
+        - Brightness / adaptive brightness
+        - Keyboard backlight / effects
+        - Battery / watts / ETA
+        - Updates
+        - Diagnostics / compatibility
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: Tell us what is wrong and what you expected instead.
+      placeholder: "Example: Fan RPM stays unavailable, but Lenovo Auto and the fan itself still work."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Optional. A short numbered list is ideal when the bug can be reproduced.
+      placeholder: |
+        1. Open ThinkControl
+        2. Open Fans
+        3. ...
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: How often?
+      options:
+        - Every time
+        - Often
+        - Sometimes
+        - Once so far
+        - Not sure
+
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots / recordings / diagnostics
+      description: Optional. Drag files or images directly into this box. Prefer the in-app private diagnostics submission for detailed logs when available.
+      placeholder: "Drag screenshots, a screen recording or a redacted support bundle here."
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else?
+      description: Optional. BIOS update, Windows version, Lenovo software, dock/charger state, or anything you think matters.
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I checked that this public issue does not contain a serial number or other personal identifiers.
+          required: true
