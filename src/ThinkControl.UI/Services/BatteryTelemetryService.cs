@@ -20,19 +20,28 @@ public sealed record BatteryTelemetrySnapshot(
 /// <summary>
 /// Reads the Windows ACPI battery telemetry exposed by root\wmi and turns the noisy
 /// charge/discharge rate into a deliberately slow-moving estimate. The displayed
-/// watt value can remain close to the live sensor, while ETA uses a median-filtered
-/// EWMA so a single charger/CPU spike does not make the UI jump by tens of minutes.
+/// watt value can remain close to the live sensor, while ETA waits for a short warm-up
+/// and then blends filtered charge power with observed Wh progress when available.
 /// </summary>
 public sealed class BatteryTelemetryService
 {
     private const int PowerWindowSize = 15;
-    private static readonly TimeSpan PowerHalfLife = TimeSpan.FromSeconds(35);
-    private static readonly TimeSpan EtaHalfLife = TimeSpan.FromSeconds(55);
+    private const int CapacityWindowSize = 150;
+    private const int MinEtaPowerSamples = 8;
+    private const double EarlyChargingPowerFloorWatts = 3.0;
+    private static readonly TimeSpan PowerHalfLife = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan EtaHalfLife = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan EtaWarmup = TimeSpan.FromSeconds(18);
+    private static readonly TimeSpan LowPowerGrace = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan CapacityTrendMinimumSpan = TimeSpan.FromSeconds(90);
+    private static readonly TimeSpan CapacityTrendMaximumSpan = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan MaxEta = TimeSpan.FromHours(24);
 
     private readonly object _gate = new();
     private readonly Queue<double> _powerWindow = new();
+    private readonly Queue<ChargeObservation> _chargeObservations = new();
     private DateTimeOffset? _lastSampleAt;
+    private DateTimeOffset? _modeStartedAt;
     private double? _smoothedPowerWatts;
     private double? _smoothedEtaSeconds;
     private bool _lastCharging;
@@ -50,10 +59,20 @@ public sealed class BatteryTelemetryService
 
             bool modeChanged = raw.Charging != _lastCharging || raw.Discharging != _lastDischarging;
             if (modeChanged)
+            {
                 ResetSmoothing();
+                if (raw.Charging || raw.Discharging)
+                    _modeStartedAt = now;
+            }
+            else if (!_modeStartedAt.HasValue && (raw.Charging || raw.Discharging))
+            {
+                _modeStartedAt = now;
+            }
 
             _lastCharging = raw.Charging;
             _lastDischarging = raw.Discharging;
+
+            RecordChargeObservation(raw, now);
 
             if (raw.PowerWatts is double livePower && livePower >= 0.4)
             {
@@ -78,9 +97,9 @@ public sealed class BatteryTelemetryService
                     {
                         rawEtaSeconds = 0;
                     }
-                    else if (_smoothedPowerWatts is > 0.4)
+                    else if (CanPublishChargingEta(now, raw.Percent) && GetEffectiveChargingPower(now) is double effectivePower)
                     {
-                        rawEtaSeconds = energyNeededWh / _smoothedPowerWatts.Value * 3600d;
+                        rawEtaSeconds = energyNeededWh / effectivePower * 3600d;
                     }
                 }
                 else if (raw.Discharging && raw.RemainingCapacityWh is > 0 && _smoothedPowerWatts is > 0.4)
@@ -138,6 +157,96 @@ public sealed class BatteryTelemetryService
                 etaRemaining.HasValue ? TimeSpan.FromSeconds(etaRemaining.Value) : null,
                 raw.Source);
         }
+    }
+
+    private bool CanPublishChargingEta(DateTimeOffset now, int? percent)
+    {
+        if (_powerWindow.Count < MinEtaPowerSamples || !_modeStartedAt.HasValue || !_smoothedPowerWatts.HasValue)
+            return false;
+
+        TimeSpan elapsed = now - _modeStartedAt.Value;
+        if (elapsed < EtaWarmup)
+            return false;
+
+        // Charger negotiation, background load and ACPI startup samples can briefly
+        // report only a watt or two. At normal state-of-charge this creates absurd
+        // multi-hour ETAs, so keep showing "Estimating…" until that transient settles.
+        if (percent is < 90 && _smoothedPowerWatts.Value < EarlyChargingPowerFloorWatts && elapsed < LowPowerGrace)
+            return false;
+
+        return _smoothedPowerWatts.Value >= 0.4;
+    }
+
+    private double? GetEffectiveChargingPower(DateTimeOffset now)
+    {
+        if (_smoothedPowerWatts is not > 0.4)
+            return null;
+
+        TimeSpan elapsed = _modeStartedAt.HasValue ? now - _modeStartedAt.Value : TimeSpan.MaxValue;
+        double robustWindowPower = Percentile(_powerWindow, elapsed < LowPowerGrace ? 0.65 : 0.50);
+        double effectivePower = Lerp(_smoothedPowerWatts.Value, robustWindowPower, 0.50);
+
+        double? observedCapacityPower = GetObservedCapacityChargePower(now);
+        if (observedCapacityPower is > 0.4)
+        {
+            // Capacity reporting can be quantized, so constrain it relative to the
+            // filtered ACPI power before giving it most of the weight.
+            double constrainedObserved = Math.Clamp(
+                observedCapacityPower.Value,
+                effectivePower * 0.50,
+                effectivePower * 1.75);
+            effectivePower = Lerp(effectivePower, constrainedObserved, 0.60);
+        }
+
+        return Math.Max(0.4, effectivePower);
+    }
+
+    private void RecordChargeObservation(RawBattery raw, DateTimeOffset now)
+    {
+        if (!raw.Charging || raw.RemainingCapacityWh is not double remainingWh)
+        {
+            _chargeObservations.Clear();
+            return;
+        }
+
+        _chargeObservations.Enqueue(new ChargeObservation(now, remainingWh));
+        while (_chargeObservations.Count > CapacityWindowSize)
+            _chargeObservations.Dequeue();
+
+        DateTimeOffset cutoff = now - CapacityTrendMaximumSpan;
+        while (_chargeObservations.Count > 2 && _chargeObservations.Peek().At < cutoff)
+            _chargeObservations.Dequeue();
+    }
+
+    private double? GetObservedCapacityChargePower(DateTimeOffset now)
+    {
+        if (_chargeObservations.Count < 2)
+            return null;
+
+        ChargeObservation latest = _chargeObservations.Last();
+        ChargeObservation? earliest = null;
+        foreach (ChargeObservation observation in _chargeObservations)
+        {
+            if (latest.At - observation.At >= CapacityTrendMinimumSpan)
+            {
+                earliest = observation;
+                break;
+            }
+        }
+
+        if (earliest is null)
+            return null;
+
+        TimeSpan span = latest.At - earliest.At;
+        if (span < CapacityTrendMinimumSpan || span.TotalHours <= 0)
+            return null;
+
+        double gainedWh = latest.RemainingWh - earliest.RemainingWh;
+        if (gainedWh <= 0.03)
+            return null;
+
+        double watts = gainedWh / span.TotalHours;
+        return double.IsFinite(watts) && watts > 0 ? watts : null;
     }
 
     private static RawBattery ReadRaw()
@@ -292,23 +401,33 @@ public sealed class BatteryTelemetryService
     private void ResetSmoothing()
     {
         _powerWindow.Clear();
+        _chargeObservations.Clear();
         _smoothedPowerWatts = null;
         _smoothedEtaSeconds = null;
         _lastSampleAt = null;
+        _modeStartedAt = null;
     }
 
     private static double? ToWh(double? milliWattHours) =>
         milliWattHours.HasValue ? milliWattHours.Value / 1000d : null;
 
-    private static double Median(IEnumerable<double> values)
+    private static double Median(IEnumerable<double> values) => Percentile(values, 0.50);
+
+    private static double Percentile(IEnumerable<double> values, double percentile)
     {
         double[] sorted = values.OrderBy(value => value).ToArray();
         if (sorted.Length == 0)
             return 0;
-        int middle = sorted.Length / 2;
-        return sorted.Length % 2 == 0
-            ? (sorted[middle - 1] + sorted[middle]) / 2d
-            : sorted[middle];
+        if (sorted.Length == 1)
+            return sorted[0];
+
+        double position = Math.Clamp(percentile, 0d, 1d) * (sorted.Length - 1);
+        int lower = (int)Math.Floor(position);
+        int upper = (int)Math.Ceiling(position);
+        if (lower == upper)
+            return sorted[lower];
+
+        return Lerp(sorted[lower], sorted[upper], position - lower);
     }
 
     private static double EwmaAlpha(double dtSeconds, double halfLifeSeconds) =>
@@ -316,6 +435,8 @@ public sealed class BatteryTelemetryService
 
     private static double Lerp(double from, double to, double alpha) =>
         from + (to - from) * Math.Clamp(alpha, 0d, 1d);
+
+    private sealed record ChargeObservation(DateTimeOffset At, double RemainingWh);
 
     private sealed record RawBattery(
         int? Percent,
