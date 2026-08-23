@@ -2,12 +2,13 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI.Services;
 
 public sealed record BatteryHistoryView(
-    IReadOnlyList<double> ChargePowerWatts,
-    IReadOnlyList<double> HealthTrendPercent,
+    IReadOnlyList<TimeSeriesPoint> ChargePowerTimeline,
+    IReadOnlyList<TimeSeriesPoint> HealthTrendTimeline,
     IReadOnlyList<string> RecentSessions,
     string ChargeCurveLabel,
     string CurrentSessionText,
@@ -16,18 +17,19 @@ public sealed record BatteryHistoryView(
     double? TypicalChargePowerWatts);
 
 /// <summary>
-/// Keeps a local-only charging history. Recent sessions retain sparse curve points;
-/// older sessions retain only compact summaries so long-term averages and health
-/// trends remain useful without allowing the history file to grow indefinitely.
+/// Keeps a local-only charging history. Recent sessions retain sparse time-stamped
+/// curve points; older sessions retain only compact summaries so long-term averages
+/// and health trends remain useful without allowing the history file to grow indefinitely.
 /// </summary>
 public sealed class BatteryHistoryService
 {
     private const int MaximumSessionSummaries = 240;
     private const int MaximumDetailedSessions = 20;
-    private const int MaximumPointsPerSession = 720;
+    private const int MaximumPointsPerSession = 900;
     private const long MaximumHistoryBytes = 1024 * 1024;
     private static readonly TimeSpan HistoryRetention = TimeSpan.FromDays(365);
-    private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan MinimumSignificantSampleInterval = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan ResumeGap = TimeSpan.FromMinutes(20);
 
     private readonly string _path;
@@ -82,19 +84,27 @@ public sealed class BatteryHistoryService
                 changed = true;
             }
 
+            int previousPercent = active.EndPercent;
             active.EndPercent = percent;
             active.EndRemainingWh = remainingWh ?? active.EndRemainingWh;
             active.FullChargeCapacityWh = fullChargeWh ?? active.FullChargeCapacityWh;
             active.DesignCapacityWh = designWh ?? active.DesignCapacityWh;
 
             ChargePoint? last = active.Points.Count > 0 ? active.Points[^1] : null;
-            if (last is null || now - last.At >= SampleInterval)
+            bool validWatts = watts is > 0 and < 500;
+            bool powerMoved = validWatts && last?.Watts is double lastWatts && Math.Abs(watts!.Value - lastWatts) >= 0.75;
+            bool percentMoved = percent != previousPercent;
+            TimeSpan age = last is null ? TimeSpan.MaxValue : now - last.At;
+            bool due = last is null || age >= SampleInterval ||
+                (age >= MinimumSignificantSampleInterval && (powerMoved || percentMoved));
+
+            if (due)
             {
                 active.Points.Add(new ChargePoint
                 {
                     At = now,
                     Percent = percent,
-                    Watts = watts is > 0 and < 500 ? watts.Value : null,
+                    Watts = validWatts ? watts : null,
                     RemainingWh = remainingWh
                 });
                 if (active.Points.Count > MaximumPointsPerSession)
@@ -202,16 +212,16 @@ public sealed class BatteryHistoryService
     private BatteryHistoryView BuildView()
     {
         ChargeSession? active = _document.ActiveSession;
-        ChargeSession? curveSession = active ?? _document.Sessions.FirstOrDefault(session => session.Points.Count >= 2);
-        IReadOnlyList<double> chargePower = curveSession?.Points
+        ChargeSession? curveSession = active ?? _document.Sessions.FirstOrDefault(session => session.Points.Count >= 1);
+        IReadOnlyList<TimeSeriesPoint> chargePower = curveSession?.Points
             .Where(point => point.Watts is > 0)
-            .Select(point => point.Watts!.Value)
+            .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
             .ToArray() ?? [];
 
         string curveLabel = active is not null
-            ? "Current charge · full session curve"
+            ? "Current charge · live timeline"
             : curveSession is not null
-                ? "Last charge · full retained session curve"
+                ? "Last charge · full session timeline"
                 : "Charge curve · learning";
 
         string currentText = active is null
@@ -233,16 +243,21 @@ public sealed class BatteryHistoryService
             ? $"Typical {typical:0.#} W · {usefulChargePowers.Length} sessions"
             : "Typical charge · learning";
 
-        double[] health = _document.Sessions
+        ChargeSession[] healthSessions = _document.Sessions
             .Where(session => session.HealthPercent is > 0 and <= 130)
             .OrderBy(session => session.EndedAt ?? session.StartedAt)
-            .Select(session => session.HealthPercent!.Value)
+            .ToArray();
+        double[] health = healthSessions.Select(session => session.HealthPercent!.Value).ToArray();
+        IReadOnlyList<TimeSeriesPoint> healthTimeline = healthSessions
+            .Select(session => new TimeSeriesPoint(
+                session.EndedAt ?? session.StartedAt,
+                session.HealthPercent!.Value))
             .ToArray();
         string healthTrendText = FormatHealthTrend(health);
 
         return new BatteryHistoryView(
             chargePower,
-            health,
+            healthTimeline,
             sessions,
             curveLabel,
             currentText,
@@ -393,7 +408,7 @@ public sealed class BatteryHistoryService
 
     private sealed class HistoryDocument
     {
-        public int SchemaVersion { get; set; } = 2;
+        public int SchemaVersion { get; set; } = 3;
         public ChargeSession? ActiveSession { get; set; }
         public List<ChargeSession> Sessions { get; set; } = [];
     }
