@@ -19,6 +19,8 @@ public partial class TouchpadPanel : UserControl
     private TouchpadEdge _selectedEdge = TouchpadEdge.Top;
     private TouchpadGestureConfiguration _configuration =
         TouchpadGestureConfiguration.Default with { Enabled = false };
+    private IReadOnlyList<TouchContact> _testContacts = Array.Empty<TouchContact>();
+    private GestureSignal? _testSignal;
     private bool _syncing;
     private bool _testMode;
 
@@ -129,21 +131,35 @@ public partial class TouchpadPanel : UserControl
             return;
 
         TouchpadHapticStatus status = _host.HapticStatus;
-        HapticSwitch.IsEnabled = status.ApiAvailable && status.FeedbackSupported;
-        HapticStrengthSlider.IsEnabled = status.ApiAvailable && status.FeedbackSupported;
-        ClickForceSlider.IsEnabled = status.ApiAvailable && status.ClickForceSupported;
-        HapticSwitch.IsChecked = status.FeedbackEnabled;
+        bool feedbackAvailable = status.ApiAvailable && status.TouchpadPresent && status.FeedbackSupported;
+        bool clickForceAvailable = feedbackAvailable && status.ClickForceSupported;
+
+        HapticSwitch.Visibility = feedbackAvailable ? Visibility.Visible : Visibility.Collapsed;
+        HapticStrengthHeader.Visibility = feedbackAvailable ? Visibility.Visible : Visibility.Collapsed;
+        HapticStrengthSlider.Visibility = feedbackAvailable ? Visibility.Visible : Visibility.Collapsed;
+        ClickForceHeader.Visibility = clickForceAvailable ? Visibility.Visible : Visibility.Collapsed;
+        ClickForceSlider.Visibility = clickForceAvailable ? Visibility.Visible : Visibility.Collapsed;
+
+        HapticSwitch.IsEnabled = feedbackAvailable;
+        HapticStrengthSlider.IsEnabled = feedbackAvailable;
+        ClickForceSlider.IsEnabled = clickForceAvailable;
+        HapticSwitch.IsChecked = feedbackAvailable && status.FeedbackEnabled;
         HapticStrengthSlider.Value = status.FeedbackIntensity;
         ClickForceSlider.Value = status.ClickForceSensitivity;
         HapticStrengthValue.Text = $"{status.FeedbackIntensity}%";
         ClickForceValue.Text = $"{status.ClickForceSensitivity}%";
+        HapticStatusText.Margin = feedbackAvailable
+            ? new Thickness(0, 4, 70, 0)
+            : new Thickness(0, 4, 0, 0);
 
         HapticStatusText.Text = status.ApiAvailable
-            ? status.FeedbackSupported
-                ? status.ClickForceSupported
-                    ? "Windows haptics and click force are available on this touchpad."
-                    : "Windows haptic feedback is available; click force is not exposed by this touchpad."
-                : "This Precision Touchpad does not expose configurable haptic feedback."
+            ? !status.TouchpadPresent
+                ? "Windows does not currently report a Precision Touchpad."
+                : status.FeedbackSupported
+                    ? status.ClickForceSupported
+                        ? "Windows haptics and click force are available on this touchpad."
+                        : "Windows haptic feedback is available; click force is not exposed by this touchpad."
+                    : "This Precision Touchpad does not expose configurable haptic feedback."
             : status.Error ?? "Haptic settings are unavailable.";
     }
 
@@ -260,6 +276,8 @@ public partial class TouchpadPanel : UserControl
     private void TestMode_Checked(object sender, RoutedEventArgs e)
     {
         _testMode = true;
+        _testContacts = Array.Empty<TouchContact>();
+        _testSignal = null;
         _host?.EnsureInputStarted();
         GestureStatusText.Text = "Test mode is active. Touch the pad to inspect gesture recognition.";
     }
@@ -267,7 +285,9 @@ public partial class TouchpadPanel : UserControl
     private void TestMode_Unchecked(object sender, RoutedEventArgs e)
     {
         _testMode = false;
-        Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
+        _testContacts = Array.Empty<TouchContact>();
+        _testSignal = null;
+        Visualizer.SetTestFrame(_testContacts, null);
         GestureStatusText.Text = _configuration.Enabled ? "Edge gestures are active." : "Edge gestures are off.";
     }
 
@@ -276,13 +296,18 @@ public partial class TouchpadPanel : UserControl
         Dispatcher.InvokeAsync(() =>
         {
             if (_testMode)
-                Visualizer.SetTestFrame(Array.Empty<TouchContact>(), signal);
+            {
+                _testSignal = signal;
+                Visualizer.SetTestFrame(_testContacts, _testSignal);
+            }
+
             GestureStatusText.Text = signal.Phase switch
             {
                 GesturePhase.Candidate => signal.Reason ?? "Gesture candidate",
                 GesturePhase.Claimed => $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}",
                 GesturePhase.Active => $"{ActionLabel(signal.Action)} · {signal.TotalTravelMm:+0.0;-0.0;0} mm",
                 GesturePhase.Cancelled => $"Rejected · {signal.Reason}",
+                GesturePhase.Released => "Gesture complete",
                 _ => "Gesture complete"
             };
         });
@@ -303,10 +328,17 @@ public partial class TouchpadPanel : UserControl
     {
         if (!_testMode)
             return;
+
+        // The Raw Input producer does not retain this list, but make the test UI's
+        // ownership explicit so later parser optimizations can safely reuse buffers.
+        TouchContact[] snapshot = contacts.ToArray();
         Dispatcher.InvokeAsync(() =>
         {
+            if (!_testMode)
+                return;
+            _testContacts = snapshot;
             Visualizer.Geometry = geometry;
-            Visualizer.SetTestFrame(contacts, null);
+            Visualizer.SetTestFrame(_testContacts, _testSignal);
         });
     }
 
@@ -367,6 +399,8 @@ public partial class TouchpadPanel : UserControl
         if (_testMode)
         {
             _testMode = false;
+            _testContacts = Array.Empty<TouchContact>();
+            _testSignal = null;
             TestModeSwitch.IsChecked = false;
         }
     }
