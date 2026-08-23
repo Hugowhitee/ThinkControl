@@ -22,7 +22,7 @@ internal static class Program
         app.InitializeComponent();
         AppState state = CreateDemoState();
 
-        ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.Dark);
+        ThemeService.Apply(ThemeMode.Dark);
         RenderCompact(app, state, Path.Combine(output, "compact-dark.png"));
         RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home.png"));
         RenderAdvanced(app, state, "Performance", Path.Combine(output, "advanced-performance.png"));
@@ -32,7 +32,7 @@ internal static class Program
         RenderAdvanced(app, state, "Battery", Path.Combine(output, "advanced-battery.png"));
         RenderAdvanced(app, state, "Settings", Path.Combine(output, "advanced-settings.png"));
 
-        ThemeService.Apply(ThinkControl.UI.Services.ThemeMode.Light);
+        ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, state, Path.Combine(output, "compact-light.png"));
         RenderAdvanced(app, state, "Home", Path.Combine(output, "advanced-home-light.png"));
 
@@ -77,40 +77,29 @@ internal static class Program
             KeyboardBaseLevel = "Low",
             KeyboardEffectSpeed = 1.0,
             SelectedMode = "Balanced",
-            UpdateStatus = "Up to date · v0.1.0-alpha.1",
+            UpdateStatus = "Up to date · v0.1.0-alpha.2",
             CanFanControl = true,
             CanFanTelemetry = true,
             CanKeyboardBacklight = true,
             CanCpuTemperature = true
         };
 
-        double[] temps = [41, 42, 43, 42, 44, 45, 44, 43, 44, 46, 45, 44, 43, 44, 44, 45, 46, 47, 46, 45, 44, 43, 42, 43, 44, 45, 44, 43, 42, 43, 44, 44, 45, 46, 45, 44, 43, 44, 45, 46, 45, 44, 43, 42, 43, 44, 45, 44, 43, 44, 45, 46, 45, 44, 43, 44, 45, 44, 44, 44];
-        foreach (double value in temps)
-            state.TemperatureHistory.Add(value);
+        for (int i = 0; i < 60; i++)
+            state.TemperatureHistory.Add(43 + Math.Sin(i / 4d) * 2 + (i % 11 == 0 ? 1 : 0));
 
         return state;
     }
 
     private static void RenderCompact(App app, AppState state, string path)
     {
-        var window = new MainWindow(app)
-        {
-            DataContext = state,
-            Width = 410,
-            Height = 640
-        };
+        var window = new MainWindow(app) { DataContext = state, Width = 410, Height = 640 };
         RenderWindowContent(window, path);
         window.ForceClose();
     }
 
     private static void RenderAdvanced(App app, AppState state, string page, string path)
     {
-        var window = new AdvancedWindow(app)
-        {
-            DataContext = state,
-            Width = 1160,
-            Height = 760
-        };
+        var window = new AdvancedWindow(app) { DataContext = state, Width = 1160, Height = 760 };
         window.Navigate(page);
         RenderWindowContent(window, path);
         window.ForceClose();
