@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Download ThinkControl
+    url: https://github.com/Hugowhitee/ThinkControl/releases
+    about: Check the current release before reporting an issue.
+  - name: Device support
+    url: https://github.com/Hugowhitee/ThinkControl/blob/main/docs/DEVICE-SUPPORT.md
+    about: See verified, experimental and not-yet-validated device support.
+  - name: Hardware safety
+    url: https://github.com/Hugowhitee/ThinkControl/blob/main/docs/HARDWARE-SAFETY.md
+    about: Read how ThinkControl gates low-level hardware access.
