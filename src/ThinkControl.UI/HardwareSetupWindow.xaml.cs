@@ -29,6 +29,8 @@ public partial class HardwareSetupWindow : Window
         LowLevelStatusText.Foreground = (Brush)FindResource(status.LowLevelAccessInstalled ? "Tc.Success" : "Tc.Warning");
         InstallLowLevelButton.Visibility = status.LowLevelAccessInstalled ? Visibility.Collapsed : Visibility.Visible;
 
+        await _app.RefreshHardwareSetupStatusAsync();
+
         if (!status.NeedsAttention && string.IsNullOrWhiteSpace(ResultText.Text))
             ResultText.Text = "Hardware components are ready. ThinkControl will refresh telemetry automatically.";
     }
