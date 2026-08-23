@@ -1,4 +1,6 @@
 using Microsoft.Win32.SafeHandles;
+using System.Diagnostics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace ThinkControl.Hardware.X9;
@@ -12,18 +14,10 @@ public enum KeyboardBacklightLevel
 }
 
 /// <summary>
-/// Capability-probed Lenovo keyboard-backlight driver access.
-///
-/// ThinkControl never chooses a write contract from the marketing model name alone.
-/// A backend is usable only when its signed Lenovo device can be opened and its
-/// read operation returns one of that backend's known states. Every write is then
-/// read back before success is reported.
-///
-/// Contracts:
-/// - IBMPmDrv: ThinkPad Lenovo Power Management Driver.
-/// - EnergyDrv: Lenovo ACPI-Compliant Virtual Power Controller used by multiple
-///   ThinkBook / IdeaPad / LOQ-family machines. Two read encodings are known in
-///   the ecosystem, so both are probed independently and fail closed.
+/// Capability-probed Lenovo keyboard-backlight access.
+/// Direct Lenovo PM-driver contracts are preferred. If those do not expose a
+/// recognized state, ThinkControl can reuse the installed Lenovo Vantage
+/// ThinkKeyboard add-in on verified ThinkPad hardware and still requires readback.
 /// </summary>
 public sealed class KeyboardBacklightService : IDisposable
 {
@@ -78,8 +72,16 @@ public sealed class KeyboardBacklightService : IDisposable
             0x00020033)
     ];
 
+    private static readonly string[] VantageKeyboardRoots =
+    [
+        @"C:\ProgramData\Lenovo\Vantage\Addins\ThinkKeyboardAddin",
+        @"C:\ProgramData\Lenovo\VantageService\Addins\ThinkKeyboardAddin"
+    ];
+
     private SafeFileHandle? _handle;
     private DriverConfig? _driver;
+    private VantageKeyboardBackend? _vantage;
+    private DateTimeOffset _lastVantageProbe = DateTimeOffset.MinValue;
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFile(
@@ -102,16 +104,16 @@ public sealed class KeyboardBacklightService : IDisposable
         out int bytesReturned,
         IntPtr overlapped);
 
-    public string BackendLabel => _driver?.Name ?? "Not exposed";
+    public string BackendLabel => _driver?.Name ?? _vantage?.Label ?? "Not exposed";
 
     public bool IsAvailable
     {
         get
         {
             EnsureOpen();
-            return _handle is { IsInvalid: false, IsClosed: false } &&
-                   _driver is not null &&
-                   TryGet(out _);
+            if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null)
+                return TryGet(_driver, _handle, out _);
+            return _vantage?.TryGet(out _) == true;
         }
     }
 
@@ -119,9 +121,11 @@ public sealed class KeyboardBacklightService : IDisposable
     {
         level = KeyboardBacklightLevel.Off;
         EnsureOpen();
-        return _handle is { IsInvalid: false, IsClosed: false } &&
-               _driver is not null &&
-               TryGet(_driver, _handle, out level);
+
+        if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null)
+            return TryGet(_driver, _handle, out level);
+
+        return _vantage?.TryGet(out level) == true;
     }
 
     public bool SetAndVerify(KeyboardBacklightLevel level)
@@ -130,34 +134,36 @@ public sealed class KeyboardBacklightService : IDisposable
             return false;
 
         EnsureOpen();
-        if (_handle is null || _handle.IsInvalid || _handle.IsClosed || _driver is null)
-            return false;
-
-        uint payload = level switch
+        if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null)
         {
-            KeyboardBacklightLevel.Off => _driver.SetOff,
-            KeyboardBacklightLevel.Low => _driver.SetLow,
-            KeyboardBacklightLevel.High => _driver.SetHigh,
-            _ => _driver.SetOff
-        };
+            uint payload = level switch
+            {
+                KeyboardBacklightLevel.Off => _driver.SetOff,
+                KeyboardBacklightLevel.Low => _driver.SetLow,
+                KeyboardBacklightLevel.High => _driver.SetHigh,
+                _ => _driver.SetOff
+            };
 
-        byte[] input = BitConverter.GetBytes(payload);
-        var output = new byte[16];
-        if (!DeviceIoControl(
-                _handle,
-                _driver.SetIoctl,
-                input,
-                input.Length,
-                output,
-                output.Length,
-                out _,
-                IntPtr.Zero))
-        {
-            return false;
+            byte[] input = BitConverter.GetBytes(payload);
+            var output = new byte[16];
+            if (!DeviceIoControl(
+                    _handle,
+                    _driver.SetIoctl,
+                    input,
+                    input.Length,
+                    output,
+                    output.Length,
+                    out _,
+                    IntPtr.Zero))
+            {
+                return false;
+            }
+
+            Thread.Sleep(55);
+            return TryGet(out KeyboardBacklightLevel current) && current == level;
         }
 
-        Thread.Sleep(55);
-        return TryGet(out KeyboardBacklightLevel current) && current == level;
+        return _vantage?.SetAndVerify(level) == true;
     }
 
     private void EnsureOpen()
@@ -192,11 +198,21 @@ public sealed class KeyboardBacklightService : IDisposable
             {
                 _driver = candidate;
                 _handle = handle;
+                _vantage = null;
                 return;
             }
 
             handle.Dispose();
         }
+
+        if (_vantage is not null && _vantage.TryGet(out _))
+            return;
+
+        if (DateTimeOffset.UtcNow - _lastVantageProbe < TimeSpan.FromSeconds(15))
+            return;
+
+        _lastVantageProbe = DateTimeOffset.UtcNow;
+        _vantage = VantageKeyboardBackend.TryCreate();
     }
 
     private static bool TryGet(
@@ -238,6 +254,7 @@ public sealed class KeyboardBacklightService : IDisposable
         _handle?.Dispose();
         _handle = null;
         _driver = null;
+        _vantage = null;
     }
 
     private sealed record DriverConfig(
@@ -253,4 +270,123 @@ public sealed class KeyboardBacklightService : IDisposable
         uint SetOff,
         uint SetLow,
         uint SetHigh);
+
+    private sealed class VantageKeyboardBackend
+    {
+        private readonly object _control;
+        private readonly MethodInfo _get;
+        private readonly MethodInfo _set;
+
+        private VantageKeyboardBackend(object control, MethodInfo get, MethodInfo set, string dllPath)
+        {
+            _control = control;
+            _get = get;
+            _set = set;
+            Label = $"Lenovo Vantage · {Path.GetFileName(Path.GetDirectoryName(dllPath))}";
+        }
+
+        internal string Label { get; }
+
+        internal static VantageKeyboardBackend? TryCreate()
+        {
+            foreach (string root in VantageKeyboardRoots)
+            {
+                try
+                {
+                    if (!Directory.Exists(root))
+                        continue;
+
+                    IEnumerable<string> candidates = Directory
+                        .EnumerateDirectories(root)
+                        .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path));
+
+                    foreach (string directory in candidates.Prepend(root))
+                    {
+                        string dllPath = Path.Combine(directory, "Keyboard_Core.dll");
+                        if (!File.Exists(dllPath))
+                            continue;
+
+                        FileVersionInfo info = FileVersionInfo.GetVersionInfo(dllPath);
+                        string vendor = $"{info.CompanyName} {info.ProductName}";
+                        if (!vendor.Contains("Lenovo", StringComparison.OrdinalIgnoreCase))
+                            continue;
+
+                        Assembly assembly = Assembly.LoadFrom(dllPath);
+                        Type? type = assembly.GetType("Keyboard_Core.KeyboardControl", throwOnError: false, ignoreCase: false);
+                        if (type is null)
+                            continue;
+
+                        object? control = Activator.CreateInstance(type);
+                        MethodInfo? get = type.GetMethod("GetKeyboardBackLightStatus", BindingFlags.Public | BindingFlags.Instance);
+                        MethodInfo? set = type.GetMethod("SetKeyboardBackLightStatus", BindingFlags.Public | BindingFlags.Instance);
+                        if (control is null || get is null || set is null)
+                            continue;
+
+                        var backend = new VantageKeyboardBackend(control, get, set, dllPath);
+                        if (backend.TryGet(out _))
+                            return backend;
+                    }
+                }
+                catch
+                {
+                    // Installed Lenovo add-ins vary by generation. Failure to load
+                    // one candidate is simply an unavailable fallback.
+                }
+            }
+
+            return null;
+        }
+
+        internal bool TryGet(out KeyboardBacklightLevel level)
+        {
+            level = KeyboardBacklightLevel.Off;
+            try
+            {
+                ParameterInfo[] parameters = _get.GetParameters();
+                if (parameters.Length < 1)
+                    return false;
+
+                Type statusType = parameters[0].ParameterType.IsByRef
+                    ? parameters[0].ParameterType.GetElementType() ?? typeof(int)
+                    : parameters[0].ParameterType;
+                object status = Activator.CreateInstance(statusType) ?? 0;
+                object?[] args = parameters.Length >= 2 ? [status, null] : [status];
+                _ = _get.Invoke(_control, args);
+
+                int raw = Convert.ToInt32(args[0]);
+                if (raw is < 0 or > 2)
+                    return false;
+
+                level = (KeyboardBacklightLevel)raw;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        internal bool SetAndVerify(KeyboardBacklightLevel level)
+        {
+            try
+            {
+                ParameterInfo[] parameters = _set.GetParameters();
+                if (parameters.Length < 1)
+                    return false;
+
+                Type levelType = parameters[0].ParameterType.IsByRef
+                    ? parameters[0].ParameterType.GetElementType() ?? typeof(int)
+                    : parameters[0].ParameterType;
+                object value = Convert.ChangeType((int)level, levelType);
+                object?[] args = parameters.Length >= 2 ? [value, null] : [value];
+                _ = _set.Invoke(_control, args);
+                Thread.Sleep(90);
+                return TryGet(out KeyboardBacklightLevel current) && current == level;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+    }
 }
