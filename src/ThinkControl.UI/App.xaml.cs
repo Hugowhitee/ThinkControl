@@ -14,6 +14,7 @@ public partial class App : System.Windows.Application
     private Icon? _ownedTrayIcon;
     private DispatcherTimer? _statusTimer;
     private bool _refreshBusy;
+    private bool _keyboardPreferenceRestored;
     private AdvancedWindow? _advancedWindow;
 
     public AppState State { get; } = new();
@@ -163,6 +164,12 @@ public partial class App : System.Windows.Application
                     State.CanKeyboardBacklight = service.Capabilities.KeyboardBacklight;
                     State.CanCpuTemperature = service.Capabilities.CpuTemperature;
                 }
+
+                if (State.CanKeyboardBacklight && !_keyboardPreferenceRestored)
+                {
+                    await RestoreKeyboardPreferenceAsync();
+                    _keyboardPreferenceRestored = true;
+                }
             }
             else
             {
@@ -231,14 +238,15 @@ public partial class App : System.Windows.Application
 
     public async Task SetKeyboardStaticLevelAsync(string level)
     {
-        string normalized = level.Equals("Low", StringComparison.OrdinalIgnoreCase)
-            ? "Low"
-            : level.Equals("Off", StringComparison.OrdinalIgnoreCase) ? "Off" : "High";
+        string normalized = NormalizeStaticKeyboardLevel(level);
+        string restingLevel = State.KeyboardBaseLevel;
         await KeyboardEffects.SetStaticLevelAsync(normalized);
+        KeyboardEffects.SetBaseLevel(restingLevel);
         UserSettings.Update(settings => settings with
         {
             KeyboardMode = "Static",
-            KeyboardBaseLevel = normalized == "Low" ? "Low" : settings.KeyboardBaseLevel
+            KeyboardStaticLevel = normalized,
+            KeyboardBaseLevel = restingLevel
         });
         await RefreshStatusAsync();
     }
@@ -278,6 +286,31 @@ public partial class App : System.Windows.Application
         CompactWindow.ForceClose();
         Shutdown();
     }
+
+    private async Task RestoreKeyboardPreferenceAsync()
+    {
+        ThinkControlUserSettings preferences = UserSettings.Current;
+        State.KeyboardBaseLevel = preferences.KeyboardBaseLevel;
+        State.KeyboardEffectSpeed = preferences.KeyboardEffectSpeed;
+
+        if (preferences.KeyboardMode == "Static")
+        {
+            string restingLevel = preferences.KeyboardBaseLevel;
+            await KeyboardEffects.SetStaticLevelAsync(preferences.KeyboardStaticLevel);
+            KeyboardEffects.SetBaseLevel(restingLevel);
+        }
+        else
+        {
+            await KeyboardEffects.SetModeAsync(preferences.KeyboardMode);
+        }
+    }
+
+    private static string NormalizeStaticKeyboardLevel(string? level) => level?.Trim().ToLowerInvariant() switch
+    {
+        "off" => "Off",
+        "low" => "Low",
+        _ => "High"
+    };
 
     private void ApplyRefreshAuto(bool onBattery)
     {
