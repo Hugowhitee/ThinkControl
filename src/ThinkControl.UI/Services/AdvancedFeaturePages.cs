@@ -43,14 +43,14 @@ internal static class AdvancedFeaturePages
         var panel = new PerformancePanel
         {
             DataContext = window.DataContext,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            MaxWidth = 940,
-            Margin = new Thickness(0, 0, 2, 0)
+            HorizontalAlignment = HorizontalAlignment.Left,
+            MaxWidth = 1040,
+            Margin = new Thickness(0, 0, 12, 0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
         scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Center;
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
     }
 
     private static void ReplaceFans(AdvancedWindow window, App app)
@@ -60,14 +60,14 @@ internal static class AdvancedFeaturePages
         var panel = new FansPanel
         {
             DataContext = window.DataContext,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
+            HorizontalAlignment = HorizontalAlignment.Left,
             MaxWidth = 1040,
-            Margin = new Thickness(0, 0, 2, 0)
+            Margin = new Thickness(0, 0, 12, 0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
         scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Center;
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
     }
 
     private static void AddAudio(AdvancedWindow window, App app)
@@ -101,14 +101,14 @@ internal static class AdvancedFeaturePages
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Center
+            HorizontalContentAlignment = HorizontalAlignment.Left
         };
         var panel = new AudioPanel
         {
             DataContext = window.DataContext,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            MaxWidth = 940,
-            Margin = new Thickness(0, 0, 2, 0)
+            HorizontalAlignment = HorizontalAlignment.Left,
+            MaxWidth = 1040,
+            Margin = new Thickness(0, 0, 12, 0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
@@ -156,13 +156,24 @@ internal static class AdvancedFeaturePages
     private static void Resize(AdvancedWindow window)
     {
         double width = window.ActualWidth > 1 ? window.ActualWidth : window.Width;
-        double available = Math.Max(560, width - 204);
+        double available = Math.Max(520, width - 224);
+        double pageWidth = Math.Min(1040, available);
         if (window.FindName("PagePerformance") is ScrollViewer performance && performance.Content is FrameworkElement performanceContent)
-            performanceContent.MaxWidth = Math.Min(940, available);
+            ApplyWidth(performance, performanceContent, pageWidth);
         if (window.FindName("PageFans") is ScrollViewer fans && fans.Content is FrameworkElement fansContent)
-            fansContent.MaxWidth = Math.Min(1040, available);
+            ApplyWidth(fans, fansContent, pageWidth);
         if (window.Resources.Contains(AudioPageKey) && window.Resources[AudioPageKey] is ScrollViewer audio && audio.Content is FrameworkElement audioContent)
-            audioContent.MaxWidth = Math.Min(940, available);
+            ApplyWidth(audio, audioContent, pageWidth);
+    }
+
+    private static void ApplyWidth(ScrollViewer scroll, FrameworkElement content, double width)
+    {
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
+        content.Width = width;
+        content.MinWidth = 0;
+        content.MaxWidth = 1040;
+        content.HorizontalAlignment = HorizontalAlignment.Left;
+        content.Margin = new Thickness(0, 0, 12, 0);
     }
 
     private static void CollapseKnownPages(AdvancedWindow window)

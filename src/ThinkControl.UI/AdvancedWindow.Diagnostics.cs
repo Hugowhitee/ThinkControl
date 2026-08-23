@@ -10,6 +10,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedFeaturePages.Ensure(this, _app);
+        ConfigureAdvancedUiConsistency();
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
@@ -23,6 +24,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedFeaturePages.Ensure(this, _app);
+        ConfigureAdvancedUiConsistency();
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
@@ -52,6 +54,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedFeaturePages.Ensure(this, _app);
+        ConfigureAdvancedUiConsistency();
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
@@ -63,6 +66,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedFeaturePages.Ensure(this, _app);
+        ConfigureAdvancedUiConsistency();
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
@@ -74,6 +78,7 @@ public partial class AdvancedWindow
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedFeaturePages.Ensure(this, _app);
+        ConfigureAdvancedUiConsistency();
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();

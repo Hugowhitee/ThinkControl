@@ -59,7 +59,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 UninstallDisplayName=ThinkControl
-UninstallDisplayIcon={app}\ui\{#UiExeName}
+UninstallDisplayIcon={app}\ThinkControl.ico
 CloseApplications=yes
 CloseApplicationsFilter={#UiExeName}
 RestartApplications=no
@@ -73,9 +73,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
 
+[Files]
+Source: "..\assets\brand\v3\windows\ThinkControl.ico"; DestDir: "{app}"; DestName: "ThinkControl.ico"; Flags: ignoreversion
+
 [Icons]
-Name: "{group}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ui\{#UiExeName}"
-Name: "{autodesktop}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ui\{#UiExeName}"; Tasks: desktopicon
+Name: "{group}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ThinkControl.ico"
+Name: "{autodesktop}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ThinkControl.ico"; Tasks: desktopicon
 
 [Run]
 Filename: "{sys}\sc.exe"; Parameters: "create {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated

@@ -16,6 +16,12 @@ internal static class Program
 {
     private sealed record SnapshotEntry(string File, string Surface, string State, int Width, int Height);
 
+    private static readonly string[] AdvancedPages =
+    [
+        "Home", "Performance", "Fans", "Sensors", "Display", "Audio",
+        "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings"
+    ];
+
     [STAThread]
     private static int Main(string[] args)
     {
@@ -36,26 +42,17 @@ internal static class Program
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
-        foreach (string page in new[]
-        {
-            "Home", "Performance", "Fans", "Sensors", "Display", "Audio", "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings"
-        })
-        {
+        foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
-        }
 
-        // Minimum-size renders are mandatory for the pages with dense cards,
-        // tables or segmented controls; this catches the horizontal overflow bugs
-        // that repeatedly slipped through wide screenshots during alpha testing.
-        foreach (string page in new[]
-        {
-            "Home", "Performance", "Fans", "Sensors", "Audio", "Battery", "Touchpad", "Keyboard", "System"
-        })
-        {
+        // Every page gets minimum-size coverage so clipping and scrollbar overlap
+        // cannot hide on a page that happened not to be in a hand-picked subset.
+        foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
-        }
 
-        foreach (string page in new[] { "Home", "Fans", "Sensors", "Audio", "Display", "Touchpad", "Battery" })
+        // Wide-screen geometry is also checked on every page. The left edge of each
+        // page should stay fixed while unused space grows only on the right.
+        foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1720, 980, output, snapshots, $"advanced-{page.ToLowerInvariant()}-wide.png", "wide window");
 
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
