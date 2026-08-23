@@ -32,12 +32,18 @@ public partial class AdvancedWindow
 
         // Dynamic feature panels normally subscribe to the live app/service state.
         // Snapshot windows deliberately use a deterministic AppState instead, so
-        // prepare the fan panel from that state to exercise the active layout
-        // rather than accidentally capturing an all-unavailable service state.
-        if (DataContext is ViewModels.AppState snapshotState &&
-            PageFans?.Content is Controls.FansPanel fansPanel)
+        // prepare those panels explicitly to exercise populated active layouts.
+        if (DataContext is ViewModels.AppState snapshotState)
         {
-            fansPanel.PrepareForSnapshot(snapshotState);
+            if (PageFans?.Content is Controls.FansPanel fansPanel)
+                fansPanel.PrepareForSnapshot(snapshotState);
+
+            const string sensorsPageKey = "ThinkControl.Dynamic.PageSensors";
+            if (Resources.Contains(sensorsPageKey) &&
+                Resources[sensorsPageKey] is System.Windows.Controls.ScrollViewer { Content: Controls.SensorsPanel sensorsPanel })
+            {
+                sensorsPanel.PrepareForSnapshot(snapshotState);
+            }
         }
     }
 
