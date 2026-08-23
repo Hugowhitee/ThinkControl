@@ -46,8 +46,6 @@ internal sealed class TouchpadHapticsService
     internal bool SetFeedbackEnabled(bool enabled) =>
         Update(parameters =>
         {
-            if (!parameters.FeedbackSupported)
-                return false;
             parameters.FeedbackEnabled = enabled;
             return WriteNative(parameters);
         });
@@ -55,8 +53,6 @@ internal sealed class TouchpadHapticsService
     internal bool SetFeedbackIntensity(int intensity) =>
         Update(parameters =>
         {
-            if (!parameters.FeedbackSupported)
-                return false;
             parameters.FeedbackIntensity = checked((uint)Math.Clamp(intensity, 0, 100));
             return WriteNative(parameters);
         });
@@ -64,8 +60,6 @@ internal sealed class TouchpadHapticsService
     internal bool SetClickForceSensitivity(int sensitivity) =>
         Update(parameters =>
         {
-            if (!parameters.ClickForceSupported)
-                return false;
             parameters.ClickForceSensitivity = checked((uint)Math.Clamp(sensitivity, 0, 100));
             return WriteNative(parameters);
         });
