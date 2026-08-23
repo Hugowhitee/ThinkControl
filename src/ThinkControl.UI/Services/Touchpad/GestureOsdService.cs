@@ -2,6 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
+using MediaColor = System.Windows.Media.Color;
+using MediaFontFamily = System.Windows.Media.FontFamily;
+using WpfApplication = System.Windows.Application;
 
 namespace ThinkControl.UI.Services.Touchpad;
 
@@ -54,16 +57,16 @@ internal sealed class GestureOsdService : IDisposable
         if (_window is not null)
             return;
 
-        Brush surface = BrushResource("Tc.Surface", new SolidColorBrush(Color.FromRgb(28, 30, 33)));
-        Brush surfaceAlt = BrushResource("Tc.SurfaceAlt", new SolidColorBrush(Color.FromRgb(34, 36, 40)));
-        Brush border = BrushResource("Tc.BorderStrong", new SolidColorBrush(Color.FromRgb(70, 75, 82)));
+        Brush surface = BrushResource("Tc.Surface", new SolidColorBrush(MediaColor.FromRgb(28, 30, 33)));
+        Brush surfaceAlt = BrushResource("Tc.SurfaceAlt", new SolidColorBrush(MediaColor.FromRgb(34, 36, 40)));
+        Brush border = BrushResource("Tc.BorderStrong", new SolidColorBrush(MediaColor.FromRgb(70, 75, 82)));
         Brush text = BrushResource("Tc.Text", Brushes.White);
         Brush muted = BrushResource("Tc.TextMuted", Brushes.LightGray);
-        Brush accent = BrushResource("Tc.Accent", new SolidColorBrush(Color.FromRgb(227, 41, 41)));
+        Brush accent = BrushResource("Tc.Accent", new SolidColorBrush(MediaColor.FromRgb(227, 41, 41)));
 
         _label = new TextBlock
         {
-            FontFamily = new FontFamily("Segoe UI"),
+            FontFamily = new MediaFontFamily("Segoe UI"),
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
             Foreground = text,
@@ -71,7 +74,7 @@ internal sealed class GestureOsdService : IDisposable
         };
         _value = new TextBlock
         {
-            FontFamily = new FontFamily("Segoe UI"),
+            FontFamily = new MediaFontFamily("Segoe UI"),
             FontSize = 10.5,
             Foreground = muted,
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -138,7 +141,7 @@ internal sealed class GestureOsdService : IDisposable
     }
 
     private static Brush BrushResource(string key, Brush fallback) =>
-        Application.Current?.TryFindResource(key) as Brush ?? fallback;
+        WpfApplication.Current?.TryFindResource(key) as Brush ?? fallback;
 
     public void Dispose()
     {
