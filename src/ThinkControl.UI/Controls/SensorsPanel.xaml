@@ -1,0 +1,136 @@
+<UserControl x:Class="ThinkControl.UI.Controls.SensorsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <StackPanel>
+        <TextBlock Text="Sensors" FontSize="24" FontWeight="SemiBold" />
+        <TextBlock Text="Live read-only hardware telemetry. ThinkControl shows the values reported by the active providers without inventing missing sensors."
+                   Foreground="{DynamicResource Tc.TextMuted}"
+                   Margin="0,6,0,18"
+                   TextWrapping="Wrap" />
+
+        <Grid Margin="0,0,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="1.25*" />
+                <ColumnDefinition Width="1*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" MinHeight="112">
+                <StackPanel>
+                    <TextBlock Text="CONTROL TEMPERATURE" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                    <TextBlock Text="{Binding ControlTemperatureText}" FontSize="28" FontWeight="Light" Margin="0,7,0,0" />
+                    <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0" MinHeight="112">
+                <StackPanel>
+                    <TextBlock Text="FANS" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                    <TextBlock Text="{Binding FanCountText}" FontSize="18" FontWeight="Light" Margin="0,10,0,0" />
+                    <TextBlock Text="Read-only tachometers" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="2" Style="{StaticResource TcSection}" Margin="7,0,0,0" MinHeight="112">
+                <StackPanel>
+                    <TextBlock Text="TELEMETRY" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                    <TextBlock Text="{Binding SensorCountText}" FontSize="18" FontWeight="Light" Margin="0,10,0,0" />
+                    <TextBlock Text="LibreHardwareMonitor + platform providers" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Border Style="{StaticResource TcSection}" Margin="0,0,0,14">
+            <StackPanel>
+                <Grid Margin="0,0,0,10">
+                    <TextBlock Text="Fan telemetry" FontSize="11" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding FanStateText}" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Fans}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,0,0,1" MinHeight="38">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150" />
+                                    <ColumnDefinition Width="130" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" VerticalAlignment="Center" FontSize="13" />
+                                <TextBlock Grid.Column="2" Text="{Binding Source}" VerticalAlignment="Center" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextTrimming="CharacterEllipsis" />
+                                <Border VerticalAlignment="Bottom" Height="1" Background="{DynamicResource Tc.Border}" Grid.ColumnSpan="3" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Text="A second fan is shown only when Windows or Lenovo exposes a real second tachometer; ThinkControl never synthesizes one."
+                           Margin="0,8,0,0" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource TcSection}" Margin="0,0,0,10">
+            <StackPanel>
+                <Grid Margin="0,0,0,8">
+                    <TextBlock Text="All live sensors" FontSize="11" FontWeight="SemiBold" />
+                    <TextBlock Text="Control inputs are marked in red" HorizontalAlignment="Right" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" />
+                </Grid>
+
+                <Grid Height="30" Background="{DynamicResource Tc.SurfaceAlt}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="1.25*" />
+                        <ColumnDefinition Width="1.6*" />
+                        <ColumnDefinition Width="115" />
+                        <ColumnDefinition Width="110" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Hardware" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
+                    <TextBlock Grid.Column="1" Text="Sensor" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
+                    <TextBlock Grid.Column="2" Text="Value" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
+                    <TextBlock Grid.Column="3" Text="Type" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
+                </Grid>
+
+                <ItemsControl ItemsSource="{Binding Sensors}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid MinHeight="34">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="1.25*" />
+                                    <ColumnDefinition Width="1.6*" />
+                                    <ColumnDefinition Width="115" />
+                                    <ColumnDefinition Width="110" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center">
+                                    <Ellipse Width="5" Height="5" Margin="0,0,7,0" Fill="Transparent">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse">
+                                                <Setter Property="Fill" Value="Transparent" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ControlTemperature}" Value="True">
+                                                        <Setter Property="Fill" Value="{DynamicResource Tc.Accent}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                    <TextBlock Text="{Binding HardwareName}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="1" Text="{Binding Name}" Margin="8,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Margin="8,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Value, StringFormat={}{0:0.##}}" />
+                                    <TextBlock Text="{Binding Unit}" Margin="4,0,0,0" Foreground="{DynamicResource Tc.TextMuted}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="3" Text="{Binding SensorType}" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
+                                <Border VerticalAlignment="Bottom" Height="1" Background="{DynamicResource Tc.Border}" Grid.ColumnSpan="4" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Text="Cooling profiles use only the marked CPU/GPU thermal domains. Storage, battery and other sensors remain visible but do not dilute a hot CPU or GPU by being averaged into fan control."
+                   Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="2,0,2,8" />
+    </StackPanel>
+</UserControl>
