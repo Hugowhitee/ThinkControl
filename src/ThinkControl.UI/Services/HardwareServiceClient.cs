@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Text;
@@ -6,21 +7,57 @@ using ThinkControl.Core.Ipc;
 
 namespace ThinkControl.UI.Services;
 
+public sealed record HardwareOperationResult(
+    string Operation,
+    string? Value,
+    bool Success,
+    int DurationMs,
+    bool ResponseReceived);
+
 public sealed class HardwareServiceClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public event EventHandler<HardwareOperationResult>? HardwareOperationCompleted;
 
     public async Task<ServiceResponse?> GetStatusAsync(CancellationToken cancellationToken = default) =>
         await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "GetStatus"), cancellationToken);
 
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
-        await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "SetFanLevel", level.ToString()), cancellationToken);
+        await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken);
 
     public async Task<ServiceResponse?> ReturnFanToAutoAsync(CancellationToken cancellationToken = default) =>
-        await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "ReturnFanToAuto"), cancellationToken);
+        await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken);
 
     public async Task<ServiceResponse?> SetKeyboardBacklightAsync(string value, CancellationToken cancellationToken = default) =>
         await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "SetKeyboardBacklight", value), cancellationToken);
+
+    private async Task<ServiceResponse?> SendTrackedAsync(
+        string operation,
+        string? value,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        ServiceResponse? response = await SendAsync(
+            new ServiceRequest(ThinkControlProtocol.Version, operation, value),
+            cancellationToken);
+        stopwatch.Stop();
+
+        try
+        {
+            HardwareOperationCompleted?.Invoke(this, new HardwareOperationResult(
+                operation,
+                value,
+                response?.Success == true,
+                (int)Math.Clamp(stopwatch.ElapsedMilliseconds, 0, 600_000),
+                response is not null));
+        }
+        catch
+        {
+        }
+
+        return response;
+    }
 
     private static async Task<ServiceResponse?> SendAsync(ServiceRequest request, CancellationToken cancellationToken)
     {
