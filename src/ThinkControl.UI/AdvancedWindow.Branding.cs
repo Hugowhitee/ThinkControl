@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using ThinkControl.UI.Controls;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI;
 
@@ -49,8 +50,8 @@ public partial class AdvancedWindow
         Grid.SetColumn(wordmark, 0);
         dockRow.Children.Add(wordmark);
 
-        Button? compactButton = dockRow.Children
-            .OfType<Button>()
+        WpfButton? compactButton = dockRow.Children
+            .OfType<WpfButton>()
             .FirstOrDefault(child => Grid.GetColumn(child) == 1);
         if (compactButton is not null)
         {
