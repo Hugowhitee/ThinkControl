@@ -1,0 +1,9 @@
+{
+  "assetPack": "ThinkControl_TC_Exact_Asset_Pack_v3",
+  "approved": true,
+  "master": "master/ThinkControl_TC_mark.svg",
+  "windowsApp": "windows/ThinkControl.ico",
+  "windowsMark": "windows/ThinkControl_mark.ico",
+  "readmeDark": "wordmark/ThinkControl_wordmark_dark.svg",
+  "readmeLight": "wordmark/ThinkControl_wordmark_light.svg"
+}
