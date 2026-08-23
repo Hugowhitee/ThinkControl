@@ -11,6 +11,20 @@ public enum KeyboardBacklightLevel
     FirmwareAuto = 3
 }
 
+/// <summary>
+/// Capability-probed Lenovo keyboard-backlight driver access.
+///
+/// ThinkControl never chooses a write contract from the marketing model name alone.
+/// A backend is usable only when its signed Lenovo device can be opened and its
+/// read operation returns one of that backend's known states. Every write is then
+/// read back before success is reported.
+///
+/// Contracts:
+/// - IBMPmDrv: ThinkPad Lenovo Power Management Driver.
+/// - EnergyDrv: Lenovo ACPI-Compliant Virtual Power Controller used by multiple
+///   ThinkBook / IdeaPad / LOQ-family machines. Two read encodings are known in
+///   the ecosystem, so both are probed independently and fail closed.
+/// </summary>
 public sealed class KeyboardBacklightService : IDisposable
 {
     private const uint GenericRead = 0x80000000;
@@ -19,15 +33,10 @@ public sealed class KeyboardBacklightService : IDisposable
     private const uint FileShareWrite = 0x00000002;
     private const uint OpenExisting = 3;
 
-    // Production deliberately excludes EnergyDrv. ThinkControl research still
-    // classifies that interface as a lead rather than a verified X9 contract.
-    // IBMPmDrv is considered only when the exact X9 device profile is active,
-    // the known Lenovo mapping returns one of the expected states, and every
-    // write can be read back and verified before the UI reports success.
     private static readonly DriverConfig[] Drivers =
     [
         new(
-            "IBMPmDrv",
+            "Lenovo PM Driver · ThinkPad",
             @"\\.\IBMPmDrv",
             0x00222680,
             null,
@@ -38,7 +47,35 @@ public sealed class KeyboardBacklightService : IDisposable
             0x00222684,
             0x00000000,
             0x00000001,
-            0x00000002)
+            0x00000002),
+
+        new(
+            "Lenovo EnergyDrv · standard",
+            @"\\.\EnergyDrv",
+            0x83102144,
+            0x00000032,
+            0x00000001,
+            0x00000003,
+            0x00000005,
+            null,
+            0x83102144,
+            0x00000033,
+            0x00010033,
+            0x00020033),
+
+        new(
+            "Lenovo EnergyDrv · alternate",
+            @"\\.\EnergyDrv",
+            0x83102144,
+            0x00000032,
+            0x00010001,
+            0x00010003,
+            0x00010005,
+            0x00010007,
+            0x83102144,
+            0x00000033,
+            0x00010033,
+            0x00020033)
     ];
 
     private SafeFileHandle? _handle;
@@ -119,7 +156,7 @@ public sealed class KeyboardBacklightService : IDisposable
             return false;
         }
 
-        Thread.Sleep(45);
+        Thread.Sleep(55);
         return TryGet(out KeyboardBacklightLevel current) && current == level;
     }
 
@@ -149,6 +186,8 @@ public sealed class KeyboardBacklightService : IDisposable
                 continue;
             }
 
+            // The read is the compatibility gate. Unknown return encodings do not
+            // select the backend and therefore can never reach SetAndVerify.
             if (TryGet(candidate, handle, out _))
             {
                 _driver = candidate;
