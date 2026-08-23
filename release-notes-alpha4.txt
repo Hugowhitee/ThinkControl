@@ -1,3 +1,0 @@
-ThinkControl v0.1.0-alpha.4
-
-UI consistency, Windows shell icon fixes, supervised cooling/power/audio follow-up, reordered navigation, compact fan-noise profiles, and refined Touchpad gesture visualization.
