@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI.Controls;
 
@@ -17,7 +18,7 @@ public partial class CompactDashboard
         if (links is null)
             return;
 
-        var button = new Button
+        var button = new WpfButton
         {
             Height = 52,
             Style = TryFindResource("CompactLinkRow") as Style,
@@ -56,9 +57,9 @@ public partial class CompactDashboard
             Foreground = TryFindResource("Tc.TextMuted") as Brush,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            Text = _app?.UserSettings.Current.DolbyProfile ?? "Dynamic"
         };
-        value.Text = _app?.UserSettings.Current.DolbyProfile ?? "Dynamic";
         Grid.SetColumn(value, 2);
         grid.Children.Add(value);
 
@@ -74,9 +75,15 @@ public partial class CompactDashboard
         grid.Children.Add(arrow);
 
         button.Content = grid;
-        int systemIndex = links.Children.OfType<Button>()
-            .Select((child, index) => (child, index))
-            .FirstOrDefault(pair => pair.child.Tag?.ToString() == "System").index;
+        int systemIndex = -1;
+        for (int i = 0; i < links.Children.Count; i++)
+        {
+            if (links.Children[i] is WpfButton existing && existing.Tag?.ToString() == "System")
+            {
+                systemIndex = i;
+                break;
+            }
+        }
         links.Children.Insert(systemIndex >= 0 ? systemIndex : links.Children.Count, button);
         _audioRowAdded = true;
     }
