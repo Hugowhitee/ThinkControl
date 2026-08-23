@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using ThinkControl.Core.Touchpad;
 using WpfPoint = System.Windows.Point;
+using WpfCursors = System.Windows.Input.Cursors;
 
 namespace ThinkControl.UI.Controls;
 
@@ -19,7 +20,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
     public TouchpadVisualizer()
     {
         MinHeight = 260;
-        Cursor = Cursors.Hand;
+        Cursor = WpfCursors.Hand;
     }
 
     public event Action<TouchpadEdge>? EdgeSelected;
@@ -184,7 +185,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         var formatted = new FormattedText(
             value,
             CultureInfo.CurrentUICulture,
-            FlowDirection.LeftToRight,
+            System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             size,
             brush,
