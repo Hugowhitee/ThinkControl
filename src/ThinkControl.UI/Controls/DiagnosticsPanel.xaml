@@ -1,0 +1,74 @@
+<UserControl x:Class="ThinkControl.UI.Controls.DiagnosticsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignWidth="760"
+             d:DesignHeight="360">
+    <StackPanel>
+        <Border Style="{StaticResource TcSection}">
+            <StackPanel>
+                <Grid>
+                    <StackPanel>
+                        <TextBlock Text="Compatibility diagnostics" FontWeight="SemiBold" />
+                        <TextBlock x:Name="ValidationStateText"
+                                   Text="Not validated"
+                                   Foreground="{DynamicResource Tc.Accent}"
+                                   FontSize="12"
+                                   Margin="0,5,0,0" />
+                    </StackPanel>
+                    <CheckBox x:Name="DiagnosticsSwitch"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Center"
+                              Style="{StaticResource TcSwitch}"
+                              Click="DiagnosticsSwitch_Click" />
+                </Grid>
+
+                <TextBlock x:Name="ConsentDescription"
+                           Text="Allow ThinkControl to keep redacted local compatibility events and submit small technical summaries when the private diagnostics endpoint is available."
+                           Foreground="{DynamicResource Tc.TextMuted}"
+                           FontSize="10.5"
+                           TextWrapping="Wrap"
+                           Margin="0,10,0,0" />
+
+                <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,14" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="LOCAL EVENTS" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <TextBlock x:Name="EventCountText" Text="0" FontSize="18" Margin="0,4,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="LAST EVENT" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <TextBlock x:Name="LastEventText" Text="—" FontSize="12" Margin="0,7,0,0" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="PRIVATE UPLOAD" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <TextBlock x:Name="UploadStatusText" Text="Endpoint not configured" FontSize="12" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+
+                <WrapPanel Margin="0,16,0,0">
+                    <Button Content="Preview data" Style="{StaticResource TcButton}" Margin="0,0,8,8" Click="Preview_Click" />
+                    <Button Content="Export support bundle" Style="{StaticResource TcButton}" Margin="0,0,8,8" Click="Export_Click" />
+                    <Button x:Name="SendButton" Content="Send diagnostics now" Style="{StaticResource TcButton}" Margin="0,0,8,8" Click="Send_Click" IsEnabled="False" />
+                    <Button Content="Open bug report" Style="{StaticResource TcButton}" Margin="0,0,8,8" Click="OpenBugReport_Click" />
+                    <Button Content="Delete local diagnostics" Style="{StaticResource TcButton}" Margin="0,0,8,8" Click="Delete_Click" />
+                </WrapPanel>
+
+                <TextBlock x:Name="StatusText"
+                           Text="Serial numbers, usernames, hostnames, MAC addresses, personal paths, typed text and audio samples are not part of the diagnostics schema."
+                           Foreground="{DynamicResource Tc.TextFaint}"
+                           FontSize="9.5"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,0" />
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>
