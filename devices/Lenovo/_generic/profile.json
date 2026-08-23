@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 2,
+  "id": "lenovo.generic",
+  "displayName": "Lenovo laptop · generic",
+  "status": "beta-untested",
+  "match": {
+    "manufacturer": "LENOVO"
+  },
+  "providers": {
+    "windows": ["powerMode", "display", "brightness", "adaptiveBrightness", "batteryTelemetry"],
+    "keyboard": ["IBMPmDrv", "EnergyDrv", "LenovoVantageKeyboardAddin"],
+    "fanTelemetry": ["LENOVO_FAN_METHOD", "Lenovo_DT_GetCPUFan", "Lenovo_DT_GetSYSFan", "CIM_Tachometer"],
+    "thermalPolicy": ["LENOVO_GAMEZONE_DATA-when-supported", "WindowsPowerMode"]
+  },
+  "capabilities": {
+    "keyboardBacklight": "probe-and-readback",
+    "fanRpm": "read-only-probe",
+    "fanControl": "disabled-without-family-or-model-provider",
+    "performanceMode": "windows-safe",
+    "batteryTelemetry": "windows-safe",
+    "display": "windows-safe"
+  },
+  "safety": {
+    "directEcWrites": false,
+    "unknownIoctlWrites": false,
+    "remoteMetadataMayEnableWrites": false,
+    "betaRequiresProviderProbe": true
+  }
+}
