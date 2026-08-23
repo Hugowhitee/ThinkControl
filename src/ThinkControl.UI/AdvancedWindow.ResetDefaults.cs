@@ -1,5 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.UI.Controls;
+using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
 
