@@ -1,7 +1,10 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
+using System.Windows.Shell;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 
@@ -17,8 +20,35 @@ public partial class MainWindow : Window
     {
         _app = app;
         InitializeComponent();
+        ConfigureDockedPopup();
         Loaded += OnLoaded;
         Closing += OnClosing;
+    }
+
+    private void ConfigureDockedPopup()
+    {
+        // Compact is a tray flyout, not a normal movable application window.
+        // A zero-height chrome caption prevents the old invisible drag region from
+        // letting the popup wander away from the notification area.
+        WindowChrome.SetWindowChrome(this, new WindowChrome
+        {
+            CaptionHeight = 0,
+            CornerRadius = new CornerRadius(7),
+            GlassFrameThickness = new Thickness(0),
+            ResizeBorderThickness = new Thickness(0),
+            UseAeroCaptionButtons = false
+        });
+
+        var arrow = new Path
+        {
+            Stroke = (System.Windows.Media.Brush)FindResource("Tc.Text"),
+            StrokeThickness = 1.5,
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            Data = Geometry.Parse("M14,14 L2,2 M2,8 L2,2 L8,2")
+        };
+        ExpandButton.Content = new Viewbox { Width = 14, Height = 14, Child = arrow };
+        ExpandButton.ToolTip = "Open Advanced";
     }
 
     public void ShowNearTray(bool animate)
