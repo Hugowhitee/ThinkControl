@@ -29,8 +29,8 @@ public partial class App
             {
             }
 
-            // A second desktop/start-menu launch should only activate the existing
-            // tray instance. Exit before WPF creates another NotifyIcon.
+            // A second desktop/start-menu launch activates the existing process and
+            // exits before a second NotifyIcon can ever be created.
             Environment.Exit(0);
             return;
         }
@@ -57,7 +57,7 @@ public partial class App
                 {
                     Dispatcher.BeginInvoke(
                         DispatcherPriority.ApplicationIdle,
-                        new Action(ShowThinkControlFromTray));
+                        new Action(ShowThinkControlFromDesktopLaunch));
                 }
                 catch
                 {
@@ -67,6 +67,22 @@ public partial class App
         }, token);
 
         Exit += (_, _) => DisposeSingleInstanceGuard();
+    }
+
+    private void ShowThinkControlFromDesktopLaunch()
+    {
+        // A desktop/start-menu launch means "open the app", not "show the small
+        // notification-area popup". Advanced is a normal ShowInTaskbar window, so
+        // this also repairs the confusing state where ThinkControl was running but
+        // absent from the taskbar after it had previously been hidden to tray.
+        OpenAdvanced("Home");
+        if (_advancedWindow is { } advanced)
+        {
+            if (advanced.WindowState == System.Windows.WindowState.Minimized)
+                advanced.WindowState = System.Windows.WindowState.Normal;
+            advanced.ShowInTaskbar = true;
+            advanced.Activate();
+        }
     }
 
     private void DisposeSingleInstanceGuard()
