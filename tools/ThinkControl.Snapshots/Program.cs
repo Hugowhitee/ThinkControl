@@ -85,6 +85,7 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
+        RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
 
         // High-value overlays/windows are part of the release gate too. They use
         // deterministic provider states but the exact production controls/styles.
@@ -124,7 +125,7 @@ internal static class Program
             ControlTemperatureC = hardwareReady ? 47.2 : null,
             ControlTemperatureSource = hardwareReady ? "CPU Package · hottest canonical domain" : "Unavailable",
             FanRpm = hardwareReady ? 2050 : null,
-            FanStateText = hardwareReady ? "Normal · level 3" : "Lenovo managed · telemetry unavailable",
+            FanStateText = hardwareReady ? "Normal · level 3" : "Firmware managed · telemetry unavailable",
             BatteryPercent = charging ? 78 : 63,
             BatteryCharging = charging,
             BatteryStatus = charging ? "Charging" : "On battery",
@@ -195,7 +196,11 @@ internal static class Program
         for (int i = 0; i <= 43; i++)
         {
             double watts = 18.8 - i * 0.028 + Math.Sin(i / 3.5) * 0.55;
-            state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(now - TimeSpan.FromMinutes(43 - i), watts));
+            int percent = (int)Math.Round(61d + 17d * i / 43d);
+            state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(
+                now - TimeSpan.FromMinutes(43 - i),
+                watts,
+                $"{percent}%"));
         }
 
         for (int i = 0; i < 8; i++)
@@ -245,7 +250,17 @@ internal static class Program
         window.ForceClose();
     }
 
-    private static void RenderAdvanced(App app, AppState state, string page, int width, int height, string output, ICollection<SnapshotEntry> snapshots, string fileName, string stateName)
+    private static void RenderAdvanced(
+        App app,
+        AppState state,
+        string page,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName,
+        bool audioProvidersAvailable = true)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -255,7 +270,10 @@ internal static class Program
         else if (string.Equals(page, "Sensors", StringComparison.OrdinalIgnoreCase))
             window.NavigateSensors();
         else if (string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase))
+        {
             window.NavigateAudio();
+            window.PrepareAudioForSnapshot(audioProvidersAvailable);
+        }
         else
             window.Navigate(page);
 
@@ -314,18 +332,23 @@ internal static class Program
     private static void RenderTelemetryDetail(string output, ICollection<SnapshotEntry> snapshots)
     {
         const int width = 720;
-        const int height = 520;
+        const int height = 720;
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        var timeline = Enumerable.Range(0, 46)
+        var powerTimeline = Enumerable.Range(0, 46)
             .Select(index => new TimeSeriesPoint(
                 now - TimeSpan.FromMinutes(45 - index),
                 20.1 - index * 0.055 + Math.Sin(index / 3.2) * 0.5))
+            .ToArray();
+        var percentTimeline = Enumerable.Range(0, 46)
+            .Select(index => new TimeSeriesPoint(
+                now - TimeSpan.FromMinutes(45 - index),
+                61d + 17d * index / 45d))
             .ToArray();
         var model = new TelemetryDetailModel(
             "Charge session",
             "Today · 61% → 78% · 43 min",
             "Charge power",
-            timeline,
+            powerTimeline,
             "W",
             "0.0",
             [
@@ -333,10 +356,14 @@ internal static class Program
                 new TelemetryDetailMetric("Energy added", "+12.1 Wh"),
                 new TelemetryDetailMetric("Average power", "17.8 W"),
                 new TelemetryDetailMetric("Peak power", "20.4 W")
-            ]);
+            ],
+            SecondaryTimeline: percentTimeline,
+            SecondaryChartTitle: "Battery level",
+            SecondaryUnit: "%",
+            SecondaryValueFormat: "0");
         var window = new TelemetryDetailWindow(model) { Width = width, Height = height };
         RenderWindowContent(window, Path.Combine(output, "telemetry-detail-battery.png"));
-        snapshots.Add(new SnapshotEntry("telemetry-detail-battery.png", "Telemetry detail", "battery charge session", width, height));
+        snapshots.Add(new SnapshotEntry("telemetry-detail-battery.png", "Telemetry detail", "battery charge session · % + W", width, height));
         window.Close();
     }
 
