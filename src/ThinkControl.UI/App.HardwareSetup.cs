@@ -40,14 +40,14 @@ public partial class App
 
             // Provider-unavailable states belong in Notifications and on their
             // respective pages. Only hard prerequisites and an explicitly diagnosed
-            // PawnIO device/module failure get a one-time repair prompt. Opening the
-            // prompt never starts UAC or an installer by itself.
+            // low-level device/module failure get a one-time repair prompt. Opening
+            // the prompt never starts UAC or an installer by itself.
             bool hardRequirementMissing =
                 !status.ServiceInstalled ||
                 !status.ServiceRunning ||
                 !status.ServiceReachable ||
                 (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled) ||
-                HasConcretePawnIoReadinessFailure(State.HardwareAccess);
+                (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess));
 
             if (!hardRequirementMissing)
                 return;
@@ -67,13 +67,23 @@ public partial class App
 
     internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
     {
-        bool needsSensorProvider = !State.CanSensorTelemetry || !State.CanFanTelemetry || !State.CanFanControl;
+        bool verifiedX9WriteProfile = IsVerifiedX9WriteProfile(State.MachineType);
+
+        // Missing fan-control capability is only a low-level dependency signal when
+        // the resolved model is actually authorized to gain that capability from
+        // the X9 EC provider. Other laptops must not be prompted to install PawnIO
+        // merely because their firmware/provider does not expose writable fan control.
+        bool needsSensorProvider =
+            !State.CanSensorTelemetry ||
+            !State.CanFanTelemetry ||
+            (verifiedX9WriteProfile && !State.CanFanControl);
+
         bool serviceReachable = await HardwareClient.PingAsync();
         HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(
             State.MachineType,
             needsSensorProvider,
             serviceReachable);
-        State.DriverStatus = DescribeHardwareSetup(status);
+        State.DriverStatus = DescribeHardwareSetup(status, verifiedX9WriteProfile);
         return status;
     }
 
@@ -93,7 +103,7 @@ public partial class App
                 return false;
             }
 
-            // The service's background provider loop owns heavy LHM/EC discovery.
+            // The service's background provider loop owns heavy provider discovery.
             // Give it one cycle, then read the fresh cached snapshot without blocking UI.
             await Task.Delay(2300);
             await RefreshStatusAsync(forceSystemInfo: false);
@@ -106,7 +116,7 @@ public partial class App
         }
     }
 
-    private string DescribeHardwareSetup(HardwareSetupStatus status)
+    private string DescribeHardwareSetup(HardwareSetupStatus status, bool verifiedX9WriteProfile)
     {
         if (!status.ServiceInstalled)
             return "ThinkControl hardware service not installed";
@@ -116,12 +126,22 @@ public partial class App
             return "Hardware service is running · app connection needs repair";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
             return "PawnIO missing · install available";
-        if (HasConcretePawnIoReadinessFailure(State.HardwareAccess))
+        if (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess))
             return "PawnIO installed · device/module repair available";
-        if (!State.CanSensorTelemetry || !State.CanFanControl || !State.CanKeyboardBacklight)
-            return "Hardware service online · one or more providers need attention";
-        return "Ready";
+
+        bool providerAttention =
+            !State.CanSensorTelemetry ||
+            !State.CanFanTelemetry ||
+            !State.CanKeyboardBacklight ||
+            (verifiedX9WriteProfile && !State.CanFanControl);
+        return providerAttention
+            ? "Hardware service online · one or more detected providers need attention"
+            : "Ready";
     }
+
+    private static bool IsVerifiedX9WriteProfile(string? machineType) =>
+        string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasConcretePawnIoReadinessFailure(string? detail)
     {
