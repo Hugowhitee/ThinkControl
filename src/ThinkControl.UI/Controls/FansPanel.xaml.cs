@@ -45,7 +45,7 @@ public partial class FansPanel : UserControl
         try
         {
             SetProfileChecks(profile);
-            SilentProfile.IsEnabled = NormalProfile.IsEnabled = CoolProfile.IsEnabled = state.CanFanControl;
+            SetWritableControlsEnabled(state.CanFanControl);
             ProfileStatusText.Text = DisplayProfile(profile);
             CoolingDetailText.Text = state.CanFanControl
                 ? $"{DisplayProfile(profile)} cooling · {state.ControlTemperatureText} control temperature"
@@ -92,8 +92,8 @@ public partial class FansPanel : UserControl
         {
             string profile = NormalizeProfile(telemetry?.CoolingProfile);
             SetProfileChecks(profile);
+            SetWritableControlsEnabled(canControl);
 
-            SilentProfile.IsEnabled = NormalProfile.IsEnabled = CoolProfile.IsEnabled = canControl;
             ProfileStatusText.Text = telemetry?.CoolingSafetyOverride == true ? "Safety · firmware" : DisplayProfile(profile);
             CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
                 ? "Choose a cooling profile."
@@ -135,6 +135,23 @@ public partial class FansPanel : UserControl
         finally
         {
             _syncing = false;
+        }
+    }
+
+    private void SetWritableControlsEnabled(bool enabled)
+    {
+        AutoProfile.IsEnabled = enabled;
+        SilentProfile.IsEnabled = enabled;
+        NormalProfile.IsEnabled = enabled;
+        CoolProfile.IsEnabled = enabled;
+
+        if (Content is StackPanel root)
+        {
+            Expander? manual = root.Children
+                .OfType<Expander>()
+                .FirstOrDefault(item => string.Equals(item.Header?.ToString(), "Advanced manual control", StringComparison.Ordinal));
+            if (manual is not null)
+                manual.IsEnabled = enabled;
         }
     }
 
