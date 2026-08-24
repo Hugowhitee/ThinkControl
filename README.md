@@ -23,7 +23,7 @@
 
 ## Current prerelease
 
-ThinkControl `v0.1.0-alpha.6` is the current prerelease. Windows-owned controls stay device-neutral where possible; low-level fan, EC and keyboard writes remain capability-gated and only become available after the relevant provider/profile checks pass.
+ThinkControl `v0.1.0-alpha.7` is the current prerelease. Windows-owned controls stay device-neutral where possible; low-level fan, EC and keyboard writes remain capability-gated and only become available after the relevant provider/profile checks pass.
 
 The ThinkPad X9-15 Gen 1 machine types `21Q6` and `21Q7` are the current physically verified low-level reference profile. ThinkControl targets Windows 11 x64 and .NET 10.
 
@@ -148,8 +148,8 @@ The installer recognises an existing installation, uses update wording, skips fi
 The setup itself stays small: the release uses a web bootstrap installer plus a separately verified application payload.
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.6.exe
-ThinkControl-Payload-0.1.0-alpha.6.zip
+ThinkControl-Setup-0.1.0-alpha.7.exe
+ThinkControl-Payload-0.1.0-alpha.7.zip
 SHA256SUMS.txt
 ```
 
