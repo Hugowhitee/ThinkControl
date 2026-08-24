@@ -1,13 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.Core.Touchpad;
-using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
 
 public partial class TouchpadPanel
 {
-    private readonly WindowsVolumeService _gestureVolume = new();
     private readonly Dictionary<Slider, Button> _sliderResetButtons = new();
     private bool _valueFeedbackConfigured;
     private int? _gestureStartValue;
@@ -54,7 +52,20 @@ public partial class TouchpadPanel
         if (header is null)
             return;
 
-        valueLabel.Margin = new Thickness(valueLabel.Margin.Left, valueLabel.Margin.Top, 27, valueLabel.Margin.Bottom);
+        // Some setting headers already dedicate a right-hand Grid column to the
+        // value. The reset button intentionally sits at the right edge of the label
+        // column (column 0), so those value labels do not need to reserve another
+        // 27 px. Reserving it unconditionally clipped short fixed-width values such
+        // as "1.00×" down to ".00×" in the Touchpad page snapshots.
+        int valueColumn = Grid.GetColumn(valueLabel);
+        if (valueColumn == 0)
+        {
+            valueLabel.Margin = new Thickness(
+                valueLabel.Margin.Left,
+                valueLabel.Margin.Top,
+                Math.Max(valueLabel.Margin.Right, 27),
+                valueLabel.Margin.Bottom);
+        }
 
         var icon = new PackIconLucide
         {
@@ -77,6 +88,7 @@ public partial class TouchpadPanel
             Style = TryFindResource("TcIconButton") as Style,
             Visibility = Visibility.Collapsed
         };
+        Grid.SetColumn(button, 0);
         button.Click += (_, _) => reset(slider, defaultValue);
         Panel.SetZIndex(button, 4);
         header.Children.Add(button);
@@ -159,7 +171,7 @@ public partial class TouchpadPanel
         Dispatcher.InvokeAsync(() =>
         {
             if (signal.Phase == GesturePhase.Claimed)
-                _gestureStartValue = ReadCurrentActionValue(signal.Action);
+                _gestureStartValue = ReadGestureStartValue(signal.Action);
 
             if (signal.Phase == GesturePhase.Active)
                 GestureStatusText.Text = FormatActiveGestureValue(signal);
@@ -177,7 +189,7 @@ public partial class TouchpadPanel
             return $"Media seek · {seconds:+0.0;-0.0;0.0} s";
         }
 
-        int? current = ReadCurrentActionValue(signal.Action);
+        int? current = ReadGestureTargetValue(signal.Action);
         if (current.HasValue)
         {
             int change = _gestureStartValue.HasValue ? current.Value - _gestureStartValue.Value : 0;
@@ -187,16 +199,24 @@ public partial class TouchpadPanel
         return $"{ActionLabel(signal.Action)} · {signal.TotalTravelMm:+0.0;-0.0;0.0} mm";
     }
 
-    private int? ReadCurrentActionValue(GestureActionKind action)
+    private int? ReadGestureStartValue(GestureActionKind action)
     {
-        if (action == GestureActionKind.Volume)
-        {
-            WindowsVolumeStatus volume = _gestureVolume.Read();
-            return volume.Available ? volume.Percent : null;
-        }
+        if (action == GestureActionKind.Volume && _host is not null)
+            return Math.Clamp(_host.ReadVolumePercent(), 0, 100);
 
         if (action == GestureActionKind.Brightness && _app is not null)
             return Math.Clamp(_app.State.Brightness, 0, 100);
+
+        return null;
+    }
+
+    private int? ReadGestureTargetValue(GestureActionKind action)
+    {
+        if (action == GestureActionKind.Volume && _host is not null)
+            return _host.CurrentVolumeTarget;
+
+        if (action == GestureActionKind.Brightness && _host is not null)
+            return _host.CurrentBrightnessTarget;
 
         return null;
     }

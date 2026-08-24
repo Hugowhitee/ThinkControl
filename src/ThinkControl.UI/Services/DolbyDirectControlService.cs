@@ -13,9 +13,10 @@ internal sealed record DolbyDirectState(
     string Detail);
 
 /// <summary>
-/// Best-effort direct controller for OEM Dolby DAX3 builds. It only uses semantic
-/// DAX operations and verifies readback when the installed type library exposes it;
-/// it never edits Dolby registry/state files or guesses undocumented DSP values.
+/// Conservative direct controller for OEM Dolby DAX builds. ThinkControl only
+/// exposes semantic profile/tone operations that the installed DAX object can read
+/// back. It does not edit Dolby registry/state files, invent game subprofiles or
+/// guess numeric preset identifiers.
 /// </summary>
 internal sealed class DolbyDirectControlService
 {
@@ -39,11 +40,15 @@ internal sealed class DolbyDirectControlService
             string? tone = subReadable ? NormalizeTone(subRaw) : null;
             tone ??= ieqReadable ? NormalizeTone(ieqRaw) : null;
 
-            bool profileControl = CanInvoke(dax, "SetActiveProfile") || profileReadable;
-            bool toneControl = CanInvoke(dax, "SetActiveSubProfile") || CanInvoke(dax, "SetIEQ") || ieqReadable;
+            // A readable semantic state is the non-mutating capability boundary.
+            // __ComObject reflection frequently claims no members even though
+            // IDispatch calls work, so we deliberately do not infer capability from
+            // reflection alone and we never probe setters by changing user state.
+            bool profileControl = profileReadable && profile is not null;
+            bool toneControl = (subReadable || ieqReadable) && tone is not null;
             string detail = profileControl || toneControl
-                ? "Dolby DAX direct control detected · changes stay inside ThinkControl"
-                : "Dolby DAX is registered, but this build does not expose a compatible direct control surface";
+                ? "Dolby DAX direct state detected · supported changes are verified by readback"
+                : "Dolby DAX is registered, but this build does not expose a readable semantic control surface";
 
             return new(true, profileControl, toneControl, profile, tone, detail);
         }
@@ -81,21 +86,15 @@ internal sealed class DolbyDirectControlService
                     continue;
 
                 Thread.Sleep(100);
-                if (TryGet(dax, "GetActiveProfile", out object? readBack))
-                {
-                    string? normalized = NormalizeProfile(readBack);
-                    if (!string.Equals(normalized, profile, StringComparison.OrdinalIgnoreCase))
-                        continue;
-                    return new(true, $"Dolby Atmos · {profile} · direct DAX readback verified.");
-                }
+                if (!TryGet(dax, "GetActiveProfile", out object? readBack))
+                    continue;
 
-                // Some OEM IDAXManager builds expose the semantic setter through
-                // IDispatch but omit the matching getter. A successful named setter
-                // is still safer than UI automation because no profile id is guessed.
-                return new(true, $"Dolby Atmos · {profile} · direct DAX command accepted.");
+                string? normalized = NormalizeProfile(readBack);
+                if (string.Equals(normalized, profile, StringComparison.OrdinalIgnoreCase))
+                    return new(true, $"Dolby Atmos · {profile} · direct DAX readback verified.");
             }
 
-            return new(false, lastError ?? $"The installed Dolby DAX build did not accept direct profile '{profile}'.");
+            return new(false, lastError ?? $"The installed Dolby DAX build did not verify direct profile '{profile}'.");
         }
         finally
         {
@@ -110,59 +109,41 @@ internal sealed class DolbyDirectControlService
 
         try
         {
-            // Newer IDAXManager2 builds may expose the IEQ choice as a semantic
-            // subprofile name. Prefer that because it contains no numeric mapping.
-            if (TrySet(dax, "SetActiveSubProfile", tone, out _))
-            {
-                Thread.Sleep(90);
-                if (!TryGet(dax, "GetActiveSubProfile", out object? readBack) ||
-                    string.Equals(NormalizeTone(readBack), tone, StringComparison.OrdinalIgnoreCase))
-                {
-                    return new(true, $"Dolby tone · {tone} · applied through direct DAX subprofile control.");
-                }
-            }
-
             if (string.Equals(tone, "Off", StringComparison.OrdinalIgnoreCase) &&
                 TryInvokeNoArgs(dax, "ResetIEQ"))
             {
                 Thread.Sleep(90);
-                if (!TryGet(dax, "GetIEQ", out object? resetBack) || NormalizeTone(resetBack) == "Off")
-                    return new(true, "Dolby Intelligent Equalizer · Off · direct reset verified.");
-            }
-
-            // DAX3 generations use two observed IEQ numbering families. We never
-            // trust the number alone: a candidate is only accepted when GetIEQ
-            // reports the same candidate afterwards. This avoids silently choosing
-            // the wrong tone on an unfamiliar OEM build.
-            foreach (int candidate in NumericToneCandidates(tone))
-            {
-                if (!TrySet(dax, "SetIEQ", candidate, out _))
-                    continue;
-
-                Thread.Sleep(90);
-                if (!TryGet(dax, "GetIEQ", out object? readBack))
-                    continue;
-
-                if (!TryConvertInt(readBack, out int actual) || actual != candidate)
-                    continue;
-
-                string? normalized = NormalizeTone(actual);
-                if (string.Equals(normalized, tone, StringComparison.OrdinalIgnoreCase))
-                    return new(true, $"Dolby Intelligent Equalizer · {tone} · direct DAX readback verified.");
-            }
-
-            // A few DAX type libraries take the preset name directly on SetIEQ.
-            if (TrySet(dax, "SetIEQ", tone, out string? error))
-            {
-                Thread.Sleep(90);
-                if (!TryGet(dax, "GetIEQ", out object? readBack) ||
-                    string.Equals(NormalizeTone(readBack), tone, StringComparison.OrdinalIgnoreCase))
+                if (TryGet(dax, "GetIEQ", out object? resetBack) &&
+                    string.Equals(NormalizeTone(resetBack), "Off", StringComparison.OrdinalIgnoreCase))
                 {
-                    return new(true, $"Dolby Intelligent Equalizer · {tone} · direct DAX command accepted.");
+                    return new(true, "Dolby Intelligent Equalizer · Off · direct DAX readback verified.");
                 }
             }
 
-            return new(false, error ?? $"The installed Dolby DAX build does not expose direct IEQ control for {tone}.");
+            if (TrySet(dax, "SetActiveSubProfile", tone, out string? subError))
+            {
+                Thread.Sleep(90);
+                if (TryGet(dax, "GetActiveSubProfile", out object? readBack) &&
+                    string.Equals(NormalizeTone(readBack), tone, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new(true, $"Dolby Intelligent Equalizer · {tone} · direct subprofile readback verified.");
+                }
+            }
+
+            if (TrySet(dax, "SetIEQ", tone, out string? ieqError))
+            {
+                Thread.Sleep(90);
+                if (TryGet(dax, "GetIEQ", out object? readBack) &&
+                    string.Equals(NormalizeTone(readBack), tone, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new(true, $"Dolby Intelligent Equalizer · {tone} · direct DAX readback verified.");
+                }
+            }
+
+            string detail = !string.IsNullOrWhiteSpace(ieqError) ? ieqError! :
+                !string.IsNullOrWhiteSpace(subError) ? subError! :
+                $"The installed Dolby DAX build does not expose a verified semantic IEQ control for {tone}.";
+            return new(false, detail);
         }
         finally
         {
@@ -170,18 +151,11 @@ internal sealed class DolbyDirectControlService
         }
     }
 
-    private static IReadOnlyList<int> NumericToneCandidates(string tone) => tone switch
-    {
-        "Off" => [0],
-        "Detailed" => [1, 6],
-        "Balanced" => [2, 4],
-        "Warm" => [3, 5],
-        _ => []
-    };
-
     private static string? NormalizeProfile(object? value)
     {
         string text = Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
+        if (text.Length == 0)
+            return null;
         return Profiles.FirstOrDefault(profile =>
             text.Contains(profile, StringComparison.OrdinalIgnoreCase) ||
             profile.Contains(text, StringComparison.OrdinalIgnoreCase));
@@ -190,36 +164,11 @@ internal sealed class DolbyDirectControlService
     private static string? NormalizeTone(object? value)
     {
         string text = Convert.ToString(value, CultureInfo.InvariantCulture)?.Trim() ?? string.Empty;
-        string? named = TonePresets.FirstOrDefault(tone =>
+        if (text.Length == 0)
+            return null;
+        return TonePresets.FirstOrDefault(tone =>
             text.Contains(tone, StringComparison.OrdinalIgnoreCase) ||
             tone.Contains(text, StringComparison.OrdinalIgnoreCase));
-        if (named is not null)
-            return named;
-
-        if (!TryConvertInt(value, out int numeric))
-            return null;
-        return numeric switch
-        {
-            0 => "Off",
-            1 or 6 => "Detailed",
-            2 or 4 => "Balanced",
-            3 or 5 => "Warm",
-            _ => null
-        };
-    }
-
-    private static bool TryConvertInt(object? value, out int result)
-    {
-        try
-        {
-            result = Convert.ToInt32(value, CultureInfo.InvariantCulture);
-            return true;
-        }
-        catch
-        {
-            result = 0;
-            return false;
-        }
     }
 
     private static bool TryCreate(out object? instance, out string? reason)
@@ -246,19 +195,6 @@ internal sealed class DolbyDirectControlService
         catch (Exception ex)
         {
             reason = $"Dolby DAX direct API unavailable: {Unwrap(ex).Message}";
-            return false;
-        }
-    }
-
-    private static bool CanInvoke(object instance, string method)
-    {
-        try
-        {
-            return instance.GetType().GetMember(method, BindingFlags.Public | BindingFlags.Instance | BindingFlags.IgnoreCase).Length > 0 ||
-                   Marshal.IsComObject(instance);
-        }
-        catch
-        {
             return false;
         }
     }

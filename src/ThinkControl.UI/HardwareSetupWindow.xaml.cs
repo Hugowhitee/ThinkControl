@@ -20,46 +20,59 @@ public partial class HardwareSetupWindow : Window
     private async Task RefreshAsync()
     {
         HardwareSetupStatus status = await _app.RefreshHardwareSetupStatusAsync();
+        bool serviceReady = status.ServiceRunning && status.ServiceReachable;
+        bool pawnIoRepair = IsPawnIoRepairRecommended(status);
 
         ServiceStatusText.Text = status.ServiceDetail;
-        ServiceStatusText.Foreground = (Brush)FindResource(status.ServiceRunning ? "Tc.Success" : "Tc.Warning");
-        RepairServiceButton.Visibility = status.ServiceRunning ? Visibility.Collapsed : Visibility.Visible;
+        ServiceStatusText.Foreground = (Brush)FindResource(serviceReady ? "Tc.Success" : "Tc.Warning");
+        RepairServiceButton.Visibility = serviceReady ? Visibility.Collapsed : Visibility.Visible;
 
         LowLevelCard.Visibility = status.LowLevelAccessRelevant ? Visibility.Visible : Visibility.Collapsed;
-        LowLevelStatusText.Text = status.LowLevelAccessDetail;
-        LowLevelStatusText.Foreground = (Brush)FindResource(status.LowLevelAccessInstalled ? "Tc.Success" : "Tc.Warning");
-        InstallLowLevelButton.Visibility = status.LowLevelAccessInstalled ? Visibility.Collapsed : Visibility.Visible;
+        LowLevelStatusText.Text = pawnIoRepair && status.LowLevelAccessInstalled
+            ? DescribePawnIoFailure(_app.State.HardwareAccess)
+            : status.LowLevelAccessDetail;
+        LowLevelStatusText.Foreground = (Brush)FindResource(status.LowLevelAccessInstalled && !pawnIoRepair ? "Tc.Success" : "Tc.Warning");
+        InstallLowLevelButton.Content = status.LowLevelAccessInstalled ? "Repair PawnIO" : "Install PawnIO";
+        InstallLowLevelButton.Visibility = status.LowLevelAccessRelevant && (!status.LowLevelAccessInstalled || pawnIoRepair)
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
         SensorProviderStatusText.Text = _app.State.CanSensorTelemetry
             ? $"Ready · {_app.State.SensorCountText}"
-            : status.LowLevelAccessInstalled
-                ? "PawnIO is installed. ThinkControl has not received useful LHM sensor telemetry yet; Recheck performs one clean provider rebuild."
-                : "PawnIO is missing. Fix detected issues will install the verified package before rebuilding sensors.";
+            : pawnIoRepair
+                ? "LibreHardwareMonitor is waiting for working PawnIO device/module access. Repair PawnIO first; repeated sensor retries would not fix this state."
+                : status.LowLevelAccessInstalled
+                    ? "PawnIO is present and no device/module repair is indicated, but LHM has not produced useful sensor telemetry yet. Recheck performs one clean provider rebuild."
+                    : "PawnIO is missing. Fix detected issues will install the verified package before rebuilding sensors.";
         SensorProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanSensorTelemetry ? "Tc.Success" : "Tc.Warning");
-        RetrySensorsButton.IsEnabled = status.ServiceRunning && status.LowLevelAccessInstalled;
+        RetrySensorsButton.IsEnabled = serviceReady && status.LowLevelAccessInstalled && !pawnIoRepair;
 
         bool verifiedX9 = _app.State.MachineType is "21Q6" or "21Q7";
         FanProviderStatusText.Text = _app.State.CanFanControl
-            ? $"Ready · verified X9 EC control · {_app.State.FanRpmText}"
+            ? $"Ready · verified X9 EC control · {_app.State.FanRpmText} · {_app.State.HardwareAccess}"
             : _app.State.CanFanTelemetry
-                ? "Fan telemetry is available, but the verified X9 EC control/readback gate has not passed. Recheck rebuilds the PawnIO EC transport once."
+                ? $"Fan telemetry is available, but the verified X9 EC control/readback gate has not passed. {_app.State.HardwareAccess}"
                 : verifiedX9
-                    ? "Verified X9 profile detected, but the EC read probe has not passed yet. Alpha.10 uses the same LpcAcpiEc/PawnIO initialization as the working FanControl plugin."
+                    ? $"Verified X9 profile detected. Lenovo firmware remains in control until the read-only EC gate succeeds. {_app.State.HardwareAccess}"
                     : "Read-only fan telemetry can be discovered, but manual fan control is limited to verified device profiles.";
         FanProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanFanControl ? "Tc.Success" : "Tc.Warning");
-        RetryFanButton.IsEnabled = status.ServiceRunning && (!status.LowLevelAccessRelevant || status.LowLevelAccessInstalled);
+        RetryFanButton.IsEnabled = serviceReady && (!status.LowLevelAccessRelevant || (status.LowLevelAccessInstalled && !pawnIoRepair));
 
         LenovoDriverStatusText.Text = _app.State.CanKeyboardBacklight
             ? $"Ready · {_app.State.KeyboardStatus}"
             : "Lenovo keyboard readback has not passed yet. Recheck probes PM/EnergyDrv/Vantage providers once; repeated failed probes are backed off automatically.";
         LenovoDriverStatusText.Foreground = (Brush)FindResource(_app.State.CanKeyboardBacklight ? "Tc.Success" : "Tc.Warning");
-        RetryKeyboardButton.IsEnabled = status.ServiceRunning;
+        RetryKeyboardButton.IsEnabled = serviceReady;
 
         if (string.IsNullOrWhiteSpace(ResultText.Text))
         {
-            ResultText.Text = status.ServiceRunning
-                ? "Use Fix detected issues for the recommended repair sequence. Individual Recheck buttons are only for targeted testing afterwards."
-                : "Fix detected issues will repair the ThinkControl service first, then continue with hardware providers.";
+            ResultText.Text = serviceReady
+                ? pawnIoRepair
+                    ? "PawnIO is registered, but its device/module handshake failed. Repair PawnIO once, then ThinkControl will rebuild providers and verify readback."
+                    : "Use Fix detected issues for the recommended repair sequence. Individual Recheck buttons are only for targeted testing afterwards."
+                : status.ServiceRunning
+                    ? "The Windows service is running, but the ThinkControl app cannot reach its IPC endpoint. Fix detected issues will restart and re-register the service before hardware providers are touched."
+                    : "Fix detected issues will repair the ThinkControl service first, then continue with hardware providers.";
         }
     }
 
@@ -73,9 +86,11 @@ public partial class HardwareSetupWindow : Window
         {
             HardwareSetupStatus status = await _app.RefreshHardwareSetupStatusAsync();
 
-            if (!status.ServiceRunning)
+            if (!status.ServiceRunning || !status.ServiceReachable)
             {
-                ResultText.Text = "Repairing the ThinkControl hardware service…";
+                ResultText.Text = status.ServiceRunning
+                    ? "Restarting the ThinkControl hardware service to restore the app connection…"
+                    : "Repairing the ThinkControl hardware service…";
                 HardwareSetupResult serviceRepair = await _service.RepairServiceAsync();
                 if (!serviceRepair.Success)
                 {
@@ -83,13 +98,23 @@ public partial class HardwareSetupWindow : Window
                     await RefreshAsync();
                     return;
                 }
+
                 await _app.RefreshStatusAsync(forceSystemInfo: true);
                 status = await _app.RefreshHardwareSetupStatusAsync();
+                if (!status.ServiceReachable)
+                {
+                    ResultText.Text = "The service is running after repair, but the app connection still does not respond. Reinstall ThinkControl if this persists; hardware writes remain disabled.";
+                    await RefreshAsync();
+                    return;
+                }
             }
 
-            if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
+            bool pawnIoRepair = IsPawnIoRepairRecommended(status);
+            if (status.LowLevelAccessRelevant && (!status.LowLevelAccessInstalled || pawnIoRepair))
             {
-                ResultText.Text = "PawnIO is required for the detected hardware. Downloading and SHA-256 verifying the signed installer…";
+                ResultText.Text = status.LowLevelAccessInstalled
+                    ? "PawnIO is installed but its device/module handshake failed. Downloading and SHA-256 verifying the pinned installer for one repair pass…"
+                    : "PawnIO is required for the detected hardware. Downloading and SHA-256 verifying the signed installer…";
                 HardwareSetupResult pawnIo = await _service.InstallLowLevelAccessAsync();
                 if (!pawnIo.Success)
                 {
@@ -100,7 +125,7 @@ public partial class HardwareSetupWindow : Window
 
                 if (pawnIo.RestartRequired)
                 {
-                    ResultText.Text = "PawnIO installed successfully, but Windows requested a restart. Restart Windows once, then reopen Hardware setup; no repeated reinstall is needed.";
+                    ResultText.Text = "PawnIO repair completed, but Windows requested a restart. Restart Windows once, then reopen Hardware setup; ThinkControl will not keep reinstalling it automatically.";
                     await RefreshAsync();
                     return;
                 }
@@ -127,7 +152,7 @@ public partial class HardwareSetupWindow : Window
             if (!sensors || (verifiedX9 && !fanControl) || !keyboard)
             {
                 next += " ThinkControl will not keep hammering failed providers in the background. " +
-                        "If FanControl still sees sensors while ThinkControl does not, use Share device report after this repair so the report contains the exact post-repair provider state.";
+                        "Current provider detail: " + _app.State.HardwareAccess + ".";
             }
             else
             {
@@ -202,12 +227,40 @@ public partial class HardwareSetupWindow : Window
             ? $"{capability} provider responded after one clean refresh."
             : capability switch
             {
-                "Sensors" => "Sensor provider is still empty after a clean LHM/PawnIO rebuild. ThinkControl will back off instead of continuously retrying.",
-                "Fans" => "Fan provider is still unavailable after a clean PawnIO/EC rebuild. Lenovo firmware remains in control; no unknown EC writes were attempted.",
+                "Sensors" => $"Sensor provider is still empty after a clean rebuild. {_app.State.HardwareAccess}",
+                "Fans" => $"Fan provider is still unavailable after a clean PawnIO/EC rebuild. Lenovo firmware remains in control; no unknown EC writes were attempted. {_app.State.HardwareAccess}",
                 "Keyboard" => "Keyboard provider still did not pass Lenovo readback. Check Lenovo platform/hotkey updates only after this clean recheck fails.",
                 _ => "Provider refresh completed, but no hardware capability passed readback yet."
             };
         SetBusy(false);
+    }
+
+    private bool IsPawnIoRepairRecommended(HardwareSetupStatus status)
+    {
+        if (!status.LowLevelAccessRelevant)
+            return false;
+        if (!status.LowLevelAccessInstalled)
+            return true;
+
+        string detail = _app.State.HardwareAccess ?? string.Empty;
+        return detail.Contains("PawnIO is not installed", StringComparison.OrdinalIgnoreCase) ||
+               detail.Contains("PawnIO is registered but its device is not available", StringComparison.OrdinalIgnoreCase) ||
+               detail.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase) ||
+               detail.Contains("LPC/ACPI EC module could not be loaded", StringComparison.OrdinalIgnoreCase) ||
+               detail.Contains("PawnIO device could not be opened", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string DescribePawnIoFailure(string? hardwareAccess)
+    {
+        string detail = hardwareAccess?.Trim() ?? string.Empty;
+        if (detail.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase))
+            return "Installed, but the ThinkControl hardware service was denied access to the PawnIO device. Repair PawnIO, then retry providers.";
+        if (detail.Contains("module could not be loaded", StringComparison.OrdinalIgnoreCase))
+            return "Installed and device-accessible, but the LibreHardwareMonitor LPC/ACPI EC module did not load. Repair PawnIO/application payload, then retry.";
+        if (detail.Contains("device is not available", StringComparison.OrdinalIgnoreCase) ||
+            detail.Contains("device could not be opened", StringComparison.OrdinalIgnoreCase))
+            return "Installed, but the PawnIO kernel device is not accessible to ThinkControl's hardware service. Repair PawnIO, then retry providers.";
+        return "PawnIO is installed, but its service-side readiness handshake failed. Repair it once, then retry providers.";
     }
 
     private void Continue_Click(object sender, RoutedEventArgs e) => Close();

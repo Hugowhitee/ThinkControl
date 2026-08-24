@@ -37,12 +37,27 @@ public partial class App
         try
         {
             HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync();
-            if (!status.NeedsAttention && State.CanSensorTelemetry && State.CanFanControl && State.CanKeyboardBacklight)
+
+            // Provider-unavailable states belong in Notifications and on their
+            // respective pages. Only hard prerequisites and an explicitly diagnosed
+            // low-level device/module failure get a one-time repair prompt. Opening
+            // the prompt never starts UAC or an installer by itself.
+            bool hardRequirementMissing =
+                !status.ServiceInstalled ||
+                !status.ServiceRunning ||
+                !status.ServiceReachable ||
+                (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled) ||
+                (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess));
+
+            if (!hardRequirementMissing)
                 return;
 
             string version = State.AppVersion ?? string.Empty;
-            if (!string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
-                UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
+            if (string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
+            _ = Dispatcher.BeginInvoke(OpenHardwareSetup, DispatcherPriority.Background);
         }
         catch
         {
@@ -52,8 +67,23 @@ public partial class App
 
     internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
     {
-        bool needsSensorProvider = !State.CanSensorTelemetry || !State.CanFanTelemetry || !State.CanFanControl;
-        HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(State.MachineType, needsSensorProvider);
+        bool expectsFanTelemetry = DeviceCapabilityExpectations.ExpectsFanTelemetry(State);
+        bool expectsFanControl = DeviceCapabilityExpectations.ExpectsWritableFanControl(State);
+
+        // Low-level access is relevant for generic sensor discovery and for fan
+        // telemetry/control only when the resolved model/family is expected to
+        // provide those capabilities. An unsupported fan capability on another OEM
+        // must not turn into a PawnIO installation prompt.
+        bool needsSensorProvider =
+            !State.CanSensorTelemetry ||
+            (expectsFanTelemetry && !State.CanFanTelemetry) ||
+            (expectsFanControl && !State.CanFanControl);
+
+        bool serviceReachable = await HardwareClient.PingAsync();
+        HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(
+            State.MachineType,
+            needsSensorProvider,
+            serviceReachable);
         State.DriverStatus = DescribeHardwareSetup(status);
         return status;
     }
@@ -74,7 +104,7 @@ public partial class App
                 return false;
             }
 
-            // The service's background provider loop owns heavy LHM/EC discovery.
+            // The service's background provider loop owns heavy provider discovery.
             // Give it one cycle, then read the fresh cached snapshot without blocking UI.
             await Task.Delay(2300);
             await RefreshStatusAsync(forceSystemInfo: false);
@@ -93,17 +123,37 @@ public partial class App
             return "ThinkControl hardware service not installed";
         if (!status.ServiceRunning)
             return "ThinkControl hardware service stopped · repair available";
+        if (!status.ServiceReachable)
+            return "Hardware service is running · app connection needs repair";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
             return "PawnIO missing · install available";
-        if (!State.CanSensorTelemetry || !State.CanFanControl || !State.CanKeyboardBacklight)
-            return "Hardware service online · one or more providers need attention";
-        return "Ready";
+        if (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess))
+            return "PawnIO installed · device/module repair available";
+
+        bool providerAttention =
+            !State.CanSensorTelemetry ||
+            (DeviceCapabilityExpectations.ExpectsFanTelemetry(State) && !State.CanFanTelemetry) ||
+            (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(State) && !State.CanKeyboardBacklight) ||
+            (DeviceCapabilityExpectations.ExpectsWritableFanControl(State) && !State.CanFanControl);
+        return providerAttention
+            ? "Hardware service online · one or more expected providers need attention"
+            : "Ready";
+    }
+
+    private static bool HasConcretePawnIoReadinessFailure(string? detail)
+    {
+        string value = detail ?? string.Empty;
+        return value.Contains("PawnIO is not installed", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("PawnIO is registered but its device is not available", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("LPC/ACPI EC module could not be loaded", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("PawnIO device could not be opened", StringComparison.OrdinalIgnoreCase);
     }
 
     public void OpenHardwareAttention()
     {
         OpenAdvanced("System");
-        Dispatcher.BeginInvoke(() => OpenHardwareSetup(), DispatcherPriority.Background);
+        _ = Dispatcher.BeginInvoke(() => OpenHardwareSetup(), DispatcherPriority.Background);
     }
 
     public void OpenHardwareSetup()

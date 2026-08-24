@@ -13,14 +13,17 @@ public sealed record BatteryTelemetrySnapshot(
     double? FullChargeCapacityWh,
     double? DesignCapacityWh,
     double? HealthPercent,
+    double? TemperatureC,
     TimeSpan? EstimatedTimeToFull,
     TimeSpan? EstimatedTimeRemaining,
     string Source);
 
 /// <summary>
-/// Reads Windows ACPI battery telemetry and turns the noisy charge/discharge rate
-/// into a deliberately slow-moving estimate. Current-session data stays dominant;
-/// compact historical charge/discharge priors only stabilize the first few minutes.
+/// Reads Windows battery telemetry and turns the noisy charge/discharge rate into a
+/// deliberately slow-moving estimate. Current-session data stays dominant; compact
+/// historical charge/discharge priors only stabilize the first few minutes.
+/// Slow-changing WMI classes are cached so the 2-second UI refresh does not create
+/// needless system-wide WMI work.
 /// </summary>
 public sealed class BatteryTelemetryService
 {
@@ -34,6 +37,10 @@ public sealed class BatteryTelemetryService
     private static readonly TimeSpan LowPowerGrace = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CapacityTrendMinimumSpan = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CapacityTrendMaximumSpan = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan StaticBatteryInfoRefreshInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan StaticBatteryInfoMinimumRetry = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TemperatureRefreshInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TemperatureStaleGrace = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan MaxEta = TimeSpan.FromHours(24);
 
     private readonly object _gate = new();
@@ -47,6 +54,14 @@ public sealed class BatteryTelemetryService
     private bool _lastCharging;
     private bool _lastDischarging;
 
+    private DateTimeOffset _lastStaticInfoRead = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastTemperatureRead = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastValidTemperatureAt = DateTimeOffset.MinValue;
+    private int _staticInfoFailureCount;
+    private double? _cachedFullCapacityMwh;
+    private double? _cachedDesignCapacityMwh;
+    private double? _cachedTemperatureC;
+
     public void SetHistoricalChargePower(double? watts)
     {
         lock (_gate)
@@ -59,10 +74,9 @@ public sealed class BatteryTelemetryService
 
     public BatteryTelemetrySnapshot Read()
     {
-        RawBattery raw = ReadRaw();
-
         lock (_gate)
         {
+            RawBattery raw = ReadRaw();
             DateTimeOffset now = DateTimeOffset.UtcNow;
             double? etaToFull = null;
             double? etaRemaining = null;
@@ -161,6 +175,7 @@ public sealed class BatteryTelemetryService
                 raw.FullChargeCapacityWh,
                 raw.DesignCapacityWh,
                 raw.HealthPercent,
+                raw.TemperatureC,
                 etaToFull.HasValue ? TimeSpan.FromSeconds(etaToFull.Value) : null,
                 etaRemaining.HasValue ? TimeSpan.FromSeconds(etaRemaining.Value) : null,
                 raw.Source);
@@ -288,8 +303,11 @@ public sealed class BatteryTelemetryService
         return double.IsFinite(watts) && watts > 0 ? watts : null;
     }
 
-    private static RawBattery ReadRaw()
+    private RawBattery ReadRaw()
     {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        RefreshSlowBatteryInfo(now);
+
         bool onAc = System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus ==
                     System.Windows.Forms.PowerLineStatus.Online;
         int? percent = null;
@@ -298,15 +316,13 @@ public sealed class BatteryTelemetryService
         double? chargeRateMw = null;
         double? dischargeRateMw = null;
         double? remainingMwh = null;
-        double? fullMwh = null;
-        double? designMwh = null;
         string source = "Windows ACPI battery";
 
         try
         {
             using var searcher = new ManagementObjectSearcher(
                 "root\\wmi",
-                "SELECT * FROM BatteryStatus");
+                "SELECT Active,Charging,Discharging,PowerOnline,ChargeRate,DischargeRate,RemainingCapacity FROM BatteryStatus");
 
             foreach (ManagementObject item in searcher.Get())
             {
@@ -331,11 +347,8 @@ public sealed class BatteryTelemetryService
             source = "Windows battery fallback";
         }
 
-        fullMwh = ReadFirstWmiValue("BatteryFullChargedCapacity", "FullChargedCapacity");
-        designMwh = ReadFirstWmiValue("BatteryStaticData", "DesignedCapacity");
-
-        if (remainingMwh.HasValue && fullMwh is > 0)
-            percent = Math.Clamp((int)Math.Round(remainingMwh.Value / fullMwh.Value * 100d), 0, 100);
+        if (remainingMwh.HasValue && _cachedFullCapacityMwh is > 0)
+            percent = Math.Clamp((int)Math.Round(remainingMwh.Value / _cachedFullCapacityMwh.Value * 100d), 0, 100);
         else
         {
             float fallback = System.Windows.Forms.SystemInformation.PowerStatus.BatteryLifePercent;
@@ -353,8 +366,8 @@ public sealed class BatteryTelemetryService
         else if (!onAc && dischargeRateMw is > 0)
             powerWatts = dischargeRateMw.Value / 1000d;
 
-        double? health = designMwh is > 0 && fullMwh is > 0
-            ? Math.Round(fullMwh.Value / designMwh.Value * 100d, 1)
+        double? health = _cachedDesignCapacityMwh is > 0 && _cachedFullCapacityMwh is > 0
+            ? Math.Round(_cachedFullCapacityMwh.Value / _cachedDesignCapacityMwh.Value * 100d, 1)
             : null;
 
         return new RawBattery(
@@ -364,10 +377,85 @@ public sealed class BatteryTelemetryService
             discharging,
             powerWatts,
             ToWh(remainingMwh),
-            ToWh(fullMwh),
-            ToWh(designMwh),
+            ToWh(_cachedFullCapacityMwh),
+            ToWh(_cachedDesignCapacityMwh),
             health,
+            _cachedTemperatureC,
             source);
+    }
+
+    private void RefreshSlowBatteryInfo(DateTimeOffset now)
+    {
+        if (now - _lastStaticInfoRead >= StaticBatteryInfoRefreshInterval)
+        {
+            double? full = ReadFirstWmiValue("BatteryFullChargedCapacity", "FullChargedCapacity");
+            double? design = ReadFirstWmiValue("BatteryStaticData", "DesignedCapacity");
+            bool fullValid = full is > 0;
+            bool designValid = design is > 0;
+
+            // Never replace a known-good static value with null because a WMI class
+            // transiently disappeared during startup/resume/provider reset.
+            if (fullValid)
+                _cachedFullCapacityMwh = full;
+            if (designValid)
+                _cachedDesignCapacityMwh = design;
+
+            if (fullValid && designValid)
+            {
+                _staticInfoFailureCount = 0;
+                _lastStaticInfoRead = now;
+            }
+            else
+            {
+                _staticInfoFailureCount = Math.Min(_staticInfoFailureCount + 1, 5);
+                double multiplier = Math.Pow(2, _staticInfoFailureCount - 1);
+                TimeSpan retry = TimeSpan.FromSeconds(Math.Min(
+                    StaticBatteryInfoRefreshInterval.TotalSeconds,
+                    StaticBatteryInfoMinimumRetry.TotalSeconds * multiplier));
+
+                // Encode the shorter retry in the existing refresh timestamp so the
+                // hot 2-second path remains allocation-free and needs no extra timer.
+                _lastStaticInfoRead = now - StaticBatteryInfoRefreshInterval + retry;
+            }
+        }
+
+        if (now - _lastTemperatureRead >= TemperatureRefreshInterval)
+        {
+            _lastTemperatureRead = now;
+            double? rawTemperature = ReadFirstWmiValue("BatteryTemperature", "Temperature");
+            if (rawTemperature is >= 2000 and <= 4500)
+            {
+                double converted = Math.Round(rawTemperature.Value / 10d - 273.15, 1);
+                if (converted is >= -20 and <= 100)
+                {
+                    _cachedTemperatureC = converted;
+                    _lastValidTemperatureAt = now;
+                }
+                else
+                {
+                    ExpireCachedTemperatureIfStale(now);
+                }
+            }
+            else
+            {
+                // A brief WMI/provider miss is common around resume. Keep the last
+                // real battery temperature only for a short grace period; after that
+                // report it as unavailable rather than presenting stale telemetry as live.
+                ExpireCachedTemperatureIfStale(now);
+            }
+        }
+    }
+
+    private void ExpireCachedTemperatureIfStale(DateTimeOffset now)
+    {
+        if (!_cachedTemperatureC.HasValue)
+            return;
+
+        if (_lastValidTemperatureAt == DateTimeOffset.MinValue ||
+            now - _lastValidTemperatureAt >= TemperatureStaleGrace)
+        {
+            _cachedTemperatureC = null;
+        }
     }
 
     private static double? ReadFirstWmiValue(string className, string propertyName)
@@ -484,5 +572,6 @@ public sealed class BatteryTelemetryService
         double? FullChargeCapacityWh,
         double? DesignCapacityWh,
         double? HealthPercent,
+        double? TemperatureC,
         string Source);
 }

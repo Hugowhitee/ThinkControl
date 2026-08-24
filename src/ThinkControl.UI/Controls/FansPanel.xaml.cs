@@ -39,23 +39,17 @@ public partial class FansPanel : UserControl
     {
         EnsureResetButton();
         DataContext = state;
-        string profile = state.FanStateText.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault() ?? "Lenovo Auto";
-        if (profile is not ("Silent" or "Normal" or "Cool"))
-            profile = "Lenovo Auto";
+        string profile = NormalizeProfile(state.FanStateText);
 
         _syncing = true;
         try
         {
-            AutoProfile.IsChecked = profile == "Lenovo Auto";
-            SilentProfile.IsChecked = profile == "Silent";
-            NormalProfile.IsChecked = profile == "Normal";
-            CoolProfile.IsChecked = profile == "Cool";
-            SilentProfile.IsEnabled = NormalProfile.IsEnabled = CoolProfile.IsEnabled = state.CanFanControl;
-            ProfileStatusText.Text = profile;
+            SetProfileChecks(profile);
+            SetWritableControlsEnabled(state.CanFanControl);
+            ProfileStatusText.Text = DisplayProfile(profile);
             CoolingDetailText.Text = state.CanFanControl
-                ? $"{profile} cooling · {state.ControlTemperatureText} control temperature"
-                : DescribeUnavailable(state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
+                ? $"{DisplayProfile(profile)} cooling · {state.ControlTemperatureText} control temperature"
+                : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
 
             string? levelPart = state.FanStateText.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
                 .FirstOrDefault(part => part.StartsWith("level ", StringComparison.OrdinalIgnoreCase));
@@ -66,7 +60,9 @@ public partial class FansPanel : UserControl
             CharacterizeButton.IsEnabled = state.CanFanControl;
             StopCharacterizationButton.Visibility = Visibility.Collapsed;
             CharacterizationProgress.Visibility = Visibility.Collapsed;
-            CharacterizationStatusText.Text = "Ready to characterize this machine";
+            CharacterizationStatusText.Text = state.CanFanControl
+                ? "Ready to characterize this provider"
+                : "Characterization requires a verified writable fan provider";
             MarkAudibleButton.Visibility = Visibility.Collapsed;
             _calibrationRows.Clear();
         }
@@ -94,17 +90,14 @@ public partial class FansPanel : UserControl
         _syncing = true;
         try
         {
-            string profile = telemetry?.CoolingProfile ?? "Lenovo Auto";
-            AutoProfile.IsChecked = profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
-            SilentProfile.IsChecked = profile.Equals("Silent", StringComparison.OrdinalIgnoreCase);
-            NormalProfile.IsChecked = profile.Equals("Normal", StringComparison.OrdinalIgnoreCase);
-            CoolProfile.IsChecked = profile.Equals("Cool", StringComparison.OrdinalIgnoreCase);
+            string profile = NormalizeProfile(telemetry?.CoolingProfile);
+            SetProfileChecks(profile);
+            SetWritableControlsEnabled(canControl);
 
-            SilentProfile.IsEnabled = NormalProfile.IsEnabled = CoolProfile.IsEnabled = canControl;
-            ProfileStatusText.Text = telemetry?.CoolingSafetyOverride == true ? "Safety · Lenovo firmware" : profile;
+            ProfileStatusText.Text = telemetry?.CoolingSafetyOverride == true ? "Safety · firmware" : DisplayProfile(profile);
             CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
                 ? "Choose a cooling profile."
-                : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
+                : DescribeUnavailable(_app?.State.MachineType, telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
             AppliedLevelText.Text = telemetry?.CoolingAppliedLevel is int level ? $"Level {level}" : "Auto";
 
             FanCharacterizationSnapshot? characterization = telemetry?.FanCharacterization;
@@ -114,7 +107,9 @@ public partial class FansPanel : UserControl
             CharacterizationProgress.Visibility = running || (characterization?.Levels.Count ?? 0) > 0
                 ? Visibility.Visible : Visibility.Collapsed;
             CharacterizationProgress.Value = characterization?.CompletedLevels ?? 0;
-            CharacterizationStatusText.Text = characterization?.Status ?? "Not characterized yet";
+            CharacterizationStatusText.Text = characterization?.Status ?? (canControl
+                ? "Not characterized yet"
+                : "Characterization requires a verified writable fan provider");
             MarkAudibleButton.Visibility = running && characterization?.CurrentLevel is >= 1 and <= 7
                 ? Visibility.Visible : Visibility.Collapsed;
             if (characterization?.CurrentLevel is int current)
@@ -143,6 +138,45 @@ public partial class FansPanel : UserControl
         }
     }
 
+    private void SetWritableControlsEnabled(bool enabled)
+    {
+        AutoProfile.IsEnabled = enabled;
+        SilentProfile.IsEnabled = enabled;
+        NormalProfile.IsEnabled = enabled;
+        CoolProfile.IsEnabled = enabled;
+
+        if (Content is StackPanel root)
+        {
+            Expander? manual = root.Children
+                .OfType<Expander>()
+                .FirstOrDefault(item => string.Equals(item.Header?.ToString(), "Advanced manual control", StringComparison.Ordinal));
+            if (manual is not null)
+                manual.IsEnabled = enabled;
+        }
+    }
+
+    private void SetProfileChecks(string profile)
+    {
+        AutoProfile.IsChecked = profile == "Lenovo Auto";
+        SilentProfile.IsChecked = profile == "Silent";
+        NormalProfile.IsChecked = profile == "Normal";
+        CoolProfile.IsChecked = profile == "Cool";
+    }
+
+    private static string NormalizeProfile(string? raw)
+    {
+        string profile = raw?.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault() ?? "Lenovo Auto";
+        if (profile is "Silent" or "Normal" or "Cool" or "Lenovo Auto")
+            return profile;
+        if (profile.StartsWith("Manual level ", StringComparison.OrdinalIgnoreCase))
+            return profile;
+        return "Lenovo Auto";
+    }
+
+    private static string DisplayProfile(string profile) =>
+        profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Auto" : profile;
+
     private void EnsureResetButton()
     {
         if (_resetAdded || Content is not StackPanel stack || stack.Children.Count == 0 || stack.Children[0] is not TextBlock title)
@@ -153,13 +187,13 @@ public partial class FansPanel : UserControl
         header.Children.Add(title);
         var reset = new Button
         {
-            Content = "Reset",
+            Content = "Defaults",
             Style = TryFindResource("TcButton") as Style,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(10, 4, 10, 4),
             FontSize = 10.5,
-            ToolTip = "Return cooling control to Lenovo Auto"
+            ToolTip = "Return cooling ownership to the provider/firmware default"
         };
         reset.Click += Reset_Click;
         header.Children.Add(reset);
@@ -184,12 +218,22 @@ public partial class FansPanel : UserControl
         }
     }
 
-    private static string DescribeUnavailable(string? hardwareAccess, bool telemetryReady)
+    private static string DescribeUnavailable(string? machineType, string? hardwareAccess, bool telemetryReady)
     {
         string detail = string.IsNullOrWhiteSpace(hardwareAccess) ? "provider status unavailable" : hardwareAccess;
+        bool x9 = string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase);
+
+        if (x9)
+        {
+            return telemetryReady
+                ? $"Read-only telemetry is active. Direct fan writes stay firmware-managed until the verified X9 low-level provider passes. {detail}"
+                : $"Firmware currently owns cooling. ThinkControl will retry the verified X9 provider with bounded backoff. {detail}";
+        }
+
         return telemetryReady
-            ? $"Read-only sensor telemetry is active. Direct fan writes stay Lenovo-managed until the verified X9 PawnIO/EC probe passes. {detail}"
-            : $"Lenovo firmware currently owns cooling. ThinkControl retries the verified X9 PawnIO/EC provider automatically. {detail}";
+            ? $"Read-only telemetry is active. No verified writable fan provider is active for this model, so firmware keeps cooling ownership. {detail}"
+            : $"Cooling stays firmware-managed until a compatible fan provider is detected for this model. {detail}";
     }
 
     private async void Profile_Click(object sender, RoutedEventArgs e)

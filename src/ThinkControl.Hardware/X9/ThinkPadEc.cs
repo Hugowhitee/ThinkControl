@@ -1,45 +1,73 @@
-using LibreHardwareMonitor.PawnIo;
-
 namespace ThinkControl.Hardware.X9;
 
 internal sealed class ThinkPadEc : IDisposable
 {
-    private const byte EcDataPort = 0x62;
-    private const byte EcCommandPort = 0x66;
+    private const ushort EcType1CommandPort = 0x1604;
+    private const ushort EcType1DataPort = 0x1600;
+    private const ushort EcType2CommandPort = 0x66;
+    private const ushort EcType2DataPort = 0x62;
+
     private const byte EcReadCommand = 0x80;
     private const byte EcWriteCommand = 0x81;
     private const byte OutputBufferFull = 0x01;
     private const byte InputBufferFull = 0x02;
+    private const byte EcThermalBank0Start = 0x78;
+    private const byte EcThermalBank1Start = 0xC0;
 
     private const int ReadMaxRetries = 5;
-    private const int ReadWaitSpins = 50;
-    private const int TickMs = 10;
-    private const int TransactionTimeoutMs = 100;
-    private const int InitialBufferTimeoutMs = 1000;
+    private const int TransactionTimeoutMs = 1000;
+    private const int OptionalThermalTimeoutMs = 120;
+    private const int PollSleepMs = 10;
     private const int MutexTimeoutMs = 1500;
+    private static readonly TimeSpan ThermalFailureBackoff = TimeSpan.FromSeconds(30);
 
-    private readonly LpcAcpiEc _ports;
-    private readonly Mutex _thinkPadMutex = CreateOrOpenMutex("Access_Thinkpad_EC");
-    private readonly Mutex _globalEcMutex = CreateOrOpenMutex(@"Global\Access_EC");
+    private readonly PawnIoEcTransport _ports;
+    private readonly Mutex _thinkPadMutex;
+    private readonly Mutex _globalEcMutex;
+    private ushort _commandPort;
+    private ushort _dataPort;
+    private DateTimeOffset _thermalBackoffUntil = DateTimeOffset.MinValue;
     private bool _manualControlEngaged;
     private byte? _lastManualLevel;
     private bool _disposed;
 
     internal ThinkPadEc()
     {
-        // Match the transport that already worked in the ThinkPad FanControl plugin:
-        // let LibreHardwareMonitor/PawnIO initialise LpcAcpiEc itself and use a real
-        // EC read as the compatibility gate. Do not reflect private LHM fields or
-        // preflight a hard-coded device path: both are implementation details that
-        // can change while the public LpcAcpiEc transport remains fully functional.
-        if (PawnIo.Version is Version installed && installed < new Version(2, 1, 0))
+        // Construct the transport before allocating mutex handles. A missing/broken
+        // PawnIO provider may throw here and must not leak one pair of native mutex
+        // handles on every controller retry.
+        var ports = new PawnIoEcTransport();
+        Mutex? thinkPadMutex = null;
+        Mutex? globalEcMutex = null;
+        try
         {
-            throw new InvalidOperationException(
-                $"PawnIO {installed} is too old for the verified ThinkControl EC provider. Hardware setup installs PawnIO 2.2.0.");
-        }
+            thinkPadMutex = CreateOrOpenMutex(@"Global\Access_Thinkpad_EC");
+            globalEcMutex = CreateOrOpenMutex(@"Global\Access_EC");
+            _ports = ports;
+            _thinkPadMutex = thinkPadMutex;
+            _globalEcMutex = globalEcMutex;
 
-        _ports = new LpcAcpiEc();
+            // Do not infer PawnIO readiness from its Windows service entry alone.
+            // The transport proves device/module access first; then a read-only EC
+            // capability probe selects the modern ThinkPad Type 1 ports before the
+            // older ACPI Type 2 fallback. Detection uses the same global ThinkPad EC
+            // mutex discipline as established TPFanCtrl implementations.
+            WithEcLock(() =>
+            {
+                DetectPortPair();
+                return 0;
+            });
+        }
+        catch
+        {
+            ports.Dispose();
+            globalEcMutex?.Dispose();
+            thinkPadMutex?.Dispose();
+            throw;
+        }
     }
+
+    internal string PortLabel => $"0x{_commandPort:X}/0x{_dataPort:X}";
 
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
 
@@ -54,6 +82,36 @@ internal sealed class ThinkPadEc : IDisposable
             if (!ThinkPadFanProtocol.IsPlausibleRpm(rpm))
                 throw new InvalidOperationException($"Implausible fan RPM value {rpm}.");
             return rpm;
+        });
+    }
+
+    /// <summary>
+    /// Reads classic ThinkPad EC thermal banks without assigning semantic CPU/GPU
+    /// labels. This is an optional safety fallback, never a reason to hold the EC
+    /// lock through repeated long timeouts. One timed-out register aborts the whole
+    /// scan and backs the optional path off; partial scans are not used as a control
+    /// temperature because they may have missed the hottest sensor.
+    /// </summary>
+    internal IReadOnlyList<(byte Register, byte Celsius)> ReadThermalSensors()
+    {
+        if (DateTimeOffset.UtcNow < _thermalBackoffUntil)
+            return Array.Empty<(byte Register, byte Celsius)>();
+
+        return WithEcLock<IReadOnlyList<(byte Register, byte Celsius)>>(() =>
+        {
+            var readings = new List<(byte Register, byte Celsius)>(12);
+            bool complete = ReadThermalBankUnlocked(EcThermalBank0Start, 8, readings) &&
+                            ReadThermalBankUnlocked(EcThermalBank1Start, 4, readings);
+            if (!complete)
+            {
+                readings.Clear();
+                _thermalBackoffUntil = DateTimeOffset.UtcNow + ThermalFailureBackoff;
+            }
+            else
+            {
+                _thermalBackoffUntil = DateTimeOffset.MinValue;
+            }
+            return readings;
         });
     }
 
@@ -105,6 +163,85 @@ internal sealed class ThinkPadEc : IDisposable
         _lastManualLevel = null;
     }
 
+    private void DetectPortPair()
+    {
+        if (TryValidatePortPair(EcType1CommandPort, EcType1DataPort, out _))
+            return;
+        if (TryValidatePortPair(EcType2CommandPort, EcType2DataPort, out string legacyDetail))
+            return;
+
+        throw new InvalidOperationException(
+            "PawnIO and its LPC module are ready, but neither supported ThinkPad EC port pair passed a read-only validation. " +
+            $"Modern 0x1604/0x1600 and legacy 0x66/0x62 were both rejected. {legacyDetail}");
+    }
+
+    private bool TryValidatePortPair(ushort commandPort, ushort dataPort, out string detail)
+    {
+        _commandPort = commandPort;
+        _dataPort = dataPort;
+        detail = string.Empty;
+
+        try
+        {
+            if (!TryReadByte(ThinkPadRegisters.FanControl, out byte control))
+            {
+                detail = $"Fan-control read timed out on 0x{commandPort:X}/0x{dataPort:X}.";
+                return false;
+            }
+
+            // Auto, manual 1-7 and the known 0x40-0x47 override states are strong
+            // non-zero evidence that this is the real ThinkPad EC port pair. 0x00 is
+            // a legitimate fan-off state but also the most likely false value from a
+            // wrong port, so only that ambiguous state requires a second read-only
+            // thermal sanity check.
+            if (control == ThinkPadRegisters.BiosControl ||
+                control is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel ||
+                control is >= 0x40 and <= 0x47)
+            {
+                return true;
+            }
+
+            if (control != 0x00)
+            {
+                detail = $"Read-only validation returned unknown fan state 0x{control:X2} on 0x{commandPort:X}/0x{dataPort:X}.";
+                return false;
+            }
+
+            if (!TryReadByte(EcThermalBank0Start, out byte thermal))
+            {
+                detail = $"Ambiguous fan-off state 0x00 was read, but the thermal sanity probe timed out on 0x{commandPort:X}/0x{dataPort:X}.";
+                return false;
+            }
+
+            if (thermal is < 5 or > 125)
+            {
+                detail = $"Ambiguous fan-off state 0x00 and implausible thermal value {thermal} were read on 0x{commandPort:X}/0x{dataPort:X}.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            detail = $"EC validation on 0x{commandPort:X}/0x{dataPort:X} failed: {ex.Message}";
+            return false;
+        }
+    }
+
+    private bool ReadThermalBankUnlocked(byte start, int count, ICollection<(byte Register, byte Celsius)> output)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            byte register = unchecked((byte)(start + i));
+            if (!TryReadByte(register, out byte value, OptionalThermalTimeoutMs))
+                return false;
+            if (value is < 5 or > 125)
+                continue;
+            output.Add((register, value));
+        }
+        return true;
+    }
+
     private void TryReturnToBiosAfterFailedManualWrite()
     {
         try
@@ -143,108 +280,99 @@ internal sealed class ThinkPadEc : IDisposable
         throw new TimeoutException($"EC read 0x{register:X2} failed after {ReadMaxRetries} attempts.", lastError);
     }
 
-    private bool TryReadByte(byte register, out byte value)
+    private bool TryReadByte(byte register, out byte value, int timeoutMs = TransactionTimeoutMs)
     {
         value = 0;
-        if (!WaitForReadWriteReady()) return false;
-        WritePort(EcCommandPort, EcReadCommand);
-        if (!WaitForReadWriteReady()) return false;
-        WritePort(EcDataPort, register);
-        if (!WaitForReadWriteReady() || !WaitForReadReady()) return false;
-        value = ReadPort(EcDataPort);
+
+        // A stale OBF byte is cleared by reading the data port, not by repeatedly
+        // polling the status port. Drain it only before a new transaction, while the
+        // shared EC mutexes are held, then wait for a genuinely idle input queue.
+        if (!PrepareForTransaction(timeoutMs))
+            return false;
+
+        WritePort(_commandPort, EcReadCommand);
+        if (!WaitForFlagsClear(InputBufferFull, timeoutMs))
+            return false;
+
+        WritePort(_dataPort, register);
+        if (!WaitForFlagsClear(InputBufferFull, timeoutMs))
+            return false;
+
+        // Input acceptance does not mean the EC has produced the requested byte.
+        // Require a fresh OBF indication before touching the data port so delayed
+        // firmware responses can never be mistaken for stale/undefined readback.
+        if (!WaitForFlagsSet(OutputBufferFull, timeoutMs))
+            return false;
+
+        value = ReadPort(_dataPort);
         return true;
-    }
-
-    private bool WaitForReadWriteReady()
-    {
-        for (int i = 0; i < ReadWaitSpins; i++)
-        {
-            if ((ReadPort(EcCommandPort) & InputBufferFull) == 0)
-                return true;
-            Thread.Sleep(1);
-        }
-        return false;
-    }
-
-    private bool WaitForReadReady()
-    {
-        for (int retry = 0; retry < ReadMaxRetries; retry++)
-        {
-            if ((ReadPort(EcCommandPort) & OutputBufferFull) != 0)
-                return true;
-            Thread.Sleep(1);
-        }
-
-        // Same compatibility fallback used by the earlier working plugin: a few
-        // ThinkPad ECs complete the transaction after IBF clears without reliably
-        // asserting OBF for every register read.
-        for (int i = 0; i < ReadWaitSpins; i++)
-        {
-            if ((ReadPort(EcCommandPort) & InputBufferFull) == 0)
-                return true;
-            Thread.Sleep(1);
-        }
-        return false;
     }
 
     private void WriteByteUnlocked(byte register, byte value)
     {
-        byte status = WaitForBothBuffersClear(InitialBufferTimeoutMs);
-        if ((status & OutputBufferFull) != 0)
-            _ = ReadPort(EcDataPort);
+        if (!PrepareForTransaction(TransactionTimeoutMs))
+            throw new TimeoutException("EC buffers stayed busy before write command.");
 
-        if (!WaitForOutputBufferClear(TransactionTimeoutMs))
-            throw new TimeoutException("EC output buffer stayed busy before write command.");
-
-        WritePort(EcCommandPort, EcWriteCommand);
-        if (!WaitForBothBuffersClearSuccess(TransactionTimeoutMs))
+        WritePort(_commandPort, EcWriteCommand);
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
             throw new TimeoutException($"EC did not accept write command for 0x{register:X2}.");
 
-        WritePort(EcDataPort, register);
-        if (!WaitForBothBuffersClearSuccess(TransactionTimeoutMs))
+        WritePort(_dataPort, register);
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
             throw new TimeoutException($"EC did not accept register 0x{register:X2}.");
 
-        WritePort(EcDataPort, value);
+        WritePort(_dataPort, value);
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
+            throw new TimeoutException($"EC did not accept value 0x{value:X2} for register 0x{register:X2}.");
     }
 
-    private byte WaitForBothBuffersClear(int timeoutMs)
+    private bool PrepareForTransaction(int timeoutMs)
     {
-        byte status = 0;
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += TickMs)
+        for (int elapsed = 0; elapsed < timeoutMs; elapsed += PollSleepMs)
         {
-            status = ReadPort(EcCommandPort);
-            if ((status & (InputBufferFull | OutputBufferFull)) == 0)
-                break;
-            Thread.Sleep(TickMs);
-        }
-        return status;
-    }
+            byte status = ReadPort(_commandPort);
+            if ((status & InputBufferFull) != 0)
+            {
+                Thread.Sleep(PollSleepMs);
+                continue;
+            }
 
-    private bool WaitForBothBuffersClearSuccess(int timeoutMs)
-    {
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += TickMs)
-        {
-            byte status = ReadPort(EcCommandPort);
-            if ((status & (InputBufferFull | OutputBufferFull)) == 0)
-                return true;
-            Thread.Sleep(TickMs);
-        }
-        return false;
-    }
+            if ((status & OutputBufferFull) != 0)
+            {
+                _ = ReadPort(_dataPort);
+                Thread.Sleep(1);
+                continue;
+            }
 
-    private bool WaitForOutputBufferClear(int timeoutMs)
-    {
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += TickMs)
-        {
-            if ((ReadPort(EcCommandPort) & OutputBufferFull) == 0)
-                return true;
-            Thread.Sleep(TickMs);
+            return true;
         }
         return false;
     }
 
-    private byte ReadPort(byte port) => _ports.ReadPort(port);
-    private void WritePort(byte port, byte value) => _ports.WritePort(port, value);
+    private bool WaitForFlagsClear(byte flags, int timeoutMs)
+    {
+        for (int elapsed = 0; elapsed < timeoutMs; elapsed += PollSleepMs)
+        {
+            if ((ReadPort(_commandPort) & flags) == 0)
+                return true;
+            Thread.Sleep(PollSleepMs);
+        }
+        return false;
+    }
+
+    private bool WaitForFlagsSet(byte flags, int timeoutMs)
+    {
+        for (int elapsed = 0; elapsed < timeoutMs; elapsed += PollSleepMs)
+        {
+            if ((ReadPort(_commandPort) & flags) == flags)
+                return true;
+            Thread.Sleep(PollSleepMs);
+        }
+        return false;
+    }
+
+    private byte ReadPort(ushort port) => _ports.ReadPort(port);
+    private void WritePort(ushort port, byte value) => _ports.WritePort(port, value);
 
     private T WithEcLock<T>(Func<T> action)
     {
@@ -302,7 +430,7 @@ internal sealed class ThinkPadEc : IDisposable
         finally
         {
             _disposed = true;
-            _ports.Close();
+            _ports.Dispose();
             _globalEcMutex.Dispose();
             _thinkPadMutex.Dispose();
         }

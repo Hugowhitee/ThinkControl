@@ -57,6 +57,14 @@ public sealed class HardwareServiceClient
             };
         }
 
+        if (online)
+        {
+            // SCM Running / pipe reachable is a different state from provider-ready.
+            // Returning null here made the app call a healthy service "offline" while
+            // hardware backends were still initializing.
+            return OnlineDiscoveryResponse();
+        }
+
         if (_lastValidStatus is not null && DateTimeOffset.UtcNow - _lastValidStatusAt <= LastKnownGoodGrace)
         {
             return _lastValidStatus with
@@ -161,6 +169,28 @@ public sealed class HardwareServiceClient
 
     private static bool IsValidStatus(ServiceResponse? response) =>
         response?.Success == true && response.Telemetry is not null;
+
+    private static ServiceResponse OnlineDiscoveryResponse()
+    {
+        var telemetry = new TelemetrySnapshot(
+            null,
+            "Detecting",
+            null,
+            "Detecting",
+            "Firmware/provider managed · discovery in progress",
+            "Hardware service online · detecting hardware providers",
+            "Detecting…",
+            Fans: Array.Empty<FanTelemetrySnapshot>(),
+            Sensors: Array.Empty<HardwareSensorSnapshot>(),
+            CoolingStatus: "Firmware/OEM cooling control remains active while providers are detected");
+        var capabilities = new HardwareCapabilitySnapshot(false, false, false, false, false, 0);
+        return new ServiceResponse(
+            ThinkControlProtocol.Version,
+            true,
+            "Hardware service is reachable; provider snapshot is still initializing.",
+            telemetry,
+            capabilities);
+    }
 
     private static async Task<ServiceResponse?> SendAsync(
         ServiceRequest request,

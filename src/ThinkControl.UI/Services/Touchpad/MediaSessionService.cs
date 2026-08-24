@@ -4,7 +4,7 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class MediaSessionService
 {
-    private static readonly TimeSpan SeekCadence = TimeSpan.FromMilliseconds(170);
+    private static readonly TimeSpan SeekCadence = TimeSpan.FromMilliseconds(180);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _seekGate = new();
     private GlobalSystemMediaTransportControlsSessionManager? _manager;
@@ -82,11 +82,9 @@ internal sealed class MediaSessionService
         {
             while (_seekReady)
             {
-                // Spotify, browsers and several GSMTC bridges become unstable when
-                // a new remote seek arrives while the previous one is still being
-                // processed. Keep only the latest accumulated target and deliberately
-                // limit remote writes to roughly 6/s. The gesture remains smooth in
-                // ThinkControl because all raw frames still update the pending target.
+                // Spotify and several GSMTC bridges do not tolerate a remote seek per
+                // touch frame. Keep only the accumulated target and send at roughly
+                // 5-6 Hz while the finger is down.
                 await Task.Delay(SeekCadence).ConfigureAwait(false);
 
                 double offset;
@@ -95,16 +93,20 @@ internal sealed class MediaSessionService
                     if (generation != _generation)
                         return;
                     offset = _pendingOffsetSeconds;
-                    if (Math.Abs(offset - _lastAppliedOffsetSeconds) < 0.30)
+                    if (Math.Abs(offset - _lastAppliedOffsetSeconds) < 0.35)
                         return;
                 }
 
-                bool applied = await ApplyOffsetAsync(offset).ConfigureAwait(false);
+                bool applied = await ApplyOffsetAsync(offset, generation).ConfigureAwait(false);
                 if (!applied)
                     return;
 
                 lock (_seekGate)
+                {
+                    if (generation != _generation)
+                        return;
                     _lastAppliedOffsetSeconds = offset;
+                }
             }
         }
         finally
@@ -112,19 +114,22 @@ internal sealed class MediaSessionService
             Interlocked.Exchange(ref _workerRunning, 0);
             bool restart;
             lock (_seekGate)
-                restart = _seekReady && generation == _generation && Math.Abs(_pendingOffsetSeconds - _lastAppliedOffsetSeconds) >= 0.30;
+                restart = _seekReady && generation == _generation && Math.Abs(_pendingOffsetSeconds - _lastAppliedOffsetSeconds) >= 0.35;
             if (restart && Interlocked.CompareExchange(ref _workerRunning, 1, 0) == 0)
                 _ = Task.Run(ProcessSeekQueueAsync);
         }
     }
 
-    private async Task<bool> ApplyOffsetAsync(double offsetSeconds)
+    private async Task<bool> ApplyOffsetAsync(double offsetSeconds, int generation)
     {
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (!_seekReady || _session is null)
-                return false;
+            lock (_seekGate)
+            {
+                if (!_seekReady || _session is null || generation != _generation)
+                    return false;
+            }
 
             TimeSpan liveAnchor = _anchorPosition;
             if (_playingAtAnchor && _anchorUpdatedAt != default)
@@ -140,7 +145,14 @@ internal sealed class MediaSessionService
             if (target > _maximum)
                 target = _maximum;
 
-            return await _session.TryChangePlaybackPositionAsync(target.Ticks);
+            bool changed = await _session.TryChangePlaybackPositionAsync(target.Ticks);
+            if (!changed)
+                return false;
+
+            // Do not replace the gesture anchor with the new target: queued offsets
+            // are cumulative from gesture start. Keeping one anchor avoids compounding
+            // Spotify's delayed timeline updates into ever-larger seeks.
+            return true;
         }
         catch
         {
@@ -155,27 +167,38 @@ internal sealed class MediaSessionService
     internal async Task EndSeekAsync()
     {
         double finalOffset;
-        int generation;
+        double lastApplied;
+        int finalGeneration;
+
         lock (_seekGate)
         {
             finalOffset = _pendingOffsetSeconds;
-            generation = _generation;
+            lastApplied = _lastAppliedOffsetSeconds;
+
+            // Invalidate the cadence worker before issuing the final target. Any
+            // worker that already passed its outer generation check re-checks the
+            // token after acquiring _gate and therefore cannot overwrite the final
+            // released-finger position afterwards.
+            finalGeneration = ++_generation;
         }
 
-        // One final write guarantees the released finger position wins even when
-        // the cadence worker was still in its debounce window.
-        if (_seekReady && Math.Abs(finalOffset - _lastAppliedOffsetSeconds) >= 0.12)
-            _ = await ApplyOffsetAsync(finalOffset).ConfigureAwait(false);
+        if (_seekReady && Math.Abs(finalOffset - lastApplied) >= 0.12)
+            _ = await ApplyOffsetAsync(finalOffset, finalGeneration).ConfigureAwait(false);
 
+        // A new gesture can begin while the final GSMTC write above is awaiting.
+        // In that case BeginSeekAsync increments _generation and owns the new session.
+        // The old teardown must not clear its offsets/readiness/session.
         lock (_seekGate)
         {
-            if (generation == _generation)
-                _generation++;
+            if (finalGeneration != _generation)
+                return;
+
+            _generation++;
             _pendingOffsetSeconds = 0;
             _lastAppliedOffsetSeconds = 0;
+            _seekReady = false;
+            _session = null;
         }
-        _seekReady = false;
-        _session = null;
     }
 
     internal void EndSeek() => ResetSeekState();
@@ -187,8 +210,8 @@ internal sealed class MediaSessionService
             _generation++;
             _pendingOffsetSeconds = 0;
             _lastAppliedOffsetSeconds = 0;
+            _seekReady = false;
+            _session = null;
         }
-        _seekReady = false;
-        _session = null;
     }
 }

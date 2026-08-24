@@ -14,6 +14,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private int _volumeWorkerRunning;
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
+    private int _lastQueuedKeyboardIndex = -1;
+    private int _lastQueuedPerformanceIndex = -1;
     private bool _disposed;
 
     internal TouchpadFeatureHost(App app)
@@ -66,6 +68,23 @@ internal sealed class TouchpadFeatureHost : IDisposable
     internal TouchpadGeometry? Geometry => _gestures.Geometry;
     internal bool IsInputRunning => _gestures.IsRunning;
     internal double CurrentSeekDeltaSeconds => _actions.CurrentSeekDeltaSeconds;
+    internal int ReadVolumePercent() => _nativeInput.GetVolumePercent();
+    internal int? CurrentVolumeTarget
+    {
+        get
+        {
+            int value = Volatile.Read(ref _pendingVolume);
+            return value >= 0 ? value : null;
+        }
+    }
+    internal int? CurrentBrightnessTarget
+    {
+        get
+        {
+            int value = Volatile.Read(ref _pendingBrightness);
+            return value >= 0 ? value : null;
+        }
+    }
     internal TouchpadHapticStatus HapticStatus => _haptics.Read(
         hidTouchpadPresent: _gestures.Geometry is not null,
         hidFeedbackSupported: _gestures.HapticFeedbackSupported,
@@ -109,15 +128,18 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private void SetGestureActive(GestureActionKind action, bool active)
     {
         if (active)
+        {
+            if (action == GestureActionKind.KeyboardBacklight)
+                Interlocked.Exchange(ref _lastQueuedKeyboardIndex, -1);
+            else if (action == GestureActionKind.PerformanceMode)
+                Interlocked.Exchange(ref _lastQueuedPerformanceIndex, -1);
             return;
+        }
 
-        // Drop queued continuous-control writes as soon as the finger leaves the
-        // touchpad. A single in-flight OS call may finish, but stale targets cannot
-        // keep applying after the gesture has ended.
-        if (action == GestureActionKind.Volume)
-            Interlocked.Exchange(ref _pendingVolume, -1);
-        else if (action == GestureActionKind.Brightness)
-            Interlocked.Exchange(ref _pendingBrightness, -1);
+        // Do not clear the latest volume/brightness target when the finger lifts.
+        // The worker owns the final outstanding write. Failed writes clear only the
+        // exact failed target, so an unchanged unavailable endpoint cannot create an
+        // infinite retry loop while a newer concurrently queued target is preserved.
     }
 
     private void QueueVolume(int value)
@@ -141,10 +163,13 @@ internal sealed class TouchpadFeatureHost : IDisposable
                     break;
 
                 if (!_nativeInput.SetVolume(target))
+                {
+                    Interlocked.CompareExchange(ref _pendingVolume, -1, target);
                     break;
+                }
 
                 lastApplied = target;
-                await Task.Delay(28).ConfigureAwait(false);
+                await Task.Delay(36).ConfigureAwait(false);
             }
         }
         catch
@@ -194,10 +219,11 @@ internal sealed class TouchpadFeatureHost : IDisposable
                 }
                 else
                 {
+                    Interlocked.CompareExchange(ref _pendingBrightness, -1, target);
                     break;
                 }
 
-                await Task.Delay(28).ConfigureAwait(false);
+                await Task.Delay(36).ConfigureAwait(false);
             }
         }
         catch
@@ -226,7 +252,12 @@ internal sealed class TouchpadFeatureHost : IDisposable
     {
         if (!_app.State.CanKeyboardBacklight || _disposed)
             return;
-        _ = ApplyKeyboardIndexAsync(Math.Clamp(index, 0, 2));
+
+        int target = Math.Clamp(index, 0, 2);
+        if (Interlocked.Exchange(ref _lastQueuedKeyboardIndex, target) == target)
+            return;
+
+        _ = ApplyKeyboardIndexAsync(target);
     }
 
     private async Task ApplyKeyboardIndexAsync(int index)
@@ -239,6 +270,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
         }
         catch
         {
+            Interlocked.Exchange(ref _lastQueuedKeyboardIndex, -1);
         }
     }
 
@@ -259,10 +291,15 @@ internal sealed class TouchpadFeatureHost : IDisposable
         ThinkControlPowerMode[] modes =
         [ThinkControlPowerMode.Quiet, ThinkControlPowerMode.Balanced, ThinkControlPowerMode.Performance];
         int target = Math.Clamp(index, 0, modes.Length - 1);
+        if (Interlocked.Exchange(ref _lastQueuedPerformanceIndex, target) == target)
+            return;
+
         _app.Dispatcher.BeginInvoke(new Action(() =>
         {
             if (_app.SetPowerMode(modes[target]))
                 _osd.Show(modes[target].ToString(), target * 50);
+            else
+                Interlocked.Exchange(ref _lastQueuedPerformanceIndex, -1);
         }));
     }
 
@@ -274,6 +311,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
         Interlocked.Exchange(ref _pendingVolume, -1);
         Interlocked.Exchange(ref _pendingBrightness, -1);
         _gestures.Dispose();
+        _nativeInput.Dispose();
         _osd.Dispose();
     }
 }

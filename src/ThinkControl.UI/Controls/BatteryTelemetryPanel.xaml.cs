@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.ViewModels;
 using WpfApplication = System.Windows.Application;
 
 namespace ThinkControl.UI.Controls;
@@ -46,7 +47,12 @@ public partial class BatteryTelemetryPanel : UserControl
             return;
 
         IReadOnlyList<BatterySessionDetail> sessions = app.BatteryHistoryService.GetRecentSessionDetails(10);
-        DischargeChart.Values = app.BatteryHistoryService.GetLatestDischargeTimeline();
+        TimeSeriesPoint[] chargePower = app.State.BatteryChargePowerTimeline.ToArray();
+        IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
+
+        ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+        DischargeChart.Values = dischargePower;
+        DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
         DischargeSummaryText.Text = app.BatteryHistoryService.GetLatestDischargeSummary();
 
         RecentSessionItems.Children.Clear();
@@ -66,6 +72,36 @@ public partial class BatteryTelemetryPanel : UserControl
 
         foreach (BatterySessionDetail session in sessions)
             RecentSessionItems.Children.Add(CreateSessionRow(session));
+    }
+
+    /// <summary>
+    /// Seeds the same production charts with deterministic data for screenshot QA.
+    /// Snapshot rendering never raises Loaded, so relying on the runtime history
+    /// timer would leave the percentage/discharge charts visually untested.
+    /// </summary>
+    internal void PrepareForSnapshot(AppState state)
+    {
+        ApplyBatteryGaugePolish();
+
+        TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
+        ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+
+        DateTimeOffset end = chargePower.Length > 0 ? chargePower[^1].At : DateTimeOffset.UtcNow;
+        TimeSeriesPoint[] dischargePower = Enumerable.Range(0, 46)
+            .Select(index =>
+            {
+                double watts = 6.5 + Math.Sin(index / 4.2) * 0.7 + index * 0.018;
+                int percent = (int)Math.Round(88d - 25d * index / 45d);
+                return new TimeSeriesPoint(
+                    end - TimeSpan.FromMinutes((45 - index) * 5),
+                    watts,
+                    $"{percent}%");
+            })
+            .ToArray();
+
+        DischargeChart.Values = dischargePower;
+        DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
+        DischargeSummaryText.Text = "Latest discharge · 88% → 63% · 3h 45m · 6.9 W avg";
     }
 
     private Button CreateSessionRow(BatterySessionDetail session)
@@ -123,7 +159,7 @@ public partial class BatteryTelemetryPanel : UserControl
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Cursor = System.Windows.Input.Cursors.Hand,
             Content = grid,
-            ToolTip = "Open session statistics and graph"
+            ToolTip = "Open session statistics and graphs"
         };
         row.SetResourceReference(Button.BorderBrushProperty, "Tc.Border");
         row.Click += (_, _) => ShowSession(session);
@@ -156,6 +192,7 @@ public partial class BatteryTelemetryPanel : UserControl
             new(session.Kind == "Charge" ? "Charge rate" : "Drain rate", rate)
         ];
 
+        IReadOnlyList<TimeSeriesPoint> percentTimeline = BuildPercentTimeline(session.PowerTimeline);
         var model = new TelemetryDetailModel(
             $"{session.Kind} session",
             subtitle,
@@ -164,13 +201,34 @@ public partial class BatteryTelemetryPanel : UserControl
             "W",
             "0.0",
             metrics,
-            "Battery history is stored locally in ThinkControl and automatically compacted over time.");
+            "Battery history is stored locally in ThinkControl and automatically compacted over time.",
+            SecondaryTimeline: percentTimeline,
+            SecondaryChartTitle: "Battery level",
+            SecondaryUnit: "%",
+            SecondaryValueFormat: "0");
 
         var window = new TelemetryDetailWindow(model)
         {
             Owner = Window.GetWindow(this)
         };
         window.ShowDialog();
+    }
+
+    private static IReadOnlyList<TimeSeriesPoint> BuildPercentTimeline(IEnumerable<TimeSeriesPoint> points)
+    {
+        var result = new List<TimeSeriesPoint>();
+        foreach (TimeSeriesPoint point in points)
+        {
+            string label = point.Label?.Trim() ?? string.Empty;
+            if (label.EndsWith('%'))
+                label = label[..^1].Trim();
+            if (!double.TryParse(label, NumberStyles.Float, CultureInfo.InvariantCulture, out double percent))
+                continue;
+            if (percent is < 0 or > 100)
+                continue;
+            result.Add(new TimeSeriesPoint(point.At, percent));
+        }
+        return result;
     }
 
     private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
@@ -214,8 +272,7 @@ public partial class BatteryTelemetryPanel : UserControl
 
         try
         {
-            Process.Start(new ProcessStartInfo(
-                "ms-windows-store://search/?query=Lenovo%20Vantage")
+            Process.Start(new ProcessStartInfo("ms-settings:batterysaver")
             {
                 UseShellExecute = true
             });

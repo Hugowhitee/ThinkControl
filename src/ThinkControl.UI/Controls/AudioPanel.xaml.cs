@@ -15,6 +15,7 @@ public partial class AudioPanel : UserControl
     private DolbyAudioService? _dolby;
     private bool _syncing;
     private bool _volumeDragging;
+    private bool _snapshotMode;
     private DolbyAudioStatus? _status;
     private DolbyDirectState? _directState;
 
@@ -38,12 +39,14 @@ public partial class AudioPanel : UserControl
         };
         _volumeRefreshTimer.Tick += (_, _) =>
         {
-            if (!_volumeDragging)
+            if (!_volumeDragging && !_snapshotMode)
                 RefreshVolume();
         };
 
         Loaded += (_, _) =>
         {
+            if (_snapshotMode)
+                return;
             RefreshVolume();
             _volumeRefreshTimer.Start();
         };
@@ -58,13 +61,80 @@ public partial class AudioPanel : UserControl
     {
         _app = app;
         _dolby ??= new DolbyAudioService();
+        if (_snapshotMode)
+            return;
         RefreshVolume();
         RefreshStatus();
     }
 
+    /// <summary>
+    /// Deterministic visual-QA state. GitHub-hosted Windows runners normally have no
+    /// real audio endpoint or OEM Dolby stack, so release screenshots must not treat
+    /// runner hardware as product state. Runtime never calls this method.
+    /// </summary>
+    internal void PrepareForSnapshot(bool providersAvailable)
+    {
+        _snapshotMode = true;
+        _volumeApplyTimer.Stop();
+        _volumeRefreshTimer.Stop();
+        _syncing = true;
+        try
+        {
+            if (providersAvailable)
+            {
+                VolumeSlider.IsEnabled = true;
+                VolumeSlider.Value = 58;
+                VolumeValueText.Text = "58%";
+                VolumeDeviceText.Text = "Speakers · default Windows output";
+                MuteButton.IsEnabled = true;
+                MuteButton.Content = "Mute";
+                MuteButton.Tag = false;
+
+                BackendStatusText.Text = "Dolby DAX direct control detected · semantic profile and Music IEQ readback available";
+                InstallButton.Visibility = Visibility.Collapsed;
+                OpenButton.IsEnabled = true;
+                SetProfilesEnabled(true);
+
+                DynamicProfile.IsChecked = false;
+                MovieProfile.IsChecked = false;
+                MusicProfile.IsChecked = true;
+                GameProfile.IsChecked = false;
+                VoiceProfile.IsChecked = false;
+                UpdateToneSection("Music", directToneAvailable: true);
+                BalancedTone.IsChecked = true;
+                DetailedTone.IsChecked = false;
+                WarmTone.IsChecked = false;
+                OffTone.IsChecked = false;
+                ActionStatusText.Text = "Direct DAX · changes stay inside ThinkControl";
+            }
+            else
+            {
+                VolumeSlider.IsEnabled = false;
+                VolumeSlider.Value = 0;
+                VolumeValueText.Text = "—";
+                VolumeDeviceText.Text = "Windows audio endpoint unavailable";
+                MuteButton.IsEnabled = false;
+                MuteButton.Content = "Mute";
+
+                BackendStatusText.Text = "Dolby DAX direct controls are not exposed by this driver. ThinkControl will not invent profile mappings.";
+                InstallButton.Visibility = Visibility.Visible;
+                OpenButton.IsEnabled = false;
+                SetProfilesEnabled(false);
+                UpdateToneSection("Dynamic", directToneAvailable: false);
+                DynamicProfile.IsChecked = true;
+                MovieProfile.IsChecked = MusicProfile.IsChecked = GameProfile.IsChecked = VoiceProfile.IsChecked = false;
+                ActionStatusText.Text = "Unavailable controls stay visible but disabled.";
+            }
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
     internal void RefreshStatus()
     {
-        if (_app is null || _dolby is null)
+        if (_snapshotMode || _app is null || _dolby is null)
             return;
 
         _status = _dolby.Probe();
@@ -78,16 +148,14 @@ public partial class AudioPanel : UserControl
             : Visibility.Visible;
         OpenButton.IsEnabled = _status.DolbyAccessInstalled;
 
-        SetProfilesEnabled(_directState.CanProfileControl);
-        SetToneEnabled(_directState.CanToneControl);
-        SubprofileStatusText.Text = _directState.CanToneControl ? "Direct DAX" : "Unavailable";
-
         string profile = NormalizeKnownProfile(_directState.ActiveProfile) ??
-                         NormalizeKnownProfile(_status.ActiveProfile) ??
                          _app.UserSettings.Current.DolbyProfile;
         string tone = NormalizeKnownTone(_directState.ActiveTone) ??
                       NormalizeKnownTone(_app.UserSettings.Current.DolbySubProfile) ??
                       "Balanced";
+
+        SetProfilesEnabled(_directState.CanProfileControl);
+        UpdateToneSection(profile, _directState.CanToneControl);
 
         _syncing = true;
         try
@@ -109,8 +177,21 @@ public partial class AudioPanel : UserControl
         }
     }
 
+    private void UpdateToneSection(string profile, bool directToneAvailable)
+    {
+        bool music = string.Equals(profile, "Music", StringComparison.OrdinalIgnoreCase);
+        SubprofileCard.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
+        SetToneEnabled(music && directToneAvailable);
+        SubprofileStatusText.Text = directToneAvailable
+            ? "Direct DAX · Music"
+            : "Not exposed by this DAX build";
+    }
+
     private void RefreshVolume()
     {
+        if (_snapshotMode)
+            return;
+
         WindowsVolumeStatus status = _volume.Read();
         _syncing = true;
         try
@@ -138,7 +219,7 @@ public partial class AudioPanel : UserControl
 
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_syncing || !IsLoaded)
+        if (_snapshotMode || _syncing || !IsLoaded)
             return;
 
         int percent = (int)Math.Round(e.NewValue);
@@ -150,6 +231,8 @@ public partial class AudioPanel : UserControl
 
     private void VolumeSlider_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        if (_snapshotMode)
+            return;
         _volumeApplyTimer.Stop();
         ApplyVolumeSlider();
         _volumeDragging = false;
@@ -158,7 +241,7 @@ public partial class AudioPanel : UserControl
 
     private void ApplyVolumeSlider()
     {
-        if (_syncing || !VolumeSlider.IsEnabled)
+        if (_snapshotMode || _syncing || !VolumeSlider.IsEnabled)
             return;
 
         int requested = (int)Math.Round(VolumeSlider.Value);
@@ -168,6 +251,8 @@ public partial class AudioPanel : UserControl
 
     private void Mute_Click(object sender, RoutedEventArgs e)
     {
+        if (_snapshotMode)
+            return;
         WindowsVolumeStatus current = _volume.Read();
         if (!current.Available)
         {
@@ -181,7 +266,7 @@ public partial class AudioPanel : UserControl
 
     private async void Profile_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || _app is null || sender is not FrameworkElement { Tag: string profile })
+        if (_snapshotMode || _syncing || _app is null || sender is not FrameworkElement { Tag: string profile })
             return;
 
         ActionStatusText.Text = $"Switching to {profile}…";
@@ -203,10 +288,13 @@ public partial class AudioPanel : UserControl
 
     private async void Tone_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || _app is null || sender is not FrameworkElement { Tag: string tone })
+        if (_snapshotMode || _syncing || _app is null || MusicProfile.IsChecked != true ||
+            sender is not FrameworkElement { Tag: string tone })
+        {
             return;
+        }
 
-        ActionStatusText.Text = $"Applying {tone} tone…";
+        ActionStatusText.Text = $"Applying {tone} to Music…";
         SetToneEnabled(false);
         DolbyProfileResult result = await _directDolby.SetToneAsync(tone);
         ActionStatusText.Text = result.Detail;
@@ -221,26 +309,29 @@ public partial class AudioPanel : UserControl
 
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null || sender is not Button button)
+        if (_snapshotMode || _app is null || sender is not Button button)
             return;
 
         button.IsEnabled = false;
         try
         {
             DolbyProfileResult profile = await _directDolby.SetProfileAsync("Dynamic");
-            DolbyProfileResult tone = await _directDolby.SetToneAsync("Balanced");
-            if (profile.Success || tone.Success)
+            if (profile.Success)
             {
+                // Dynamic is content-aware and does not use the Music IEQ picker.
+                // Store Balanced as the portable Music default without applying it
+                // while Dynamic owns processing.
                 _app.UserSettings.Update(settings => settings with
                 {
-                    DolbyProfile = profile.Success ? "Dynamic" : settings.DolbyProfile,
-                    DolbySubProfile = tone.Success ? "Balanced" : settings.DolbySubProfile
+                    DolbyProfile = "Dynamic",
+                    DolbySubProfile = "Balanced"
                 });
+                ActionStatusText.Text = "Audio processing reset to Dynamic. Music IEQ default is Balanced; Windows output volume was left unchanged.";
             }
-
-            ActionStatusText.Text = profile.Success || tone.Success
-                ? "Audio processing reset toward Dynamic · Balanced. Windows output volume was left unchanged."
-                : "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
+            else
+            {
+                ActionStatusText.Text = "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
+            }
             RefreshStatus();
         }
         finally
@@ -249,9 +340,17 @@ public partial class AudioPanel : UserControl
         }
     }
 
-    private void Install_Click(object sender, RoutedEventArgs e) => DolbyAudioService.OpenStore();
+    private void Install_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_snapshotMode)
+            DolbyAudioService.OpenStore();
+    }
 
-    private void Open_Click(object sender, RoutedEventArgs e) => _dolby?.OpenDolbyAccess();
+    private void Open_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_snapshotMode)
+            _dolby?.OpenDolbyAccess();
+    }
 
     private void SetProfilesEnabled(bool enabled)
     {

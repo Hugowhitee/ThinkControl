@@ -1,3 +1,5 @@
+using System.Windows;
+using System.Windows.Controls;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -25,6 +27,10 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
+        // Page builders above may replace a ScrollViewer child. Reapply only the
+        // bounded page-rail contract after final composition so every page ends on
+        // the same sidebar-adjacent left anchor.
+        ConfigureAdvancedUiConsistency();
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -48,6 +54,7 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
+        ConfigureAdvancedUiConsistency();
         DiagnosticsPanelControl?.Refresh();
 
         if (DataContext is ViewModels.AppState snapshotState)
@@ -55,11 +62,53 @@ public partial class AdvancedWindow
             if (PageFans?.Content is Controls.FansPanel fansPanel)
                 fansPanel.PrepareForSnapshot(snapshotState);
 
+            if (PageBattery?.Content is Panel batteryContent &&
+                batteryContent.Children.OfType<Controls.BatteryTelemetryPanel>().FirstOrDefault() is { } batteryPanel)
+            {
+                batteryPanel.PrepareForSnapshot(snapshotState);
+            }
+
             const string sensorsPageKey = "ThinkControl.Dynamic.PageSensors";
             if (Resources.Contains(sensorsPageKey) &&
-                Resources[sensorsPageKey] is System.Windows.Controls.ScrollViewer { Content: Controls.SensorsPanel sensorsPanel })
+                Resources[sensorsPageKey] is ScrollViewer { Content: Controls.SensorsPanel sensorsPanel })
             {
                 sensorsPanel.PrepareForSnapshot(snapshotState);
+            }
+        }
+
+        ValidateSharedPageRailForSnapshot();
+    }
+
+    private void ValidateSharedPageRailForSnapshot()
+    {
+        var pages = new List<ScrollViewer>();
+        foreach (string pageName in ConsistentPageNames)
+        {
+            if (FindName(pageName) is ScrollViewer scroll)
+                pages.Add(scroll);
+        }
+
+        foreach (string resourceName in DynamicPageResourceNames)
+        {
+            if (Resources.Contains(resourceName) && Resources[resourceName] is ScrollViewer scroll)
+                pages.Add(scroll);
+        }
+
+        foreach (ScrollViewer scroll in pages)
+        {
+            if (scroll.HorizontalContentAlignment != HorizontalAlignment.Left)
+                throw new InvalidOperationException($"{scroll.Tag ?? scroll.Name} is not left-anchored to the shared Advanced page rail.");
+
+            if (scroll.Content is not FrameworkElement content)
+                continue;
+
+            if (content.HorizontalAlignment != HorizontalAlignment.Left ||
+                Math.Abs(content.MaxWidth - AdvancedContentMaxWidth) > 0.1 ||
+                Math.Abs(content.Margin.Left) > 0.1)
+            {
+                throw new InvalidOperationException(
+                    $"{scroll.Tag ?? scroll.Name} overrides the shared Advanced page rail. " +
+                    "All pages must use the same left anchor and common readable MaxWidth.");
             }
         }
     }
@@ -79,6 +128,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
 
@@ -97,6 +147,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectSensors(this);
     }
 
@@ -115,6 +166,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureAdvancedUiConsistency();
         AdvancedFeaturePages.SelectAudio(this);
     }
 }

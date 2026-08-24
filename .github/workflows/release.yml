@@ -137,18 +137,77 @@ jobs:
       - name: Build
         run: dotnet build ThinkControl.slnx -c Release --no-restore
 
-      - name: Render release previews
-        if: env.VERSIONED_RELEASE == '1'
+      - name: Render release overview
         shell: pwsh
         run: |
           $output = Join-Path $PWD "artifacts\release-previews"
           dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj --configuration Release --no-build -- $output
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
-          foreach ($name in @('compact-dark.png', 'advanced-home.png', 'advanced-touchpad.png', 'advanced-sensors.png')) {
+
+          $previewNames = @(
+            'compact-dark.png',
+            'advanced-home.png',
+            'advanced-touchpad.png',
+            'advanced-sensors.png',
+            'advanced-fans.png',
+            'advanced-audio.png',
+            'advanced-battery.png',
+            'hardware-setup-ready.png'
+          )
+          foreach ($name in $previewNames) {
             $path = Join-Path $output $name
             if (-not (Test-Path $path)) { throw "Missing release preview: $name" }
             if ((Get-Item $path).Length -lt 5000) { throw "Release preview is unexpectedly small: $name" }
           }
+
+          Add-Type -AssemblyName System.Drawing
+          $overview = New-Object System.Drawing.Bitmap 1642, 1532
+          $graphics = [System.Drawing.Graphics]::FromImage($overview)
+          try {
+            $graphics.Clear([System.Drawing.Color]::FromArgb(17, 19, 21))
+            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+
+            function Draw-Preview([string]$name, [int]$x, [int]$y, [int]$width, [int]$height) {
+              $image = [System.Drawing.Image]::FromFile((Join-Path $output $name))
+              try {
+                $graphics.DrawImage($image, $x, $y, $width, $height)
+              }
+              finally {
+                $image.Dispose()
+              }
+            }
+
+            Draw-Preview 'compact-dark.png' 24 84 410 640
+            Draw-Preview 'advanced-home.png' 458 24 1160 760
+
+            $grid = @(
+              'advanced-touchpad.png',
+              'advanced-sensors.png',
+              'advanced-fans.png',
+              'advanced-audio.png',
+              'advanced-battery.png',
+              'hardware-setup-ready.png'
+            )
+            for ($i = 0; $i -lt $grid.Count; $i++) {
+              $column = $i % 3
+              $row = [math]::Floor($i / 3)
+              $x = 24 + ($column * 540)
+              $y = 808 + ($row * 363)
+              Draw-Preview $grid[$i] $x $y 514 337
+            }
+
+            $overviewPath = Join-Path $output 'ui-overview.png'
+            $overview.Save($overviewPath, [System.Drawing.Imaging.ImageFormat]::Png)
+          }
+          finally {
+            $graphics.Dispose()
+            $overview.Dispose()
+          }
+
+          $overviewFile = Get-Item (Join-Path $output 'ui-overview.png')
+          if ($overviewFile.Length -lt 20000) { throw "Release overview is unexpectedly small" }
+          Write-Host "Release overview: $([math]::Round($overviewFile.Length / 1KB)) KB"
 
       - name: Publish UI
         shell: pwsh
@@ -405,16 +464,13 @@ jobs:
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
           $payload = Get-Item $env:PAYLOAD_PATH
-          $previewRoot = "artifacts/release-previews"
+          $overview = Join-Path "artifacts/release-previews" 'ui-overview.png'
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,
             $payload.FullName,
             'artifacts/installer/SHA256SUMS.txt',
-            (Join-Path $previewRoot 'compact-dark.png'),
-            (Join-Path $previewRoot 'advanced-home.png'),
-            (Join-Path $previewRoot 'advanced-touchpad.png'),
-            (Join-Path $previewRoot 'advanced-sensors.png'),
+            $overview,
             '--title', "ThinkControl v$env:APP_VERSION",
             '--generate-notes'
           )

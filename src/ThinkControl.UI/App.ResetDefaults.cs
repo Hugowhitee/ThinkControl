@@ -75,11 +75,13 @@ public partial class App
     {
         var dolby = new DolbyDirectControlService();
         DolbyProfileResult profile = await dolby.SetProfileAsync("Dynamic");
-        DolbyProfileResult tone = await dolby.SetToneAsync("Balanced");
         UserSettings.Update(settings => settings with
         {
             DolbyProfile = profile.Success ? "Dynamic" : settings.DolbyProfile,
-            DolbySubProfile = tone.Success ? "Balanced" : settings.DolbySubProfile
+            // Balanced is the portable Music default. Dynamic itself is automatic,
+            // so reset-all must not send an unrelated IEQ command while Dynamic is
+            // active and must never open Dolby Access as a side effect.
+            DolbySubProfile = "Balanced"
         });
     }
 

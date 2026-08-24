@@ -12,9 +12,13 @@ internal sealed record HardwareSetupStatus(
     bool LowLevelAccessInstalled,
     bool LowLevelAccessRunning,
     string ServiceDetail,
-    string LowLevelAccessDetail)
+    string LowLevelAccessDetail,
+    bool ServiceReachable = false)
 {
-    internal bool NeedsAttention => !ServiceRunning || (LowLevelAccessRelevant && !LowLevelAccessInstalled);
+    internal bool NeedsAttention =>
+        !ServiceRunning ||
+        !ServiceReachable ||
+        (LowLevelAccessRelevant && !LowLevelAccessInstalled);
 }
 
 internal sealed record HardwareSetupResult(bool Success, bool RestartRequired, string Message);
@@ -32,7 +36,10 @@ internal sealed class HardwareSetupService
         Timeout = TimeSpan.FromMinutes(3)
     };
 
-    internal async Task<HardwareSetupStatus> ReadStatusAsync(string? machineType, bool sensorProviderNeeded = false)
+    internal async Task<HardwareSetupStatus> ReadStatusAsync(
+        string? machineType,
+        bool sensorProviderNeeded = false,
+        bool serviceReachable = false)
     {
         ServiceQuery service = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
         bool verifiedWriteProfile = IsVerifiedEcProfile(machineType);
@@ -48,12 +55,20 @@ internal sealed class HardwareSetupService
         string lowLevelDetail = !lowLevelRelevant
             ? "Not currently required by detected capabilities"
             : pawnIo.Running
-                ? "PawnIO installed · driver active"
+                ? "Installed · driver active · provider access can be probed"
                 : pawnIo.Exists
-                    ? "PawnIO installed · demand-start driver will activate when LibreHardwareMonitor opens the provider"
+                    ? "Installed · demand-start driver idle until LibreHardwareMonitor or the verified EC provider opens it"
                     : verifiedWriteProfile
-                        ? "PawnIO is missing · install it for X9 sensors and the verified EC fan provider"
-                        : "PawnIO is missing · install it for additional LibreHardwareMonitor sensor discovery";
+                        ? "Missing · required for X9 sensor discovery and the verified EC fan provider"
+                        : "Missing · install it for additional LibreHardwareMonitor sensor discovery";
+
+        string serviceDetail = service.Running
+            ? serviceReachable
+                ? "Running · ThinkControl app connection ready"
+                : "Running in Windows · app connection is not responding"
+            : service.Exists
+                ? "Installed but not running"
+                : "Not registered";
 
         return new HardwareSetupStatus(
             ServiceInstalled: service.Exists,
@@ -61,10 +76,9 @@ internal sealed class HardwareSetupService
             LowLevelAccessRelevant: lowLevelRelevant,
             LowLevelAccessInstalled: pawnIoInstalled,
             LowLevelAccessRunning: pawnIo.Running,
-            ServiceDetail: service.Running
-                ? "Running"
-                : service.Exists ? "Installed but not running" : "Not registered",
-            LowLevelAccessDetail: lowLevelDetail);
+            ServiceDetail: serviceDetail,
+            LowLevelAccessDetail: lowLevelDetail,
+            ServiceReachable: service.Running && serviceReachable);
     }
 
     internal async Task<HardwareSetupResult> RepairServiceAsync()
@@ -77,19 +91,35 @@ internal sealed class HardwareSetupService
         if (string.IsNullOrWhiteSpace(serviceExe) || !File.Exists(serviceExe))
             return new(false, false, "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the application payload.");
 
-        string escapedExe = serviceExe.Replace("\"", "\"\"");
-        string command =
-            $"sc.exe create {ServiceName} binPath= \"\\\"{escapedExe}\\\"\" start= auto DisplayName= \"ThinkControl Hardware Service\" >nul 2>&1 & " +
-            $"sc.exe config {ServiceName} binPath= \"\\\"{escapedExe}\\\"\" start= auto DisplayName= \"ThinkControl Hardware Service\" >nul 2>&1 & " +
-            $"sc.exe failure {ServiceName} reset= 86400 actions= restart/5000 >nul 2>&1 & " +
-            $"sc.exe start {ServiceName} >nul 2>&1";
+        string psName = ServiceName.Replace("'", "''");
+        string psExe = serviceExe.Replace("'", "''");
+        string script =
+            "$ErrorActionPreference='Stop';" +
+            $"$name='{psName}';$exe='{psExe}';" +
+            "$svc=Get-Service -Name $name -ErrorAction SilentlyContinue;" +
+            "if($null -ne $svc -and $svc.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Stopped){" +
+                "Stop-Service -Name $name -Force -ErrorAction Stop;" +
+                "$svc.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped,[TimeSpan]::FromSeconds(12));" +
+            "};" +
+            "$bin='\"'+$exe+'\"';" +
+            "if($null -eq $svc){" +
+                "& sc.exe create $name ('binPath= '+$bin) 'start= auto' 'DisplayName= ThinkControl Hardware Service' | Out-Null;" +
+                "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
+            "};" +
+            "& sc.exe config $name ('binPath= '+$bin) 'start= auto' 'DisplayName= ThinkControl Hardware Service' | Out-Null;" +
+            "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
+            "& sc.exe failure $name 'reset= 86400' 'actions= restart/5000' | Out-Null;" +
+            "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
+            "Start-Service -Name $name -ErrorAction Stop;" +
+            "$svc=Get-Service -Name $name -ErrorAction Stop;" +
+            "$svc.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromSeconds(10));";
 
         try
         {
             using Process? process = Process.Start(new ProcessStartInfo
             {
-                FileName = "cmd.exe",
-                Arguments = "/d /s /c \"" + command.Replace("\"", "\\\"") + "\"",
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + script.Replace("\"", "\\\"") + "\"",
                 UseShellExecute = true,
                 Verb = "runas",
                 WindowStyle = ProcessWindowStyle.Hidden
@@ -98,10 +128,13 @@ internal sealed class HardwareSetupService
                 return new(false, false, "Windows could not start the hardware service repair.");
 
             await process.WaitForExitAsync().ConfigureAwait(false);
-            await Task.Delay(700).ConfigureAwait(false);
+            if (process.ExitCode != 0)
+                return new(false, false, $"Hardware service repair returned exit code {process.ExitCode}. The existing installation was left for Windows to manage.");
+
+            await Task.Delay(500).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
             return after.Running
-                ? new(true, false, "ThinkControl hardware service is running.")
+                ? new(true, false, "ThinkControl hardware service was restarted. ThinkControl will verify the app connection and providers next.")
                 : new(false, false, "The hardware service is still not running. Reinstall ThinkControl or check Windows Services for ThinkControl Hardware Service.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)

@@ -38,34 +38,33 @@ jobs:
             -- $output
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
 
+          $advancedPages = @(
+            'home', 'performance', 'fans', 'sensors', 'display', 'audio',
+            'keyboard', 'battery', 'touchpad', 'system', 'updates', 'settings'
+          )
           $expectedPng = @(
             'compact-dark.png',
             'compact-on-battery.png',
             'compact-light.png',
-            'advanced-home.png',
-            'advanced-performance.png',
-            'advanced-fans.png',
-            'advanced-display.png',
-            'advanced-keyboard.png',
-            'advanced-battery.png',
-            'advanced-touchpad.png',
-            'advanced-system.png',
-            'advanced-updates.png',
-            'advanced-settings.png',
-            'advanced-home-min.png',
-            'advanced-battery-min.png',
-            'advanced-touchpad-min.png',
-            'advanced-keyboard-min.png',
-            'advanced-system-min.png',
-            'advanced-home-wide.png',
-            'advanced-display-wide.png',
-            'advanced-touchpad-wide.png',
-            'advanced-battery-wide.png',
             'advanced-system-service-offline.png',
             'advanced-keyboard-unavailable.png',
+            'advanced-fans-unavailable.png',
             'advanced-home-light.png',
-            'advanced-touchpad-light.png'
+            'advanced-touchpad-light.png',
+            'advanced-sensors-light.png',
+            'notifications-hardware-attention.png',
+            'notifications-hardware-attention-light.png',
+            'hardware-setup-pawnio-repair.png',
+            'hardware-setup-pawnio-repair-min.png',
+            'hardware-setup-ready.png',
+            'telemetry-detail-battery.png'
           )
+          foreach ($page in $advancedPages) {
+            $expectedPng += "advanced-$page.png"
+            $expectedPng += "advanced-$page-min.png"
+            $expectedPng += "advanced-$page-wide.png"
+          }
+
           foreach ($name in $expectedPng) {
             $path = Join-Path $output $name
             if (-not (Test-Path $path)) { throw "Missing UI snapshot: $name" }

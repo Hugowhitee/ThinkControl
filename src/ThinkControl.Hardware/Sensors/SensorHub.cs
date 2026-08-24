@@ -70,8 +70,12 @@ public sealed class SensorHub : IDisposable
             HardwareSensorReading? cpu = SelectCpuTemperature(readings);
             if (cpu is null && TryReadAcpiThermalZone(out HardwareSensorReading? acpi))
             {
+                // ACPI thermal zones are real telemetry, but Windows does not
+                // guarantee that a zone represents the CPU package. Keep the value
+                // visible on Sensors as a system thermal-zone reading; never relabel
+                // it as CpuTemperatureC or use it as the control temperature for a
+                // custom fan curve.
                 readings.Add(acpi!);
-                cpu = acpi;
             }
 
             RecycleStaleProviderIfNeeded(now, readings);
@@ -302,7 +306,7 @@ public sealed class SensorHub : IDisposable
                 "Temperature",
                 Math.Round(hottest, 1),
                 "°C",
-                true,
+                false,
                 "Windows ACPI thermal zone");
             return true;
         }

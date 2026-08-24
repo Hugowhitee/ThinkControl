@@ -5,6 +5,9 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class GestureActionRouter
 {
+    private const double VolumeBaseGain = 1.0;
+    private const double BrightnessBaseGain = 1.15;
+
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
     private readonly Func<int> _getVolume;
@@ -21,6 +24,8 @@ internal sealed class GestureActionRouter
     private int _brightnessAtStart;
     private int _keyboardAtStart;
     private int _performanceAtStart;
+    private double _continuousDeltaPercent;
+    private long _lastContinuousTimestamp;
     private double _seekCumulativeSeconds;
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
@@ -77,12 +82,14 @@ internal sealed class GestureActionRouter
             case GestureActionKind.Volume:
                 _setGestureActive(signal.Action, true);
                 _volumeAtStart = _getVolume();
-                ApplyVolume(signal, signal.TotalTravelMm);
+                BeginContinuous(signal, VolumeBaseGain);
+                QueueContinuousTarget(_volumeAtStart, _queueVolume);
                 break;
             case GestureActionKind.Brightness:
                 _setGestureActive(signal.Action, true);
                 _brightnessAtStart = _getBrightness();
-                ApplyBrightness(signal, signal.TotalTravelMm);
+                BeginContinuous(signal, BrightnessBaseGain);
+                QueueContinuousTarget(_brightnessAtStart, _queueBrightness);
                 break;
             case GestureActionKind.MediaSeek:
                 _setGestureActive(signal.Action, true);
@@ -124,10 +131,12 @@ internal sealed class GestureActionRouter
         switch (signal.Action)
         {
             case GestureActionKind.Volume:
-                ApplyVolume(signal, signal.TotalTravelMm);
+                AdvanceContinuous(signal, VolumeBaseGain);
+                QueueContinuousTarget(_volumeAtStart, _queueVolume);
                 break;
             case GestureActionKind.Brightness:
-                ApplyBrightness(signal, signal.TotalTravelMm);
+                AdvanceContinuous(signal, BrightnessBaseGain);
+                QueueContinuousTarget(_brightnessAtStart, _queueBrightness);
                 break;
             case GestureActionKind.MediaSeek:
                 QueueMediaSeek(signal);
@@ -141,22 +150,46 @@ internal sealed class GestureActionRouter
         }
     }
 
-    private void ApplyVolume(GestureSignal signal, double travelMm)
+    private void BeginContinuous(GestureSignal signal, double baseGain)
     {
-        int target = Math.Clamp(
-            _volumeAtStart + (int)Math.Round(ToPositiveControlDelta(signal, travelMm) * 1.4),
-            0,
-            100);
-        _queueVolume(target);
+        // Preserve the already-travelled claim distance without deriving a new target
+        // from every future TotalTravelMm sample. The alpha.10 regression came from
+        // repeatedly converting noisy absolute travel into 0-100 targets. From here
+        // on only signed frame deltas advance one stable gesture accumulator.
+        _continuousDeltaPercent = Math.Clamp(
+            ToPositiveControlDelta(signal, signal.TotalTravelMm) * baseGain,
+            -100.0,
+            100.0);
+        _lastContinuousTimestamp = Stopwatch.GetTimestamp();
     }
 
-    private void ApplyBrightness(GestureSignal signal, double travelMm)
+    private void AdvanceContinuous(GestureSignal signal, double baseGain)
     {
-        int target = Math.Clamp(
-            _brightnessAtStart + (int)Math.Round(ToPositiveControlDelta(signal, travelMm) * 1.25),
-            0,
-            100);
-        _queueBrightness(target);
+        long now = Stopwatch.GetTimestamp();
+        double elapsed = _lastContinuousTimestamp == 0
+            ? 1d / 60d
+            : Math.Clamp((now - _lastContinuousTimestamp) / (double)Stopwatch.Frequency, 1d / 240d, 0.20d);
+        _lastContinuousTimestamp = now;
+
+        double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
+        double velocity = Math.Abs(deltaMm) / elapsed;
+
+        // Slow movement remains close to the alpha.7 feel (~1 percentage point/mm).
+        // Deliberate fast movement accelerates monotonically, but because acceleration
+        // is applied to incremental delta instead of TotalTravelMm the value can never
+        // jump backwards merely because the finger slowed down.
+        double speed01 = Math.Clamp((velocity - 38.0) / 190.0, 0.0, 1.0);
+        double acceleration = 1.0 + 1.9 * Math.Pow(speed01, 1.35);
+        _continuousDeltaPercent = Math.Clamp(
+            _continuousDeltaPercent + deltaMm * baseGain * acceleration,
+            -100.0,
+            100.0);
+    }
+
+    private void QueueContinuousTarget(int startValue, Action<int> queueTarget)
+    {
+        int target = Math.Clamp(startValue + (int)Math.Round(_continuousDeltaPercent), 0, 100);
+        queueTarget(target);
     }
 
     private static void ApplyDiscreteTarget(
@@ -181,8 +214,8 @@ internal sealed class GestureActionRouter
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
 
-        // Slow movement stays precise. Fast movement accelerates, but MediaSessionService
-        // receives only the newest accumulated target on its bounded cadence.
+        // Distance gives precision; speed supplies bounded acceleration. The media
+        // service coalesces these deltas and sends only a small number of GSMTC seeks.
         double speed01 = Math.Clamp((velocity - 24.0) / 175.0, 0.0, 1.0);
         double acceleration = 1.0 + 5.0 * Math.Pow(speed01, 1.45);
         double seconds = deltaMm * 0.28 * acceleration;
@@ -210,9 +243,9 @@ internal sealed class GestureActionRouter
 
     private void End(GestureActionKind action)
     {
-        // Cancelling first guarantees workers throw away stale targets immediately.
-        // At most one already-running hardware/Windows write can finish after release.
         _setGestureActive(action, false);
+        _continuousDeltaPercent = 0;
+        _lastContinuousTimestamp = 0;
 
         if (action == GestureActionKind.MediaSeek)
         {
