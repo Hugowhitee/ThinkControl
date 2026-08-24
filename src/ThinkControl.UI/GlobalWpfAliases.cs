@@ -13,4 +13,3 @@ global using Button = System.Windows.Controls.Button;
 global using CheckBox = System.Windows.Controls.CheckBox;
 global using ComboBox = System.Windows.Controls.ComboBox;
 global using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
-global using MouseEventArgs = System.Windows.Input.MouseEventArgs;
