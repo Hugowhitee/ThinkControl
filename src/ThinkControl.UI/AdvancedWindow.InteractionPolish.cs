@@ -136,15 +136,18 @@ public partial class AdvancedWindow
 
     private async void CheckUpdatesAndPrepare_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not WpfButton button)
+        if (sender is not WpfButton button || IsUpdateCheckInProgress())
             return;
 
         button.IsEnabled = false;
         OpenReleaseButton.IsEnabled = false;
-        _app.State.UpdateStatus = "Checking…";
+        _app.State.UpdateStatus = "Checking for updates…";
+        SetUpdateCheckingVisual(true);
+        DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
         try
         {
             _lastUpdate = await _app.UpdateService.CheckAsync();
+            checkedAt = DateTimeOffset.UtcNow;
             _app.State.UpdateStatus = _lastUpdate.Status;
             bool ready = _lastUpdate.Available &&
                 !string.IsNullOrWhiteSpace(_lastUpdate.InstallerUrl) &&
@@ -154,7 +157,10 @@ public partial class AdvancedWindow
         }
         finally
         {
-            button.IsEnabled = true;
+            checkedAt = DateTimeOffset.UtcNow;
+            UpdateCheckHistoryService.Record(checkedAt);
+            RefreshLastChecked(checkedAt);
+            SetUpdateCheckingVisual(false);
         }
     }
 
@@ -165,7 +171,15 @@ public partial class AdvancedWindow
         try
         {
             if (_lastUpdate is null || !_lastUpdate.Available)
+            {
+                _app.State.UpdateStatus = "Checking for updates…";
+                SetUpdateCheckingVisual(true);
                 _lastUpdate = await _app.UpdateService.CheckAsync();
+                DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
+                UpdateCheckHistoryService.Record(checkedAt);
+                RefreshLastChecked(checkedAt);
+                SetUpdateCheckingVisual(false);
+            }
 
             if (_lastUpdate is null || !_lastUpdate.Available)
             {
@@ -186,6 +200,7 @@ public partial class AdvancedWindow
         }
         finally
         {
+            SetUpdateCheckingVisual(false);
             button.Content = _lastUpdate?.Available == true && !string.IsNullOrWhiteSpace(_lastUpdate.Version)
                 ? $"Install {_lastUpdate.Version}"
                 : "Install update";
