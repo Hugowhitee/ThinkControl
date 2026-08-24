@@ -95,10 +95,14 @@ Filename: "{sys}\sc.exe"; Parameters: "delete {#ServiceName}"; Flags: runhidden 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\ui"
 Type: filesandordirs; Name: "{app}\service"
+Type: filesandordirs; Name: "{app}\.update-stage"
+Type: filesandordirs; Name: "{app}\ui.previous"
+Type: filesandordirs; Name: "{app}\service.previous"
 
 [Code]
 var
   PayloadPath: String;
+  StagedPayloadDir: String;
   ExistingInstall: Boolean;
 
 function IsUpdateParameter(): Boolean;
@@ -249,16 +253,15 @@ begin
   end;
 end;
 
-function ExtractPayload(): String;
+function StagePayload(): String;
 var
   ResultCode: Integer;
   TarPath: String;
   Params: String;
-  AppDir: String;
 begin
   Result := '';
-  AppDir := ExpandConstant('{app}');
   TarPath := ExpandConstant('{sys}\tar.exe');
+  StagedPayloadDir := ExpandConstant('{app}\.update-stage');
 
   if (PayloadPath = '') or not FileExists(PayloadPath) then
   begin
@@ -268,32 +271,128 @@ begin
 
   if not FileExists(TarPath) then
   begin
-    Result := 'Windows tar.exe is unavailable; ThinkControl cannot extract its verified payload.';
+    Result := 'Windows tar.exe is unavailable; ThinkControl cannot stage its verified payload.';
     Exit;
   end;
 
-  ForceDirectories(AppDir);
-  DelTree(ExpandConstant('{app}\ui'), True, True, True);
-  DelTree(ExpandConstant('{app}\service'), True, True, True);
+  DelTree(StagedPayloadDir, True, True, True);
+  if not ForceDirectories(StagedPayloadDir) then
+  begin
+    Result := 'ThinkControl could not create the update staging directory.';
+    Exit;
+  end;
 
-  Params := '-xf "' + PayloadPath + '" -C "' + AppDir + '"';
+  Params := '-xf "' + PayloadPath + '" -C "' + StagedPayloadDir + '"';
   if not Exec(TarPath, Params, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
-    Result := 'Windows could not start the ThinkControl payload extractor.';
+    Result := 'Windows could not start the ThinkControl payload staging extractor.';
     Exit;
   end;
 
   if ResultCode <> 0 then
   begin
-    Result := Format('ThinkControl payload extraction returned exit code %d.', [ResultCode]);
+    Result := Format('ThinkControl payload staging returned exit code %d.', [ResultCode]);
     Exit;
   end;
 
-  if not FileExists(ExpandConstant('{app}\ui\{#UiExeName}')) or
-     not FileExists(ExpandConstant('{app}\service\{#ServiceExeName}')) then
+  if not FileExists(StagedPayloadDir + '\ui\{#UiExeName}') or
+     not FileExists(StagedPayloadDir + '\service\{#ServiceExeName}') then
   begin
-    Result := 'ThinkControl payload extraction completed but the required UI/service executables are missing.';
+    Result := 'The staged ThinkControl payload is incomplete; the current installation was not touched.';
   end;
+end;
+
+procedure RestorePreviousPayload(HadUi, HadService: Boolean);
+var
+  ResultCode: Integer;
+  AppUi: String;
+  AppService: String;
+  BackupUi: String;
+  BackupService: String;
+begin
+  AppUi := ExpandConstant('{app}\ui');
+  AppService := ExpandConstant('{app}\service');
+  BackupUi := ExpandConstant('{app}\ui.previous');
+  BackupService := ExpandConstant('{app}\service.previous');
+
+  DelTree(AppUi, True, True, True);
+  DelTree(AppService, True, True, True);
+
+  if HadUi and DirExists(BackupUi) then
+    RenameFile(BackupUi, AppUi);
+  if HadService and DirExists(BackupService) then
+    RenameFile(BackupService, AppService);
+
+  if HadService and FileExists(AppService + '\{#ServiceExeName}') then
+  begin
+    Exec(ExpandConstant('{sys}\sc.exe'), 'start {#ServiceName}', '', SW_HIDE,
+      ewWaitUntilTerminated, ResultCode);
+  end;
+end;
+
+function InstallStagedPayload(): String;
+var
+  AppUi: String;
+  AppService: String;
+  StageUi: String;
+  StageService: String;
+  BackupUi: String;
+  BackupService: String;
+  HadUi: Boolean;
+  HadService: Boolean;
+begin
+  Result := '';
+  AppUi := ExpandConstant('{app}\ui');
+  AppService := ExpandConstant('{app}\service');
+  StageUi := StagedPayloadDir + '\ui';
+  StageService := StagedPayloadDir + '\service';
+  BackupUi := ExpandConstant('{app}\ui.previous');
+  BackupService := ExpandConstant('{app}\service.previous');
+  HadUi := DirExists(AppUi);
+  HadService := DirExists(AppService);
+
+  DelTree(BackupUi, True, True, True);
+  DelTree(BackupService, True, True, True);
+
+  if HadService and not RenameFile(AppService, BackupService) then
+  begin
+    Result := 'ThinkControl could not preserve the current hardware service before updating.';
+    Exit;
+  end;
+
+  if HadUi and not RenameFile(AppUi, BackupUi) then
+  begin
+    if HadService and DirExists(BackupService) then
+      RenameFile(BackupService, AppService);
+    Result := 'ThinkControl could not preserve the current application before updating.';
+    Exit;
+  end;
+
+  if not RenameFile(StageUi, AppUi) then
+  begin
+    RestorePreviousPayload(HadUi, HadService);
+    Result := 'ThinkControl could not activate the staged application. The previous version was restored.';
+    Exit;
+  end;
+
+  if not RenameFile(StageService, AppService) then
+  begin
+    RestorePreviousPayload(HadUi, HadService);
+    Result := 'ThinkControl could not activate the staged hardware service. The previous version was restored.';
+    Exit;
+  end;
+
+  if not FileExists(AppUi + '\{#UiExeName}') or
+     not FileExists(AppService + '\{#ServiceExeName}') then
+  begin
+    RestorePreviousPayload(HadUi, HadService);
+    Result := 'ThinkControl update verification failed after the staged swap. The previous version was restored.';
+    Exit;
+  end;
+
+  DelTree(BackupUi, True, True, True);
+  DelTree(BackupService, True, True, True);
+  DelTree(StagedPayloadDir, True, True, True);
 end;
 
 procedure CloseRunningThinkControl();
@@ -319,19 +418,25 @@ begin
   if Result <> '' then
     Exit;
 
-  CloseRunningThinkControl();
-
-  { Stop the existing service before replacing its payload. Normal controller
-    disposal returns any verified manual fan ownership to Lenovo Auto. }
-  Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#ServiceName}', '', SW_HIDE,
-    ewWaitUntilTerminated, ResultCode);
-  Sleep(1200);
-
+  { Network/hash/extraction validation happens while the current app and service are
+    still intact. A bad download must never turn a healthy install into a stopped
+    service or a half-replaced application. }
   Result := AcquirePayload();
   if Result <> '' then
     Exit;
 
-  Result := ExtractPayload();
+  Result := StagePayload();
+  if Result <> '' then
+    Exit;
+
+  CloseRunningThinkControl();
+
+  { Only after a complete staged payload exists do we release the service files. }
+  Exec(ExpandConstant('{sys}\sc.exe'), 'stop {#ServiceName}', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
+  Sleep(1200);
+
+  Result := InstallStagedPayload();
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -344,4 +449,10 @@ begin
       'failure {#ServiceName} reset= 86400 actions= restart/5000',
       '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
+end;
+
+procedure DeinitializeSetup();
+begin
+  if StagedPayloadDir <> '' then
+    DelTree(StagedPayloadDir, True, True, True);
 end;
