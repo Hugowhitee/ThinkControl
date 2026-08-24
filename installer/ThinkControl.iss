@@ -86,6 +86,7 @@ Filename: "{sys}\sc.exe"; Parameters: "description {#ServiceName} ""Verified Thi
 Filename: "{sys}\sc.exe"; Parameters: "config {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "start {#ServiceName}"; Flags: runhidden waituntilterminated
 Filename: "{app}\ui\{#UiExeName}"; Description: "Launch ThinkControl"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\ui\{#UiExeName}"; Flags: nowait skipifnotsilent runasoriginaluser; Check: ShouldRelaunchAfterSilentUpdate
 
 [UninstallRun]
 Filename: "{sys}\sc.exe"; Parameters: "stop {#ServiceName}"; Flags: runhidden waituntilterminated; RunOnceId: "StopThinkControlService"
@@ -98,6 +99,33 @@ Type: filesandordirs; Name: "{app}\service"
 [Code]
 var
   PayloadPath: String;
+  ExistingInstall: Boolean;
+
+function IsUpdateParameter(): Boolean;
+begin
+  Result := CompareText(ExpandConstant('{param:UPDATE|0}'), '1') = 0;
+end;
+
+function ShouldRelaunchAfterSilentUpdate(): Boolean;
+begin
+  Result := WizardSilent and IsUpdateParameter() and
+    (CompareText(ExpandConstant('{param:RELAUNCH|0}'), '1') = 0);
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := ExistingInstall and (PageID = wpSelectTasks);
+end;
+
+procedure InitializeWizard();
+begin
+  ExistingInstall := FileExists(ExpandConstant('{autopf}\ThinkControl\ui\{#UiExeName}'));
+  if ExistingInstall or IsUpdateParameter() then
+  begin
+    WizardForm.Caption := 'Update ThinkControl';
+    WizardForm.NextButton.Caption := 'Update';
+  end;
+end;
 
 function HasDotNetDesktop10(): Boolean;
 var
@@ -268,6 +296,18 @@ begin
   end;
 end;
 
+procedure CloseRunningThinkControl();
+var
+  ResultCode: Integer;
+begin
+  { Inno Setup's Restart Manager normally closes the app. Explicit taskkill is a
+    final update-mode guard so stale tray-only instances cannot keep payload DLLs
+    locked and turn an update into a file-in-use error. }
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM {#UiExeName} /T /F', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
+  Sleep(450);
+end;
+
 function PrepareToInstall(var NeedsRestart: Boolean): String;
 var
   ResultCode: Integer;
@@ -278,6 +318,8 @@ begin
   Result := InstallDotNetDesktop(NeedsRestart);
   if Result <> '' then
     Exit;
+
+  CloseRunningThinkControl();
 
   { Stop the existing service before replacing its payload. Normal controller
     disposal returns any verified manual fan ownership to Lenovo Auto. }
