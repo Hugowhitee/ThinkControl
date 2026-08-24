@@ -144,6 +144,7 @@ public partial class App
     {
         string value = detail ?? string.Empty;
         return value.Contains("PawnIO is not installed", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("too old for", StringComparison.OrdinalIgnoreCase) ||
                value.Contains("PawnIO is registered but its device is not available", StringComparison.OrdinalIgnoreCase) ||
                value.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase) ||
                value.Contains("LPC/ACPI EC module could not be loaded", StringComparison.OrdinalIgnoreCase) ||
