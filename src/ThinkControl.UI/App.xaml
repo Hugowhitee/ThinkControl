@@ -134,6 +134,7 @@
                 <Setter Property="Padding" Value="14,0" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="FontWeight" Value="Normal" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
@@ -150,6 +151,7 @@
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
                                     <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
                                     <Setter TargetName="Indicator" Property="Background" Value="{DynamicResource Tc.Accent}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
@@ -178,6 +180,9 @@
                                          HorizontalAlignment="Left" />
                             </Grid>
                             <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Tc.TextFaint}" />
+                                </Trigger>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Track" Property="Background" Value="{DynamicResource Tc.Accent}" />
                                     <Setter TargetName="Track" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
@@ -193,30 +198,68 @@
                 </Setter>
             </Style>
 
+            <!-- Slider buttons have explicit templates so Windows does not flash a
+                 bright stock RepeatButton when hovering the track. The 24px thumb
+                 is the hit target; the visible dot remains compact at 13px. -->
+            <Style x:Key="TcSliderDecrease" TargetType="RepeatButton">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Height" Value="5" />
+                <Setter Property="Background" Value="{DynamicResource Tc.Accent}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RepeatButton">
+                            <Border x:Name="Line" Height="5" CornerRadius="2.5" Background="{TemplateBinding Background}" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Line" Property="Background" Value="{DynamicResource Tc.AccentHover}" /></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="TcSliderIncrease" TargetType="RepeatButton">
+                <Setter Property="Focusable" Value="False" />
+                <Setter Property="Height" Value="5" />
+                <Setter Property="Background" Value="{DynamicResource Tc.BorderStrong}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="RepeatButton">
+                            <Border x:Name="Line" Height="5" CornerRadius="2.5" Background="{TemplateBinding Background}" />
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Line" Property="Background" Value="{DynamicResource Tc.TextFaint}" /></Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style x:Key="TcSlider" TargetType="Slider">
-                <Setter Property="Height" Value="22" />
+                <Setter Property="Height" Value="30" />
                 <Setter Property="Minimum" Value="0" />
                 <Setter Property="Maximum" Value="100" />
                 <Setter Property="IsMoveToPointEnabled" Value="True" />
+                <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Slider">
-                            <Grid>
+                            <Grid Background="Transparent">
                                 <Track x:Name="PART_Track" VerticalAlignment="Center">
                                     <Track.DecreaseRepeatButton>
-                                        <RepeatButton Command="Slider.DecreaseLarge" Background="{DynamicResource Tc.Accent}" BorderThickness="0" Height="3" />
+                                        <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource TcSliderDecrease}" />
                                     </Track.DecreaseRepeatButton>
                                     <Track.Thumb>
-                                        <Thumb Width="13" Height="13">
+                                        <Thumb Width="24" Height="24" Background="Transparent">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
-                                                    <Ellipse Fill="{DynamicResource Tc.Text}" Stroke="{DynamicResource Tc.BorderStrong}" StrokeThickness="1" />
+                                                    <Grid Background="Transparent">
+                                                        <Ellipse Width="13" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                 Fill="{DynamicResource Tc.Text}" Stroke="{DynamicResource Tc.BorderStrong}" StrokeThickness="1" />
+                                                    </Grid>
                                                 </ControlTemplate>
                                             </Thumb.Template>
                                         </Thumb>
                                     </Track.Thumb>
                                     <Track.IncreaseRepeatButton>
-                                        <RepeatButton Command="Slider.IncreaseLarge" Background="{DynamicResource Tc.BorderStrong}" BorderThickness="0" Height="3" />
+                                        <RepeatButton Command="Slider.IncreaseLarge" Style="{StaticResource TcSliderIncrease}" />
                                     </Track.IncreaseRepeatButton>
                                 </Track>
                             </Grid>
