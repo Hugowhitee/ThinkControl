@@ -11,11 +11,16 @@ namespace ThinkControl.Service;
 internal sealed class ServiceEngine : IDisposable
 {
     private const int MaxRequestBytes = 4096;
+    private static readonly TimeSpan StatusRefreshInterval = TimeSpan.FromSeconds(2);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly LenovoHardwareController _hardware = new();
     private readonly FanSupervisor _fanSupervisor;
     private readonly CancellationTokenSource _disposeCts = new();
+    private readonly object _statusGate = new();
+
+    private Task? _statusRefreshTask;
+    private ServiceResponse? _lastStatus;
     private bool _disposed;
 
     internal ServiceEngine()
@@ -28,6 +33,11 @@ internal sealed class ServiceEngine : IDisposable
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
         CancellationToken token = linked.Token;
         _fanSupervisor.Start(token);
+
+        // Keep IPC responsive while LHM/PawnIO/EC/keyboard discovery happens in the
+        // background. A slow first sensor enumeration must never look like a dead
+        // Windows service to the user-facing UI.
+        _statusRefreshTask = Task.Run(() => StatusRefreshLoopAsync(token), token);
 
         while (!token.IsCancellationRequested)
         {
@@ -50,6 +60,26 @@ internal sealed class ServiceEngine : IDisposable
                 try { await Task.Delay(250, token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { break; }
             }
+        }
+    }
+
+    private async Task StatusRefreshLoopAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                ServiceResponse status = BuildStatusResponse();
+                lock (_statusGate) _lastStatus = status;
+            }
+            catch (Exception ex)
+            {
+                lock (_statusGate)
+                    _lastStatus = ProviderDiscoveryResponse($"Provider refresh failed safely: {ex.Message}");
+            }
+
+            try { await Task.Delay(StatusRefreshInterval, token).ConfigureAwait(false); }
+            catch (OperationCanceledException) { break; }
         }
     }
 
@@ -130,7 +160,7 @@ internal sealed class ServiceEngine : IDisposable
             return request.Operation switch
             {
                 "Ping" => new ServiceResponse(ThinkControlProtocol.Version, true),
-                "GetStatus" => StatusResponse(),
+                "GetStatus" => CachedStatusResponse(),
                 "SetFanLevel" => SetFanLevel(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
                 "SetCoolingProfile" => SetCoolingProfile(request.Value),
@@ -148,7 +178,13 @@ internal sealed class ServiceEngine : IDisposable
         }
     }
 
-    private ServiceResponse StatusResponse()
+    private ServiceResponse CachedStatusResponse()
+    {
+        lock (_statusGate)
+            return _lastStatus ?? ProviderDiscoveryResponse("Service online · detecting hardware providers");
+    }
+
+    private ServiceResponse BuildStatusResponse()
     {
         LenovoHardwareStatus status = _hardware.ReadStatus();
         CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
@@ -209,19 +245,43 @@ internal sealed class ServiceEngine : IDisposable
             Capabilities: capabilities);
     }
 
+    private ServiceResponse RefreshAndReturnStatus()
+    {
+        ServiceResponse status = BuildStatusResponse();
+        lock (_statusGate) _lastStatus = status;
+        return status;
+    }
+
+    private static ServiceResponse ProviderDiscoveryResponse(string detail)
+    {
+        var telemetry = new TelemetrySnapshot(
+            null,
+            "Detecting",
+            null,
+            "Detecting",
+            "Lenovo managed · provider discovery in progress",
+            detail,
+            "Detecting…",
+            Fans: Array.Empty<FanTelemetrySnapshot>(),
+            Sensors: Array.Empty<HardwareSensorSnapshot>(),
+            CoolingStatus: "Lenovo firmware owns fan control while providers are detected");
+        var capabilities = new HardwareCapabilitySnapshot(false, false, false, false, false, 0);
+        return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
+    }
+
     private ServiceResponse SetFanLevel(string? raw)
     {
         if (!int.TryParse(raw, out int level))
             return Error("Fan level is missing or invalid.");
 
         return _fanSupervisor.SetManualLevel(level, out string? error)
-            ? StatusResponse()
+            ? RefreshAndReturnStatus()
             : Error(error ?? "Fan level rejected.");
     }
 
     private ServiceResponse ReturnFanToAuto() =>
         _fanSupervisor.ReturnToAuto(out string? error)
-            ? StatusResponse()
+            ? RefreshAndReturnStatus()
             : Error(error ?? "Lenovo Auto rejected.");
 
     private ServiceResponse SetCoolingProfile(string? value)
@@ -229,23 +289,23 @@ internal sealed class ServiceEngine : IDisposable
         if (string.IsNullOrWhiteSpace(value))
             return Error("Cooling profile is missing.");
         return _fanSupervisor.SetProfile(value, out string? error)
-            ? StatusResponse()
+            ? RefreshAndReturnStatus()
             : Error(error ?? "Cooling profile rejected.");
     }
 
     private ServiceResponse StartFanCharacterization() =>
         _fanSupervisor.StartCharacterization(out string? error)
-            ? StatusResponse()
+            ? RefreshAndReturnStatus()
             : Error(error ?? "Fan characterization could not start.");
 
     private ServiceResponse MarkFanLevelAudible() =>
         _fanSupervisor.MarkCurrentLevelAudible(out string? error)
-            ? StatusResponse()
+            ? RefreshAndReturnStatus()
             : Error(error ?? "Audible fan level could not be recorded.");
 
     private ServiceResponse StopFanCharacterization() =>
         _fanSupervisor.StopCharacterization(out string? error)
-            ? StatusResponse()
+            ? RefreshAndReturnStatus()
             : Error(error ?? "Fan characterization could not stop.");
 
     private ServiceResponse SetKeyboardBacklight(string? value)
@@ -254,7 +314,7 @@ internal sealed class ServiceEngine : IDisposable
             return Error("Keyboard level is missing.");
 
         return _hardware.SetKeyboardBacklight(value, out string? error)
-            ? StatusResponse()
+            ? RefreshAndReturnStatus()
             : Error(error ?? "Keyboard level rejected.");
     }
 
@@ -288,6 +348,7 @@ internal sealed class ServiceEngine : IDisposable
             return;
         _disposed = true;
         _disposeCts.Cancel();
+        try { _statusRefreshTask?.Wait(TimeSpan.FromSeconds(1)); } catch { }
         _fanSupervisor.Dispose();
         _hardware.Dispose();
         _disposeCts.Dispose();
