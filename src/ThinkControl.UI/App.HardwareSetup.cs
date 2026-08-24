@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -10,6 +11,7 @@ public partial class App
     private HardwareSetupWindow? _hardwareSetupWindow;
     private DispatcherTimer? _hardwareSetupTimer;
     private bool _hardwareSetupEvaluated;
+    private bool _providerRefreshBusy;
 
     private void OnHardwareSetupActivated(object? sender, EventArgs e)
     {
@@ -35,38 +37,66 @@ public partial class App
         try
         {
             HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync();
-            if (!status.NeedsAttention)
+            if (!status.NeedsAttention && State.CanSensorTelemetry && State.CanFanControl && State.CanKeyboardBacklight)
                 return;
 
-            // Do not interrupt startup with a modal setup window. Compact and
-            // Advanced surface the same status with a red attention dot; the user
-            // can open Hardware setup from there and repair/install in one flow.
             string version = State.AppVersion ?? string.Empty;
             if (!string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
                 UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
         }
         catch
         {
-            State.DriverStatus = "Hardware service status unavailable";
+            State.DriverStatus = "Hardware status could not be refreshed";
         }
     }
 
     internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
     {
-        bool needsSensorProvider = !State.CanSensorTelemetry || !State.CanFanTelemetry;
+        bool needsSensorProvider = !State.CanSensorTelemetry || !State.CanFanTelemetry || !State.CanFanControl;
         HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(State.MachineType, needsSensorProvider);
         State.DriverStatus = DescribeHardwareSetup(status);
         return status;
     }
 
-    private static string DescribeHardwareSetup(HardwareSetupStatus status)
+    internal async Task<bool> RefreshHardwareProvidersAsync()
+    {
+        if (_providerRefreshBusy)
+            return false;
+
+        _providerRefreshBusy = true;
+        try
+        {
+            State.DriverStatus = "Refreshing hardware providers…";
+            ServiceResponse? response = await HardwareClient.RefreshProvidersAsync();
+            if (response?.Success != true)
+            {
+                State.DriverStatus = response?.Error ?? "Hardware service did not accept provider refresh";
+                return false;
+            }
+
+            // The service's background provider loop owns heavy LHM/EC discovery.
+            // Give it one cycle, then read the fresh cached snapshot without blocking UI.
+            await Task.Delay(2300);
+            await RefreshStatusAsync(forceSystemInfo: false);
+            await RefreshHardwareSetupStatusAsync();
+            return State.CanSensorTelemetry || State.CanFanTelemetry || State.CanFanControl || State.CanKeyboardBacklight;
+        }
+        finally
+        {
+            _providerRefreshBusy = false;
+        }
+    }
+
+    private string DescribeHardwareSetup(HardwareSetupStatus status)
     {
         if (!status.ServiceInstalled)
             return "ThinkControl hardware service not installed";
         if (!status.ServiceRunning)
             return "ThinkControl hardware service stopped · repair available";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
-            return "Hardware provider recommended · setup available";
+            return "PawnIO missing · install available";
+        if (!State.CanSensorTelemetry || !State.CanFanControl || !State.CanKeyboardBacklight)
+            return "Hardware service online · one or more providers need attention";
         return "Ready";
     }
 
