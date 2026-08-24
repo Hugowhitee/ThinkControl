@@ -62,6 +62,12 @@ public partial class AdvancedWindow
             if (PageFans?.Content is Controls.FansPanel fansPanel)
                 fansPanel.PrepareForSnapshot(snapshotState);
 
+            if (PageBattery?.Content is Panel batteryContent &&
+                batteryContent.Children.OfType<Controls.BatteryTelemetryPanel>().FirstOrDefault() is { } batteryPanel)
+            {
+                batteryPanel.PrepareForSnapshot(snapshotState);
+            }
+
             const string sensorsPageKey = "ThinkControl.Dynamic.PageSensors";
             if (Resources.Contains(sensorsPageKey) &&
                 Resources[sensorsPageKey] is ScrollViewer { Content: Controls.SensorsPanel sensorsPanel })
