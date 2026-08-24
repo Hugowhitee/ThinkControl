@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
 
@@ -23,7 +24,7 @@ public partial class AdvancedWindow
         [
             new(
                 "PawnIO needs repair",
-                "PawnIO is installed, but the ThinkControl hardware service cannot open its device. Fans and low-level sensors remain Lenovo-managed until the device handshake succeeds.",
+                "PawnIO is installed, but the ThinkControl hardware service cannot open its device. Fans and low-level sensors remain firmware-managed until the device handshake succeeds.",
                 "Hardware setup",
                 SheetAction.HardwareSetup,
                 true),
@@ -35,7 +36,7 @@ public partial class AdvancedWindow
                 true),
             new(
                 "Keyboard control is unavailable",
-                "The Lenovo keyboard provider has not produced a valid readback. ThinkControl will not send unverified keyboard writes.",
+                "The active hardware provider has not produced a valid readback. ThinkControl will not send unverified keyboard writes.",
                 "Retry keyboard",
                 SheetAction.RefreshProviders,
                 true),
@@ -52,5 +53,14 @@ public partial class AdvancedWindow
 
         _notificationOverlay.Visibility = Visibility.Visible;
         Panel.SetZIndex(_notificationOverlay, 200);
+    }
+
+    internal void PrepareAudioForSnapshot(bool providersAvailable)
+    {
+        const string audioPageKey = "ThinkControl.Dynamic.PageAudio";
+        if (!Resources.Contains(audioPageKey) || Resources[audioPageKey] is not ScrollViewer { Content: AudioPanel panel })
+            throw new InvalidOperationException("Audio page could not be prepared for visual QA.");
+
+        panel.PrepareForSnapshot(providersAvailable);
     }
 }
