@@ -38,9 +38,11 @@ public partial class App
             return;
 
         _automaticUpdateBusy = true;
+        State.UpdateStatus = "Checking for updates…";
         try
         {
             UpdateCheckResult result = await UpdateService.CheckAsync();
+            UpdateCheckHistoryService.Record(DateTimeOffset.UtcNow);
             State.UpdateStatus = result.Status;
 
             if (_trayIcon is not null)
@@ -67,6 +69,7 @@ public partial class App
         }
         catch
         {
+            UpdateCheckHistoryService.Record(DateTimeOffset.UtcNow);
             State.UpdateStatus = "Automatic update check failed safely";
         }
         finally
