@@ -22,8 +22,8 @@ public partial class App
 
     internal void ResetDisplayDefaults()
     {
-        // Brightness and adaptive-brightness defaults are OEM/device policy, not a
-        // portable ThinkControl value. Reset only the preference ThinkControl owns.
+        // Brightness and adaptive brightness remain Windows/OEM state. ThinkControl
+        // only owns the refresh policy, so its portable default is Auto.
         EnableRefreshAuto();
     }
 
@@ -52,6 +52,13 @@ public partial class App
         TouchpadGestureConfiguration defaults =
             TouchpadGestureConfiguration.Default with { Enabled = false };
 
+        UserSettings.Update(settings => settings with
+        {
+            TouchpadGestures = defaults,
+            TouchpadOsdEnabled = true,
+            TouchpadOsdOpacity = 0.92,
+            TouchpadOsdPosition = "Center"
+        });
         TouchpadFeature.UpdateConfiguration(defaults);
 
         TouchpadHapticStatus status = TouchpadFeature.HapticStatus;
@@ -64,10 +71,22 @@ public partial class App
             _ = TouchpadFeature.SetClickForceSensitivity(DefaultHapticClickSensitivity);
     }
 
+    internal async Task ResetAudioDefaultsAsync()
+    {
+        var dolby = new DolbyAudioService();
+        DolbyProfileResult result = await dolby.SetProfileAsync("Dynamic");
+        UserSettings.Update(settings => settings with
+        {
+            DolbyProfile = result.Success ? "Dynamic" : settings.DolbyProfile,
+            DolbySubProfile = string.Empty
+        });
+    }
+
     internal void ResetGeneralDefaults()
     {
         ApplyTheme(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);
+        UserSettings.Update(settings => settings with { AutomaticUpdates = true });
     }
 
     internal async Task ResetAllDefaultsAsync()
@@ -76,9 +95,8 @@ public partial class App
         TouchpadGestureConfiguration touchpadDefaults =
             TouchpadGestureConfiguration.Default with { Enabled = false };
 
-        // Diagnostics consent and the one-time hardware-setup acknowledgement are
-        // trust/onboarding state, not appearance or control preferences. Preserve
-        // them while every user-adjustable ThinkControl preference is reset.
+        // Diagnostics consent and one-time hardware onboarding are trust state,
+        // not normal preferences, so reset-all deliberately preserves them.
         UserSettings.Update(_ => new ThinkControlUserSettings(
             Theme: UserThemeMode.System,
             RefreshAuto: true,
@@ -88,11 +106,16 @@ public partial class App
             KeyboardEffectSpeed: 1.0,
             DiagnosticsConsent: current.DiagnosticsConsent,
             TouchpadGestures: touchpadDefaults,
+            TouchpadOsdEnabled: true,
+            TouchpadOsdOpacity: 0.92,
+            TouchpadOsdPosition: "Center",
             HardwareSetupPromptedVersion: current.HardwareSetupPromptedVersion,
             BatteryPowerMode: "Balanced",
             AcPowerMode: "Balanced",
             CoolingProfile: "Lenovo Auto",
-            DolbyProfile: "Dynamic"));
+            DolbyProfile: "Dynamic",
+            DolbySubProfile: string.Empty,
+            AutomaticUpdates: true));
 
         ThemeService.Apply(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);
@@ -103,6 +126,7 @@ public partial class App
         await ResetKeyboardDefaultsAsync();
         _ = await ResetFanDefaultsAsync();
         ResetTouchpadDefaults();
+        await ResetAudioDefaultsAsync();
 
         await RefreshStatusAsync();
     }
