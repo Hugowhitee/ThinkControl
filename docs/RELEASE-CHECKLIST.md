@@ -67,23 +67,24 @@ This checklist applies to tagged prereleases and later stable builds.
 - [x] `releaseReady` gates publication to `main`.
 - [x] A release-ready main commit creates the exact `v<version>` tag.
 - [x] The tag dispatches the tested package workflow.
-- [x] Publication waits for all three release assets: Setup, Payload and `SHA256SUMS.txt`.
+- [x] Publication waits for Setup, Payload, `SHA256SUMS.txt` and the release preview set.
 - [x] The verified release marker records the payload as well as installer/checksum.
 
-## Physical X9 validation after publication
+## Physical X9 validation after alpha.11 publication
 
-- [ ] Install the published `v0.1.0-alpha.2` Setup on the X9.
+- [ ] Install the published `v0.1.0-alpha.11` Setup on the X9.
 - [ ] Confirm the installer is only a few MB and fetches the matching payload from GitHub.
 - [ ] Verify installer/payload hashes against `SHA256SUMS.txt`.
 - [ ] Confirm the installed footprint is far below the old duplicate-runtime layout.
-- [ ] Confirm X9 is identified as verified, not Beta/Untested.
-- [ ] Confirm CPU sensor source/value.
+- [ ] Confirm X9 is identified as the reviewed low-level profile, not Beta/Untested.
+- [ ] Confirm Hardware Setup distinguishes service Running, IPC reachability, PawnIO device access and provider readiness correctly.
+- [ ] Confirm CPU/control-temperature sensor source and value.
 - [ ] Confirm stable fan RPM, Lenovo Auto and manual levels 1 through 7.
 - [ ] Confirm Quiet/Balanced/Performance policy behavior on AC and battery.
-- [ ] Confirm keyboard Off/Low/High and effect behavior.
+- [ ] Confirm keyboard Off/Low/High and supported effect behavior.
 - [ ] Confirm Commercial Vantage direct launch.
-- [ ] Confirm update checking on the published build.
-- [ ] Test sleep/resume.
+- [ ] Confirm update checking and an alpha.10 → alpha.11 in-app update including cancellation/relaunch behavior.
+- [ ] Test sleep/resume and verify manual fan ownership returns safely to Lenovo Auto.
 - [ ] Inspect Compact/Advanced at 100, 125 and 150 percent scaling.
 - [ ] Confirm Compact cannot be dragged.
 - [ ] Confirm Advanced native title bar, v3 icon, Snap Layouts and maximize/restore.
@@ -92,6 +93,5 @@ This checklist applies to tagged prereleases and later stable builds.
 
 - additional Lenovo model validation;
 - private opt-in diagnostics submission;
-- autonomous fan curves with lifecycle and recovery safeguards;
 - broader accessibility and real-device scaling validation;
-- Authenticode signing and mature update/rollback handling.
+- Authenticode signing and mature rollback handling.
