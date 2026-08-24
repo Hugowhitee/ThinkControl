@@ -206,6 +206,10 @@ public partial class AdvancedWindow
                     "Could not query ThinkControl hardware service", "Provider status unavailable");
             }
 
+            string hardwareDetail = _app.State.HardwareAccess ?? string.Empty;
+            bool pawnIoRepair = IsPawnIoRepairFailure(hardwareDetail);
+            bool ecCompatibilityFailure = IsEcCompatibilityFailure(hardwareDetail);
+
             var messages = new List<SheetMessage>();
             UpdateCheckResult? update = _app.LatestUpdateResult;
             if (update is { Available: true })
@@ -220,7 +224,7 @@ public partial class AdvancedWindow
                     true));
             }
 
-            if (!setup.ServiceRunning)
+            if (!setup.ServiceRunning || !setup.ServiceReachable)
             {
                 messages.Add(new(
                     "Hardware service needs attention",
@@ -233,34 +237,45 @@ public partial class AdvancedWindow
             if (setup.LowLevelAccessRelevant && !setup.LowLevelAccessInstalled)
             {
                 messages.Add(new(
-                    "PawnIO is not installed",
-                    "Low-level sensor and verified X9 EC access are waiting for PawnIO. Hardware setup can install the pinned driver and verify it before retrying providers.",
-                    "Install / repair",
+                    "PawnIO is required",
+                    "Low-level sensors and verified X9 EC access need PawnIO. Hardware setup can install the pinned, hash-verified package after you choose Install.",
+                    "Install PawnIO",
+                    SheetAction.HardwareSetup,
+                    true));
+            }
+            else if (pawnIoRepair)
+            {
+                messages.Add(new(
+                    "PawnIO needs repair",
+                    FriendlyPawnIoDetail(hardwareDetail),
+                    "Repair PawnIO",
                     SheetAction.HardwareSetup,
                     true));
             }
 
-            if (!_app.State.CanSensorTelemetry)
+            if (!_app.State.CanSensorTelemetry && !pawnIoRepair && setup.LowLevelAccessInstalled)
             {
                 messages.Add(new(
                     "Sensors are unavailable",
-                    setup.LowLevelAccessInstalled
-                        ? "PawnIO is present, but the sensor provider has not produced usable telemetry. Retry rebuilds the provider without reinstalling drivers."
-                        : "Sensor discovery is waiting for the low-level provider above.",
-                    setup.LowLevelAccessInstalled ? "Retry sensors" : "Hardware setup",
-                    setup.LowLevelAccessInstalled ? SheetAction.RefreshProviders : SheetAction.HardwareSetup,
+                    "PawnIO is present, but the LibreHardwareMonitor provider has not produced usable telemetry. Retry performs one clean provider rebuild; it does not reinstall the driver.",
+                    "Retry sensors",
+                    SheetAction.RefreshProviders,
                     true));
             }
 
-            if (!_app.State.CanFanControl)
+            if (!_app.State.CanFanControl && !pawnIoRepair)
             {
+                string detail = ecCompatibilityFailure
+                    ? "PawnIO is working, but neither supported ThinkPad EC port pair passed the read-only X9 validation. Lenovo firmware remains in control; no fan write is attempted."
+                    : _app.State.CanFanTelemetry
+                        ? "Fan telemetry is visible, but the verified X9 EC read/write gate has not passed. Lenovo firmware remains in control."
+                        : "The verified X9 EC fan path is not ready yet. Lenovo firmware remains in control.";
+
                 messages.Add(new(
-                    "Fan control is unavailable",
-                    _app.State.CanFanTelemetry
-                        ? "Fan telemetry is visible, but the X9 EC read/write validation has not passed. Lenovo firmware remains in control."
-                        : "Fan telemetry and the verified EC control path are not ready yet. Lenovo firmware remains in control.",
-                    "Retry provider",
-                    SheetAction.RefreshProviders,
+                    ecCompatibilityFailure ? "X9 EC validation needs attention" : "Fan control is unavailable",
+                    detail,
+                    ecCompatibilityFailure ? "Hardware details" : "Retry provider",
+                    ecCompatibilityFailure ? SheetAction.HardwareSetup : SheetAction.RefreshProviders,
                     true));
             }
 
@@ -268,7 +283,7 @@ public partial class AdvancedWindow
             {
                 messages.Add(new(
                     "Keyboard control is unavailable",
-                    "The Lenovo keyboard provider has not produced a valid readback. Retry probes the installed Lenovo PM/Energy driver contracts without installing anything.",
+                    "The Lenovo keyboard provider has not produced a valid readback. Retry probes the installed IBMPmDrv/EnergyDrv/Vantage contracts without inventing another hardware write path.",
                     "Retry keyboard",
                     SheetAction.RefreshProviders,
                     true));
@@ -306,6 +321,28 @@ public partial class AdvancedWindow
         {
             _notificationRefreshBusy = false;
         }
+    }
+
+    private static bool IsPawnIoRepairFailure(string detail) =>
+        detail.Contains("PawnIO is not installed", StringComparison.OrdinalIgnoreCase) ||
+        detail.Contains("PawnIO is registered but its device is not available", StringComparison.OrdinalIgnoreCase) ||
+        detail.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase) ||
+        detail.Contains("LPC/ACPI EC module could not be loaded", StringComparison.OrdinalIgnoreCase) ||
+        detail.Contains("PawnIO device could not be opened", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsEcCompatibilityFailure(string detail) =>
+        detail.Contains("neither supported ThinkPad EC port pair", StringComparison.OrdinalIgnoreCase) ||
+        detail.Contains("Modern 0x1604/0x1600 and legacy 0x66/0x62 were both rejected", StringComparison.OrdinalIgnoreCase);
+
+    private static string FriendlyPawnIoDetail(string detail)
+    {
+        if (detail.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase))
+            return "PawnIO is installed, but ThinkControl's hardware service was denied access to the device. Repair the component once, then providers can be rechecked.";
+        if (detail.Contains("module could not be loaded", StringComparison.OrdinalIgnoreCase))
+            return "The PawnIO device opened, but the LibreHardwareMonitor LPC/ACPI EC module did not load. Hardware setup can repair the pinned component before one clean retry.";
+        if (detail.Contains("device is not available", StringComparison.OrdinalIgnoreCase) || detail.Contains("device could not be opened", StringComparison.OrdinalIgnoreCase))
+            return "PawnIO is registered in Windows, but its kernel device is not accessible to ThinkControl. Hardware setup can repair it before sensors or X9 EC access are retried.";
+        return "PawnIO did not pass its service-side device/module readiness check. Hardware setup can repair it once and then verify providers again.";
     }
 
     private FrameworkElement CreateNotificationCard(SheetMessage message)
