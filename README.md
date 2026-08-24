@@ -17,11 +17,13 @@
   **[Device support](docs/DEVICE-SUPPORT.md)** ·
   **[Documentation](docs/README.md)** ·
   **[Report a bug](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)**
+
+  <p><strong>☕ Support ThinkControl</strong> · <a href="https://buymeacoffee.com/hugowhite">Buy me a coffee</a> — help fund testing on more laptops.</p>
 </div>
 
 ## Current prerelease
 
-ThinkControl `v0.1.0-alpha.6` is the current prerelease. Windows-owned controls stay device-neutral where possible; low-level fan, EC and keyboard writes remain capability-gated and only become available after the relevant provider/profile checks pass.
+ThinkControl `v0.1.0-alpha.7` is the current prerelease. Windows-owned controls stay device-neutral where possible; low-level fan, EC and keyboard writes remain capability-gated and only become available after the relevant provider/profile checks pass.
 
 The ThinkPad X9-15 Gen 1 machine types `21Q6` and `21Q7` are the current physically verified low-level reference profile. ThinkControl targets Windows 11 x64 and .NET 10.
 
@@ -47,7 +49,7 @@ The UI uses one shared theme and interaction system for pages, menus, sliders, g
 
 | Area | Current support |
 | --- | --- |
-| Home | Minimal overview with battery, CPU, fan telemetry and quick access to Performance, Display, Touchpad, Sensors and Audio |
+| Home | Minimal overview with battery, CPU, fan telemetry, quick access to newer features, notifications and a compact project-support card |
 | Power | Separate Battery and Plugged-in Efficiency, Balanced and Performance preferences |
 | Cooling | Lenovo Auto plus supervised Silent, Normal and Cool curves on verified writable providers |
 | Fans | Real RPM from available firmware/Windows/LibreHardwareMonitor/PawnIO providers; no invented telemetry |
@@ -146,8 +148,8 @@ The installer recognises an existing installation, uses update wording, skips fi
 The setup itself stays small: the release uses a web bootstrap installer plus a separately verified application payload.
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.6.exe
-ThinkControl-Payload-0.1.0-alpha.6.zip
+ThinkControl-Setup-0.1.0-alpha.7.exe
+ThinkControl-Payload-0.1.0-alpha.7.zip
 SHA256SUMS.txt
 ```
 
@@ -161,13 +163,13 @@ Controls also owned by Windows expose a subtle contextual **Open Windows setting
 
 ThinkControl is single-instance. Launching it again activates the existing process instead of creating another notification-area icon. Clicking the tray icon toggles the Compact surface open/closed, while desktop/start-menu launches restore the normal Advanced taskbar window when appropriate.
 
-The notification-area icon is rendered from the same ThinkControl BrandMark used by the app. Advanced and Compact share a notification inbox; hardware-attention messages lead to the relevant recovery action instead of immediately forcing Hardware Setup open.
+The notification-area icon is rendered from the same ThinkControl BrandMark used by the app. Advanced and Compact share a notification inbox; Advanced uses a subtle icon-only indicator in the sidebar footer rather than floating a button over Home. Hardware-attention messages lead to the relevant recovery action instead of immediately forcing Hardware Setup open.
 
 Compact keeps quick controls concise and uses the same themed interaction system as Advanced rather than a default Windows dropdown.
 
 ## Support ThinkControl
 
-ThinkControl is still early software and real-device reports are especially useful while support expands beyond the verified X9 reference profile. The app includes a visual **Buy me a coffee** support card; development can also be supported at [buymeacoffee.com/hugowhite](https://buymeacoffee.com/hugowhite).
+ThinkControl is still early software and real-device reports are especially useful while support expands beyond the verified X9 reference profile. A compact visual **Buy me a coffee** card is visible on Home and a fuller support card lives in Settings. Development can also be supported at [buymeacoffee.com/hugowhite](https://buymeacoffee.com/hugowhite).
 
 ## Build and validation
 

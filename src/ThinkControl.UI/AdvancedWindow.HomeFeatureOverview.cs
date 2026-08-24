@@ -12,6 +12,9 @@ public partial class AdvancedWindow
 
     private void ConfigureHomeFeatureOverview()
     {
+        FixHomeDisplayCardHeight();
+        NormalizeLenovoVantageLabel();
+
         if (PageHome.Content is not StackPanel stack ||
             stack.Children.OfType<FrameworkElement>().Any(element => Equals(element.Tag, HomeFeatureOverviewTag)))
         {
@@ -79,6 +82,45 @@ public partial class AdvancedWindow
         // CPU/Fan/Battery overview rather than adding another long section at the end.
         int insertAt = Math.Min(1, stack.Children.Count);
         stack.Children.Insert(insertAt, section);
+    }
+
+    private void FixHomeDisplayCardHeight()
+    {
+        if (PageHome?.Content is not StackPanel stack)
+            return;
+
+        foreach (Grid row in stack.Children.OfType<Grid>())
+        {
+            bool displayRow = FindVisualChildren<TextBlock>(row)
+                .Any(block => string.Equals(block.Text, "Display", StringComparison.Ordinal));
+            if (!displayRow)
+                continue;
+
+            // The previous 166 px hard height clipped the adaptive-brightness switch
+            // at the bottom. Use the same 190 px rhythm as the telemetry cards so the
+            // complete switch hit target remains visible at normal and minimum widths.
+            foreach (Border card in row.Children.OfType<Border>())
+            {
+                card.Height = 190;
+                card.MinHeight = 190;
+                card.ClipToBounds = false;
+            }
+            return;
+        }
+    }
+
+    private void NormalizeLenovoVantageLabel()
+    {
+        if (PageSystem is null)
+            return;
+
+        Button? vantage = FindVisualChildren<Button>(PageSystem)
+            .FirstOrDefault(button => string.Equals(button.Content?.ToString(), "Commercial Vantage", StringComparison.Ordinal));
+        if (vantage is null)
+            return;
+
+        vantage.Content = "Lenovo Vantage";
+        vantage.Tag = "ms-windows-store://search/?query=Lenovo%20Vantage";
     }
 
     private Button CreateHomeFeatureButton(string title, string iconKind, string detail, string tooltip)
