@@ -77,13 +77,10 @@ internal static class AdvancedWindowEnhancer
             Tag = "Touchpad",
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
         var panel = new TouchpadPanel
         {
-            MaxWidth = 1040,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(0)
         };
         panel.Initialize(app);
@@ -143,13 +140,10 @@ internal static class AdvancedWindowEnhancer
             Tag = "Sensors",
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
         var panel = new SensorsPanel
         {
-            MaxWidth = 1040,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(0)
         };
         scroll.Content = panel;
