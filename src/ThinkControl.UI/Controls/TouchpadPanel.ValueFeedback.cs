@@ -222,7 +222,7 @@ public partial class TouchpadPanel
             : $"{current} · {signed} {unit}";
     }
 
-    private static string FormatDefault(double value, Slider slider)
+    private string FormatDefault(double value, Slider slider)
     {
         if (ReferenceEquals(slider, SensitivitySlider))
             return $"{value:0.00}×";
