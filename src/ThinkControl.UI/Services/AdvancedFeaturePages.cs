@@ -21,9 +21,8 @@ internal static class AdvancedFeaturePages
         ReplacePerformance(window, app);
         ReplaceFans(window, app);
         AddAudio(window, app);
-        // AdvancedWindow.UiConsistency is the single owner of page width. Keeping
-        // a second SizeChanged handler here previously reintroduced right-edge
-        // clipping after the scrollbar consumed part of the viewport.
+        // AdvancedWindow.UiConsistency is the single owner of page width and
+        // horizontal placement for both static and dynamic Advanced pages.
     }
 
     internal static void SelectAudio(AdvancedWindow window)
@@ -39,14 +38,11 @@ internal static class AdvancedFeaturePages
         var panel = new PerformancePanel
         {
             DataContext = window.DataContext,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            MaxWidth = 1040,
             Margin = new Thickness(0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
         scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
     }
 
     private static void ReplaceFans(AdvancedWindow window, App app)
@@ -56,14 +52,11 @@ internal static class AdvancedFeaturePages
         var panel = new FansPanel
         {
             DataContext = window.DataContext,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            MaxWidth = 1040,
             Margin = new Thickness(0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
         scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
     }
 
     private static void AddAudio(AdvancedWindow window, App app)
@@ -102,14 +95,11 @@ internal static class AdvancedFeaturePages
             Tag = "Audio",
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Left
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
         };
         var panel = new AudioPanel
         {
             DataContext = window.DataContext,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            MaxWidth = 1040,
             Margin = new Thickness(0)
         };
         panel.Initialize(app);
