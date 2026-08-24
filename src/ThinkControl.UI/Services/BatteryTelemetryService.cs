@@ -22,8 +22,8 @@ public sealed record BatteryTelemetrySnapshot(
 /// Reads Windows battery telemetry and turns the noisy charge/discharge rate into a
 /// deliberately slow-moving estimate. Current-session data stays dominant; compact
 /// historical charge/discharge priors only stabilize the first few minutes.
-/// Slow-changing WMI classes are cached so the 2-second UI refresh does not create
-/// needless system-wide WMI work.
+/// Slow-changing WMI classes are cached so the UI refresh does not create needless
+/// system-wide WMI work.
 /// </summary>
 public sealed class BatteryTelemetryService
 {
@@ -31,6 +31,7 @@ public sealed class BatteryTelemetryService
     private const int CapacityWindowSize = 150;
     private const int MinEtaPowerSamples = 8;
     private const double EarlyChargingPowerFloorWatts = 3.0;
+    private static readonly TimeSpan HotSampleInterval = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan PowerHalfLife = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan EtaHalfLife = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan EtaWarmup = TimeSpan.FromSeconds(18);
@@ -53,6 +54,8 @@ public sealed class BatteryTelemetryService
     private double? _historicalChargePowerWatts;
     private bool _lastCharging;
     private bool _lastDischarging;
+    private BatteryTelemetrySnapshot? _cachedSnapshot;
+    private DateTimeOffset _cachedSnapshotAt = DateTimeOffset.MinValue;
 
     private DateTimeOffset _lastStaticInfoRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastTemperatureRead = DateTimeOffset.MinValue;
@@ -76,6 +79,14 @@ public sealed class BatteryTelemetryService
     {
         lock (_gate)
         {
+            DateTimeOffset requestedAt = DateTimeOffset.UtcNow;
+            if (_cachedSnapshot is not null && requestedAt - _cachedSnapshotAt < HotSampleInterval)
+                return _cachedSnapshot;
+
+            // BatteryStatus is a real root\wmi query. Sampling it multiple times per
+            // second (or once from every page-local timer) can consume measurable
+            // kernel/WMI CPU on some Lenovo firmware. One five-second owner is still
+            // much faster than battery percentage can meaningfully change.
             RawBattery raw = ReadRaw();
             DateTimeOffset now = DateTimeOffset.UtcNow;
             double? etaToFull = null;
@@ -107,7 +118,7 @@ public sealed class BatteryTelemetryService
                 double median = Median(_powerWindow);
                 double dtSeconds = _lastSampleAt.HasValue
                     ? Math.Clamp((now - _lastSampleAt.Value).TotalSeconds, 0.25, 15)
-                    : 2;
+                    : HotSampleInterval.TotalSeconds;
                 double alphaPower = EwmaAlpha(dtSeconds, PowerHalfLife.TotalSeconds);
                 _smoothedPowerWatts = _smoothedPowerWatts.HasValue
                     ? Lerp(_smoothedPowerWatts.Value, median, alphaPower)
@@ -135,7 +146,7 @@ public sealed class BatteryTelemetryService
                 {
                     double dtSecondsEta = _lastSampleAt.HasValue
                         ? Math.Clamp((now - _lastSampleAt.Value).TotalSeconds, 0.25, 15)
-                        : 2;
+                        : HotSampleInterval.TotalSeconds;
                     double alphaEta = EwmaAlpha(dtSecondsEta, EtaHalfLife.TotalSeconds);
 
                     double bounded = rawEtaSeconds.Value;
@@ -164,7 +175,7 @@ public sealed class BatteryTelemetryService
 
             _lastSampleAt = now;
 
-            return new BatteryTelemetrySnapshot(
+            _cachedSnapshot = new BatteryTelemetrySnapshot(
                 raw.Percent,
                 raw.OnAc,
                 raw.Charging,
@@ -179,6 +190,8 @@ public sealed class BatteryTelemetryService
                 etaToFull.HasValue ? TimeSpan.FromSeconds(etaToFull.Value) : null,
                 etaRemaining.HasValue ? TimeSpan.FromSeconds(etaRemaining.Value) : null,
                 raw.Source);
+            _cachedSnapshotAt = now;
+            return _cachedSnapshot;
         }
     }
 
@@ -241,8 +254,6 @@ public sealed class BatteryTelemetryService
         double effectivePower = Lerp(_smoothedPowerWatts.Value, robustWindowPower, 0.55);
         double? historical = BatteryPowerHistoryPriors.TypicalDischargePowerWatts;
 
-        // Workload changes can make discharge vary quickly. History therefore has
-        // less weight than for charging and is always clamped to the current session.
         if (historical is > 0.4 && elapsed < TimeSpan.FromMinutes(8))
         {
             double boundedHistory = Math.Clamp(historical.Value, effectivePower * 0.55, effectivePower * 1.75);
@@ -393,8 +404,6 @@ public sealed class BatteryTelemetryService
             bool fullValid = full is > 0;
             bool designValid = design is > 0;
 
-            // Never replace a known-good static value with null because a WMI class
-            // transiently disappeared during startup/resume/provider reset.
             if (fullValid)
                 _cachedFullCapacityMwh = full;
             if (designValid)
@@ -412,9 +421,6 @@ public sealed class BatteryTelemetryService
                 TimeSpan retry = TimeSpan.FromSeconds(Math.Min(
                     StaticBatteryInfoRefreshInterval.TotalSeconds,
                     StaticBatteryInfoMinimumRetry.TotalSeconds * multiplier));
-
-                // Encode the shorter retry in the existing refresh timestamp so the
-                // hot 2-second path remains allocation-free and needs no extra timer.
                 _lastStaticInfoRead = now - StaticBatteryInfoRefreshInterval + retry;
             }
         }
@@ -438,9 +444,6 @@ public sealed class BatteryTelemetryService
             }
             else
             {
-                // A brief WMI/provider miss is common around resume. Keep the last
-                // real battery temperature only for a short grace period; after that
-                // report it as unavailable rather than presenting stale telemetry as live.
                 ExpireCachedTemperatureIfStale(now);
             }
         }
