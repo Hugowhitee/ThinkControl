@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfProgressBar = System.Windows.Controls.ProgressBar;
@@ -97,10 +96,10 @@ public partial class AdvancedWindow
         var check = new TextBlock
         {
             Text = "✓",
-            FontFamily = new FontFamily("Segoe UI Symbol"),
+            FontFamily = new System.Windows.Media.FontFamily("Segoe UI Symbol"),
             FontSize = 11,
             FontWeight = FontWeights.SemiBold,
-            Foreground = Brushes.White,
+            Foreground = System.Windows.Media.Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             TextAlignment = TextAlignment.Center,
