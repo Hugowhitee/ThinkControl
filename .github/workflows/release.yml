@@ -137,6 +137,19 @@ jobs:
       - name: Build
         run: dotnet build ThinkControl.slnx -c Release --no-restore
 
+      - name: Render release previews
+        if: env.VERSIONED_RELEASE == '1'
+        shell: pwsh
+        run: |
+          $output = Join-Path $PWD "artifacts\release-previews"
+          dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj --configuration Release --no-build -- $output
+          if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
+          foreach ($name in @('compact-dark.png', 'advanced-home.png', 'advanced-touchpad.png', 'advanced-sensors.png')) {
+            $path = Join-Path $output $name
+            if (-not (Test-Path $path)) { throw "Missing release preview: $name" }
+            if ((Get-Item $path).Length -lt 5000) { throw "Release preview is unexpectedly small: $name" }
+          }
+
       - name: Publish UI
         shell: pwsh
         run: |
@@ -392,11 +405,16 @@ jobs:
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
           $payload = Get-Item $env:PAYLOAD_PATH
+          $previewRoot = "artifacts/release-previews"
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,
             $payload.FullName,
             'artifacts/installer/SHA256SUMS.txt',
+            (Join-Path $previewRoot 'compact-dark.png'),
+            (Join-Path $previewRoot 'advanced-home.png'),
+            (Join-Path $previewRoot 'advanced-touchpad.png'),
+            (Join-Path $previewRoot 'advanced-sensors.png'),
             '--title', "ThinkControl v$env:APP_VERSION",
             '--generate-notes'
           )
