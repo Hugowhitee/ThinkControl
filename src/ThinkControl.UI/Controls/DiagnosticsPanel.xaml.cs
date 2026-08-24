@@ -40,10 +40,19 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                 ? last.ToLocalTime().ToString("g")
                 : "—";
             UploadStatusText.Text = "User initiated only";
+
+            bool useful = DeviceSupportReportService.HasUsefulDiscovery(app.State);
+            ShareDeviceButton.IsEnabled = consent == DiagnosticsConsent.Enabled && useful;
+            DiscoveryReadinessText.Text = useful
+                ? "Useful discovery found · " + DeviceSupportReportService.DiscoverySummary(app.State) + " · review before sharing"
+                : "Still learning · run Hardware setup / Retry detection first; Share unlocks when ThinkControl has something useful for device support.";
+            DiscoveryReadinessText.Foreground = (System.Windows.Media.Brush)FindResource(useful ? "Tc.Success" : "Tc.TextMuted");
+
             StatusText.Text = consent switch
             {
-                DiagnosticsConsent.Enabled => "Optional support sharing is enabled. Local events are redacted and nothing is uploaded automatically; Share device report opens a reviewable GitHub issue draft.",
-                DiagnosticsConsent.Disabled => "Optional compatibility sharing is disabled. The bounded local troubleshooting history is never uploaded automatically and can be deleted here at any time.",
+                DiagnosticsConsent.Enabled when useful => "Ready to contribute. The report contains hardware model, provider/capability results and sanitized sensor types only. GitHub opens as a draft; you review it before submitting.",
+                DiagnosticsConsent.Enabled => "Compatibility learning is on, but ThinkControl has not found useful new provider information yet. Nothing is sent and Share stays disabled until it has.",
+                DiagnosticsConsent.Disabled => "Compatibility sharing is disabled. The bounded local troubleshooting history is never uploaded automatically and can be deleted here at any time.",
                 _ => "Local compatibility events are not uploaded automatically. Sharing always requires an explicit action."
             };
         }
@@ -82,12 +91,18 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             return;
         }
 
+        if (!DeviceSupportReportService.HasUsefulDiscovery(app.State))
+        {
+            StatusText.Text = "ThinkControl is still learning this device. Run Hardware setup / Retry detection first; sharing becomes available after a useful provider, sensor or verified capability is found.";
+            return;
+        }
+
         try
         {
             SystemStatusSnapshot system = app.SystemStatusService.Read();
             string url = DeviceSupportReportService.BuildIssueUrl(app.State, system);
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            StatusText.Text = "Opened a pre-filled hardware-only GitHub report. Review it before pressing Submit new issue.";
+            StatusText.Text = "Opened a pre-filled hardware-only GitHub report. Review it before pressing Submit new issue — sharing it helps ThinkControl add reliable support for this hardware to future releases.";
         }
         catch
         {
