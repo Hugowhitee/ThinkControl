@@ -48,9 +48,9 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             // rectangle. Keep the silhouette broad even inside the nav's 15×15 box.
             double shellWidth = width * 0.94;
             double shellHeight = height * 0.67;
-            double left = (width - shellWidth) / 2d;
-            double top = (height - shellHeight) / 2d;
-            Rect shell = new(left, top, shellWidth, shellHeight);
+            double touchLeft = (width - shellWidth) / 2d;
+            double touchTop = (height - shellHeight) / 2d;
+            Rect shell = new(touchLeft, touchTop, shellWidth, shellHeight);
             drawingContext.DrawRoundedRectangle(null, pen, shell, 2.0, 2.0);
 
             double seamY = shell.Bottom - shell.Height * 0.23;
