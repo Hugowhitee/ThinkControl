@@ -8,13 +8,17 @@ namespace ThinkControl.UI.Services;
 internal sealed record HardwareSetupStatus(
     bool ServiceInstalled,
     bool ServiceRunning,
+    bool ServiceReachable,
     bool LowLevelAccessRelevant,
     bool LowLevelAccessInstalled,
     bool LowLevelAccessRunning,
     string ServiceDetail,
     string LowLevelAccessDetail)
 {
-    internal bool NeedsAttention => !ServiceRunning || (LowLevelAccessRelevant && !LowLevelAccessInstalled);
+    internal bool NeedsAttention =>
+        !ServiceRunning ||
+        !ServiceReachable ||
+        (LowLevelAccessRelevant && !LowLevelAccessInstalled);
 }
 
 internal sealed record HardwareSetupResult(bool Success, bool RestartRequired, string Message);
@@ -32,7 +36,10 @@ internal sealed class HardwareSetupService
         Timeout = TimeSpan.FromMinutes(3)
     };
 
-    internal async Task<HardwareSetupStatus> ReadStatusAsync(string? machineType, bool sensorProviderNeeded = false)
+    internal async Task<HardwareSetupStatus> ReadStatusAsync(
+        string? machineType,
+        bool sensorProviderNeeded = false,
+        bool serviceReachable = false)
     {
         ServiceQuery service = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
         bool verifiedWriteProfile = IsVerifiedEcProfile(machineType);
@@ -48,22 +55,29 @@ internal sealed class HardwareSetupService
         string lowLevelDetail = !lowLevelRelevant
             ? "Not currently required by detected capabilities"
             : pawnIo.Running
-                ? "PawnIO installed · driver active"
+                ? "Installed · driver active · provider access can be probed"
                 : pawnIo.Exists
-                    ? "PawnIO installed · demand-start driver will activate when LibreHardwareMonitor opens the provider"
+                    ? "Installed · demand-start driver idle until LibreHardwareMonitor or the verified EC provider opens it"
                     : verifiedWriteProfile
-                        ? "PawnIO is missing · install it for X9 sensors and the verified EC fan provider"
-                        : "PawnIO is missing · install it for additional LibreHardwareMonitor sensor discovery";
+                        ? "Missing · required for X9 sensor discovery and the verified EC fan provider"
+                        : "Missing · install it for additional LibreHardwareMonitor sensor discovery";
+
+        string serviceDetail = service.Running
+            ? serviceReachable
+                ? "Running · ThinkControl app connection ready"
+                : "Running in Windows · app connection is not responding"
+            : service.Exists
+                ? "Installed but not running"
+                : "Not registered";
 
         return new HardwareSetupStatus(
             ServiceInstalled: service.Exists,
             ServiceRunning: service.Running,
+            ServiceReachable: service.Running && serviceReachable,
             LowLevelAccessRelevant: lowLevelRelevant,
             LowLevelAccessInstalled: pawnIoInstalled,
             LowLevelAccessRunning: pawnIo.Running,
-            ServiceDetail: service.Running
-                ? "Running"
-                : service.Exists ? "Installed but not running" : "Not registered",
+            ServiceDetail: serviceDetail,
             LowLevelAccessDetail: lowLevelDetail);
     }
 
@@ -79,6 +93,8 @@ internal sealed class HardwareSetupService
 
         string escapedExe = serviceExe.Replace("\"", "\"\"");
         string command =
+            $"sc.exe stop {ServiceName} >nul 2>&1 & " +
+            "timeout /t 1 /nobreak >nul 2>&1 & " +
             $"sc.exe create {ServiceName} binPath= \"\\\"{escapedExe}\\\"\" start= auto DisplayName= \"ThinkControl Hardware Service\" >nul 2>&1 & " +
             $"sc.exe config {ServiceName} binPath= \"\\\"{escapedExe}\\\"\" start= auto DisplayName= \"ThinkControl Hardware Service\" >nul 2>&1 & " +
             $"sc.exe failure {ServiceName} reset= 86400 actions= restart/5000 >nul 2>&1 & " +
@@ -101,7 +117,7 @@ internal sealed class HardwareSetupService
             await Task.Delay(700).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
             return after.Running
-                ? new(true, false, "ThinkControl hardware service is running.")
+                ? new(true, false, "ThinkControl hardware service was restarted. ThinkControl will verify the app connection and providers next.")
                 : new(false, false, "The hardware service is still not running. Reinstall ThinkControl or check Windows Services for ThinkControl Hardware Service.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
