@@ -41,10 +41,20 @@ public sealed class HardwareServiceClient
     {
         // When the Windows service is actually stopped, repeatedly creating a named
         // pipe client every UI refresh just burns kernel time and cannot make the
-        // service recover. A user action (repair/reinstall) or the bounded retry
-        // below is what should re-establish the connection.
-        if (_lastValidStatus is null && DateTimeOffset.UtcNow < _offlineRetryAfter)
+        // service recover. Preserve a very recent good snapshot for a short grace
+        // period, but otherwise wait for the bounded retry or an explicit repair.
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (now < _offlineRetryAfter)
+        {
+            if (_lastValidStatus is not null && now - _lastValidStatusAt <= LastKnownGoodGrace)
+            {
+                return _lastValidStatus with
+                {
+                    Error = "Hardware service response was briefly delayed; showing the last known good snapshot."
+                };
+            }
             return null;
+        }
 
         ServiceRequest request = new(ThinkControlProtocol.Version, "GetStatus");
         ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 900).ConfigureAwait(false);
@@ -69,14 +79,12 @@ public sealed class HardwareServiceClient
                 };
             }
 
-            // SCM Running / pipe reachable is a different state from provider-ready.
-            // Returning null here made the app call a healthy service "offline" while
-            // hardware backends were still initializing.
             return OnlineDiscoveryResponse();
         }
 
-        _offlineRetryAfter = DateTimeOffset.UtcNow + OfflineRetryInterval;
-        if (_lastValidStatus is not null && DateTimeOffset.UtcNow - _lastValidStatusAt <= LastKnownGoodGrace)
+        now = DateTimeOffset.UtcNow;
+        _offlineRetryAfter = now + OfflineRetryInterval;
+        if (_lastValidStatus is not null && now - _lastValidStatusAt <= LastKnownGoodGrace)
         {
             return _lastValidStatus with
             {
