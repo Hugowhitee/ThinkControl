@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows.Automation;
@@ -10,13 +11,17 @@ namespace ThinkControl.UI.Services;
 public sealed record DolbyAudioStatus(
     bool DolbyAccessInstalled,
     bool DaxBackendDetected,
-    string Detail);
+    string Detail,
+    bool DirectApiAvailable = false,
+    string? ActiveProfile = null,
+    string? ActiveSubProfile = null);
 
 public sealed record DolbyProfileResult(bool Success, string Detail);
 
 public sealed class DolbyAudioService
 {
     public static readonly IReadOnlyList<string> OfficialProfiles = ["Dynamic", "Movie", "Music", "Game", "Voice"];
+    public static readonly IReadOnlyList<string> GameSubProfiles = ["FPS", "Racing", "RTS", "RPG"];
 
     private const string AppUserModelId = "DolbyLaboratories.DolbyAccess_rz1tebttyb220!App";
     private const string StoreUri = "ms-windows-store://pdp/?ProductId=9N0866FS04W8";
@@ -27,14 +32,16 @@ public sealed class DolbyAudioService
     {
         bool access = IsDolbyAccessInstalled();
         bool dax = IsKnownDaxBackendRegistered();
-        string detail = (access, dax) switch
+        bool direct = TryReadDirectState(out string? activeProfile, out string? activeSubProfile);
+        string detail = (access, dax, direct) switch
         {
-            (true, true) => "Dolby Access and a Dolby DAX backend are installed.",
-            (true, false) => "Dolby Access is installed. The active OEM Dolby backend will be verified when a profile is applied.",
-            (false, true) => "Dolby processing is present, but Dolby Access is not installed.",
+            (_, true, true) => "Dolby DAX direct control is available; profile changes do not need to open Dolby Access.",
+            (true, true, false) => "Dolby DAX is installed. Direct control is not exposed by this driver, so main profiles can use the Dolby Access fallback.",
+            (true, false, false) => "Dolby Access is installed. The OEM DAX backend will be verified when a profile is applied.",
+            (false, true, false) => "Dolby processing is present, but Dolby Access is not installed and this DAX build does not expose direct automation.",
             _ => "Dolby Access is not installed. Lenovo's audio driver may also be required for Dolby Atmos processing."
         };
-        return new DolbyAudioStatus(access, dax, detail);
+        return new DolbyAudioStatus(access, dax, detail, direct, activeProfile, activeSubProfile);
     }
 
     public Task<DolbyProfileResult> SetProfileAsync(string profile, CancellationToken cancellationToken = default)
@@ -42,6 +49,13 @@ public sealed class DolbyAudioService
         if (!OfficialProfiles.Contains(profile, StringComparer.OrdinalIgnoreCase))
             return Task.FromResult(new DolbyProfileResult(false, "Unsupported Dolby profile."));
         return Task.Run(() => SetProfile(profile, cancellationToken), cancellationToken);
+    }
+
+    public Task<DolbyProfileResult> SetSubProfileAsync(string subProfile, CancellationToken cancellationToken = default)
+    {
+        if (!GameSubProfiles.Contains(subProfile, StringComparer.OrdinalIgnoreCase))
+            return Task.FromResult(new DolbyProfileResult(false, "Unsupported Dolby subprofile."));
+        return Task.Run(() => SetDirectSubProfile(subProfile), cancellationToken);
     }
 
     public bool OpenDolbyAccess()
@@ -73,9 +87,13 @@ public sealed class DolbyAudioService
 
     private DolbyProfileResult SetProfile(string profile, CancellationToken cancellationToken)
     {
+        DolbyProfileResult direct = SetDirectProfile(profile);
+        if (direct.Success)
+            return direct;
+
         DolbyAudioStatus status = Probe();
         if (!status.DolbyAccessInstalled)
-            return new DolbyProfileResult(false, "Dolby Access is not installed.");
+            return new DolbyProfileResult(false, direct.Detail + " Dolby Access is not installed for the safe fallback.");
 
         IntPtr window = FindDolbyWindow();
         bool launched = window == IntPtr.Zero;
@@ -98,8 +116,6 @@ public sealed class DolbyAudioService
             if (root is null)
                 return new DolbyProfileResult(false, "Dolby Access UI could not be inspected.");
 
-            // Dolby Access commonly keeps the Atmos profiles on its Settings page.
-            // Invoking Settings is harmless when the profile controls are already visible.
             AutomationElement? settings = FindByName(root, "Settings");
             if (settings is not null)
             {
@@ -124,15 +140,11 @@ public sealed class DolbyAudioService
 
             Thread.Sleep(300);
             bool? selected = TryReadSelected(target);
-            string verified = selected == true
-                ? "selection read back"
-                : selected == false
-                    ? "selection did not read back"
-                    : "selection invoked; this Dolby UI exposes no selection readback";
             if (selected == false)
                 return new DolbyProfileResult(false, $"Dolby Access did not confirm {profile}.");
 
-            return new DolbyProfileResult(true, $"Dolby Atmos · {profile} · {verified}.");
+            string verified = selected == true ? "selection read back" : "selection invoked";
+            return new DolbyProfileResult(true, $"Dolby Atmos · {profile} · {verified} via safe fallback.");
         }
         catch (OperationCanceledException)
         {
@@ -153,6 +165,185 @@ public sealed class DolbyAudioService
         }
     }
 
+    private static DolbyProfileResult SetDirectProfile(string profile)
+    {
+        if (!TryCreateDaxObject(out object? dax, out string? reason))
+            return new DolbyProfileResult(false, reason ?? "Dolby DAX direct API is unavailable.");
+
+        try
+        {
+            if (!TryInvokeDirectSetter(dax, "SetActiveProfile", profile, out string? error))
+                return new DolbyProfileResult(false, error ?? "This Dolby DAX build does not accept named direct profile selection.");
+
+            Thread.Sleep(120);
+            if (TryInvokeDirectGetter(dax, "GetActiveProfile", out string? readBack) &&
+                !string.IsNullOrWhiteSpace(readBack) &&
+                !ProfileMatches(readBack, profile))
+            {
+                return new DolbyProfileResult(false, $"Dolby DAX did not verify {profile}; it reported '{readBack}'.");
+            }
+
+            return new DolbyProfileResult(true, $"Dolby Atmos · {profile} · applied through the direct DAX backend.");
+        }
+        finally
+        {
+            ReleaseCom(dax);
+        }
+    }
+
+    private static DolbyProfileResult SetDirectSubProfile(string subProfile)
+    {
+        if (!TryCreateDaxObject(out object? dax, out string? reason))
+            return new DolbyProfileResult(false, reason ?? "Dolby DAX direct API is unavailable.");
+
+        try
+        {
+            if (!TryInvokeDirectSetter(dax, "SetActiveSubProfile", subProfile, out string? error))
+                return new DolbyProfileResult(false, error ?? "This Dolby DAX build does not expose named subprofile control.");
+
+            Thread.Sleep(120);
+            if (TryInvokeDirectGetter(dax, "GetActiveSubProfile", out string? readBack) &&
+                !string.IsNullOrWhiteSpace(readBack) &&
+                !ProfileMatches(readBack, subProfile))
+            {
+                return new DolbyProfileResult(false, $"Dolby DAX did not verify {subProfile}; it reported '{readBack}'.");
+            }
+
+            return new DolbyProfileResult(true, $"Dolby Game · {subProfile} · applied directly without opening Dolby Access.");
+        }
+        finally
+        {
+            ReleaseCom(dax);
+        }
+    }
+
+    private static bool TryReadDirectState(out string? profile, out string? subProfile)
+    {
+        profile = null;
+        subProfile = null;
+        if (!TryCreateDaxObject(out object? dax, out _))
+            return false;
+
+        try
+        {
+            bool profileReadable = TryInvokeDirectGetter(dax, "GetActiveProfile", out profile);
+            bool subReadable = TryInvokeDirectGetter(dax, "GetActiveSubProfile", out subProfile);
+            return profileReadable || subReadable;
+        }
+        finally
+        {
+            ReleaseCom(dax);
+        }
+    }
+
+    private static bool TryCreateDaxObject(out object? instance, out string? reason)
+    {
+        instance = null;
+        reason = null;
+        try
+        {
+            Type? type = Type.GetTypeFromCLSID(Guid.Parse(DaxClsid), throwOnError: false);
+            if (type is null)
+            {
+                reason = "Dolby DAX COM class is not registered.";
+                return false;
+            }
+            instance = Activator.CreateInstance(type);
+            if (instance is null)
+            {
+                reason = "Dolby DAX COM class could not be activated.";
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            reason = $"Dolby DAX direct API is unavailable: {ex.Message}";
+            return false;
+        }
+    }
+
+    private static bool TryInvokeDirectSetter(object instance, string method, string value, out string? error)
+    {
+        error = null;
+        try
+        {
+            instance.GetType().InvokeMember(
+                method,
+                BindingFlags.InvokeMethod,
+                binder: null,
+                target: instance,
+                args: [value],
+                culture: System.Globalization.CultureInfo.InvariantCulture);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Dolby DAX {method} is not available as a named automation method: {Unwrap(ex).Message}";
+            return false;
+        }
+    }
+
+    private static bool TryInvokeDirectGetter(object instance, string method, out string? value)
+    {
+        value = null;
+        try
+        {
+            object? result = instance.GetType().InvokeMember(
+                method,
+                BindingFlags.InvokeMethod,
+                binder: null,
+                target: instance,
+                args: null,
+                culture: System.Globalization.CultureInfo.InvariantCulture);
+            if (result is not null)
+                value = Convert.ToString(result, System.Globalization.CultureInfo.InvariantCulture);
+            return result is not null;
+        }
+        catch
+        {
+            // Some COM type libraries model getters as HRESULT GetX([out] value).
+        }
+
+        foreach (object seed in new object[] { string.Empty, 0 })
+        {
+            try
+            {
+                object?[] args = [seed];
+                object? result = instance.GetType().InvokeMember(
+                    method,
+                    BindingFlags.InvokeMethod,
+                    binder: null,
+                    target: instance,
+                    args: args,
+                    culture: System.Globalization.CultureInfo.InvariantCulture);
+                object? read = args[0] ?? result;
+                if (read is not null)
+                    value = Convert.ToString(read, System.Globalization.CultureInfo.InvariantCulture);
+                return read is not null;
+            }
+            catch
+            {
+            }
+        }
+        return false;
+    }
+
+    private static bool ProfileMatches(string reported, string requested) =>
+        reported.Contains(requested, StringComparison.OrdinalIgnoreCase) ||
+        requested.Contains(reported, StringComparison.OrdinalIgnoreCase);
+
+    private static Exception Unwrap(Exception ex) => ex is TargetInvocationException { InnerException: not null } invocation
+        ? invocation.InnerException
+        : ex;
+
+    private static void ReleaseCom(object? instance)
+    {
+        if (instance is null || !Marshal.IsComObject(instance))
+            return;
+        try { Marshal.FinalReleaseComObject(instance); } catch { }
+    }
+
     private static bool IsDolbyAccessInstalled()
     {
         try
@@ -165,8 +356,6 @@ public sealed class DolbyAudioService
         catch
         {
         }
-
-        // The AUMID may still work even if Repository visibility is restricted.
         return FindDolbyWindow() != IntPtr.Zero;
     }
 
