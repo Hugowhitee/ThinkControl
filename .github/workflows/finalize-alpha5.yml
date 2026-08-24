@@ -1,0 +1,143 @@
+name: Finalize alpha.5 release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/finalize-alpha5.yml
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: windows-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build and render release screenshots
+        shell: pwsh
+        run: |
+          dotnet restore ThinkControl.slnx
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
+          dotnet build ThinkControl.slnx --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+
+          $output = Join-Path $PWD "artifacts\release-screenshots"
+          dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj `
+            --configuration Release `
+            --no-build `
+            -- $output
+          if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
+
+          foreach ($name in @('compact-dark.png', 'advanced-touchpad.png', 'advanced-fans.png')) {
+            $path = Join-Path $output $name
+            if (-not (Test-Path $path)) { throw "Missing release screenshot: $name" }
+            if ((Get-Item $path).Length -lt 5000) { throw "Release screenshot too small: $name" }
+          }
+
+      - name: Wait for release and publish screenshots
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'v0.1.0-alpha.5'
+          $deadline = (Get-Date).AddMinutes(10)
+          do {
+            gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 10
+          } while ((Get-Date) -lt $deadline)
+
+          gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) { throw "Release $tag did not become available in time" }
+
+          gh release upload $tag `
+            "artifacts/release-screenshots/compact-dark.png" `
+            "artifacts/release-screenshots/advanced-touchpad.png" `
+            "artifacts/release-screenshots/advanced-fans.png" `
+            --repo $env:GITHUB_REPOSITORY `
+            --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Screenshot upload failed" }
+
+      - name: Download and verify published release assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = 'v0.1.0-alpha.5'
+          $dir = Join-Path $PWD 'artifacts\published-release'
+          New-Item $dir -ItemType Directory -Force | Out-Null
+          gh release download $tag --repo $env:GITHUB_REPOSITORY --dir $dir
+          if ($LASTEXITCODE -ne 0) { throw "Could not download published release assets" }
+
+          $expected = @(
+            'ThinkControl-Setup-0.1.0-alpha.5.exe',
+            'ThinkControl-Payload-0.1.0-alpha.5.zip',
+            'SHA256SUMS.txt',
+            'compact-dark.png',
+            'advanced-touchpad.png',
+            'advanced-fans.png'
+          )
+          foreach ($name in $expected) {
+            if (-not (Test-Path (Join-Path $dir $name))) { throw "Published release is missing $name" }
+          }
+
+          $sumPath = Join-Path $dir 'SHA256SUMS.txt'
+          $sumLines = Get-Content $sumPath
+          foreach ($name in @('ThinkControl-Setup-0.1.0-alpha.5.exe', 'ThinkControl-Payload-0.1.0-alpha.5.zip')) {
+            $line = $sumLines | Where-Object { $_ -match [regex]::Escape($name) } | Select-Object -First 1
+            if (-not $line) { throw "SHA256SUMS.txt does not contain $name" }
+            $expectedHash = ($line -split '\s+')[0].Trim().ToLowerInvariant()
+            $actualHash = (Get-FileHash (Join-Path $dir $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($actualHash -ne $expectedHash) { throw "Published SHA-256 mismatch for $name" }
+          }
+
+          $assetJson = gh release view $tag --repo $env:GITHUB_REPOSITORY --json tagName,isPrerelease,assets,publishedAt
+          if ($LASTEXITCODE -ne 0) { throw "Could not read published release metadata" }
+          $release = $assetJson | ConvertFrom-Json
+          if ($release.tagName -ne $tag) { throw "Unexpected release tag" }
+          if ($release.isPrerelease -ne $true) { throw "Alpha release is not marked prerelease" }
+
+          $setupHash = (Get-FileHash (Join-Path $dir 'ThinkControl-Setup-0.1.0-alpha.5.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+          $payloadHash = (Get-FileHash (Join-Path $dir 'ThinkControl-Payload-0.1.0-alpha.5.zip') -Algorithm SHA256).Hash.ToLowerInvariant()
+          $assetNames = @($release.assets | ForEach-Object { $_.name } | Sort-Object)
+
+          New-Item 'docs/release-verification' -ItemType Directory -Force | Out-Null
+          @(
+            '# ThinkControl v0.1.0-alpha.5 release verification',
+            '',
+            "Verified at UTC: $([DateTimeOffset]::UtcNow.ToString('u'))",
+            "Tag: $($release.tagName)",
+            "Prerelease: $($release.isPrerelease)",
+            "Published at: $($release.publishedAt)",
+            '',
+            'Published assets:',
+            ($assetNames | ForEach-Object { "- $_" }),
+            '',
+            "Setup SHA-256: $setupHash",
+            "Payload SHA-256: $payloadHash",
+            '',
+            'Verification: release metadata readable; installer and payload downloaded from the release; SHA256SUMS matched both published binaries; README screenshots are published release assets.'
+          ) | Set-Content 'docs/release-verification/v0.1.0-alpha.5.md' -Encoding utf8
+
+      - name: Commit verification and remove one-shot workflow
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/release-verification/v0.1.0-alpha.5.md
+          git rm .github/workflows/finalize-alpha5.yml
+          git commit -m 'Record verified alpha.5 release assets'
+          if ($LASTEXITCODE -ne 0) { throw "Could not commit release verification" }
+          git push origin HEAD:main
+          if ($LASTEXITCODE -ne 0) { throw "Could not push release verification" }
