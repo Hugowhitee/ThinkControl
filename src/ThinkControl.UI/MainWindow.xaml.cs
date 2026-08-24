@@ -6,10 +6,13 @@ namespace ThinkControl.UI;
 
 public partial class MainWindow : Window
 {
+    private readonly App _app;
     private bool _forceClose;
+    private bool _initialShowHandled;
 
     public MainWindow(App app)
     {
+        _app = app;
         InitializeComponent();
         Dashboard.Initialize(app);
         Closing += OnClosing;
@@ -17,6 +20,13 @@ public partial class MainWindow : Window
 
     public void ShowNearTray(bool animate)
     {
+        if (!_initialShowHandled)
+        {
+            _initialShowHandled = true;
+            if (_app.ShouldSuppressInitialCompactLaunch)
+                return;
+        }
+
         Rect workArea = SystemParameters.WorkArea;
         Left = workArea.Right - Width - 14;
         Top = workArea.Bottom - Height - 14;
