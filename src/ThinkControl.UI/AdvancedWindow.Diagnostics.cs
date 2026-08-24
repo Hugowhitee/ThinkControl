@@ -18,6 +18,7 @@ public partial class AdvancedWindow
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
         ConfigureSupportCard();
         DiagnosticsPanelControl?.Refresh();
     }
@@ -35,6 +36,7 @@ public partial class AdvancedWindow
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
         ConfigureSupportCard();
         DiagnosticsPanelControl?.Refresh();
 
@@ -66,6 +68,7 @@ public partial class AdvancedWindow
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
         ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
@@ -81,6 +84,7 @@ public partial class AdvancedWindow
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
         ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectSensors(this);
     }
@@ -96,6 +100,7 @@ public partial class AdvancedWindow
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
         ConfigureSupportCard();
         AdvancedFeaturePages.SelectAudio(this);
     }
