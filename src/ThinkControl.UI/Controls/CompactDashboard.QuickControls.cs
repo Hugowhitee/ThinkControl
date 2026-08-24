@@ -1,7 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using ThinkControl.UI.Services;
-using WpfComboBox = System.Windows.Controls.ComboBox;
+using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI.Controls;
 
@@ -9,9 +10,9 @@ public partial class CompactDashboard
 {
     private bool _quickControlsAdded;
     private bool _syncingQuickControls;
-    private WpfComboBox? _quickPerformance;
-    private WpfComboBox? _quickRefresh;
-    private WpfComboBox? _quickKeyboard;
+    private WpfButton? _quickPerformance;
+    private WpfButton? _quickRefresh;
+    private WpfButton? _quickKeyboard;
 
     private void EnsureQuickControls()
     {
@@ -22,16 +23,23 @@ public partial class CompactDashboard
         if (links is null)
             return;
 
-        _quickPerformance = CreateQuickCombo(94);
-        _quickPerformance.ItemsSource = new[] { "Quiet", "Balanced", "Performance" };
-        _quickPerformance.SelectionChanged += QuickPerformance_SelectionChanged;
+        _quickPerformance = CreateQuickButton(104);
+        _quickPerformance.Click += (_, _) => OpenQuickMenu(
+            _quickPerformance,
+            new[] { "Quiet", "Balanced", "Performance" },
+            QuickPerformanceSelected);
 
-        _quickRefresh = CreateQuickCombo(82);
-        _quickRefresh.SelectionChanged += QuickRefresh_SelectionChanged;
+        _quickRefresh = CreateQuickButton(88);
+        _quickRefresh.Click += (_, _) => OpenQuickMenu(
+            _quickRefresh,
+            BuildRefreshOptions(),
+            QuickRefreshSelected);
 
-        _quickKeyboard = CreateQuickCombo(78);
-        _quickKeyboard.ItemsSource = new[] { "Off", "Low", "High", "Auto" };
-        _quickKeyboard.SelectionChanged += QuickKeyboard_SelectionChanged;
+        _quickKeyboard = CreateQuickButton(88);
+        _quickKeyboard.Click += (_, _) => OpenQuickMenu(
+            _quickKeyboard,
+            new[] { "Off", "Low", "High", "Auto" },
+            QuickKeyboardSelected);
 
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition());
@@ -52,24 +60,22 @@ public partial class CompactDashboard
         _quickControlsAdded = true;
     }
 
-    private WpfComboBox CreateQuickCombo(double width)
+    private WpfButton CreateQuickButton(double width)
     {
-        var combo = new WpfComboBox
+        var button = new WpfButton
         {
             Width = width,
             Height = 28,
             FontSize = 10.5,
-            Padding = new Thickness(6, 1, 4, 1),
-            BorderThickness = new Thickness(1),
-            HorizontalAlignment = HorizontalAlignment.Left
+            Padding = new Thickness(8, 2, 7, 2),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Style = TryFindResource("TcButton") as Style
         };
-        combo.SetResourceReference(Control.BackgroundProperty, "Tc.SurfaceAlt");
-        combo.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
-        combo.SetResourceReference(Control.BorderBrushProperty, "Tc.BorderStrong");
-        return combo;
+        return button;
     }
 
-    private FrameworkElement CreateQuickColumn(string label, WpfComboBox combo, int column)
+    private FrameworkElement CreateQuickColumn(string label, WpfButton button, int column)
     {
         var panel = new StackPanel
         {
@@ -83,9 +89,60 @@ public partial class CompactDashboard
         var title = new TextBlock { Text = label, FontSize = 9.5, Margin = new Thickness(1, 0, 0, 4) };
         title.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
         panel.Children.Add(title);
-        panel.Children.Add(combo);
+        panel.Children.Add(button);
         Grid.SetColumn(panel, column);
         return panel;
+    }
+
+    private void OpenQuickMenu(WpfButton button, IEnumerable<string> options, Action<string> selected)
+    {
+        if (_syncingQuickControls || _app is null || !button.IsEnabled)
+            return;
+
+        var menu = new ContextMenu
+        {
+            PlacementTarget = button,
+            Placement = PlacementMode.Bottom,
+            MinWidth = button.ActualWidth,
+            HasDropShadow = true
+        };
+        menu.SetResourceReference(ContextMenu.BackgroundProperty, "Tc.SurfaceAlt");
+        menu.SetResourceReference(ContextMenu.ForegroundProperty, "Tc.Text");
+        menu.SetResourceReference(ContextMenu.BorderBrushProperty, "Tc.BorderStrong");
+        menu.BorderThickness = new Thickness(1);
+        menu.Padding = new Thickness(4);
+
+        foreach (string option in options)
+        {
+            var item = new MenuItem
+            {
+                Header = option,
+                FontSize = 10.5,
+                Padding = new Thickness(9, 6, 12, 6),
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            item.SetResourceReference(MenuItem.BackgroundProperty, "Tc.SurfaceAlt");
+            item.SetResourceReference(MenuItem.ForegroundProperty, "Tc.Text");
+            item.Click += (_, _) => selected(option);
+            menu.Items.Add(item);
+        }
+
+        button.ContextMenu = menu;
+        menu.Closed += (_, _) => button.ContextMenu = null;
+        menu.IsOpen = true;
+    }
+
+    private IReadOnlyList<string> BuildRefreshOptions()
+    {
+        if (_app is null)
+            return new[] { "Auto" };
+
+        var values = new List<string> { "Auto" };
+        foreach (int hz in _app.DisplayService.GetSupportedRefreshRates().Where(hz => hz > 0).Distinct().OrderBy(hz => hz))
+            values.Add($"{hz} Hz");
+        if (_app.State.MaxRefreshHz > 0 && !values.Contains($"{_app.State.MaxRefreshHz} Hz", StringComparer.Ordinal))
+            values.Add($"{_app.State.MaxRefreshHz} Hz");
+        return values;
     }
 
     private void SyncQuickControls()
@@ -96,26 +153,22 @@ public partial class CompactDashboard
         _syncingQuickControls = true;
         try
         {
-            _quickPerformance.SelectedItem = _app.State.SelectedMode;
-
-            _quickRefresh.Items.Clear();
-            _quickRefresh.Items.Add("Auto");
-            if (_app.DisplayService.GetSupportedRefreshRates().Contains(60))
-                _quickRefresh.Items.Add("60 Hz");
-            if (_app.State.MaxRefreshHz > 0 && _app.State.MaxRefreshHz != 60)
-                _quickRefresh.Items.Add($"{_app.State.MaxRefreshHz} Hz");
-            _quickRefresh.SelectedItem = _app.State.RefreshAutoEnabled
+            _quickPerformance.Content = QuickButtonContent(_app.State.SelectedMode);
+            _quickRefresh.Content = QuickButtonContent(_app.State.RefreshAutoEnabled
                 ? "Auto"
-                : $"{_app.State.CurrentRefreshHz} Hz";
+                : _app.State.CurrentRefreshHz > 0 ? $"{_app.State.CurrentRefreshHz} Hz" : "Refresh");
 
             _quickKeyboard.IsEnabled = _app.State.CanKeyboardBacklight;
-            _quickKeyboard.SelectedItem = _app.State.KeyboardMode == "Auto"
+            string keyboard = _app.State.KeyboardMode == "Auto"
                 ? "Auto"
                 : _app.State.KeyboardStatus.Contains("Off", StringComparison.OrdinalIgnoreCase)
                     ? "Off"
                     : _app.State.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase)
                         ? "Low"
-                        : "High";
+                        : _app.State.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase)
+                            ? "High"
+                            : "Keyboard";
+            _quickKeyboard.Content = QuickButtonContent(keyboard);
         }
         finally
         {
@@ -123,36 +176,57 @@ public partial class CompactDashboard
         }
     }
 
-    private void QuickPerformance_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private static FrameworkElement QuickButtonContent(string value)
     {
-        if (_syncingQuickControls || _app is null || _quickPerformance?.SelectedItem is not string raw ||
-            !Enum.TryParse(raw, out ThinkControlPowerMode mode))
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var text = new TextBlock
         {
-            return;
-        }
+            Text = value,
+            FontSize = 10.5,
+            VerticalAlignment = VerticalAlignment.Center,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var chevron = new TextBlock
+        {
+            GridColumn = 1,
+            Text = "⌄",
+            FontSize = 10,
+            Margin = new Thickness(6, -1, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        chevron.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        grid.Children.Add(text);
+        Grid.SetColumn(chevron, 1);
+        grid.Children.Add(chevron);
+        return grid;
+    }
 
+    private void QuickPerformanceSelected(string raw)
+    {
+        if (_app is null || !Enum.TryParse(raw, out ThinkControlPowerMode mode))
+            return;
         if (!_app.SetPowerMode(mode))
             SyncQuickControls();
-    }
-
-    private void QuickRefresh_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_syncingQuickControls || _app is null || _quickRefresh?.SelectedItem is not string raw)
-            return;
-
-        if (raw == "Auto")
-        {
-            _app.EnableRefreshAuto();
-            return;
-        }
-
-        if (int.TryParse(raw.Split(' ')[0], out int hz) && !_app.SetRefresh(hz))
+        else
             SyncQuickControls();
     }
 
-    private async void QuickKeyboard_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void QuickRefreshSelected(string raw)
     {
-        if (_syncingQuickControls || _app is null || _quickKeyboard?.SelectedItem is not string raw)
+        if (_app is null)
+            return;
+        if (raw == "Auto")
+            _app.EnableRefreshAuto();
+        else if (int.TryParse(raw.Split(' ')[0], out int hz))
+            _app.SetRefresh(hz);
+        SyncQuickControls();
+    }
+
+    private async void QuickKeyboardSelected(string raw)
+    {
+        if (_app is null || _quickKeyboard is null)
             return;
 
         _quickKeyboard.IsEnabled = false;
