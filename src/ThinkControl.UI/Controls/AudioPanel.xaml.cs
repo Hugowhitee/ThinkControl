@@ -35,8 +35,6 @@ public partial class AudioPanel : UserControl
             : Visibility.Visible;
         OpenButton.IsEnabled = _status.DolbyAccessInstalled;
 
-        // Main profiles are available when either the direct DAX backend or the
-        // safe Dolby Access fallback can apply them. Subprofiles are direct-only.
         bool profileAvailable = _status.DirectApiAvailable || _status.DolbyAccessInstalled;
         DynamicProfile.IsEnabled = MovieProfile.IsEnabled = MusicProfile.IsEnabled =
             GameProfile.IsEnabled = VoiceProfile.IsEnabled = profileAvailable;
@@ -117,8 +115,6 @@ public partial class AudioPanel : UserControl
             return;
         }
 
-        // Game subprofiles have meaning only under the Game profile. Select Game
-        // first through the same verified direct/fallback profile path.
         string activeProfile = NormalizeKnownProfile(_status.ActiveProfile) ?? _app.UserSettings.Current.DolbyProfile;
         if (!string.Equals(activeProfile, "Game", StringComparison.OrdinalIgnoreCase))
         {
@@ -146,6 +142,24 @@ public partial class AudioPanel : UserControl
         }
 
         RefreshStatus();
+    }
+
+    private async void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || sender is not Button button)
+            return;
+
+        button.IsEnabled = false;
+        try
+        {
+            await _app.ResetAudioDefaultsAsync();
+            ActionStatusText.Text = "Audio preferences reset to Dynamic.";
+            RefreshStatus();
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
     }
 
     private void Install_Click(object sender, RoutedEventArgs e) => DolbyAudioService.OpenStore();
