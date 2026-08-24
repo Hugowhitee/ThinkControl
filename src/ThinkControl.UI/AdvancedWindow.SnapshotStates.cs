@@ -23,19 +23,19 @@ public partial class AdvancedWindow
         SheetMessage[] messages =
         [
             new(
-                "PawnIO needs repair",
+                "Low-level hardware access",
                 "PawnIO is installed, but the ThinkControl hardware service cannot open its device. Fans and low-level sensors remain firmware-managed until the device handshake succeeds.",
-                "Hardware setup",
-                SheetAction.HardwareSetup,
+                "Repair component",
+                SheetAction.HardwareRepair,
                 true),
             new(
-                "Sensors are unavailable",
+                "Sensors",
                 "LibreHardwareMonitor has not produced usable telemetry yet. Retry rebuilds the provider once after the low-level component is healthy.",
                 "Retry sensors",
                 SheetAction.RefreshProviders,
                 true),
             new(
-                "Keyboard control is unavailable",
+                "Keyboard",
                 "The active hardware provider has not produced a valid readback. ThinkControl will not send unverified keyboard writes.",
                 "Retry keyboard",
                 SheetAction.RefreshProviders,
