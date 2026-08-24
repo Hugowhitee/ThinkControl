@@ -52,6 +52,22 @@ internal sealed class TouchpadGestureService : IDisposable
         return started;
     }
 
+    internal void StopIfDisabled()
+    {
+        lock (_gate)
+        {
+            if (_disposed || _configuration.Enabled)
+                return;
+
+            GestureSignal? cancelled = _recognizer.CancelCurrent("Touchpad page inactive");
+            if (cancelled is not null)
+                CompleteSignal(cancelled);
+            _cursorGuard.Release();
+            _watchdog.Change(Timeout.Infinite, Timeout.Infinite);
+            _input.Stop();
+        }
+    }
+
     internal void UpdateConfiguration(TouchpadGestureConfiguration configuration)
     {
         lock (_gate)
@@ -96,10 +112,6 @@ internal sealed class TouchpadGestureService : IDisposable
             if (signal.Phase == GesturePhase.Claimed && _configuration.LockCursor)
                 _cursorGuard.CaptureAtCurrentPosition();
 
-            // Never alter the process/thread ShowCursor counter. Windows can keep
-            // that hidden state after a gesture ends, which made the pointer vanish
-            // when entering ThinkControl. Cursor locking is sufficient feedback for
-            // an active edge gesture and is always released by the existing watchdog.
             CompleteSignal(signal);
         }
     }
