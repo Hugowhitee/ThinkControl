@@ -5,6 +5,8 @@ using System.Windows.Media.Animation;
 using WpfButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfMouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
+using WpfMouseEventHandler = System.Windows.Input.MouseEventHandler;
+using WpfPoint = System.Windows.Point;
 
 namespace ThinkControl.UI.Services;
 
@@ -31,7 +33,7 @@ internal static class UiMotionService
         EventManager.RegisterClassHandler(
             typeof(WpfButtonBase),
             UIElement.MouseLeaveEvent,
-            new MouseEventHandler(OnLeave),
+            new WpfMouseEventHandler(OnLeave),
             handledEventsToo: true);
     }
 
@@ -75,7 +77,7 @@ internal static class UiMotionService
         {
             scale = new ScaleTransform(1, 1);
             button.RenderTransform = scale;
-            button.RenderTransformOrigin = new Point(0.5, 0.5);
+            button.RenderTransformOrigin = new WpfPoint(0.5, 0.5);
         }
         else
         {
