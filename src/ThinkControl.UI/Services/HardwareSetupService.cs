@@ -91,21 +91,35 @@ internal sealed class HardwareSetupService
         if (string.IsNullOrWhiteSpace(serviceExe) || !File.Exists(serviceExe))
             return new(false, false, "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the application payload.");
 
-        string escapedExe = serviceExe.Replace("\"", "\"\"");
-        string command =
-            $"sc.exe stop {ServiceName} >nul 2>&1 & " +
-            "timeout /t 1 /nobreak >nul 2>&1 & " +
-            $"sc.exe create {ServiceName} binPath= \"\\\"{escapedExe}\\\"\" start= auto DisplayName= \"ThinkControl Hardware Service\" >nul 2>&1 & " +
-            $"sc.exe config {ServiceName} binPath= \"\\\"{escapedExe}\\\"\" start= auto DisplayName= \"ThinkControl Hardware Service\" >nul 2>&1 & " +
-            $"sc.exe failure {ServiceName} reset= 86400 actions= restart/5000 >nul 2>&1 & " +
-            $"sc.exe start {ServiceName} >nul 2>&1";
+        string psName = ServiceName.Replace("'", "''");
+        string psExe = serviceExe.Replace("'", "''");
+        string script =
+            "$ErrorActionPreference='Stop';" +
+            $"$name='{psName}';$exe='{psExe}';" +
+            "$svc=Get-Service -Name $name -ErrorAction SilentlyContinue;" +
+            "if($null -ne $svc -and $svc.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Stopped){" +
+                "Stop-Service -Name $name -Force -ErrorAction Stop;" +
+                "$svc.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped,[TimeSpan]::FromSeconds(12));" +
+            "};" +
+            "$bin='\"'+$exe+'\"';" +
+            "if($null -eq $svc){" +
+                "& sc.exe create $name ('binPath= '+$bin) 'start= auto' 'DisplayName= ThinkControl Hardware Service' | Out-Null;" +
+                "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
+            "};" +
+            "& sc.exe config $name ('binPath= '+$bin) 'start= auto' 'DisplayName= ThinkControl Hardware Service' | Out-Null;" +
+            "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
+            "& sc.exe failure $name 'reset= 86400' 'actions= restart/5000' | Out-Null;" +
+            "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
+            "Start-Service -Name $name -ErrorAction Stop;" +
+            "$svc=Get-Service -Name $name -ErrorAction Stop;" +
+            "$svc.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromSeconds(10));";
 
         try
         {
             using Process? process = Process.Start(new ProcessStartInfo
             {
-                FileName = "cmd.exe",
-                Arguments = "/d /s /c \"" + command.Replace("\"", "\\\"") + "\"",
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + script.Replace("\"", "\\\"") + "\"",
                 UseShellExecute = true,
                 Verb = "runas",
                 WindowStyle = ProcessWindowStyle.Hidden
@@ -114,7 +128,10 @@ internal sealed class HardwareSetupService
                 return new(false, false, "Windows could not start the hardware service repair.");
 
             await process.WaitForExitAsync().ConfigureAwait(false);
-            await Task.Delay(700).ConfigureAwait(false);
+            if (process.ExitCode != 0)
+                return new(false, false, $"Hardware service repair returned exit code {process.ExitCode}. The existing installation was left for Windows to manage.");
+
+            await Task.Delay(500).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
             return after.Running
                 ? new(true, false, "ThinkControl hardware service was restarted. ThinkControl will verify the app connection and providers next.")
