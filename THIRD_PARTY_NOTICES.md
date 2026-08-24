@@ -26,7 +26,7 @@ Icon source: https://github.com/simple-icons/simple-icons
 
 License for the Simple Icons geometry: CC0-1.0
 
-ThinkControl uses the recognizable Buy Me a Coffee cup mark inside its support controls and the standard Buy Me a Coffee button in the README. Buy Me a Coffee and its marks are trademarks of their respective owner; their appearance in ThinkControl only identifies the external support link and does not imply endorsement.
+ThinkControl uses the recognizable Buy Me a Coffee cup mark inside its support controls and the standard Buy Me a Coffee button in the README. The controls only open the external Buy Me a Coffee support page in the user's browser. Buy Me a Coffee and its marks are trademarks of their respective owner; their appearance in ThinkControl only identifies that external support link and does not imply endorsement.
 
 ## EdgeSlide
 
