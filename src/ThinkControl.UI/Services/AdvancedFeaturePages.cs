@@ -15,17 +15,15 @@ internal static class AdvancedFeaturePages
     internal static void Ensure(AdvancedWindow window, App app)
     {
         if (window.Resources.Contains(EnhancedKey))
-        {
-            Resize(window);
             return;
-        }
         window.Resources[EnhancedKey] = true;
 
         ReplacePerformance(window, app);
         ReplaceFans(window, app);
         AddAudio(window, app);
-        window.SizeChanged += (_, _) => Resize(window);
-        Resize(window);
+        // AdvancedWindow.UiConsistency is the single owner of page width. Keeping
+        // a second SizeChanged handler here previously reintroduced right-edge
+        // clipping after the scrollbar consumed part of the viewport.
     }
 
     internal static void SelectAudio(AdvancedWindow window)
@@ -43,7 +41,7 @@ internal static class AdvancedFeaturePages
             DataContext = window.DataContext,
             HorizontalAlignment = HorizontalAlignment.Left,
             MaxWidth = 1040,
-            Margin = new Thickness(0, 0, 12, 0)
+            Margin = new Thickness(0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
@@ -60,7 +58,7 @@ internal static class AdvancedFeaturePages
             DataContext = window.DataContext,
             HorizontalAlignment = HorizontalAlignment.Left,
             MaxWidth = 1040,
-            Margin = new Thickness(0, 0, 12, 0)
+            Margin = new Thickness(0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
@@ -112,7 +110,7 @@ internal static class AdvancedFeaturePages
             DataContext = window.DataContext,
             HorizontalAlignment = HorizontalAlignment.Left,
             MaxWidth = 1040,
-            Margin = new Thickness(0, 0, 12, 0)
+            Margin = new Thickness(0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
@@ -136,29 +134,6 @@ internal static class AdvancedFeaturePages
             if (!ReferenceEquals(known, nav))
                 known.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
         }
-    }
-
-    private static void Resize(AdvancedWindow window)
-    {
-        double width = window.ActualWidth > 1 ? window.ActualWidth : window.Width;
-        double available = Math.Max(520, width - 224);
-        double pageWidth = Math.Min(1040, available);
-        if (window.FindName("PagePerformance") is ScrollViewer performance && performance.Content is FrameworkElement performanceContent)
-            ApplyWidth(performance, performanceContent, pageWidth);
-        if (window.FindName("PageFans") is ScrollViewer fans && fans.Content is FrameworkElement fansContent)
-            ApplyWidth(fans, fansContent, pageWidth);
-        if (window.Resources.Contains(AudioPageKey) && window.Resources[AudioPageKey] is ScrollViewer audio && audio.Content is FrameworkElement audioContent)
-            ApplyWidth(audio, audioContent, pageWidth);
-    }
-
-    private static void ApplyWidth(ScrollViewer scroll, FrameworkElement content, double width)
-    {
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
-        content.Width = width;
-        content.MinWidth = 0;
-        content.MaxWidth = 1040;
-        content.HorizontalAlignment = HorizontalAlignment.Left;
-        content.Margin = new Thickness(0, 0, 12, 0);
     }
 
     private static void CollapseKnownPages(AdvancedWindow window)
