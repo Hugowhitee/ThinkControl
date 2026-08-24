@@ -1,98 +1,126 @@
 # Device support
 
-This document describes compatibility for ThinkControl `v0.1.0-alpha.2`.
+This document describes compatibility for ThinkControl `v0.1.0-alpha.11`.
 
-ThinkControl evaluates support per capability. A family profile selects reasonable providers to probe, but it does not make every feature available on every model.
+ThinkControl is a general Windows laptop-control application. Support is evaluated **per capability and provider**, not by assuming every laptop from one brand or product family uses the same interface.
+
+The current physically reviewed low-level reference is the Lenovo ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`). That is the first verified model profile, not the long-term product boundary.
 
 ## Support levels
 
 ### Verified
 
-The relevant low-level profile is explicitly authorized for the hardware model. Current reference device:
+A low-level provider contract has been explicitly authorized and reviewed for the exact hardware scope. Current reference:
 
 - Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
 ### Beta
 
-ThinkControl recognizes the Lenovo family and can probe known provider types, but the exact model has not been fully validated by this project. Writable controls still require a recognized provider and readback/contract validation.
+ThinkControl recognizes an OEM/family and may probe known provider types, but the exact model has not been fully validated. Writable controls still require a recognized provider contract and readback/safety validation.
 
 ### Generic
 
-No Lenovo-specific profile is assumed. Windows-level features can still work where the operating system exposes them.
+No OEM-specific profile is required. Windows-level features can work wherever Windows exposes the documented capability.
 
-## Current matrix
+## Profile hierarchy
 
-| Device family | Windows features | Fan telemetry | Keyboard backlight | Low-level fan control | Lenovo thermal policy | Status |
+Device support grows from broad to specific:
+
+```text
+Windows generic capability
+→ OEM generic profile
+→ product-family profile
+→ exact-model profile
+```
+
+For example:
+
+```text
+Windows
+→ Lenovo
+→ ThinkPad
+→ X9-15 Gen 1
+```
+
+Future OEMs should use the same structure, for example `ASUS → Zenbook → model` or `Dell → XPS → model`, without creating vendor-specific copies of the main UI.
+
+See [`devices/README.md`](../devices/README.md).
+
+## Current compatibility matrix
+
+| Device scope | Windows features | Sensor / fan telemetry | Keyboard | Low-level fan control | OEM thermal policy | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| ThinkPad X9-15 Gen 1 `21Q6/21Q7` | Supported | Verified X9 EC tachometer | Lenovo PM/EnergyDrv + validated Vantage fallback | Lenovo Auto + levels 1 to 7 | Verified-profile LITSSvc commands | Verified reference |
-| Other ThinkPads | Supported | Lenovo WMI/CIM when exposed | `IBMPmDrv` when verified | Exact provider/profile required | No X9 command reuse | Beta |
-| ThinkBook | Supported | Lenovo WMI/CIM when exposed | `EnergyDrv` when verified | Supported vendor provider required | Capability-specific only | Beta |
-| Yoga | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM provider when verified | Supported vendor provider required | Capability-specific only | Beta |
-| IdeaPad | Supported | Lenovo WMI/CIM when exposed | `EnergyDrv` when verified | Supported vendor provider required | Capability-specific only | Beta |
-| LOQ | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM provider | GameZone only when firmware reports support | Capability-specific only | Beta |
-| Legion | Supported | Lenovo WMI/CIM when exposed | Compatible Lenovo PM/lighting provider | GameZone only when firmware reports support | Capability-specific only | Beta |
-| Other Lenovo | Supported | Conservative read-only discovery | Known provider discovery | Disabled without verified provider | X9 commands disabled | Beta |
-| Other Windows laptops | Where Windows supports it | Generic read-only sensors only | Lenovo backend unavailable | Unavailable | Unavailable | Generic |
+| ThinkPad X9-15 Gen 1 `21Q6/21Q7` | Supported | LHM/PawnIO + verified X9 EC telemetry | Lenovo PM/EnergyDrv + validated fallback | Lenovo Auto + levels 1–7 | Verified X9 LITSSvc semantic commands | Verified reference |
+| Other ThinkPads | Supported | Generic sensors + Lenovo read-only providers when exposed | Known Lenovo providers after read probe | Exact provider/model contract required | Capability-specific only | Beta |
+| ThinkBook / Yoga / IdeaPad | Supported | Generic sensors + Lenovo read-only providers | Known Lenovo providers after read probe | Exact provider/family contract required | Capability-specific only | Beta |
+| Legion / LOQ | Supported | Generic sensors + supported Lenovo providers | Compatible Lenovo provider | GameZone/provider-specific only when verified | Capability-specific only | Beta |
+| Other Lenovo | Supported | Conservative read-only discovery | Known provider discovery | Disabled without verified provider | No X9 command reuse | Beta |
+| Other Windows laptops | Where Windows supports it | Generic safe sensor providers when available | OEM provider required | OEM/family/model provider required | OEM provider required | Generic / expandable |
 
-## Windows-level features
+The architecture is intended to add ASUS, Dell, HP, Acer, MSI and other OEM profile/provider families without changing the capability-first product shell.
 
-These can work without a model-specific Lenovo profile when Windows exposes the necessary interface:
+## Windows-level baseline
 
-- Quiet, Balanced and Performance power modes;
+These features can work without a Lenovo or model-specific profile when Windows exposes the necessary interface:
+
+- Windows power modes;
 - display refresh-rate selection and automatic refresh policy;
 - internal display brightness and adaptive brightness;
-- battery percentage, power source, watts, Wh, health and filtered time estimates;
-- read-only temperature sensors;
+- Windows system audio volume;
+- battery percentage, source, watts, Wh, health and filtered time estimates;
+- charge/discharge session history;
+- compatible read-only temperature/sensor telemetry;
 - themes, tray operation, startup settings, updates and diagnostics.
 
-Unavailable data is shown as unavailable rather than replaced with a value that looks like real hardware telemetry.
+Unavailable data is shown as unavailable rather than replaced with a synthetic value.
 
-## Lenovo keyboard providers
+## Sensors
 
-ThinkControl knows Lenovo PM driver families including `IBMPmDrv` and `EnergyDrv`. A provider is accepted only when its read operation returns a recognized state; writable operations require readback verification.
+ThinkControl prefers provider-reported hardware identity and real sensor domains. LibreHardwareMonitor/PawnIO is one broad provider route on Windows, not a vendor lock-in.
 
-On supported systems, the installed Lenovo Vantage ThinkKeyboard component can be probed as a fallback. Presence alone does not enable the provider.
+A generic ACPI thermal zone is never automatically relabelled as CPU Package. Model-specific read-only thermal fallbacks may be exposed under an honest provider/source label and may only become a control-temperature source when the provider's safety model permits it.
 
 ## Fan telemetry
 
-Read-only RPM can be obtained from several sources:
+Read-only RPM may come from different providers depending on the laptop, for example:
 
-1. verified X9 EC tachometer on X9 `21Q6/21Q7`;
-2. `LENOVO_FAN_METHOD.Fan_GetCurrentFanSpeed` when exposed;
-3. `Lenovo_DT_GetCPUFan` / `Lenovo_DT_GetSYSFan` when exposed;
-4. Windows `CIM_Tachometer`;
-5. other read-only providers that identify a real fan tachometer.
+1. an exact-model verified EC tachometer;
+2. OEM WMI/CIM telemetry;
+3. Windows `CIM_Tachometer` where implemented;
+4. LibreHardwareMonitor or another real read-only sensor provider.
 
-Missing WMI classes/providers are normal compatibility results.
+Missing provider classes are normal compatibility results. ThinkControl never fabricates RPM.
 
 ## ThinkPad X9-15 Gen 1
 
-The X9 low-level profile is restricted to machine type `21Q6` or `21Q7`. Machine-type parsing prioritizes those codes so Lenovo SKU strings cannot accidentally classify the reference X9 as an unrelated four-character token.
+The X9 low-level profile is restricted to machine type `21Q6` or `21Q7`.
 
 | Capability | Implementation |
 | --- | --- |
 | Fan RPM | EC tachometer `0x84/0x85`, conservative polling |
+| EC transport | `0x1604/0x1600` preferred, `0x66/0x62` fallback |
 | Fan state | EC `0x2F` |
 | Lenovo Auto | `0x80` with readback |
 | Manual fan control | Levels `1` through `7` |
 | Fan off | `0x00` blocked |
 | Unverified override | `0x40` family never written |
-| Normal service exit | Attempts to return manual control to Lenovo Auto |
-| Power modes | Windows Best efficiency / Balanced / Best performance |
-| Lenovo Intelligent Cooling | AC `502/503/504`, DC `507/508/509`, semantic X9-only service operation |
-| Keyboard Off/Low/High | Lenovo PM/EnergyDrv with readback and validated Vantage fallback |
+| Normal service exit | Attempts to return manual ownership to Lenovo Auto |
+| Temperature | LHM/PawnIO preferred; verified read-only EC thermal fallback may feed safe control temperature |
+| Power modes | Windows mode plus verified X9 semantic Lenovo policy coordination |
+| Keyboard Off/Low/High | Lenovo PM/EnergyDrv with readback and validated component fallback |
 | Keyboard effects | User-session Auto/Breathing/Reactive/experimental Audio policies |
 
-The Lenovo Intelligent Cooling commands are thermal-policy commands, not direct fan-RPM/PWM controls.
+The X9 chassis contains two physical fans, but ThinkControl does not issue an unverified fan-selector write merely to manufacture separate Fan 1/Fan 2 readings. The currently verified tachometer route is reported honestly.
 
-## Device identification
+## Adding another OEM or model
 
-Compatibility matching may use manufacturer, model/product name, Lenovo machine type, BIOS version when relevant, ACPI/PnP IDs, installed provider versions and Windows display capabilities.
+Support should normally be added in this order:
 
-ThinkControl does not require laptop serial number, asset tag, MAC address or disk serial for compatibility matching.
+1. reuse Windows-safe capabilities;
+2. add/read an OEM-generic provider;
+3. narrow behavior in a family profile when necessary;
+4. add exact-model low-level writes only after physical validation and recovery/readback design.
 
-## Adding support for another device
-
-A useful validation report normally includes exact product name/machine type, relevant Lenovo drivers/services, provider/WMI availability, plausible read-only telemetry, readback results for reversible controls and a privacy-safe support bundle when needed.
+Compatibility matching can use SMBIOS manufacturer/model, machine type, BIOS version when relevant, ACPI/PnP IDs and installed provider/service identities. Serial numbers, usernames, MAC addresses and disk identifiers are not needed for matching.
 
 Use the [bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml) to report a device or compatibility issue.
