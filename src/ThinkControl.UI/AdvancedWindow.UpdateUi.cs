@@ -3,17 +3,16 @@ using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
+using WpfProgressBar = System.Windows.Controls.ProgressBar;
 
 namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
     private Button? _updateCheckButton;
-    private ProgressBar? _updateCheckProgress;
+    private WpfProgressBar? _updateCheckProgress;
     private TextBlock? _updateLastCheckedText;
-    private AppState? _updateUiState;
     private bool _updateUiConfigured;
-    private bool _manualUpdateCheckBusy;
 
     private void ConfigureUpdateUi()
     {
@@ -38,7 +37,9 @@ public partial class AdvancedWindow
 
         _updateCheckButton = actions.Children
             .OfType<Button>()
-            .FirstOrDefault(button => string.Equals(button.Content?.ToString(), "Check for updates", StringComparison.Ordinal));
+            .FirstOrDefault(button =>
+                string.Equals(button.Content?.ToString(), "Check for updates", StringComparison.Ordinal) ||
+                string.Equals(button.Content?.ToString(), "Checking…", StringComparison.Ordinal));
         if (_updateCheckButton is null)
             return;
 
@@ -49,7 +50,7 @@ public partial class AdvancedWindow
         };
         _updateLastCheckedText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
 
-        _updateCheckProgress = new ProgressBar
+        _updateCheckProgress = new WpfProgressBar
         {
             Height = 2,
             IsIndeterminate = true,
@@ -62,55 +63,14 @@ public partial class AdvancedWindow
         content.Children.Insert(actionIndex, _updateLastCheckedText);
         content.Children.Insert(actionIndex + 1, _updateCheckProgress);
 
-        // Replace the original simple handler with the richer stateful one. The
-        // existing XAML stays simple while this keeps manual and automatic update
-        // checks visually consistent.
-        _updateCheckButton.Click -= CheckUpdates_Click;
-        _updateCheckButton.Click += CheckUpdatesPolished_Click;
-
+        // ConfigureInteractionPolish owns the one manual check handler. This class
+        // owns only presentation/persisted history so one click can never issue two
+        // simultaneous release requests.
         if (DataContext is AppState state)
-        {
-            _updateUiState = state;
             state.PropertyChanged += UpdateUiState_PropertyChanged;
-        }
 
         _updateUiConfigured = true;
         RefreshUpdateUi();
-    }
-
-    private async void CheckUpdatesPolished_Click(object sender, RoutedEventArgs e)
-    {
-        if (_manualUpdateCheckBusy)
-            return;
-
-        _manualUpdateCheckBusy = true;
-        SetUpdateCheckingVisual(true);
-        _lastUpdate = null;
-        OpenReleaseButton.IsEnabled = false;
-        _app.State.UpdateStatus = "Checking for updates…";
-
-        DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
-        try
-        {
-            UpdateCheckResult result = await _app.UpdateService.CheckAsync();
-            checkedAt = DateTimeOffset.UtcNow;
-            UpdateCheckHistoryService.Record(checkedAt);
-            _lastUpdate = result;
-            _app.State.UpdateStatus = result.Status;
-            OpenReleaseButton.IsEnabled = !string.IsNullOrWhiteSpace(result.Url);
-        }
-        catch
-        {
-            checkedAt = DateTimeOffset.UtcNow;
-            UpdateCheckHistoryService.Record(checkedAt);
-            _app.State.UpdateStatus = "Could not reach the release channel";
-        }
-        finally
-        {
-            _manualUpdateCheckBusy = false;
-            SetUpdateCheckingVisual(false);
-            RefreshLastChecked(checkedAt);
-        }
     }
 
     private void UpdateUiState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -120,9 +80,8 @@ public partial class AdvancedWindow
 
         Dispatcher.BeginInvoke(new Action(() =>
         {
-            bool checking = _app.State.UpdateStatus.StartsWith("Checking", StringComparison.OrdinalIgnoreCase);
-            if (!_manualUpdateCheckBusy)
-                SetUpdateCheckingVisual(checking);
+            bool checking = IsUpdateCheckInProgress();
+            SetUpdateCheckingVisual(checking);
             if (!checking)
                 RefreshLastChecked(UpdateCheckHistoryService.Read());
         }));
@@ -130,11 +89,12 @@ public partial class AdvancedWindow
 
     private void RefreshUpdateUi()
     {
-        bool checking = _manualUpdateCheckBusy ||
-                        _app.State.UpdateStatus.StartsWith("Checking", StringComparison.OrdinalIgnoreCase);
-        SetUpdateCheckingVisual(checking);
+        SetUpdateCheckingVisual(IsUpdateCheckInProgress());
         RefreshLastChecked(UpdateCheckHistoryService.Read());
     }
+
+    private bool IsUpdateCheckInProgress() =>
+        _app.State.UpdateStatus.StartsWith("Checking", StringComparison.OrdinalIgnoreCase);
 
     private void SetUpdateCheckingVisual(bool checking)
     {
