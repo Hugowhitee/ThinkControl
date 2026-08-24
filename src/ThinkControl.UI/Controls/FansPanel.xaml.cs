@@ -167,7 +167,11 @@ public partial class FansPanel : UserControl
     {
         string profile = raw?.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault() ?? "Lenovo Auto";
-        return profile is "Silent" or "Normal" or "Cool" ? profile : "Lenovo Auto";
+        if (profile is "Silent" or "Normal" or "Cool" or "Lenovo Auto")
+            return profile;
+        if (profile.StartsWith("Manual level ", StringComparison.OrdinalIgnoreCase))
+            return profile;
+        return "Lenovo Auto";
     }
 
     private static string DisplayProfile(string profile) =>
