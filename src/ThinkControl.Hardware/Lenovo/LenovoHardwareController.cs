@@ -27,6 +27,7 @@ public sealed class LenovoHardwareController : IDisposable
 {
     private static readonly TimeSpan FanStatePollInterval = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan FanRpmPollInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan EcThermalPollInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan GenericFanPollInterval = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan EcRetryInterval = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan KeyboardProbeInterval = TimeSpan.FromSeconds(45);
@@ -44,12 +45,14 @@ public sealed class LenovoHardwareController : IDisposable
     private DateTimeOffset _lastFanStateRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastFanRpmRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastFanRpmSuccess = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastEcThermalRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastGenericFanRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastKeyboardProbe = DateTimeOffset.MinValue;
     private byte? _fanControl;
     private int? _x9FanRpm;
     private string _x9FanRpmSource = "Unavailable";
     private int _x9FanRpmFailures;
+    private IReadOnlyList<HardwareSensorReading> _x9EcThermals = Array.Empty<HardwareSensorReading>();
     private IReadOnlyList<LenovoFanReading> _genericFans = Array.Empty<LenovoFanReading>();
     private bool _keyboardAvailable;
     private bool _disposed;
@@ -87,12 +90,14 @@ public sealed class LenovoHardwareController : IDisposable
             _lastFanStateRead = DateTimeOffset.MinValue;
             _lastFanRpmRead = DateTimeOffset.MinValue;
             _lastFanRpmSuccess = DateTimeOffset.MinValue;
+            _lastEcThermalRead = DateTimeOffset.MinValue;
             _lastGenericFanRead = DateTimeOffset.MinValue;
             _lastKeyboardProbe = DateTimeOffset.MinValue;
             _fanControl = null;
             _x9FanRpm = null;
             _x9FanRpmSource = "Unavailable";
             _x9FanRpmFailures = 0;
+            _x9EcThermals = Array.Empty<HardwareSensorReading>();
             _genericFans = Array.Empty<LenovoFanReading>();
             _keyboardAvailable = false;
         }
@@ -113,8 +118,35 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 ReadX9FanState(now, ref ecAvailable);
                 if (ecAvailable)
+                {
                     ReadX9FanRpm(now);
+
+                    // Do not add extra EC traffic when LHM already provides a usable
+                    // CPU/GPU control temperature. The generic ThinkPad EC thermal
+                    // bank is a real, read-only fallback for provider gaps; its
+                    // registers intentionally remain unmapped instead of being
+                    // mislabeled as CPU Package.
+                    if (!sensorSnapshot.ControlTemperatureC.HasValue)
+                        ReadX9EcThermals(now);
+                    else
+                        _x9EcThermals = Array.Empty<HardwareSensorReading>();
+                }
             }
+            else
+            {
+                _x9EcThermals = Array.Empty<HardwareSensorReading>();
+            }
+
+            IReadOnlyList<HardwareSensorReading> mergedSensors = BuildSensorTelemetry(sensorSnapshot);
+            HardwareSensorReading? ecControl = !sensorSnapshot.ControlTemperatureC.HasValue
+                ? _x9EcThermals.Where(sensor => sensor.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase)).MaxBy(sensor => sensor.Value)
+                : null;
+            double? controlTemperature = sensorSnapshot.ControlTemperatureC ?? ecControl?.Value;
+            string controlTemperatureSource = sensorSnapshot.ControlTemperatureC.HasValue
+                ? sensorSnapshot.ControlTemperatureSource
+                : ecControl is not null
+                    ? $"ThinkPad X9 EC · hottest read-only thermal sensor · {_ec?.PortLabel ?? "detected port"}"
+                    : "Unavailable";
 
             // The verified X9 EC tachometer is the authoritative fan source on the
             // X9. Only probe generic Lenovo/WMI fan telemetry when that path is not
@@ -148,15 +180,16 @@ public sealed class LenovoHardwareController : IDisposable
                     : "Lenovo managed · telemetry unavailable";
 
             bool canFanTelemetry = fans.Count > 0;
-            string hardwareAccess = BuildHardwareAccess(ecAvailable, canFanTelemetry, _keyboardAvailable, sensorSnapshot.Sensors.Count > 0);
+            bool canSensorTelemetry = mergedSensors.Count > 0;
+            string hardwareAccess = BuildHardwareAccess(ecAvailable, canFanTelemetry, _keyboardAvailable, canSensorTelemetry);
 
             return new LenovoHardwareStatus(
                 _identity,
                 sensorSnapshot.CpuTemperatureC,
                 sensorSnapshot.CpuTemperatureSource,
-                sensorSnapshot.ControlTemperatureC,
-                sensorSnapshot.ControlTemperatureSource,
-                sensorSnapshot.Sensors,
+                controlTemperature,
+                controlTemperatureSource,
+                mergedSensors,
                 primaryFan?.Rpm,
                 primaryFan?.Source ?? "Unavailable",
                 fans,
@@ -168,7 +201,7 @@ public sealed class LenovoHardwareController : IDisposable
                 CanFanControl: _identity.IsVerifiedX9 && ecAvailable,
                 CanKeyboardBacklight: _isLenovo && _keyboardAvailable,
                 CanCpuTemperature: sensorSnapshot.CpuTemperatureC.HasValue,
-                CanSensorTelemetry: sensorSnapshot.Sensors.Count > 0);
+                CanSensorTelemetry: canSensorTelemetry);
         }
     }
 
@@ -318,7 +351,7 @@ public sealed class LenovoHardwareController : IDisposable
         try
         {
             _x9FanRpm = _ec.ReadFanRpm();
-            _x9FanRpmSource = "ThinkPad X9 EC tachometer 0x84/0x85";
+            _x9FanRpmSource = $"ThinkPad X9 EC tachometer 0x84/0x85 · {_ec.PortLabel}";
             _lastFanRpmSuccess = now;
             _x9FanRpmFailures = 0;
         }
@@ -331,6 +364,54 @@ public sealed class LenovoHardwareController : IDisposable
                 _x9FanRpmSource = $"Unavailable · X9 EC tachometer read failed: {ex.GetType().Name}";
             }
         }
+    }
+
+    private void ReadX9EcThermals(DateTimeOffset now)
+    {
+        if (_ec is null || now - _lastEcThermalRead < EcThermalPollInterval)
+            return;
+
+        _lastEcThermalRead = now;
+        try
+        {
+            string port = _ec.PortLabel;
+            _x9EcThermals = _ec.ReadThermalSensors()
+                .Select(reading => new HardwareSensorReading(
+                    $"x9-ec-thermal-{reading.Register:X2}",
+                    "ThinkPad X9 embedded controller",
+                    "EmbeddedController",
+                    $"Thermal 0x{reading.Register:X2}",
+                    "Temperature",
+                    reading.Celsius,
+                    "°C",
+                    false,
+                    $"ThinkPad X9 EC · read-only unmapped thermal · {port}"))
+                .OrderBy(sensor => sensor.Name, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+        catch
+        {
+            // Thermal fallback is additive only. A failed optional thermal-bank
+            // read must not invalidate an otherwise healthy verified EC fan path.
+            _x9EcThermals = Array.Empty<HardwareSensorReading>();
+        }
+    }
+
+    private IReadOnlyList<HardwareSensorReading> BuildSensorTelemetry(SensorHubSnapshot snapshot)
+    {
+        if (_x9EcThermals.Count == 0)
+            return snapshot.Sensors;
+
+        HardwareSensorReading? hottest = _x9EcThermals.MaxBy(sensor => sensor.Value);
+        var combined = new List<HardwareSensorReading>(snapshot.Sensors.Count + _x9EcThermals.Count);
+        combined.AddRange(snapshot.Sensors);
+        foreach (HardwareSensorReading sensor in _x9EcThermals)
+        {
+            combined.Add(hottest is not null && sensor.Id == hottest.Id
+                ? sensor with { ControlTemperature = true }
+                : sensor);
+        }
+        return combined;
     }
 
     private void ReadGenericLenovoFanTelemetry(DateTimeOffset now)
@@ -348,7 +429,7 @@ public sealed class LenovoHardwareController : IDisposable
                 new LenovoFanReading(
                     "x9-ec-main",
                     _x9FanRpm.Value,
-                    "Fan",
+                    "System fan tachometer",
                     _x9FanRpmSource)
             ];
         }
@@ -421,6 +502,7 @@ public sealed class LenovoHardwareController : IDisposable
         _lastEcError = ex.Message;
         try { _ec?.Dispose(); } catch { }
         _ec = null;
+        _x9EcThermals = Array.Empty<HardwareSensorReading>();
     }
 
     private bool SafeKeyboardProbe()
@@ -438,11 +520,11 @@ public sealed class LenovoHardwareController : IDisposable
         {
             if (ecAvailable && keyboardAvailable)
                 return sensorTelemetry
-                    ? "Full · verified X9 EC + PawnIO sensors + Lenovo keyboard"
+                    ? "Full · verified X9 EC telemetry/control + Lenovo keyboard"
                     : "Full control · verified X9 EC + Lenovo keyboard";
             if (ecAvailable)
                 return sensorTelemetry
-                    ? "Partial · verified X9 EC + PawnIO sensors · keyboard unavailable"
+                    ? "Partial · verified X9 EC telemetry/control · keyboard unavailable"
                     : "Partial · verified X9 EC · keyboard unavailable";
             if (sensorTelemetry || fanTelemetry)
                 return $"Telemetry ready · PawnIO/Windows sensors · fan writes unavailable · {_lastEcError ?? "EC probe pending"}";
