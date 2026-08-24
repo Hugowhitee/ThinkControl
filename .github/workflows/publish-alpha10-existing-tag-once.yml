@@ -1,0 +1,76 @@
+name: Publish alpha.10 existing tag once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-alpha10-existing-tag-once.yml"
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: v0.1.0-alpha.10
+      EXPECTED_SHA: d7e6f3d0c6b176163ae9352a9e7633b72bd51f05
+    steps:
+      - name: Verify historical tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual=$(gh api "repos/$GITHUB_REPOSITORY/commits/$TAG" --jq '.sha')
+          test "$actual" = "$EXPECTED_SHA" || { echo "Tag $TAG points to $actual, expected $EXPECTED_SHA"; exit 1; }
+          echo "$TAG verified at $actual"
+
+      - name: Ensure packaged prerelease exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release already exists; validating/pruning current assets."
+            exit 0
+          fi
+
+          before=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --event workflow_dispatch --limit 100 --json databaseId --jq '.[].databaseId' | tr '\n' ' ')
+          gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "$TAG"
+
+          run_id=""
+          for _ in $(seq 1 40); do
+            while IFS= read -r candidate; do
+              [ -z "$candidate" ] && continue
+              case " $before " in *" $candidate "*) continue ;; esac
+              run_id="$candidate"
+              break
+            done < <(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --event workflow_dispatch --limit 20 --json databaseId,headSha --jq ".[] | select(.headSha == \"$EXPECTED_SHA\") | .databaseId")
+            [ -n "$run_id" ] && break
+            sleep 3
+          done
+          test -n "$run_id" || { echo "Could not locate new Package ThinkControl run"; exit 1; }
+          echo "Package run: $run_id"
+          gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
+
+      - name: Keep only updater assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null
+          mapfile -t assets < <(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+          for asset in "${assets[@]}"; do
+            case "$asset" in
+              ThinkControl-Setup-*.exe|ThinkControl-Payload-*.zip|SHA256SUMS.txt) ;;
+              *) gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes ;;
+            esac
+          done
+
+          mapfile -t final < <(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | sort)
+          printf '%s\n' "${final[@]}"
+          test "${#final[@]}" -eq 3
+          printf '%s\n' "${final[@]}" | grep -Fxq 'SHA256SUMS.txt'
+          printf '%s\n' "${final[@]}" | grep -Eq '^ThinkControl-Setup-0\.1\.0-alpha\.10\.exe$'
+          printf '%s\n' "${final[@]}" | grep -Eq '^ThinkControl-Payload-0\.1\.0-alpha\.10\.zip$'
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq '.isPrerelease')" = "true"
