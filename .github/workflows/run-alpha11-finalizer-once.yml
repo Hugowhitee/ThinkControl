@@ -1,0 +1,45 @@
+name: Run alpha.11 finalizer once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/run-alpha11-finalizer-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  run-finalizer:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/alpha11-final-review
+          fetch-depth: 0
+
+      - name: Execute existing reviewed finalizer
+        shell: python
+        run: |
+          from pathlib import Path
+
+          workflow = Path(".github/workflows/alpha11-finalize-once.yml")
+          text = workflow.read_text(encoding="utf-8")
+          block = text.split("      - name: Apply narrow final-review fixes", 1)[1]
+          block = block.split("      - name: Commit final-review fixes", 1)[0]
+          block = block.split("        run: |\n", 1)[1]
+          script = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in block.splitlines()
+          )
+          exec(compile(script, str(workflow), "exec"), {})
+
+      - name: Commit final-review fixes
+        shell: bash
+        run: |
+          git config user.name "Hugo"
+          git config user.email "119423227+Hugowhitee@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Finish alpha.11 release blockers"
+          git push origin HEAD:fix/alpha11-final-review
