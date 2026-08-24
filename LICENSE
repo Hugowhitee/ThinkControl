@@ -1,21 +1,68 @@
-PolyForm Noncommercial License 1.0.0
+ThinkControl Source-Available License 1.0
 
-Official license terms:
-https://polyformproject.org/licenses/noncommercial/1.0.0/
+Copyright (c) 2026 ThinkControl Project. All rights reserved.
 
-Copyright (c) 2026 ThinkControl Project
+ThinkControl is source-available software. It is NOT open-source software.
 
-SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+1. PERMITTED USE
 
-Required Notice: ThinkControl is the original project at https://github.com/Hugowhitee/ThinkControl. Modified or redistributed versions must preserve this notice, clearly identify that they are based on ThinkControl, and must not imply endorsement by the ThinkControl project.
+Subject to these terms, you may:
 
-ThinkControl is licensed for the noncommercial purposes permitted by the
-PolyForm Noncommercial License 1.0.0. You may study, modify, and distribute
-copies and modified versions for permitted noncommercial purposes, subject to
-the official license terms and the Required Notice above.
+- view and study the source code;
+- download and run ThinkControl for your own personal, non-commercial use;
+- modify the source code for your own personal, non-commercial use; and
+- create and maintain private forks or private copies for those purposes.
 
-Commercial use is not permitted under this license. A separate written license
-from the copyright holder is required for commercial use.
+2. NO REDISTRIBUTION
 
-The URL above is part of this license notice and provides the complete,
-authoritative PolyForm Noncommercial License 1.0.0 terms.
+You may not, without prior written permission from the copyright holder:
+
+- redistribute, republish, mirror, sublicense, share, upload, or otherwise make available the source code or substantial portions of it to third parties;
+- distribute compiled binaries, installers, packages, modified builds, or derivative works based on ThinkControl;
+- create or maintain a public fork, public mirror, public source repository, or other publicly accessible copy of ThinkControl or a derivative work;
+- remove, obscure, or alter copyright, license, attribution, or provenance notices.
+
+The only authorized public source and binary distribution channels are those explicitly controlled or approved by the ThinkControl copyright holder, including the official repository at:
+https://github.com/Hugowhitee/ThinkControl
+
+3. NO COMMERCIAL USE
+
+You may not, without a separate written commercial license:
+
+- sell, rent, license, bundle, monetize, or otherwise commercially exploit ThinkControl or a derivative work;
+- use ThinkControl or a derivative work as part of a paid product, paid service, managed service, hosted service, subscription, commercial support offering, or revenue-generating distribution;
+- use the source code to create or market a substantially similar competing commercial product.
+
+4. PRIVATE MODIFICATIONS
+
+Private modifications are allowed only while they remain private and comply with this license. You may not publish, distribute, or provide access to those modifications or resulting binaries to third parties without prior written permission.
+
+5. CONTRIBUTIONS
+
+Submitting code, patches, pull requests, issues containing code, or other copyrightable contributions to the official ThinkControl repository constitutes permission for the ThinkControl Project to use, modify, reproduce, distribute, relicense, and commercially license those contributions as part of ThinkControl, unless a separate written agreement states otherwise.
+
+6. TRADEMARKS AND BRANDING
+
+This license grants no rights to the ThinkControl name, logo, icons, trade dress, or other branding except as required to identify the unmodified software for personal use. You may not imply endorsement, affiliation, or official status.
+
+7. THIRD-PARTY COMPONENTS
+
+Third-party libraries, drivers, tools, icons, or other components included with or used by ThinkControl remain subject to their own license terms. This license applies only to material for which the ThinkControl Project holds the necessary rights.
+
+8. NO WARRANTY
+
+THE SOFTWARE AND SOURCE CODE ARE PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND NON-INFRINGEMENT. USE OF LOW-LEVEL HARDWARE FEATURES IS AT YOUR OWN RISK.
+
+9. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY LAW, THE COPYRIGHT HOLDER AND CONTRIBUTORS SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, HARDWARE DAMAGE, DATA LOSS, OR OTHER LIABILITY ARISING FROM OR RELATED TO THE SOFTWARE OR ITS USE.
+
+10. TERMINATION
+
+Any permission granted by this license terminates automatically if you violate these terms. Upon termination you must stop using and delete all unauthorized copies and derivative works in your possession or control.
+
+11. ADDITIONAL PERMISSION
+
+Any use not expressly permitted above requires prior written permission from the ThinkControl copyright holder. Commercial, OEM, redistribution, integration, and broader licensing terms may be offered separately.
+
+By copying, modifying, or using ThinkControl beyond merely viewing this license, you agree to these terms.
