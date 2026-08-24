@@ -10,7 +10,7 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private bool _notificationButtonConfigured;
-    private Button? _notificationButton;
+    private Grid? _notificationIndicator;
     private Ellipse? _notificationDot;
 
     private void ConfigureNotificationButton()
@@ -22,55 +22,72 @@ public partial class AdvancedWindow
         }
 
         if (Content is not Border { Child: Grid root } ||
-            root.Children.OfType<Grid>().FirstOrDefault(grid => Grid.GetRow(grid) == 1) is not Grid body)
+            root.Children.OfType<Grid>().FirstOrDefault(grid => Grid.GetRow(grid) == 1) is not Grid body ||
+            body.Children.OfType<Border>().FirstOrDefault(border => Grid.GetColumn(border) == 0) is not Border sidebar ||
+            sidebar.Child is not Grid sidebarGrid)
         {
             return;
         }
 
         _notificationButtonConfigured = true;
 
-        var icon = new Grid { Width = 20, Height = 20 };
+        // Keep notifications available from every Advanced page without floating a
+        // button over Home content. The sidebar footer owns a quiet icon-only target;
+        // the red dot is the status signal, not another framed toolbar button.
+        var icon = new Grid
+        {
+            Width = 28,
+            Height = 28,
+            Background = Brushes.Transparent,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0),
+            Opacity = 0.78
+        };
+
         var bell = new Path
         {
             Data = Geometry.Parse("M10,2.1 C6.5,2.1 5,4.7 5,7.7 V10.6 L3.3,13.2 H16.7 L15,10.6 V7.7 C15,4.7 13.5,2.1 10,2.1 Z M7.7,15 C8.1,16.1 8.9,16.6 10,16.6 C11.1,16.6 11.9,16.1 12.3,15"),
-            StrokeThickness = 1.65,
+            StrokeThickness = 1.75,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
-            Fill = Brushes.Transparent
+            Fill = Brushes.Transparent,
+            Width = 18,
+            Height = 18,
+            Stretch = Stretch.Uniform,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
         };
         bell.SetResourceReference(Shape.StrokeProperty, "Tc.TextMuted");
         icon.Children.Add(bell);
 
         _notificationDot = new Ellipse
         {
-            Width = 7,
-            Height = 7,
+            Width = 6,
+            Height = 6,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, -1, -1, 0),
+            Margin = new Thickness(0, 3, 3, 0),
             StrokeThickness = 1
         };
         _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
         _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Window");
         icon.Children.Add(_notificationDot);
 
-        _notificationButton = new Button
+        icon.MouseEnter += (_, _) => icon.Opacity = 1.0;
+        icon.MouseLeave += (_, _) => icon.Opacity = 0.78;
+        icon.MouseLeftButtonUp += (_, e) =>
         {
-            Width = 36,
-            Height = 36,
-            Padding = new Thickness(0),
-            Style = TryFindResource("TcIconButton") as Style,
-            Content = icon,
-            ToolTip = "Notifications",
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 8, 20, 0)
+            e.Handled = true;
+            _app.OpenNotificationCenter();
         };
-        _notificationButton.Click += (_, _) => _app.OpenNotificationCenter();
-        Grid.SetColumn(_notificationButton, 1);
-        Panel.SetZIndex(_notificationButton, 50);
-        body.Children.Add(_notificationButton);
+
+        _notificationIndicator = icon;
+        Grid.SetRow(icon, 1);
+        Panel.SetZIndex(icon, 20);
+        sidebarGrid.Children.Add(icon);
 
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;
@@ -97,7 +114,7 @@ public partial class AdvancedWindow
 
     private void SyncNotificationIndicator()
     {
-        if (_notificationDot is null || _notificationButton is null || DataContext is not AppState state)
+        if (_notificationDot is null || _notificationIndicator is null || DataContext is not AppState state)
             return;
 
         bool attention = !state.DriverStatus.Equals("Ready", StringComparison.OrdinalIgnoreCase) ||
@@ -105,7 +122,7 @@ public partial class AdvancedWindow
                          !state.CanFanTelemetry ||
                          !state.CanKeyboardBacklight;
         _notificationDot.Visibility = attention ? Visibility.Visible : Visibility.Collapsed;
-        _notificationButton.ToolTip = attention
+        _notificationIndicator.ToolTip = attention
             ? "Notifications · hardware setup needs attention"
             : "Notifications";
     }
