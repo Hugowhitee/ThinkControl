@@ -1,7 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using ThinkControl.UI.Services;
+using WpfComboBox = System.Windows.Controls.ComboBox;
 
 namespace ThinkControl.UI.Controls;
 
@@ -9,9 +9,9 @@ public partial class CompactDashboard
 {
     private bool _quickControlsAdded;
     private bool _syncingQuickControls;
-    private ComboBox? _quickPerformance;
-    private ComboBox? _quickRefresh;
-    private ComboBox? _quickKeyboard;
+    private WpfComboBox? _quickPerformance;
+    private WpfComboBox? _quickRefresh;
+    private WpfComboBox? _quickKeyboard;
 
     private void EnsureQuickControls()
     {
@@ -52,9 +52,9 @@ public partial class CompactDashboard
         _quickControlsAdded = true;
     }
 
-    private ComboBox CreateQuickCombo(double width)
+    private WpfComboBox CreateQuickCombo(double width)
     {
-        var combo = new ComboBox
+        var combo = new WpfComboBox
         {
             Width = width,
             Height = 28,
@@ -69,7 +69,7 @@ public partial class CompactDashboard
         return combo;
     }
 
-    private FrameworkElement CreateQuickColumn(string label, ComboBox combo, int column)
+    private FrameworkElement CreateQuickColumn(string label, WpfComboBox combo, int column)
     {
         var panel = new StackPanel
         {
