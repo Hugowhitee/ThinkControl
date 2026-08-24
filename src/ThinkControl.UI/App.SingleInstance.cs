@@ -71,18 +71,9 @@ public partial class App
 
     private void ShowThinkControlFromDesktopLaunch()
     {
-        // A desktop/start-menu launch means "open the app", not "show the small
-        // notification-area popup". Advanced is a normal ShowInTaskbar window, so
-        // this also repairs the confusing state where ThinkControl was running but
-        // absent from the taskbar after it had previously been hidden to tray.
-        OpenAdvanced("Home");
-        if (_advancedWindow is { } advanced)
-        {
-            if (advanced.WindowState == System.Windows.WindowState.Minimized)
-                advanced.WindowState = System.Windows.WindowState.Normal;
-            advanced.ShowInTaskbar = true;
-            advanced.Activate();
-        }
+        // Re-opening ThinkControl should behave like a fresh user launch and honor
+        // the saved Compact / Advanced preference instead of always forcing Advanced.
+        ShowPreferredDesktopLaunchView();
     }
 
     private void DisposeSingleInstanceGuard()
