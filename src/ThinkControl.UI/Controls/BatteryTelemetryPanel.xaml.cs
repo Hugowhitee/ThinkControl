@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.ViewModels;
 using WpfApplication = System.Windows.Application;
 
 namespace ThinkControl.UI.Controls;
@@ -71,6 +72,36 @@ public partial class BatteryTelemetryPanel : UserControl
 
         foreach (BatterySessionDetail session in sessions)
             RecentSessionItems.Children.Add(CreateSessionRow(session));
+    }
+
+    /// <summary>
+    /// Seeds the same production charts with deterministic data for screenshot QA.
+    /// Snapshot rendering never raises Loaded, so relying on the runtime history
+    /// timer would leave the percentage/discharge charts visually untested.
+    /// </summary>
+    internal void PrepareForSnapshot(AppState state)
+    {
+        ApplyBatteryGaugePolish();
+
+        TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
+        ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+
+        DateTimeOffset end = chargePower.Length > 0 ? chargePower[^1].At : DateTimeOffset.UtcNow;
+        TimeSeriesPoint[] dischargePower = Enumerable.Range(0, 46)
+            .Select(index =>
+            {
+                double watts = 6.5 + Math.Sin(index / 4.2) * 0.7 + index * 0.018;
+                int percent = (int)Math.Round(88d - 25d * index / 45d);
+                return new TimeSeriesPoint(
+                    end - TimeSpan.FromMinutes((45 - index) * 5),
+                    watts,
+                    $"{percent}%");
+            })
+            .ToArray();
+
+        DischargeChart.Values = dischargePower;
+        DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
+        DischargeSummaryText.Text = "Latest discharge · 88% → 63% · 3h 45m · 6.9 W avg";
     }
 
     private Button CreateSessionRow(BatterySessionDetail session)
