@@ -10,6 +10,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private readonly NativeInputService _nativeInput;
     private readonly GestureActionRouter _actions;
     private readonly GestureOsdService _osd;
+    private int _pendingVolume = -1;
+    private int _volumeWorkerRunning;
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
     private bool _disposed;
@@ -31,6 +33,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
         _actions = new GestureActionRouter(
             _nativeInput,
             new MediaSessionService(),
+            _nativeInput.GetVolumePercent,
+            QueueVolume,
             () => app.State.Brightness,
             QueueBrightness,
             StepKeyboardAsync,
@@ -84,7 +88,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
         if (label.Contains("Volume", StringComparison.OrdinalIgnoreCase) ||
             label.Contains("Muted", StringComparison.OrdinalIgnoreCase))
         {
-            return _nativeInput.SetVolume(value);
+            QueueVolume(value);
+            return true;
         }
 
         if (label.Contains("Brightness", StringComparison.OrdinalIgnoreCase))
@@ -94,6 +99,48 @@ internal sealed class TouchpadFeatureHost : IDisposable
         }
 
         return false;
+    }
+
+    private void QueueVolume(int value)
+    {
+        Interlocked.Exchange(ref _pendingVolume, Math.Clamp(value, 0, 100));
+        if (Interlocked.CompareExchange(ref _volumeWorkerRunning, 1, 0) != 0)
+            return;
+
+        _ = Task.Run(ProcessVolumeQueueAsync);
+    }
+
+    private async Task ProcessVolumeQueueAsync()
+    {
+        int lastApplied = -1;
+        try
+        {
+            while (!_disposed)
+            {
+                int target = Volatile.Read(ref _pendingVolume);
+                if (target < 0 || target == lastApplied)
+                    break;
+
+                if (!_nativeInput.SetVolume(target))
+                    break;
+
+                lastApplied = target;
+                await Task.Delay(28).ConfigureAwait(false);
+            }
+        }
+        catch
+        {
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _volumeWorkerRunning, 0);
+            int pending = Volatile.Read(ref _pendingVolume);
+            if (!_disposed && pending >= 0 && pending != lastApplied &&
+                Interlocked.CompareExchange(ref _volumeWorkerRunning, 1, 0) == 0)
+            {
+                _ = Task.Run(ProcessVolumeQueueAsync);
+            }
+        }
     }
 
     private void QueueBrightness(int value)
@@ -131,7 +178,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
                     break;
                 }
 
-                await Task.Delay(24).ConfigureAwait(false);
+                await Task.Delay(28).ConfigureAwait(false);
             }
         }
         catch
@@ -190,6 +237,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
         if (_disposed)
             return;
         _disposed = true;
+        Interlocked.Exchange(ref _pendingVolume, -1);
+        Interlocked.Exchange(ref _pendingBrightness, -1);
         _gestures.Dispose();
         _osd.Dispose();
     }
