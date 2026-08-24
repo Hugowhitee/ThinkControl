@@ -144,7 +144,16 @@ jobs:
           $output = Join-Path $PWD "artifacts\release-previews"
           dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj --configuration Release --no-build -- $output
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
-          foreach ($name in @('compact-dark.png', 'advanced-home.png', 'advanced-touchpad.png', 'advanced-sensors.png')) {
+          $previewNames = @(
+            'compact-dark.png',
+            'advanced-home.png',
+            'advanced-touchpad.png',
+            'advanced-sensors.png',
+            'advanced-fans.png',
+            'advanced-audio.png',
+            'advanced-battery.png'
+          )
+          foreach ($name in $previewNames) {
             $path = Join-Path $output $name
             if (-not (Test-Path $path)) { throw "Missing release preview: $name" }
             if ((Get-Item $path).Length -lt 5000) { throw "Release preview is unexpectedly small: $name" }
@@ -415,6 +424,9 @@ jobs:
             (Join-Path $previewRoot 'advanced-home.png'),
             (Join-Path $previewRoot 'advanced-touchpad.png'),
             (Join-Path $previewRoot 'advanced-sensors.png'),
+            (Join-Path $previewRoot 'advanced-fans.png'),
+            (Join-Path $previewRoot 'advanced-audio.png'),
+            (Join-Path $previewRoot 'advanced-battery.png'),
             '--title', "ThinkControl v$env:APP_VERSION",
             '--generate-notes'
           )
