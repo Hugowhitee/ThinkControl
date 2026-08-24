@@ -1,3 +1,5 @@
+using System.Windows;
+using System.Windows.Controls;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -57,9 +59,45 @@ public partial class AdvancedWindow
 
             const string sensorsPageKey = "ThinkControl.Dynamic.PageSensors";
             if (Resources.Contains(sensorsPageKey) &&
-                Resources[sensorsPageKey] is System.Windows.Controls.ScrollViewer { Content: Controls.SensorsPanel sensorsPanel })
+                Resources[sensorsPageKey] is ScrollViewer { Content: Controls.SensorsPanel sensorsPanel })
             {
                 sensorsPanel.PrepareForSnapshot(snapshotState);
+            }
+        }
+
+        ValidateSharedPageRailForSnapshot();
+    }
+
+    private void ValidateSharedPageRailForSnapshot()
+    {
+        var pages = new List<ScrollViewer>();
+        foreach (string pageName in ConsistentPageNames)
+        {
+            if (FindName(pageName) is ScrollViewer scroll)
+                pages.Add(scroll);
+        }
+
+        foreach (string resourceName in DynamicPageResourceNames)
+        {
+            if (Resources.Contains(resourceName) && Resources[resourceName] is ScrollViewer scroll)
+                pages.Add(scroll);
+        }
+
+        foreach (ScrollViewer scroll in pages)
+        {
+            if (scroll.HorizontalContentAlignment != HorizontalAlignment.Left)
+                throw new InvalidOperationException($"{scroll.Tag ?? scroll.Name} is not left-anchored to the shared Advanced page rail.");
+
+            if (scroll.Content is not FrameworkElement content)
+                continue;
+
+            if (content.HorizontalAlignment != HorizontalAlignment.Left ||
+                Math.Abs(content.MaxWidth - AdvancedContentMaxWidth) > 0.1 ||
+                Math.Abs(content.Margin.Left) > 0.1)
+            {
+                throw new InvalidOperationException(
+                    $"{scroll.Tag ?? scroll.Name} overrides the shared Advanced page rail. " +
+                    "All pages must use the same left anchor and common readable MaxWidth.");
             }
         }
     }
