@@ -25,7 +25,8 @@
                     <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" />
-                        <TextBlock Text="ThinkControl checks the Windows service, PawnIO device access, sensor providers, X9 EC readback and Lenovo keyboard provider independently. Nothing is installed or elevated until you choose a repair action."
+                        <TextBlock x:Name="SetupIntroText"
+                                   Text="ThinkControl checks the Windows service, sensor providers and detected device-specific hardware providers independently. Nothing is installed or elevated until you choose a repair action."
                                    Foreground="{DynamicResource Tc.TextMuted}"
                                    FontSize="11"
                                    TextWrapping="Wrap"
