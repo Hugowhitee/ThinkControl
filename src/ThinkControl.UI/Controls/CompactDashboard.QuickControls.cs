@@ -62,7 +62,7 @@ public partial class CompactDashboard
 
     private WpfButton CreateQuickButton(double width)
     {
-        var button = new WpfButton
+        return new WpfButton
         {
             Width = width,
             Height = 28,
@@ -72,7 +72,6 @@ public partial class CompactDashboard
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Style = TryFindResource("TcButton") as Style
         };
-        return button;
     }
 
     private FrameworkElement CreateQuickColumn(string label, WpfButton button, int column)
@@ -190,7 +189,6 @@ public partial class CompactDashboard
         };
         var chevron = new TextBlock
         {
-            GridColumn = 1,
             Text = "⌄",
             FontSize = 10,
             Margin = new Thickness(6, -1, 0, 0),
@@ -207,10 +205,8 @@ public partial class CompactDashboard
     {
         if (_app is null || !Enum.TryParse(raw, out ThinkControlPowerMode mode))
             return;
-        if (!_app.SetPowerMode(mode))
-            SyncQuickControls();
-        else
-            SyncQuickControls();
+        _app.SetPowerMode(mode);
+        SyncQuickControls();
     }
 
     private void QuickRefreshSelected(string raw)
