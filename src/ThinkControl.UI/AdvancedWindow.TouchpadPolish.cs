@@ -26,7 +26,7 @@ public partial class AdvancedWindow
         // the right.
         if (panel.FindName("ClickForceSlider") is Slider clickForce)
         {
-            clickForce.FlowDirection = FlowDirection.RightToLeft;
+            clickForce.FlowDirection = System.Windows.FlowDirection.RightToLeft;
             clickForce.ToolTip = "Light  ←  click sensitivity  →  Firm";
         }
     }
