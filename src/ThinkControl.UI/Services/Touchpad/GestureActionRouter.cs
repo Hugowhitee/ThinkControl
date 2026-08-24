@@ -14,6 +14,7 @@ internal sealed class GestureActionRouter
 
     private int _brightnessAtStart;
     private double _stepAccumulator;
+    private double _seekCumulativeSeconds;
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
 
@@ -32,6 +33,8 @@ internal sealed class GestureActionRouter
         _stepKeyboard = stepKeyboard;
         _stepPerformance = stepPerformance;
     }
+
+    internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
 
     internal void Handle(GestureSignal signal)
     {
@@ -64,6 +67,7 @@ internal sealed class GestureActionRouter
                 ApplyBrightness(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.MediaSeek:
+                _seekCumulativeSeconds = 0;
                 _lastMediaTimestamp = Stopwatch.GetTimestamp();
                 _mediaBeginTask = _media.BeginSeekAsync();
                 break;
@@ -127,13 +131,14 @@ internal sealed class GestureActionRouter
         double velocity = Math.Abs(deltaMm) / elapsed;
 
         // Distance gives precision; velocity supplies strong but bounded acceleration.
-        // Slow glides stay near ~0.28 s/mm, while a fast finger flick ramps toward
-        // ~1.7 s/mm so a deliberate quick swipe can jump tens of seconds without
-        // generating extra GSMTC seek requests.
+        // Slow glides stay precise, while a deliberate fast flick can jump tens of
+        // seconds. Only the latest target is handed to GSMTC by MediaSessionService,
+        // so Spotify never receives one seek request per raw touch frame.
         double speed01 = Math.Clamp((velocity - 24.0) / 175.0, 0.0, 1.0);
         double acceleration = 1.0 + 5.0 * Math.Pow(speed01, 1.45);
         double seconds = deltaMm * 0.28 * acceleration;
         seconds = Math.Clamp(seconds, -22.0, 22.0);
+        _seekCumulativeSeconds = Math.Clamp(_seekCumulativeSeconds + seconds, -600.0, 600.0);
         _ = QueueMediaWhenReadyAsync(seconds);
     }
 
