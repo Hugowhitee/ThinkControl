@@ -67,15 +67,16 @@ public partial class App
 
     internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
     {
+        bool expectsFanTelemetry = DeviceCapabilityExpectations.ExpectsFanTelemetry(State);
         bool expectsFanControl = DeviceCapabilityExpectations.ExpectsWritableFanControl(State);
 
-        // Missing fan-control capability is only a low-level dependency signal when
-        // the resolved model is actually expected to gain that capability from a
-        // verified provider. Other laptops must not be prompted to install PawnIO
-        // merely because their firmware/provider does not expose writable fan control.
+        // Low-level access is relevant for generic sensor discovery and for fan
+        // telemetry/control only when the resolved model/family is expected to
+        // provide those capabilities. An unsupported fan capability on another OEM
+        // must not turn into a PawnIO installation prompt.
         bool needsSensorProvider =
             !State.CanSensorTelemetry ||
-            !State.CanFanTelemetry ||
+            (expectsFanTelemetry && !State.CanFanTelemetry) ||
             (expectsFanControl && !State.CanFanControl);
 
         bool serviceReachable = await HardwareClient.PingAsync();
@@ -131,7 +132,7 @@ public partial class App
 
         bool providerAttention =
             !State.CanSensorTelemetry ||
-            !State.CanFanTelemetry ||
+            (DeviceCapabilityExpectations.ExpectsFanTelemetry(State) && !State.CanFanTelemetry) ||
             (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(State) && !State.CanKeyboardBacklight) ||
             (DeviceCapabilityExpectations.ExpectsWritableFanControl(State) && !State.CanFanControl);
         return providerAttention
