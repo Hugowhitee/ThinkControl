@@ -18,14 +18,15 @@ This checklist applies to tagged prereleases and later stable builds.
 - [x] Confirm extracted UI/service files and service registration are removed.
 - [x] Generate SHA-256 checksums for installer and payload.
 - [x] Keep application, tag, release, installer and payload versions aligned.
+- [x] Compose one public UI overview from the real release snapshots so individual QA PNGs do not clutter GitHub Releases.
 
 ## Installer prerequisites
 
 - [x] Detect an installed compatible .NET 10 Desktop Runtime.
 - [x] Pin the Microsoft x64 runtime download and SHA-256 when acquisition is needed.
-- [x] Detect X9 machine type before offering direct EC hardware access.
-- [x] Pin PawnIO 2.2.0 to the official release URL and Winget-published SHA-256.
-- [x] Keep PawnIO failure capability-scoped rather than blocking unrelated features.
+- [x] Detect an exact write-capable device profile before offering direct low-level hardware access.
+- [x] Pin PawnIO 2.2.0 to the official release URL and Winget-published SHA-256 where that provider is relevant.
+- [x] Keep PawnIO failure capability-scoped rather than blocking unrelated features or unsupported models.
 - [x] Do not remove shared PawnIO during ThinkControl uninstall.
 
 ## Branding and Windows shell
@@ -33,7 +34,7 @@ This checklist applies to tagged prereleases and later stable builds.
 - [x] Approved ThinkControl v3 master geometry is stored under `assets/brand/v3`.
 - [x] Executable/installer ICO is byte-for-byte the canonical v3 Windows icon.
 - [x] Tray ICO is byte-for-byte the canonical v3 mark icon.
-- [x] README dark/light wordmarks are byte-for-byte canonical v3 outlined assets.
+- [x] README dark/light wordmarks are byte-for-byte canonical v3 assets.
 - [x] WPF `BrandMark` uses the exact traced 1536×1536 v3 master geometry.
 - [x] Legacy hand-drawn 64×64 TC geometry is removed.
 - [x] Unused legacy app branding asset is removed.
@@ -41,12 +42,15 @@ This checklist applies to tagged prereleases and later stable builds.
 - [x] Compact remains a fixed non-draggable tray flyout.
 - [x] Advanced uses the native Windows title bar and taskbar entry.
 
-## X9 hardware policy
+## Device-provider and X9 hardware policy
 
-- [x] `21Q6` / `21Q7` parsing is prioritized so X9 is not reported as Beta/Untested.
-- [x] Direct fan writes remain restricted to the verified X9 profile.
-- [x] RPM uses the verified EC tachometer route and conservative polling.
-- [x] Normal service/controller disposal returns manual fan control to Lenovo Auto where possible.
+- [x] Device support follows `Windows generic → OEM → family → exact model` rather than making the UI model-specific.
+- [x] Profiles select providers; provider code owns lifecycle, validation, readback and write safety.
+- [x] Broad OEM/family profiles cannot authorize an unverified low-level write merely through data/config.
+- [x] `21Q6` / `21Q7` parsing identifies the X9-15 Gen 1 as the first reviewed low-level reference profile.
+- [x] Direct X9 fan writes remain restricted to that exact verified profile.
+- [x] RPM uses a real EC tachometer route and conservative polling; a second fan is never synthesized.
+- [x] Normal service/controller disposal returns manual fan control to firmware/OEM Auto where possible.
 - [x] Lenovo keyboard writes use known provider contracts with readback.
 - [x] Installed Vantage ThinkKeyboard components are fallback-only and must validate.
 - [x] Windows Quiet/Balanced/Performance remains the primary power-mode surface.
@@ -60,6 +64,8 @@ This checklist applies to tagged prereleases and later stable builds.
 - [x] Update checking reports a friendly release-channel state instead of a raw GitHub 404.
 - [x] Compact/Advanced dock actions use matching diagonal direction icons.
 - [x] Native Windows maximize/restore state is owned by the standard Advanced title bar.
+- [x] Every Advanced page shares the same left-anchored responsive content rail.
+- [x] Hardware Setup, Notifications and telemetry-detail surfaces are part of deterministic visual QA.
 
 ## Release publication
 
@@ -67,7 +73,8 @@ This checklist applies to tagged prereleases and later stable builds.
 - [x] `releaseReady` gates publication to `main`.
 - [x] A release-ready main commit creates the exact `v<version>` tag.
 - [x] The tag dispatches the tested package workflow.
-- [x] Publication waits for Setup, Payload, `SHA256SUMS.txt` and the release preview set.
+- [x] Publication waits for Setup, Payload, `SHA256SUMS.txt` and one generated `ui-overview.png` preview.
+- [x] Public release downloads stay compact: users need only Setup; payload/checksum remain updater/verification infrastructure.
 - [x] The verified release marker records the payload as well as installer/checksum.
 
 ## Physical X9 validation after alpha.11 publication
@@ -79,19 +86,20 @@ This checklist applies to tagged prereleases and later stable builds.
 - [ ] Confirm X9 is identified as the reviewed low-level profile, not Beta/Untested.
 - [ ] Confirm Hardware Setup distinguishes service Running, IPC reachability, PawnIO device access and provider readiness correctly.
 - [ ] Confirm CPU/control-temperature sensor source and value.
-- [ ] Confirm stable fan RPM, Lenovo Auto and manual levels 1 through 7.
+- [ ] Confirm stable fan RPM, firmware/OEM Auto and manual levels 1 through 7.
 - [ ] Confirm Quiet/Balanced/Performance policy behavior on AC and battery.
 - [ ] Confirm keyboard Off/Low/High and supported effect behavior.
 - [ ] Confirm Commercial Vantage direct launch.
 - [ ] Confirm update checking and an alpha.10 → alpha.11 in-app update including cancellation/relaunch behavior.
-- [ ] Test sleep/resume and verify manual fan ownership returns safely to Lenovo Auto.
+- [ ] Test sleep/resume and verify manual fan ownership returns safely to firmware/OEM Auto.
 - [ ] Inspect Compact/Advanced at 100, 125 and 150 percent scaling.
 - [ ] Confirm Compact cannot be dragged.
 - [ ] Confirm Advanced native title bar, v3 icon, Snap Layouts and maximize/restore.
 
 ## Later release work
 
-- additional Lenovo model validation;
+- broader Lenovo and non-Lenovo model validation;
 - private opt-in diagnostics submission;
 - broader accessibility and real-device scaling validation;
+- Windows 10/LTSC compatibility evaluation only if a supported customer need justifies a separate test matrix;
 - Authenticode signing and mature rollback handling.
