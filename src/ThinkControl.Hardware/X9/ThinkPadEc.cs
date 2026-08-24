@@ -1,4 +1,6 @@
 using LibreHardwareMonitor.PawnIo;
+using Microsoft.Win32.SafeHandles;
+using System.Runtime.InteropServices;
 
 namespace ThinkControl.Hardware.X9;
 
@@ -18,12 +20,51 @@ internal sealed class ThinkPadEc : IDisposable
     private const int InitialBufferTimeoutMs = 1000;
     private const int MutexTimeoutMs = 1500;
 
-    private readonly LpcAcpiEc _ports = new();
+    private const uint GenericRead = 0x80000000;
+    private const uint GenericWrite = 0x40000000;
+    private const uint FileShareRead = 0x00000001;
+    private const uint FileShareWrite = 0x00000002;
+    private const uint OpenExisting = 3;
+    private const uint FileAttributeNormal = 0x00000080;
+    private const string PawnIoDevicePath = @"\\?\GLOBALROOT\Device\PawnIO";
+
+    private readonly LpcAcpiEc _ports;
     private readonly Mutex _thinkPadMutex = CreateOrOpenMutex("Access_Thinkpad_EC");
     private readonly Mutex _globalEcMutex = CreateOrOpenMutex(@"Global\Access_EC");
     private bool _manualControlEngaged;
     private byte? _lastManualLevel;
     private bool _disposed;
+
+    internal ThinkPadEc()
+    {
+        // LHM's PawnIO wrapper intentionally returns zero-filled results when the
+        // driver device cannot be opened. That is useful for generic monitoring,
+        // but a verified fan-write provider must never confuse an inaccessible
+        // driver with a legitimate EC value of 0x00. Prove the signed PawnIO device
+        // can be opened before loading the embedded LpcACPIEC module.
+        using SafeFileHandle driver = CreateFileW(
+            PawnIoDevicePath,
+            GenericRead | GenericWrite,
+            FileShareRead | FileShareWrite,
+            IntPtr.Zero,
+            OpenExisting,
+            FileAttributeNormal,
+            IntPtr.Zero);
+        if (driver.IsInvalid)
+        {
+            int error = Marshal.GetLastWin32Error();
+            throw new InvalidOperationException(
+                $"PawnIO driver device is unavailable (Win32 {error}). Open Hardware setup to install or repair PawnIO.");
+        }
+
+        if (PawnIo.Version is Version installed && installed < new Version(2, 1, 0))
+        {
+            throw new InvalidOperationException(
+                $"PawnIO {installed} is too old for the verified ThinkControl EC provider. Hardware setup installs PawnIO 2.2.0.");
+        }
+
+        _ports = new LpcAcpiEc();
+    }
 
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
 
@@ -275,9 +316,6 @@ internal sealed class ThinkPadEc : IDisposable
 
         try
         {
-            // Keep the backend usable while returning ownership. Marking the
-            // object disposed before this call would make WithEcLock reject the
-            // cleanup operation and could leave a manual level active.
             if (_manualControlEngaged)
             {
                 try { ReturnToBios(); } catch { }
@@ -291,4 +329,14 @@ internal sealed class ThinkPadEc : IDisposable
             _thinkPadMutex.Dispose();
         }
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFileW(
+        string fileName,
+        uint desiredAccess,
+        uint shareMode,
+        IntPtr securityAttributes,
+        uint creationDisposition,
+        uint flagsAndAttributes,
+        IntPtr templateFile);
 }
