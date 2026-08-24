@@ -1,5 +1,3 @@
-using LibreHardwareMonitor.PawnIo;
-
 namespace ThinkControl.Hardware.X9;
 
 internal sealed class ThinkPadEc : IDisposable
@@ -18,7 +16,7 @@ internal sealed class ThinkPadEc : IDisposable
     private const int InitialBufferTimeoutMs = 1000;
     private const int MutexTimeoutMs = 1500;
 
-    private readonly LpcAcpiEc _ports;
+    private readonly PawnIoEcTransport _ports;
     private readonly Mutex _thinkPadMutex = CreateOrOpenMutex("Access_Thinkpad_EC");
     private readonly Mutex _globalEcMutex = CreateOrOpenMutex(@"Global\Access_EC");
     private bool _manualControlEngaged;
@@ -27,18 +25,10 @@ internal sealed class ThinkPadEc : IDisposable
 
     internal ThinkPadEc()
     {
-        // Match the transport that already worked in the ThinkPad FanControl plugin:
-        // let LibreHardwareMonitor/PawnIO initialise LpcAcpiEc itself and use a real
-        // EC read as the compatibility gate. Do not reflect private LHM fields or
-        // preflight a hard-coded device path: both are implementation details that
-        // can change while the public LpcAcpiEc transport remains fully functional.
-        if (PawnIo.Version is Version installed && installed < new Version(2, 1, 0))
-        {
-            throw new InvalidOperationException(
-                $"PawnIO {installed} is too old for the verified ThinkControl EC provider. Hardware setup installs PawnIO 2.2.0.");
-        }
-
-        _ports = new LpcAcpiEc();
+        // Do not infer PawnIO readiness from its Windows service entry alone.
+        // The transport proves that the device can be opened and that LHM's signed
+        // LPC/ACPI EC module actually loads before any ThinkPad EC transaction runs.
+        _ports = new PawnIoEcTransport();
     }
 
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
@@ -302,7 +292,7 @@ internal sealed class ThinkPadEc : IDisposable
         finally
         {
             _disposed = true;
-            _ports.Close();
+            _ports.Dispose();
             _globalEcMutex.Dispose();
             _thinkPadMutex.Dispose();
         }
