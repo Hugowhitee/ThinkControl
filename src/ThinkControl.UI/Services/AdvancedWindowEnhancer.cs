@@ -27,7 +27,6 @@ internal static class AdvancedWindowEnhancer
         AddSensorsPage(window);
         PolishHome(window);
         AttachPageMotion(window);
-        // AdvancedWindow.UiConsistency is deliberately the only width/resize owner.
     }
 
     internal static void SelectTouchpad(AdvancedWindow window)
@@ -79,12 +78,12 @@ internal static class AdvancedWindowEnhancer
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Left
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
         var panel = new TouchpadPanel
         {
             MaxWidth = 1040,
-            HorizontalAlignment = HorizontalAlignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(0)
         };
         panel.Initialize(app);
@@ -128,7 +127,7 @@ internal static class AdvancedWindowEnhancer
         var navContent = new StackPanel { Orientation = Orientation.Horizontal };
         navContent.Children.Add(new PackIconLucide
         {
-            Kind = "Activity",
+            Kind = "Sensors",
             Width = 15,
             Height = 15,
             Margin = new Thickness(0, 0, 12, 0)
@@ -145,12 +144,12 @@ internal static class AdvancedWindowEnhancer
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Left
+            HorizontalContentAlignment = HorizontalAlignment.Stretch
         };
         var panel = new SensorsPanel
         {
             MaxWidth = 1040,
-            HorizontalAlignment = HorizontalAlignment.Left,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
             Margin = new Thickness(0)
         };
         scroll.Content = panel;
@@ -299,9 +298,6 @@ internal static class AdvancedWindowEnhancer
             return;
         }
 
-        // Opacity only: subtle feedback without moving page geometry during a
-        // layout pass. Competing TranslateTransform animations were a source of
-        // visual jitter and right-edge clipping at small widths.
         element.Opacity = 0;
         var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
         element.BeginAnimation(UIElement.OpacityProperty,

@@ -21,9 +21,14 @@ public partial class CompactDashboard : UserControl
         if (!ReferenceEquals(_app, app))
         {
             if (_app is not null)
+            {
                 _app.State.PropertyChanged -= State_PropertyChanged;
+                _app.UpdateAvailabilityChanged -= App_UpdateAvailabilityChanged;
+            }
+
             _app = app;
             app.State.PropertyChanged += State_PropertyChanged;
+            app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
         }
 
         EnsureAudioRow();
@@ -33,6 +38,9 @@ public partial class CompactDashboard : UserControl
         SyncQuickControls();
         SyncHardwareAlert();
     }
+
+    private void App_UpdateAvailabilityChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(SyncHardwareAlert);
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

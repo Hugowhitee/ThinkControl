@@ -23,11 +23,11 @@ public sealed record SensorHubSnapshot(
 
 public sealed class SensorHub : IDisposable
 {
-    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan OpenRetryInterval = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan EmptyProviderRecycleInterval = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(3);
+    private static readonly TimeSpan OpenRetryInterval = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan EmptyProviderRecycleInterval = TimeSpan.FromMinutes(5);
     private const int MaxSensorCount = 256;
-    private const int EmptyCriticalRefreshesBeforeRecycle = 3;
+    private const int EmptyCriticalRefreshesBeforeRecycle = 4;
 
     private readonly object _gate = new();
     private Computer? _computer;
@@ -130,11 +130,20 @@ public sealed class SensorHub : IDisposable
                 IsMemoryEnabled = true,
                 IsMotherboardEnabled = true,
                 IsStorageEnabled = true,
-                IsBatteryEnabled = true,
-                IsNetworkEnabled = true,
-                IsControllerEnabled = true,
-                IsPsuEnabled = true,
-                IsPowerMonitorEnabled = true
+
+                // Battery telemetry is intentionally owned by ThinkControl's
+                // BatteryTelemetryService. LHM 0.9.6 has a known stale-battery
+                // handle failure mode that can emit a Windows power-status broadcast
+                // on every poll, so enabling the duplicate LHM battery provider here
+                // can create system-wide periodic stutter for no useful benefit.
+                IsBatteryEnabled = false,
+
+                // Laptop fan/temperature control does not need these groups. Keeping
+                // them off avoids extra driver/WMI work in the always-on service.
+                IsNetworkEnabled = false,
+                IsControllerEnabled = false,
+                IsPsuEnabled = false,
+                IsPowerMonitorEnabled = false
             };
             candidate.Open();
             _computer = candidate;
@@ -168,6 +177,9 @@ public sealed class SensorHub : IDisposable
             return;
         }
 
+        // Automatic recovery is deliberately slow. A failed provider must never
+        // hammer PawnIO/ACPI every few seconds. Hardware setup can always request an
+        // immediate explicit refresh after installing/repairing a provider.
         CloseComputer();
         _lastProviderRecycle = now;
         _lastOpenAttempt = DateTimeOffset.MinValue;

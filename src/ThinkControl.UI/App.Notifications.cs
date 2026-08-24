@@ -1,27 +1,21 @@
-using System.Windows;
+using System.Windows.Threading;
 
 namespace ThinkControl.UI;
 
 public partial class App
 {
-    private NotificationCenterWindow? _notificationCenterWindow;
-
     public void OpenNotificationCenter()
     {
-        if (_notificationCenterWindow is null)
+        // Notifications live inside the normal undocked ThinkControl window. This
+        // avoids a second task/window lifecycle from tray and makes dismissing the
+        // sheet return users to exactly the page they were already using.
+        if (_advancedWindow is null || !_advancedWindow.IsVisible)
+            OpenAdvanced("Home");
+
+        Dispatcher.BeginInvoke(new Action(() =>
         {
-            _notificationCenterWindow = new NotificationCenterWindow(this);
-            _notificationCenterWindow.Closed += (_, _) => _notificationCenterWindow = null;
-        }
-
-        Window? owner = _advancedWindow?.IsVisible == true ? _advancedWindow : CompactWindow;
-        if (owner?.IsVisible == true)
-            _notificationCenterWindow.Owner = owner;
-
-        if (!_notificationCenterWindow.IsVisible)
-            _notificationCenterWindow.Show();
-        if (_notificationCenterWindow.WindowState == WindowState.Minimized)
-            _notificationCenterWindow.WindowState = WindowState.Normal;
-        _notificationCenterWindow.Activate();
+            _advancedWindow?.ShowNotificationSheet();
+            _advancedWindow?.Activate();
+        }), DispatcherPriority.Background);
     }
 }

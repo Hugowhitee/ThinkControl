@@ -1,7 +1,4 @@
 using LibreHardwareMonitor.PawnIo;
-using Microsoft.Win32.SafeHandles;
-using System.Reflection;
-using System.Runtime.InteropServices;
 
 namespace ThinkControl.Hardware.X9;
 
@@ -21,14 +18,6 @@ internal sealed class ThinkPadEc : IDisposable
     private const int InitialBufferTimeoutMs = 1000;
     private const int MutexTimeoutMs = 1500;
 
-    private const uint GenericRead = 0x80000000;
-    private const uint GenericWrite = 0x40000000;
-    private const uint FileShareRead = 0x00000001;
-    private const uint FileShareWrite = 0x00000002;
-    private const uint OpenExisting = 3;
-    private const uint FileAttributeNormal = 0x00000080;
-    private const string PawnIoDevicePath = @"\\?\GLOBALROOT\Device\PawnIO";
-
     private readonly LpcAcpiEc _ports;
     private readonly Mutex _thinkPadMutex = CreateOrOpenMutex("Access_Thinkpad_EC");
     private readonly Mutex _globalEcMutex = CreateOrOpenMutex(@"Global\Access_EC");
@@ -38,55 +27,18 @@ internal sealed class ThinkPadEc : IDisposable
 
     internal ThinkPadEc()
     {
-        // PawnIO is demand-start. Let LHM load its embedded signed module first;
-        // probing the device path before module activation can incorrectly report
-        // an installed PawnIO driver as unavailable (FanControl/LHM do the inverse).
-        LpcAcpiEc ports = new();
-        try
-        {
-            VerifyPawnIoModuleLoaded(ports);
-            VerifyPawnIoDeviceReachable();
-            _ports = ports;
-        }
-        catch
-        {
-            try { ports.Close(); } catch { }
-            throw;
-        }
-    }
-
-    private static void VerifyPawnIoModuleLoaded(LpcAcpiEc ports)
-    {
+        // Match the transport that already worked in the ThinkPad FanControl plugin:
+        // let LibreHardwareMonitor/PawnIO initialise LpcAcpiEc itself and use a real
+        // EC read as the compatibility gate. Do not reflect private LHM fields or
+        // preflight a hard-coded device path: both are implementation details that
+        // can change while the public LpcAcpiEc transport remains fully functional.
         if (PawnIo.Version is Version installed && installed < new Version(2, 1, 0))
         {
             throw new InvalidOperationException(
                 $"PawnIO {installed} is too old for the verified ThinkControl EC provider. Hardware setup installs PawnIO 2.2.0.");
         }
 
-        FieldInfo? field = typeof(LpcAcpiEc).GetField("_pawnIO", BindingFlags.Instance | BindingFlags.NonPublic);
-        if (field?.GetValue(ports) is not PawnIo module || !module.IsLoaded)
-        {
-            throw new InvalidOperationException(
-                "LibreHardwareMonitor could not load its PawnIO EC module. Use Hardware setup → Refresh providers; reinstall PawnIO only if Windows reports it missing.");
-        }
-    }
-
-    private static void VerifyPawnIoDeviceReachable()
-    {
-        using SafeFileHandle driver = CreateFileW(
-            PawnIoDevicePath,
-            GenericRead | GenericWrite,
-            FileShareRead | FileShareWrite,
-            IntPtr.Zero,
-            OpenExisting,
-            FileAttributeNormal,
-            IntPtr.Zero);
-        if (!driver.IsInvalid)
-            return;
-
-        int error = Marshal.GetLastWin32Error();
-        throw new InvalidOperationException(
-            $"PawnIO module loaded but its driver device is not reachable (Win32 {error}). Refresh providers or restart Windows before reinstalling the driver.");
+        _ports = new LpcAcpiEc();
     }
 
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
@@ -223,6 +175,9 @@ internal sealed class ThinkPadEc : IDisposable
             Thread.Sleep(1);
         }
 
+        // Same compatibility fallback used by the earlier working plugin: a few
+        // ThinkPad ECs complete the transaction after IBF clears without reliably
+        // asserting OBF for every register read.
         for (int i = 0; i < ReadWaitSpins; i++)
         {
             if ((ReadPort(EcCommandPort) & InputBufferFull) == 0)
@@ -352,14 +307,4 @@ internal sealed class ThinkPadEc : IDisposable
             _thinkPadMutex.Dispose();
         }
     }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern SafeFileHandle CreateFileW(
-        string fileName,
-        uint desiredAccess,
-        uint shareMode,
-        IntPtr securityAttributes,
-        uint creationDisposition,
-        uint flagsAndAttributes,
-        IntPtr templateFile);
 }

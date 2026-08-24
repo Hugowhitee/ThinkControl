@@ -99,6 +99,11 @@ public partial class AdvancedWindow
         OpenReleaseButton.ToolTip = "Download, verify and install the newest ThinkControl release";
         OpenReleaseButton.IsEnabled = false;
 
+        _lastUpdate = _app.LatestUpdateResult;
+        _app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
+        Closed += (_, _) => _app.UpdateAvailabilityChanged -= App_UpdateAvailabilityChanged;
+        SyncPublishedUpdateResult();
+
         var autoSwitch = new WpfCheckBox
         {
             Style = TryFindResource("TcSwitch") as Style,
@@ -113,7 +118,7 @@ public partial class AdvancedWindow
         copy.Children.Add(new TextBlock { Text = "Automatic update checks", FontWeight = FontWeights.SemiBold });
         var detail = new TextBlock
         {
-            Text = "Check shortly after startup and every six hours. ThinkControl never opens an administrator prompt or installs in the background; installation starts only when you click Install update.",
+            Text = "Check shortly after startup and every six hours. A found update immediately appears here and in Notifications. ThinkControl never opens an administrator prompt or installs in the background; installation starts only when you click Install update.",
             FontSize = 10.5,
             Margin = new Thickness(0, 4, 80, 0),
             TextWrapping = TextWrapping.Wrap
@@ -134,6 +139,20 @@ public partial class AdvancedWindow
         stack.Children.Add(card);
     }
 
+    private void App_UpdateAvailabilityChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(SyncPublishedUpdateResult);
+
+    private void SyncPublishedUpdateResult()
+    {
+        _lastUpdate = _app.LatestUpdateResult ?? _lastUpdate;
+        bool ready = IsReleaseReady(_lastUpdate);
+        OpenReleaseButton.IsEnabled = ready && !IsUpdateCheckInProgress() && !IsUpdateInstallInProgress();
+        OpenReleaseButton.Content = ready && !string.IsNullOrWhiteSpace(_lastUpdate?.Version)
+            ? $"Install {_lastUpdate.Version}"
+            : "Install update";
+        RefreshUpdateAvailabilityVisual();
+    }
+
     private async void CheckUpdatesAndPrepare_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not WpfButton || IsUpdateCheckInProgress())
@@ -145,10 +164,8 @@ public partial class AdvancedWindow
         try
         {
             _lastUpdate = await _app.UpdateService.CheckAsync();
-            _app.State.UpdateStatus = _lastUpdate.Status;
-            bool ready = IsReleaseReady(_lastUpdate);
-            OpenReleaseButton.IsEnabled = ready;
-            OpenReleaseButton.Content = ready ? $"Install {_lastUpdate.Version}" : "Install update";
+            _app.PublishUpdateCheckResult(_lastUpdate);
+            SyncPublishedUpdateResult();
         }
         finally
         {
@@ -166,11 +183,13 @@ public partial class AdvancedWindow
         button.IsEnabled = false;
         try
         {
+            _lastUpdate ??= _app.LatestUpdateResult;
             if (_lastUpdate is null || !_lastUpdate.Available)
             {
                 _app.State.UpdateStatus = "Checking for updates…";
                 SetUpdateCheckingVisual(true);
                 _lastUpdate = await _app.UpdateService.CheckAsync();
+                _app.PublishUpdateCheckResult(_lastUpdate);
                 DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
                 UpdateCheckHistoryService.Record(checkedAt);
                 RefreshLastChecked(checkedAt);
@@ -205,9 +224,9 @@ public partial class AdvancedWindow
             _app.State.UpdateStatus = result.Status;
             if (result.Success)
             {
-                // Do not close the app here. The verified installer closes ThinkControl
-                // only after its local payload is ready, avoiding the long blank gap
-                // and repeated startup UAC loop seen in earlier alphas.
+                // The app intentionally remains open here. The verified installer is
+                // responsible for closing ThinkControl after its local payload is
+                // prepared and Windows elevation has actually succeeded.
                 updaterStarted = true;
                 button.Content = "Installer started…";
                 button.IsEnabled = false;
@@ -218,12 +237,7 @@ public partial class AdvancedWindow
         {
             SetUpdateCheckingVisual(false);
             if (!updaterStarted)
-            {
-                button.Content = _lastUpdate?.Available == true && !string.IsNullOrWhiteSpace(_lastUpdate.Version)
-                    ? $"Install {_lastUpdate.Version}"
-                    : "Install update";
-                button.IsEnabled = IsReleaseReady(_lastUpdate);
-            }
+                SyncPublishedUpdateResult();
         }
     }
 

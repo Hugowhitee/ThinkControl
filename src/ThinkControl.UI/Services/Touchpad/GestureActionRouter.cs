@@ -7,13 +7,20 @@ internal sealed class GestureActionRouter
 {
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
+    private readonly Func<int> _getVolume;
+    private readonly Action<int> _queueVolume;
     private readonly Func<int> _getBrightness;
     private readonly Action<int> _queueBrightness;
-    private readonly Func<int, Task> _stepKeyboard;
-    private readonly Func<int, bool> _stepPerformance;
+    private readonly Func<int> _getKeyboardIndex;
+    private readonly Action<int> _queueKeyboardIndex;
+    private readonly Func<int> _getPerformanceIndex;
+    private readonly Action<int> _queuePerformanceIndex;
+    private readonly Action<GestureActionKind, bool> _setGestureActive;
 
+    private int _volumeAtStart;
     private int _brightnessAtStart;
-    private double _stepAccumulator;
+    private int _keyboardAtStart;
+    private int _performanceAtStart;
     private double _seekCumulativeSeconds;
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
@@ -21,17 +28,27 @@ internal sealed class GestureActionRouter
     internal GestureActionRouter(
         NativeInputService nativeInput,
         MediaSessionService media,
+        Func<int> getVolume,
+        Action<int> queueVolume,
         Func<int> getBrightness,
         Action<int> queueBrightness,
-        Func<int, Task> stepKeyboard,
-        Func<int, bool> stepPerformance)
+        Func<int> getKeyboardIndex,
+        Action<int> queueKeyboardIndex,
+        Func<int> getPerformanceIndex,
+        Action<int> queuePerformanceIndex,
+        Action<GestureActionKind, bool> setGestureActive)
     {
         _nativeInput = nativeInput;
         _media = media;
+        _getVolume = getVolume;
+        _queueVolume = queueVolume;
         _getBrightness = getBrightness;
         _queueBrightness = queueBrightness;
-        _stepKeyboard = stepKeyboard;
-        _stepPerformance = stepPerformance;
+        _getKeyboardIndex = getKeyboardIndex;
+        _queueKeyboardIndex = queueKeyboardIndex;
+        _getPerformanceIndex = getPerformanceIndex;
+        _queuePerformanceIndex = queuePerformanceIndex;
+        _setGestureActive = setGestureActive;
     }
 
     internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
@@ -55,21 +72,33 @@ internal sealed class GestureActionRouter
 
     private void Begin(GestureSignal signal)
     {
-        _stepAccumulator = 0;
         switch (signal.Action)
         {
             case GestureActionKind.Volume:
-                ApplyStepped(ToPositiveControlDelta(signal, signal.DeltaMm), 2.0,
-                    _nativeInput.VolumeUp, _nativeInput.VolumeDown);
+                _setGestureActive(signal.Action, true);
+                _volumeAtStart = _getVolume();
+                ApplyVolume(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.Brightness:
+                _setGestureActive(signal.Action, true);
                 _brightnessAtStart = _getBrightness();
                 ApplyBrightness(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.MediaSeek:
+                _setGestureActive(signal.Action, true);
                 _seekCumulativeSeconds = 0;
                 _lastMediaTimestamp = Stopwatch.GetTimestamp();
                 _mediaBeginTask = _media.BeginSeekAsync();
+                break;
+            case GestureActionKind.KeyboardBacklight:
+                _setGestureActive(signal.Action, true);
+                _keyboardAtStart = _getKeyboardIndex();
+                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _keyboardAtStart, _queueKeyboardIndex);
+                break;
+            case GestureActionKind.PerformanceMode:
+                _setGestureActive(signal.Action, true);
+                _performanceAtStart = _getPerformanceIndex();
+                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _performanceAtStart, _queuePerformanceIndex);
                 break;
             case GestureActionKind.PreviousNextTrack:
                 if (ToPositiveControlDelta(signal, signal.TotalTravelMm) >= 0) _nativeInput.NextTrack();
@@ -87,12 +116,6 @@ internal sealed class GestureActionRouter
             case GestureActionKind.ShowDesktop:
                 _nativeInput.ShowDesktop();
                 break;
-            case GestureActionKind.KeyboardBacklight:
-                _ = ApplyAsyncStep(ToPositiveControlDelta(signal, signal.TotalTravelMm), 8.0, _stepKeyboard);
-                break;
-            case GestureActionKind.PerformanceMode:
-                ApplyStep(ToPositiveControlDelta(signal, signal.TotalTravelMm), 8.0, _stepPerformance);
-                break;
         }
     }
 
@@ -101,8 +124,7 @@ internal sealed class GestureActionRouter
         switch (signal.Action)
         {
             case GestureActionKind.Volume:
-                ApplyStepped(ToPositiveControlDelta(signal, signal.DeltaMm), 2.0,
-                    _nativeInput.VolumeUp, _nativeInput.VolumeDown);
+                ApplyVolume(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.Brightness:
                 ApplyBrightness(signal, signal.TotalTravelMm);
@@ -111,12 +133,41 @@ internal sealed class GestureActionRouter
                 QueueMediaSeek(signal);
                 break;
             case GestureActionKind.KeyboardBacklight:
-                _ = ApplyAsyncStep(ToPositiveControlDelta(signal, signal.DeltaMm), 8.0, _stepKeyboard);
+                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _keyboardAtStart, _queueKeyboardIndex);
                 break;
             case GestureActionKind.PerformanceMode:
-                ApplyStep(ToPositiveControlDelta(signal, signal.DeltaMm), 8.0, _stepPerformance);
+                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _performanceAtStart, _queuePerformanceIndex);
                 break;
         }
+    }
+
+    private void ApplyVolume(GestureSignal signal, double travelMm)
+    {
+        int target = Math.Clamp(
+            _volumeAtStart + (int)Math.Round(ToPositiveControlDelta(signal, travelMm) * 1.4),
+            0,
+            100);
+        _queueVolume(target);
+    }
+
+    private void ApplyBrightness(GestureSignal signal, double travelMm)
+    {
+        int target = Math.Clamp(
+            _brightnessAtStart + (int)Math.Round(ToPositiveControlDelta(signal, travelMm) * 1.25),
+            0,
+            100);
+        _queueBrightness(target);
+    }
+
+    private static void ApplyDiscreteTarget(
+        GestureSignal signal,
+        double travelMm,
+        int startIndex,
+        Action<int> queueTarget)
+    {
+        double signedTravel = ToPositiveControlDelta(signal, travelMm);
+        int steps = (int)Math.Truncate(signedTravel / 8.0);
+        queueTarget(Math.Clamp(startIndex + steps, 0, 2));
     }
 
     private void QueueMediaSeek(GestureSignal signal)
@@ -130,10 +181,8 @@ internal sealed class GestureActionRouter
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
 
-        // Distance gives precision; velocity supplies strong but bounded acceleration.
-        // Slow glides stay precise, while a deliberate fast flick can jump tens of
-        // seconds. Only the latest target is handed to GSMTC by MediaSessionService,
-        // so Spotify never receives one seek request per raw touch frame.
+        // Slow movement stays precise. Fast movement accelerates, but MediaSessionService
+        // receives only the newest accumulated target on its bounded cadence.
         double speed01 = Math.Clamp((velocity - 24.0) / 175.0, 0.0, 1.0);
         double acceleration = 1.0 + 5.0 * Math.Pow(speed01, 1.45);
         double seconds = deltaMm * 0.28 * acceleration;
@@ -156,56 +205,15 @@ internal sealed class GestureActionRouter
         }
     }
 
-    private void ApplyBrightness(GestureSignal signal, double travelMm)
-    {
-        int target = Math.Clamp(
-            _brightnessAtStart + (int)Math.Round(ToPositiveControlDelta(signal, travelMm) * 1.25),
-            0,
-            100);
-        _queueBrightness(target);
-    }
-
     private static double ToPositiveControlDelta(GestureSignal signal, double value) =>
         signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -value : value;
 
-    private void ApplyStepped(double deltaMm, double millimetresPerStep, Func<bool> increase, Func<bool> decrease)
-    {
-        _stepAccumulator += deltaMm;
-        while (Math.Abs(_stepAccumulator) >= millimetresPerStep)
-        {
-            int direction = Math.Sign(_stepAccumulator);
-            if (direction > 0) increase(); else decrease();
-            _stepAccumulator -= direction * millimetresPerStep;
-        }
-    }
-
-    private async Task ApplyAsyncStep(double deltaMm, double millimetresPerStep, Func<int, Task> step)
-    {
-        _stepAccumulator += deltaMm;
-        while (Math.Abs(_stepAccumulator) >= millimetresPerStep)
-        {
-            int direction = Math.Sign(_stepAccumulator);
-            _stepAccumulator -= direction * millimetresPerStep;
-            try { await step(direction).ConfigureAwait(false); }
-            catch { return; }
-        }
-    }
-
-    private void ApplyStep(double deltaMm, double millimetresPerStep, Func<int, bool> step)
-    {
-        _stepAccumulator += deltaMm;
-        while (Math.Abs(_stepAccumulator) >= millimetresPerStep)
-        {
-            int direction = Math.Sign(_stepAccumulator);
-            if (!step(direction))
-                return;
-            _stepAccumulator -= direction * millimetresPerStep;
-        }
-    }
-
     private void End(GestureActionKind action)
     {
-        _stepAccumulator = 0;
+        // Cancelling first guarantees workers throw away stale targets immediately.
+        // At most one already-running hardware/Windows write can finish after release.
+        _setGestureActive(action, false);
+
         if (action == GestureActionKind.MediaSeek)
         {
             _ = _media.EndSeekAsync();

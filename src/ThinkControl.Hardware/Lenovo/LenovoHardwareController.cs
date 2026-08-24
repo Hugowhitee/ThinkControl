@@ -25,11 +25,11 @@ public sealed record LenovoHardwareStatus(
 
 public sealed class LenovoHardwareController : IDisposable
 {
-    private static readonly TimeSpan FanStatePollInterval = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan FanStatePollInterval = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan FanRpmPollInterval = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan GenericFanPollInterval = TimeSpan.FromSeconds(6);
-    private static readonly TimeSpan EcRetryInterval = TimeSpan.FromSeconds(8);
-    private static readonly TimeSpan KeyboardProbeInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan GenericFanPollInterval = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan EcRetryInterval = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan KeyboardProbeInterval = TimeSpan.FromSeconds(45);
 
     private readonly object _gate = new();
     private readonly HardwareDeviceIdentity _identity;
@@ -66,9 +66,8 @@ public sealed class LenovoHardwareController : IDisposable
 
         lock (_gate)
         {
-            // A user-requested retry must actually recycle the provider stack rather
-            // than re-reading the same cached failure. Lenovo Auto is kept as the
-            // safe owner; manual control is never silently restored here.
+            // Explicit repair bypasses backoff. Normal status polling never hammers a
+            // failed EC or Lenovo keyboard backend every few seconds.
             try
             {
                 if (_fanControl is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel && _ec is not null)

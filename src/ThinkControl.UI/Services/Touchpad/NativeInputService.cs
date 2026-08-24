@@ -16,8 +16,19 @@ internal sealed class NativeInputService
         _showValue = showValue;
     }
 
-    internal bool VolumeUp() => ChangeVolume(+0.025f);
-    internal bool VolumeDown() => ChangeVolume(-0.025f);
+    internal int GetVolumePercent()
+    {
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            return Math.Clamp((int)Math.Round(device.AudioEndpointVolume.MasterVolumeLevelScalar * 100), 0, 100);
+        }
+        catch
+        {
+            return 50;
+        }
+    }
 
     internal bool SetVolume(int percent)
     {
@@ -59,26 +70,6 @@ internal sealed class NativeInputService
     internal bool TogglePlayPause() => SendKey(TouchpadNativeMethods.VkMediaPlayPause);
     internal bool ShowTaskView() => SendChord(VkLeftWindows, VkTab);
     internal bool ShowDesktop() => SendChord(VkLeftWindows, VkD);
-
-    private bool ChangeVolume(float delta)
-    {
-        try
-        {
-            using var enumerator = new MMDeviceEnumerator();
-            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-            AudioEndpointVolume volume = device.AudioEndpointVolume;
-            float next = Math.Clamp(volume.MasterVolumeLevelScalar + delta, 0f, 1f);
-            volume.MasterVolumeLevelScalar = next;
-            if (volume.Mute && next > 0)
-                volume.Mute = false;
-            _showValue?.Invoke("Volume", (int)Math.Round(next * 100));
-            return true;
-        }
-        catch
-        {
-            return SendKey(delta >= 0 ? TouchpadNativeMethods.VkVolumeUp : TouchpadNativeMethods.VkVolumeDown);
-        }
-    }
 
     private static bool SendChord(ushort modifier, ushort key)
     {
