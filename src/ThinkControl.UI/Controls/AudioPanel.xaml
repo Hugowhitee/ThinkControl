@@ -6,10 +6,26 @@
             <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
             <Button Content="Reset" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic and clear the saved game subprofile" />
         </Grid>
-        <TextBlock Text="ThinkControl prefers Lenovo's installed Dolby DAX backend directly. Dolby Access is only used as a safe fallback for main profile switching when the driver does not expose direct automation."
+        <TextBlock Text="Windows output volume and Dolby processing live together here, using the same direct-control approach as the Display page."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
+            <StackPanel>
+                <Grid>
+                    <StackPanel>
+                        <TextBlock Text="System volume" FontWeight="SemiBold" />
+                        <TextBlock x:Name="VolumeDeviceText" Text="Default Windows output" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,90,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <TextBlock x:Name="VolumeValueText" Text="—" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <Button x:Name="MuteButton" Content="Mute" Style="{StaticResource TcButton}" Padding="10,4" Click="Mute_Click" />
+                    </StackPanel>
+                </Grid>
+                <Slider x:Name="VolumeSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="VolumeSlider_ValueChanged" PreviewMouseLeftButtonUp="VolumeSlider_MouseUp" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
             <StackPanel>
                 <Grid>
                     <StackPanel>
