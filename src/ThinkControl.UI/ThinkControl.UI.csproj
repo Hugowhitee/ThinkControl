@@ -7,6 +7,9 @@
     <ApplicationIcon>Assets\ThinkControl.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="ThinkControl.Snapshots" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\ThinkControl.Core\ThinkControl.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
