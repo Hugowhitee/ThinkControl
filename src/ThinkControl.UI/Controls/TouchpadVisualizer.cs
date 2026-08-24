@@ -4,6 +4,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.Core.Touchpad;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfPoint = System.Windows.Point;
 using WpfCursors = System.Windows.Input.Cursors;
 
