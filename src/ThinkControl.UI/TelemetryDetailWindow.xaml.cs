@@ -14,7 +14,11 @@ public sealed record TelemetryDetailModel(
     string Unit,
     string ValueFormat,
     IReadOnlyList<TelemetryDetailMetric> Metrics,
-    string Footer = "Local telemetry · nothing is uploaded");
+    string Footer = "Local telemetry · nothing is uploaded",
+    IReadOnlyList<TimeSeriesPoint>? SecondaryTimeline = null,
+    string? SecondaryChartTitle = null,
+    string SecondaryUnit = "%",
+    string SecondaryValueFormat = "0");
 
 public partial class TelemetryDetailWindow : Window
 {
@@ -29,6 +33,18 @@ public partial class TelemetryDetailWindow : Window
         DetailChart.Unit = model.Unit;
         DetailChart.ValueFormat = model.ValueFormat;
         FooterText.Text = model.Footer;
+
+        if (model.SecondaryTimeline is { Count: > 0 } secondary)
+        {
+            SecondaryChartCard.Visibility = Visibility.Visible;
+            SecondaryChartTitleText.Text = string.IsNullOrWhiteSpace(model.SecondaryChartTitle)
+                ? "Battery level"
+                : model.SecondaryChartTitle;
+            SecondaryDetailChart.Values = secondary;
+            SecondaryDetailChart.Unit = model.SecondaryUnit;
+            SecondaryDetailChart.ValueFormat = model.SecondaryValueFormat;
+            Height = Math.Max(Height, 720);
+        }
 
         MetricsGrid.Columns = Math.Clamp(model.Metrics.Count, 1, 4);
         foreach (TelemetryDetailMetric metric in model.Metrics.Take(8))
