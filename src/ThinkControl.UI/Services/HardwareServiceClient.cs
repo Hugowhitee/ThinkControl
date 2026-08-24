@@ -17,54 +17,56 @@ public sealed record HardwareOperationResult(
 public sealed class HardwareServiceClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan LastKnownGoodGrace = TimeSpan.FromSeconds(12);
+    private static readonly TimeSpan StatusEventInterval = TimeSpan.FromSeconds(6);
+
     private ServiceResponse? _lastValidStatus;
+    private DateTimeOffset _lastValidStatusAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastStatusEventAt = DateTimeOffset.MinValue;
+    private bool _lastObservedOnline;
 
     public event EventHandler<HardwareOperationResult>? HardwareOperationCompleted;
     public event EventHandler<ServiceResponse?>? StatusObserved;
 
     public async Task<ServiceResponse?> GetStatusAsync(CancellationToken cancellationToken = default)
     {
-        ServiceResponse? response = await GetStatusCoreAsync(cancellationToken);
-        try { StatusObserved?.Invoke(this, response); }
-        catch { }
+        ServiceResponse? response = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        PublishStatusIfNeeded(response);
         return response;
     }
 
     private async Task<ServiceResponse?> GetStatusCoreAsync(CancellationToken cancellationToken)
     {
         ServiceRequest request = new(ThinkControlProtocol.Version, "GetStatus");
-        ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 4200);
+        ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 900).ConfigureAwait(false);
         if (IsValidStatus(response))
         {
-            _lastValidStatus = response;
+            RememberValidStatus(response!);
             return response;
         }
+
         if (response is not null || cancellationToken.IsCancellationRequested)
             return response;
 
-        try
-        {
-            await Task.Delay(140, cancellationToken);
-        }
-        catch (OperationCanceledException)
-        {
-            return null;
-        }
-
-        response = await SendAsync(request, cancellationToken, timeoutMs: 2400);
-        if (IsValidStatus(response))
-        {
-            _lastValidStatus = response;
-            return response;
-        }
-        if (response is not null || cancellationToken.IsCancellationRequested)
-            return response;
-
-        if (await PingAsync(cancellationToken).ConfigureAwait(false) && _lastValidStatus is not null)
+        // The service returns GetStatus from an in-memory cache, so a multi-second
+        // retry only makes the UI feel frozen. Use a very small ping to distinguish
+        // a transient status miss from a genuinely unreachable pipe.
+        bool online = await PingAsync(cancellationToken).ConfigureAwait(false);
+        if (online && _lastValidStatus is not null)
         {
             return _lastValidStatus with
             {
-                Error = "Hardware service is online; provider refresh timed out. Showing the last complete status."
+                Error = "Hardware service is online; showing the last complete provider snapshot while status refresh catches up."
+            };
+        }
+
+        // Do not throw away all live telemetry because of one short IPC hiccup.
+        // A persistent failure still becomes offline after this bounded grace window.
+        if (_lastValidStatus is not null && DateTimeOffset.UtcNow - _lastValidStatusAt <= LastKnownGoodGrace)
+        {
+            return _lastValidStatus with
+            {
+                Error = "Hardware service response was briefly delayed; showing the last known good snapshot."
             };
         }
 
@@ -76,7 +78,7 @@ public sealed class HardwareServiceClient
         ServiceResponse? response = await SendAsync(
             new ServiceRequest(ThinkControlProtocol.Version, "Ping"),
             cancellationToken,
-            timeoutMs: 500);
+            timeoutMs: 350).ConfigureAwait(false);
         return response?.Success == true;
     }
 
@@ -114,13 +116,13 @@ public sealed class HardwareServiceClient
         ServiceResponse? response = await SendAsync(
             new ServiceRequest(ThinkControlProtocol.Version, operation, value),
             cancellationToken,
-            timeoutMs);
+            timeoutMs).ConfigureAwait(false);
         stopwatch.Stop();
 
         if (IsValidStatus(response))
         {
-            _lastValidStatus = response;
-            try { StatusObserved?.Invoke(this, response); } catch { }
+            RememberValidStatus(response!);
+            PublishStatusIfNeeded(response, force: true);
         }
 
         try
@@ -137,6 +139,26 @@ public sealed class HardwareServiceClient
         }
 
         return response;
+    }
+
+    private void RememberValidStatus(ServiceResponse response)
+    {
+        _lastValidStatus = response;
+        _lastValidStatusAt = DateTimeOffset.UtcNow;
+    }
+
+    private void PublishStatusIfNeeded(ServiceResponse? response, bool force = false)
+    {
+        bool online = IsValidStatus(response);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool stateChanged = online != _lastObservedOnline;
+        if (!force && !stateChanged && now - _lastStatusEventAt < StatusEventInterval)
+            return;
+
+        _lastObservedOnline = online;
+        _lastStatusEventAt = now;
+        try { StatusObserved?.Invoke(this, response); }
+        catch { }
     }
 
     private static bool IsValidStatus(ServiceResponse? response) =>
@@ -157,15 +179,15 @@ public sealed class HardwareServiceClient
 
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
-            await pipe.ConnectAsync(timeoutCts.Token);
+            await pipe.ConnectAsync(timeoutCts.Token).ConfigureAwait(false);
 
             string requestJson = JsonSerializer.Serialize(request, JsonOptions) + "\n";
             byte[] requestBytes = Encoding.UTF8.GetBytes(requestJson);
-            await pipe.WriteAsync(requestBytes, timeoutCts.Token);
-            await pipe.FlushAsync(timeoutCts.Token);
+            await pipe.WriteAsync(requestBytes, timeoutCts.Token).ConfigureAwait(false);
+            await pipe.FlushAsync(timeoutCts.Token).ConfigureAwait(false);
 
             using var reader = new StreamReader(pipe, Encoding.UTF8, false, 4096, leaveOpen: true);
-            string? responseLine = await reader.ReadLineAsync(timeoutCts.Token);
+            string? responseLine = await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false);
             return string.IsNullOrWhiteSpace(responseLine)
                 ? null
                 : JsonSerializer.Deserialize<ServiceResponse>(responseLine, JsonOptions);
