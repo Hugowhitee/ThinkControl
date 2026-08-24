@@ -54,9 +54,11 @@ public partial class AdvancedWindow
     {
         if (_uiConsistencyConfigured)
         {
-            // Theme/chrome may have changed since the first render, but the page
-            // rail is static Left + MaxWidth and must not be rebuilt on every
-            // navigation or resize event.
+            // Late page composition may replace a ScrollViewer child after the
+            // first consistency pass. Reapplying this bounded list is cheap and
+            // guarantees every final page content uses the same left rail without
+            // re-running visual-tree scans or navigation setup.
+            ApplyConsistentPageRail();
             ApplyConsistentCaptionPalette();
             return;
         }
