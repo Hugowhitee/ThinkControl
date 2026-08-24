@@ -110,9 +110,9 @@ public partial class App
                 status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
                 if (!status.ServiceReachable)
                 {
-                    const string message = "The ThinkControl hardware service is running, but the app connection still does not respond. Reinstall ThinkControl if this persists.";
-                    State.DriverStatus = message;
-                    return new(false, false, message);
+                    const string connectionMessage = "The ThinkControl hardware service is running, but the app connection still does not respond. Reinstall ThinkControl if this persists.";
+                    State.DriverStatus = connectionMessage;
+                    return new(false, false, connectionMessage);
                 }
             }
 
