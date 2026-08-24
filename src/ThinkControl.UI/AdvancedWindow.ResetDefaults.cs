@@ -142,25 +142,19 @@ public partial class AdvancedWindow
 
     private WpfButton CreatePageResetButton(string tooltip)
     {
-        var icon = new PackIconLucide
+        var button = new WpfButton
         {
-            Kind = "RefreshCw",
-            Width = 12,
-            Height = 12
-        };
-        icon.SetResourceReference(ForegroundProperty, "Tc.TextMuted");
-
-        return new WpfButton
-        {
-            Content = icon,
+            Content = "Defaults",
             ToolTip = "Reset this page · " + tooltip,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Width = 28,
-            Height = 28,
-            Padding = new Thickness(0),
-            Style = TryFindResource("TcIconButton") as Style
+            Padding = new Thickness(8, 4, 8, 4),
+            FontSize = 10,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            Style = TryFindResource("TcButton") as Style
         };
+        button.SetResourceReference(WpfButton.ForegroundProperty, "Tc.TextMuted");
+        return button;
     }
 
     private void AddGlobalResetCard()
