@@ -53,7 +53,11 @@ public partial class App
     internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
     {
         bool needsSensorProvider = !State.CanSensorTelemetry || !State.CanFanTelemetry || !State.CanFanControl;
-        HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(State.MachineType, needsSensorProvider);
+        bool serviceReachable = await HardwareClient.PingAsync();
+        HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(
+            State.MachineType,
+            needsSensorProvider,
+            serviceReachable);
         State.DriverStatus = DescribeHardwareSetup(status);
         return status;
     }
@@ -93,6 +97,8 @@ public partial class App
             return "ThinkControl hardware service not installed";
         if (!status.ServiceRunning)
             return "ThinkControl hardware service stopped · repair available";
+        if (!status.ServiceReachable)
+            return "Hardware service is running · app connection needs repair";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
             return "PawnIO missing · install available";
         if (!State.CanSensorTelemetry || !State.CanFanControl || !State.CanKeyboardBacklight)
