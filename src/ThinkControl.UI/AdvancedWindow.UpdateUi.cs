@@ -13,6 +13,7 @@ public partial class AdvancedWindow
     private WpfProgressBar? _updateCheckProgress;
     private TextBlock? _updateLastCheckedText;
     private Border? _updateUpToDateBadge;
+    private DateTimeOffset? _snapshotLastChecked;
     private bool _updateUiConfigured;
 
     private void ConfigureUpdateUi()
@@ -137,7 +138,7 @@ public partial class AdvancedWindow
             SetUpdateCheckingVisual(checking);
             RefreshUpdateAvailabilityVisual();
             if (!checking)
-                RefreshLastChecked(UpdateCheckHistoryService.Read());
+                RefreshLastChecked(_snapshotLastChecked ?? UpdateCheckHistoryService.Read());
         }));
     }
 
@@ -145,19 +146,21 @@ public partial class AdvancedWindow
     {
         SetUpdateCheckingVisual(IsUpdateCheckInProgress());
         RefreshUpdateAvailabilityVisual();
-        RefreshLastChecked(UpdateCheckHistoryService.Read());
+        RefreshLastChecked(_snapshotLastChecked ?? UpdateCheckHistoryService.Read());
     }
 
+    private AppState UpdateViewState => DataContext as AppState ?? _app.State;
+
     private bool IsUpdateCheckInProgress() =>
-        _app.State.UpdateStatus.StartsWith("Checking", StringComparison.OrdinalIgnoreCase);
+        UpdateViewState.UpdateStatus.StartsWith("Checking", StringComparison.OrdinalIgnoreCase);
 
     private bool IsUpdateInstallInProgress() =>
-        _app.State.UpdateStatus.StartsWith("Downloading", StringComparison.OrdinalIgnoreCase) ||
-        _app.State.UpdateStatus.StartsWith("Verifying", StringComparison.OrdinalIgnoreCase) ||
-        _app.State.UpdateStatus.StartsWith("Ready to install", StringComparison.OrdinalIgnoreCase) ||
-        _app.State.UpdateStatus.StartsWith("Installing", StringComparison.OrdinalIgnoreCase) ||
-        _app.State.UpdateStatus.StartsWith("Installer started", StringComparison.OrdinalIgnoreCase) ||
-        _app.State.UpdateStatus.StartsWith("Updater started", StringComparison.OrdinalIgnoreCase);
+        UpdateViewState.UpdateStatus.StartsWith("Downloading", StringComparison.OrdinalIgnoreCase) ||
+        UpdateViewState.UpdateStatus.StartsWith("Verifying", StringComparison.OrdinalIgnoreCase) ||
+        UpdateViewState.UpdateStatus.StartsWith("Ready to install", StringComparison.OrdinalIgnoreCase) ||
+        UpdateViewState.UpdateStatus.StartsWith("Installing", StringComparison.OrdinalIgnoreCase) ||
+        UpdateViewState.UpdateStatus.StartsWith("Installer started", StringComparison.OrdinalIgnoreCase) ||
+        UpdateViewState.UpdateStatus.StartsWith("Updater started", StringComparison.OrdinalIgnoreCase);
 
     private bool IsUpdateReadyToInstall() =>
         _lastUpdate is { Available: true } update &&
@@ -186,7 +189,7 @@ public partial class AdvancedWindow
         if (_updateUpToDateBadge is not null)
         {
             bool upToDate = !checking &&
-                _app.State.UpdateStatus.StartsWith("Up to date", StringComparison.OrdinalIgnoreCase);
+                UpdateViewState.UpdateStatus.StartsWith("Up to date", StringComparison.OrdinalIgnoreCase);
             _updateUpToDateBadge.Visibility = upToDate ? Visibility.Visible : Visibility.Collapsed;
         }
     }
@@ -195,5 +198,17 @@ public partial class AdvancedWindow
     {
         if (_updateLastCheckedText is not null)
             _updateLastCheckedText.Text = UpdateCheckHistoryService.Format(timestamp);
+    }
+
+    /// <summary>
+    /// Keeps visual QA deterministic without writing into the real user's
+    /// %LocalAppData% update history. The snapshot harness still exercises the
+    /// exact same update controls and status rendering used at runtime.
+    /// </summary>
+    internal void PrepareUpdateUiForSnapshot(DateTimeOffset checkedAt)
+    {
+        _snapshotLastChecked = checkedAt;
+        ConfigureUpdateUi();
+        RefreshUpdateUi();
     }
 }
