@@ -39,7 +39,13 @@ public partial class AdvancedWindow
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Left
         };
-        var cup = new Viewbox { Width = 24, Height = 24, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var cup = new Viewbox
+        {
+            Width = 24,
+            Height = 24,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center
+        };
         var cupCanvas = new Canvas { Width = 24, Height = 24 };
         cupCanvas.Children.Add(new Path
         {
@@ -54,7 +60,11 @@ public partial class AdvancedWindow
         mark.Child = cup;
         grid.Children.Add(mark);
 
-        var copy = new StackPanel { GridColumn = 1, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 18, 0) };
+        var copy = new StackPanel
+        {
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 18, 0)
+        };
         copy.Children.Add(new TextBlock
         {
             Text = "Support ThinkControl",
