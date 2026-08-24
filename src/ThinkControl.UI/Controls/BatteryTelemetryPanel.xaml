@@ -85,8 +85,8 @@
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
                     <TextBlock Text="Charge protection" FontWeight="SemiBold" />
-                    <TextBlock Text="A charge limit is only written when a verified Lenovo battery provider exposes it. Until then ThinkControl leaves the firmware setting untouched." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,8,0,0" />
-                    <Button Content="Open Lenovo Vantage" Style="{StaticResource TcButton}" HorizontalAlignment="Left" Margin="0,13,0,0" Click="OpenVantage_Click" />
+                    <TextBlock Text="A charge limit is only written when a verified OEM battery provider exposes it. Until then ThinkControl leaves the firmware setting untouched." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    <Button Content="Open battery settings" Style="{StaticResource TcButton}" HorizontalAlignment="Left" Margin="0,13,0,0" Click="OpenVantage_Click" />
                 </StackPanel>
             </Border>
         </Grid>
