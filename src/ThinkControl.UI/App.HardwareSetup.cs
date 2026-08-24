@@ -37,12 +37,25 @@ public partial class App
         try
         {
             HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync();
-            if (!status.NeedsAttention && State.CanSensorTelemetry && State.CanFanControl && State.CanKeyboardBacklight)
+
+            // Provider-unavailable states belong in Notifications and on their
+            // respective pages. Only hard prerequisites get an automatic repair
+            // prompt, and never an automatic UAC/install action.
+            bool hardRequirementMissing =
+                !status.ServiceInstalled ||
+                !status.ServiceRunning ||
+                !status.ServiceReachable ||
+                (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled);
+
+            if (!hardRequirementMissing)
                 return;
 
             string version = State.AppVersion ?? string.Empty;
-            if (!string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
-                UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
+            if (string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
+                return;
+
+            UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
+            Dispatcher.BeginInvoke(OpenHardwareSetup, DispatcherPriority.Background);
         }
         catch
         {
