@@ -14,32 +14,58 @@ public partial class App
             return;
 
         _trayActivationRecoveryAttached = true;
-        _trayIcon.MouseUp += TrayIcon_EnsureForeground;
 
-        if (_trayIcon.ContextMenuStrip is { Items.Count: > 0 } menu)
+        // The original bootstrap icon registered an unconditional show-recovery
+        // handler in addition to the normal toggle handler. Recreate it once here
+        // so there is exactly one left-click path and no double-click race.
+        Forms.NotifyIcon old = _trayIcon;
+        var menu = new Forms.ContextMenuStrip();
+        menu.Items.Add("Open ThinkControl", null, (_, _) => Dispatcher.Invoke(ShowThinkControlFromTray));
+        menu.Items.Add("Advanced", null, (_, _) => Dispatcher.Invoke(() => OpenAdvanced("Home")));
+        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add("Quit", null, (_, _) => Dispatcher.Invoke(ExitApplication));
+
+        _trayIcon = new Forms.NotifyIcon
         {
-            Forms.ToolStripItem oldOpen = menu.Items[0];
-            int index = menu.Items.IndexOf(oldOpen);
-            menu.Items.Remove(oldOpen);
-            oldOpen.Dispose();
+            Icon = _ownedTrayIcon ?? old.Icon,
+            Text = "ThinkControl",
+            Visible = true,
+            ContextMenuStrip = menu
+        };
+        _trayIcon.MouseUp += TrayIcon_Toggle;
 
-            var open = new Forms.ToolStripMenuItem("Open ThinkControl");
-            open.Click += (_, _) => QueueTrayActivation();
-            menu.Items.Insert(Math.Max(0, index), open);
-        }
+        try { old.Visible = false; } catch { }
+        try { old.Dispose(); } catch { }
     }
 
-    private void TrayIcon_EnsureForeground(object? sender, Forms.MouseEventArgs e)
+    private void TrayIcon_Toggle(object? sender, Forms.MouseEventArgs e)
     {
-        if (e.Button == Forms.MouseButtons.Left)
-            QueueTrayActivation();
-    }
+        if (e.Button != Forms.MouseButtons.Left)
+            return;
 
-    private void QueueTrayActivation()
-    {
         Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
-            new Action(ShowThinkControlFromTray));
+            new Action(ToggleThinkControlFromTray));
+    }
+
+    private void ToggleThinkControlFromTray()
+    {
+        if (_advancedWindow is { IsVisible: true } advanced)
+        {
+            advanced.HideAnimated();
+            return;
+        }
+
+        if (CompactWindow is null)
+            return;
+
+        if (CompactWindow.IsVisible)
+        {
+            CompactWindow.HideAnimated();
+            return;
+        }
+
+        ShowThinkControlFromTray();
     }
 
     public void ShowThinkControlFromTray()
@@ -47,9 +73,6 @@ public partial class App
         if (CompactWindow is null)
             return;
 
-        // A tray click always means "show the tray/docked view". If Advanced was
-        // previously open, park it instead of unexpectedly restoring the large
-        // window from Explorer's hidden-icons flyout.
         if (_advancedWindow is { IsVisible: true } advanced)
             advanced.HideAnimated();
 
