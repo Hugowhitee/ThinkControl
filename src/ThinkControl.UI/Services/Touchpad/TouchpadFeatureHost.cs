@@ -68,6 +68,23 @@ internal sealed class TouchpadFeatureHost : IDisposable
     internal TouchpadGeometry? Geometry => _gestures.Geometry;
     internal bool IsInputRunning => _gestures.IsRunning;
     internal double CurrentSeekDeltaSeconds => _actions.CurrentSeekDeltaSeconds;
+    internal int ReadVolumePercent() => _nativeInput.GetVolumePercent();
+    internal int? CurrentVolumeTarget
+    {
+        get
+        {
+            int value = Volatile.Read(ref _pendingVolume);
+            return value >= 0 ? value : null;
+        }
+    }
+    internal int? CurrentBrightnessTarget
+    {
+        get
+        {
+            int value = Volatile.Read(ref _pendingBrightness);
+            return value >= 0 ? value : null;
+        }
+    }
     internal TouchpadHapticStatus HapticStatus => _haptics.Read(
         hidTouchpadPresent: _gestures.Geometry is not null,
         hidFeedbackSupported: _gestures.HapticFeedbackSupported,
