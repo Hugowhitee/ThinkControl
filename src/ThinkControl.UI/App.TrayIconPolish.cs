@@ -1,10 +1,10 @@
-using System.Drawing.Drawing2D;
+using System.IO;
+using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
+using ThinkControl.UI.Controls;
 using DrawingBitmap = System.Drawing.Bitmap;
-using DrawingColor = System.Drawing.Color;
-using DrawingGraphics = System.Drawing.Graphics;
 using DrawingIcon = System.Drawing.Icon;
-using DrawingPen = System.Drawing.Pen;
-using DrawingRectangleF = System.Drawing.RectangleF;
 
 namespace ThinkControl.UI;
 
@@ -19,9 +19,11 @@ public partial class App
 
         try
         {
-            _polishedTrayIcon?.Dispose();
-            _polishedTrayIcon = CreateTrayMark();
-            _trayIcon.Icon = _polishedTrayIcon;
+            DrawingIcon replacement = CreateTrayMark();
+            DrawingIcon? previous = _polishedTrayIcon;
+            _polishedTrayIcon = replacement;
+            _trayIcon.Icon = replacement;
+            previous?.Dispose();
         }
         catch
         {
@@ -31,27 +33,39 @@ public partial class App
 
     private static DrawingIcon CreateTrayMark()
     {
-        // Notification-area icons are usually rendered near 16 logical pixels.
-        // Use a deliberately bold, almost full-canvas T/C mark and no tiny accent
-        // dot; the previous red dot read as a stray notification/error pixel.
-        using var bitmap = new DrawingBitmap(32, 32, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        using DrawingGraphics g = DrawingGraphics.FromImage(bitmap);
-        g.Clear(DrawingColor.Transparent);
-        g.SmoothingMode = SmoothingMode.AntiAlias;
-        g.PixelOffsetMode = PixelOffsetMode.HighQuality;
-
-        using var light = new DrawingPen(DrawingColor.FromArgb(248, 249, 250), 4.15f)
+        // Render the exact same BrandMark control used inside ThinkControl instead
+        // of maintaining a second hand-drawn tray logo. Render larger than the final
+        // notification-area size and downsample so the filled mark stays bold and
+        // clean at 16-24 logical pixels without the historical stray accent dot.
+        const int renderSize = 96;
+        var mark = new BrandMark
         {
-            StartCap = LineCap.Round,
-            EndCap = LineCap.Round,
-            LineJoin = LineJoin.Round
+            Width = renderSize,
+            Height = renderSize,
+            SnapsToDevicePixels = true,
+            UseLayoutRounding = true
         };
+        mark.Measure(new Size(renderSize, renderSize));
+        mark.Arrange(new Rect(0, 0, renderSize, renderSize));
+        mark.UpdateLayout();
 
-        g.DrawLine(light, 4.5f, 7.1f, 18.8f, 7.1f);
-        g.DrawLine(light, 11.6f, 7.1f, 11.6f, 25.2f);
-        g.DrawArc(light, new DrawingRectangleF(11.4f, 8.0f, 16.0f, 17.0f), 48f, 264f);
+        var rendered = new RenderTargetBitmap(
+            renderSize,
+            renderSize,
+            96,
+            96,
+            PixelFormats.Pbgra32);
+        rendered.Render(mark);
 
-        IntPtr handle = bitmap.GetHicon();
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(rendered));
+        using var png = new MemoryStream();
+        encoder.Save(png);
+        png.Position = 0;
+
+        using var source = new DrawingBitmap(png);
+        using var downsampled = new DrawingBitmap(source, new System.Drawing.Size(32, 32));
+        IntPtr handle = downsampled.GetHicon();
         try
         {
             using DrawingIcon temporary = DrawingIcon.FromHandle(handle);
