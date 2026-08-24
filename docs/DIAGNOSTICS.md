@@ -4,9 +4,9 @@ ThinkControl diagnostics exist for hardware compatibility and troubleshooting, n
 
 ## Current behavior
 
-Compatibility event recording is enabled by default and remains **local only**. Users can disable it in Settings at any time.
+ThinkControl keeps a small, bounded **local** troubleshooting history so hardware/provider failures can be diagnosed. The Settings compatibility-sharing toggle is enabled by default, but it does not create automatic network traffic.
 
-ThinkControl does not automatically upload diagnostics. **Share device report** creates a sanitized, hardware-only GitHub issue draft in the user's browser. The user can inspect and edit the report before submitting it.
+ThinkControl does not automatically upload diagnostics. **Share device report** only works while optional compatibility sharing is enabled and creates a sanitized, hardware-only GitHub issue draft in the user's browser. The user can inspect and edit the report before submitting it. Turning sharing off does not secretly upload or submit the existing local history; the local data can be deleted independently at any time.
 
 This design intentionally avoids embedding a GitHub personal access token in the desktop application.
 
@@ -115,7 +115,7 @@ Redaction happens before export/sharing:
 
 Settings provides:
 
-- local compatibility recording on/off;
+- optional compatibility sharing on/off;
 - compatibility status;
 - Share device report;
 - Preview data;
@@ -123,7 +123,7 @@ Settings provides:
 - Bug report;
 - Delete local diagnostics.
 
-ThinkControl remains usable when compatibility recording is disabled.
+ThinkControl remains usable with optional compatibility sharing disabled.
 
 ## Future private endpoint
 
