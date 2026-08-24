@@ -78,9 +78,25 @@ public partial class PerformancePanel : UserControl
         if (parts.Length != 2 || !Enum.TryParse(parts[1], true, out ThinkControlPowerMode mode))
             return;
         bool onBattery = parts[0].Equals("Battery", StringComparison.OrdinalIgnoreCase);
-        if (!_app.SetPowerPreference(mode, onBattery))
+        _ = _app.SetPowerPreference(mode, onBattery);
+        Sync();
+    }
+
+    private async void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || sender is not Button button)
+            return;
+
+        button.IsEnabled = false;
+        try
+        {
+            _ = _app.ResetPerformanceDefaults();
+            await _app.RefreshStatusAsync();
             Sync();
-        else
-            Sync();
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
     }
 }
