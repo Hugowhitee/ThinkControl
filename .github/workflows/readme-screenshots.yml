@@ -1,0 +1,84 @@
+name: Refresh README screenshots
+
+on:
+  push:
+    branches:
+      - feature/alpha6-hardware-ux
+    paths:
+      - "src/**"
+      - "tools/ThinkControl.Snapshots/**"
+      - "Directory.Build.props"
+      - "version.json"
+      - "README.md"
+      - ".github/workflows/readme-screenshots.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: thinkcontrol-readme-screenshots-alpha6
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/alpha6-hardware-ux
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build snapshot renderer
+        shell: pwsh
+        run: |
+          dotnet restore ThinkControl.slnx
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
+          dotnet build ThinkControl.slnx --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+
+      - name: Render durable previews
+        shell: pwsh
+        run: |
+          $output = Join-Path $PWD "artifacts\readme-screenshots"
+          dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj --configuration Release --no-build -- $output
+          if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
+
+          $target = Join-Path $PWD "docs\screenshots"
+          New-Item -ItemType Directory -Force -Path $target | Out-Null
+          $names = @(
+            'compact-dark.png',
+            'advanced-home.png',
+            'advanced-touchpad.png',
+            'advanced-sensors.png',
+            'advanced-fans.png',
+            'advanced-audio.png',
+            'advanced-battery.png',
+            'advanced-updates.png'
+          )
+          foreach ($name in $names) {
+            $source = Join-Path $output $name
+            if (-not (Test-Path $source)) { throw "Missing snapshot: $name" }
+            Copy-Item $source (Join-Path $target $name) -Force
+          }
+
+      - name: Commit previews to feature branch
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/*.png
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "README screenshots already current."
+            exit 0
+          }
+          git commit -m "Refresh alpha.6 README screenshots"
+          git push origin HEAD:feature/alpha6-hardware-ux
