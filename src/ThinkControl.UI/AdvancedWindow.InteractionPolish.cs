@@ -42,6 +42,7 @@ public partial class AdvancedWindow
                 });
             }
         }
+        ConfigureDynamicNavIconWeight();
 
         FixSwitchRow(DisplayAdaptiveSwitch);
         FixSwitchRow(HomeAdaptiveSwitch);
