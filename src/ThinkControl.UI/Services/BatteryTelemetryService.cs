@@ -38,6 +38,7 @@ public sealed class BatteryTelemetryService
     private static readonly TimeSpan CapacityTrendMinimumSpan = TimeSpan.FromSeconds(90);
     private static readonly TimeSpan CapacityTrendMaximumSpan = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan StaticBatteryInfoRefreshInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan StaticBatteryInfoMinimumRetry = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TemperatureRefreshInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan MaxEta = TimeSpan.FromHours(24);
 
@@ -54,6 +55,7 @@ public sealed class BatteryTelemetryService
 
     private DateTimeOffset _lastStaticInfoRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastTemperatureRead = DateTimeOffset.MinValue;
+    private int _staticInfoFailureCount;
     private double? _cachedFullCapacityMwh;
     private double? _cachedDesignCapacityMwh;
     private double? _cachedTemperatureC;
@@ -384,20 +386,52 @@ public sealed class BatteryTelemetryService
     {
         if (now - _lastStaticInfoRead >= StaticBatteryInfoRefreshInterval)
         {
-            _lastStaticInfoRead = now;
-            _cachedFullCapacityMwh = ReadFirstWmiValue("BatteryFullChargedCapacity", "FullChargedCapacity");
-            _cachedDesignCapacityMwh = ReadFirstWmiValue("BatteryStaticData", "DesignedCapacity");
+            double? full = ReadFirstWmiValue("BatteryFullChargedCapacity", "FullChargedCapacity");
+            double? design = ReadFirstWmiValue("BatteryStaticData", "DesignedCapacity");
+            bool fullValid = full is > 0;
+            bool designValid = design is > 0;
+
+            // Never replace a known-good static value with null because a WMI class
+            // transiently disappeared during startup/resume/provider reset.
+            if (fullValid)
+                _cachedFullCapacityMwh = full;
+            if (designValid)
+                _cachedDesignCapacityMwh = design;
+
+            if (fullValid && designValid)
+            {
+                _staticInfoFailureCount = 0;
+                _lastStaticInfoRead = now;
+            }
+            else
+            {
+                _staticInfoFailureCount = Math.Min(_staticInfoFailureCount + 1, 5);
+                double multiplier = Math.Pow(2, _staticInfoFailureCount - 1);
+                TimeSpan retry = TimeSpan.FromSeconds(Math.Min(
+                    StaticBatteryInfoRefreshInterval.TotalSeconds,
+                    StaticBatteryInfoMinimumRetry.TotalSeconds * multiplier));
+
+                // Encode the shorter retry in the existing refresh timestamp so the
+                // hot 2-second path remains allocation-free and needs no extra timer.
+                _lastStaticInfoRead = now - StaticBatteryInfoRefreshInterval + retry;
+            }
         }
 
         if (now - _lastTemperatureRead >= TemperatureRefreshInterval)
         {
             _lastTemperatureRead = now;
             double? rawTemperature = ReadFirstWmiValue("BatteryTemperature", "Temperature");
-            _cachedTemperatureC = rawTemperature is >= 2000 and <= 4500
-                ? Math.Round(rawTemperature.Value / 10d - 273.15, 1)
-                : null;
-            if (_cachedTemperatureC is < -20 or > 100)
+            if (rawTemperature is >= 2000 and <= 4500)
+            {
+                double converted = Math.Round(rawTemperature.Value / 10d - 273.15, 1);
+                _cachedTemperatureC = converted is >= -20 and <= 100 ? converted : null;
+            }
+            else if (!_cachedTemperatureC.HasValue)
+            {
+                // Keep a previously valid reading across a transient provider miss;
+                // if this machine never exposed one, remain explicitly unavailable.
                 _cachedTemperatureC = null;
+            }
         }
     }
 
