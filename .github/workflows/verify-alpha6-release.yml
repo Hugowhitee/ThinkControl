@@ -1,0 +1,76 @@
+name: Verify alpha.6 release
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/verify-alpha6-release.yml"
+      - "docs/release-verification-trigger-alpha6.md"
+
+permissions:
+  contents: read
+
+jobs:
+  verify-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for immutable alpha.6 release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v0.1.0-alpha.6
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 600))
+          until gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; do
+            if (( SECONDS >= deadline )); then
+              echo "Timed out waiting for $TAG to become visible"
+              exit 1
+            fi
+            echo "Waiting for $TAG release publication..."
+            sleep 10
+          done
+          echo "$TAG is visible"
+
+      - name: Verify published metadata, assets and SHA-256
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v0.1.0-alpha.6
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/published-release
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir artifacts/published-release
+
+          expected=(
+            ThinkControl-Setup-0.1.0-alpha.6.exe
+            ThinkControl-Payload-0.1.0-alpha.6.zip
+            SHA256SUMS.txt
+            compact-dark.png
+            advanced-home.png
+            advanced-touchpad.png
+            advanced-sensors.png
+          )
+          for name in "${expected[@]}"; do
+            test -s "artifacts/published-release/$name" || { echo "Missing or empty release asset: $name"; exit 1; }
+          done
+
+          metadata="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json tagName,isPrerelease,isDraft,isImmutable,publishedAt,url,assets)"
+          printf '%s\n' "$metadata" > artifacts/release-metadata.json
+          echo "$metadata" | jq -e '.tagName == "v0.1.0-alpha.6"' >/dev/null
+          echo "$metadata" | jq -e '.isPrerelease == true and .isDraft == false' >/dev/null
+
+          sums=artifacts/published-release/SHA256SUMS.txt
+          for name in ThinkControl-Setup-0.1.0-alpha.6.exe ThinkControl-Payload-0.1.0-alpha.6.zip; do
+            expected_hash="$(awk -v n="$name" '$2 == n {print tolower($1); exit}' "$sums")"
+            test -n "$expected_hash" || { echo "No checksum entry for $name"; exit 1; }
+            actual_hash="$(sha256sum "artifacts/published-release/$name" | awk '{print tolower($1)}')"
+            test "$actual_hash" = "$expected_hash" || { echo "SHA-256 mismatch for $name"; exit 1; }
+            echo "VERIFIED $name $actual_hash"
+          done
+
+          echo "RELEASE_METADATA $(echo "$metadata" | jq -c '{tagName,isPrerelease,isDraft,isImmutable,publishedAt,url,assets:[.assets[].name]}')"
+          echo "Alpha.6 release verification passed"
