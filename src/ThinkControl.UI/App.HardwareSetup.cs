@@ -67,23 +67,23 @@ public partial class App
 
     internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
     {
-        bool verifiedX9WriteProfile = IsVerifiedX9WriteProfile(State.MachineType);
+        bool expectsFanControl = DeviceCapabilityExpectations.ExpectsWritableFanControl(State);
 
         // Missing fan-control capability is only a low-level dependency signal when
-        // the resolved model is actually authorized to gain that capability from
-        // the X9 EC provider. Other laptops must not be prompted to install PawnIO
+        // the resolved model is actually expected to gain that capability from a
+        // verified provider. Other laptops must not be prompted to install PawnIO
         // merely because their firmware/provider does not expose writable fan control.
         bool needsSensorProvider =
             !State.CanSensorTelemetry ||
             !State.CanFanTelemetry ||
-            (verifiedX9WriteProfile && !State.CanFanControl);
+            (expectsFanControl && !State.CanFanControl);
 
         bool serviceReachable = await HardwareClient.PingAsync();
         HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(
             State.MachineType,
             needsSensorProvider,
             serviceReachable);
-        State.DriverStatus = DescribeHardwareSetup(status, verifiedX9WriteProfile);
+        State.DriverStatus = DescribeHardwareSetup(status);
         return status;
     }
 
@@ -116,7 +116,7 @@ public partial class App
         }
     }
 
-    private string DescribeHardwareSetup(HardwareSetupStatus status, bool verifiedX9WriteProfile)
+    private string DescribeHardwareSetup(HardwareSetupStatus status)
     {
         if (!status.ServiceInstalled)
             return "ThinkControl hardware service not installed";
@@ -132,16 +132,12 @@ public partial class App
         bool providerAttention =
             !State.CanSensorTelemetry ||
             !State.CanFanTelemetry ||
-            !State.CanKeyboardBacklight ||
-            (verifiedX9WriteProfile && !State.CanFanControl);
+            (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(State) && !State.CanKeyboardBacklight) ||
+            (DeviceCapabilityExpectations.ExpectsWritableFanControl(State) && !State.CanFanControl);
         return providerAttention
-            ? "Hardware service online · one or more detected providers need attention"
+            ? "Hardware service online · one or more expected providers need attention"
             : "Ready";
     }
-
-    private static bool IsVerifiedX9WriteProfile(string? machineType) =>
-        string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasConcretePawnIoReadinessFailure(string? detail)
     {
