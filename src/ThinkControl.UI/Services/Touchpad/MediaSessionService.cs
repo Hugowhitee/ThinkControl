@@ -185,15 +185,20 @@ internal sealed class MediaSessionService
         if (_seekReady && Math.Abs(finalOffset - lastApplied) >= 0.12)
             _ = await ApplyOffsetAsync(finalOffset, finalGeneration).ConfigureAwait(false);
 
+        // A new gesture can begin while the final GSMTC write above is awaiting.
+        // In that case BeginSeekAsync increments _generation and owns the new session.
+        // The old teardown must not clear its offsets/readiness/session.
         lock (_seekGate)
         {
-            if (finalGeneration == _generation)
-                _generation++;
+            if (finalGeneration != _generation)
+                return;
+
+            _generation++;
             _pendingOffsetSeconds = 0;
             _lastAppliedOffsetSeconds = 0;
+            _seekReady = false;
+            _session = null;
         }
-        _seekReady = false;
-        _session = null;
     }
 
     internal void EndSeek() => ResetSeekState();
@@ -205,8 +210,8 @@ internal sealed class MediaSessionService
             _generation++;
             _pendingOffsetSeconds = 0;
             _lastAppliedOffsetSeconds = 0;
+            _seekReady = false;
+            _session = null;
         }
-        _seekReady = false;
-        _session = null;
     }
 }
