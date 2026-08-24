@@ -123,7 +123,7 @@ public partial class AdvancedWindow
 
         bool hardwareAttention = !state.DriverStatus.Equals("Ready", StringComparison.OrdinalIgnoreCase) ||
                                  !state.CanSensorTelemetry ||
-                                 !state.CanFanTelemetry ||
+                                 (DeviceCapabilityExpectations.ExpectsFanTelemetry(state) && !state.CanFanTelemetry) ||
                                  (DeviceCapabilityExpectations.ExpectsWritableFanControl(state) && !state.CanFanControl) ||
                                  (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(state) && !state.CanKeyboardBacklight);
         bool updateAttention = _app.LatestUpdateResult?.Available == true;
