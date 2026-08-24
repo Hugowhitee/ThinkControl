@@ -39,13 +39,15 @@ public partial class App
             HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync();
 
             // Provider-unavailable states belong in Notifications and on their
-            // respective pages. Only hard prerequisites get an automatic repair
-            // prompt, and never an automatic UAC/install action.
+            // respective pages. Only hard prerequisites and an explicitly diagnosed
+            // PawnIO device/module failure get a one-time repair prompt. Opening the
+            // prompt never starts UAC or an installer by itself.
             bool hardRequirementMissing =
                 !status.ServiceInstalled ||
                 !status.ServiceRunning ||
                 !status.ServiceReachable ||
-                (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled);
+                (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled) ||
+                HasConcretePawnIoReadinessFailure(State.HardwareAccess);
 
             if (!hardRequirementMissing)
                 return;
@@ -114,9 +116,21 @@ public partial class App
             return "Hardware service is running · app connection needs repair";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
             return "PawnIO missing · install available";
+        if (HasConcretePawnIoReadinessFailure(State.HardwareAccess))
+            return "PawnIO installed · device/module repair available";
         if (!State.CanSensorTelemetry || !State.CanFanControl || !State.CanKeyboardBacklight)
             return "Hardware service online · one or more providers need attention";
         return "Ready";
+    }
+
+    private static bool HasConcretePawnIoReadinessFailure(string? detail)
+    {
+        string value = detail ?? string.Empty;
+        return value.Contains("PawnIO is not installed", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("PawnIO is registered but its device is not available", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("LPC/ACPI EC module could not be loaded", StringComparison.OrdinalIgnoreCase) ||
+               value.Contains("PawnIO device could not be opened", StringComparison.OrdinalIgnoreCase);
     }
 
     public void OpenHardwareAttention()
