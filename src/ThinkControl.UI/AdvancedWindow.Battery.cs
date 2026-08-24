@@ -14,11 +14,7 @@ public partial class AdvancedWindow
             return;
 
         _batteryPageConfigured = true;
-        var content = new StackPanel
-        {
-            MaxWidth = 900,
-            HorizontalAlignment = HorizontalAlignment.Left
-        };
+        var content = new StackPanel();
         content.Children.Add(new TextBlock
         {
             Text = "Battery",
