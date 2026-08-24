@@ -54,9 +54,9 @@ public partial class AdvancedWindow
     {
         if (_uiConsistencyConfigured)
         {
-            // Theme/chrome may have changed since the first render, but the layout
-            // rail itself is static Stretch + MaxWidth and must not be rebuilt on
-            // every navigation call.
+            // Theme/chrome may have changed since the first render, but the page
+            // rail is static Left + MaxWidth and must not be rebuilt on every
+            // navigation or resize event.
             ApplyConsistentCaptionPalette();
             return;
         }
@@ -149,18 +149,20 @@ public partial class AdvancedWindow
     private static void ApplyPageRail(ScrollViewer scroll)
     {
         scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
+        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
 
         if (scroll.Content is not FrameworkElement content)
             return;
 
-        // These properties are independent of the outer Window size. WPF measures
-        // Stretch against the live ScrollViewer viewport, so reapplying them from
-        // SizeChanged only creates visual-tree churn during interactive resizing.
+        // One shared Advanced-page rail owns horizontal placement for both static
+        // and dynamic pages. A MaxWidth-constrained Stretch child is centered by
+        // WPF in a wider viewport; anchoring the content Left keeps every page on
+        // the same sidebar-adjacent rail while still allowing it to grow up to the
+        // common readable maximum width.
         content.ClearValue(FrameworkElement.WidthProperty);
         content.MinWidth = 0;
         content.MaxWidth = AdvancedContentMaxWidth;
-        content.HorizontalAlignment = HorizontalAlignment.Stretch;
+        content.HorizontalAlignment = HorizontalAlignment.Left;
         content.Margin = new Thickness(0, 0, PageRightGutter, 0);
     }
 
