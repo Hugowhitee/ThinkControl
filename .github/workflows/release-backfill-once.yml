@@ -39,20 +39,25 @@ jobs:
           if gh release view "$ALPHA11_TAG" --repo "$repo" >/dev/null 2>&1; then
             gh release delete "$ALPHA11_TAG" --repo "$repo" --yes
           fi
-          if gh api "repos/$repo/git/ref/tags/$ALPHA11_TAG" >/dev/null 2>&1; then
-            gh api --method DELETE "repos/$repo/git/refs/tags/$ALPHA11_TAG"
+
+          if resolved=$(gh api "repos/$repo/commits/$ALPHA11_TAG" --jq '.sha' 2>/dev/null); then
+            test "$resolved" = "$ALPHA11_SHA" || { echo "Existing alpha.11 tag resolves to $resolved, expected $ALPHA11_SHA"; exit 1; }
+            echo "alpha.11 tag already correct at $resolved"
+          else
+            # Creating a release with --target lets GitHub create the lightweight tag
+            # without a direct git/refs write, which this repository blocks for GITHUB_TOKEN.
+            gh release create "$ALPHA11_TAG" --repo "$repo" --target "$ALPHA11_SHA" --title "ThinkControl v0.1.0-alpha.11 bootstrap" --prerelease --notes "Temporary bootstrap release used only to create the exact alpha.11 tag. The real package workflow replaces this release."
+            resolved=$(gh api "repos/$repo/commits/$ALPHA11_TAG" --jq '.sha')
+            test "$resolved" = "$ALPHA11_SHA" || { echo "alpha.11 tag resolved to $resolved, expected $ALPHA11_SHA"; exit 1; }
+            gh release delete "$ALPHA11_TAG" --repo "$repo" --yes
+            echo "alpha.11 tag created and verified at $resolved"
           fi
-          gh api --method POST "repos/$repo/git/refs" -f ref="refs/tags/$ALPHA11_TAG" -f sha="$ALPHA11_SHA" >/dev/null
-          resolved=$(gh api "repos/$repo/commits/$ALPHA11_TAG" --jq '.sha')
-          test "$resolved" = "$ALPHA11_SHA" || { echo "alpha.11 tag resolved to $resolved, expected $ALPHA11_SHA"; exit 1; }
-          echo "alpha.11 tag verified at $resolved"
 
       - name: Package and publish alpha.11
         shell: bash
         run: |
           set -euo pipefail
           repo="$GITHUB_REPOSITORY"
-          started=$(date -u +%s)
           run_id=""
 
           # Creating the tag may already trigger the tag-push package workflow.
