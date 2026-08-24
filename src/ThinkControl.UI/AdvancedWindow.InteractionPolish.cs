@@ -82,7 +82,7 @@ public partial class AdvancedWindow
         TextBlock? description = stack.Children.OfType<TextBlock>().Skip(1).FirstOrDefault();
         if (description is not null)
         {
-            description.Text = "ThinkControl checks GitHub Releases automatically, verifies SHA-256 and installs updates in place. No permanent updater service is required.";
+            description.Text = "ThinkControl checks GitHub Releases automatically. Installing is one click: the setup and payload are downloaded and SHA-256 verified before Windows asks for administrator permission.";
         }
 
         WpfButton? checkButton = FindVisualChildren<WpfButton>(PageUpdates)
@@ -110,10 +110,10 @@ public partial class AdvancedWindow
             _app.UserSettings.Update(settings => settings with { AutomaticUpdates = autoSwitch.IsChecked == true });
 
         var copy = new StackPanel();
-        copy.Children.Add(new TextBlock { Text = "Automatic updates", FontWeight = FontWeights.SemiBold });
+        copy.Children.Add(new TextBlock { Text = "Automatic update checks", FontWeight = FontWeights.SemiBold });
         var detail = new TextBlock
         {
-            Text = "Check in the background and install verified releases automatically. Windows may show the normal administrator prompt when setup starts.",
+            Text = "Check shortly after startup and every six hours. ThinkControl never opens an administrator prompt or installs in the background; installation starts only when you click Install update.",
             FontSize = 10.5,
             Margin = new Thickness(0, 4, 80, 0),
             TextWrapping = TextWrapping.Wrap
@@ -136,28 +136,23 @@ public partial class AdvancedWindow
 
     private async void CheckUpdatesAndPrepare_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not WpfButton button || IsUpdateCheckInProgress())
+        if (sender is not WpfButton || IsUpdateCheckInProgress())
             return;
 
-        button.IsEnabled = false;
         OpenReleaseButton.IsEnabled = false;
         _app.State.UpdateStatus = "Checking for updates…";
         SetUpdateCheckingVisual(true);
-        DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
         try
         {
             _lastUpdate = await _app.UpdateService.CheckAsync();
-            checkedAt = DateTimeOffset.UtcNow;
             _app.State.UpdateStatus = _lastUpdate.Status;
-            bool ready = _lastUpdate.Available &&
-                !string.IsNullOrWhiteSpace(_lastUpdate.InstallerUrl) &&
-                !string.IsNullOrWhiteSpace(_lastUpdate.ChecksumUrl);
+            bool ready = IsReleaseReady(_lastUpdate);
             OpenReleaseButton.IsEnabled = ready;
             OpenReleaseButton.Content = ready ? $"Install {_lastUpdate.Version}" : "Install update";
         }
         finally
         {
-            checkedAt = DateTimeOffset.UtcNow;
+            DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
             UpdateCheckHistoryService.Record(checkedAt);
             RefreshLastChecked(checkedAt);
             SetUpdateCheckingVisual(false);
@@ -167,6 +162,7 @@ public partial class AdvancedWindow
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
     {
         WpfButton button = OpenReleaseButton;
+        bool updaterStarted = false;
         button.IsEnabled = false;
         try
         {
@@ -187,26 +183,43 @@ public partial class AdvancedWindow
                 return;
             }
 
-            _app.State.UpdateStatus = $"Downloading {_lastUpdate.Version ?? "update"}…";
-            button.Content = "Verifying…";
+            if (!IsReleaseReady(_lastUpdate))
+            {
+                _app.State.UpdateStatus = "The release is still publishing its verified update files. Check again shortly.";
+                return;
+            }
+
+            _app.State.UpdateStatus = $"Downloading and verifying {_lastUpdate.Version ?? "update"}…";
+            button.Content = "Downloading…";
             UpdateInstallResult result = await _app.UpdateService.DownloadAndLaunchAsync(_lastUpdate);
             _app.State.UpdateStatus = result.Status;
             if (result.Success)
             {
-                button.Content = "Installing…";
-                _app.ExitApplication();
+                // Do not close the app here. The verified installer closes ThinkControl
+                // only after its local payload is ready, avoiding the long blank gap
+                // and repeated startup UAC loop seen in earlier alphas.
+                updaterStarted = true;
+                button.Content = "Updater started…";
+                button.IsEnabled = false;
                 return;
             }
         }
         finally
         {
             SetUpdateCheckingVisual(false);
-            button.Content = _lastUpdate?.Available == true && !string.IsNullOrWhiteSpace(_lastUpdate.Version)
-                ? $"Install {_lastUpdate.Version}"
-                : "Install update";
-            button.IsEnabled = _lastUpdate?.Available == true &&
-                !string.IsNullOrWhiteSpace(_lastUpdate.InstallerUrl) &&
-                !string.IsNullOrWhiteSpace(_lastUpdate.ChecksumUrl);
+            if (!updaterStarted)
+            {
+                button.Content = _lastUpdate?.Available == true && !string.IsNullOrWhiteSpace(_lastUpdate.Version)
+                    ? $"Install {_lastUpdate.Version}"
+                    : "Install update";
+                button.IsEnabled = IsReleaseReady(_lastUpdate);
+            }
         }
     }
+
+    private static bool IsReleaseReady(UpdateCheckResult? update) =>
+        update is { Available: true } &&
+        !string.IsNullOrWhiteSpace(update.InstallerUrl) &&
+        !string.IsNullOrWhiteSpace(update.PayloadUrl) &&
+        !string.IsNullOrWhiteSpace(update.ChecksumUrl);
 }

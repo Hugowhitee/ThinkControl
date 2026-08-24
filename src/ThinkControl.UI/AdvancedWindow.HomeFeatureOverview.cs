@@ -1,8 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using ThinkControl.UI.Controls;
-using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI;
 
@@ -34,14 +32,6 @@ public partial class AdvancedWindow
             FontSize = 10.5,
             FontWeight = FontWeights.SemiBold
         });
-        var hint = new TextBlock
-        {
-            Text = "New in alpha.6",
-            FontSize = 9.5,
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        hint.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
-        header.Children.Add(hint);
         section.Children.Add(header);
 
         var row = new Grid();
@@ -78,8 +68,6 @@ public partial class AdvancedWindow
 
         section.Children.Add(row);
 
-        // Keep the Home page compact: put the feature row directly below the live
-        // CPU/Fan/Battery overview rather than adding another long section at the end.
         int insertAt = Math.Min(1, stack.Children.Count);
         stack.Children.Insert(insertAt, section);
     }
@@ -96,9 +84,6 @@ public partial class AdvancedWindow
             if (!displayRow)
                 continue;
 
-            // The previous 166 px hard height clipped the adaptive-brightness switch
-            // at the bottom. Use the same 190 px rhythm as the telemetry cards so the
-            // complete switch hit target remains visible at normal and minimum widths.
             foreach (Border card in row.Children.OfType<Border>())
             {
                 card.Height = 190;

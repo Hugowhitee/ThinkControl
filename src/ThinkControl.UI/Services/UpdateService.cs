@@ -15,9 +15,14 @@ public sealed record UpdateCheckResult(
     string? Version = null,
     string? Url = null,
     string? InstallerUrl = null,
+    string? PayloadUrl = null,
     string? ChecksumUrl = null);
 
-public sealed record UpdateInstallResult(bool Success, string Status, string? InstallerPath = null);
+public sealed record UpdateInstallResult(
+    bool Success,
+    string Status,
+    string? InstallerPath = null,
+    string? PayloadPath = null);
 
 public sealed class UpdateService
 {
@@ -28,7 +33,7 @@ public sealed class UpdateService
 
     public UpdateService()
     {
-        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(3) };
         _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("ThinkControl", SanitizeUserAgentVersion(CurrentVersion)));
         _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
     }
@@ -42,7 +47,7 @@ public sealed class UpdateService
             if (!string.IsNullOrWhiteSpace(informational))
                 return informational.Split('+')[0];
 
-            return assembly.GetName().Version?.ToString(3) ?? "0.1.0-alpha.5";
+            return assembly.GetName().Version?.ToString(3) ?? "0.1.0";
         }
     }
 
@@ -86,12 +91,13 @@ public sealed class UpdateService
                     continue;
                 }
 
-                (string? installerUrl, string? checksumUrl) = FindInstallerAssets(release);
+                (string? installerUrl, string? payloadUrl, string? checksumUrl) = FindReleaseAssets(release);
+                bool ready = installerUrl is not null && payloadUrl is not null && checksumUrl is not null;
                 bool available = latest.CompareTo(current) > 0;
                 string status = available
-                    ? installerUrl is not null && checksumUrl is not null
+                    ? ready
                         ? $"{tag} is ready to install"
-                        : $"{tag} is available · installer assets are still publishing"
+                        : $"{tag} is available · release assets are still publishing"
                     : $"Up to date · {tag}";
 
                 return new(
@@ -100,6 +106,7 @@ public sealed class UpdateService
                     tag,
                     string.IsNullOrWhiteSpace(url) ? ReleasesPage : url,
                     installerUrl,
+                    payloadUrl,
                     checksumUrl);
             }
 
@@ -117,52 +124,74 @@ public sealed class UpdateService
     {
         if (!update.Available)
             return new(false, "No newer ThinkControl release is available.");
-        if (!IsTrustedReleaseUrl(update.InstallerUrl) || !IsTrustedReleaseUrl(update.ChecksumUrl))
-            return new(false, "The release is missing verified ThinkControl installer assets.");
+        if (!IsTrustedReleaseUrl(update.InstallerUrl) ||
+            !IsTrustedReleaseUrl(update.PayloadUrl) ||
+            !IsTrustedReleaseUrl(update.ChecksumUrl))
+        {
+            return new(false, "The release is missing verified ThinkControl update assets.");
+        }
 
         try
         {
-            Uri installerUri = new(update.InstallerUrl!);
-            string installerName = Uri.UnescapeDataString(Path.GetFileName(installerUri.AbsolutePath));
-            if (!installerName.StartsWith("ThinkControl-Setup-", StringComparison.OrdinalIgnoreCase) ||
-                !installerName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-            {
-                return new(false, "The release installer name is not recognized.");
-            }
+            string installerName = GetTrustedAssetName(update.InstallerUrl!, "ThinkControl-Setup-", ".exe");
+            string payloadName = GetTrustedAssetName(update.PayloadUrl!, "ThinkControl-Payload-", ".zip");
 
             Task<byte[]> installerTask = _httpClient.GetByteArrayAsync(update.InstallerUrl!, cancellationToken);
+            Task<byte[]> payloadTask = _httpClient.GetByteArrayAsync(update.PayloadUrl!, cancellationToken);
             Task<string> sumsTask = _httpClient.GetStringAsync(update.ChecksumUrl!, cancellationToken);
-            await Task.WhenAll(installerTask, sumsTask).ConfigureAwait(false);
+            await Task.WhenAll(installerTask, payloadTask, sumsTask).ConfigureAwait(false);
 
             byte[] installerBytes = await installerTask.ConfigureAwait(false);
+            byte[] payloadBytes = await payloadTask.ConfigureAwait(false);
             string sums = await sumsTask.ConfigureAwait(false);
-            string? expectedHash = FindExpectedHash(sums, installerName);
-            if (expectedHash is null)
-                return new(false, "The release checksum file does not contain this installer.");
 
-            string actualHash = Convert.ToHexString(SHA256.HashData(installerBytes));
-            if (!actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+            if (!MatchesPublishedHash(installerBytes, installerName, sums))
                 return new(false, "The downloaded installer failed SHA-256 verification and was not started.");
+            if (!MatchesPublishedHash(payloadBytes, payloadName, sums))
+                return new(false, "The downloaded application payload failed SHA-256 verification and was not started.");
 
             string folder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "ThinkControl",
                 "updates");
             Directory.CreateDirectory(folder);
-            CleanupOldInstallers(folder, installerName);
-            string installerPath = Path.Combine(folder, installerName);
-            await File.WriteAllBytesAsync(installerPath, installerBytes, cancellationToken).ConfigureAwait(false);
+            CleanupOldUpdateFiles(folder, installerName, payloadName);
 
-            Process.Start(new ProcessStartInfo
+            string installerPath = Path.Combine(folder, installerName);
+            string payloadPath = Path.Combine(folder, payloadName);
+            await File.WriteAllBytesAsync(installerPath, installerBytes, cancellationToken).ConfigureAwait(false);
+            await File.WriteAllBytesAsync(payloadPath, payloadBytes, cancellationToken).ConfigureAwait(false);
+
+            string logPath = Path.Combine(folder, "last-update.log");
+            var start = new ProcessStartInfo
             {
                 FileName = installerPath,
-                Arguments = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS /UPDATE=1 /RELAUNCH=1",
                 UseShellExecute = true,
                 Verb = "runas",
                 WorkingDirectory = folder
-            });
+            };
+            start.ArgumentList.Add("/VERYSILENT");
+            start.ArgumentList.Add("/SUPPRESSMSGBOXES");
+            start.ArgumentList.Add("/NORESTART");
+            start.ArgumentList.Add("/CLOSEAPPLICATIONS");
+            start.ArgumentList.Add("/UPDATE=1");
+            start.ArgumentList.Add("/RELAUNCH=1");
+            start.ArgumentList.Add($"/PAYLOAD={payloadPath}");
+            start.ArgumentList.Add($"/LOG={logPath}");
 
-            return new(true, $"Installing {update.Version ?? "the update"}…", installerPath);
+            Process? process = Process.Start(start);
+            if (process is null)
+                return new(false, "Windows could not start the verified updater.");
+
+            return new(
+                true,
+                $"Updater started for {update.Version ?? "the update"}. ThinkControl will close when installation begins…",
+                installerPath,
+                payloadPath);
+        }
+        catch (InvalidDataException ex)
+        {
+            return new(false, ex.Message);
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
@@ -180,12 +209,13 @@ public sealed class UpdateService
         Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
     }
 
-    private static (string? Installer, string? Checksums) FindInstallerAssets(JsonElement release)
+    private static (string? Installer, string? Payload, string? Checksums) FindReleaseAssets(JsonElement release)
     {
         if (!release.TryGetProperty("assets", out JsonElement assets) || assets.ValueKind != JsonValueKind.Array)
-            return (null, null);
+            return (null, null, null);
 
         string? installer = null;
+        string? payload = null;
         string? checksums = null;
         foreach (JsonElement asset in assets.EnumerateArray())
         {
@@ -196,18 +226,42 @@ public sealed class UpdateService
 
             if (name.StartsWith("ThinkControl-Setup-", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
                 installer = url;
+            else if (name.StartsWith("ThinkControl-Payload-", StringComparison.OrdinalIgnoreCase) && name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                payload = url;
             else if (name.Equals("SHA256SUMS.txt", StringComparison.OrdinalIgnoreCase))
                 checksums = url;
         }
-        return (installer, checksums);
+
+        return (installer, payload, checksums);
     }
 
-    private static string? FindExpectedHash(string sums, string installerName)
+    private static string GetTrustedAssetName(string url, string prefix, string suffix)
+    {
+        Uri uri = new(url);
+        string name = Uri.UnescapeDataString(Path.GetFileName(uri.AbsolutePath));
+        if (!name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+            !name.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException("The release contains an unrecognized ThinkControl update asset.");
+        }
+        return name;
+    }
+
+    private static bool MatchesPublishedHash(byte[] bytes, string fileName, string sums)
+    {
+        string? expectedHash = FindExpectedHash(sums, fileName);
+        if (expectedHash is null)
+            return false;
+        string actualHash = Convert.ToHexString(SHA256.HashData(bytes));
+        return actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string? FindExpectedHash(string sums, string fileName)
     {
         foreach (string raw in sums.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             string line = raw.Trim();
-            if (!line.EndsWith(installerName, StringComparison.OrdinalIgnoreCase))
+            if (!line.EndsWith(fileName, StringComparison.OrdinalIgnoreCase))
                 continue;
             string hash = line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
             if (hash.Length == 64 && hash.All(Uri.IsHexDigit))
@@ -221,13 +275,15 @@ public sealed class UpdateService
         uri.Scheme == Uri.UriSchemeHttps &&
         value!.StartsWith(TrustedDownloadPrefix, StringComparison.OrdinalIgnoreCase);
 
-    private static void CleanupOldInstallers(string folder, string keep)
+    private static void CleanupOldUpdateFiles(string folder, string keepInstaller, string keepPayload)
     {
         try
         {
-            foreach (string path in Directory.EnumerateFiles(folder, "ThinkControl-Setup-*.exe"))
+            foreach (string path in Directory.EnumerateFiles(folder, "ThinkControl-*"))
             {
-                if (!Path.GetFileName(path).Equals(keep, StringComparison.OrdinalIgnoreCase))
+                string name = Path.GetFileName(path);
+                if (!name.Equals(keepInstaller, StringComparison.OrdinalIgnoreCase) &&
+                    !name.Equals(keepPayload, StringComparison.OrdinalIgnoreCase))
                 {
                     try { File.Delete(path); } catch { }
                 }

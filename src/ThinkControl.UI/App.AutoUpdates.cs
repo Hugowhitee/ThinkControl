@@ -53,19 +53,10 @@ public partial class App
                 _trayIcon.Text = text.Length <= 63 ? text : text[..63];
             }
 
-            if (!result.Available || string.IsNullOrWhiteSpace(result.InstallerUrl) || string.IsNullOrWhiteSpace(result.ChecksumUrl))
-                return;
-
-            State.UpdateStatus = $"Downloading {result.Version ?? "update"}…";
-            UpdateInstallResult install = await UpdateService.DownloadAndLaunchAsync(result);
-            State.UpdateStatus = install.Status;
-            if (!install.Success)
-                return;
-
-            // The verified installer now owns the update transaction. Closing the
-            // current process releases WPF files before setup replaces the payload;
-            // /RELAUNCH=1 starts the new version when setup has completed.
-            _ = Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(ExitApplication));
+            // Automatic updates mean automatic checks, not surprise UAC prompts.
+            // Installation is a deliberate one-click action from the Updates page
+            // or notification center. This also prevents a failed installer from
+            // being re-launched on every application start.
         }
         catch
         {

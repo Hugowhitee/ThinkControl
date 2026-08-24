@@ -66,9 +66,6 @@ public partial class AdvancedWindow
         content.Children.Insert(actionIndex, _updateLastCheckedText);
         content.Children.Insert(actionIndex + 1, _updateCheckProgress);
 
-        // ConfigureInteractionPolish owns the one manual check handler. This class
-        // owns presentation/persisted history and enforces the install-button state
-        // so a stale release URL can never make an unavailable update look installable.
         if (DataContext is AppState state)
             state.PropertyChanged += UpdateUiState_PropertyChanged;
 
@@ -156,18 +153,21 @@ public partial class AdvancedWindow
 
     private bool IsUpdateInstallInProgress() =>
         _app.State.UpdateStatus.StartsWith("Downloading", StringComparison.OrdinalIgnoreCase) ||
-        _app.State.UpdateStatus.StartsWith("Installing", StringComparison.OrdinalIgnoreCase);
+        _app.State.UpdateStatus.StartsWith("Verifying", StringComparison.OrdinalIgnoreCase) ||
+        _app.State.UpdateStatus.StartsWith("Installing", StringComparison.OrdinalIgnoreCase) ||
+        _app.State.UpdateStatus.StartsWith("Updater started", StringComparison.OrdinalIgnoreCase);
 
     private bool IsUpdateReadyToInstall() =>
         _lastUpdate is { Available: true } update &&
         !string.IsNullOrWhiteSpace(update.InstallerUrl) &&
+        !string.IsNullOrWhiteSpace(update.PayloadUrl) &&
         !string.IsNullOrWhiteSpace(update.ChecksumUrl);
 
     private void SetUpdateCheckingVisual(bool checking)
     {
         if (_updateCheckButton is not null)
         {
-            _updateCheckButton.IsEnabled = !checking;
+            _updateCheckButton.IsEnabled = !checking && !IsUpdateInstallInProgress();
             _updateCheckButton.Content = checking ? "Checking…" : "Check for updates";
         }
 
