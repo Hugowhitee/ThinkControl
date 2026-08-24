@@ -2,7 +2,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
-        <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
+        <Grid>
+            <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
+            <Button Content="Reset" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic and clear the saved game subprofile" />
+        </Grid>
         <TextBlock Text="ThinkControl prefers Lenovo's installed Dolby DAX backend directly. Dolby Access is only used as a safe fallback for main profile switching when the driver does not expose direct automation."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
