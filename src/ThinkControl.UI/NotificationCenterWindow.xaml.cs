@@ -8,6 +8,7 @@ namespace ThinkControl.UI;
 public partial class NotificationCenterWindow : Window
 {
     private readonly App _app;
+    private bool _actionBusy;
 
     internal NotificationCenterWindow(App app)
     {
@@ -27,7 +28,7 @@ public partial class NotificationCenterWindow : Window
         }
         catch
         {
-            setup = new HardwareSetupStatus(false, false, true, false,
+            setup = new HardwareSetupStatus(false, false, true, false, false,
                 "Could not query ThinkControl hardware service", "Provider status unavailable");
         }
 
@@ -37,8 +38,8 @@ public partial class NotificationCenterWindow : Window
         {
             messages.Add(new(
                 "Hardware service needs attention",
-                setup.ServiceDetail + ". Fan, sensor and keyboard controls depend on this service connection.",
-                "Open Hardware setup",
+                setup.ServiceDetail + ". Repair ThinkControl's own service before retrying hardware providers.",
+                "Repair service",
                 InboxAction.HardwareSetup,
                 true));
         }
@@ -46,20 +47,23 @@ public partial class NotificationCenterWindow : Window
         if (setup.LowLevelAccessRelevant && !setup.LowLevelAccessInstalled)
         {
             messages.Add(new(
-                "Install PawnIO hardware access",
-                "PawnIO is the signed low-level provider used by LibreHardwareMonitor and ThinkControl's verified X9 EC path. ThinkControl verifies its installer before starting it.",
-                "Install / repair",
+                "PawnIO is not installed",
+                "Windows does not report the PawnIO kernel driver. ThinkControl can download the pinned official installer, verify its SHA-256 and then retry provider discovery.",
+                "Install PawnIO",
                 InboxAction.HardwareSetup,
                 true));
         }
 
         if (!_app.State.CanSensorTelemetry)
         {
+            string detail = setup.LowLevelAccessInstalled
+                ? "PawnIO is already installed. ThinkControl will rebuild its LibreHardwareMonitor provider instead of reinstalling the driver."
+                : "Sensor discovery is waiting for the low-level provider shown above.";
             messages.Add(new(
-                "Sensors are still being detected",
-                "Temperature and hardware telemetry are unavailable right now. Retry provider discovery; if PawnIO is missing ThinkControl will offer it there.",
-                "Fix sensors",
-                InboxAction.HardwareSetup,
+                "Sensors are unavailable",
+                detail,
+                setup.LowLevelAccessInstalled ? "Retry sensors" : string.Empty,
+                setup.LowLevelAccessInstalled ? InboxAction.RefreshSensors : InboxAction.None,
                 true));
         }
 
@@ -68,10 +72,10 @@ public partial class NotificationCenterWindow : Window
             messages.Add(new(
                 "Fan control is unavailable",
                 _app.State.CanFanTelemetry
-                    ? "Fan telemetry is visible, but direct control has not passed the verified EC/write checks yet. Open setup to see the exact provider state."
-                    : "Neither fan telemetry nor the verified fan-control path is ready. Hardware setup shows exactly what is missing instead of leaving this control disabled without explanation.",
-                "Diagnose fan control",
-                InboxAction.HardwareSetup,
+                    ? "Fan telemetry is visible, but the verified X9 EC provider has not passed read/write validation. Retry only recycles PawnIO/EC; it never guesses registers."
+                    : "Fan telemetry and the verified X9 EC control path are not ready. Retry the provider before changing drivers.",
+                "Retry fan provider",
+                InboxAction.RefreshFans,
                 true));
         }
 
@@ -79,9 +83,9 @@ public partial class NotificationCenterWindow : Window
         {
             messages.Add(new(
                 "Keyboard control is unavailable",
-                "No Lenovo keyboard-backlight provider has passed readback yet. Hardware setup can retry the Lenovo PM/Energy/Vantage provider paths after driver updates.",
-                "Fix keyboard control",
-                InboxAction.HardwareSetup,
+                "ThinkControl has not received a valid readback from the Lenovo PM/EnergyDrv keyboard provider. Retry probes the installed providers again without installing anything.",
+                "Retry keyboard",
+                InboxAction.RefreshKeyboard,
                 true));
         }
 
@@ -89,8 +93,8 @@ public partial class NotificationCenterWindow : Window
         if (reportReady)
         {
             messages.Add(new(
-                "Device support data is ready",
-                DeviceSupportReportService.DiscoverySummary(_app.State) + ". Sharing a reviewed hardware-only report can help make this provider/device profile reliable for other ThinkControl users.",
+                "Useful device support data is ready",
+                DeviceSupportReportService.DiscoverySummary(_app.State) + ". Review the hardware-only report before sharing it; it helps distinguish missing drivers from ThinkControl provider bugs.",
                 "Review sharing",
                 InboxAction.Diagnostics,
                 false));
@@ -100,7 +104,7 @@ public partial class NotificationCenterWindow : Window
         {
             messages.Add(new(
                 "Everything looks ready",
-                "The ThinkControl service and detected hardware providers are responding. New compatibility discoveries will appear here when something needs your attention.",
+                "The ThinkControl service and detected hardware providers are responding. Compatibility discoveries will appear here only when something actually needs attention.",
                 string.Empty,
                 InboxAction.None,
                 false));
@@ -109,7 +113,7 @@ public partial class NotificationCenterWindow : Window
         int attentionCount = messages.Count(message => message.Warning);
         SummaryDot.Fill = (Brush)FindResource(attentionCount > 0 ? "Tc.Warning" : "Tc.Success");
         SummaryText.Text = attentionCount > 0
-            ? $"{attentionCount} hardware item{(attentionCount == 1 ? string.Empty : "s")} need attention · {_app.State.DriverStatus}"
+            ? $"{attentionCount} item{(attentionCount == 1 ? string.Empty : "s")} need attention · {_app.State.DriverStatus}"
             : "Hardware providers ready · no action required";
 
         foreach (InboxMessage message in messages)
@@ -172,20 +176,37 @@ public partial class NotificationCenterWindow : Window
         return section;
     }
 
-    private void Action_Click(object sender, RoutedEventArgs e)
+    private async void Action_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: InboxAction action })
+        if (_actionBusy || sender is not Button button || button.Tag is not InboxAction action)
             return;
 
-        switch (action)
+        _actionBusy = true;
+        button.IsEnabled = false;
+        try
         {
-            case InboxAction.HardwareSetup:
-                _app.OpenHardwareSetup();
-                break;
-            case InboxAction.Diagnostics:
-                _app.OpenAdvanced("Settings");
-                Activate();
-                break;
+            switch (action)
+            {
+                case InboxAction.HardwareSetup:
+                    _app.OpenHardwareSetup();
+                    break;
+                case InboxAction.Diagnostics:
+                    _app.OpenAdvanced("Settings");
+                    Activate();
+                    break;
+                case InboxAction.RefreshSensors:
+                case InboxAction.RefreshFans:
+                case InboxAction.RefreshKeyboard:
+                    button.Content = "Retrying…";
+                    await _app.RefreshHardwareProvidersAsync();
+                    await RefreshMessagesAsync();
+                    break;
+            }
+        }
+        finally
+        {
+            _actionBusy = false;
+            button.IsEnabled = true;
         }
     }
 
@@ -198,6 +219,9 @@ public partial class NotificationCenterWindow : Window
     {
         None,
         HardwareSetup,
-        Diagnostics
+        Diagnostics,
+        RefreshSensors,
+        RefreshFans,
+        RefreshKeyboard
     }
 }
