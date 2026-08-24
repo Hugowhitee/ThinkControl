@@ -45,7 +45,7 @@ public partial class App
             SnapsToDevicePixels = true,
             UseLayoutRounding = true
         };
-        mark.Measure(new Size(renderSize, renderSize));
+        mark.Measure(new System.Windows.Size(renderSize, renderSize));
         mark.Arrange(new Rect(0, 0, renderSize, renderSize));
         mark.UpdateLayout();
 
