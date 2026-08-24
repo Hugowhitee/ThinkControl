@@ -20,10 +20,11 @@ public partial class HardwareSetupWindow : Window
     private async Task RefreshAsync()
     {
         HardwareSetupStatus status = await _app.RefreshHardwareSetupStatusAsync();
+        bool serviceReady = status.ServiceRunning && status.ServiceReachable;
 
         ServiceStatusText.Text = status.ServiceDetail;
-        ServiceStatusText.Foreground = (Brush)FindResource(status.ServiceRunning ? "Tc.Success" : "Tc.Warning");
-        RepairServiceButton.Visibility = status.ServiceRunning ? Visibility.Collapsed : Visibility.Visible;
+        ServiceStatusText.Foreground = (Brush)FindResource(serviceReady ? "Tc.Success" : "Tc.Warning");
+        RepairServiceButton.Visibility = serviceReady ? Visibility.Collapsed : Visibility.Visible;
 
         LowLevelCard.Visibility = status.LowLevelAccessRelevant ? Visibility.Visible : Visibility.Collapsed;
         LowLevelStatusText.Text = status.LowLevelAccessDetail;
@@ -36,7 +37,7 @@ public partial class HardwareSetupWindow : Window
                 ? "PawnIO is installed. ThinkControl has not received useful LHM sensor telemetry yet; Recheck performs one clean provider rebuild."
                 : "PawnIO is missing. Fix detected issues will install the verified package before rebuilding sensors.";
         SensorProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanSensorTelemetry ? "Tc.Success" : "Tc.Warning");
-        RetrySensorsButton.IsEnabled = status.ServiceRunning && status.LowLevelAccessInstalled;
+        RetrySensorsButton.IsEnabled = serviceReady && status.LowLevelAccessInstalled;
 
         bool verifiedX9 = _app.State.MachineType is "21Q6" or "21Q7";
         FanProviderStatusText.Text = _app.State.CanFanControl
@@ -44,22 +45,24 @@ public partial class HardwareSetupWindow : Window
             : _app.State.CanFanTelemetry
                 ? "Fan telemetry is available, but the verified X9 EC control/readback gate has not passed. Recheck rebuilds the PawnIO EC transport once."
                 : verifiedX9
-                    ? "Verified X9 profile detected, but the EC read probe has not passed yet. Alpha.10 uses the same LpcAcpiEc/PawnIO initialization as the working FanControl plugin."
+                    ? "Verified X9 profile detected, but the EC read probe has not passed yet. ThinkControl keeps Lenovo firmware in control until the verified PawnIO/EC read gate succeeds."
                     : "Read-only fan telemetry can be discovered, but manual fan control is limited to verified device profiles.";
         FanProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanFanControl ? "Tc.Success" : "Tc.Warning");
-        RetryFanButton.IsEnabled = status.ServiceRunning && (!status.LowLevelAccessRelevant || status.LowLevelAccessInstalled);
+        RetryFanButton.IsEnabled = serviceReady && (!status.LowLevelAccessRelevant || status.LowLevelAccessInstalled);
 
         LenovoDriverStatusText.Text = _app.State.CanKeyboardBacklight
             ? $"Ready · {_app.State.KeyboardStatus}"
             : "Lenovo keyboard readback has not passed yet. Recheck probes PM/EnergyDrv/Vantage providers once; repeated failed probes are backed off automatically.";
         LenovoDriverStatusText.Foreground = (Brush)FindResource(_app.State.CanKeyboardBacklight ? "Tc.Success" : "Tc.Warning");
-        RetryKeyboardButton.IsEnabled = status.ServiceRunning;
+        RetryKeyboardButton.IsEnabled = serviceReady;
 
         if (string.IsNullOrWhiteSpace(ResultText.Text))
         {
-            ResultText.Text = status.ServiceRunning
+            ResultText.Text = serviceReady
                 ? "Use Fix detected issues for the recommended repair sequence. Individual Recheck buttons are only for targeted testing afterwards."
-                : "Fix detected issues will repair the ThinkControl service first, then continue with hardware providers.";
+                : status.ServiceRunning
+                    ? "The Windows service is running, but the ThinkControl app cannot reach its IPC endpoint. Fix detected issues will restart and re-register the service before hardware providers are touched."
+                    : "Fix detected issues will repair the ThinkControl service first, then continue with hardware providers.";
         }
     }
 
@@ -73,9 +76,11 @@ public partial class HardwareSetupWindow : Window
         {
             HardwareSetupStatus status = await _app.RefreshHardwareSetupStatusAsync();
 
-            if (!status.ServiceRunning)
+            if (!status.ServiceRunning || !status.ServiceReachable)
             {
-                ResultText.Text = "Repairing the ThinkControl hardware service…";
+                ResultText.Text = status.ServiceRunning
+                    ? "Restarting the ThinkControl hardware service to restore the app connection…"
+                    : "Repairing the ThinkControl hardware service…";
                 HardwareSetupResult serviceRepair = await _service.RepairServiceAsync();
                 if (!serviceRepair.Success)
                 {
@@ -85,6 +90,12 @@ public partial class HardwareSetupWindow : Window
                 }
                 await _app.RefreshStatusAsync(forceSystemInfo: true);
                 status = await _app.RefreshHardwareSetupStatusAsync();
+                if (!status.ServiceReachable)
+                {
+                    ResultText.Text = "The service is running after repair, but the app connection still does not respond. Reinstall ThinkControl if this persists; hardware writes remain disabled.";
+                    await RefreshAsync();
+                    return;
+                }
             }
 
             if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
@@ -127,7 +138,7 @@ public partial class HardwareSetupWindow : Window
             if (!sensors || (verifiedX9 && !fanControl) || !keyboard)
             {
                 next += " ThinkControl will not keep hammering failed providers in the background. " +
-                        "If FanControl still sees sensors while ThinkControl does not, use Share device report after this repair so the report contains the exact post-repair provider state.";
+                        "If another trusted utility still sees hardware that ThinkControl does not, review the device report after this repair so it captures the exact post-repair provider state.";
             }
             else
             {
