@@ -78,16 +78,14 @@ public partial class AudioPanel : UserControl
             : Visibility.Visible;
         OpenButton.IsEnabled = _status.DolbyAccessInstalled;
 
-        SetProfilesEnabled(_directState.CanProfileControl);
-        SetToneEnabled(_directState.CanToneControl);
-        SubprofileStatusText.Text = _directState.CanToneControl ? "Direct DAX" : "Unavailable";
-
         string profile = NormalizeKnownProfile(_directState.ActiveProfile) ??
-                         NormalizeKnownProfile(_status.ActiveProfile) ??
                          _app.UserSettings.Current.DolbyProfile;
         string tone = NormalizeKnownTone(_directState.ActiveTone) ??
                       NormalizeKnownTone(_app.UserSettings.Current.DolbySubProfile) ??
                       "Balanced";
+
+        SetProfilesEnabled(_directState.CanProfileControl);
+        UpdateToneSection(profile, _directState.CanToneControl);
 
         _syncing = true;
         try
@@ -107,6 +105,16 @@ public partial class AudioPanel : UserControl
         {
             _syncing = false;
         }
+    }
+
+    private void UpdateToneSection(string profile, bool directToneAvailable)
+    {
+        bool music = string.Equals(profile, "Music", StringComparison.OrdinalIgnoreCase);
+        SubprofileCard.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
+        SetToneEnabled(music && directToneAvailable);
+        SubprofileStatusText.Text = directToneAvailable
+            ? "Direct DAX · Music"
+            : "Not exposed by this DAX build";
     }
 
     private void RefreshVolume()
@@ -203,10 +211,13 @@ public partial class AudioPanel : UserControl
 
     private async void Tone_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || _app is null || sender is not FrameworkElement { Tag: string tone })
+        if (_syncing || _app is null || MusicProfile.IsChecked != true ||
+            sender is not FrameworkElement { Tag: string tone })
+        {
             return;
+        }
 
-        ActionStatusText.Text = $"Applying {tone} tone…";
+        ActionStatusText.Text = $"Applying {tone} to Music…";
         SetToneEnabled(false);
         DolbyProfileResult result = await _directDolby.SetToneAsync(tone);
         ActionStatusText.Text = result.Detail;
@@ -228,19 +239,22 @@ public partial class AudioPanel : UserControl
         try
         {
             DolbyProfileResult profile = await _directDolby.SetProfileAsync("Dynamic");
-            DolbyProfileResult tone = await _directDolby.SetToneAsync("Balanced");
-            if (profile.Success || tone.Success)
+            if (profile.Success)
             {
+                // Dynamic is content-aware and does not use the Music IEQ picker.
+                // Store Balanced as the portable Music default without applying it
+                // while Dynamic owns processing.
                 _app.UserSettings.Update(settings => settings with
                 {
-                    DolbyProfile = profile.Success ? "Dynamic" : settings.DolbyProfile,
-                    DolbySubProfile = tone.Success ? "Balanced" : settings.DolbySubProfile
+                    DolbyProfile = "Dynamic",
+                    DolbySubProfile = "Balanced"
                 });
+                ActionStatusText.Text = "Audio processing reset to Dynamic. Music IEQ default is Balanced; Windows output volume was left unchanged.";
             }
-
-            ActionStatusText.Text = profile.Success || tone.Success
-                ? "Audio processing reset toward Dynamic · Balanced. Windows output volume was left unchanged."
-                : "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
+            else
+            {
+                ActionStatusText.Text = "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
+            }
             RefreshStatus();
         }
         finally
