@@ -1,4 +1,5 @@
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using System.Windows;
@@ -37,6 +38,32 @@ internal static class Program
         AppState charging = CreateDemoState(charging: true, hardwareReady: true);
         AppState onBattery = CreateDemoState(charging: false, hardwareReady: true);
         AppState serviceOffline = CreateDemoState(charging: true, hardwareReady: false);
+        AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
+        pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
+        pawnIoRepair.HardwareAccess =
+            "Limited · verified X9 · PawnIO is registered but its device is not available. Repair PawnIO in Hardware setup, then retry providers.";
+        pawnIoRepair.KeyboardStatus = "High";
+        pawnIoRepair.CanKeyboardBacklight = true;
+
+        var readySetup = new HardwareSetupStatus(
+            ServiceInstalled: true,
+            ServiceRunning: true,
+            LowLevelAccessRelevant: true,
+            LowLevelAccessInstalled: true,
+            LowLevelAccessRunning: true,
+            ServiceDetail: "Running · ThinkControl app connection ready",
+            LowLevelAccessDetail: "Installed · driver active · provider access verified",
+            ServiceReachable: true);
+
+        var pawnIoRepairSetup = new HardwareSetupStatus(
+            ServiceInstalled: true,
+            ServiceRunning: true,
+            LowLevelAccessRelevant: true,
+            LowLevelAccessInstalled: true,
+            LowLevelAccessRunning: true,
+            ServiceDetail: "Running · ThinkControl app connection ready",
+            LowLevelAccessDetail: "Installed · device handshake needs repair",
+            ServiceReachable: true);
 
         ThemeService.Apply(ThemeMode.Dark);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
@@ -59,11 +86,25 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
 
+        // High-value overlays/windows are part of the release gate too. They use
+        // deterministic provider states but the exact production controls/styles.
+        RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
+            "notifications-hardware-attention.png", "PawnIO + provider attention");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 700, 720, output, snapshots,
+            "hardware-setup-pawnio-repair.png", "PawnIO device repair");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 600, 580, output, snapshots,
+            "hardware-setup-pawnio-repair-min.png", "PawnIO device repair · minimum window");
+        RenderHardwareSetup(app, charging, readySetup, 700, 720, output, snapshots,
+            "hardware-setup-ready.png", "all providers ready");
+        RenderTelemetryDetail(output, snapshots);
+
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
         RenderAdvanced(app, charging, "Sensors", 1160, 760, output, snapshots, "advanced-sensors-light.png", "normal · light");
+        RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
+            "notifications-hardware-attention-light.png", "PawnIO + provider attention · light");
 
         WriteManifest(output, snapshots);
         WriteGallery(output, snapshots);
@@ -108,7 +149,7 @@ internal static class Program
             MaxRefreshHz = 120,
             RefreshAutoEnabled = true,
             HardwareAccess = hardwareReady
-                ? "Full · verified X9 EC + Lenovo keyboard provider"
+                ? "Full · verified X9 EC + PawnIO sensors + Lenovo keyboard provider"
                 : "Limited · hardware service offline",
             CpuName = "Intel Core Ultra 7 258V",
             GpuName = "Intel Arc 140V",
@@ -136,7 +177,7 @@ internal static class Program
         {
             state.ApplyHardwareTelemetry(
             [
-                new FanTelemetrySnapshot("fan-ec-primary", "System fan", 2050, "ThinkPad X9 EC tachometer 0x84/0x85", true)
+                new FanTelemetrySnapshot("fan-ec-primary", "System fan", 2050, "ThinkPad X9 EC tachometer 0x84/0x85 · 0x1604/0x1600", true)
             ],
             [
                 new HardwareSensorSnapshot("cpu-package", "Intel Core Ultra 7 258V", "Cpu", "CPU Package", "Temperature", 47.2, "°C", true, "LibreHardwareMonitor"),
@@ -169,11 +210,36 @@ internal static class Program
         return state;
     }
 
+    private static void SyncAppState(AppState source, AppState target)
+    {
+        foreach (PropertyInfo property in typeof(AppState).GetProperties(BindingFlags.Instance | BindingFlags.Public))
+        {
+            if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length != 0)
+                continue;
+            property.SetValue(target, property.GetValue(source));
+        }
+
+        target.ApplyHardwareTelemetry(source.Fans.ToArray(), source.Sensors.ToArray());
+        ReplaceCollection(target.TemperatureHistory, source.TemperatureHistory);
+        ReplaceCollection(target.BatteryChargePowerTimeline, source.BatteryChargePowerTimeline);
+        ReplaceCollection(target.BatteryHealthTrendTimeline, source.BatteryHealthTrendTimeline);
+        ReplaceCollection(target.RecentChargeSessions, source.RecentChargeSessions);
+    }
+
+    private static void ReplaceCollection<T>(ICollection<T> target, IEnumerable<T> values)
+    {
+        T[] copy = values.ToArray();
+        target.Clear();
+        foreach (T value in copy)
+            target.Add(value);
+    }
+
     private static void RenderCompact(App app, AppState state, string output, ICollection<SnapshotEntry> snapshots, string fileName, string stateName)
     {
         const int width = 410;
         const int height = 640;
-        var window = new MainWindow(app) { DataContext = state, Width = width, Height = height };
+        SyncAppState(state, app.State);
+        var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, "Compact", stateName, width, height));
         window.ForceClose();
@@ -181,7 +247,8 @@ internal static class Program
 
     private static void RenderAdvanced(App app, AppState state, string page, int width, int height, string output, ICollection<SnapshotEntry> snapshots, string fileName, string stateName)
     {
-        var window = new AdvancedWindow(app) { DataContext = state, Width = width, Height = height };
+        SyncAppState(state, app.State);
+        var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
             window.NavigateTouchpad();
@@ -191,9 +258,86 @@ internal static class Program
             window.NavigateAudio();
         else
             window.Navigate(page);
+
+        if (string.Equals(page, "Updates", StringComparison.OrdinalIgnoreCase))
+            window.PrepareUpdateUiForSnapshot(DateTimeOffset.Now.AddMinutes(-4));
+
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, $"Advanced · {page}", stateName, width, height));
         window.ForceClose();
+    }
+
+    private static void RenderNotificationSheet(
+        App app,
+        AppState state,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
+    {
+        SyncAppState(state, app.State);
+        var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
+        window.PrepareEnhancedUiForSnapshot();
+        window.Navigate("Home");
+        window.PrepareNotificationSheetForSnapshot();
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "Notifications sheet", stateName, width, height));
+        window.ForceClose();
+    }
+
+    private static void RenderHardwareSetup(
+        App app,
+        AppState state,
+        HardwareSetupStatus setup,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
+    {
+        SyncAppState(state, app.State);
+        var window = new HardwareSetupWindow(app, new HardwareSetupService())
+        {
+            Width = width,
+            Height = height,
+            DataContext = app.State
+        };
+        window.PrepareForSnapshot(setup);
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "Hardware setup", stateName, width, height));
+        window.Close();
+    }
+
+    private static void RenderTelemetryDetail(string output, ICollection<SnapshotEntry> snapshots)
+    {
+        const int width = 720;
+        const int height = 520;
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var timeline = Enumerable.Range(0, 46)
+            .Select(index => new TimeSeriesPoint(
+                now - TimeSpan.FromMinutes(45 - index),
+                20.1 - index * 0.055 + Math.Sin(index / 3.2) * 0.5))
+            .ToArray();
+        var model = new TelemetryDetailModel(
+            "Charge session",
+            "Today · 61% → 78% · 43 min",
+            "Charge power",
+            timeline,
+            "W",
+            "0.0",
+            [
+                new TelemetryDetailMetric("Duration", "43 min", "61% → 78%"),
+                new TelemetryDetailMetric("Energy added", "+12.1 Wh"),
+                new TelemetryDetailMetric("Average power", "17.8 W"),
+                new TelemetryDetailMetric("Peak power", "20.4 W")
+            ]);
+        var window = new TelemetryDetailWindow(model) { Width = width, Height = height };
+        RenderWindowContent(window, Path.Combine(output, "telemetry-detail-battery.png"));
+        snapshots.Add(new SnapshotEntry("telemetry-detail-battery.png", "Telemetry detail", "battery charge session", width, height));
+        window.Close();
     }
 
     private static void RenderWindowContent(Window window, string path)
@@ -229,7 +373,7 @@ internal static class Program
         var html = new StringBuilder();
         html.AppendLine("<!doctype html><html><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">");
         html.AppendLine("<title>ThinkControl Visual QA</title><style>body{font-family:Segoe UI,system-ui;background:#0f1113;color:#f2f3f4;margin:0;padding:32px}h1{margin:0 0 6px}p{color:#9fa5ac;margin:0 0 28px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:22px}.card{background:#171a1d;border:1px solid #34383d;border-radius:8px;padding:12px}.meta{display:flex;justify-content:space-between;gap:10px;margin:0 2px 10px;font-size:13px;color:#a3a8ae}.card img{display:block;width:100%;height:auto;background:#101214;border-radius:4px;box-shadow:0 12px 32px #0008}.wide{grid-column:1/-1}.wide img{max-width:1400px;margin:auto}</style></head><body>");
-        html.AppendLine("<h1>ThinkControl Visual QA</h1><p>Deterministic WPF snapshots. Review alignment, clipping, hierarchy and state handling at fixed viewport sizes before merging UI changes.</p><div class=\"grid\">");
+        html.AppendLine("<h1>ThinkControl Visual QA</h1><p>Deterministic WPF snapshots. Review alignment, clipping, hierarchy, overlays and state handling at fixed viewport sizes before merging UI changes.</p><div class=\"grid\">");
         foreach (SnapshotEntry snapshot in snapshots)
         {
             string css = snapshot.Width >= 1500 ? "card wide" : "card";
