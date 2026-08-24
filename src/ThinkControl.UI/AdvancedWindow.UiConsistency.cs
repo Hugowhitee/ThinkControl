@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Media;
 
@@ -156,16 +158,36 @@ public partial class AdvancedWindow
         if (scroll.Content is not FrameworkElement content)
             return;
 
-        // One shared Advanced-page rail owns horizontal placement for both static
-        // and dynamic pages. A MaxWidth-constrained Stretch child is centered by
-        // WPF in a wider viewport; anchoring the content Left keeps every page on
-        // the same sidebar-adjacent rail while still allowing it to grow up to the
-        // common readable maximum width.
-        content.ClearValue(FrameworkElement.WidthProperty);
+        // One shared Advanced-page rail owns horizontal placement and width for
+        // every static and dynamic page. The content fills the usable viewport on
+        // normal/small windows, stops at one readable maximum on wide windows and
+        // always stays anchored directly beside the navigation rail.
         content.MinWidth = 0;
         content.MaxWidth = AdvancedContentMaxWidth;
         content.HorizontalAlignment = HorizontalAlignment.Left;
-        content.Margin = new Thickness(0, 0, PageRightGutter, 0);
+        content.Margin = new Thickness(0);
+        content.SetBinding(FrameworkElement.WidthProperty, new Binding(nameof(ScrollViewer.ViewportWidth))
+        {
+            Source = scroll,
+            Mode = BindingMode.OneWay,
+            Converter = PageRailWidthConverter.Instance
+        });
+    }
+
+    private sealed class PageRailWidthConverter : IValueConverter
+    {
+        internal static readonly PageRailWidthConverter Instance = new();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is not double viewportWidth || !double.IsFinite(viewportWidth) || viewportWidth <= 0)
+                return DependencyProperty.UnsetValue;
+
+            return Math.Min(AdvancedContentMaxWidth, Math.Max(0, viewportWidth - PageRightGutter));
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
+            throw new NotSupportedException();
     }
 
     private static void ApplySliderAvailability(Slider slider)
