@@ -59,6 +59,11 @@ public partial class AdvancedWindow
 
         if (DataContext is ViewModels.AppState snapshotState)
         {
+            // Healthy visual-QA states should exercise both sides of optional battery
+            // temperature formatting. Provider-unavailable states keep null/Not exposed.
+            if (snapshotState.CanSensorTelemetry && snapshotState.BatteryTemperatureC is null)
+                snapshotState.BatteryTemperatureC = 34.8;
+
             if (PageFans?.Content is Controls.FansPanel fansPanel)
                 fansPanel.PrepareForSnapshot(snapshotState);
 

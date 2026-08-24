@@ -132,6 +132,7 @@ internal static class Program
             BatteryPowerWatts = charging ? 18.4 : 7.2,
             BatterySmoothedPowerWatts = charging ? 17.8 : 6.9,
             BatteryHealthPercent = 97.6,
+            BatteryTemperatureC = hardwareReady ? 34.8 : null,
             BatteryRemainingWh = charging ? 56.2 : 45.4,
             BatteryFullWh = 72.0,
             BatteryEtaToFull = charging ? TimeSpan.FromMinutes(52) : null,
@@ -197,10 +198,9 @@ internal static class Program
         {
             double watts = 18.8 - i * 0.028 + Math.Sin(i / 3.5) * 0.55;
             int percent = (int)Math.Round(61d + 17d * i / 43d);
-            state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(
-                now - TimeSpan.FromMinutes(43 - i),
-                watts,
-                $"{percent}%"));
+            DateTimeOffset at = now - TimeSpan.FromMinutes(43 - i);
+            state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(at, watts, $"{percent}%"));
+            state.BatteryChargePercentTimeline.Add(new TimeSeriesPoint(at, percent));
         }
 
         for (int i = 0; i < 8; i++)
@@ -227,6 +227,7 @@ internal static class Program
         target.ApplyHardwareTelemetry(source.Fans.ToArray(), source.Sensors.ToArray());
         ReplaceCollection(target.TemperatureHistory, source.TemperatureHistory);
         ReplaceCollection(target.BatteryChargePowerTimeline, source.BatteryChargePowerTimeline);
+        ReplaceCollection(target.BatteryChargePercentTimeline, source.BatteryChargePercentTimeline);
         ReplaceCollection(target.BatteryHealthTrendTimeline, source.BatteryHealthTrendTimeline);
         ReplaceCollection(target.RecentChargeSessions, source.RecentChargeSessions);
     }

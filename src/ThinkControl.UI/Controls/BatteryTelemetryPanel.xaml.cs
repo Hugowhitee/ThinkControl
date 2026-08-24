@@ -47,12 +47,13 @@ public partial class BatteryTelemetryPanel : UserControl
             return;
 
         IReadOnlyList<BatterySessionDetail> sessions = app.BatteryHistoryService.GetRecentSessionDetails(10);
-        TimeSeriesPoint[] chargePower = app.State.BatteryChargePowerTimeline.ToArray();
+        IReadOnlyList<TimeSeriesPoint> chargePercent = app.State.BatteryChargePercentTimeline;
         IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
+        IReadOnlyList<TimeSeriesPoint> dischargePercent = app.BatteryHistoryService.GetLatestDischargePercentTimeline();
 
-        ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+        ChargePercentChart.Values = chargePercent;
         DischargeChart.Values = dischargePower;
-        DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
+        DischargePercentChart.Values = dischargePercent;
         DischargeSummaryText.Text = app.BatteryHistoryService.GetLatestDischargeSummary();
 
         RecentSessionItems.Children.Clear();
@@ -84,7 +85,9 @@ public partial class BatteryTelemetryPanel : UserControl
         ApplyBatteryGaugePolish();
 
         TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
-        ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+        ChargePercentChart.Values = state.BatteryChargePercentTimeline.Count > 0
+            ? state.BatteryChargePercentTimeline
+            : BuildPercentTimeline(chargePower);
 
         DateTimeOffset end = chargePower.Length > 0 ? chargePower[^1].At : DateTimeOffset.UtcNow;
         TimeSeriesPoint[] dischargePower = Enumerable.Range(0, 46)
@@ -192,7 +195,7 @@ public partial class BatteryTelemetryPanel : UserControl
             new(session.Kind == "Charge" ? "Charge rate" : "Drain rate", rate)
         ];
 
-        IReadOnlyList<TimeSeriesPoint> percentTimeline = BuildPercentTimeline(session.PowerTimeline);
+        IReadOnlyList<TimeSeriesPoint> percentTimeline = session.PercentTimeline;
         var model = new TelemetryDetailModel(
             $"{session.Kind} session",
             subtitle,

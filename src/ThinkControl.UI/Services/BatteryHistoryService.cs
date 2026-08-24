@@ -8,6 +8,7 @@ namespace ThinkControl.UI.Services;
 
 public sealed record BatteryHistoryView(
     IReadOnlyList<TimeSeriesPoint> ChargePowerTimeline,
+    IReadOnlyList<TimeSeriesPoint> ChargePercentTimeline,
     IReadOnlyList<TimeSeriesPoint> HealthTrendTimeline,
     IReadOnlyList<string> RecentSessions,
     string ChargeCurveLabel,
@@ -28,6 +29,7 @@ public sealed record BatterySessionDetail(
     double? EnergyWh,
     double? PercentPerHour,
     IReadOnlyList<TimeSeriesPoint> PowerTimeline,
+    IReadOnlyList<TimeSeriesPoint> PercentTimeline,
     string Summary,
     bool IsActive = false)
 {
@@ -75,7 +77,10 @@ public sealed class BatteryHistoryService
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool onBattery = System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus !=
                          System.Windows.Forms.PowerLineStatus.Online;
-        bool discharging = !charging && onBattery && watts is > 0.4 and < 500;
+        // Some laptop firmware exposes battery percentage but no ChargeRate/
+        // DischargeRate. Session ownership must follow the actual AC state so
+        // percentage history remains useful even when power telemetry is absent.
+        bool discharging = !charging && onBattery;
         bool changed = false;
 
         if (charging)
@@ -145,6 +150,15 @@ public sealed class BatteryHistoryService
         return session?.Points
             .Where(point => point.Watts is > 0)
             .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+            .ToArray() ?? [];
+    }
+
+    public IReadOnlyList<TimeSeriesPoint> GetLatestDischargePercentTimeline()
+    {
+        DischargeSession? session = _document.ActiveDischargeSession ??
+                                    _document.DischargeSessions.FirstOrDefault(item => item.Points.Count > 0);
+        return session?.Points
+            .Select(point => new TimeSeriesPoint(point.At, point.Percent))
             .ToArray() ?? [];
     }
 
@@ -396,6 +410,9 @@ public sealed class BatteryHistoryService
             .Where(point => point.Watts is > 0)
             .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
             .ToArray() ?? [];
+        IReadOnlyList<TimeSeriesPoint> chargePercent = curveSession?.Points
+            .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+            .ToArray() ?? [];
 
         string curveLabel = active is not null
             ? "Current charge · live timeline"
@@ -427,6 +444,7 @@ public sealed class BatteryHistoryService
         RefreshPriors();
         return new BatteryHistoryView(
             chargePower,
+            chargePercent,
             healthTimeline,
             sessions,
             curveLabel,
@@ -507,6 +525,9 @@ public sealed class BatteryHistoryService
             session.Points.Where(point => point.Watts is > 0)
                 .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
                 .ToArray(),
+            session.Points
+                .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                .ToArray(),
             FormatChargeSession(session, active),
             active);
     }
@@ -532,6 +553,9 @@ public sealed class BatteryHistoryService
             percentPerHour,
             session.Points.Where(point => point.Watts is > 0)
                 .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                .ToArray(),
+            session.Points
+                .Select(point => new TimeSeriesPoint(point.At, point.Percent))
                 .ToArray(),
             FormatDischargeSession(session, active),
             active);

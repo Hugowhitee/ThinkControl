@@ -14,6 +14,16 @@ public partial class HardwareSetupWindow
         bool serviceReady = status.ServiceRunning && status.ServiceReachable;
         bool pawnIoRepair = IsPawnIoRepairRecommended(status);
 
+        // The healthy setup image is also used inside the public landscape release
+        // overview. Render that one state in a proportional wide viewport instead of
+        // stretching a nearly-square window in the collage. Repair/minimum snapshots
+        // retain their dedicated 700x720 and 600x580 coverage.
+        if (serviceReady && !pawnIoRepair && _app.State.CanSensorTelemetry)
+        {
+            Width = 1160;
+            Height = 760;
+        }
+
         ServiceStatusText.Text = status.ServiceDetail;
         ServiceStatusText.Foreground = (Brush)FindResource(serviceReady ? "Tc.Success" : "Tc.Warning");
         RepairServiceButton.Visibility = serviceReady ? Visibility.Collapsed : Visibility.Visible;

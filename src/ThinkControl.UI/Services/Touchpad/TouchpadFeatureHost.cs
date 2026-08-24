@@ -266,6 +266,14 @@ internal sealed class TouchpadFeatureHost : IDisposable
         try
         {
             await _app.Dispatcher.InvokeAsync(() => _app.SetKeyboardStaticLevelAsync(level)).Task.Unwrap();
+            bool verified = await _app.Dispatcher.InvokeAsync(() =>
+                _app.State.KeyboardStatus.Contains(level, StringComparison.OrdinalIgnoreCase));
+            if (!verified)
+            {
+                Interlocked.Exchange(ref _lastQueuedKeyboardIndex, -1);
+                return;
+            }
+
             await _app.Dispatcher.InvokeAsync(() => _osd.Show("Keyboard light", index * 50));
         }
         catch
