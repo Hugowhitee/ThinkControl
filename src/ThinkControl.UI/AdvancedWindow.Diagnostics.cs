@@ -27,6 +27,10 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
+        // Page builders above may replace a ScrollViewer child. Reapply only the
+        // bounded page-rail contract after final composition so every page ends on
+        // the same sidebar-adjacent left anchor.
+        ConfigureAdvancedUiConsistency();
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -50,6 +54,7 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
+        ConfigureAdvancedUiConsistency();
         DiagnosticsPanelControl?.Refresh();
 
         if (DataContext is ViewModels.AppState snapshotState)
@@ -117,6 +122,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
 
@@ -135,6 +141,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectSensors(this);
     }
 
@@ -153,6 +160,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureAdvancedUiConsistency();
         AdvancedFeaturePages.SelectAudio(this);
     }
 }
