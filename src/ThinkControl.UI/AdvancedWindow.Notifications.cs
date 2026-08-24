@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI;
@@ -105,6 +106,7 @@ public partial class AdvancedWindow
     private void NotificationState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(AppState.DriverStatus)
+            or nameof(AppState.MachineType)
             or nameof(AppState.CanSensorTelemetry)
             or nameof(AppState.CanFanTelemetry)
             or nameof(AppState.CanFanControl)
@@ -122,7 +124,8 @@ public partial class AdvancedWindow
         bool hardwareAttention = !state.DriverStatus.Equals("Ready", StringComparison.OrdinalIgnoreCase) ||
                                  !state.CanSensorTelemetry ||
                                  !state.CanFanTelemetry ||
-                                 !state.CanKeyboardBacklight;
+                                 (DeviceCapabilityExpectations.ExpectsWritableFanControl(state) && !state.CanFanControl) ||
+                                 (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(state) && !state.CanKeyboardBacklight);
         bool updateAttention = _app.LatestUpdateResult?.Available == true;
         bool attention = hardwareAttention || updateAttention;
 
