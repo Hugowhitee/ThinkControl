@@ -124,7 +124,7 @@ internal static class Program
             KeyboardBaseLevel = "Low",
             KeyboardEffectSpeed = 1.0,
             SelectedMode = "Balanced",
-            UpdateStatus = "Up to date · v0.1.0-alpha.4",
+            UpdateStatus = $"Up to date · v{UpdateService.CurrentVersion}",
             CanFanControl = hardwareReady,
             CanFanTelemetry = hardwareReady,
             CanKeyboardBacklight = hardwareReady,
