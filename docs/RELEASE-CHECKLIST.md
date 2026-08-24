@@ -18,7 +18,7 @@ This checklist applies to tagged prereleases and later stable builds.
 - [x] Confirm extracted UI/service files and service registration are removed.
 - [x] Generate SHA-256 checksums for installer and payload.
 - [x] Keep application, tag, release, installer and payload versions aligned.
-- [x] Compose one public UI overview from the real release snapshots so individual QA PNGs do not clutter GitHub Releases.
+- [x] Render the release overview and full WPF gallery for QA without publishing QA PNGs as release downloads.
 
 ## Installer prerequisites
 
@@ -70,16 +70,17 @@ This checklist applies to tagged prereleases and later stable builds.
 ## Release publication
 
 - [x] `version.json` is the release version source.
-- [x] `releaseReady` gates publication to `main`.
-- [x] A release-ready main commit creates the exact `v<version>` tag.
-- [x] The tag dispatches the tested package workflow.
-- [x] Publication waits for Setup, Payload, `SHA256SUMS.txt` and one generated `ui-overview.png` preview.
-- [x] Public release downloads stay compact: users need only Setup; payload/checksum remain updater/verification infrastructure.
-- [x] The verified release marker records the payload as well as installer/checksum.
+- [x] Release tags use the exact `v<version>` form and point at the intended release commit.
+- [x] The tag-triggered package workflow rejects a tag/version mismatch before packaging.
+- [x] The tagged workflow runs build, visual QA, payload creation, installer compilation and installer/service lifecycle smoke testing before publication.
+- [x] GitHub Releases publish only `ThinkControl-Setup-<version>.exe`, `ThinkControl-Payload-<version>.zip` and `SHA256SUMS.txt` as managed release assets.
+- [x] Users normally need only Setup; payload/checksum are updater and verification infrastructure.
+- [x] The in-app updater requires all three managed assets and SHA-256 verifies Setup and Payload before elevation.
 
-## Physical X9 validation after alpha.11 publication
+## Physical X9 validation after alpha.12 publication
 
-- [ ] Install the published `v0.1.0-alpha.11` Setup on the X9.
+- [ ] Install the published `v0.1.0-alpha.10` Setup first when explicitly testing the in-app updater, then update to `v0.1.0-alpha.12` from inside ThinkControl.
+- [ ] For a normal clean install, install the published `v0.1.0-alpha.12` Setup directly.
 - [ ] Confirm the installer is only a few MB and fetches the matching payload from GitHub.
 - [ ] Verify installer/payload hashes against `SHA256SUMS.txt`.
 - [ ] Confirm the installed footprint is far below the old duplicate-runtime layout.
@@ -90,7 +91,8 @@ This checklist applies to tagged prereleases and later stable builds.
 - [ ] Confirm Quiet/Balanced/Performance policy behavior on AC and battery.
 - [ ] Confirm keyboard Off/Low/High and supported effect behavior.
 - [ ] Confirm Commercial Vantage direct launch.
-- [ ] Confirm update checking and an alpha.10 → alpha.11 in-app update including cancellation/relaunch behavior.
+- [ ] Confirm alpha.10 → alpha.12 in-app update including download, SHA-256 verification, UAC approval, app close, install and relaunch behavior.
+- [ ] Confirm cancelling the UAC prompt leaves the running install untouched and does not loop prompts.
 - [ ] Test sleep/resume and verify manual fan ownership returns safely to firmware/OEM Auto.
 - [ ] Inspect Compact/Advanced at 100, 125 and 150 percent scaling.
 - [ ] Confirm Compact cannot be dragged.
