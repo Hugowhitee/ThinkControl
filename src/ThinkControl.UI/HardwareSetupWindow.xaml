@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
         Title="ThinkControl Hardware setup"
-        Width="610" Height="520"
-        MinWidth="610" MinHeight="520"
+        Width="660" Height="620"
+        MinWidth="580" MinHeight="540"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         ShowInTaskbar="False"
         Background="{DynamicResource Tc.Window}"
         Foreground="{DynamicResource Tc.Text}"
@@ -14,136 +14,83 @@
         Icon="Assets/ThinkControl.ico">
     <Grid Margin="24">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <StackPanel Orientation="Horizontal">
-            <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
-            <StackPanel>
-                <TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" />
-                <TextBlock Text="ThinkControl checks providers after installation and only enables controls that pass capability checks."
-                           Foreground="{DynamicResource Tc.TextMuted}"
-                           FontSize="11"
-                           Margin="0,4,0,0" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,0,8,0">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                    <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
+                    <StackPanel Grid.Column="1">
+                        <TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" />
+                        <TextBlock Text="ThinkControl detects the providers your laptop actually exposes, then shows the safest repair or install action when something is missing."
+                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
+                </Grid>
+
+                <Border Style="{StaticResource TcSection}" Margin="0,22,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="ThinkControl hardware service" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ServiceStatusText" Text="Checking..." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="Keeps privileged hardware access out of the UI and exposes only verified semantic operations."
+                                       Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="0,4,16,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="RepairServiceButton" Grid.Column="1" Content="Repair service" Style="{StaticResource TcButton}" MinWidth="112" VerticalAlignment="Center" Click="RepairService_Click" />
+                    </Grid>
+                </Border>
+
+                <Border x:Name="LowLevelCard" Style="{StaticResource TcSection}" Margin="0,12,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="PawnIO hardware access" FontWeight="SemiBold" />
+                            <TextBlock x:Name="LowLevelStatusText" Text="Checking..." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,18,0" />
+                            <TextBlock Text="PawnIO is the signed low-level driver used by modern LibreHardwareMonitor/FanControl builds. It improves read-only sensors and enables only ThinkControl write providers that separately pass their device profile checks."
+                                       Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,4,16,0" />
+                        </StackPanel>
+                        <Button x:Name="InstallLowLevelButton" Grid.Column="1" Content="Install PawnIO" Style="{StaticResource TcButton}" MinWidth="128" VerticalAlignment="Center" Click="InstallLowLevel_Click" />
+                    </Grid>
+                </Border>
+
+                <Border x:Name="LenovoDriverCard" Style="{StaticResource TcSection}" Margin="0,12,0,0" Visibility="Collapsed">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="Lenovo platform integration" FontWeight="SemiBold" />
+                            <TextBlock x:Name="LenovoDriverStatusText" Text="Keyboard provider not detected" Foreground="{DynamicResource Tc.Warning}" FontSize="10.5" Margin="0,5,0,0" TextWrapping="Wrap" />
+                            <TextBlock Text="ThinkControl probes Lenovo PM/EnergyDrv contracts and the installed Lenovo Vantage keyboard add-in. Install current Lenovo platform, hotkey and system-interface updates, then retry detection."
+                                       Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,4,16,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <Button x:Name="OpenVantageButton" Content="Lenovo Vantage" Style="{StaticResource TcButton}" MinWidth="120" Click="OpenVantage_Click" />
+                            <Button x:Name="RetryDetectionButton" Content="Retry detection" Style="{StaticResource TcButton}" MinWidth="120" Margin="0,7,0,0" Click="RetryDetection_Click" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource TcSection}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="What happens next" FontWeight="SemiBold" />
+                        <TextBlock Text="After a repair or driver install, ThinkControl recycles provider discovery automatically. Sensors can become available independently from fan writes; unknown fan-control registers are never guessed."
+                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,6,0,0" />
+                        <TextBlock x:Name="ResultText" TextWrapping="Wrap" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,10,0,0" />
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </StackPanel>
+        </ScrollViewer>
 
-        <Border Grid.Row="1" Style="{StaticResource TcSection}" Margin="0,22,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="ThinkControl hardware service" FontWeight="SemiBold" />
-                    <TextBlock x:Name="ServiceStatusText"
-                               Text="Checking..."
-                               Foreground="{DynamicResource Tc.TextMuted}"
-                               FontSize="10.5"
-                               Margin="0,5,0,0" />
-                    <TextBlock Text="Provides privileged access only through ThinkControl's semantic hardware operations."
-                               Foreground="{DynamicResource Tc.TextFaint}"
-                               FontSize="9.5"
-                               Margin="0,4,16,0" />
-                </StackPanel>
-                <Button x:Name="RepairServiceButton"
-                        Grid.Column="1"
-                        Content="Repair service"
-                        Style="{StaticResource TcButton}"
-                        MinWidth="112"
-                        VerticalAlignment="Center"
-                        Click="RepairService_Click" />
-            </Grid>
-        </Border>
-
-        <Border x:Name="LowLevelCard" Grid.Row="2" Style="{StaticResource TcSection}" Margin="0,12,0,0">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="Hardware sensor access" FontWeight="SemiBold" />
-                    <TextBlock x:Name="LowLevelStatusText"
-                               Text="Checking..."
-                               Foreground="{DynamicResource Tc.TextMuted}"
-                               FontSize="10.5"
-                               TextWrapping="Wrap"
-                               Margin="0,5,18,0" />
-                    <TextBlock Text="PawnIO can improve LibreHardwareMonitor sensor access. Installing it never unlocks unknown fan writes; write control remains profile-verified."
-                               Foreground="{DynamicResource Tc.TextFaint}"
-                               FontSize="9.5"
-                               TextWrapping="Wrap"
-                               Margin="0,4,16,0" />
-                </StackPanel>
-                <Button x:Name="InstallLowLevelButton"
-                        Grid.Column="1"
-                        Content="Install PawnIO"
-                        Style="{StaticResource TcButton}"
-                        MinWidth="128"
-                        VerticalAlignment="Center"
-                        Click="InstallLowLevel_Click" />
-            </Grid>
-        </Border>
-
-        <Border x:Name="LenovoDriverCard" Grid.Row="3" Style="{StaticResource TcSection}" Margin="0,12,0,0" Visibility="Collapsed">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock Text="Lenovo platform integration" FontWeight="SemiBold" />
-                    <TextBlock x:Name="LenovoDriverStatusText"
-                               Text="Keyboard provider not detected"
-                               Foreground="{DynamicResource Tc.Warning}"
-                               FontSize="10.5"
-                               Margin="0,5,0,0" />
-                    <TextBlock Text="Use Lenovo Vantage / Windows Update to install the current Lenovo platform, hotkey and system interface drivers, then retry detection."
-                               Foreground="{DynamicResource Tc.TextFaint}"
-                               FontSize="9.5"
-                               TextWrapping="Wrap"
-                               Margin="0,4,16,0" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <Button x:Name="OpenVantageButton"
-                            Content="Lenovo Vantage"
-                            Style="{StaticResource TcButton}"
-                            MinWidth="120"
-                            Click="OpenVantage_Click" />
-                    <Button x:Name="RetryDetectionButton"
-                            Content="Retry"
-                            Style="{StaticResource TcButton}"
-                            MinWidth="120"
-                            Margin="0,7,0,0"
-                            Click="RetryDetection_Click" />
-                </StackPanel>
-            </Grid>
-        </Border>
-
-        <TextBlock x:Name="ResultText"
-                   Grid.Row="4"
-                   TextWrapping="Wrap"
-                   Foreground="{DynamicResource Tc.TextMuted}"
-                   FontSize="10.5"
-                   VerticalAlignment="Center"
-                   Margin="2,12,2,8" />
-
-        <Grid Grid.Row="5">
-            <TextBlock Text="Administrator permission is requested only when repairing the service or installing a hardware component."
-                       Foreground="{DynamicResource Tc.TextFaint}"
-                       FontSize="9.5"
-                       VerticalAlignment="Center" />
-            <Button Content="Done"
-                    HorizontalAlignment="Right"
-                    Style="{StaticResource TcButton}"
-                    MinWidth="92"
-                    Click="Continue_Click" />
+        <Grid Grid.Row="1" Margin="0,14,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Administrator permission is requested only for service repair or installing the signed hardware driver."
+                       Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,20,0" />
+            <Button Grid.Column="1" Content="Done" HorizontalAlignment="Right" Style="{StaticResource TcButton}" MinWidth="92" Click="Continue_Click" />
         </Grid>
     </Grid>
 </Window>
