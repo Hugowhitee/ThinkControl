@@ -42,9 +42,9 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             UploadStatusText.Text = "User initiated only";
             StatusText.Text = consent switch
             {
-                DiagnosticsConsent.Enabled => "Redacted compatibility events are kept locally. Nothing is uploaded automatically; Share device report opens a reviewable GitHub issue draft.",
-                DiagnosticsConsent.Disabled => "Compatibility event recording is disabled. You can still generate a one-time device report from the current capability state.",
-                _ => "Compatibility events stay local. Sharing always requires an explicit action."
+                DiagnosticsConsent.Enabled => "Optional support sharing is enabled. Local events are redacted and nothing is uploaded automatically; Share device report opens a reviewable GitHub issue draft.",
+                DiagnosticsConsent.Disabled => "Optional compatibility sharing is disabled. The bounded local troubleshooting history is never uploaded automatically and can be deleted here at any time.",
+                _ => "Local compatibility events are not uploaded automatically. Sharing always requires an explicit action."
             };
         }
         finally
@@ -75,6 +75,12 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
     {
         if (System.Windows.Application.Current is not App app)
             return;
+
+        if (app.UserSettings.Current.DiagnosticsConsent != DiagnosticsConsent.Enabled)
+        {
+            StatusText.Text = "Enable compatibility sharing first. Nothing will be submitted until you review the GitHub issue and press Submit.";
+            return;
+        }
 
         try
         {
