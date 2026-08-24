@@ -7,11 +7,14 @@ internal sealed class GestureActionRouter
 {
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
+    private readonly Func<int> _getVolume;
+    private readonly Action<int> _queueVolume;
     private readonly Func<int> _getBrightness;
     private readonly Action<int> _queueBrightness;
     private readonly Func<int, Task> _stepKeyboard;
     private readonly Func<int, bool> _stepPerformance;
 
+    private int _volumeAtStart;
     private int _brightnessAtStart;
     private double _stepAccumulator;
     private double _seekCumulativeSeconds;
@@ -21,6 +24,8 @@ internal sealed class GestureActionRouter
     internal GestureActionRouter(
         NativeInputService nativeInput,
         MediaSessionService media,
+        Func<int> getVolume,
+        Action<int> queueVolume,
         Func<int> getBrightness,
         Action<int> queueBrightness,
         Func<int, Task> stepKeyboard,
@@ -28,6 +33,8 @@ internal sealed class GestureActionRouter
     {
         _nativeInput = nativeInput;
         _media = media;
+        _getVolume = getVolume;
+        _queueVolume = queueVolume;
         _getBrightness = getBrightness;
         _queueBrightness = queueBrightness;
         _stepKeyboard = stepKeyboard;
@@ -59,8 +66,8 @@ internal sealed class GestureActionRouter
         switch (signal.Action)
         {
             case GestureActionKind.Volume:
-                ApplyStepped(ToPositiveControlDelta(signal, signal.DeltaMm), 2.0,
-                    _nativeInput.VolumeUp, _nativeInput.VolumeDown);
+                _volumeAtStart = _getVolume();
+                ApplyVolume(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.Brightness:
                 _brightnessAtStart = _getBrightness();
@@ -101,8 +108,7 @@ internal sealed class GestureActionRouter
         switch (signal.Action)
         {
             case GestureActionKind.Volume:
-                ApplyStepped(ToPositiveControlDelta(signal, signal.DeltaMm), 2.0,
-                    _nativeInput.VolumeUp, _nativeInput.VolumeDown);
+                ApplyVolume(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.Brightness:
                 ApplyBrightness(signal, signal.TotalTravelMm);
@@ -119,6 +125,15 @@ internal sealed class GestureActionRouter
         }
     }
 
+    private void ApplyVolume(GestureSignal signal, double travelMm)
+    {
+        int target = Math.Clamp(
+            _volumeAtStart + (int)Math.Round(ToPositiveControlDelta(signal, travelMm) * 1.4),
+            0,
+            100);
+        _queueVolume(target);
+    }
+
     private void QueueMediaSeek(GestureSignal signal)
     {
         long now = Stopwatch.GetTimestamp();
@@ -130,10 +145,6 @@ internal sealed class GestureActionRouter
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
 
-        // Distance gives precision; velocity supplies strong but bounded acceleration.
-        // Slow glides stay precise, while a deliberate fast flick can jump tens of
-        // seconds. Only the latest target is handed to GSMTC by MediaSessionService,
-        // so Spotify never receives one seek request per raw touch frame.
         double speed01 = Math.Clamp((velocity - 24.0) / 175.0, 0.0, 1.0);
         double acceleration = 1.0 + 5.0 * Math.Pow(speed01, 1.45);
         double seconds = deltaMm * 0.28 * acceleration;
@@ -167,17 +178,6 @@ internal sealed class GestureActionRouter
 
     private static double ToPositiveControlDelta(GestureSignal signal, double value) =>
         signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -value : value;
-
-    private void ApplyStepped(double deltaMm, double millimetresPerStep, Func<bool> increase, Func<bool> decrease)
-    {
-        _stepAccumulator += deltaMm;
-        while (Math.Abs(_stepAccumulator) >= millimetresPerStep)
-        {
-            int direction = Math.Sign(_stepAccumulator);
-            if (direction > 0) increase(); else decrease();
-            _stepAccumulator -= direction * millimetresPerStep;
-        }
-    }
 
     private async Task ApplyAsyncStep(double deltaMm, double millimetresPerStep, Func<int, Task> step)
     {
