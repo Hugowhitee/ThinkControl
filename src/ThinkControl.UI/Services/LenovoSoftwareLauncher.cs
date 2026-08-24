@@ -1,5 +1,6 @@
 using Microsoft.Win32;
 using System.Diagnostics;
+using System.Management;
 
 namespace ThinkControl.UI.Services;
 
@@ -13,6 +14,12 @@ public static class LenovoSoftwareLauncher
 
     public static bool TryOpenVantage()
     {
+        // Never launch an OEM utility just because its protocol survived a migrated
+        // Windows image or remains installed on a non-Lenovo machine. The shared UI
+        // can call this safely; false means the caller should use Windows Settings.
+        if (!IsLenovoDevice())
+            return false;
+
         // Commercial Vantage registers lenovo-metro-settings. Consumer Vantage
         // commonly registers lenovo-vantage. Only invoke a protocol when Windows
         // says it is registered, so a missing app cannot bounce the user into Store.
@@ -25,6 +32,27 @@ public static class LenovoSoftwareLauncher
         // Packaged-app registrations can differ between Lenovo versions. Resolve
         // the installed Start-menu AUMID as a second, local-only fallback.
         return TryOpenInstalledStartApp();
+    }
+
+    private static bool IsLenovoDevice()
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT Manufacturer FROM Win32_ComputerSystem");
+            using ManagementObjectCollection results = searcher.Get();
+            foreach (ManagementObject result in results)
+            {
+                string? manufacturer = result["Manufacturer"]?.ToString();
+                return !string.IsNullOrWhiteSpace(manufacturer) &&
+                       manufacturer.Contains("Lenovo", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private static bool IsRegisteredProtocol(string protocol)
