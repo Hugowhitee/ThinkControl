@@ -52,47 +52,41 @@ public partial class AdvancedWindow
 
     private void ConfigureAdvancedUiConsistency()
     {
-        if (!_uiConsistencyConfigured)
+        if (_uiConsistencyConfigured)
         {
-            _uiConsistencyConfigured = true;
-            UseLayoutRounding = true;
-            SnapsToDevicePixels = true;
+            // Theme/chrome may have changed since the first render, but the layout
+            // rail itself is static Stretch + MaxWidth and must not be rebuilt on
+            // every navigation call.
+            ApplyConsistentCaptionPalette();
+            return;
+        }
 
-            SizeChanged += (_, _) => Dispatcher.BeginInvoke(ApplyConsistentPageRail);
-            Activated += (_, _) => ApplyConsistentCaptionPalette();
+        _uiConsistencyConfigured = true;
+        UseLayoutRounding = true;
+        SnapsToDevicePixels = true;
 
-            foreach (RadioButton theme in FindVisualChildren<RadioButton>(this)
-                         .Where(button => string.Equals(button.GroupName, "Theme", StringComparison.Ordinal)))
+        Activated += (_, _) => ApplyConsistentCaptionPalette();
+
+        foreach (RadioButton theme in FindVisualChildren<RadioButton>(this)
+                     .Where(button => string.Equals(button.GroupName, "Theme", StringComparison.Ordinal)))
+        {
+            theme.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() =>
             {
-                theme.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    ApplySidebarPalette();
-                    ApplyConsistentCaptionPalette();
-                }));
-            }
+                ApplySidebarPalette();
+                ApplyConsistentCaptionPalette();
+            }));
+        }
 
-            foreach (RadioButton nav in FindVisualChildren<RadioButton>(this)
-                         .Where(button => string.Equals(button.GroupName, "Nav", StringComparison.Ordinal)))
-            {
-                nav.Checked += (_, _) => Dispatcher.BeginInvoke(new Action(() =>
-                {
-                    ApplyConsistentPageRail();
-                    NeutralizeHorizontalPageMotion();
-                }));
-            }
-
-            foreach (Slider slider in FindVisualChildren<Slider>(this))
-            {
-                ApplySliderAvailability(slider);
-                slider.IsEnabledChanged += (_, _) => ApplySliderAvailability(slider);
-            }
+        foreach (Slider slider in FindVisualChildren<Slider>(this))
+        {
+            ApplySliderAvailability(slider);
+            slider.IsEnabledChanged += (_, _) => ApplySliderAvailability(slider);
         }
 
         ApplyNavigationOrder();
         ApplySidebarPalette();
         ApplyConsistentPageRail();
         ApplyConsistentCaptionPalette();
-        NeutralizeHorizontalPageMotion();
     }
 
     private void ApplyNavigationOrder()
@@ -160,12 +154,9 @@ public partial class AdvancedWindow
         if (scroll.Content is not FrameworkElement content)
             return;
 
-        // Never calculate a content width from the outer Window. During a resize the
-        // vertical scrollbar owns part of the ScrollViewer viewport; an explicit
-        // window-derived width can therefore sit underneath it. Stretching lets WPF
-        // measure against the actual viewport and the right margin becomes an inside
-        // gutter. MaxWidth keeps the intentionally narrow ThinkControl rail on large
-        // displays without creating a minimum width on small windows.
+        // These properties are independent of the outer Window size. WPF measures
+        // Stretch against the live ScrollViewer viewport, so reapplying them from
+        // SizeChanged only creates visual-tree churn during interactive resizing.
         content.ClearValue(FrameworkElement.WidthProperty);
         content.MinWidth = 0;
         content.MaxWidth = AdvancedContentMaxWidth;
@@ -176,18 +167,6 @@ public partial class AdvancedWindow
     private static void ApplySliderAvailability(Slider slider)
     {
         slider.Opacity = slider.IsEnabled ? 1.0 : 0.42;
-    }
-
-    private void NeutralizeHorizontalPageMotion()
-    {
-        foreach (ScrollViewer page in FindVisualChildren<ScrollViewer>(this))
-        {
-            if (page.RenderTransform is not TranslateTransform transform)
-                continue;
-
-            transform.BeginAnimation(TranslateTransform.XProperty, null);
-            transform.X = 0;
-        }
     }
 
     private void ApplyConsistentCaptionPalette()
