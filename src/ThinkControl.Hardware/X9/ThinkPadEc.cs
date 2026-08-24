@@ -139,23 +139,40 @@ internal sealed class ThinkPadEc : IDisposable
 
         try
         {
-            if (!TryReadByte(EcThermalProbe, out byte thermal))
-            {
-                detail = $"EC thermal probe timed out on 0x{commandPort:X}/0x{dataPort:X}.";
-                return false;
-            }
-
             if (!TryReadByte(ThinkPadRegisters.FanControl, out byte control))
             {
                 detail = $"Fan-control read timed out on 0x{commandPort:X}/0x{dataPort:X}.";
                 return false;
             }
 
-            bool plausibleThermal = thermal is >= 5 and <= 125;
-            bool plausibleControl = control <= 0x07 || control is >= 0x40 and <= 0x47 || control == ThinkPadRegisters.BiosControl;
-            if (!plausibleThermal || !plausibleControl)
+            // Auto, manual 1-7 and the known 0x40-0x47 override states are strong
+            // non-zero evidence that this is the real ThinkPad EC port pair. 0x00 is
+            // a legitimate fan-off state but also the most likely false value from a
+            // wrong port, so only that ambiguous state requires a second read-only
+            // thermal sanity check. This avoids making generic register 0x78 a hard
+            // X9 compatibility requirement while still rejecting all-zero probes.
+            if (control == ThinkPadRegisters.BiosControl ||
+                control is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel ||
+                control is >= 0x40 and <= 0x47)
             {
-                detail = $"Read-only validation returned thermal {thermal} and fan state 0x{control:X2} on 0x{commandPort:X}/0x{dataPort:X}.";
+                return true;
+            }
+
+            if (control != 0x00)
+            {
+                detail = $"Read-only validation returned unknown fan state 0x{control:X2} on 0x{commandPort:X}/0x{dataPort:X}.";
+                return false;
+            }
+
+            if (!TryReadByte(EcThermalProbe, out byte thermal))
+            {
+                detail = $"Ambiguous fan-off state 0x00 was read, but the thermal sanity probe timed out on 0x{commandPort:X}/0x{dataPort:X}.";
+                return false;
+            }
+
+            if (thermal is < 5 or > 125)
+            {
+                detail = $"Ambiguous fan-off state 0x00 and implausible thermal value {thermal} were read on 0x{commandPort:X}/0x{dataPort:X}.";
                 return false;
             }
 
