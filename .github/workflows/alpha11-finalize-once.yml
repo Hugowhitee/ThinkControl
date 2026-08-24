@@ -228,3 +228,5 @@ jobs:
           git diff --cached --check
           git commit -m "Finish alpha.11 release blockers"
           git push origin HEAD:fix/alpha11-final-review
+
+# Manual retrigger from ChatGPT to execute the one-shot finalizer.
