@@ -154,7 +154,9 @@ public partial class AdvancedWindow
     private bool IsUpdateInstallInProgress() =>
         _app.State.UpdateStatus.StartsWith("Downloading", StringComparison.OrdinalIgnoreCase) ||
         _app.State.UpdateStatus.StartsWith("Verifying", StringComparison.OrdinalIgnoreCase) ||
+        _app.State.UpdateStatus.StartsWith("Ready to install", StringComparison.OrdinalIgnoreCase) ||
         _app.State.UpdateStatus.StartsWith("Installing", StringComparison.OrdinalIgnoreCase) ||
+        _app.State.UpdateStatus.StartsWith("Installer started", StringComparison.OrdinalIgnoreCase) ||
         _app.State.UpdateStatus.StartsWith("Updater started", StringComparison.OrdinalIgnoreCase);
 
     private bool IsUpdateReadyToInstall() =>
