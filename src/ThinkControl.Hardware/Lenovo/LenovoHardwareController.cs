@@ -23,26 +23,12 @@ public sealed record LenovoHardwareStatus(
     bool CanCpuTemperature,
     bool CanSensorTelemetry);
 
-/// <summary>
-/// Capability-based Lenovo controller.
-///
-/// The service can run on any Windows laptop. Lenovo-specific features are
-/// discovered independently instead of assuming that one model profile applies
-/// to an entire product family:
-/// - SensorHub telemetry is read-only and device neutral;
-/// - Lenovo WMI/CIM fan telemetry is read-only and capability probed, including
-///   multi-fan telemetry when firmware exposes more than one tachometer;
-/// - Lenovo keyboard drivers are selected only after a known-state read and
-///   every write is verified by reading it back;
-/// - direct ThinkPad EC fan writes remain restricted to the verified X9
-///   21Q6/21Q7 profile.
-/// </summary>
 public sealed class LenovoHardwareController : IDisposable
 {
     private static readonly TimeSpan FanStatePollInterval = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan FanRpmPollInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan GenericFanPollInterval = TimeSpan.FromSeconds(6);
-    private static readonly TimeSpan EcRetryInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan EcRetryInterval = TimeSpan.FromSeconds(8);
     private static readonly TimeSpan KeyboardProbeInterval = TimeSpan.FromSeconds(15);
 
     private readonly object _gate = new();
@@ -76,6 +62,10 @@ public sealed class LenovoHardwareController : IDisposable
     public LenovoHardwareStatus ReadStatus()
     {
         ThrowIfDisposed();
+
+        // Sensor discovery is intentionally outside the EC gate. FanControl and
+        // LibreHardwareMonitor can expose useful CPU/fan telemetry through PawnIO
+        // even if ThinkControl's stricter verified EC write probe is unavailable.
         SensorHubSnapshot sensorSnapshot = _sensors.Read();
 
         lock (_gate)
@@ -90,10 +80,6 @@ public sealed class LenovoHardwareController : IDisposable
                     ReadX9FanRpm(now);
             }
 
-            // Read-only Windows/Lenovo fan discovery intentionally runs even when
-            // the verified X9 EC provider is active. A modern firmware interface
-            // may expose both physical tachometers while the EC provider exposes
-            // only the one classic tachometer we have actually verified.
             if (_isLenovo && now - _lastGenericFanRead >= GenericFanPollInterval)
                 ReadGenericLenovoFanTelemetry(now);
 
@@ -111,17 +97,17 @@ public sealed class LenovoHardwareController : IDisposable
                     : level.ToString();
             }
 
-            IReadOnlyList<LenovoFanReading> fans = BuildFanTelemetry(ecAvailable);
+            IReadOnlyList<LenovoFanReading> fans = BuildFanTelemetry(ecAvailable, sensorSnapshot);
             LenovoFanReading? primaryFan = fans.FirstOrDefault();
 
-            string fanState = _identity.IsVerifiedX9 && _fanControl.HasValue
+            string fanState = _identity.IsVerifiedX9 && ecAvailable && _fanControl.HasValue
                 ? ThinkPadFanProtocol.DescribeControl(_fanControl.Value)
                 : fans.Count > 0
                     ? "Lenovo managed · read-only telemetry"
                     : "Lenovo managed · telemetry unavailable";
 
             bool canFanTelemetry = fans.Count > 0;
-            string hardwareAccess = BuildHardwareAccess(ecAvailable, canFanTelemetry, _keyboardAvailable);
+            string hardwareAccess = BuildHardwareAccess(ecAvailable, canFanTelemetry, _keyboardAvailable, sensorSnapshot.Sensors.Count > 0);
 
             return new LenovoHardwareStatus(
                 _identity,
@@ -295,7 +281,6 @@ public sealed class LenovoHardwareController : IDisposable
         }
         catch
         {
-            // Keep the last good X9 RPM. Frequent retries can disturb EC timing.
         }
     }
 
@@ -305,13 +290,27 @@ public sealed class LenovoHardwareController : IDisposable
         _genericFans = LenovoFanTelemetryService.Read();
     }
 
-    private IReadOnlyList<LenovoFanReading> BuildFanTelemetry(bool ecAvailable)
+    private IReadOnlyList<LenovoFanReading> BuildFanTelemetry(bool ecAvailable, SensorHubSnapshot sensors)
     {
-        // Prefer a read-only firmware/Windows provider if it exposes fan objects;
-        // it may reveal both physical fans on devices where the classic EC path
-        // exposes only one tachometer. Never synthesize a second fan.
         if (_genericFans.Count > 0)
             return _genericFans;
+
+        LenovoFanReading[] lhmFans = sensors.Sensors
+            .Where(sensor => string.Equals(sensor.SensorType, "Fan", StringComparison.OrdinalIgnoreCase))
+            .Where(sensor => sensor.Value is >= 0 and <= 20000)
+            .GroupBy(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase)
+            .Select((group, index) =>
+            {
+                HardwareSensorReading sensor = group.First();
+                return new LenovoFanReading(
+                    $"lhm-pawnio-{index + 1}",
+                    (int)Math.Round(sensor.Value),
+                    string.IsNullOrWhiteSpace(sensor.Name) ? $"Fan {index + 1}" : sensor.Name,
+                    sensor.Source);
+            })
+            .ToArray();
+        if (lhmFans.Length > 0)
+            return lhmFans;
 
         if (_identity.IsVerifiedX9 && ecAvailable && _x9FanRpm.HasValue)
         {
@@ -381,7 +380,7 @@ public sealed class LenovoHardwareController : IDisposable
         catch { return false; }
     }
 
-    private string BuildHardwareAccess(bool ecAvailable, bool fanTelemetry, bool keyboardAvailable)
+    private string BuildHardwareAccess(bool ecAvailable, bool fanTelemetry, bool keyboardAvailable, bool sensorTelemetry)
     {
         if (!_isLenovo)
             return "Windows features · Lenovo hardware providers not applicable";
@@ -389,9 +388,15 @@ public sealed class LenovoHardwareController : IDisposable
         if (_identity.IsVerifiedX9)
         {
             if (ecAvailable && keyboardAvailable)
-                return "Full · verified X9 EC + Lenovo keyboard provider";
+                return sensorTelemetry
+                    ? "Full · verified X9 EC + PawnIO sensors + Lenovo keyboard"
+                    : "Full control · verified X9 EC + Lenovo keyboard";
             if (ecAvailable)
-                return "Partial · verified X9 EC · keyboard provider unavailable";
+                return sensorTelemetry
+                    ? "Partial · verified X9 EC + PawnIO sensors · keyboard unavailable"
+                    : "Partial · verified X9 EC · keyboard unavailable";
+            if (sensorTelemetry || fanTelemetry)
+                return $"Telemetry ready · PawnIO/Windows sensors · fan writes unavailable · {_lastEcError ?? "EC probe pending"}";
             if (keyboardAvailable)
                 return $"Partial · verified X9 keyboard · {_lastEcError ?? "EC unavailable"}";
             return $"Limited · verified X9 · {_lastEcError ?? "hardware providers unavailable"}";
@@ -401,8 +406,8 @@ public sealed class LenovoHardwareController : IDisposable
             return "Experimental · Lenovo keyboard + read-only fan telemetry";
         if (keyboardAvailable)
             return "Experimental · verified-by-readback Lenovo keyboard provider";
-        if (fanTelemetry)
-            return "Read-only · Lenovo fan telemetry · firmware-managed control";
+        if (fanTelemetry || sensorTelemetry)
+            return "Read-only · hardware telemetry · firmware-managed control";
 
         return "Limited · Lenovo device · Windows features available";
     }
