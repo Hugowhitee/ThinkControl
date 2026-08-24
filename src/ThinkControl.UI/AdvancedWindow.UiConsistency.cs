@@ -11,7 +11,8 @@ public partial class AdvancedWindow
     private const int DwmwaCaptionColor = 35;
     private const int DwmwaTextColor = 36;
     private const double AdvancedContentMaxWidth = 1040;
-    private const double AdvancedContentChromeReserve = 224;
+    private const double AdvancedContentChromeReserve = 214;
+    private const double PageRightGutter = 12;
     private bool _uiConsistencyConfigured;
 
     private static readonly string[] ConsistentPageNames =
@@ -58,8 +59,6 @@ public partial class AdvancedWindow
             UseLayoutRounding = true;
             SnapsToDevicePixels = true;
 
-            // Feature-page helpers subscribe before this method, so reapplying our
-            // rail after a resize intentionally wins over their older centered widths.
             SizeChanged += (_, _) => ApplyConsistentPageRail();
             Activated += (_, _) => ApplyConsistentCaptionPalette();
 
@@ -108,10 +107,6 @@ public partial class AdvancedWindow
             .Where(button => button.Tag is string)
             .ToDictionary(button => (string)button.Tag, StringComparer.OrdinalIgnoreCase);
 
-        // The dock/compact control is a non-nav child at the top of this stack.
-        // Remove only navigation buttons, then append them in one stable task flow.
-        // This keeps dynamic Audio/Sensors/Touchpad pages from landing in different
-        // positions depending on which feature helper happened to run first.
         foreach (RadioButton button in navByTag.Values)
             navStack.Children.Remove(button);
 
@@ -121,7 +116,6 @@ public partial class AdvancedWindow
                 navStack.Children.Add(button);
         }
 
-        // Preserve any future tagged pages instead of hiding them accidentally.
         foreach (RadioButton button in navByTag.Values.Where(button =>
                      button.Tag is string tag && !NavigationOrder.Contains(tag, StringComparer.OrdinalIgnoreCase)))
         {
@@ -131,8 +125,6 @@ public partial class AdvancedWindow
 
     private void ApplySidebarPalette()
     {
-        // Navigation and page canvas share one base surface. Cards, hover and the
-        // selected-nav indicator provide hierarchy instead of another near-black slab.
         if (Content is not Border { Child: Grid rootGrid })
             return;
 
@@ -149,39 +141,47 @@ public partial class AdvancedWindow
     private void ApplyConsistentPageRail()
     {
         double windowWidth = ActualWidth > 1 ? ActualWidth : Width;
-        double pageWidth = Math.Min(
+        double fallbackWidth = Math.Min(
             AdvancedContentMaxWidth,
-            Math.Max(520, windowWidth - AdvancedContentChromeReserve));
+            Math.Max(480, windowWidth - AdvancedContentChromeReserve));
 
         foreach (string pageName in ConsistentPageNames)
         {
             if (FindName(pageName) is ScrollViewer scroll)
-                ApplyPageRail(scroll, pageWidth);
+                ApplyPageRail(scroll, fallbackWidth);
         }
 
         foreach (string resourceName in DynamicPageResourceNames)
         {
             if (Resources.Contains(resourceName) && Resources[resourceName] is ScrollViewer scroll)
-                ApplyPageRail(scroll, pageWidth);
+                ApplyPageRail(scroll, fallbackWidth);
         }
     }
 
-    private static void ApplyPageRail(ScrollViewer scroll, double pageWidth)
+    private static void ApplyPageRail(ScrollViewer scroll, double fallbackWidth)
     {
-        // One literal left rail on every viewport. The explicit width prevents old
-        // per-page MaxWidth + Center combinations from making pages jump sideways.
-        // A 12px right gutter keeps header actions clear of the themed scrollbar.
         scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
         scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
 
         if (scroll.Content is not FrameworkElement content)
             return;
 
+        // The old rail used window width and then added a right margin on top.
+        // At smaller sizes the vertical scrollbar consumes part of the viewport,
+        // so the content could extend behind the right border. Use the actual
+        // ScrollViewer viewport whenever layout has measured it and reserve the
+        // gutter inside that width instead of outside it.
+        double viewport = scroll.ViewportWidth;
+        double available = viewport > 64
+            ? Math.Max(320, viewport - PageRightGutter)
+            : fallbackWidth;
+        double pageWidth = Math.Min(AdvancedContentMaxWidth, available);
+
         content.Width = pageWidth;
         content.MinWidth = 0;
         content.MaxWidth = AdvancedContentMaxWidth;
         content.HorizontalAlignment = HorizontalAlignment.Left;
-        content.Margin = new Thickness(0, 0, 12, 0);
+        content.Margin = new Thickness(0);
     }
 
     private static void ApplySliderAvailability(Slider slider)
@@ -191,8 +191,6 @@ public partial class AdvancedWindow
 
     private void NeutralizeHorizontalPageMotion()
     {
-        // Keep the short opacity transition, but remove sideways movement. Stable
-        // geometry is more important than decorative motion when switching settings.
         foreach (ScrollViewer page in FindVisualChildren<ScrollViewer>(this))
         {
             if (page.RenderTransform is not TranslateTransform transform)
@@ -217,7 +215,6 @@ public partial class AdvancedWindow
         }
         catch
         {
-            // Caption color is cosmetic and should never block the app.
         }
     }
 
