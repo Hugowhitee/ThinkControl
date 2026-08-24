@@ -63,6 +63,7 @@ public sealed class AppState : INotifyPropertyChanged
 
     public ObservableCollection<double> TemperatureHistory { get; } = new();
     public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
+    public ObservableCollection<TimeSeriesPoint> BatteryChargePercentTimeline { get; } = new();
     public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();
     public ObservableCollection<string> RecentChargeSessions { get; } = new();
     public ObservableCollection<FanTelemetrySnapshot> Fans { get; } = new();
@@ -191,6 +192,7 @@ public sealed class AppState : INotifyPropertyChanged
         BatteryTypicalChargeText = history.TypicalChargeText;
         BatteryHealthTrendText = history.HealthTrendText;
         ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
+        ReplaceCollection(BatteryChargePercentTimeline, history.ChargePercentTimeline);
         ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);
         ReplaceCollection(RecentChargeSessions, history.RecentSessions);
     }
