@@ -4,17 +4,35 @@ on:
   push:
     tags:
       - "v*"
+  workflow_run:
+    workflows: ["Package ThinkControl"]
+    types: [completed]
 
 permissions:
   contents: write
 
 jobs:
   screenshots:
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'workflow_dispatch')
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout
+      - name: Checkout released commit
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Resolve release tag
+        shell: pwsh
+        run: |
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          $version = [string]$metadata.version
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "version.json does not contain a version" }
+          "RELEASE_TAG=v$version" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -45,22 +63,22 @@ jobs:
             if ((Get-Item $path).Length -lt 5000) { throw "Release screenshot is unexpectedly small: $name" }
           }
 
-      - name: Wait for tagged release and upload screenshots
+      - name: Upload screenshots to tagged release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $deadline = (Get-Date).AddMinutes(10)
+          $deadline = (Get-Date).AddMinutes(5)
           do {
-            gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY *> $null
+            gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
             if ($LASTEXITCODE -eq 0) { break }
             Start-Sleep -Seconds 10
           } while ((Get-Date) -lt $deadline)
 
-          gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -ne 0) { throw "Tagged release did not become available in time" }
+          gh release view $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) { throw "Tagged release $env:RELEASE_TAG did not become available in time" }
 
-          gh release upload $env:GITHUB_REF_NAME `
+          gh release upload $env:RELEASE_TAG `
             "artifacts/release-screenshots/compact-dark.png" `
             "artifacts/release-screenshots/advanced-touchpad.png" `
             "artifacts/release-screenshots/advanced-fans.png" `
