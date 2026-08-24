@@ -21,6 +21,7 @@ public sealed class AppState : INotifyPropertyChanged
     private double? _batteryPowerWatts;
     private double? _batterySmoothedPowerWatts;
     private double? _batteryHealthPercent;
+    private double? _batteryTemperatureC;
     private double? _batteryRemainingWh;
     private double? _batteryFullWh;
     private TimeSpan? _batteryEtaToFull;
@@ -79,6 +80,7 @@ public sealed class AppState : INotifyPropertyChanged
     public double? BatteryPowerWatts { get => _batteryPowerWatts; set => Set(ref _batteryPowerWatts, value); }
     public double? BatterySmoothedPowerWatts { get => _batterySmoothedPowerWatts; set => Set(ref _batterySmoothedPowerWatts, value); }
     public double? BatteryHealthPercent { get => _batteryHealthPercent; set => Set(ref _batteryHealthPercent, value); }
+    public double? BatteryTemperatureC { get => _batteryTemperatureC; set => Set(ref _batteryTemperatureC, value); }
     public double? BatteryRemainingWh { get => _batteryRemainingWh; set => Set(ref _batteryRemainingWh, value); }
     public double? BatteryFullWh { get => _batteryFullWh; set => Set(ref _batteryFullWh, value); }
     public TimeSpan? BatteryEtaToFull { get => _batteryEtaToFull; set => Set(ref _batteryEtaToFull, value); }
@@ -134,6 +136,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
     public string BatteryHealthText => BatteryHealthPercent is double health ? $"{health:0.#}% health" : "Health —";
+    public string BatteryTemperatureText => BatteryTemperatureC is double temperature ? $"{temperature:0.#} °C" : "Not exposed";
     public string BatteryCycleCountText => BatteryCycleCount is int cycles ? $"{cycles:N0} cycles" : "Cycles —";
     public string BatteryCapacityText => BatteryRemainingWh is double remaining && BatteryFullWh is double full
         ? $"{remaining:0.#} / {full:0.#} Wh"
@@ -229,6 +232,8 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(BatteryAveragePowerText));
         else if (propertyName == nameof(BatteryHealthPercent))
             OnPropertyChanged(nameof(BatteryHealthText));
+        else if (propertyName == nameof(BatteryTemperatureC))
+            OnPropertyChanged(nameof(BatteryTemperatureText));
         else if (propertyName == nameof(BatteryCycleCount))
             OnPropertyChanged(nameof(BatteryCycleCountText));
         else if (propertyName is nameof(BatteryRemainingWh) or nameof(BatteryFullWh))
