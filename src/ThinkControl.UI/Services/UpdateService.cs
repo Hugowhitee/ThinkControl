@@ -26,7 +26,7 @@ public sealed record UpdateInstallResult(
 
 public sealed class UpdateService
 {
-    private const string ReleasesEndpoint = "https://api.github.com/repos/Hugowhitee/ThinkControl/releases?per_page=10";
+    private const string ReleasesEndpoint = "https://api.github.com/repos/Hugowhitee/ThinkControl/releases?per_page=100";
     private const string ReleasesPage = "https://github.com/Hugowhitee/ThinkControl/releases";
     private const string TrustedDownloadPrefix = "https://github.com/Hugowhitee/ThinkControl/releases/download/";
     private readonly HttpClient _httpClient;
@@ -68,7 +68,12 @@ public sealed class UpdateService
 
             SemanticVersion current = SemanticVersion.Parse(CurrentVersion);
             bool allowPrerelease = current.PreRelease.Count > 0;
+            SemanticVersion? newestVersion = null;
+            UpdateCheckResult? newestResult = null;
 
+            // GitHub does not guarantee that the Releases API is ordered by semantic
+            // version. Never trust the first item: scan every compatible release and
+            // select the highest SemVer explicitly.
             foreach (JsonElement release in json.RootElement.EnumerateArray())
             {
                 bool draft = release.TryGetProperty("draft", out JsonElement draftElement) && draftElement.GetBoolean();
@@ -81,26 +86,30 @@ public sealed class UpdateService
                 if (string.IsNullOrWhiteSpace(tag))
                     continue;
 
-                SemanticVersion latest;
+                SemanticVersion candidate;
                 try
                 {
-                    latest = SemanticVersion.Parse(tag.TrimStart('v', 'V'));
+                    candidate = SemanticVersion.Parse(tag.TrimStart('v', 'V'));
                 }
                 catch (FormatException)
                 {
                     continue;
                 }
 
+                if (newestVersion is not null && candidate.CompareTo(newestVersion) <= 0)
+                    continue;
+
                 (string? installerUrl, string? payloadUrl, string? checksumUrl) = FindReleaseAssets(release);
                 bool ready = installerUrl is not null && payloadUrl is not null && checksumUrl is not null;
-                bool available = latest.CompareTo(current) > 0;
+                bool available = candidate.CompareTo(current) > 0;
                 string status = available
                     ? ready
                         ? $"{tag} is ready to install"
                         : $"{tag} is available · release assets are still publishing"
                     : $"Up to date · {tag}";
 
-                return new(
+                newestVersion = candidate;
+                newestResult = new(
                     available,
                     status,
                     tag,
@@ -110,7 +119,7 @@ public sealed class UpdateService
                     checksumUrl);
             }
 
-            return new(false, "No compatible public release yet", Url: ReleasesPage);
+            return newestResult ?? new(false, "No compatible public release yet", Url: ReleasesPage);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or FormatException)
         {
