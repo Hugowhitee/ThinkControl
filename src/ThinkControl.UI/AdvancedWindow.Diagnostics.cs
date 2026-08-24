@@ -17,6 +17,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
+        ConfigureNavigationPolish();
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -32,6 +33,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
+        ConfigureNavigationPolish();
         DiagnosticsPanelControl?.Refresh();
 
         // Dynamic feature panels normally subscribe to the live app/service state.
@@ -61,6 +63,7 @@ public partial class AdvancedWindow
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
+        ConfigureNavigationPolish();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
 
@@ -74,6 +77,7 @@ public partial class AdvancedWindow
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
+        ConfigureNavigationPolish();
         AdvancedWindowEnhancer.SelectSensors(this);
     }
 
@@ -87,6 +91,7 @@ public partial class AdvancedWindow
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
+        ConfigureNavigationPolish();
         AdvancedFeaturePages.SelectAudio(this);
     }
 }
