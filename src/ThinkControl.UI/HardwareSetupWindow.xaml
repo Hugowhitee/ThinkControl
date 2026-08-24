@@ -10,7 +10,7 @@
         ShowInTaskbar="False"
         Background="{DynamicResource Tc.Window}"
         Foreground="{DynamicResource Tc.Text}"
-        FontFamily="Segoe UI"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
         Icon="Assets/ThinkControl.ico">
     <Grid Margin="24">
         <Grid.RowDefinitions>
@@ -25,7 +25,7 @@
                     <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
                     <StackPanel Grid.Column="1">
                         <TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" />
-                        <TextBlock Text="ThinkControl checks the service, PawnIO, sensors, X9 EC fan access and Lenovo keyboard provider independently. It only installs or repairs something when the detected state actually requires it."
+                        <TextBlock Text="ThinkControl checks the Windows service, PawnIO device access, sensor providers, X9 EC readback and Lenovo keyboard provider independently. Nothing is installed or elevated until you choose a repair action."
                                    Foreground="{DynamicResource Tc.TextMuted}"
                                    FontSize="11"
                                    TextWrapping="Wrap"
@@ -38,7 +38,7 @@
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel Margin="0,0,18,0">
                             <TextBlock Text="Repair detected hardware issues" FontWeight="SemiBold" />
-                            <TextBlock Text="Recommended. Repairs the ThinkControl service if needed, installs the verified PawnIO package only when missing, then performs one clean provider rebuild and readback."
+                            <TextBlock Text="Recommended. Repairs only the component that failed its current readiness check, then performs one clean provider rebuild and readback."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
                         </StackPanel>
                         <Button x:Name="FixDetectedIssuesButton" Grid.Column="1" Content="Fix detected issues" Style="{StaticResource TcButton}" MinWidth="138" VerticalAlignment="Center" Click="FixDetectedIssues_Click" />
@@ -64,7 +64,7 @@
                         <StackPanel>
                             <TextBlock Text="PawnIO hardware access" FontWeight="SemiBold" />
                             <TextBlock x:Name="LowLevelStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,18,0" />
-                            <TextBlock Text="PawnIO is demand-start. Installed but stopped is normal. Installation needs one Administrator approval; normal sensor/fan use is handled by ThinkControl's elevated service afterwards."
+                            <TextBlock Text="ThinkControl verifies more than the Windows service entry: the hardware service must be able to open the PawnIO device and load the LibreHardwareMonitor LPC module. A registered driver that cannot do that is treated as needing repair."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,4,16,0" />
                         </StackPanel>
                         <Button x:Name="InstallLowLevelButton" Grid.Column="1" Content="Install PawnIO" Style="{StaticResource TcButton}" MinWidth="128" VerticalAlignment="Center" Click="InstallLowLevel_Click" />
@@ -77,7 +77,7 @@
                         <StackPanel>
                             <TextBlock Text="Sensors · LibreHardwareMonitor / PawnIO" FontWeight="SemiBold" />
                             <TextBlock x:Name="SensorProviderStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,0,0" TextWrapping="Wrap" />
-                            <TextBlock Text="ThinkControl now uses the same LpcAcpiEc/PawnIO initialization pattern that worked in the ThinkPad FanControl plugin. A failed provider is backed off instead of being hammered every few seconds."
+                            <TextBlock Text="LibreHardwareMonitor 0.9.6 contains explicit Lunar Lake support. Provider retries are bounded, and an empty provider is rebuilt only on a deliberate retry or slow recovery cycle."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,4,16,0" />
                         </StackPanel>
                         <Button x:Name="RetrySensorsButton" Grid.Column="1" Content="Recheck" Style="{StaticResource TcButton}" MinWidth="96" VerticalAlignment="Center" Click="RetryProviders_Click" Tag="Sensors" />
@@ -90,7 +90,7 @@
                         <StackPanel>
                             <TextBlock Text="Fan provider · ThinkPad X9 EC" FontWeight="SemiBold" />
                             <TextBlock x:Name="FanProviderStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,0,0" TextWrapping="Wrap" />
-                            <TextBlock Text="The X9-15 21Q6/21Q7 path uses the same proven 0x62/0x66 PawnIO EC transport as the working FanControl plugin. Writes still require readback and unknown registers are never guessed."
+                            <TextBlock Text="The verified X9 path now probes the modern ThinkPad 0x1604/0x1600 EC ports first and the legacy 0x66/0x62 pair second, matching established TPFanCtrl behavior. Detection is read-only; fan writes remain limited to levels 1–7 with readback and Lenovo Auto fallback."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,4,16,0" />
                         </StackPanel>
                         <Button x:Name="RetryFanButton" Grid.Column="1" Content="Recheck" Style="{StaticResource TcButton}" MinWidth="96" VerticalAlignment="Center" Click="RetryProviders_Click" Tag="Fans" />
@@ -124,7 +124,7 @@
 
         <Grid Grid.Row="1" Margin="0,14,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock Text="Administrator permission is requested only when Windows actually needs a service repair or PawnIO installation. Rechecking existing providers requires no new UAC prompt."
+            <TextBlock Text="Administrator permission is requested only when Windows actually needs a service or PawnIO repair. Provider rechecks and read-only diagnostics require no new UAC prompt."
                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,20,0" />
             <Button Grid.Column="1" Content="Done" HorizontalAlignment="Right" Style="{StaticResource TcButton}" MinWidth="92" Click="Continue_Click" />
         </Grid>
