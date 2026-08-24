@@ -7,6 +7,38 @@ internal static class DeviceSupportReportService
 {
     private const string NewIssueUrl = "https://github.com/Hugowhitee/ThinkControl/issues/new";
 
+    internal static bool HasUsefulDiscovery(AppState state)
+    {
+        if (state.Sensors.Count > 0 || state.Fans.Count > 0 ||
+            state.CanFanControl || state.CanKeyboardBacklight ||
+            state.ControlTemperatureC.HasValue)
+        {
+            return true;
+        }
+
+        string access = state.HardwareAccess ?? string.Empty;
+        return access.Contains("PawnIO", StringComparison.OrdinalIgnoreCase) ||
+               access.Contains("LibreHardwareMonitor", StringComparison.OrdinalIgnoreCase) ||
+               access.Contains("EC", StringComparison.OrdinalIgnoreCase) ||
+               access.Contains("keyboard", StringComparison.OrdinalIgnoreCase) ||
+               access.Contains("provider", StringComparison.OrdinalIgnoreCase) &&
+               !access.Contains("unavailable", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string DiscoverySummary(AppState state)
+    {
+        if (!HasUsefulDiscovery(state))
+            return "Still learning · run Hardware setup / Retry detection first";
+
+        var parts = new List<string>();
+        if (state.Sensors.Count > 0) parts.Add($"{state.Sensors.Count} sensors");
+        if (state.Fans.Count > 0) parts.Add($"{state.Fans.Count} fan source{(state.Fans.Count == 1 ? string.Empty : "s")}");
+        if (state.CanKeyboardBacklight) parts.Add("keyboard provider");
+        if (state.CanFanControl) parts.Add("verified fan control");
+        if (state.ControlTemperatureC.HasValue) parts.Add("control temperature");
+        return parts.Count == 0 ? "Useful provider information detected" : string.Join(" · ", parts);
+    }
+
     internal static string BuildIssueUrl(AppState state, SystemStatusSnapshot system)
     {
         string machine = Safe(system.MachineType, "unknown");
@@ -38,7 +70,7 @@ internal static class DeviceSupportReportService
         var body = new StringBuilder();
         body.AppendLine("## ThinkControl device support report");
         body.AppendLine();
-        body.AppendLine("> Generated locally by ThinkControl. Please review before submitting. Serial numbers, Windows usernames, hostnames, paths and raw logs are intentionally excluded.");
+        body.AppendLine("> Generated locally after ThinkControl found useful hardware/provider information. Please review before submitting. Serial numbers, Windows usernames, hostnames, paths and raw logs are intentionally excluded.");
         body.AppendLine();
         body.AppendLine("### Device");
         body.AppendLine($"- ThinkControl: `{Safe(UpdateService.CurrentVersion, "unknown")}`");
