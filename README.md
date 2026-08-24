@@ -11,14 +11,17 @@
   [![Release](https://img.shields.io/github/v/release/Hugowhitee/ThinkControl?include_prereleases&label=release)](https://github.com/Hugowhitee/ThinkControl/releases)
   [![Downloads](https://img.shields.io/github/downloads/Hugowhitee/ThinkControl/total?label=downloads)](https://github.com/Hugowhitee/ThinkControl/releases)
   [![License](https://img.shields.io/badge/license-source--available-555)](LICENSE)
-  [![Buy me a coffee](https://img.shields.io/badge/Buy%20me%20a%20coffee-support-FFDD00)](https://buymeacoffee.com/hugowhite)
 
   **[Download](https://github.com/Hugowhitee/ThinkControl/releases)** ·
   **[Device support](docs/DEVICE-SUPPORT.md)** ·
   **[Documentation](docs/README.md)** ·
   **[Report a bug](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml)**
 
-  <p><strong>☕ Support ThinkControl</strong> · <a href="https://buymeacoffee.com/hugowhite">Buy me a coffee</a> — help fund testing on more laptops.</p>
+  <br>
+  <a href="https://buymeacoffee.com/hugowhite">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="44">
+  </a>
+  <p><sub>Support testing and compatibility work on more laptops.</sub></p>
 </div>
 
 ## Current prerelease
@@ -87,7 +90,6 @@ The gesture OSD follows the ThinkControl theme, supports light transparency and 
 ## Hardware compatibility and recovery
 
 The normal UI runs as the signed-in user. Privileged operations are isolated in `ThinkControl.Service` and exposed through semantic named-pipe commands rather than arbitrary EC/IOCTL passthrough.
-
 Provider discovery is separated so a slow first hardware scan cannot make a running Windows service appear offline. The UI receives a fast service state while LibreHardwareMonitor/PawnIO/EC/keyboard discovery continues independently.
 
 - Windows display, power, audio and battery features remain available independently of low-level providers.
@@ -169,7 +171,15 @@ Compact keeps quick controls concise and uses the same themed interaction system
 
 ## Support ThinkControl
 
-ThinkControl is still early software and real-device reports are especially useful while support expands beyond the verified X9 reference profile. A compact visual **Buy me a coffee** card is visible on Home and a fuller support card lives in Settings. Development can also be supported at [buymeacoffee.com/hugowhite](https://buymeacoffee.com/hugowhite).
+ThinkControl is still early software and real-device reports are especially useful while support expands beyond the verified X9 reference profile.
+
+<p align="center">
+  <a href="https://buymeacoffee.com/hugowhite">
+    <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me a Coffee" height="50">
+  </a>
+</p>
+
+The same recognizable Buy Me a Coffee mark is used in the Home and Settings support controls inside ThinkControl. Support helps fund compatibility testing on more laptops.
 
 ## Build and validation
 
