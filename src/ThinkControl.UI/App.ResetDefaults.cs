@@ -73,12 +73,13 @@ public partial class App
 
     internal async Task ResetAudioDefaultsAsync()
     {
-        var dolby = new DolbyAudioService();
-        DolbyProfileResult result = await dolby.SetProfileAsync("Dynamic");
+        var dolby = new DolbyDirectControlService();
+        DolbyProfileResult profile = await dolby.SetProfileAsync("Dynamic");
+        DolbyProfileResult tone = await dolby.SetToneAsync("Balanced");
         UserSettings.Update(settings => settings with
         {
-            DolbyProfile = result.Success ? "Dynamic" : settings.DolbyProfile,
-            DolbySubProfile = string.Empty
+            DolbyProfile = profile.Success ? "Dynamic" : settings.DolbyProfile,
+            DolbySubProfile = tone.Success ? "Balanced" : settings.DolbySubProfile
         });
     }
 
@@ -114,7 +115,7 @@ public partial class App
             AcPowerMode: "Balanced",
             CoolingProfile: "Lenovo Auto",
             DolbyProfile: "Dynamic",
-            DolbySubProfile: string.Empty,
+            DolbySubProfile: "Balanced",
             AutomaticUpdates: true));
 
         ThemeService.Apply(UserThemeMode.System);
