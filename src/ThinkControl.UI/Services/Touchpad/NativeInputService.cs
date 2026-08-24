@@ -5,6 +5,10 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class NativeInputService
 {
+    private const ushort VkLeftWindows = 0x5B;
+    private const ushort VkTab = 0x09;
+    private const ushort VkD = 0x44;
+
     private readonly Action<string, int>? _showValue;
 
     internal NativeInputService(Action<string, int>? showValue = null)
@@ -14,6 +18,26 @@ internal sealed class NativeInputService
 
     internal bool VolumeUp() => ChangeVolume(+0.025f);
     internal bool VolumeDown() => ChangeVolume(-0.025f);
+
+    internal bool SetVolume(int percent)
+    {
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            float next = Math.Clamp(percent, 0, 100) / 100f;
+            device.AudioEndpointVolume.MasterVolumeLevelScalar = next;
+            if (device.AudioEndpointVolume.Mute && next > 0)
+                device.AudioEndpointVolume.Mute = false;
+            _showValue?.Invoke("Volume", (int)Math.Round(next * 100));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     internal bool ToggleMute()
     {
         try
@@ -33,6 +57,8 @@ internal sealed class NativeInputService
     internal bool NextTrack() => SendKey(TouchpadNativeMethods.VkMediaNextTrack);
     internal bool PreviousTrack() => SendKey(TouchpadNativeMethods.VkMediaPrevTrack);
     internal bool TogglePlayPause() => SendKey(TouchpadNativeMethods.VkMediaPlayPause);
+    internal bool ShowTaskView() => SendChord(VkLeftWindows, VkTab);
+    internal bool ShowDesktop() => SendChord(VkLeftWindows, VkD);
 
     private bool ChangeVolume(float delta)
     {
@@ -50,38 +76,47 @@ internal sealed class NativeInputService
         }
         catch
         {
-            // Keep the normal Windows media-key path as a compatibility fallback.
-            bool sent = SendKey(delta >= 0 ? TouchpadNativeMethods.VkVolumeUp : TouchpadNativeMethods.VkVolumeDown);
-            return sent;
+            return SendKey(delta >= 0 ? TouchpadNativeMethods.VkVolumeUp : TouchpadNativeMethods.VkVolumeDown);
         }
+    }
+
+    private static bool SendChord(ushort modifier, ushort key)
+    {
+        TouchpadNativeMethods.Input[] inputs =
+        [
+            KeyInput(modifier, keyUp: false),
+            KeyInput(key, keyUp: false),
+            KeyInput(key, keyUp: true),
+            KeyInput(modifier, keyUp: true)
+        ];
+        return SendInputs(inputs);
     }
 
     private static bool SendKey(ushort virtualKey)
     {
-        var inputs = new[]
-        {
-            new TouchpadNativeMethods.Input
-            {
-                Type = TouchpadNativeMethods.InputKeyboard,
-                Union = new TouchpadNativeMethods.InputUnion
-                {
-                    Keyboard = new TouchpadNativeMethods.KeyboardInput { VirtualKey = virtualKey }
-                }
-            },
-            new TouchpadNativeMethods.Input
-            {
-                Type = TouchpadNativeMethods.InputKeyboard,
-                Union = new TouchpadNativeMethods.InputUnion
-                {
-                    Keyboard = new TouchpadNativeMethods.KeyboardInput
-                    {
-                        VirtualKey = virtualKey,
-                        Flags = TouchpadNativeMethods.KeyeventfKeyup
-                    }
-                }
-            }
-        };
+        TouchpadNativeMethods.Input[] inputs =
+        [
+            KeyInput(virtualKey, keyUp: false),
+            KeyInput(virtualKey, keyUp: true)
+        ];
+        return SendInputs(inputs);
+    }
 
+    private static TouchpadNativeMethods.Input KeyInput(ushort virtualKey, bool keyUp) => new()
+    {
+        Type = TouchpadNativeMethods.InputKeyboard,
+        Union = new TouchpadNativeMethods.InputUnion
+        {
+            Keyboard = new TouchpadNativeMethods.KeyboardInput
+            {
+                VirtualKey = virtualKey,
+                Flags = keyUp ? TouchpadNativeMethods.KeyeventfKeyup : 0
+            }
+        }
+    };
+
+    private static bool SendInputs(TouchpadNativeMethods.Input[] inputs)
+    {
         uint sent = TouchpadNativeMethods.SendInput(
             checked((uint)inputs.Length),
             inputs,

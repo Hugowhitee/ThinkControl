@@ -8,6 +8,8 @@ public partial class App
 {
     public App()
     {
+        InitializeSingleInstanceGuard();
+        UiMotionService.Enable();
         HardwareClient.HardwareOperationCompleted += HardwareClient_HardwareOperationCompleted;
         HardwareClient.StatusObserved += HardwareClient_StatusObserved;
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
@@ -52,8 +54,6 @@ public partial class App
             State.ClearHardwareTelemetry();
         }
 
-        // Queue behind the current GetStatus continuation so the richer cooling
-        // summary wins over the legacy raw fan-state assignment in alpha.3.
         Dispatcher.BeginInvoke(Apply);
     }
 

@@ -20,8 +20,6 @@ public partial class App
         _automaticUpdateTimer.Tick += async (_, _) => await CheckForUpdatesAutomaticallyAsync();
         _automaticUpdateTimer.Start();
 
-        // Startup itself should stay quick. The first check happens after the UI,
-        // tray icon and hardware onboarding have had a chance to settle.
         var initial = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(8)
@@ -36,7 +34,7 @@ public partial class App
 
     private async Task CheckForUpdatesAutomaticallyAsync()
     {
-        if (_automaticUpdateBusy)
+        if (_automaticUpdateBusy || !UserSettings.Current.AutomaticUpdates)
             return;
 
         _automaticUpdateBusy = true;
@@ -52,10 +50,24 @@ public partial class App
                     : "ThinkControl";
                 _trayIcon.Text = text.Length <= 63 ? text : text[..63];
             }
+
+            if (!result.Available || string.IsNullOrWhiteSpace(result.InstallerUrl) || string.IsNullOrWhiteSpace(result.ChecksumUrl))
+                return;
+
+            State.UpdateStatus = $"Downloading {result.Version ?? "update"}…";
+            UpdateInstallResult install = await UpdateService.DownloadAndLaunchAsync(result);
+            State.UpdateStatus = install.Status;
+            if (!install.Success)
+                return;
+
+            // The verified installer now owns the update transaction. Closing the
+            // current process releases WPF files before setup replaces the payload;
+            // /RELAUNCH=1 starts the new version when setup has completed.
+            Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(ExitApplication));
         }
         catch
         {
-            // Update checks are informational and must never affect normal use.
+            State.UpdateStatus = "Automatic update check failed safely";
         }
         finally
         {

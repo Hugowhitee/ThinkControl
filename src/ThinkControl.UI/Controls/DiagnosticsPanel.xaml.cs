@@ -39,13 +39,12 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             LastEventText.Text = app.DiagnosticsRecorder.LastEventAtUtc is DateTimeOffset last
                 ? last.ToLocalTime().ToString("g")
                 : "—";
-            UploadStatusText.Text = "Private endpoint pending";
-            SendButton.IsEnabled = false;
+            UploadStatusText.Text = "User initiated only";
             StatusText.Text = consent switch
             {
-                DiagnosticsConsent.Enabled => "Diagnostics upload consent is enabled. Local events are redacted now; network upload remains off until the project private endpoint is configured.",
-                DiagnosticsConsent.Disabled => "Diagnostics upload is disabled. You can still preview/export the local redacted support bundle manually.",
-                _ => "Choose whether ThinkControl may submit redacted compatibility summaries. No detailed bundle is uploaded without consent."
+                DiagnosticsConsent.Enabled => "Optional support sharing is enabled. Local events are redacted and nothing is uploaded automatically; Share device report opens a reviewable GitHub issue draft.",
+                DiagnosticsConsent.Disabled => "Optional compatibility sharing is disabled. The bounded local troubleshooting history is never uploaded automatically and can be deleted here at any time.",
+                _ => "Local compatibility events are not uploaded automatically. Sharing always requires an explicit action."
             };
         }
         finally
@@ -70,6 +69,30 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             Success: true,
             Tags: new Dictionary<string, string> { ["state"] = consent.ToString() }));
         Refresh();
+    }
+
+    private void ShareDeviceReport_Click(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.Application.Current is not App app)
+            return;
+
+        if (app.UserSettings.Current.DiagnosticsConsent != DiagnosticsConsent.Enabled)
+        {
+            StatusText.Text = "Enable compatibility sharing first. Nothing will be submitted until you review the GitHub issue and press Submit.";
+            return;
+        }
+
+        try
+        {
+            SystemStatusSnapshot system = app.SystemStatusService.Read();
+            string url = DeviceSupportReportService.BuildIssueUrl(app.State, system);
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            StatusText.Text = "Opened a pre-filled hardware-only GitHub report. Review it before pressing Submit new issue.";
+        }
+        catch
+        {
+            StatusText.Text = "Could not open the device support report in your browser.";
+        }
     }
 
     private void Preview_Click(object sender, RoutedEventArgs e)
@@ -109,16 +132,6 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
 
         WriteBundle(app, dialog.FileName);
         StatusText.Text = "Redacted support bundle exported.";
-    }
-
-    private void Send_Click(object sender, RoutedEventArgs e)
-    {
-        MessageBox.Show(
-            Window.GetWindow(this),
-            "The private ThinkControl diagnostics endpoint is intentionally not configured in this alpha source build yet. The app will never embed a GitHub PAT. Use Preview data or Export support bundle for now.",
-            "ThinkControl diagnostics",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
     }
 
     private void OpenBugReport_Click(object sender, RoutedEventArgs e)

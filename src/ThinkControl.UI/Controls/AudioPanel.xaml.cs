@@ -23,20 +23,29 @@ public partial class AudioPanel : UserControl
         RefreshStatus();
     }
 
-    private void RefreshStatus()
+    internal void RefreshStatus()
     {
         if (_app is null || _dolby is null)
             return;
 
         _status = _dolby.Probe();
         BackendStatusText.Text = _status.Detail;
-        InstallButton.Visibility = _status.DolbyAccessInstalled ? Visibility.Collapsed : Visibility.Visible;
+        InstallButton.Visibility = _status.DolbyAccessInstalled || _status.DaxBackendDetected
+            ? Visibility.Collapsed
+            : Visibility.Visible;
         OpenButton.IsEnabled = _status.DolbyAccessInstalled;
 
-        bool enabled = _status.DolbyAccessInstalled;
-        DynamicProfile.IsEnabled = MovieProfile.IsEnabled = MusicProfile.IsEnabled = GameProfile.IsEnabled = VoiceProfile.IsEnabled = enabled;
+        bool profileAvailable = _status.DirectApiAvailable || _status.DolbyAccessInstalled;
+        DynamicProfile.IsEnabled = MovieProfile.IsEnabled = MusicProfile.IsEnabled =
+            GameProfile.IsEnabled = VoiceProfile.IsEnabled = profileAvailable;
 
-        string profile = _app.UserSettings.Current.DolbyProfile;
+        bool subprofilesAvailable = _status.DirectApiAvailable;
+        SetSubprofilesEnabled(subprofilesAvailable);
+        SubprofileStatusText.Text = subprofilesAvailable ? "Direct DAX" : "Unavailable";
+
+        string profile = NormalizeKnownProfile(_status.ActiveProfile) ?? _app.UserSettings.Current.DolbyProfile;
+        string subprofile = NormalizeKnownSubProfile(_status.ActiveSubProfile) ?? _app.UserSettings.Current.DolbySubProfile;
+
         _syncing = true;
         try
         {
@@ -45,6 +54,11 @@ public partial class AudioPanel : UserControl
             MusicProfile.IsChecked = profile == "Music";
             GameProfile.IsChecked = profile == "Game";
             VoiceProfile.IsChecked = profile == "Voice";
+
+            FpsSubprofile.IsChecked = subprofile == "FPS";
+            RacingSubprofile.IsChecked = subprofile == "Racing";
+            RtsSubprofile.IsChecked = subprofile == "RTS";
+            RpgSubprofile.IsChecked = subprofile == "RPG";
         }
         finally
         {
@@ -58,11 +72,11 @@ public partial class AudioPanel : UserControl
             return;
 
         RefreshStatus();
-        if (_status?.DolbyAccessInstalled != true)
+        if (_status?.DirectApiAvailable != true && _status?.DolbyAccessInstalled != true)
         {
             MessageBoxResult answer = MessageBox.Show(
-                "Dolby Access is required to select the official Dolby Atmos profiles. Open its Microsoft Store page now?",
-                "ThinkControl · Dolby Access",
+                "A compatible Dolby DAX backend or Dolby Access is required to switch profiles. Open the Microsoft Store page for Dolby Access?",
+                "ThinkControl · Dolby Audio",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Information);
             if (answer == MessageBoxResult.Yes)
@@ -74,30 +88,103 @@ public partial class AudioPanel : UserControl
         ActionStatusText.Text = $"Switching to {profile}…";
         SetProfilesEnabled(false);
         DolbyProfileResult result = await _dolby.SetProfileAsync(profile);
-        SetProfilesEnabled(true);
         ActionStatusText.Text = result.Detail;
 
         if (result.Success)
         {
-            _app.UserSettings.Update(settings => settings with { DolbyProfile = profile });
+            _app.UserSettings.Update(settings => settings with
+            {
+                DolbyProfile = profile,
+                DolbySubProfile = profile == "Game" ? settings.DolbySubProfile : string.Empty
+            });
+        }
+
+        RefreshStatus();
+    }
+
+    private async void Subprofile_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || _app is null || _dolby is null || sender is not FrameworkElement { Tag: string subProfile })
+            return;
+
+        RefreshStatus();
+        if (_status?.DirectApiAvailable != true)
+        {
+            ActionStatusText.Text = "This Dolby driver does not expose direct subprofile control, so ThinkControl left Dolby untouched.";
+            RefreshStatus();
+            return;
+        }
+
+        string activeProfile = NormalizeKnownProfile(_status.ActiveProfile) ?? _app.UserSettings.Current.DolbyProfile;
+        if (!string.Equals(activeProfile, "Game", StringComparison.OrdinalIgnoreCase))
+        {
+            DolbyProfileResult game = await _dolby.SetProfileAsync("Game");
+            if (!game.Success)
+            {
+                ActionStatusText.Text = game.Detail;
+                RefreshStatus();
+                return;
+            }
+        }
+
+        SetSubprofilesEnabled(false);
+        ActionStatusText.Text = $"Switching Game tuning to {subProfile}…";
+        DolbyProfileResult result = await _dolby.SetSubProfileAsync(subProfile);
+        ActionStatusText.Text = result.Detail;
+
+        if (result.Success)
+        {
+            _app.UserSettings.Update(settings => settings with
+            {
+                DolbyProfile = "Game",
+                DolbySubProfile = subProfile
+            });
+        }
+
+        RefreshStatus();
+    }
+
+    private async void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || sender is not Button button)
+            return;
+
+        button.IsEnabled = false;
+        try
+        {
+            await _app.ResetAudioDefaultsAsync();
+            ActionStatusText.Text = "Audio preferences reset to Dynamic.";
             RefreshStatus();
         }
-        else
+        finally
         {
-            RefreshStatus();
+            button.IsEnabled = true;
         }
     }
 
     private void Install_Click(object sender, RoutedEventArgs e) => DolbyAudioService.OpenStore();
 
-    private void Open_Click(object sender, RoutedEventArgs e)
-    {
-        _dolby?.OpenDolbyAccess();
-    }
+    private void Open_Click(object sender, RoutedEventArgs e) => _dolby?.OpenDolbyAccess();
 
     private void SetProfilesEnabled(bool enabled)
     {
-        bool available = enabled && _status?.DolbyAccessInstalled == true;
-        DynamicProfile.IsEnabled = MovieProfile.IsEnabled = MusicProfile.IsEnabled = GameProfile.IsEnabled = VoiceProfile.IsEnabled = available;
+        bool available = enabled && (_status?.DirectApiAvailable == true || _status?.DolbyAccessInstalled == true);
+        DynamicProfile.IsEnabled = MovieProfile.IsEnabled = MusicProfile.IsEnabled =
+            GameProfile.IsEnabled = VoiceProfile.IsEnabled = available;
     }
+
+    private void SetSubprofilesEnabled(bool enabled)
+    {
+        FpsSubprofile.IsEnabled = RacingSubprofile.IsEnabled = RtsSubprofile.IsEnabled = RpgSubprofile.IsEnabled = enabled;
+    }
+
+    private static string? NormalizeKnownProfile(string? value) =>
+        DolbyAudioService.OfficialProfiles.FirstOrDefault(profile =>
+            !string.IsNullOrWhiteSpace(value) &&
+            (value.Contains(profile, StringComparison.OrdinalIgnoreCase) || profile.Contains(value, StringComparison.OrdinalIgnoreCase)));
+
+    private static string? NormalizeKnownSubProfile(string? value) =>
+        DolbyAudioService.GameSubProfiles.FirstOrDefault(profile =>
+            !string.IsNullOrWhiteSpace(value) &&
+            (value.Contains(profile, StringComparison.OrdinalIgnoreCase) || profile.Contains(value, StringComparison.OrdinalIgnoreCase)));
 }

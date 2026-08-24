@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Services.Touchpad;
@@ -14,6 +15,7 @@ internal sealed class GestureActionRouter
     private int _brightnessAtStart;
     private double _stepAccumulator;
     private Task<bool>? _mediaBeginTask;
+    private long _lastMediaTimestamp;
 
     internal GestureActionRouter(
         NativeInputService nativeInput,
@@ -62,8 +64,8 @@ internal sealed class GestureActionRouter
                 ApplyBrightness(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.MediaSeek:
+                _lastMediaTimestamp = Stopwatch.GetTimestamp();
                 _mediaBeginTask = _media.BeginSeekAsync();
-                _ = SeekWhenReadyAsync(ToPositiveControlDelta(signal, signal.TotalTravelMm));
                 break;
             case GestureActionKind.PreviousNextTrack:
                 if (ToPositiveControlDelta(signal, signal.TotalTravelMm) >= 0) _nativeInput.NextTrack();
@@ -71,6 +73,15 @@ internal sealed class GestureActionRouter
                 break;
             case GestureActionKind.PlayPause:
                 _nativeInput.TogglePlayPause();
+                break;
+            case GestureActionKind.Mute:
+                _nativeInput.ToggleMute();
+                break;
+            case GestureActionKind.TaskView:
+                _nativeInput.ShowTaskView();
+                break;
+            case GestureActionKind.ShowDesktop:
+                _nativeInput.ShowDesktop();
                 break;
             case GestureActionKind.KeyboardBacklight:
                 _ = ApplyAsyncStep(ToPositiveControlDelta(signal, signal.TotalTravelMm), 8.0, _stepKeyboard);
@@ -93,7 +104,7 @@ internal sealed class GestureActionRouter
                 ApplyBrightness(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.MediaSeek:
-                _ = SeekWhenReadyAsync(ToPositiveControlDelta(signal, signal.TotalTravelMm));
+                QueueMediaSeek(signal);
                 break;
             case GestureActionKind.KeyboardBacklight:
                 _ = ApplyAsyncStep(ToPositiveControlDelta(signal, signal.DeltaMm), 8.0, _stepKeyboard);
@@ -101,6 +112,40 @@ internal sealed class GestureActionRouter
             case GestureActionKind.PerformanceMode:
                 ApplyStep(ToPositiveControlDelta(signal, signal.DeltaMm), 8.0, _stepPerformance);
                 break;
+        }
+    }
+
+    private void QueueMediaSeek(GestureSignal signal)
+    {
+        long now = Stopwatch.GetTimestamp();
+        double elapsed = _lastMediaTimestamp == 0
+            ? 1d / 60d
+            : Math.Clamp((now - _lastMediaTimestamp) / (double)Stopwatch.Frequency, 1d / 240d, 0.15d);
+        _lastMediaTimestamp = now;
+
+        double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
+        double velocity = Math.Abs(deltaMm) / elapsed;
+
+        // Precision first, acceleration second. A slow 20 mm movement seeks about
+        // five seconds; the same distance flicked quickly can seek ~15-20 seconds.
+        // This mirrors modern touch/scroll acceleration without flooding the media
+        // session with playback-position requests.
+        double acceleration = 1.0 + Math.Clamp((velocity - 35.0) / 80.0, 0.0, 2.5);
+        double seconds = deltaMm * 0.25 * acceleration;
+        _ = QueueMediaWhenReadyAsync(seconds);
+    }
+
+    private async Task QueueMediaWhenReadyAsync(double deltaSeconds)
+    {
+        try
+        {
+            Task<bool>? begin = _mediaBeginTask;
+            if (begin is null || !await begin.ConfigureAwait(false))
+                return;
+            _media.QueueSeekDelta(deltaSeconds);
+        }
+        catch
+        {
         }
     }
 
@@ -151,20 +196,6 @@ internal sealed class GestureActionRouter
         }
     }
 
-    private async Task SeekWhenReadyAsync(double totalTravelMm)
-    {
-        try
-        {
-            Task<bool>? begin = _mediaBeginTask;
-            if (begin is null || !await begin.ConfigureAwait(false))
-                return;
-            await _media.SeekRelativeAsync(totalTravelMm).ConfigureAwait(false);
-        }
-        catch
-        {
-        }
-    }
-
     private void End(GestureActionKind action)
     {
         _stepAccumulator = 0;
@@ -172,6 +203,7 @@ internal sealed class GestureActionRouter
         {
             _media.EndSeek();
             _mediaBeginTask = null;
+            _lastMediaTimestamp = 0;
         }
     }
 }

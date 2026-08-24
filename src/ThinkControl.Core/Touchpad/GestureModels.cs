@@ -16,6 +16,9 @@ public enum GestureActionKind
     MediaSeek,
     PreviousNextTrack,
     PlayPause,
+    Mute,
+    TaskView,
+    ShowDesktop,
     KeyboardBacklight,
     PerformanceMode,
     CustomShortcut
@@ -108,9 +111,6 @@ public sealed record TouchpadGeometry(
     public int XRange => Math.Max(1, XLogicalMax - XLogicalMin);
     public int YRange => Math.Max(1, YLogicalMax - YLogicalMin);
 
-    // A descriptor without usable physical units is still useful for gestures.
-    // Windows Precision Touchpads are generally close to this size; verified
-    // device profiles can replace these estimates with exact dimensions.
     public double EffectiveWidthMm => PhysicalWidthMm is >= 20 and <= 400 ? PhysicalWidthMm : 100.0;
     public double EffectiveHeightMm => PhysicalHeightMm is >= 20 and <= 300 ? PhysicalHeightMm : 60.0;
 

@@ -1,12 +1,12 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.4` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
+ThinkControl `v0.1.0-alpha.5` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
 
 ## Release assets
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.4.exe
-ThinkControl-Payload-0.1.0-alpha.4.zip
+ThinkControl-Setup-0.1.0-alpha.5.exe
+ThinkControl-Payload-0.1.0-alpha.5.zip
 SHA256SUMS.txt
 ```
 
@@ -24,11 +24,22 @@ Setup:
 6. extracts only the verified `ui/` and `service/` payload under Program Files;
 7. registers and starts `ThinkControlService`;
 8. creates Start menu and optional desktop shortcuts using the canonical v3 icon;
-9. offers **Launch ThinkControl** on the completion page.
+9. offers **Launch ThinkControl** on first installation.
 
-The installer is deliberately device-neutral. It does not install Lenovo or X9-specific low-level providers.
+The installer itself stays device-neutral. Hardware/provider recovery happens after startup so one setup build can work across supported laptops.
 
-After first launch, ThinkControl's in-app **Hardware Setup** checks the service and only offers an additional verified hardware prerequisite when the detected device profile actually requires it. The verified X9 `21Q6/21Q7` EC provider currently uses pinned PawnIO 2.2.0. Other laptops are not offered PawnIO merely because they are manufactured by Lenovo.
+## Hardware setup after installation
+
+ThinkControl's in-app **Hardware Setup** checks providers independently instead of treating the whole laptop as supported/unsupported.
+
+It can:
+
+- verify and repair `ThinkControlService`;
+- offer pinned PawnIO 2.2.0 when additional LibreHardwareMonitor sensor access is useful;
+- retry telemetry/provider discovery after installation;
+- point Lenovo laptops to Lenovo Vantage / Windows Update when the Lenovo keyboard/platform provider is missing.
+
+Installing PawnIO on an unverified laptop only expands read-only discovery. It never authorizes unknown EC/PWM writes. Direct fan control remains restricted to reviewed device profiles such as the verified X9 `21Q6/21Q7` profile.
 
 ## ThinkControl payload verification
 
@@ -50,16 +61,7 @@ Source   https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.10/windo
 SHA-256  E82FC901C8F52D716293B2BC0830CE0DD254A06268C457A19E8FC503560A84D1
 ```
 
-## Device-specific hardware setup
-
-Low-level device prerequisites are owned by the application, not by the generic installer. Hardware Setup can:
-
-- verify whether `ThinkControlService` is installed and running;
-- repair the ThinkControl service registration with UAC when required;
-- determine whether the validated device profile needs an additional hardware provider;
-- download only a pinned provider build and verify its SHA-256 before starting its installer.
-
-For the verified X9 direct EC backend, the current PawnIO pin is:
+## PawnIO pin
 
 ```text
 Version  2.2.0
@@ -69,17 +71,19 @@ SHA-256  1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032
 Mode     -install -silent
 ```
 
-Failure of a device-specific provider does not make unrelated Windows features unavailable. ThinkControl keeps those provider states separate and disables only the hardware capability that failed validation.
+Failure of a device-specific provider does not make unrelated Windows features unavailable. ThinkControl keeps provider states separate and disables only the capability whose prerequisites or verification are missing.
 
 ## Upgrade behavior
 
-Running a newer ThinkControl Setup over an existing installation is supported. Before replacing the payload, Setup stops `ThinkControlService`; normal controller disposal attempts to return an active manual verified X9 fan level to Lenovo Auto. Existing `ui/` and `service/` payload directories are then replaced and the service registration is updated and restarted.
+Running a newer ThinkControl Setup over an existing installation is a first-class update path. Existing installs switch Setup into update wording, skip first-install shortcut choices and retain the normal install location.
 
-Inno Setup's application-closing flow handles a running ThinkControl tray process instead of failing immediately with a generic currently-running message.
+Before replacing files, Setup closes a running ThinkControl tray/UI instance, stops `ThinkControlService`, replaces the verified payload and updates/restarts the service registration. Normal controller disposal attempts to hand an active verified fan override back to Lenovo Auto before low-level access closes.
+
+The in-app updater downloads the matching installer plus `SHA256SUMS.txt`, verifies the installer and starts Setup with update/relaunch parameters. A silent in-app update can relaunch ThinkControl automatically afterward.
 
 ## Icons and shortcuts
 
-The canonical v3 multi-resolution application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs, the Advanced window and the Notification Area. Alpha.4 intentionally no longer uses a different tiny tray raster because its 16 px result was visually broken.
+The canonical v3 multi-resolution application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs and the Advanced window. The notification-area icon uses the same bold T/C design language with a runtime-optimized small-size mark and no stray status dot.
 
 ## Size budgets
 
@@ -97,7 +101,7 @@ The practical installed-payload target remains much smaller than the hard ceilin
 
 Pull requests that change application, installer, branding or version code run the package workflow. It verifies branding, restores/builds the solution, publishes framework-dependent UI and service files, creates and hashes the external payload, builds the bootstrapper, installs it with the verified local payload override, waits for `ThinkControlService` to reach Running, uninstalls it and verifies cleanup.
 
-A release is published only from a version marked `releaseReady` after the validated `main` CI succeeds. The tagged packaging run publishes Setup, payload and `SHA256SUMS.txt` together.
+Tagged release packaging repeats the validated path and publishes Setup, payload and `SHA256SUMS.txt` together as the GitHub release assets.
 
 ## Uninstall
 

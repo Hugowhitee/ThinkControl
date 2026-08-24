@@ -37,7 +37,7 @@ public static class DependencyCatalog
                 "Participates in the Windows/OEM energy and thermal policy stack."),
             [DependencyId.LenovoVantage] = new(
                 DependencyId.LenovoVantage,
-                "Lenovo Vantage / Commercial Vantage",
+                "Lenovo Vantage",
                 DependencyRequirement.OptionalIntegration,
                 "Optional Lenovo maintenance, warranty, update and support companion."),
             [DependencyId.LenovoServiceBridge] = new(

@@ -12,13 +12,18 @@ public sealed record ThinkControlUserSettings(
     string KeyboardBaseLevel = "High",
     string KeyboardStaticLevel = "High",
     double KeyboardEffectSpeed = 1.0,
-    DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Unknown,
+    DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Enabled,
     TouchpadGestureConfiguration? TouchpadGestures = null,
+    bool TouchpadOsdEnabled = true,
+    double TouchpadOsdOpacity = 0.92,
+    string TouchpadOsdPosition = "Center",
     string HardwareSetupPromptedVersion = "",
     string BatteryPowerMode = "",
     string AcPowerMode = "",
     string CoolingProfile = "Lenovo Auto",
-    string DolbyProfile = "Dynamic");
+    string DolbyProfile = "Dynamic",
+    string DolbySubProfile = "",
+    bool AutomaticUpdates = true);
 
 public sealed class UserSettingsService
 {
@@ -85,8 +90,6 @@ public sealed class UserSettingsService
         }
         catch
         {
-            // Preferences are best-effort. A read-only profile must never prevent
-            // ThinkControl from starting or controlling verified hardware safely.
         }
     }
 
@@ -105,11 +108,23 @@ public sealed class UserSettingsService
             _ => "High"
         };
         double speed = Math.Clamp(settings.KeyboardEffectSpeed, 0.5, 2.0);
-        DiagnosticsConsent consent = Enum.IsDefined(settings.DiagnosticsConsent)
-            ? settings.DiagnosticsConsent
-            : DiagnosticsConsent.Unknown;
+        DiagnosticsConsent consent = settings.DiagnosticsConsent switch
+        {
+            DiagnosticsConsent.Disabled => DiagnosticsConsent.Disabled,
+            _ => DiagnosticsConsent.Enabled
+        };
         TouchpadGestureConfiguration touchpad = (settings.TouchpadGestures ??
             (TouchpadGestureConfiguration.Default with { Enabled = false })).Sanitize();
+        string osdPosition = settings.TouchpadOsdPosition?.Trim() switch
+        {
+            "Left" => "Left",
+            "Right" => "Right",
+            _ => "Center"
+        };
+        double osdOpacity = Math.Clamp(
+            double.IsFinite(settings.TouchpadOsdOpacity) ? settings.TouchpadOsdOpacity : 0.92,
+            0.65,
+            1.0);
         string hardwarePrompt = settings.HardwareSetupPromptedVersion?.Trim() ?? string.Empty;
         if (hardwarePrompt.Length > 64)
             hardwarePrompt = hardwarePrompt[..64];
@@ -131,6 +146,9 @@ public sealed class UserSettingsService
             "Voice" => "Voice",
             _ => "Dynamic"
         };
+        string dolbySubProfile = settings.DolbySubProfile?.Trim() ?? string.Empty;
+        if (dolbySubProfile.Length > 80)
+            dolbySubProfile = dolbySubProfile[..80];
 
         return settings with
         {
@@ -140,11 +158,14 @@ public sealed class UserSettingsService
             KeyboardEffectSpeed = speed,
             DiagnosticsConsent = consent,
             TouchpadGestures = touchpad,
+            TouchpadOsdOpacity = osdOpacity,
+            TouchpadOsdPosition = osdPosition,
             HardwareSetupPromptedVersion = hardwarePrompt,
             BatteryPowerMode = batteryPower,
             AcPowerMode = acPower,
             CoolingProfile = cooling,
-            DolbyProfile = dolby
+            DolbyProfile = dolby,
+            DolbySubProfile = dolbySubProfile
         };
     }
 

@@ -1,0 +1,69 @@
+name: Publish release screenshots
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore and build
+        shell: pwsh
+        run: |
+          dotnet restore ThinkControl.slnx
+          if ($LASTEXITCODE -ne 0) { throw "Restore failed" }
+          dotnet build ThinkControl.slnx --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw "Build failed" }
+
+      - name: Render release screenshots
+        shell: pwsh
+        run: |
+          $output = Join-Path $PWD "artifacts\release-screenshots"
+          dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj `
+            --configuration Release `
+            --no-build `
+            -- $output
+          if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
+
+          foreach ($name in @('compact-dark.png', 'advanced-touchpad.png', 'advanced-fans.png')) {
+            $path = Join-Path $output $name
+            if (-not (Test-Path $path)) { throw "Missing release screenshot: $name" }
+            if ((Get-Item $path).Length -lt 5000) { throw "Release screenshot is unexpectedly small: $name" }
+          }
+
+      - name: Wait for tagged release and upload screenshots
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $deadline = (Get-Date).AddMinutes(10)
+          do {
+            gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY *> $null
+            if ($LASTEXITCODE -eq 0) { break }
+            Start-Sleep -Seconds 10
+          } while ((Get-Date) -lt $deadline)
+
+          gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -ne 0) { throw "Tagged release did not become available in time" }
+
+          gh release upload $env:GITHUB_REF_NAME `
+            "artifacts/release-screenshots/compact-dark.png" `
+            "artifacts/release-screenshots/advanced-touchpad.png" `
+            "artifacts/release-screenshots/advanced-fans.png" `
+            --repo $env:GITHUB_REPOSITORY `
+            --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Release screenshot upload failed" }

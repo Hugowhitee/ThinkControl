@@ -20,8 +20,9 @@ internal sealed record HardwareSetupResult(bool Success, bool RestartRequired, s
 
 /// <summary>
 /// Repairs ThinkControl's own service and installs optional device prerequisites.
-/// The main installer stays generic; device-specific providers are offered only
-/// after ThinkControl has identified the local hardware.
+/// The main installer stays generic; device-specific write access is still gated
+/// by verified profiles, while PawnIO may also be offered as a read-only sensor
+/// prerequisite when LibreHardwareMonitor cannot see useful telemetry.
 /// </summary>
 internal sealed class HardwareSetupService
 {
@@ -36,13 +37,22 @@ internal sealed class HardwareSetupService
         Timeout = TimeSpan.FromMinutes(3)
     };
 
-    internal async Task<HardwareSetupStatus> ReadStatusAsync(string? machineType)
+    internal async Task<HardwareSetupStatus> ReadStatusAsync(string? machineType, bool sensorProviderNeeded = false)
     {
         ServiceQuery service = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
-        bool lowLevelRelevant = IsVerifiedEcProfile(machineType);
+        bool verifiedWriteProfile = IsVerifiedEcProfile(machineType);
+        bool lowLevelRelevant = verifiedWriteProfile || sensorProviderNeeded;
         ServiceQuery pawnIo = lowLevelRelevant
             ? await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false)
             : default;
+
+        string lowLevelDetail = !lowLevelRelevant
+            ? "Not currently required by detected capabilities"
+            : pawnIo.Exists
+                ? "PawnIO installed · read-only sensor discovery available"
+                : verifiedWriteProfile
+                    ? "Recommended for X9 sensors and required by the verified EC fan provider"
+                    : "Recommended for additional read-only sensor discovery; fan writes remain locked until a device profile is verified";
 
         return new HardwareSetupStatus(
             ServiceInstalled: service.Exists,
@@ -52,9 +62,7 @@ internal sealed class HardwareSetupService
             ServiceDetail: service.Running
                 ? "Running"
                 : service.Exists ? "Installed but not running" : "Not registered",
-            LowLevelAccessDetail: !lowLevelRelevant
-                ? "Not required by this device profile"
-                : pawnIo.Exists ? "Installed" : "Required for verified low-level EC access");
+            LowLevelAccessDetail: lowLevelDetail);
     }
 
     internal async Task<HardwareSetupResult> RepairServiceAsync()
@@ -138,8 +146,8 @@ internal sealed class HardwareSetupService
             return after.Exists
                 ? new(true, restart, restart
                     ? "Hardware access was installed. Windows requested a restart before it is fully available."
-                    : "Hardware access is installed. ThinkControl can retry the hardware providers now.")
-                : new(false, restart, "The component installer finished, but Windows does not report the hardware access service yet. A restart may be required.");
+                    : "PawnIO is installed. ThinkControl will recycle sensor providers and retry discovery automatically.")
+                : new(false, restart, "The component installer finished, but Windows does not report PawnIO yet. A restart may be required.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {

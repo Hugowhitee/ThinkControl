@@ -7,7 +7,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private readonly App _app;
     private readonly TouchpadGestureService _gestures;
     private readonly TouchpadHapticsService _haptics = new();
-    private readonly GestureOsdService _osd = new();
+    private readonly NativeInputService _nativeInput;
+    private readonly GestureOsdService _osd;
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
     private bool _disposed;
@@ -15,13 +16,19 @@ internal sealed class TouchpadFeatureHost : IDisposable
     internal TouchpadFeatureHost(App app)
     {
         _app = app;
+        _osd = new GestureOsdService(
+            () => app.UserSettings.Current,
+            ApplyOsdValue,
+            () => _nativeInput.ToggleMute());
+        _nativeInput = new NativeInputService((label, value) =>
+            app.Dispatcher.BeginInvoke(new Action(() => _osd.Show(label, value))));
+
         TouchpadGestureConfiguration configuration =
             app.UserSettings.Current.TouchpadGestures ??
             (TouchpadGestureConfiguration.Default with { Enabled = false });
 
         var actions = new GestureActionRouter(
-            new NativeInputService((label, value) =>
-                app.Dispatcher.BeginInvoke(new Action(() => _osd.Show(label, value)))),
+            _nativeInput,
             new MediaSessionService(),
             () => app.State.Brightness,
             QueueBrightness,
@@ -70,6 +77,23 @@ internal sealed class TouchpadFeatureHost : IDisposable
 
     internal void CancelCurrent(string reason) => _gestures.CancelCurrent(reason);
 
+    private bool ApplyOsdValue(string label, int value)
+    {
+        if (label.Contains("Volume", StringComparison.OrdinalIgnoreCase) ||
+            label.Contains("Muted", StringComparison.OrdinalIgnoreCase))
+        {
+            return _nativeInput.SetVolume(value);
+        }
+
+        if (label.Contains("Brightness", StringComparison.OrdinalIgnoreCase))
+        {
+            QueueBrightness(value);
+            return true;
+        }
+
+        return false;
+    }
+
     private void QueueBrightness(int value)
     {
         Interlocked.Exchange(ref _pendingBrightness, Math.Clamp(value, 0, 100));
@@ -105,7 +129,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
                     break;
                 }
 
-                await Task.Delay(16).ConfigureAwait(false);
+                await Task.Delay(24).ConfigureAwait(false);
             }
         }
         catch
@@ -134,6 +158,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
         index = Math.Clamp(index + Math.Sign(direction), 0, 2);
         string level = index switch { 0 => "Off", 1 => "Low", _ => "High" };
         await _app.Dispatcher.InvokeAsync(() => _app.SetKeyboardStaticLevelAsync(level)).Task.Unwrap();
+        await _app.Dispatcher.InvokeAsync(() => _osd.Show("Keyboard light", index * 50));
     }
 
     private bool StepPerformance(int direction)
@@ -149,7 +174,12 @@ internal sealed class TouchpadFeatureHost : IDisposable
             return true;
 
         bool result = false;
-        _app.Dispatcher.Invoke(() => result = _app.SetPowerMode(modes[next]));
+        _app.Dispatcher.Invoke(() =>
+        {
+            result = _app.SetPowerMode(modes[next]);
+            if (result)
+                _osd.Show(modes[next].ToString(), next * 50);
+        });
         return result;
     }
 

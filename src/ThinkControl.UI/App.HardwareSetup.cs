@@ -38,12 +38,12 @@ public partial class App
             if (!status.NeedsAttention)
                 return;
 
+            // Do not interrupt startup with a modal setup window. Compact and
+            // Advanced surface the same status with a red attention dot; the user
+            // can open Hardware setup from there and repair/install in one flow.
             string version = State.AppVersion ?? string.Empty;
-            if (string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
-                return;
-
-            UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
-            OpenHardwareSetup();
+            if (!string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
+                UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
         }
         catch
         {
@@ -53,7 +53,8 @@ public partial class App
 
     internal async Task<HardwareSetupStatus> RefreshHardwareSetupStatusAsync()
     {
-        HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(State.MachineType);
+        bool needsSensorProvider = !State.CanSensorTelemetry || !State.CanFanTelemetry;
+        HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(State.MachineType, needsSensorProvider);
         State.DriverStatus = DescribeHardwareSetup(status);
         return status;
     }
@@ -65,8 +66,14 @@ public partial class App
         if (!status.ServiceRunning)
             return "ThinkControl hardware service stopped · repair available";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
-            return "Service running · low-level hardware access needs setup";
+            return "Hardware provider recommended · setup available";
         return "Ready";
+    }
+
+    public void OpenHardwareAttention()
+    {
+        OpenAdvanced("System");
+        Dispatcher.BeginInvoke(() => OpenHardwareSetup(), DispatcherPriority.Background);
     }
 
     public void OpenHardwareSetup()

@@ -27,13 +27,36 @@ public partial class CompactDashboard : UserControl
         }
 
         EnsureAudioRow();
+        EnsureQuickControls();
+        EnsureHardwareAlert();
         SyncCoolingProfile();
+        SyncQuickControls();
+        SyncHardwareAlert();
     }
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(AppState.FanStateText) or nameof(AppState.CanFanControl))
             Dispatcher.BeginInvoke(SyncCoolingProfile);
+
+        if (e.PropertyName is nameof(AppState.SelectedMode)
+            or nameof(AppState.RefreshAutoEnabled)
+            or nameof(AppState.CurrentRefreshHz)
+            or nameof(AppState.MaxRefreshHz)
+            or nameof(AppState.KeyboardMode)
+            or nameof(AppState.KeyboardStatus)
+            or nameof(AppState.CanKeyboardBacklight))
+        {
+            Dispatcher.BeginInvoke(SyncQuickControls);
+        }
+
+        if (e.PropertyName is nameof(AppState.DriverStatus)
+            or nameof(AppState.CanSensorTelemetry)
+            or nameof(AppState.CanFanTelemetry)
+            or nameof(AppState.CanKeyboardBacklight))
+        {
+            Dispatcher.BeginInvoke(SyncHardwareAlert);
+        }
     }
 
     private void SyncCoolingProfile()
@@ -66,8 +89,6 @@ public partial class CompactDashboard : UserControl
         if (_syncingCooling || _app is null || sender is not FrameworkElement { Tag: string profile })
             return;
 
-        // Temporarily prevent double-clicks without replacing the CanFanControl
-        // binding that owns this group's normal availability.
         CoolingQuickGroup.SetCurrentValue(IsEnabledProperty, false);
         try
         {

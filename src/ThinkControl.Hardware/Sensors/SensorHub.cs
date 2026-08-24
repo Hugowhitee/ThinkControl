@@ -21,21 +21,16 @@ public sealed record SensorHubSnapshot(
     double? ControlTemperatureC,
     string ControlTemperatureSource);
 
-/// <summary>
-/// Central read-only hardware sensor inventory. LibreHardwareMonitor is allowed
-/// to enumerate the platform once and ThinkControl normalizes those readings for
-/// UI/telemetry consumers. Fan control deliberately uses only canonical CPU/GPU
-/// thermal domains instead of averaging unrelated SSD/battery/board sensors.
-/// </summary>
 public sealed class SensorHub : IDisposable
 {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan OpenRetryInterval = TimeSpan.FromSeconds(10);
     private const int MaxSensorCount = 256;
 
     private readonly object _gate = new();
     private Computer? _computer;
-    private bool _openAttempted;
     private bool _disposed;
+    private DateTimeOffset _lastOpenAttempt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastRefresh = DateTimeOffset.MinValue;
     private SensorHubSnapshot _last = new(
         Array.Empty<HardwareSensorReading>(),
@@ -53,7 +48,7 @@ public sealed class SensorHub : IDisposable
             if (now - _lastRefresh < RefreshInterval)
                 return _last;
 
-            EnsureOpen();
+            EnsureOpen(now);
             var readings = new List<HardwareSensorReading>(96);
 
             if (_computer is not null)
@@ -69,7 +64,10 @@ public sealed class SensorHub : IDisposable
                 }
                 catch
                 {
-                    // A single provider must never take down status telemetry.
+                    // Keep read-only telemetry best-effort. If LHM's provider was
+                    // invalidated (for example PawnIO was installed after service
+                    // startup), recycle it so the next status poll can rediscover.
+                    CloseComputer();
                 }
             }
 
@@ -104,15 +102,16 @@ public sealed class SensorHub : IDisposable
         }
     }
 
-    private void EnsureOpen()
+    private void EnsureOpen(DateTimeOffset now)
     {
-        if (_openAttempted)
+        if (_computer is not null || now - _lastOpenAttempt < OpenRetryInterval)
             return;
 
-        _openAttempted = true;
+        _lastOpenAttempt = now;
+        Computer? candidate = null;
         try
         {
-            _computer = new Computer
+            candidate = new Computer
             {
                 IsCpuEnabled = true,
                 IsGpuEnabled = true,
@@ -125,11 +124,12 @@ public sealed class SensorHub : IDisposable
                 IsPsuEnabled = true,
                 IsPowerMonitorEnabled = true
             };
-            _computer.Open();
+            candidate.Open();
+            _computer = candidate;
         }
         catch
         {
-            try { _computer?.Close(); } catch { }
+            try { candidate?.Close(); } catch { }
             _computer = null;
         }
     }
@@ -159,7 +159,7 @@ public sealed class SensorHub : IDisposable
                 Math.Round(sensor.Value.Value, PrecisionFor(type)),
                 UnitFor(type),
                 false,
-                $"LibreHardwareMonitor · {Clean(hardware.Name, hardware.HardwareType.ToString())} · {Clean(sensor.Name, type)}"));
+                $"LibreHardwareMonitor/PawnIO · {Clean(hardware.Name, hardware.HardwareType.ToString())} · {Clean(sensor.Name, type)}"));
         }
 
         foreach (IHardware child in hardware.SubHardware)
@@ -260,15 +260,17 @@ public sealed class SensorHub : IDisposable
         }
     }
 
+    private void CloseComputer()
+    {
+        try { _computer?.Close(); } catch { }
+        _computer = null;
+    }
+
     private static bool IsTemperature(HardwareSensorReading reading) =>
         string.Equals(reading.SensorType, "Temperature", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsCpuHardware(string type) =>
-        type.Equals("Cpu", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsGpuHardware(string type) =>
-        type.Contains("Gpu", StringComparison.OrdinalIgnoreCase);
-
+    private static bool IsCpuHardware(string type) => type.Equals("Cpu", StringComparison.OrdinalIgnoreCase);
+    private static bool IsGpuHardware(string type) => type.Contains("Gpu", StringComparison.OrdinalIgnoreCase);
     private static bool IsPlausibleTemperature(double celsius) => celsius is >= -20 and <= 125;
 
     private static int HardwareSortKey(string hardwareType) => hardwareType switch
@@ -339,8 +341,7 @@ public sealed class SensorHub : IDisposable
             if (_disposed)
                 return;
             _disposed = true;
-            try { _computer?.Close(); } catch { }
-            _computer = null;
+            CloseComputer();
         }
     }
 }

@@ -5,9 +5,9 @@ using Point = System.Windows.Point;
 namespace ThinkControl.UI.Controls;
 
 /// <summary>
-/// Small dependency-free Material Symbols renderer. The class intentionally keeps
-/// the historical PackIconLucide type name for XAML compatibility while ThinkControl
-/// migrates away from the external icon-pack dependency.
+/// Small dependency-free icon renderer. The historical PackIconLucide type name is
+/// retained for XAML compatibility. All icons use the control Foreground so the
+/// navigation style can brighten them automatically when selected or hovered.
 /// </summary>
 public sealed class PackIconLucide : System.Windows.Controls.Control
 {
@@ -32,23 +32,51 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         if (width <= 0 || height <= 0)
             return;
 
+        Brush brush = Foreground ?? Brushes.Gray;
+        double stroke = Math.Max(1.2, Math.Min(width, height) / 10.5d);
+        var pen = new Pen(brush, stroke)
+        {
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round,
+            LineJoin = PenLineJoin.Round
+        };
+
         if (Kind == "Touchpad")
         {
-            // Draw this icon directly instead of scaling the old filled Material
-            // glyph. The outline + click seam matches the weight of the other nav
-            // symbols and no longer reads as a generic square.
-            Brush brush = Foreground ?? Brushes.Gray;
-            var pen = new Pen(brush, Math.Max(1.15, Math.Min(width, height) / 11d))
-            {
-                StartLineCap = PenLineCap.Round,
-                EndLineCap = PenLineCap.Round,
-                LineJoin = PenLineJoin.Round
-            };
             double inset = Math.Max(1.2, Math.Min(width, height) * 0.12);
             Rect shell = new(inset, inset * 1.15, Math.Max(1, width - inset * 2), Math.Max(1, height - inset * 2.3));
             drawingContext.DrawRoundedRectangle(null, pen, shell, 2.2, 2.2);
             double seamY = shell.Bottom - shell.Height * 0.24;
             drawingContext.DrawLine(pen, new Point(shell.Left + shell.Width * 0.13, seamY), new Point(shell.Right - shell.Width * 0.13, seamY));
+            return;
+        }
+
+        if (Kind == "Audio")
+        {
+            double sx = width / 16d;
+            double sy = height / 16d;
+            drawingContext.PushTransform(new ScaleTransform(sx, sy));
+            Geometry speaker = Geometry.Parse("M2,6 L5,6 L9,3 L9,13 L5,10 L2,10 Z");
+            drawingContext.DrawGeometry(null, new Pen(brush, 1.45) { LineJoin = PenLineJoin.Round }, speaker);
+            drawingContext.DrawGeometry(null, new Pen(brush, 1.45) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, Geometry.Parse("M11,6 C12.5,7 12.5,9 11,10 M13,4 C16,6 16,10 13,12"));
+            drawingContext.Pop();
+            return;
+        }
+
+        if (Kind == "Sensors")
+        {
+            double sx = width / 16d;
+            double sy = height / 16d;
+            drawingContext.PushTransform(new ScaleTransform(sx, sy));
+            drawingContext.DrawGeometry(null,
+                new Pen(brush, 1.5)
+                {
+                    StartLineCap = PenLineCap.Round,
+                    EndLineCap = PenLineCap.Round,
+                    LineJoin = PenLineJoin.Round
+                },
+                Geometry.Parse("M1,8 L4,8 L6,3 L9,13 L11,8 L15,8"));
+            drawingContext.Pop();
             return;
         }
 
@@ -82,6 +110,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             0, scale,
             left, top + contentHeight);
 
-        drawingContext.DrawGeometry(Foreground, null, geometry);
+        drawingContext.DrawGeometry(brush, null, geometry);
     }
 }

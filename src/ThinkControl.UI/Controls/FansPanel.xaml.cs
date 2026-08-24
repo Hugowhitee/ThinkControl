@@ -11,6 +11,7 @@ public partial class FansPanel : UserControl
     private readonly ObservableCollection<CalibrationRow> _calibrationRows = [];
     private App? _app;
     private bool _syncing;
+    private bool _resetAdded;
 
     public FansPanel()
     {
@@ -20,8 +21,12 @@ public partial class FansPanel : UserControl
 
     internal void Initialize(App app)
     {
+        EnsureResetButton();
         if (ReferenceEquals(_app, app))
+        {
+            _ = app.RefreshStatusAsync();
             return;
+        }
         if (_app is not null)
             _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
         _app = app;
@@ -32,6 +37,7 @@ public partial class FansPanel : UserControl
 
     internal void PrepareForSnapshot(AppState state)
     {
+        EnsureResetButton();
         DataContext = state;
         string profile = state.FanStateText.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault() ?? "Lenovo Auto";
@@ -49,7 +55,7 @@ public partial class FansPanel : UserControl
             ProfileStatusText.Text = profile;
             CoolingDetailText.Text = state.CanFanControl
                 ? $"{profile} cooling · {state.ControlTemperatureText} control temperature"
-                : "Custom cooling is unavailable until the verified hardware provider is ready.";
+                : DescribeUnavailable(state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
 
             string? levelPart = state.FanStateText.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
                 .FirstOrDefault(part => part.StartsWith("level ", StringComparison.OrdinalIgnoreCase));
@@ -84,6 +90,7 @@ public partial class FansPanel : UserControl
     {
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
         bool canControl = response?.Capabilities?.FanControl == true;
+        bool hasTelemetry = response?.Capabilities?.FanTelemetry == true || response?.Capabilities?.SensorTelemetry == true;
         _syncing = true;
         try
         {
@@ -97,7 +104,7 @@ public partial class FansPanel : UserControl
             ProfileStatusText.Text = telemetry?.CoolingSafetyOverride == true ? "Safety · Lenovo firmware" : profile;
             CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
                 ? "Choose a cooling profile."
-                : "Custom cooling is unavailable until the verified hardware provider is ready.");
+                : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
             AppliedLevelText.Text = telemetry?.CoolingAppliedLevel is int level ? $"Level {level}" : "Auto";
 
             FanCharacterizationSnapshot? characterization = telemetry?.FanCharacterization;
@@ -134,6 +141,55 @@ public partial class FansPanel : UserControl
         {
             _syncing = false;
         }
+    }
+
+    private void EnsureResetButton()
+    {
+        if (_resetAdded || Content is not StackPanel stack || stack.Children.Count == 0 || stack.Children[0] is not TextBlock title)
+            return;
+
+        stack.Children.RemoveAt(0);
+        var header = new Grid();
+        header.Children.Add(title);
+        var reset = new Button
+        {
+            Content = "Reset",
+            Style = TryFindResource("TcButton") as Style,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(10, 4, 10, 4),
+            FontSize = 10.5,
+            ToolTip = "Return cooling control to Lenovo Auto"
+        };
+        reset.Click += Reset_Click;
+        header.Children.Add(reset);
+        stack.Children.Insert(0, header);
+        _resetAdded = true;
+    }
+
+    private async void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || sender is not Button button)
+            return;
+
+        button.IsEnabled = false;
+        try
+        {
+            _ = await _app.ResetFanDefaultsAsync();
+            await _app.RefreshStatusAsync();
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
+    private static string DescribeUnavailable(string? hardwareAccess, bool telemetryReady)
+    {
+        string detail = string.IsNullOrWhiteSpace(hardwareAccess) ? "provider status unavailable" : hardwareAccess;
+        return telemetryReady
+            ? $"Read-only sensor telemetry is active. Direct fan writes stay Lenovo-managed until the verified X9 PawnIO/EC probe passes. {detail}"
+            : $"Lenovo firmware currently owns cooling. ThinkControl retries the verified X9 PawnIO/EC provider automatically. {detail}";
     }
 
     private async void Profile_Click(object sender, RoutedEventArgs e)

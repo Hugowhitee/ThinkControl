@@ -2,8 +2,11 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
-        <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
-        <TextBlock Text="Dolby Atmos profiles use Lenovo's official X9 naming. ThinkControl asks Dolby Access to select the profile; it does not edit Dolby state files or invent unsupported audio controls."
+        <Grid>
+            <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
+            <Button Content="Reset" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic and clear the saved game subprofile" />
+        </Grid>
+        <TextBlock Text="ThinkControl prefers Lenovo's installed Dolby DAX backend directly. Dolby Access is only used as a safe fallback for main profile switching when the driver does not expose direct automation."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
@@ -11,7 +14,7 @@
                 <Grid>
                     <StackPanel>
                         <TextBlock Text="Dolby Atmos" FontWeight="SemiBold" />
-                        <TextBlock x:Name="BackendStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,170,0" TextWrapping="Wrap" />
+                        <TextBlock x:Name="BackendStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                         <Button x:Name="InstallButton" Content="Install Dolby Access" Style="{StaticResource TcButton}" Click="Install_Click" Visibility="Collapsed" />
@@ -33,6 +36,25 @@
             </StackPanel>
         </Border>
 
+        <Border x:Name="SubprofileCard" Style="{StaticResource TcSection}" Margin="0,14,0,0">
+            <StackPanel>
+                <Grid>
+                    <StackPanel>
+                        <TextBlock Text="Game subprofile" FontWeight="SemiBold" />
+                        <TextBlock Text="Dolby defines separate game tuning for FPS, Racing, RTS and RPG. These controls only activate when the installed DAX API exposes direct subprofile read/write; ThinkControl never edits Dolby state files." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <TextBlock x:Name="SubprofileStatusText" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
+                </Grid>
+                <Grid Margin="0,14,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                    <RadioButton x:Name="FpsSubprofile" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="FPS" Tag="FPS" Click="Subprofile_Click" Margin="0,0,5,0" />
+                    <RadioButton x:Name="RacingSubprofile" Grid.Column="1" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="Racing" Tag="Racing" Click="Subprofile_Click" Margin="2,0" />
+                    <RadioButton x:Name="RtsSubprofile" Grid.Column="2" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="RTS" Tag="RTS" Click="Subprofile_Click" Margin="2,0" />
+                    <RadioButton x:Name="RpgSubprofile" Grid.Column="3" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="RPG" Tag="RPG" Click="Subprofile_Click" Margin="5,0,0,0" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
         <Grid Margin="0,14,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
@@ -44,12 +66,12 @@
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
                     <TextBlock Text="Voice optimization" FontWeight="SemiBold" />
-                    <TextBlock Text="Lenovo also documents automatic Dolby optimization for supported VoIP calls. ThinkControl leaves that Dolby behavior intact." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="Lenovo also documents automatic Dolby optimization for supported VoIP calls. ThinkControl leaves that OEM behavior intact." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>
 
-        <TextBlock Text="If profile switching is unavailable in a future Dolby Access version, ThinkControl leaves audio untouched and offers the official app instead of writing undocumented LocalState data."
+        <TextBlock Text="Availability is discovered at runtime because Lenovo ships different Dolby DAX generations. Unsupported controls remain visible but disabled instead of pretending a setting was applied."
                    Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="2,12,2,0" TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>
