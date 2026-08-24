@@ -171,7 +171,12 @@ jobs:
             function Draw-Preview([string]$name, [int]$x, [int]$y, [int]$width, [int]$height) {
               $image = [System.Drawing.Image]::FromFile((Join-Path $output $name))
               try {
-                $graphics.DrawImage($image, $x, $y, $width, $height)
+                $scale = [math]::Min(([double]$width / $image.Width), ([double]$height / $image.Height))
+                $drawWidth = [int][math]::Round($image.Width * $scale)
+                $drawHeight = [int][math]::Round($image.Height * $scale)
+                $drawX = $x + [int][math]::Floor(($width - $drawWidth) / 2)
+                $drawY = $y + [int][math]::Floor(($height - $drawHeight) / 2)
+                $graphics.DrawImage($image, $drawX, $drawY, $drawWidth, $drawHeight)
               }
               finally {
                 $image.Dispose()
