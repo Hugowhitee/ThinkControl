@@ -19,6 +19,25 @@ internal sealed class NativeInputService
     internal bool VolumeUp() => ChangeVolume(+0.025f);
     internal bool VolumeDown() => ChangeVolume(-0.025f);
 
+    internal bool SetVolume(int percent)
+    {
+        try
+        {
+            using var enumerator = new MMDeviceEnumerator();
+            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            float next = Math.Clamp(percent, 0, 100) / 100f;
+            device.AudioEndpointVolume.MasterVolumeLevelScalar = next;
+            if (device.AudioEndpointVolume.Mute && next > 0)
+                device.AudioEndpointVolume.Mute = false;
+            _showValue?.Invoke("Volume", (int)Math.Round(next * 100));
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     internal bool ToggleMute()
     {
         try
@@ -63,23 +82,23 @@ internal sealed class NativeInputService
 
     private static bool SendChord(ushort modifier, ushort key)
     {
-        var inputs = new[]
-        {
+        TouchpadNativeMethods.Input[] inputs =
+        [
             KeyInput(modifier, keyUp: false),
             KeyInput(key, keyUp: false),
             KeyInput(key, keyUp: true),
             KeyInput(modifier, keyUp: true)
-        };
+        ];
         return SendInputs(inputs);
     }
 
     private static bool SendKey(ushort virtualKey)
     {
-        var inputs = new[]
-        {
+        TouchpadNativeMethods.Input[] inputs =
+        [
             KeyInput(virtualKey, keyUp: false),
             KeyInput(virtualKey, keyUp: true)
-        };
+        ];
         return SendInputs(inputs);
     }
 
