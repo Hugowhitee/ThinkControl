@@ -33,31 +33,20 @@ The product is capability-driven rather than tied to one laptop brand. Windows-s
 **Reviewed low-level reference profile:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 11 x64 · .NET 10
 
-Download the latest setup from **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**:
+Download the latest setup from **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**. For a normal install, this is the only file to download:
 
 ```text
 ThinkControl-Setup-0.1.0-alpha.11.exe
 ```
 
+The release also contains a versioned application payload and `SHA256SUMS.txt`. Those are updater/verification infrastructure used so ThinkControl can download and verify the complete app **before** elevation; users do not need to extract or install them manually.
+
 ## Interface
 
-These previews are generated from the real WPF interface by release CI and published with alpha.11. They cover both the quick popup and the main control/telemetry surfaces rather than an older mock-up set.
+The release overview is generated from the real WPF interface by release CI. Individual normal/minimum/wide screenshots remain internal visual-QA artifacts so the public download list stays compact.
 
 <p align="center">
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/compact-dark.png" alt="ThinkControl compact popup" width="25%">
-  &nbsp;
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/advanced-home.png" alt="ThinkControl Home" width="71%">
-</p>
-
-<p align="center">
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/advanced-touchpad.png" alt="ThinkControl Touchpad" width="48%">
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/advanced-sensors.png" alt="ThinkControl Sensors" width="48%">
-</p>
-
-<p align="center">
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/advanced-fans.png" alt="ThinkControl Fans" width="32%">
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/advanced-audio.png" alt="ThinkControl Audio" width="32%">
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/advanced-battery.png" alt="ThinkControl Battery" width="32%">
+  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/ui-overview.png" alt="ThinkControl interface overview: Compact, Home, Touchpad, Sensors, Fans, Audio, Battery and Hardware Setup" width="100%">
 </p>
 
 ## Highlights
@@ -84,7 +73,7 @@ Alpha.11 is a regression and hardware-reliability pass over alpha.10. The focus 
 - Windows service state and ThinkControl IPC reachability are reported separately, so a running service no longer looks healthy when the app cannot actually reach it.
 - PawnIO readiness checks distinguish installation, device access and provider/module readiness before suggesting a repair.
 - The verified X9 fan path performs read-only EC discovery under the shared ThinkPad EC mutex, prioritizes the modern `0x1604/0x1600` transport, validates RPM/readback and keeps unknown writes blocked.
-- Fan telemetry prefers the verified X9 tachometer route over generic fallback sources; manual levels remain discrete and Lenovo Auto remains the recovery owner on that profile.
+- Fan telemetry prefers the verified X9 tachometer route over generic fallback sources; manual levels remain discrete and firmware/OEM Auto remains the recovery owner on that profile.
 - LibreHardwareMonitor/PawnIO sensor discovery uses bounded retry/recycle behavior and selects real CPU/GPU temperature domains without relabelling generic ACPI thermal zones as CPU temperature. A verified read-only X9 EC thermal fallback can provide a conservative control-temperature source without pretending it is CPU Package.
 - Lenovo keyboard control requires provider readback and backs off failed probes instead of repeatedly sending uncertain calls.
 - Hardware Setup and Notifications expose concrete repair states for service, low-level access, sensors, fans and keyboard providers.
@@ -132,7 +121,7 @@ ThinkControl separates normal Windows features from privileged/provider-specific
 
 If a required component is missing, controls remain visible and ThinkControl explains what is unavailable instead of leaving them silently disabled. The notification inbox can take users directly to the relevant repair or retry action.
 
-The X9-15 Gen 1 (`21Q6` / `21Q7`) remains the reviewed low-level reference profile. Its unknown direct fan writes stay blocked, and manual fan ownership returns to Lenovo Auto on supported disposal paths.
+The X9-15 Gen 1 (`21Q6` / `21Q7`) remains the reviewed low-level reference profile. Its unknown direct fan writes stay blocked, and manual fan ownership returns to firmware/OEM Auto on supported disposal paths.
 
 ## Audio, battery and reset behavior
 
