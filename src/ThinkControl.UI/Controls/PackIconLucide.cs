@@ -33,7 +33,8 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
 
         Brush brush = Foreground ?? Brushes.Gray;
-        double stroke = Math.Max(1.2, Math.Min(width, height) / 10.5d);
+        bool emphasized = FontWeight.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight();
+        double stroke = Math.Max(1.2, Math.Min(width, height) / (emphasized ? 8.9d : 10.5d));
         var pen = new Pen(brush, stroke)
         {
             StartLineCap = PenLineCap.Round,
@@ -43,11 +44,20 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
 
         if (Kind == "Touchpad")
         {
-            double inset = Math.Max(1.2, Math.Min(width, height) * 0.12);
-            Rect shell = new(inset, inset * 1.15, Math.Max(1, width - inset * 2), Math.Max(1, height - inset * 2.3));
-            drawingContext.DrawRoundedRectangle(null, pen, shell, 2.2, 2.2);
-            double seamY = shell.Bottom - shell.Height * 0.24;
-            drawingContext.DrawLine(pen, new Point(shell.Left + shell.Width * 0.13, seamY), new Point(shell.Right - shell.Width * 0.13, seamY));
+            // A touchpad is optically wider and flatter than a generic rounded
+            // rectangle. Keep the silhouette broad even inside the nav's 15×15 box.
+            double shellWidth = width * 0.94;
+            double shellHeight = height * 0.67;
+            double left = (width - shellWidth) / 2d;
+            double top = (height - shellHeight) / 2d;
+            Rect shell = new(left, top, shellWidth, shellHeight);
+            drawingContext.DrawRoundedRectangle(null, pen, shell, 2.0, 2.0);
+
+            double seamY = shell.Bottom - shell.Height * 0.23;
+            drawingContext.DrawLine(
+                pen,
+                new Point(shell.Left + shell.Width * 0.12, seamY),
+                new Point(shell.Right - shell.Width * 0.12, seamY));
             return;
         }
 
@@ -56,26 +66,29 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             double sx = width / 16d;
             double sy = height / 16d;
             drawingContext.PushTransform(new ScaleTransform(sx, sy));
+            double audioStroke = emphasized ? 1.7 : 1.45;
             Geometry speaker = Geometry.Parse("M2,6 L5,6 L9,3 L9,13 L5,10 L2,10 Z");
-            drawingContext.DrawGeometry(null, new Pen(brush, 1.45) { LineJoin = PenLineJoin.Round }, speaker);
-            drawingContext.DrawGeometry(null, new Pen(brush, 1.45) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, Geometry.Parse("M11,6 C12.5,7 12.5,9 11,10 M13,4 C16,6 16,10 13,12"));
+            drawingContext.DrawGeometry(null, new Pen(brush, audioStroke) { LineJoin = PenLineJoin.Round }, speaker);
+            drawingContext.DrawGeometry(null, new Pen(brush, audioStroke) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, Geometry.Parse("M11,6 C12.5,7 12.5,9 11,10 M13,4 C16,6 16,10 13,12"));
             drawingContext.Pop();
             return;
         }
 
         if (Kind == "Sensors")
         {
+            // Use a compact gauge/pulse motif with the same rounded stroke language
+            // as the other navigation glyphs instead of the old thin ECG zig-zag.
             double sx = width / 16d;
             double sy = height / 16d;
             drawingContext.PushTransform(new ScaleTransform(sx, sy));
-            drawingContext.DrawGeometry(null,
-                new Pen(brush, 1.5)
-                {
-                    StartLineCap = PenLineCap.Round,
-                    EndLineCap = PenLineCap.Round,
-                    LineJoin = PenLineJoin.Round
-                },
-                Geometry.Parse("M1,8 L4,8 L6,3 L9,13 L11,8 L15,8"));
+            var sensorPen = new Pen(brush, emphasized ? 1.75 : 1.5)
+            {
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round,
+                LineJoin = PenLineJoin.Round
+            };
+            drawingContext.DrawEllipse(null, sensorPen, new Point(8, 8), 6.1, 6.1);
+            drawingContext.DrawGeometry(null, sensorPen, Geometry.Parse("M3.4,9 L5.8,9 L7.2,5.5 L9.2,11.1 L10.5,8 L12.7,8"));
             drawingContext.Pop();
             return;
         }
