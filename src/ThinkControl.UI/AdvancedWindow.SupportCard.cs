@@ -35,7 +35,7 @@ public partial class AdvancedWindow
             Width = 42,
             Height = 42,
             CornerRadius = new CornerRadius(10),
-            Background = new SolidColorBrush(Color.FromRgb(255, 221, 0)),
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 221, 0)),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Left
         };
