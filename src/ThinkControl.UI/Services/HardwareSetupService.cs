@@ -8,12 +8,12 @@ namespace ThinkControl.UI.Services;
 internal sealed record HardwareSetupStatus(
     bool ServiceInstalled,
     bool ServiceRunning,
-    bool ServiceReachable,
     bool LowLevelAccessRelevant,
     bool LowLevelAccessInstalled,
     bool LowLevelAccessRunning,
     string ServiceDetail,
-    string LowLevelAccessDetail)
+    string LowLevelAccessDetail,
+    bool ServiceReachable = false)
 {
     internal bool NeedsAttention =>
         !ServiceRunning ||
@@ -73,12 +73,12 @@ internal sealed class HardwareSetupService
         return new HardwareSetupStatus(
             ServiceInstalled: service.Exists,
             ServiceRunning: service.Running,
-            ServiceReachable: service.Running && serviceReachable,
             LowLevelAccessRelevant: lowLevelRelevant,
             LowLevelAccessInstalled: pawnIoInstalled,
             LowLevelAccessRunning: pawnIo.Running,
             ServiceDetail: serviceDetail,
-            LowLevelAccessDetail: lowLevelDetail);
+            LowLevelAccessDetail: lowLevelDetail,
+            ServiceReachable: service.Running && serviceReachable);
     }
 
     internal async Task<HardwareSetupResult> RepairServiceAsync()
