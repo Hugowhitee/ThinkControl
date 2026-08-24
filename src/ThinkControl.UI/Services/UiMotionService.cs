@@ -1,8 +1,10 @@
 using System.Windows;
-using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using WpfButtonBase = System.Windows.Controls.Primitives.ButtonBase;
+using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
+using WpfMouseButtonEventArgs = System.Windows.Input.MouseButtonEventArgs;
 
 namespace ThinkControl.UI.Services;
 
@@ -17,42 +19,42 @@ internal static class UiMotionService
         _enabled = true;
 
         EventManager.RegisterClassHandler(
-            typeof(ButtonBase),
+            typeof(WpfButtonBase),
             UIElement.PreviewMouseLeftButtonDownEvent,
             new MouseButtonEventHandler(OnPress),
             handledEventsToo: true);
         EventManager.RegisterClassHandler(
-            typeof(ButtonBase),
+            typeof(WpfButtonBase),
             UIElement.PreviewMouseLeftButtonUpEvent,
             new MouseButtonEventHandler(OnRelease),
             handledEventsToo: true);
         EventManager.RegisterClassHandler(
-            typeof(ButtonBase),
+            typeof(WpfButtonBase),
             UIElement.MouseLeaveEvent,
             new MouseEventHandler(OnLeave),
             handledEventsToo: true);
     }
 
-    private static void OnPress(object sender, MouseButtonEventArgs e)
+    private static void OnPress(object sender, WpfMouseButtonEventArgs e)
     {
-        if (!SystemParameters.ClientAreaAnimation || sender is not ButtonBase button || !button.IsEnabled)
+        if (!SystemParameters.ClientAreaAnimation || sender is not WpfButtonBase button || !button.IsEnabled)
             return;
         Animate(button, 0.985, 62);
     }
 
-    private static void OnRelease(object sender, MouseButtonEventArgs e)
+    private static void OnRelease(object sender, WpfMouseButtonEventArgs e)
     {
-        if (sender is ButtonBase button)
+        if (sender is WpfButtonBase button)
             Animate(button, 1.0, 105);
     }
 
-    private static void OnLeave(object sender, MouseEventArgs e)
+    private static void OnLeave(object sender, WpfMouseEventArgs e)
     {
-        if (sender is ButtonBase button)
+        if (sender is WpfButtonBase button)
             Animate(button, 1.0, 105);
     }
 
-    private static void Animate(ButtonBase button, double target, int milliseconds)
+    private static void Animate(WpfButtonBase button, double target, int milliseconds)
     {
         if (!SystemParameters.ClientAreaAnimation)
         {
@@ -77,7 +79,6 @@ internal static class UiMotionService
         }
         else
         {
-            // Do not overwrite feature-specific transforms.
             return;
         }
 
