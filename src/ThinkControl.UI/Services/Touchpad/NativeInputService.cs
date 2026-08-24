@@ -68,7 +68,10 @@ internal sealed class NativeInputService : IDisposable
         {
             try
             {
-                MMDevice device = OpenDefaultAudioEndpoint(refresh: false);
+                // Mute is a standalone action rather than part of the continuous
+                // volume gesture. Refresh so a recently changed Windows default
+                // output cannot leave the action targeting the old endpoint.
+                MMDevice device = OpenDefaultAudioEndpoint(refresh: true);
                 device.AudioEndpointVolume.Mute = !device.AudioEndpointVolume.Mute;
                 _showValue?.Invoke(device.AudioEndpointVolume.Mute ? "Muted" : "Volume", (int)Math.Round(device.AudioEndpointVolume.MasterVolumeLevelScalar * 100));
                 return true;
