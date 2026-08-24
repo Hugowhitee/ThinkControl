@@ -25,13 +25,17 @@ public sealed class SensorHub : IDisposable
 {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan OpenRetryInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan EmptyProviderRecycleInterval = TimeSpan.FromSeconds(45);
     private const int MaxSensorCount = 256;
+    private const int EmptyCriticalRefreshesBeforeRecycle = 3;
 
     private readonly object _gate = new();
     private Computer? _computer;
     private bool _disposed;
     private DateTimeOffset _lastOpenAttempt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastRefresh = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastProviderRecycle = DateTimeOffset.MinValue;
+    private int _emptyCriticalRefreshes;
     private SensorHubSnapshot _last = new(
         Array.Empty<HardwareSensorReading>(),
         null,
@@ -77,6 +81,8 @@ public sealed class SensorHub : IDisposable
                 readings.Add(acpi!);
                 cpu = acpi;
             }
+
+            RecycleStaleProviderIfNeeded(now, readings);
 
             HardwareSensorReading? gpu = SelectGpuTemperature(readings);
             HardwareSensorReading? control = MaxTemperature(cpu, gpu);
@@ -132,6 +138,38 @@ public sealed class SensorHub : IDisposable
             try { candidate?.Close(); } catch { }
             _computer = null;
         }
+    }
+
+    private void RecycleStaleProviderIfNeeded(DateTimeOffset now, IReadOnlyCollection<HardwareSensorReading> readings)
+    {
+        bool hasCriticalTelemetry = readings.Any(reading =>
+            reading.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase) ||
+            reading.SensorType.Equals("Fan", StringComparison.OrdinalIgnoreCase));
+
+        if (hasCriticalTelemetry)
+        {
+            _emptyCriticalRefreshes = 0;
+            return;
+        }
+
+        if (_computer is null)
+            return;
+
+        _emptyCriticalRefreshes++;
+        if (_emptyCriticalRefreshes < EmptyCriticalRefreshesBeforeRecycle ||
+            now - _lastProviderRecycle < EmptyProviderRecycleInterval)
+        {
+            return;
+        }
+
+        // Computer/Open providers capture low-level availability when opened. If
+        // PawnIO was installed while the ThinkControl service was already running,
+        // a provider can remain alive but never surface the newly available sensor
+        // path. Periodically recycle only after several missing critical reads.
+        CloseComputer();
+        _lastProviderRecycle = now;
+        _lastOpenAttempt = DateTimeOffset.MinValue;
+        _emptyCriticalRefreshes = 0;
     }
 
     private static void VisitHardware(IHardware hardware, ICollection<HardwareSensorReading> output)
