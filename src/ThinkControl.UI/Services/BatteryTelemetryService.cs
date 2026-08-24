@@ -40,6 +40,7 @@ public sealed class BatteryTelemetryService
     private static readonly TimeSpan StaticBatteryInfoRefreshInterval = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan StaticBatteryInfoMinimumRetry = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TemperatureRefreshInterval = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan TemperatureStaleGrace = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan MaxEta = TimeSpan.FromHours(24);
 
     private readonly object _gate = new();
@@ -55,6 +56,7 @@ public sealed class BatteryTelemetryService
 
     private DateTimeOffset _lastStaticInfoRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastTemperatureRead = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastValidTemperatureAt = DateTimeOffset.MinValue;
     private int _staticInfoFailureCount;
     private double? _cachedFullCapacityMwh;
     private double? _cachedDesignCapacityMwh;
@@ -424,14 +426,35 @@ public sealed class BatteryTelemetryService
             if (rawTemperature is >= 2000 and <= 4500)
             {
                 double converted = Math.Round(rawTemperature.Value / 10d - 273.15, 1);
-                _cachedTemperatureC = converted is >= -20 and <= 100 ? converted : null;
+                if (converted is >= -20 and <= 100)
+                {
+                    _cachedTemperatureC = converted;
+                    _lastValidTemperatureAt = now;
+                }
+                else
+                {
+                    ExpireCachedTemperatureIfStale(now);
+                }
             }
-            else if (!_cachedTemperatureC.HasValue)
+            else
             {
-                // Keep a previously valid reading across a transient provider miss;
-                // if this machine never exposed one, remain explicitly unavailable.
-                _cachedTemperatureC = null;
+                // A brief WMI/provider miss is common around resume. Keep the last
+                // real battery temperature only for a short grace period; after that
+                // report it as unavailable rather than presenting stale telemetry as live.
+                ExpireCachedTemperatureIfStale(now);
             }
+        }
+    }
+
+    private void ExpireCachedTemperatureIfStale(DateTimeOffset now)
+    {
+        if (!_cachedTemperatureC.HasValue)
+            return;
+
+        if (_lastValidTemperatureAt == DateTimeOffset.MinValue ||
+            now - _lastValidTemperatureAt >= TemperatureStaleGrace)
+        {
+            _cachedTemperatureC = null;
         }
     }
 
