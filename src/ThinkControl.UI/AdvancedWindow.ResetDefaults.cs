@@ -1,4 +1,6 @@
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using WpfButton = System.Windows.Controls.Button;
@@ -13,15 +15,15 @@ public partial class AdvancedWindow
 {
     private const string ResetDefaultsConfiguredKey = "ThinkControl.Advanced.ResetDefaultsConfigured";
     private const string TouchpadResetButtonTag = "ThinkControl.Touchpad.ResetDefaults";
+    private const string GlobalResetCardTag = "ThinkControl.Settings.GlobalResetCard";
     private const string TouchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
 
     private void ConfigureResetDefaults()
     {
         if (Resources.Contains(ResetDefaultsConfiguredKey))
         {
-            // Dynamic feature pages can be attached after the first pass. Re-run only
-            // the idempotent dynamic reset hook so Touchpad always gets its button.
             AddTouchpadReset();
+            AddGlobalResetCard();
             return;
         }
 
@@ -29,7 +31,6 @@ public partial class AdvancedWindow
 
         AddPageReset(
             PagePerformance,
-            "Reset",
             "Restore Balanced performance mode.",
             async () =>
             {
@@ -40,7 +41,6 @@ public partial class AdvancedWindow
 
         AddPageReset(
             PageFans,
-            "Reset",
             "Return fan control to Lenovo Auto.",
             async () =>
             {
@@ -51,7 +51,6 @@ public partial class AdvancedWindow
 
         AddPageReset(
             PageDisplay,
-            "Reset",
             "Restore ThinkControl display behavior to Auto refresh. Brightness and adaptive brightness stay with Windows/OEM policy.",
             async () =>
             {
@@ -62,7 +61,6 @@ public partial class AdvancedWindow
 
         AddPageReset(
             PageKeyboard,
-            "Reset",
             "Restore Auto keyboard mode, High resting level and 1.0× effect speed.",
             async () =>
             {
@@ -72,17 +70,11 @@ public partial class AdvancedWindow
             });
 
         AddTouchpadReset();
-
-        AddPageReset(
-            PageSettings,
-            "Reset all",
-            "Restore all ThinkControl preferences and supported hardware controls to their defaults.",
-            ResetAllDefaultsAsync);
+        AddGlobalResetCard();
     }
 
     private void AddPageReset(
         WpfScrollViewer page,
-        string label,
         string tooltip,
         Func<Task> reset)
     {
@@ -98,7 +90,7 @@ public partial class AdvancedWindow
         var header = new WpfGrid();
         header.Children.Add(title);
 
-        WpfButton button = CreateResetButton(label, tooltip);
+        WpfButton button = CreatePageResetButton(tooltip);
         button.Click += async (_, _) =>
         {
             button.IsEnabled = false;
@@ -127,11 +119,10 @@ public partial class AdvancedWindow
         if (actions is null || actions.Children.OfType<WpfButton>().Any(button => Equals(button.Tag, TouchpadResetButtonTag)))
             return;
 
-        WpfButton reset = CreateResetButton(
-            "Reset",
+        WpfButton reset = CreatePageResetButton(
             "Restore edge gestures, gesture pop-up and supported Windows haptic settings to ThinkControl defaults.");
         reset.Tag = TouchpadResetButtonTag;
-        reset.Margin = new Thickness(0, 0, 14, 0);
+        reset.Margin = new Thickness(0, 0, 12, 0);
         reset.Click += async (_, _) =>
         {
             reset.IsEnabled = false;
@@ -149,24 +140,95 @@ public partial class AdvancedWindow
         actions.Children.Insert(0, reset);
     }
 
-    private WpfButton CreateResetButton(string label, string tooltip) => new()
+    private WpfButton CreatePageResetButton(string tooltip)
     {
-        Content = label,
-        ToolTip = tooltip,
-        HorizontalAlignment = HorizontalAlignment.Right,
-        VerticalAlignment = VerticalAlignment.Center,
-        MinWidth = 0,
-        MinHeight = 28,
-        Padding = new Thickness(10, 4, 10, 4),
-        FontSize = 10.5,
-        Style = TryFindResource("TcButton") as Style
-    };
+        var icon = new PackIconLucide
+        {
+            Kind = "RefreshCw",
+            Width = 12,
+            Height = 12
+        };
+        icon.SetResourceReference(ForegroundProperty, "Tc.TextMuted");
+
+        return new WpfButton
+        {
+            Content = icon,
+            ToolTip = "Reset this page · " + tooltip,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Width = 28,
+            Height = 28,
+            Padding = new Thickness(0),
+            Style = TryFindResource("TcIconButton") as Style
+        };
+    }
+
+    private void AddGlobalResetCard()
+    {
+        if (PageSettings.Content is not WpfStackPanel stack ||
+            stack.Children.OfType<Border>().Any(border => Equals(border.Tag, GlobalResetCardTag)))
+        {
+            return;
+        }
+
+        var copy = new WpfStackPanel { Margin = new Thickness(0, 0, 24, 0) };
+        copy.Children.Add(new WpfTextBlock
+        {
+            Text = "Reset ThinkControl",
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 12
+        });
+        var detail = new WpfTextBlock
+        {
+            Text = "Restore app preferences and supported controls to their defaults. Battery history, diagnostics consent and Windows-owned brightness settings are kept.",
+            FontSize = 10.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 0)
+        };
+        detail.SetResourceReference(WpfTextBlock.ForegroundProperty, "Tc.TextMuted");
+        copy.Children.Add(detail);
+
+        var reset = new WpfButton
+        {
+            Content = "Reset all ThinkControl",
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(13, 7, 13, 7),
+            Style = TryFindResource("TcButton") as Style,
+            ToolTip = "Restore all ThinkControl-owned settings"
+        };
+        reset.SetResourceReference(WpfButton.ForegroundProperty, "Tc.Accent");
+        reset.Click += async (_, _) =>
+        {
+            reset.IsEnabled = false;
+            try { await ResetAllDefaultsAsync(); }
+            finally { reset.IsEnabled = true; }
+        };
+
+        var grid = new WpfGrid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.Children.Add(copy);
+        WpfGrid.SetColumn(reset, 1);
+        grid.Children.Add(reset);
+
+        var card = new Border
+        {
+            Tag = GlobalResetCardTag,
+            Style = TryFindResource("TcSection") as Style,
+            Margin = new Thickness(0, 18, 0, 0),
+            BorderThickness = new Thickness(1),
+            Child = grid
+        };
+        card.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
+        stack.Children.Add(card);
+    }
 
     private async Task ResetAllDefaultsAsync()
     {
         System.Windows.MessageBoxResult answer = System.Windows.MessageBox.Show(
             "Reset all ThinkControl preferences to their defaults?\n\n" +
-            "This restores Balanced performance, Lenovo Auto fans, Auto refresh, keyboard defaults, touchpad gesture defaults, Windows haptic defaults, System theme and disables Start with Windows. " +
+            "This restores Balanced performance, Lenovo Auto fans, Auto refresh, keyboard defaults, touchpad gesture defaults, Windows haptic defaults, Dynamic + Balanced Dolby processing, System theme and disables Start with Windows. " +
             "Display brightness, adaptive brightness, diagnostics consent and battery history are kept because they are not portable ThinkControl defaults.",
             "ThinkControl · Reset all",
             System.Windows.MessageBoxButton.YesNo,
