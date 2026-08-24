@@ -1,5 +1,7 @@
 name: Finalize alpha.5 release
 
+# One-shot verification workflow. This intentionally lands through a PR so the
+# merge-to-main push is eligible to trigger GitHub Actions.
 on:
   push:
     branches: [main]
