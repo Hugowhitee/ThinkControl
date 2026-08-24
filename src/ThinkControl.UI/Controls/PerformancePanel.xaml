@@ -2,7 +2,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
-        <TextBlock Text="Performance" FontSize="24" FontWeight="SemiBold" />
+        <Grid>
+            <TextBlock Text="Performance" FontSize="24" FontWeight="SemiBold" />
+            <Button Content="Reset" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Balanced for battery and plugged-in power" />
+        </Grid>
         <TextBlock Text="Power behavior is stored separately for battery and plugged in. Cooling is a global fan profile and does not change when the charger is connected or removed."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
