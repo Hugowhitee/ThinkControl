@@ -21,7 +21,7 @@ internal sealed class ThinkPadEc : IDisposable
     private const int MutexTimeoutMs = 1500;
 
     private readonly PawnIoEcTransport _ports;
-    private readonly Mutex _thinkPadMutex = CreateOrOpenMutex("Access_Thinkpad_EC");
+    private readonly Mutex _thinkPadMutex = CreateOrOpenMutex(@"Global\Access_Thinkpad_EC");
     private readonly Mutex _globalEcMutex = CreateOrOpenMutex(@"Global\Access_EC");
     private ushort _commandPort;
     private ushort _dataPort;
@@ -34,11 +34,17 @@ internal sealed class ThinkPadEc : IDisposable
         // Do not infer PawnIO readiness from its Windows service entry alone.
         // The transport proves device/module access first; then a read-only EC
         // capability probe selects the modern ThinkPad Type 1 ports before the
-        // older ACPI Type 2 fallback. No EC register is written during detection.
+        // older ACPI Type 2 fallback. Detection uses the same global ThinkPad EC
+        // mutex as established TPFanCtrl implementations so another utility cannot
+        // interleave an EC transaction while ThinkControl is probing.
         _ports = new PawnIoEcTransport();
         try
         {
-            DetectPortPair();
+            WithEcLock(() =>
+            {
+                DetectPortPair();
+                return 0;
+            });
         }
         catch
         {
