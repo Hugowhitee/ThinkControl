@@ -21,6 +21,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureUpdateUi();
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -40,6 +41,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureNotificationButton();
         ConfigureSupportCard();
+        ConfigureUpdateUi();
         DiagnosticsPanelControl?.Refresh();
 
         if (DataContext is ViewModels.AppState snapshotState)
