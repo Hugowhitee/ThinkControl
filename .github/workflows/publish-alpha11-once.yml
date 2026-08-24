@@ -135,6 +135,13 @@ jobs:
               });
               core.info(`Release verified: ${release.html_url}`);
             } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
               await setStatus('failure', 'alpha.11 release verification failed');
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: 34,
+                body: `❌ **${tag} release verification failed**\n\n\`${message}\``
+              });
               throw error;
             }
