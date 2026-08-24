@@ -13,11 +13,17 @@ public partial class AdvancedWindow
 {
     private const string ResetDefaultsConfiguredKey = "ThinkControl.Advanced.ResetDefaultsConfigured";
     private const string TouchpadResetButtonTag = "ThinkControl.Touchpad.ResetDefaults";
+    private const string TouchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
 
     private void ConfigureResetDefaults()
     {
         if (Resources.Contains(ResetDefaultsConfiguredKey))
+        {
+            // Dynamic feature pages can be attached after the first pass. Re-run only
+            // the idempotent dynamic reset hook so Touchpad always gets its button.
+            AddTouchpadReset();
             return;
+        }
 
         Resources[ResetDefaultsConfiguredKey] = true;
 
@@ -105,7 +111,10 @@ public partial class AdvancedWindow
 
     private void AddTouchpadReset()
     {
-        TouchpadPanel? panel = FindVisualChildren<TouchpadPanel>(this).FirstOrDefault();
+        TouchpadPanel? panel = Resources.Contains(TouchpadPageKey) &&
+            Resources[TouchpadPageKey] is WpfScrollViewer { Content: TouchpadPanel resourcePanel }
+                ? resourcePanel
+                : FindVisualChildren<TouchpadPanel>(this).FirstOrDefault();
         if (panel?.Content is not WpfGrid root)
             return;
 
@@ -120,7 +129,7 @@ public partial class AdvancedWindow
 
         WpfButton reset = CreateResetButton(
             "Reset",
-            "Restore edge gestures to ThinkControl defaults and Windows haptic feedback to enabled, 50% feedback and 50% click sensitivity.");
+            "Restore edge gestures, gesture pop-up and supported Windows haptic settings to ThinkControl defaults.");
         reset.Tag = TouchpadResetButtonTag;
         reset.Margin = new Thickness(0, 0, 14, 0);
         reset.Click += async (_, _) =>
