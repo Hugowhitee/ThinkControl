@@ -19,6 +19,8 @@ public partial class AdvancedWindow
         ConfigureHardwareSetupEntry();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
+        ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
         ConfigureSupportCard();
         ConfigureUpdateUi();
@@ -39,6 +41,8 @@ public partial class AdvancedWindow
         ConfigureHardwareSetupEntry();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
+        ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
         ConfigureSupportCard();
         ConfigureUpdateUi();
@@ -70,6 +74,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectTouchpad(this);
@@ -87,6 +92,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectSensors(this);
@@ -104,6 +110,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
         ConfigureSupportCard();
         AdvancedFeaturePages.SelectAudio(this);
