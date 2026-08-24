@@ -189,9 +189,19 @@ public partial class AdvancedWindow
                 return;
             }
 
-            _app.State.UpdateStatus = $"Downloading and verifying {_lastUpdate.Version ?? "update"}…";
+            var progress = new Progress<string>(status =>
+            {
+                _app.State.UpdateStatus = status;
+                button.Content = status.StartsWith("Verifying", StringComparison.OrdinalIgnoreCase)
+                    ? "Verifying…"
+                    : status.StartsWith("Ready to install", StringComparison.OrdinalIgnoreCase)
+                        ? "Approve in Windows…"
+                        : "Downloading…";
+            });
+
+            _app.State.UpdateStatus = $"Downloading {_lastUpdate.Version ?? "update"}…";
             button.Content = "Downloading…";
-            UpdateInstallResult result = await _app.UpdateService.DownloadAndLaunchAsync(_lastUpdate);
+            UpdateInstallResult result = await _app.UpdateService.DownloadAndLaunchAsync(_lastUpdate, progress);
             _app.State.UpdateStatus = result.Status;
             if (result.Success)
             {
@@ -199,7 +209,7 @@ public partial class AdvancedWindow
                 // only after its local payload is ready, avoiding the long blank gap
                 // and repeated startup UAC loop seen in earlier alphas.
                 updaterStarted = true;
-                button.Content = "Updater started…";
+                button.Content = "Installer started…";
                 button.IsEnabled = false;
                 return;
             }
