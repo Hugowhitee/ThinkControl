@@ -118,8 +118,14 @@ public sealed class UpdateService
         }
     }
 
+    public Task<UpdateInstallResult> DownloadAndLaunchAsync(
+        UpdateCheckResult update,
+        CancellationToken cancellationToken = default) =>
+        DownloadAndLaunchAsync(update, progress: null, cancellationToken);
+
     public async Task<UpdateInstallResult> DownloadAndLaunchAsync(
         UpdateCheckResult update,
+        IProgress<string>? progress,
         CancellationToken cancellationToken = default)
     {
         if (!update.Available)
@@ -136,6 +142,7 @@ public sealed class UpdateService
             string installerName = GetTrustedAssetName(update.InstallerUrl!, "ThinkControl-Setup-", ".exe");
             string payloadName = GetTrustedAssetName(update.PayloadUrl!, "ThinkControl-Payload-", ".zip");
 
+            progress?.Report($"Downloading {update.Version ?? "update"}…");
             Task<byte[]> installerTask = _httpClient.GetByteArrayAsync(update.InstallerUrl!, cancellationToken);
             Task<byte[]> payloadTask = _httpClient.GetByteArrayAsync(update.PayloadUrl!, cancellationToken);
             Task<string> sumsTask = _httpClient.GetStringAsync(update.ChecksumUrl!, cancellationToken);
@@ -145,6 +152,7 @@ public sealed class UpdateService
             byte[] payloadBytes = await payloadTask.ConfigureAwait(false);
             string sums = await sumsTask.ConfigureAwait(false);
 
+            progress?.Report("Verifying downloaded update files…");
             if (!MatchesPublishedHash(installerBytes, installerName, sums))
                 return new(false, "The downloaded installer failed SHA-256 verification and was not started.");
             if (!MatchesPublishedHash(payloadBytes, payloadName, sums))
@@ -179,13 +187,17 @@ public sealed class UpdateService
             start.ArgumentList.Add($"/PAYLOAD={payloadPath}");
             start.ArgumentList.Add($"/LOG={logPath}");
 
+            // Keep ThinkControl visible until the user has explicitly approved the
+            // Windows elevation prompt. The installer itself closes the running UI
+            // only after its already-downloaded local payload is ready to replace.
+            progress?.Report("Ready to install · approve the Windows administrator prompt");
             Process? process = Process.Start(start);
             if (process is null)
                 return new(false, "Windows could not start the verified updater.");
 
             return new(
                 true,
-                $"Updater started for {update.Version ?? "the update"}. ThinkControl will close when installation begins…",
+                $"Installer started for {update.Version ?? "the update"} · ThinkControl will close automatically when installation begins",
                 installerPath,
                 payloadPath);
         }
@@ -195,7 +207,7 @@ public sealed class UpdateService
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            return new(false, "Update installation was cancelled.");
+            return new(false, "Update installation was cancelled. ThinkControl will not ask again unless you choose Install update.");
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or CryptographicException)
         {

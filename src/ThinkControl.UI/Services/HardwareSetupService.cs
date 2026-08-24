@@ -10,6 +10,7 @@ internal sealed record HardwareSetupStatus(
     bool ServiceRunning,
     bool LowLevelAccessRelevant,
     bool LowLevelAccessInstalled,
+    bool LowLevelAccessRunning,
     string ServiceDetail,
     string LowLevelAccessDetail)
 {
@@ -18,12 +19,6 @@ internal sealed record HardwareSetupStatus(
 
 internal sealed record HardwareSetupResult(bool Success, bool RestartRequired, string Message);
 
-/// <summary>
-/// Repairs ThinkControl's own service and installs optional device prerequisites.
-/// The main installer stays generic; device-specific write access is still gated
-/// by verified profiles, while PawnIO may also be offered as a read-only sensor
-/// prerequisite when LibreHardwareMonitor cannot see useful telemetry.
-/// </summary>
 internal sealed class HardwareSetupService
 {
     private const string ServiceName = "ThinkControlService";
@@ -45,26 +40,27 @@ internal sealed class HardwareSetupService
         ServiceQuery pawnIo = lowLevelRelevant
             ? await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false)
             : default;
-        bool pawnIoReady = !lowLevelRelevant || (pawnIo.Exists && pawnIo.Running);
+
+        // PawnIO is a demand-start kernel driver. Being installed but currently
+        // STOPPED is not a failure: LHM/PawnIO can activate the device on demand.
+        bool pawnIoInstalled = !lowLevelRelevant || pawnIo.Exists;
 
         string lowLevelDetail = !lowLevelRelevant
             ? "Not currently required by detected capabilities"
             : pawnIo.Running
-                ? "PawnIO running · low-level sensor/EC provider ready"
+                ? "PawnIO installed · driver active"
                 : pawnIo.Exists
-                    ? "PawnIO is installed but its kernel driver is not running. Repair it or restart Windows before hardware access can be used."
+                    ? "PawnIO installed · demand-start driver will activate when LibreHardwareMonitor opens the provider"
                     : verifiedWriteProfile
-                        ? "Recommended for X9 sensors and required by the verified EC fan provider"
-                        : "Recommended for additional read-only sensor discovery; fan writes remain locked until a device profile is verified";
+                        ? "PawnIO is missing · install it for X9 sensors and the verified EC fan provider"
+                        : "PawnIO is missing · install it for additional LibreHardwareMonitor sensor discovery";
 
         return new HardwareSetupStatus(
             ServiceInstalled: service.Exists,
             ServiceRunning: service.Running,
             LowLevelAccessRelevant: lowLevelRelevant,
-            // This property historically meant "installed" in the UI. Treat it as
-            // ready here: a registered but stopped kernel driver cannot provide
-            // sensors/EC and must stay visibly actionable instead of showing green.
-            LowLevelAccessInstalled: pawnIoReady,
+            LowLevelAccessInstalled: pawnIoInstalled,
+            LowLevelAccessRunning: pawnIo.Running,
             ServiceDetail: service.Running
                 ? "Running"
                 : service.Exists ? "Installed but not running" : "Not registered",
@@ -149,17 +145,12 @@ internal sealed class HardwareSetupService
 
             await Task.Delay(900).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false);
-            if (after.Running)
-            {
-                return new(true, restart, restart
-                    ? "PawnIO is running, but Windows also requested a restart to complete the driver update."
-                    : "PawnIO is running. ThinkControl will recycle sensor providers and retry discovery automatically.");
-            }
-
             if (after.Exists)
             {
-                return new(true, true,
-                    "PawnIO is installed but the kernel driver is not active yet. Restart Windows, then ThinkControl will retry sensors and the verified X9 EC provider automatically.");
+                return new(true, restart,
+                    restart
+                        ? "PawnIO is installed. Windows requested a restart; after reboot ThinkControl will refresh LibreHardwareMonitor/PawnIO automatically."
+                        : "PawnIO is installed. Its demand-start driver will activate when ThinkControl opens the LibreHardwareMonitor provider; refreshing providers now is usually enough.");
             }
 
             return new(false, restart,

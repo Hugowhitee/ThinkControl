@@ -59,13 +59,45 @@ public sealed class LenovoHardwareController : IDisposable
 
     public HardwareDeviceIdentity Identity => _identity;
 
+    public void RefreshProviders()
+    {
+        ThrowIfDisposed();
+        _sensors.RefreshProviders();
+
+        lock (_gate)
+        {
+            // A user-requested retry must actually recycle the provider stack rather
+            // than re-reading the same cached failure. Lenovo Auto is kept as the
+            // safe owner; manual control is never silently restored here.
+            try
+            {
+                if (_fanControl is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel && _ec is not null)
+                    _ec.ReturnToBios();
+            }
+            catch
+            {
+            }
+
+            try { _ec?.Dispose(); } catch { }
+            _ec = null;
+            _lastEcFailure = DateTimeOffset.MinValue;
+            _lastEcError = null;
+            _lastFanStateRead = DateTimeOffset.MinValue;
+            _lastFanRpmRead = DateTimeOffset.MinValue;
+            _lastGenericFanRead = DateTimeOffset.MinValue;
+            _lastKeyboardProbe = DateTimeOffset.MinValue;
+            _fanControl = null;
+            _x9FanRpm = null;
+            _x9FanRpmSource = "Unavailable";
+            _genericFans = Array.Empty<LenovoFanReading>();
+            _keyboardAvailable = false;
+        }
+    }
+
     public LenovoHardwareStatus ReadStatus()
     {
         ThrowIfDisposed();
 
-        // Sensor discovery is intentionally outside the EC gate. FanControl and
-        // LibreHardwareMonitor can expose useful CPU/fan telemetry through PawnIO
-        // even if ThinkControl's stricter verified EC write probe is unavailable.
         SensorHubSnapshot sensorSnapshot = _sensors.Read();
 
         lock (_gate)

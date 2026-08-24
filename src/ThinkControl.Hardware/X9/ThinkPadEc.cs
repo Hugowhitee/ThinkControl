@@ -38,35 +38,14 @@ internal sealed class ThinkPadEc : IDisposable
 
     internal ThinkPadEc()
     {
-        // Prove that the signed driver device is reachable before asking LHM to
-        // load its embedded EC port module. LHM intentionally returns zero-filled
-        // results when PawnIO is not loaded; treating those zeros as real EC bytes
-        // would be unsafe for a write-capable provider.
-        using SafeFileHandle driver = CreateFileW(
-            PawnIoDevicePath,
-            GenericRead | GenericWrite,
-            FileShareRead | FileShareWrite,
-            IntPtr.Zero,
-            OpenExisting,
-            FileAttributeNormal,
-            IntPtr.Zero);
-        if (driver.IsInvalid)
-        {
-            int error = Marshal.GetLastWin32Error();
-            throw new InvalidOperationException(
-                $"PawnIO driver device is unavailable (Win32 {error}). Open Hardware setup to install or repair PawnIO.");
-        }
-
-        if (PawnIo.Version is Version installed && installed < new Version(2, 1, 0))
-        {
-            throw new InvalidOperationException(
-                $"PawnIO {installed} is too old for the verified ThinkControl EC provider. Hardware setup installs PawnIO 2.2.0.");
-        }
-
+        // PawnIO is demand-start. Let LHM load its embedded signed module first;
+        // probing the device path before module activation can incorrectly report
+        // an installed PawnIO driver as unavailable (FanControl/LHM do the inverse).
         LpcAcpiEc ports = new();
         try
         {
             VerifyPawnIoModuleLoaded(ports);
+            VerifyPawnIoDeviceReachable();
             _ports = ports;
         }
         catch
@@ -78,15 +57,36 @@ internal sealed class ThinkPadEc : IDisposable
 
     private static void VerifyPawnIoModuleLoaded(LpcAcpiEc ports)
     {
-        // LibreHardwareMonitorLib is pinned, and its LpcAcpiEc wrapper keeps the
-        // loaded PawnIo module in this private field. Checking IsLoaded closes a
-        // dangerous gap where Execute() would otherwise return a plausible 0 byte.
+        if (PawnIo.Version is Version installed && installed < new Version(2, 1, 0))
+        {
+            throw new InvalidOperationException(
+                $"PawnIO {installed} is too old for the verified ThinkControl EC provider. Hardware setup installs PawnIO 2.2.0.");
+        }
+
         FieldInfo? field = typeof(LpcAcpiEc).GetField("_pawnIO", BindingFlags.Instance | BindingFlags.NonPublic);
         if (field?.GetValue(ports) is not PawnIo module || !module.IsLoaded)
         {
             throw new InvalidOperationException(
-                "PawnIO is installed, but the LibreHardwareMonitor EC module could not load. Repair PawnIO or restart Windows, then retry Hardware setup.");
+                "LibreHardwareMonitor could not load its PawnIO EC module. Use Hardware setup → Refresh providers; reinstall PawnIO only if Windows reports it missing.");
         }
+    }
+
+    private static void VerifyPawnIoDeviceReachable()
+    {
+        using SafeFileHandle driver = CreateFileW(
+            PawnIoDevicePath,
+            GenericRead | GenericWrite,
+            FileShareRead | FileShareWrite,
+            IntPtr.Zero,
+            OpenExisting,
+            FileAttributeNormal,
+            IntPtr.Zero);
+        if (!driver.IsInvalid)
+            return;
+
+        int error = Marshal.GetLastWin32Error();
+        throw new InvalidOperationException(
+            $"PawnIO module loaded but its driver device is not reachable (Win32 {error}). Refresh providers or restart Windows before reinstalling the driver.");
     }
 
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));

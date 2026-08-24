@@ -19,8 +19,8 @@ public partial class HardwareSetupWindow : Window
 
     private async Task RefreshAsync()
     {
-        bool needsSensorProvider = !_app.State.CanSensorTelemetry || !_app.State.CanFanTelemetry;
-        HardwareSetupStatus status = await _service.ReadStatusAsync(_app.State.MachineType, needsSensorProvider);
+        HardwareSetupStatus status = await _app.RefreshHardwareSetupStatusAsync();
+
         ServiceStatusText.Text = status.ServiceDetail;
         ServiceStatusText.Foreground = (Brush)FindResource(status.ServiceRunning ? "Tc.Success" : "Tc.Warning");
         RepairServiceButton.Visibility = status.ServiceRunning ? Visibility.Collapsed : Visibility.Visible;
@@ -30,31 +30,44 @@ public partial class HardwareSetupWindow : Window
         LowLevelStatusText.Foreground = (Brush)FindResource(status.LowLevelAccessInstalled ? "Tc.Success" : "Tc.Warning");
         InstallLowLevelButton.Visibility = status.LowLevelAccessInstalled ? Visibility.Collapsed : Visibility.Visible;
 
-        bool lenovoDevice = _app.State.DeviceName.Contains("ThinkPad", StringComparison.OrdinalIgnoreCase) ||
-                            _app.State.DeviceName.Contains("Lenovo", StringComparison.OrdinalIgnoreCase) ||
-                            (!string.IsNullOrWhiteSpace(_app.State.MachineType) && _app.State.MachineType != "—");
-        LenovoDriverCard.Visibility = lenovoDevice && !_app.State.CanKeyboardBacklight
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        SensorProviderStatusText.Text = _app.State.CanSensorTelemetry
+            ? $"Ready · {_app.State.SensorCountText}"
+            : status.LowLevelAccessInstalled
+                ? "PawnIO is installed, but ThinkControl's LibreHardwareMonitor provider has not returned useful sensors yet. Retry rebuilds the provider."
+                : "Waiting for PawnIO installation before LHM sensor discovery can be retried.";
+        SensorProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanSensorTelemetry ? "Tc.Success" : "Tc.Warning");
+        RetrySensorsButton.IsEnabled = status.ServiceRunning && status.LowLevelAccessInstalled;
+
+        bool verifiedX9 = _app.State.MachineType is "21Q6" or "21Q7";
+        FanProviderStatusText.Text = _app.State.CanFanControl
+            ? $"Ready · verified X9 EC control · {_app.State.FanRpmText}"
+            : _app.State.CanFanTelemetry
+                ? "Fan telemetry is available, but the verified X9 EC read/write probe has not passed yet. Retry rebuilds PawnIO/EC access without guessing registers."
+                : verifiedX9
+                    ? "Verified X9 profile detected, but EC/fan telemetry has not passed readback yet. Retry the provider before reinstalling anything."
+                    : "Read-only fan telemetry can be discovered, but manual fan control is limited to verified device profiles.";
+        FanProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanFanControl ? "Tc.Success" : "Tc.Warning");
+        RetryFanButton.IsEnabled = status.ServiceRunning && (!status.LowLevelAccessRelevant || status.LowLevelAccessInstalled);
+
         LenovoDriverStatusText.Text = _app.State.CanKeyboardBacklight
-            ? "Keyboard provider detected"
-            : "Keyboard provider not detected yet";
-        LenovoDriverStatusText.Foreground = (Brush)FindResource(
-            _app.State.CanKeyboardBacklight ? "Tc.Success" : "Tc.Warning");
+            ? $"Ready · {_app.State.KeyboardStatus}"
+            : "Lenovo keyboard readback has not passed yet. Retry probes PM/EnergyDrv/Vantage providers again; this does not install or change a driver.";
+        LenovoDriverStatusText.Foreground = (Brush)FindResource(_app.State.CanKeyboardBacklight ? "Tc.Success" : "Tc.Warning");
+        RetryKeyboardButton.IsEnabled = status.ServiceRunning;
 
-        await _app.RefreshHardwareSetupStatusAsync();
-
-        if (!status.NeedsAttention && _app.State.CanKeyboardBacklight && string.IsNullOrWhiteSpace(ResultText.Text))
-            ResultText.Text = "Hardware providers are ready. ThinkControl will keep re-detecting sensors and supported controls automatically.";
-        else if (!status.NeedsAttention && string.IsNullOrWhiteSpace(ResultText.Text))
-            ResultText.Text = "Core hardware access is ready. Optional Lenovo keyboard integration can be repaired separately if needed.";
+        if (string.IsNullOrWhiteSpace(ResultText.Text))
+        {
+            ResultText.Text = status.ServiceRunning
+                ? "Choose Retry on the capability that is failing. ThinkControl will recycle its providers and show the new readback here."
+                : "Repair the ThinkControl service first; provider diagnostics depend on that connection.";
+        }
     }
 
     private async void RepairService_Click(object sender, RoutedEventArgs e)
     {
         if (_busy)
             return;
-        SetBusy(true, "Repairing the ThinkControl hardware service...");
+        SetBusy(true, "Repairing the ThinkControl hardware service…");
         HardwareSetupResult result = await _service.RepairServiceAsync();
         ResultText.Text = result.Message;
         await _app.RefreshStatusAsync(forceSystemInfo: true);
@@ -66,10 +79,13 @@ public partial class HardwareSetupWindow : Window
     {
         if (_busy)
             return;
-        SetBusy(true, "Downloading and SHA-256 verifying PawnIO...");
+        SetBusy(true, "Downloading and SHA-256 verifying PawnIO…");
         HardwareSetupResult result = await _service.InstallLowLevelAccessAsync();
         ResultText.Text = result.Message;
-        await _app.RefreshStatusAsync(forceSystemInfo: true);
+        if (result.Success && !result.RestartRequired)
+            await _app.RefreshHardwareProvidersAsync();
+        else
+            await _app.RefreshStatusAsync(forceSystemInfo: true);
         await RefreshAsync();
         SetBusy(false);
     }
@@ -78,23 +94,40 @@ public partial class HardwareSetupWindow : Window
     {
         if (LenovoSoftwareLauncher.TryOpenVantage())
         {
-            ResultText.Text = "Lenovo Vantage opened. Install the recommended Lenovo system/interface updates, then return here and press Retry.";
+            ResultText.Text = "Lenovo Vantage opened. Only install Lenovo platform/interface updates if Retry still cannot read the keyboard provider.";
             return;
         }
 
-        ResultText.Text = "Lenovo Vantage is not registered on this Windows installation. Install Lenovo Vantage, run Windows Update including optional Lenovo updates, then retry detection.";
+        ResultText.Text = "Lenovo Vantage is not registered on this Windows installation. Retry does not require it; install Vantage only if Lenovo platform components are genuinely missing.";
     }
 
-    private async void RetryDetection_Click(object sender, RoutedEventArgs e)
+    private async void RetryProviders_Click(object sender, RoutedEventArgs e)
     {
         if (_busy)
             return;
-        SetBusy(true, "Re-detecting hardware providers...");
-        await _app.RefreshStatusAsync(forceSystemInfo: true);
+
+        string capability = sender is FrameworkElement { Tag: string tag } ? tag : "hardware";
+        SetBusy(true, $"Refreshing {capability.ToLowerInvariant()} providers…");
+        bool anyProvider = await _app.RefreshHardwareProvidersAsync();
         await RefreshAsync();
-        ResultText.Text = _app.State.CanKeyboardBacklight
-            ? "Keyboard provider detected."
-            : "Keyboard provider is still unavailable. Lenovo Vantage / Windows Update may have a platform-driver update for this device.";
+
+        bool ready = capability switch
+        {
+            "Sensors" => _app.State.CanSensorTelemetry,
+            "Fans" => _app.State.CanFanControl || _app.State.CanFanTelemetry,
+            "Keyboard" => _app.State.CanKeyboardBacklight,
+            _ => anyProvider
+        };
+
+        ResultText.Text = ready
+            ? $"{capability} provider responded after a clean refresh."
+            : capability switch
+            {
+                "Sensors" => "Sensor provider is still empty after a clean LHM/PawnIO recycle. PawnIO is not reinstalled when Windows already reports it installed; the next device report will include this provider failure for debugging.",
+                "Fans" => "Fan provider is still unavailable after a clean PawnIO/EC recycle. ThinkControl keeps Lenovo firmware in control rather than guessing EC writes.",
+                "Keyboard" => "Keyboard provider still did not pass Lenovo readback. Check Lenovo platform/hotkey updates only after this clean retry fails.",
+                _ => "Provider refresh completed, but no hardware capability passed readback yet."
+            };
         SetBusy(false);
     }
 
@@ -106,7 +139,9 @@ public partial class HardwareSetupWindow : Window
         RepairServiceButton.IsEnabled = !busy;
         InstallLowLevelButton.IsEnabled = !busy;
         OpenVantageButton.IsEnabled = !busy;
-        RetryDetectionButton.IsEnabled = !busy;
+        RetrySensorsButton.IsEnabled = !busy;
+        RetryFanButton.IsEnabled = !busy;
+        RetryKeyboardButton.IsEnabled = !busy;
         if (!string.IsNullOrWhiteSpace(message))
             ResultText.Text = message;
     }

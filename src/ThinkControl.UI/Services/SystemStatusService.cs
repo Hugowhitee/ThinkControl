@@ -18,18 +18,12 @@ public sealed record SystemStatusSnapshot(
 public sealed class SystemStatusService
 {
     private static readonly string[] VerifiedX9MachineTypes = ["21Q6", "21Q7"];
+    private readonly object _cacheGate = new();
+    private StaticSystemIdentity? _cachedIdentity;
 
     public SystemStatusSnapshot Read()
     {
-        string manufacturer = ReadFirst("Win32_ComputerSystem", "Manufacturer") ?? "";
-        string model = ReadFirst("Win32_ComputerSystem", "Model") ?? "ThinkPad";
-        string productVersion = ReadFirst("Win32_ComputerSystemProduct", "Version") ?? "";
-        string cpu = ReadFirst("Win32_Processor", "Name") ?? "—";
-        string gpu = ReadFirst("Win32_VideoController", "Name") ?? "—";
-        string bios = ReadFirst("Win32_BIOS", "SMBIOSBIOSVersion") ?? "—";
-        string? sku = ReadFirst("Win32_ComputerSystem", "SystemSKUNumber");
-        string machineType = ParseMachineType(sku, model, productVersion);
-        string ram = FormatRam(ReadFirstUlong("Win32_ComputerSystem", "TotalPhysicalMemory"));
+        StaticSystemIdentity identity = GetStaticIdentity();
 
         Forms.PowerStatus power = Forms.SystemInformation.PowerStatus;
         int battery = power.BatteryLifePercent is >= 0 and <= 1
@@ -42,17 +36,45 @@ public sealed class SystemStatusService
             _ => "Power state unknown"
         };
 
-        string deviceName = SelectDeviceName(productVersion, model);
         return new SystemStatusSnapshot(
-            deviceName,
-            cpu.Trim(),
-            gpu.Trim(),
-            ram,
-            bios.Trim(),
-            machineType,
+            identity.DeviceName,
+            identity.CpuName,
+            identity.GpuName,
+            identity.RamText,
+            identity.BiosVersion,
+            identity.MachineType,
             battery,
             batteryStatus,
-            manufacturer.Trim());
+            identity.Manufacturer);
+    }
+
+    private StaticSystemIdentity GetStaticIdentity()
+    {
+        lock (_cacheGate)
+        {
+            if (_cachedIdentity is not null)
+                return _cachedIdentity;
+
+            string manufacturer = ReadFirst("Win32_ComputerSystem", "Manufacturer") ?? "";
+            string model = ReadFirst("Win32_ComputerSystem", "Model") ?? "ThinkPad";
+            string productVersion = ReadFirst("Win32_ComputerSystemProduct", "Version") ?? "";
+            string cpu = ReadFirst("Win32_Processor", "Name") ?? "—";
+            string gpu = ReadFirst("Win32_VideoController", "Name") ?? "—";
+            string bios = ReadFirst("Win32_BIOS", "SMBIOSBIOSVersion") ?? "—";
+            string? sku = ReadFirst("Win32_ComputerSystem", "SystemSKUNumber");
+            string machineType = ParseMachineType(sku, model, productVersion);
+            string ram = FormatRam(ReadFirstUlong("Win32_ComputerSystem", "TotalPhysicalMemory"));
+
+            _cachedIdentity = new StaticSystemIdentity(
+                SelectDeviceName(productVersion, model),
+                cpu.Trim(),
+                gpu.Trim(),
+                ram,
+                bios.Trim(),
+                machineType,
+                manufacturer.Trim());
+            return _cachedIdentity;
+        }
     }
 
     private static string? ReadFirst(string className, string property)
@@ -109,9 +131,6 @@ public sealed class SystemStatusService
 
     private static string ParseMachineType(params string?[] candidates)
     {
-        // Exact verified identifiers get first priority. Lenovo SystemSKUNumber
-        // often looks like LENOVO_MT_21Q6_BU_Think_..., so taking the first four
-        // letters would incorrectly classify an X9 as "LENO".
         foreach (string verified in VerifiedX9MachineTypes)
         {
             foreach (string? candidate in candidates)
@@ -146,4 +165,13 @@ public sealed class SystemStatusService
 
         return "—";
     }
+
+    private sealed record StaticSystemIdentity(
+        string DeviceName,
+        string CpuName,
+        string GpuName,
+        string RamText,
+        string BiosVersion,
+        string MachineType,
+        string Manufacturer);
 }

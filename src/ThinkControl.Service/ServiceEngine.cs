@@ -34,9 +34,6 @@ internal sealed class ServiceEngine : IDisposable
         CancellationToken token = linked.Token;
         _fanSupervisor.Start(token);
 
-        // Keep IPC responsive while LHM/PawnIO/EC/keyboard discovery happens in the
-        // background. A slow first sensor enumeration must never look like a dead
-        // Windows service to the user-facing UI.
         _statusRefreshTask = Task.Run(() => StatusRefreshLoopAsync(token), token);
 
         while (!token.IsCancellationRequested)
@@ -161,6 +158,7 @@ internal sealed class ServiceEngine : IDisposable
             {
                 "Ping" => new ServiceResponse(ThinkControlProtocol.Version, true),
                 "GetStatus" => CachedStatusResponse(),
+                "RefreshProviders" => RefreshProviders(),
                 "SetFanLevel" => SetFanLevel(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
                 "SetCoolingProfile" => SetCoolingProfile(request.Value),
@@ -182,6 +180,14 @@ internal sealed class ServiceEngine : IDisposable
     {
         lock (_statusGate)
             return _lastStatus ?? ProviderDiscoveryResponse("Service online · detecting hardware providers");
+    }
+
+    private ServiceResponse RefreshProviders()
+    {
+        _hardware.RefreshProviders();
+        ServiceResponse discovering = ProviderDiscoveryResponse("Providers recycled · re-detecting PawnIO/LHM, X9 EC and Lenovo keyboard backends");
+        lock (_statusGate) _lastStatus = discovering;
+        return discovering;
     }
 
     private ServiceResponse BuildStatusResponse()

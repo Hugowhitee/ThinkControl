@@ -16,12 +16,19 @@ public sealed class DisplayService
     private const int EnumCurrentSettings = -1;
     private const int DispChangeSuccessful = 0;
     private const int DmDisplayFrequency = 0x00400000;
+    private static readonly TimeSpan CapabilityCacheLifetime = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan AdaptiveCacheLifetime = TimeSpan.FromSeconds(30);
+
+    private readonly object _cacheGate = new();
+    private IReadOnlyList<int> _cachedRates = Array.Empty<int>();
+    private DateTimeOffset _ratesReadAt = DateTimeOffset.MinValue;
+    private bool? _cachedAdaptive;
+    private DateTimeOffset _adaptiveReadAt = DateTimeOffset.MinValue;
 
     public DisplaySnapshot Read()
     {
         int current = GetCurrentRefreshRate();
-        IReadOnlyList<int> rates = GetSupportedRefreshRates();
-        return new DisplaySnapshot(current, rates, GetBrightness(), GetAdaptiveBrightness());
+        return new DisplaySnapshot(current, GetSupportedRefreshRates(), GetBrightness(), GetAdaptiveBrightness());
     }
 
     public bool SetRefreshRate(int hz)
@@ -38,7 +45,10 @@ public sealed class DisplayService
 
         mode.dmDisplayFrequency = hz;
         mode.dmFields |= DmDisplayFrequency;
-        return ChangeDisplaySettings(ref mode, 0) == DispChangeSuccessful;
+        bool changed = ChangeDisplaySettings(ref mode, 0) == DispChangeSuccessful;
+        if (changed)
+            InvalidateCapabilities();
+        return changed;
     }
 
     public bool SetMaximumRefreshRate()
@@ -56,6 +66,20 @@ public sealed class DisplayService
     }
 
     public IReadOnlyList<int> GetSupportedRefreshRates()
+    {
+        lock (_cacheGate)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            if (_cachedRates.Count > 0 && now - _ratesReadAt < CapabilityCacheLifetime)
+                return _cachedRates;
+
+            _cachedRates = EnumerateSupportedRefreshRates();
+            _ratesReadAt = now;
+            return _cachedRates;
+        }
+    }
+
+    private static IReadOnlyList<int> EnumerateSupportedRefreshRates()
     {
         DEVMODE current = CreateDevMode();
         if (!EnumDisplaySettings(null, EnumCurrentSettings, ref current))
@@ -132,6 +156,20 @@ public sealed class DisplayService
 
     public bool? GetAdaptiveBrightness()
     {
+        lock (_cacheGate)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            if (_adaptiveReadAt != DateTimeOffset.MinValue && now - _adaptiveReadAt < AdaptiveCacheLifetime)
+                return _cachedAdaptive;
+
+            _cachedAdaptive = ReadAdaptiveBrightness();
+            _adaptiveReadAt = now;
+            return _cachedAdaptive;
+        }
+    }
+
+    private static bool? ReadAdaptiveBrightness()
+    {
         ProcessResult result = RunPowerCfg("/Q SCHEME_CURRENT SUB_VIDEO ADAPTBRIGHT");
         if (result.ExitCode != 0)
             return null;
@@ -140,12 +178,9 @@ public sealed class DisplayService
             result.Output,
             @"Current (?:AC|DC) Power Setting Index:\s*0x(?<value>[0-9a-fA-F]+)",
             RegexOptions.IgnoreCase);
-
         if (matches.Count == 0)
             return null;
 
-        // Prefer the currently relevant value when possible. powercfg prints AC then DC;
-        // returning true when either is enabled is only used as an initial UI hint.
         return matches.Cast<Match>().Any(match =>
             int.TryParse(match.Groups["value"].Value, System.Globalization.NumberStyles.HexNumber, null, out int value) && value != 0);
     }
@@ -156,7 +191,25 @@ public sealed class DisplayService
         ProcessResult ac = RunPowerCfg($"/SETACVALUEINDEX SCHEME_CURRENT SUB_VIDEO ADAPTBRIGHT {value}");
         ProcessResult dc = RunPowerCfg($"/SETDCVALUEINDEX SCHEME_CURRENT SUB_VIDEO ADAPTBRIGHT {value}");
         ProcessResult activate = RunPowerCfg("/SETACTIVE SCHEME_CURRENT");
-        return ac.ExitCode == 0 && dc.ExitCode == 0 && activate.ExitCode == 0;
+        bool changed = ac.ExitCode == 0 && dc.ExitCode == 0 && activate.ExitCode == 0;
+        if (changed)
+        {
+            lock (_cacheGate)
+            {
+                _cachedAdaptive = enabled;
+                _adaptiveReadAt = DateTimeOffset.UtcNow;
+            }
+        }
+        return changed;
+    }
+
+    private void InvalidateCapabilities()
+    {
+        lock (_cacheGate)
+        {
+            _ratesReadAt = DateTimeOffset.MinValue;
+            _cachedRates = Array.Empty<int>();
+        }
     }
 
     private static ProcessResult RunPowerCfg(string arguments)
