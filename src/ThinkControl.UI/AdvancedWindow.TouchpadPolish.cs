@@ -29,5 +29,7 @@ public partial class AdvancedWindow
             clickForce.FlowDirection = System.Windows.FlowDirection.RightToLeft;
             clickForce.ToolTip = "Light  ←  click sensitivity  →  Firm";
         }
+
+        panel.ConfigureValueFeedback();
     }
 }
