@@ -18,11 +18,9 @@ public sealed record BatteryTelemetrySnapshot(
     string Source);
 
 /// <summary>
-/// Reads the Windows ACPI battery telemetry exposed by root\wmi and turns the noisy
-/// charge/discharge rate into a deliberately slow-moving estimate. The displayed
-/// watt value can remain close to the live sensor, while ETA waits for a short warm-up
-/// and then blends filtered charge power, observed Wh progress and a bounded prior
-/// learned from previous charge sessions when one is available.
+/// Reads Windows ACPI battery telemetry and turns the noisy charge/discharge rate
+/// into a deliberately slow-moving estimate. Current-session data stays dominant;
+/// compact historical charge/discharge priors only stabilize the first few minutes.
 /// </summary>
 public sealed class BatteryTelemetryService
 {
@@ -114,9 +112,9 @@ public sealed class BatteryTelemetryService
                         rawEtaSeconds = energyNeededWh / effectivePower * 3600d;
                     }
                 }
-                else if (raw.Discharging && raw.RemainingCapacityWh is > 0 && _smoothedPowerWatts is > 0.4)
+                else if (raw.Discharging && raw.RemainingCapacityWh is > 0 && GetEffectiveDischargePower(now) is double effectiveDischargePower)
                 {
-                    rawEtaSeconds = raw.RemainingCapacityWh.Value / _smoothedPowerWatts.Value * 3600d;
+                    rawEtaSeconds = raw.RemainingCapacityWh.Value / effectiveDischargePower * 3600d;
                 }
 
                 if (rawEtaSeconds.HasValue && rawEtaSeconds.Value >= 0 && rawEtaSeconds.Value <= MaxEta.TotalSeconds)
@@ -193,9 +191,6 @@ public sealed class BatteryTelemetryService
         double robustWindowPower = Percentile(_powerWindow, elapsed < LowPowerGrace ? 0.65 : 0.50);
         double effectivePower = Lerp(_smoothedPowerWatts.Value, robustWindowPower, 0.50);
 
-        // A learned session median is useful as an early prior, but it may come from
-        // a different charger or workload. Keep it tightly bounded to current data
-        // and fade its influence quickly as this session accumulates real samples.
         if (_historicalChargePowerWatts is > 0.4 && effectivePower >= EarlyChargingPowerFloorWatts && elapsed < TimeSpan.FromMinutes(5))
         {
             double boundedHistory = Math.Clamp(
@@ -216,6 +211,30 @@ public sealed class BatteryTelemetryService
                 effectivePower * 0.50,
                 effectivePower * 1.75);
             effectivePower = Lerp(effectivePower, constrainedObserved, 0.60);
+        }
+
+        return Math.Max(0.4, effectivePower);
+    }
+
+    private double? GetEffectiveDischargePower(DateTimeOffset now)
+    {
+        if (_smoothedPowerWatts is not > 0.4)
+            return null;
+
+        TimeSpan elapsed = _modeStartedAt.HasValue ? now - _modeStartedAt.Value : TimeSpan.MaxValue;
+        double robustWindowPower = Percentile(_powerWindow, 0.50);
+        double effectivePower = Lerp(_smoothedPowerWatts.Value, robustWindowPower, 0.55);
+        double? historical = BatteryPowerHistoryPriors.TypicalDischargePowerWatts;
+
+        // Workload changes can make discharge vary quickly. History therefore has
+        // less weight than for charging and is always clamped to the current session.
+        if (historical is > 0.4 && elapsed < TimeSpan.FromMinutes(8))
+        {
+            double boundedHistory = Math.Clamp(historical.Value, effectivePower * 0.55, effectivePower * 1.75);
+            double weight = elapsed < TimeSpan.FromMinutes(2)
+                ? 0.28
+                : elapsed < TimeSpan.FromMinutes(5) ? 0.14 : 0.07;
+            effectivePower = Lerp(effectivePower, boundedHistory, weight);
         }
 
         return Math.Max(0.4, effectivePower);
