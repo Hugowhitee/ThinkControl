@@ -11,6 +11,7 @@ public partial class AdvancedWindow
     private const string SupportCardKey = "ThinkControl.Settings.SupportCard";
     private const string HomeSupportCardTag = "ThinkControl.Home.SupportCard";
     private const string BuyMeACoffeeUrl = "https://buymeacoffee.com/hugowhite";
+    private static readonly Geometry BuyMeACoffeeGeometry = Geometry.Parse("M6.898 0L5.682 2.799H3.877v2.523h.695L5.277 9.8H4.172l1.46 8.23.938-.01L7.512 24h8.918l.062-.4.88-5.58.888.01 1.46-8.231h-1.056l.705-4.477h.756V2.8h-1.918L16.99 0H6.898zm.528.805h9.043l.771 1.78H6.652l.774-1.78zm-2.75 2.797H19.32v.92H4.676v-.92zm.453 6.998h13.635l-1.176 6.62-5.649-.06-5.636.06-1.174-6.62z");
 
     private void ConfigureSupportCard()
     {
@@ -61,7 +62,7 @@ public partial class AdvancedWindow
         Grid.SetColumn(copy, 1);
         grid.Children.Add(copy);
 
-        Button action = CreateCoffeeAction();
+        Button action = CreateCoffeeAction(compact: false);
         Grid.SetColumn(action, 2);
         grid.Children.Add(action);
 
@@ -93,8 +94,7 @@ public partial class AdvancedWindow
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        Border mark = CreateCoffeeMark(32);
-        grid.Children.Add(mark);
+        grid.Children.Add(CreateCoffeeMark(32));
 
         var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         copy.Children.Add(new TextBlock
@@ -114,16 +114,13 @@ public partial class AdvancedWindow
         Grid.SetColumn(copy, 1);
         grid.Children.Add(copy);
 
-        Button action = CreateCoffeeAction();
-        action.Padding = new Thickness(10, 5, 10, 5);
+        Button action = CreateCoffeeAction(compact: true);
         Grid.SetColumn(action, 2);
         grid.Children.Add(action);
 
         card.Child = grid;
         AttachCardClick(card);
 
-        // The Home quick-access row is inserted at index 1. Put support directly
-        // below it so the option is visible without turning Home into an ad wall.
         int insertAt = Math.Min(2, homeStack.Children.Count);
         homeStack.Children.Insert(insertAt, card);
     }
@@ -139,38 +136,51 @@ public partial class AdvancedWindow
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Left
         };
-        var cup = new Viewbox
+
+        mark.Child = new Viewbox
         {
-            Width = size * 0.57,
-            Height = size * 0.57,
+            Width = size * 0.52,
+            Height = size * 0.52,
             HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            Child = new Path
+            {
+                Fill = Brushes.Black,
+                Data = BuyMeACoffeeGeometry
+            }
         };
-        var cupCanvas = new Canvas { Width = 24, Height = 24 };
-        cupCanvas.Children.Add(new Path
-        {
-            Stroke = Brushes.Black,
-            StrokeThickness = 1.9,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            Data = Geometry.Parse("M5,8 L17,8 L16,17 C16,19 14.5,20 12.5,20 L9.5,20 C7.5,20 6,19 6,17 Z M17,10 L19,10 C21,10 21,15 17,15 M8,4 C8,5 9,5.5 9,6 M12,3 C12,4 13,4.5 13,5.5")
-        });
-        cup.Child = cupCanvas;
-        mark.Child = cup;
         return mark;
     }
 
-    private Button CreateCoffeeAction()
+    private Button CreateCoffeeAction(bool compact)
     {
         var action = new Button
         {
-            Content = "Buy me a coffee  ↗",
             Style = TryFindResource("TcButton") as Style,
-            Padding = new Thickness(12, 7, 12, 7),
+            Padding = compact ? new Thickness(10, 5, 10, 5) : new Thickness(12, 7, 12, 7),
             VerticalAlignment = VerticalAlignment.Center,
-            ToolTip = "Open buymeacoffee.com/hugowhite"
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromRgb(255, 221, 0)),
+            Foreground = Brushes.Black,
+            BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(224, 194, 0)),
+            ToolTip = "Open Buy Me a Coffee"
         };
+
+        var content = new StackPanel { Orientation = Orientation.Horizontal };
+        content.Children.Add(new Viewbox
+        {
+            Width = compact ? 14 : 15,
+            Height = compact ? 14 : 15,
+            Margin = new Thickness(0, 0, 7, 0),
+            Child = new Path { Fill = Brushes.Black, Data = BuyMeACoffeeGeometry }
+        });
+        content.Children.Add(new TextBlock
+        {
+            Text = compact ? "Buy me a coffee" : "Buy me a coffee  ↗",
+            FontWeight = FontWeights.SemiBold,
+            Foreground = Brushes.Black,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        action.Content = content;
         action.Click += (_, _) => OpenBuyMeACoffee();
         return action;
     }
