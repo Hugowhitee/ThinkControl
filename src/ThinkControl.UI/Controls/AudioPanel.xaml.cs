@@ -1,25 +1,62 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
 
 public partial class AudioPanel : UserControl
 {
+    private readonly WindowsVolumeService _volume = new();
+    private readonly DispatcherTimer _volumeApplyTimer;
+    private readonly DispatcherTimer _volumeRefreshTimer;
     private App? _app;
     private DolbyAudioService? _dolby;
     private bool _syncing;
+    private bool _volumeDragging;
     private DolbyAudioStatus? _status;
 
     public AudioPanel()
     {
         InitializeComponent();
+
+        _volumeApplyTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(45)
+        };
+        _volumeApplyTimer.Tick += (_, _) =>
+        {
+            _volumeApplyTimer.Stop();
+            ApplyVolumeSlider();
+        };
+
+        _volumeRefreshTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(1)
+        };
+        _volumeRefreshTimer.Tick += (_, _) =>
+        {
+            if (!_volumeDragging)
+                RefreshVolume();
+        };
+
+        Loaded += (_, _) =>
+        {
+            RefreshVolume();
+            _volumeRefreshTimer.Start();
+        };
+        Unloaded += (_, _) =>
+        {
+            _volumeApplyTimer.Stop();
+            _volumeRefreshTimer.Stop();
+        };
     }
 
     internal void Initialize(App app)
     {
         _app = app;
         _dolby ??= new DolbyAudioService();
+        RefreshVolume();
         RefreshStatus();
     }
 
@@ -64,6 +101,76 @@ public partial class AudioPanel : UserControl
         {
             _syncing = false;
         }
+    }
+
+    private void RefreshVolume()
+    {
+        WindowsVolumeStatus status = _volume.Read();
+        _syncing = true;
+        try
+        {
+            VolumeSlider.IsEnabled = status.Available;
+            MuteButton.IsEnabled = status.Available;
+            VolumeDeviceText.Text = status.Detail;
+            if (!status.Available)
+            {
+                VolumeValueText.Text = "—";
+                MuteButton.Content = "Mute";
+                return;
+            }
+
+            VolumeSlider.Value = status.Percent;
+            VolumeValueText.Text = status.Muted ? $"{status.Percent}% · muted" : $"{status.Percent}%";
+            MuteButton.Content = status.Muted ? "Unmute" : "Mute";
+            MuteButton.Tag = status.Muted;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_syncing || !IsLoaded)
+            return;
+
+        int percent = (int)Math.Round(e.NewValue);
+        VolumeValueText.Text = $"{percent}%";
+        _volumeDragging = true;
+        _volumeApplyTimer.Stop();
+        _volumeApplyTimer.Start();
+    }
+
+    private void VolumeSlider_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        _volumeApplyTimer.Stop();
+        ApplyVolumeSlider();
+        _volumeDragging = false;
+        RefreshVolume();
+    }
+
+    private void ApplyVolumeSlider()
+    {
+        if (_syncing || !VolumeSlider.IsEnabled)
+            return;
+
+        int requested = (int)Math.Round(VolumeSlider.Value);
+        if (_volume.Set(requested, out int applied))
+            VolumeValueText.Text = $"{applied}%";
+    }
+
+    private void Mute_Click(object sender, RoutedEventArgs e)
+    {
+        WindowsVolumeStatus current = _volume.Read();
+        if (!current.Available)
+        {
+            RefreshVolume();
+            return;
+        }
+
+        _volume.SetMuted(!current.Muted);
+        RefreshVolume();
     }
 
     private async void Profile_Click(object sender, RoutedEventArgs e)
@@ -153,7 +260,7 @@ public partial class AudioPanel : UserControl
         try
         {
             await _app.ResetAudioDefaultsAsync();
-            ActionStatusText.Text = "Audio preferences reset to Dynamic.";
+            ActionStatusText.Text = "Audio processing preferences reset to Dynamic. Windows output volume was left unchanged.";
             RefreshStatus();
         }
         finally
