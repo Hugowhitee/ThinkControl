@@ -89,53 +89,39 @@ internal sealed class HardwareSetupService
         string? serviceExe = root is null ? null : Path.Combine(root, "service", "ThinkControl.Service.exe");
 
         if (string.IsNullOrWhiteSpace(serviceExe) || !File.Exists(serviceExe))
-            return new(false, false, "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the application payload.");
-
-        string psName = ServiceName.Replace("'", "''");
-        string psExe = serviceExe.Replace("'", "''");
-        string script =
-            "$ErrorActionPreference='Stop';" +
-            $"$name='{psName}';$exe='{psExe}';" +
-            "$svc=Get-Service -Name $name -ErrorAction SilentlyContinue;" +
-            "if($null -ne $svc -and $svc.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Stopped){" +
-                "Stop-Service -Name $name -Force -ErrorAction Stop;" +
-                "$svc.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped,[TimeSpan]::FromSeconds(12));" +
-            "};" +
-            "$bin='\"'+$exe+'\"';" +
-            "if($null -eq $svc){" +
-                "& sc.exe create $name ('binPath= '+$bin) 'start= auto' 'DisplayName= ThinkControl Hardware Service' | Out-Null;" +
-                "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
-            "};" +
-            "& sc.exe config $name ('binPath= '+$bin) 'start= auto' 'DisplayName= ThinkControl Hardware Service' | Out-Null;" +
-            "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
-            "& sc.exe failure $name 'reset= 86400' 'actions= restart/5000' | Out-Null;" +
-            "if($LASTEXITCODE -ne 0){exit $LASTEXITCODE};" +
-            "Start-Service -Name $name -ErrorAction Stop;" +
-            "$svc=Get-Service -Name $name -ErrorAction Stop;" +
-            "$svc.WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Running,[TimeSpan]::FromSeconds(10));";
+        {
+            return new(false, false,
+                "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the application payload.");
+        }
 
         try
         {
+            // One normal Windows elevation handoff to ThinkControl's own signed/
+            // packaged service helper. No generated PowerShell script or console
+            // window is involved; the in-app repair card remains the UX owner.
             using Process? process = Process.Start(new ProcessStartInfo
             {
-                FileName = "powershell.exe",
-                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"" + script.Replace("\"", "\\\"") + "\"",
+                FileName = serviceExe,
+                Arguments = "--repair-service",
                 UseShellExecute = true,
                 Verb = "runas",
                 WindowStyle = ProcessWindowStyle.Hidden
             });
             if (process is null)
-                return new(false, false, "Windows could not start the hardware service repair.");
+                return new(false, false, "Windows could not start the ThinkControl hardware service repair.");
 
             await process.WaitForExitAsync().ConfigureAwait(false);
             if (process.ExitCode != 0)
-                return new(false, false, $"Hardware service repair returned exit code {process.ExitCode}. The existing installation was left for Windows to manage.");
+            {
+                return new(false, false,
+                    $"Hardware service repair returned code {process.ExitCode}. The app payload was left unchanged.");
+            }
 
             await Task.Delay(500).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
             return after.Running
-                ? new(true, false, "ThinkControl hardware service was restarted. ThinkControl will verify the app connection and providers next.")
-                : new(false, false, "The hardware service is still not running. Reinstall ThinkControl or check Windows Services for ThinkControl Hardware Service.");
+                ? new(true, false, "ThinkControl hardware service is running. Verifying hardware providers now…")
+                : new(false, false, "The hardware service repair completed, but Windows still reports the service as stopped.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
@@ -187,7 +173,7 @@ internal sealed class HardwareSetupService
             }
 
             return new(false, restart,
-                "The component installer finished, but Windows does not report PawnIO. Restart Windows or run Hardware setup again.");
+                "The component installer finished, but Windows does not report PawnIO. Restart Windows or run the repair again.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
