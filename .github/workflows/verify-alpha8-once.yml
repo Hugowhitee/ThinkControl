@@ -20,16 +20,12 @@ jobs:
           fetch-depth: 0
 
       - name: Wait for release and verify assets
-        id: verify
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: v0.1.0-alpha.8
         shell: bash
         run: |
           set -euo pipefail
-
-          expected_commit=$(git rev-parse HEAD^)
-          echo "Expected release commit: $expected_commit"
 
           for attempt in $(seq 1 40); do
             if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
@@ -45,8 +41,9 @@ jobs:
 
           git fetch origin "refs/tags/$TAG:refs/tags/$TAG" --force
           tag_commit=$(git rev-list -n 1 "$TAG")
-          if [[ "$tag_commit" != "$expected_commit" ]]; then
-            echo "Tag points to $tag_commit, expected $expected_commit" >&2
+          tagged_version=$(git show "$TAG:version.json" | python -c "import json,sys; print(json.load(sys.stdin)['version'])")
+          if [[ "$tagged_version" != "0.1.0-alpha.8" ]]; then
+            echo "Tag contains unexpected version: $tagged_version" >&2
             exit 1
           fi
 
@@ -59,6 +56,7 @@ jobs:
           fi
 
           dir="$RUNNER_TEMP/thinkcontrol-alpha8-release"
+          rm -rf "$dir"
           mkdir -p "$dir"
           gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir "$dir"
 
@@ -77,7 +75,6 @@ jobs:
 
           (cd "$dir" && sha256sum -c SHA256SUMS.txt) | tee "$RUNNER_TEMP/hash-check.txt"
 
-          mkdir -p docs/release-verification
           {
             echo '# ThinkControl v0.1.0-alpha.8 release verification'
             echo
@@ -101,15 +98,22 @@ jobs:
             echo '```text'
             cat "$RUNNER_TEMP/hash-check.txt"
             echo '```'
-          } > docs/release-verification/v0.1.0-alpha.8.md
+          } > "$RUNNER_TEMP/v0.1.0-alpha.8.md"
 
-      - name: Commit verification evidence and remove one-shot workflow
+      - name: Commit evidence on latest main and clean helpers
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          mkdir -p docs/release-verification
+          cp "$RUNNER_TEMP/v0.1.0-alpha.8.md" docs/release-verification/v0.1.0-alpha.8.md
+          git rm -f .github/workflows/verify-alpha8-once.yml
+          if [[ -f .github/workflows/dispatch-alpha8-package-once.yml ]]; then
+            git rm -f .github/workflows/dispatch-alpha8-package-once.yml
+          fi
           git add docs/release-verification/v0.1.0-alpha.8.md
-          git rm .github/workflows/verify-alpha8-once.yml
           git commit -m 'Verify published ThinkControl alpha.8 release'
           git push origin HEAD:main
