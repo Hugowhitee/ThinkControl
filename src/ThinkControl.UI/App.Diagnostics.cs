@@ -8,6 +8,7 @@ public partial class App
 {
     public App()
     {
+        InitializeSingleInstanceGuard();
         UiMotionService.Enable();
         HardwareClient.HardwareOperationCompleted += HardwareClient_HardwareOperationCompleted;
         HardwareClient.StatusObserved += HardwareClient_StatusObserved;
