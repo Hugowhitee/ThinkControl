@@ -3,6 +3,9 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using ThinkControl.UI.Services;
 using WpfButton = System.Windows.Controls.Button;
+using WpfContextMenu = System.Windows.Controls.ContextMenu;
+using WpfControl = System.Windows.Controls.Control;
+using WpfMenuItem = System.Windows.Controls.MenuItem;
 
 namespace ThinkControl.UI.Controls;
 
@@ -98,30 +101,30 @@ public partial class CompactDashboard
         if (_syncingQuickControls || _app is null || !button.IsEnabled)
             return;
 
-        var menu = new ContextMenu
+        var menu = new WpfContextMenu
         {
             PlacementTarget = button,
             Placement = PlacementMode.Bottom,
             MinWidth = button.ActualWidth,
             HasDropShadow = true
         };
-        menu.SetResourceReference(ContextMenu.BackgroundProperty, "Tc.SurfaceAlt");
-        menu.SetResourceReference(ContextMenu.ForegroundProperty, "Tc.Text");
-        menu.SetResourceReference(ContextMenu.BorderBrushProperty, "Tc.BorderStrong");
+        menu.SetResourceReference(WpfControl.BackgroundProperty, "Tc.SurfaceAlt");
+        menu.SetResourceReference(WpfControl.ForegroundProperty, "Tc.Text");
+        menu.SetResourceReference(WpfControl.BorderBrushProperty, "Tc.BorderStrong");
         menu.BorderThickness = new Thickness(1);
         menu.Padding = new Thickness(4);
 
         foreach (string option in options)
         {
-            var item = new MenuItem
+            var item = new WpfMenuItem
             {
                 Header = option,
                 FontSize = 10.5,
                 Padding = new Thickness(9, 6, 12, 6),
                 Cursor = System.Windows.Input.Cursors.Hand
             };
-            item.SetResourceReference(MenuItem.BackgroundProperty, "Tc.SurfaceAlt");
-            item.SetResourceReference(MenuItem.ForegroundProperty, "Tc.Text");
+            item.SetResourceReference(WpfControl.BackgroundProperty, "Tc.SurfaceAlt");
+            item.SetResourceReference(WpfControl.ForegroundProperty, "Tc.Text");
             item.Click += (_, _) => selected(option);
             menu.Items.Add(item);
         }
