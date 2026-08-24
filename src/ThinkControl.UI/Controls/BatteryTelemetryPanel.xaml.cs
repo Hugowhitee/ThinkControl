@@ -272,8 +272,7 @@ public partial class BatteryTelemetryPanel : UserControl
 
         try
         {
-            Process.Start(new ProcessStartInfo(
-                "ms-windows-store://search/?query=Lenovo%20Vantage")
+            Process.Start(new ProcessStartInfo("ms-settings:batterysaver")
             {
                 UseShellExecute = true
             });
