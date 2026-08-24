@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
         Title="ThinkControl Hardware setup"
-        Width="590" Height="430"
-        MinWidth="590" MinHeight="430"
+        Width="610" Height="520"
+        MinWidth="610" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -17,6 +17,7 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -25,7 +26,7 @@
             <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
             <StackPanel>
                 <TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" />
-                <TextBlock Text="ThinkControl checks hardware components after installation so setup stays device-independent."
+                <TextBlock Text="ThinkControl checks providers after installation and only enables controls that pass capability checks."
                            Foreground="{DynamicResource Tc.TextMuted}"
                            FontSize="11"
                            Margin="0,4,0,0" />
@@ -45,7 +46,7 @@
                                Foreground="{DynamicResource Tc.TextMuted}"
                                FontSize="10.5"
                                Margin="0,5,0,0" />
-                    <TextBlock Text="Provides safe privileged access to supported Lenovo hardware providers."
+                    <TextBlock Text="Provides privileged access only through ThinkControl's semantic hardware operations."
                                Foreground="{DynamicResource Tc.TextFaint}"
                                FontSize="9.5"
                                Margin="0,4,16,0" />
@@ -67,20 +68,22 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Text="Low-level hardware access" FontWeight="SemiBold" />
+                    <TextBlock Text="Hardware sensor access" FontWeight="SemiBold" />
                     <TextBlock x:Name="LowLevelStatusText"
                                Text="Checking..."
                                Foreground="{DynamicResource Tc.TextMuted}"
                                FontSize="10.5"
-                               Margin="0,5,0,0" />
-                    <TextBlock Text="Only offered when the detected device profile requires a verified low-level provider."
+                               TextWrapping="Wrap"
+                               Margin="0,5,18,0" />
+                    <TextBlock Text="PawnIO can improve LibreHardwareMonitor sensor access. Installing it never unlocks unknown fan writes; write control remains profile-verified."
                                Foreground="{DynamicResource Tc.TextFaint}"
                                FontSize="9.5"
+                               TextWrapping="Wrap"
                                Margin="0,4,16,0" />
                 </StackPanel>
                 <Button x:Name="InstallLowLevelButton"
                         Grid.Column="1"
-                        Content="Install component"
+                        Content="Install PawnIO"
                         Style="{StaticResource TcButton}"
                         MinWidth="128"
                         VerticalAlignment="Center"
@@ -88,20 +91,55 @@
             </Grid>
         </Border>
 
+        <Border x:Name="LenovoDriverCard" Grid.Row="3" Style="{StaticResource TcSection}" Margin="0,12,0,0" Visibility="Collapsed">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Lenovo platform integration" FontWeight="SemiBold" />
+                    <TextBlock x:Name="LenovoDriverStatusText"
+                               Text="Keyboard provider not detected"
+                               Foreground="{DynamicResource Tc.Warning}"
+                               FontSize="10.5"
+                               Margin="0,5,0,0" />
+                    <TextBlock Text="Use Lenovo Vantage / Windows Update to install the current Lenovo platform, hotkey and system interface drivers, then retry detection."
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               FontSize="9.5"
+                               TextWrapping="Wrap"
+                               Margin="0,4,16,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <Button x:Name="OpenVantageButton"
+                            Content="Lenovo Vantage"
+                            Style="{StaticResource TcButton}"
+                            MinWidth="120"
+                            Click="OpenVantage_Click" />
+                    <Button x:Name="RetryDetectionButton"
+                            Content="Retry"
+                            Style="{StaticResource TcButton}"
+                            MinWidth="120"
+                            Margin="0,7,0,0"
+                            Click="RetryDetection_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <TextBlock x:Name="ResultText"
-                   Grid.Row="3"
+                   Grid.Row="4"
                    TextWrapping="Wrap"
                    Foreground="{DynamicResource Tc.TextMuted}"
                    FontSize="10.5"
                    VerticalAlignment="Center"
                    Margin="2,12,2,8" />
 
-        <Grid Grid.Row="4">
-            <TextBlock Text="Windows may ask for administrator permission when repairing or installing a hardware component."
+        <Grid Grid.Row="5">
+            <TextBlock Text="Administrator permission is requested only when repairing the service or installing a hardware component."
                        Foreground="{DynamicResource Tc.TextFaint}"
                        FontSize="9.5"
                        VerticalAlignment="Center" />
-            <Button Content="Continue"
+            <Button Content="Done"
                     HorizontalAlignment="Right"
                     Style="{StaticResource TcButton}"
                     MinWidth="92"
