@@ -52,7 +52,20 @@ public partial class TouchpadPanel
         if (header is null)
             return;
 
-        valueLabel.Margin = new Thickness(valueLabel.Margin.Left, valueLabel.Margin.Top, 27, valueLabel.Margin.Bottom);
+        // Some setting headers already dedicate a right-hand Grid column to the
+        // value. The reset button intentionally sits at the right edge of the label
+        // column (column 0), so those value labels do not need to reserve another
+        // 27 px. Reserving it unconditionally clipped short fixed-width values such
+        // as "1.00×" down to ".00×" in the Touchpad page snapshots.
+        int valueColumn = Grid.GetColumn(valueLabel);
+        if (valueColumn == 0)
+        {
+            valueLabel.Margin = new Thickness(
+                valueLabel.Margin.Left,
+                valueLabel.Margin.Top,
+                Math.Max(valueLabel.Margin.Right, 27),
+                valueLabel.Margin.Bottom);
+        }
 
         var icon = new PackIconLucide
         {
@@ -75,6 +88,7 @@ public partial class TouchpadPanel
             Style = TryFindResource("TcIconButton") as Style,
             Visibility = Visibility.Collapsed
         };
+        Grid.SetColumn(button, 0);
         button.Click += (_, _) => reset(slider, defaultValue);
         Panel.SetZIndex(button, 4);
         header.Children.Add(button);
