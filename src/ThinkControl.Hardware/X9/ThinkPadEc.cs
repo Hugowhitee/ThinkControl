@@ -11,13 +11,12 @@ internal sealed class ThinkPadEc : IDisposable
     private const byte EcWriteCommand = 0x81;
     private const byte OutputBufferFull = 0x01;
     private const byte InputBufferFull = 0x02;
-    private const byte EcThermalProbe = 0x78;
+    private const byte EcThermalBank0Start = 0x78;
+    private const byte EcThermalBank1Start = 0xC0;
 
     private const int ReadMaxRetries = 5;
-    private const int ReadWaitSpins = 50;
-    private const int TickMs = 10;
-    private const int TransactionTimeoutMs = 100;
-    private const int InitialBufferTimeoutMs = 1000;
+    private const int TransactionTimeoutMs = 1000;
+    private const int PollSleepMs = 10;
     private const int MutexTimeoutMs = 1500;
 
     private readonly PawnIoEcTransport _ports;
@@ -68,6 +67,24 @@ internal sealed class ThinkPadEc : IDisposable
             if (!ThinkPadFanProtocol.IsPlausibleRpm(rpm))
                 throw new InvalidOperationException($"Implausible fan RPM value {rpm}.");
             return rpm;
+        });
+    }
+
+    /// <summary>
+    /// Reads the classic ThinkPad EC thermal banks without assigning semantic CPU/
+    /// GPU labels. These values are useful as a conservative X9 fallback when a
+    /// richer sensor provider is temporarily unavailable. Callers may display them
+    /// as generic EC thermal sensors or use the hottest valid value for safety, but
+    /// must not relabel an unmapped register as CPU Package.
+    /// </summary>
+    internal IReadOnlyList<(byte Register, byte Celsius)> ReadThermalSensors()
+    {
+        return WithEcLock<IReadOnlyList<(byte Register, byte Celsius)>>(() =>
+        {
+            var readings = new List<(byte Register, byte Celsius)>(12);
+            ReadThermalBankUnlocked(EcThermalBank0Start, 8, readings);
+            ReadThermalBankUnlocked(EcThermalBank1Start, 4, readings);
+            return readings;
         });
     }
 
@@ -164,7 +181,7 @@ internal sealed class ThinkPadEc : IDisposable
                 return false;
             }
 
-            if (!TryReadByte(EcThermalProbe, out byte thermal))
+            if (!TryReadByte(EcThermalBank0Start, out byte thermal))
             {
                 detail = $"Ambiguous fan-off state 0x00 was read, but the thermal sanity probe timed out on 0x{commandPort:X}/0x{dataPort:X}.";
                 return false;
@@ -182,6 +199,19 @@ internal sealed class ThinkPadEc : IDisposable
         {
             detail = $"EC validation on 0x{commandPort:X}/0x{dataPort:X} failed: {ex.Message}";
             return false;
+        }
+    }
+
+    private void ReadThermalBankUnlocked(byte start, int count, ICollection<(byte Register, byte Celsius)> output)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            byte register = unchecked((byte)(start + i));
+            if (!TryReadByte(register, out byte value))
+                continue;
+            if (value is < 5 or > 125)
+                continue;
+            output.Add((register, value));
         }
     }
 
@@ -226,98 +256,55 @@ internal sealed class ThinkPadEc : IDisposable
     private bool TryReadByte(byte register, out byte value)
     {
         value = 0;
-        if (!WaitForReadWriteReady()) return false;
+
+        // Match the long-established ThinkPad ACPI EC transaction sequence used by
+        // TPFanCtrl: begin only when both buffers are clear, then wait for IBF after
+        // each byte written to the EC input queue. Many newer ThinkPad BIOS builds
+        // do not assert OBF consistently for ordinary register reads, so requiring
+        // OBF here can turn a valid read into a false timeout.
+        if (!WaitForFlagsClear(InputBufferFull | OutputBufferFull, TransactionTimeoutMs))
+            return false;
+
         WritePort(_commandPort, EcReadCommand);
-        if (!WaitForReadWriteReady()) return false;
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
+            return false;
+
         WritePort(_dataPort, register);
-        if (!WaitForReadWriteReady() || !WaitForReadReady()) return false;
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
+            return false;
+
         value = ReadPort(_dataPort);
         return true;
     }
 
-    private bool WaitForReadWriteReady()
-    {
-        for (int i = 0; i < ReadWaitSpins; i++)
-        {
-            if ((ReadPort(_commandPort) & InputBufferFull) == 0)
-                return true;
-            Thread.Sleep(1);
-        }
-        return false;
-    }
-
-    private bool WaitForReadReady()
-    {
-        for (int retry = 0; retry < ReadMaxRetries; retry++)
-        {
-            if ((ReadPort(_commandPort) & OutputBufferFull) != 0)
-                return true;
-            Thread.Sleep(1);
-        }
-
-        // Some ThinkPad ECs complete a read after IBF clears without reliably
-        // asserting OBF for every register transaction.
-        for (int i = 0; i < ReadWaitSpins; i++)
-        {
-            if ((ReadPort(_commandPort) & InputBufferFull) == 0)
-                return true;
-            Thread.Sleep(1);
-        }
-        return false;
-    }
-
     private void WriteByteUnlocked(byte register, byte value)
     {
-        byte status = WaitForBothBuffersClear(InitialBufferTimeoutMs);
-        if ((status & OutputBufferFull) != 0)
-            _ = ReadPort(_dataPort);
-
-        if (!WaitForOutputBufferClear(TransactionTimeoutMs))
-            throw new TimeoutException("EC output buffer stayed busy before write command.");
+        // Use the same proven EC queue discipline as the read path. Waiting only
+        // for IBF after command/address/data avoids rejecting valid modern ECs that
+        // leave unrelated OBF state observable while accepting a write.
+        if (!WaitForFlagsClear(InputBufferFull | OutputBufferFull, TransactionTimeoutMs))
+            throw new TimeoutException("EC buffers stayed busy before write command.");
 
         WritePort(_commandPort, EcWriteCommand);
-        if (!WaitForBothBuffersClearSuccess(TransactionTimeoutMs))
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
             throw new TimeoutException($"EC did not accept write command for 0x{register:X2}.");
 
         WritePort(_dataPort, register);
-        if (!WaitForBothBuffersClearSuccess(TransactionTimeoutMs))
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
             throw new TimeoutException($"EC did not accept register 0x{register:X2}.");
 
         WritePort(_dataPort, value);
+        if (!WaitForFlagsClear(InputBufferFull, TransactionTimeoutMs))
+            throw new TimeoutException($"EC did not accept value 0x{value:X2} for register 0x{register:X2}.");
     }
 
-    private byte WaitForBothBuffersClear(int timeoutMs)
+    private bool WaitForFlagsClear(byte flags, int timeoutMs)
     {
-        byte status = 0;
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += TickMs)
+        for (int elapsed = 0; elapsed < timeoutMs; elapsed += PollSleepMs)
         {
-            status = ReadPort(_commandPort);
-            if ((status & (InputBufferFull | OutputBufferFull)) == 0)
-                break;
-            Thread.Sleep(TickMs);
-        }
-        return status;
-    }
-
-    private bool WaitForBothBuffersClearSuccess(int timeoutMs)
-    {
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += TickMs)
-        {
-            byte status = ReadPort(_commandPort);
-            if ((status & (InputBufferFull | OutputBufferFull)) == 0)
+            if ((ReadPort(_commandPort) & flags) == 0)
                 return true;
-            Thread.Sleep(TickMs);
-        }
-        return false;
-    }
-
-    private bool WaitForOutputBufferClear(int timeoutMs)
-    {
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += TickMs)
-        {
-            if ((ReadPort(_commandPort) & OutputBufferFull) == 0)
-                return true;
-            Thread.Sleep(TickMs);
+            Thread.Sleep(PollSleepMs);
         }
         return false;
     }
