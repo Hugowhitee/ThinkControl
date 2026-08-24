@@ -19,6 +19,7 @@ public partial class AdvancedWindow
         ConfigureHardwareSetupEntry();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureNotificationButton();
         ConfigureSupportCard();
         DiagnosticsPanelControl?.Refresh();
     }
@@ -37,12 +38,10 @@ public partial class AdvancedWindow
         ConfigureHardwareSetupEntry();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureNotificationButton();
         ConfigureSupportCard();
         DiagnosticsPanelControl?.Refresh();
 
-        // Dynamic feature panels normally subscribe to the live app/service state.
-        // Snapshot windows deliberately use a deterministic AppState instead, so
-        // prepare those panels explicitly to exercise populated active layouts.
         if (DataContext is ViewModels.AppState snapshotState)
         {
             if (PageFans?.Content is Controls.FansPanel fansPanel)
@@ -69,6 +68,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureNotificationButton();
         ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
@@ -85,6 +85,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureNotificationButton();
         ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectSensors(this);
     }
@@ -101,6 +102,7 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
+        ConfigureNotificationButton();
         ConfigureSupportCard();
         AdvancedFeaturePages.SelectAudio(this);
     }
