@@ -28,8 +28,10 @@ public partial class CompactDashboard : UserControl
 
         EnsureAudioRow();
         EnsureQuickControls();
+        EnsureHardwareAlert();
         SyncCoolingProfile();
         SyncQuickControls();
+        SyncHardwareAlert();
     }
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -46,6 +48,14 @@ public partial class CompactDashboard : UserControl
             or nameof(AppState.CanKeyboardBacklight))
         {
             Dispatcher.BeginInvoke(SyncQuickControls);
+        }
+
+        if (e.PropertyName is nameof(AppState.DriverStatus)
+            or nameof(AppState.CanSensorTelemetry)
+            or nameof(AppState.CanFanTelemetry)
+            or nameof(AppState.CanKeyboardBacklight))
+        {
+            Dispatcher.BeginInvoke(SyncHardwareAlert);
         }
     }
 
