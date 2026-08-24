@@ -11,6 +11,7 @@ permissions:
   actions: write
   issues: write
   pull-requests: write
+  statuses: write
 
 jobs:
   publish-and-verify:
@@ -25,6 +26,7 @@ jobs:
             const repo = context.repo.repo;
             const tag = 'v0.1.0-alpha.11';
             const sha = '5dca8571c0fdc4aed4e6b8fb13636cbac5c5500a';
+            const statusContext = 'release/alpha11';
             const expectedAssets = [
               'ThinkControl-Setup-0.1.0-alpha.11.exe',
               'ThinkControl-Payload-0.1.0-alpha.11.zip',
@@ -32,93 +34,107 @@ jobs:
               'ui-overview.png'
             ];
 
-            let tagRef;
-            try {
-              tagRef = await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` });
-            } catch (error) {
-              if (error.status !== 404) throw error;
-              tagRef = await github.rest.git.createRef({ owner, repo, ref: `refs/tags/${tag}`, sha });
-              core.info(`Created ${tag} at ${sha}`);
-            }
-
-            if (tagRef.data.object.sha !== sha) {
-              core.setFailed(`${tag} points at ${tagRef.data.object.sha}, expected tested merge ${sha}`);
-              return;
-            }
-
-            async function getRelease() {
-              try {
-                const result = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-                return result.data;
-              } catch (error) {
-                if (error.status === 404) return null;
-                throw error;
-              }
-            }
-
-            let release = await getRelease();
-            if (!release) {
-              const runs = await github.rest.actions.listWorkflowRuns({
+            async function setStatus(state, description, target_url) {
+              await github.rest.repos.createCommitStatus({
                 owner,
                 repo,
-                workflow_id: 'release.yml',
-                per_page: 100
+                sha,
+                state,
+                context: statusContext,
+                description,
+                ...(target_url ? { target_url } : {})
               });
-              const active = runs.data.workflow_runs.find(run =>
-                run.head_sha === sha && (run.status === 'queued' || run.status === 'in_progress'));
+            }
 
-              if (active) {
-                core.info(`Tagged package run already active: ${active.html_url}`);
-              } else {
-                core.info('No active tagged package run found; dispatching release.yml explicitly on the tag.');
-                await github.rest.actions.createWorkflowDispatch({
+            await setStatus('pending', 'Publishing and verifying alpha.11 release');
+
+            try {
+              let tagRef;
+              try {
+                tagRef = await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                tagRef = await github.rest.git.createRef({ owner, repo, ref: `refs/tags/${tag}`, sha });
+                core.info(`Created ${tag} at ${sha}`);
+              }
+
+              if (tagRef.data.object.sha !== sha) {
+                throw new Error(`${tag} points at ${tagRef.data.object.sha}, expected tested merge ${sha}`);
+              }
+
+              async function getRelease() {
+                try {
+                  const result = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
+                  return result.data;
+                } catch (error) {
+                  if (error.status === 404) return null;
+                  throw error;
+                }
+              }
+
+              let release = await getRelease();
+              if (!release) {
+                const runs = await github.rest.actions.listWorkflowRuns({
                   owner,
                   repo,
                   workflow_id: 'release.yml',
-                  ref: tag
+                  per_page: 100
                 });
+                const active = runs.data.workflow_runs.find(run =>
+                  run.head_sha === sha && (run.status === 'queued' || run.status === 'in_progress'));
+
+                if (active) {
+                  core.info(`Tagged package run already active: ${active.html_url}`);
+                } else {
+                  core.info('No active tagged package run found; dispatching release.yml explicitly on the tag.');
+                  await github.rest.actions.createWorkflowDispatch({
+                    owner,
+                    repo,
+                    workflow_id: 'release.yml',
+                    ref: tag
+                  });
+                }
+
+                const deadline = Date.now() + 20 * 60 * 1000;
+                while (Date.now() < deadline) {
+                  await new Promise(resolve => setTimeout(resolve, 15000));
+                  release = await getRelease();
+                  if (release) break;
+                }
               }
 
-              const deadline = Date.now() + 20 * 60 * 1000;
-              while (Date.now() < deadline) {
-                await new Promise(resolve => setTimeout(resolve, 15000));
-                release = await getRelease();
-                if (release) break;
+              if (!release) {
+                throw new Error(`GitHub Release ${tag} was not created within the verification window.`);
               }
-            }
-
-            if (!release) {
-              core.setFailed(`GitHub Release ${tag} was not created within the verification window.`);
-              return;
-            }
-
-            if (!release.prerelease) {
-              core.setFailed(`${tag} exists but is not marked as a prerelease.`);
-              return;
-            }
-
-            const actual = release.assets.map(asset => asset.name).sort();
-            const missing = expectedAssets.filter(name => !actual.includes(name));
-            const unexpected = actual.filter(name => !expectedAssets.includes(name));
-            if (missing.length) {
-              core.setFailed(`Release is missing assets: ${missing.join(', ')}. Actual: ${actual.join(', ')}`);
-              return;
-            }
-            if (unexpected.length) {
-              core.warning(`Release has additional assets: ${unexpected.join(', ')}`);
-            }
-
-            for (const asset of release.assets) {
-              if (expectedAssets.includes(asset.name) && asset.size <= 0) {
-                core.setFailed(`Release asset ${asset.name} is empty.`);
-                return;
+              if (!release.prerelease) {
+                throw new Error(`${tag} exists but is not marked as a prerelease.`);
               }
-            }
 
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: 34,
-              body: `✅ **${tag} release verified**\n\nPrerelease is published at ${release.html_url} and contains the expected public assets:\n${expectedAssets.map(name => `- \`${name}\``).join('\n')}\n\nTag target: \`${sha}\`.`
-            });
-            core.info(`Release verified: ${release.html_url}`);
+              const actual = release.assets.map(asset => asset.name).sort();
+              const missing = expectedAssets.filter(name => !actual.includes(name));
+              const unexpected = actual.filter(name => !expectedAssets.includes(name));
+              if (missing.length) {
+                throw new Error(`Release is missing assets: ${missing.join(', ')}. Actual: ${actual.join(', ')}`);
+              }
+              if (unexpected.length) {
+                core.warning(`Release has additional assets: ${unexpected.join(', ')}`);
+              }
+
+              for (const asset of release.assets) {
+                if (expectedAssets.includes(asset.name) && asset.size <= 0) {
+                  throw new Error(`Release asset ${asset.name} is empty.`);
+                }
+              }
+
+              await setStatus('success', 'alpha.11 prerelease and assets verified', release.html_url);
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: 34,
+                body: `✅ **${tag} release verified**\n\nPrerelease is published at ${release.html_url} and contains the expected public assets:\n${expectedAssets.map(name => `- \`${name}\``).join('\n')}\n\nTag target: \`${sha}\`.`
+              });
+              core.info(`Release verified: ${release.html_url}`);
+            } catch (error) {
+              await setStatus('failure', 'alpha.11 release verification failed');
+              throw error;
+            }
