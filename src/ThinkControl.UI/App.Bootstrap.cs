@@ -9,6 +9,12 @@ public partial class App
 
     private void OnBootstrapStartup(object? sender, StartupEventArgs e)
     {
+        if (e.Args.Any(argument => string.Equals(argument, "--tray", StringComparison.OrdinalIgnoreCase)))
+        {
+            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
+            return;
+        }
+
         try
         {
             _bootstrapWindow = new BootstrapWindow();
@@ -32,10 +38,16 @@ public partial class App
         ApplyTrayIconPolish();
         StartAutomaticUpdateChecks();
 
-        // Do not depend solely on a later Application.Activated event for hardware
-        // onboarding. The first real window can already be active by the time the
-        // bootstrap closes, which previously left the System page on "Checking…".
-        OnHardwareSetupActivated(this, EventArgs.Empty);
+        // A Windows-startup launch is intentionally silent: no compact popup,
+        // advanced window, splash screen or hardware onboarding prompt.
+        if (!IsTrayOnlyLaunch())
+        {
+            // Do not depend solely on a later Application.Activated event for hardware
+            // onboarding. The first real window can already be active by the time the
+            // bootstrap closes, which previously left the System page on "Checking…".
+            OnHardwareSetupActivated(this, EventArgs.Empty);
+            ApplyPreferredLaunchViewAfterStartup();
+        }
     }
 
     private void CloseBootstrap()

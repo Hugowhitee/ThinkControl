@@ -4,19 +4,37 @@
     <StackPanel>
         <Grid>
             <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
-            <Button Content="Reset" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic and clear the saved game subprofile" />
+            <Button Content="Reset" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic and the default Balanced tone" />
         </Grid>
-        <TextBlock Text="ThinkControl prefers Lenovo's installed Dolby DAX backend directly. Dolby Access is only used as a safe fallback for main profile switching when the driver does not expose direct automation."
+        <TextBlock Text="Windows output volume and Lenovo's installed Dolby processing in one place. ThinkControl uses direct DAX controls when the driver exposes them and never opens Dolby Access unless you ask it to."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
             <StackPanel>
                 <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="System volume" FontWeight="SemiBold" />
+                        <TextBlock x:Name="VolumeDeviceText" Text="Default Windows output" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,90,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <TextBlock x:Name="VolumeValueText" Text="—" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <Button x:Name="MuteButton" Content="Mute" Style="{StaticResource TcButton}" Padding="10,4" Click="Mute_Click" />
+                    </StackPanel>
+                </Grid>
+                <Slider x:Name="VolumeSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="VolumeSlider_ValueChanged" PreviewMouseLeftButtonUp="VolumeSlider_MouseUp" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="Dolby Atmos" FontWeight="SemiBold" />
                         <TextBlock x:Name="BackendStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
                     </StackPanel>
-                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal">
                         <Button x:Name="InstallButton" Content="Install Dolby Access" Style="{StaticResource TcButton}" Click="Install_Click" Visibility="Collapsed" />
                         <Button x:Name="OpenButton" Content="Open Dolby Access" Style="{StaticResource TcButton}" Click="Open_Click" Margin="8,0,0,0" />
                     </StackPanel>
@@ -39,18 +57,20 @@
         <Border x:Name="SubprofileCard" Style="{StaticResource TcSection}" Margin="0,14,0,0">
             <StackPanel>
                 <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock Text="Game subprofile" FontWeight="SemiBold" />
-                        <TextBlock Text="Dolby defines separate game tuning for FPS, Racing, RTS and RPG. These controls only activate when the installed DAX API exposes direct subprofile read/write; ThinkControl never edits Dolby state files." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,0,0" TextWrapping="Wrap" />
+                        <TextBlock Text="Intelligent Equalizer" FontWeight="SemiBold" />
+                        <TextBlock Text="Tone is applied inside the currently selected Dolby profile. Balanced is neutral, Detailed adds presence, Warm softens the top end, and Off leaves the profile's IEQ disabled."
+                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,30,0" TextWrapping="Wrap" />
                     </StackPanel>
-                    <TextBlock x:Name="SubprofileStatusText" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
+                    <TextBlock x:Name="SubprofileStatusText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
                 </Grid>
                 <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                    <RadioButton x:Name="FpsSubprofile" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="FPS" Tag="FPS" Click="Subprofile_Click" Margin="0,0,5,0" />
-                    <RadioButton x:Name="RacingSubprofile" Grid.Column="1" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="Racing" Tag="Racing" Click="Subprofile_Click" Margin="2,0" />
-                    <RadioButton x:Name="RtsSubprofile" Grid.Column="2" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="RTS" Tag="RTS" Click="Subprofile_Click" Margin="2,0" />
-                    <RadioButton x:Name="RpgSubprofile" Grid.Column="3" GroupName="DolbySubprofile" Style="{StaticResource TcSegment}" Content="RPG" Tag="RPG" Click="Subprofile_Click" Margin="5,0,0,0" />
+                    <RadioButton x:Name="BalancedTone" GroupName="DolbyTone" Style="{StaticResource TcSegment}" Content="Balanced" Tag="Balanced" Click="Tone_Click" Margin="0,0,5,0" />
+                    <RadioButton x:Name="DetailedTone" Grid.Column="1" GroupName="DolbyTone" Style="{StaticResource TcSegment}" Content="Detailed" Tag="Detailed" Click="Tone_Click" Margin="2,0" />
+                    <RadioButton x:Name="WarmTone" Grid.Column="2" GroupName="DolbyTone" Style="{StaticResource TcSegment}" Content="Warm" Tag="Warm" Click="Tone_Click" Margin="2,0" />
+                    <RadioButton x:Name="OffTone" Grid.Column="3" GroupName="DolbyTone" Style="{StaticResource TcSegment}" Content="Off" Tag="Off" Click="Tone_Click" Margin="5,0,0,0" />
                 </Grid>
             </StackPanel>
         </Border>
@@ -65,8 +85,8 @@
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
-                    <TextBlock Text="Voice optimization" FontWeight="SemiBold" />
-                    <TextBlock Text="Lenovo also documents automatic Dolby optimization for supported VoIP calls. ThinkControl leaves that OEM behavior intact." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="Direct by default" FontWeight="SemiBold" />
+                    <TextBlock Text="Profile and tone buttons never launch Dolby Access automatically. If this OEM driver hides its DAX controls, use the explicit Open Dolby Access button instead." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>

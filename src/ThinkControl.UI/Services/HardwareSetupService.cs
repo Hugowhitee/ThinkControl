@@ -45,20 +45,26 @@ internal sealed class HardwareSetupService
         ServiceQuery pawnIo = lowLevelRelevant
             ? await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false)
             : default;
+        bool pawnIoReady = !lowLevelRelevant || (pawnIo.Exists && pawnIo.Running);
 
         string lowLevelDetail = !lowLevelRelevant
             ? "Not currently required by detected capabilities"
-            : pawnIo.Exists
-                ? "PawnIO installed · read-only sensor discovery available"
-                : verifiedWriteProfile
-                    ? "Recommended for X9 sensors and required by the verified EC fan provider"
-                    : "Recommended for additional read-only sensor discovery; fan writes remain locked until a device profile is verified";
+            : pawnIo.Running
+                ? "PawnIO running · low-level sensor/EC provider ready"
+                : pawnIo.Exists
+                    ? "PawnIO is installed but its kernel driver is not running. Repair it or restart Windows before hardware access can be used."
+                    : verifiedWriteProfile
+                        ? "Recommended for X9 sensors and required by the verified EC fan provider"
+                        : "Recommended for additional read-only sensor discovery; fan writes remain locked until a device profile is verified";
 
         return new HardwareSetupStatus(
             ServiceInstalled: service.Exists,
             ServiceRunning: service.Running,
             LowLevelAccessRelevant: lowLevelRelevant,
-            LowLevelAccessInstalled: !lowLevelRelevant || pawnIo.Exists,
+            // This property historically meant "installed" in the UI. Treat it as
+            // ready here: a registered but stopped kernel driver cannot provide
+            // sensors/EC and must stay visibly actionable instead of showing green.
+            LowLevelAccessInstalled: pawnIoReady,
             ServiceDetail: service.Running
                 ? "Running"
                 : service.Exists ? "Installed but not running" : "Not registered",
@@ -141,13 +147,23 @@ internal sealed class HardwareSetupService
             if (process.ExitCode is not 0 and not 3010)
                 return new(false, false, $"The hardware component installer returned exit code {process.ExitCode}.");
 
-            await Task.Delay(700).ConfigureAwait(false);
+            await Task.Delay(900).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false);
-            return after.Exists
-                ? new(true, restart, restart
-                    ? "Hardware access was installed. Windows requested a restart before it is fully available."
-                    : "PawnIO is installed. ThinkControl will recycle sensor providers and retry discovery automatically.")
-                : new(false, restart, "The component installer finished, but Windows does not report PawnIO yet. A restart may be required.");
+            if (after.Running)
+            {
+                return new(true, restart, restart
+                    ? "PawnIO is running, but Windows also requested a restart to complete the driver update."
+                    : "PawnIO is running. ThinkControl will recycle sensor providers and retry discovery automatically.");
+            }
+
+            if (after.Exists)
+            {
+                return new(true, true,
+                    "PawnIO is installed but the kernel driver is not active yet. Restart Windows, then ThinkControl will retry sensors and the verified X9 EC provider automatically.");
+            }
+
+            return new(false, restart,
+                "The component installer finished, but Windows does not report PawnIO. Restart Windows or run Hardware setup again.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {

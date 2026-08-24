@@ -26,12 +26,12 @@ public partial class CompactDashboard
         if (header.ColumnDefinitions.Count > 1)
             header.ColumnDefinitions[1].Width = new GridLength(108);
 
-        var icon = new Grid { Width = 18, Height = 18 };
+        var icon = new Grid { Width = 19, Height = 19 };
         icon.Children.Add(new Path
         {
-            Data = Geometry.Parse("M9,2 C5.7,2 4.2,4.4 4.2,7.2 V10.1 L2.8,12.2 H15.2 L13.8,10.1 V7.2 C13.8,4.4 12.3,2 9,2 Z M7.2,14.1 C7.6,15.1 8.2,15.6 9,15.6 C9.8,15.6 10.4,15.1 10.8,14.1"),
+            Data = Geometry.Parse("M9.5,2.2 C6.2,2.2 4.7,4.7 4.7,7.5 V10.2 L3.1,12.7 H15.9 L14.3,10.2 V7.5 C14.3,4.7 12.8,2.2 9.5,2.2 Z M7.4,14.5 C7.8,15.6 8.5,16.1 9.5,16.1 C10.5,16.1 11.2,15.6 11.6,14.5"),
             Stroke = (Brush)FindResource("Tc.TextMuted"),
-            StrokeThickness = 1.35,
+            StrokeThickness = 1.55,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
@@ -53,11 +53,11 @@ public partial class CompactDashboard
         _hardwareAlertButton = new WpfButton
         {
             Style = TryFindResource("CompactCaptionButton") as Style,
-            ToolTip = "Hardware setup",
+            ToolTip = "Notifications",
             Content = icon,
-            Visibility = Visibility.Collapsed
+            Visibility = Visibility.Visible
         };
-        _hardwareAlertButton.Click += (_, _) => _app?.OpenHardwareAttention();
+        _hardwareAlertButton.Click += (_, _) => _app?.OpenNotificationCenter();
         actions.Children.Insert(0, _hardwareAlertButton);
     }
 
@@ -70,12 +70,15 @@ public partial class CompactDashboard
         bool providerAttention = !_app.State.CanSensorTelemetry ||
                                  !_app.State.CanFanTelemetry ||
                                  !_app.State.CanKeyboardBacklight;
-        bool show = statusAttention || providerAttention;
+        bool showDot = statusAttention || providerAttention;
 
-        _hardwareAlertButton.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        _hardwareAlertDot.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        _hardwareAlertButton.ToolTip = show
-            ? $"Hardware attention · {_app.State.DriverStatus}"
-            : "Hardware ready";
+        // The inbox itself is always available; only the red dot is conditional.
+        // This means users can review successful discoveries/device-report messages
+        // without ThinkControl pretending there is an error.
+        _hardwareAlertButton.Visibility = Visibility.Visible;
+        _hardwareAlertDot.Visibility = showDot ? Visibility.Visible : Visibility.Collapsed;
+        _hardwareAlertButton.ToolTip = showDot
+            ? $"Notifications · hardware attention · {_app.State.DriverStatus}"
+            : "Notifications";
     }
 }

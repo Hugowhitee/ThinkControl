@@ -17,6 +17,14 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
+        ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
+        ConfigureHomeFeatureOverview();
+        ConfigureNotificationButton();
+        ConfigureSupportCard();
+        ConfigureUpdateUi();
+        ConfigureAppPreferencesUi();
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -32,11 +40,16 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
+        ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
+        ConfigureHomeFeatureOverview();
+        ConfigureNotificationButton();
+        ConfigureSupportCard();
+        ConfigureUpdateUi();
+        ConfigureAppPreferencesUi();
         DiagnosticsPanelControl?.Refresh();
 
-        // Dynamic feature panels normally subscribe to the live app/service state.
-        // Snapshot windows deliberately use a deterministic AppState instead, so
-        // prepare those panels explicitly to exercise populated active layouts.
         if (DataContext is ViewModels.AppState snapshotState)
         {
             if (PageFans?.Content is Controls.FansPanel fansPanel)
@@ -61,6 +74,11 @@ public partial class AdvancedWindow
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
+        ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
+        ConfigureNotificationButton();
+        ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectTouchpad(this);
     }
 
@@ -74,6 +92,11 @@ public partial class AdvancedWindow
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
+        ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
+        ConfigureNotificationButton();
+        ConfigureSupportCard();
         AdvancedWindowEnhancer.SelectSensors(this);
     }
 
@@ -87,6 +110,11 @@ public partial class AdvancedWindow
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
+        ConfigureNavigationPolish();
+        ConfigureTouchpadPolish();
+        ConfigureWindowsSettingsLinks();
+        ConfigureNotificationButton();
+        ConfigureSupportCard();
         AdvancedFeaturePages.SelectAudio(this);
     }
 }

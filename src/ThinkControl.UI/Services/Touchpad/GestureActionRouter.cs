@@ -14,6 +14,7 @@ internal sealed class GestureActionRouter
 
     private int _brightnessAtStart;
     private double _stepAccumulator;
+    private double _seekCumulativeSeconds;
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
 
@@ -32,6 +33,8 @@ internal sealed class GestureActionRouter
         _stepKeyboard = stepKeyboard;
         _stepPerformance = stepPerformance;
     }
+
+    internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
 
     internal void Handle(GestureSignal signal)
     {
@@ -64,6 +67,7 @@ internal sealed class GestureActionRouter
                 ApplyBrightness(signal, signal.TotalTravelMm);
                 break;
             case GestureActionKind.MediaSeek:
+                _seekCumulativeSeconds = 0;
                 _lastMediaTimestamp = Stopwatch.GetTimestamp();
                 _mediaBeginTask = _media.BeginSeekAsync();
                 break;
@@ -120,18 +124,21 @@ internal sealed class GestureActionRouter
         long now = Stopwatch.GetTimestamp();
         double elapsed = _lastMediaTimestamp == 0
             ? 1d / 60d
-            : Math.Clamp((now - _lastMediaTimestamp) / (double)Stopwatch.Frequency, 1d / 240d, 0.15d);
+            : Math.Clamp((now - _lastMediaTimestamp) / (double)Stopwatch.Frequency, 1d / 240d, 0.20d);
         _lastMediaTimestamp = now;
 
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
 
-        // Precision first, acceleration second. A slow 20 mm movement seeks about
-        // five seconds; the same distance flicked quickly can seek ~15-20 seconds.
-        // This mirrors modern touch/scroll acceleration without flooding the media
-        // session with playback-position requests.
-        double acceleration = 1.0 + Math.Clamp((velocity - 35.0) / 80.0, 0.0, 2.5);
-        double seconds = deltaMm * 0.25 * acceleration;
+        // Distance gives precision; velocity supplies strong but bounded acceleration.
+        // Slow glides stay precise, while a deliberate fast flick can jump tens of
+        // seconds. Only the latest target is handed to GSMTC by MediaSessionService,
+        // so Spotify never receives one seek request per raw touch frame.
+        double speed01 = Math.Clamp((velocity - 24.0) / 175.0, 0.0, 1.0);
+        double acceleration = 1.0 + 5.0 * Math.Pow(speed01, 1.45);
+        double seconds = deltaMm * 0.28 * acceleration;
+        seconds = Math.Clamp(seconds, -22.0, 22.0);
+        _seekCumulativeSeconds = Math.Clamp(_seekCumulativeSeconds + seconds, -600.0, 600.0);
         _ = QueueMediaWhenReadyAsync(seconds);
     }
 
@@ -201,7 +208,7 @@ internal sealed class GestureActionRouter
         _stepAccumulator = 0;
         if (action == GestureActionKind.MediaSeek)
         {
-            _media.EndSeek();
+            _ = _media.EndSeekAsync();
             _mediaBeginTask = null;
             _lastMediaTimestamp = 0;
         }

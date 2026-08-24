@@ -38,9 +38,11 @@ public partial class App
             return;
 
         _automaticUpdateBusy = true;
+        State.UpdateStatus = "Checking for updates…";
         try
         {
             UpdateCheckResult result = await UpdateService.CheckAsync();
+            UpdateCheckHistoryService.Record(DateTimeOffset.UtcNow);
             State.UpdateStatus = result.Status;
 
             if (_trayIcon is not null)
@@ -63,10 +65,11 @@ public partial class App
             // The verified installer now owns the update transaction. Closing the
             // current process releases WPF files before setup replaces the payload;
             // /RELAUNCH=1 starts the new version when setup has completed.
-            Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(ExitApplication));
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Send, new Action(ExitApplication));
         }
         catch
         {
+            UpdateCheckHistoryService.Record(DateTimeOffset.UtcNow);
             State.UpdateStatus = "Automatic update check failed safely";
         }
         finally

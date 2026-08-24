@@ -22,8 +22,9 @@ public sealed record ThinkControlUserSettings(
     string AcPowerMode = "",
     string CoolingProfile = "Lenovo Auto",
     string DolbyProfile = "Dynamic",
-    string DolbySubProfile = "",
-    bool AutomaticUpdates = true);
+    string DolbySubProfile = "Balanced",
+    bool AutomaticUpdates = true,
+    string DefaultOpeningView = "Compact");
 
 public sealed class UserSettingsService
 {
@@ -146,9 +147,18 @@ public sealed class UserSettingsService
             "Voice" => "Voice",
             _ => "Dynamic"
         };
-        string dolbySubProfile = settings.DolbySubProfile?.Trim() ?? string.Empty;
-        if (dolbySubProfile.Length > 80)
-            dolbySubProfile = dolbySubProfile[..80];
+        string dolbyTone = settings.DolbySubProfile?.Trim() switch
+        {
+            "Detailed" => "Detailed",
+            "Warm" => "Warm",
+            "Off" => "Off",
+            _ => "Balanced"
+        };
+        string defaultOpeningView = settings.DefaultOpeningView?.Trim() switch
+        {
+            "Advanced" => "Advanced",
+            _ => "Compact"
+        };
 
         return settings with
         {
@@ -165,7 +175,8 @@ public sealed class UserSettingsService
             AcPowerMode = acPower,
             CoolingProfile = cooling,
             DolbyProfile = dolby,
-            DolbySubProfile = dolbySubProfile
+            DolbySubProfile = dolbyTone,
+            DefaultOpeningView = defaultOpeningView
         };
     }
 

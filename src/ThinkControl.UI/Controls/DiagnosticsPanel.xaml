@@ -5,7 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignWidth="760"
-             d:DesignHeight="330">
+             d:DesignHeight="410">
     <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
         <StackPanel>
             <Grid>
@@ -27,11 +27,36 @@
             </Grid>
 
             <TextBlock x:Name="ConsentDescription"
-                       Text="Allow redacted compatibility data to be prepared for optional support sharing. The bounded troubleshooting history stays local and nothing is uploaded automatically."
+                       Text="ThinkControl can keep a small redacted compatibility history locally. It helps distinguish known providers from genuinely new hardware behavior. Nothing is uploaded automatically."
                        Foreground="{DynamicResource Tc.TextMuted}"
                        FontSize="10.5"
                        TextWrapping="Wrap"
                        Margin="0,9,0,0" />
+
+            <Border Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="1" CornerRadius="4" Padding="10,9" Margin="0,13,0,0">
+                <StackPanel>
+                    <Grid Margin="2,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="Detect" FontSize="9.5" FontWeight="SemiBold" />
+                        <Line Grid.Column="1" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
+                        <TextBlock Grid.Column="2" Text="Compare" FontSize="9.5" FontWeight="SemiBold" />
+                        <Line Grid.Column="3" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
+                        <TextBlock Grid.Column="4" Text="New data" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.Accent}" />
+                        <Line Grid.Column="5" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
+                        <TextBlock Grid.Column="6" Text="Review" FontSize="9.5" FontWeight="SemiBold" />
+                        <Line Grid.Column="7" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
+                        <TextBlock Grid.Column="8" Text="Share" FontSize="9.5" FontWeight="SemiBold" />
+                    </Grid>
+                    <TextBlock x:Name="DiscoveryReadinessText" Text="Still learning · share unlocks after useful provider data is found"
+                               Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" Margin="2,8,0,0" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
 
             <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,13" />
 
@@ -60,7 +85,7 @@
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <WrapPanel>
-                    <Button Content="Share device report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ShareDeviceReport_Click" />
+                    <Button x:Name="ShareDeviceButton" Content="Share device report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ShareDeviceReport_Click" />
                     <Button Content="Preview data" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Preview_Click" />
                     <Button Content="Export bundle" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Export_Click" />
                     <Button Content="Bug report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenBugReport_Click" />
@@ -69,7 +94,7 @@
             </Grid>
 
             <TextBlock x:Name="StatusText"
-                       Text="Device reports exclude serial numbers, usernames, hostnames, MAC addresses, personal paths, typed text and audio samples. You review the GitHub issue before submitting it."
+                       Text="A device report contains hardware model, provider/capability results and sanitized sensor types only. You review the GitHub issue before submitting it."
                        Foreground="{DynamicResource Tc.TextFaint}"
                        FontSize="9.5"
                        TextWrapping="Wrap"

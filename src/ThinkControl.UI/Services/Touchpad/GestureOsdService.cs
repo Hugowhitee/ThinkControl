@@ -64,7 +64,7 @@ internal sealed class GestureOsdService : IDisposable
             _slider.Value = clamped;
             _slider.IsEnabled = volume || brightness;
             _iconButton.IsEnabled = volume;
-            _iconButton.ToolTip = volume ? "Mute / unmute" : null;
+            _iconButton.ToolTip = volume ? "Mute / unmute" : brightness ? "Brightness" : null;
             _iconPath.Data = Geometry.Parse(volume ? VolumeGeometry : BrightnessGeometry);
         }
         finally
@@ -72,9 +72,8 @@ internal sealed class GestureOsdService : IDisposable
             _syncing = false;
         }
 
-        // Keep text and controls crisp while the whole card has the same light
-        // transparency requested by the user. DynamicResource references below
-        // make dark/light theme changes propagate to an already-created popup.
+        // Apply transparency to the themed card itself so glyphs remain crisp and
+        // the popup follows the same dark/light resources as the main application.
         _shell.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0.65, 1.0);
         _window.Opacity = 1;
 
@@ -85,12 +84,12 @@ internal sealed class GestureOsdService : IDisposable
             "Right" => area.Right - _window.Width - 24,
             _ => area.Left + (area.Width - _window.Width) / 2d
         };
-        double targetTop = area.Bottom - _window.Height - 16;
+        double targetTop = area.Bottom - _window.Height - 18;
         _window.Left = targetLeft;
 
         if (!_window.IsVisible)
         {
-            double startTop = area.Bottom + 6;
+            double startTop = area.Bottom + 8;
             _window.Top = startTop;
             _window.Show();
             if (SystemParameters.ClientAreaAnimation)
@@ -134,8 +133,8 @@ internal sealed class GestureOsdService : IDisposable
 
         _iconButton = new Button
         {
-            Width = 38,
-            Height = 38,
+            Width = 40,
+            Height = 40,
             Padding = new Thickness(0),
             BorderThickness = new Thickness(0),
             Content = _iconPath,
@@ -168,7 +167,7 @@ internal sealed class GestureOsdService : IDisposable
         };
         _value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
 
-        var header = new Grid { Margin = new Thickness(0, 1, 0, 5) };
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 4) };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(_label);
@@ -179,7 +178,7 @@ internal sealed class GestureOsdService : IDisposable
         {
             Minimum = 0,
             Maximum = 100,
-            Height = 24,
+            Height = 30,
             IsMoveToPointEnabled = true,
             SmallChange = 1,
             LargeChange = 5,
@@ -197,7 +196,7 @@ internal sealed class GestureOsdService : IDisposable
         _slider.PreviewMouseDown += (_, _) => _hideTimer.Stop();
         _slider.PreviewMouseUp += (_, _) => RestartHideTimer();
 
-        var right = new Grid { Margin = new Thickness(10, 0, 0, 0) };
+        var right = new Grid { Margin = new Thickness(11, 0, 0, 0) };
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         right.Children.Add(header);
@@ -205,7 +204,7 @@ internal sealed class GestureOsdService : IDisposable
         right.Children.Add(_slider);
 
         var content = new Grid();
-        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
         content.ColumnDefinitions.Add(new ColumnDefinition());
         content.Children.Add(_iconButton);
         Grid.SetColumn(right, 1);
@@ -215,7 +214,7 @@ internal sealed class GestureOsdService : IDisposable
         {
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
-            Padding = new Thickness(11, 9, 13, 9),
+            Padding = new Thickness(12, 10, 14, 10),
             Child = content
         };
         _shell.SetResourceReference(Border.BackgroundProperty, "Tc.Surface");
@@ -225,8 +224,8 @@ internal sealed class GestureOsdService : IDisposable
 
         _window = new Window
         {
-            Width = 286,
-            Height = 72,
+            Width = 300,
+            Height = 88,
             WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.NoResize,
             ShowInTaskbar = false,
@@ -258,7 +257,7 @@ internal sealed class GestureOsdService : IDisposable
 
         Rect area = SystemParameters.WorkArea;
         double from = _window.Top;
-        double to = area.Bottom + 5;
+        double to = area.Bottom + 6;
         var animation = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(125))
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }

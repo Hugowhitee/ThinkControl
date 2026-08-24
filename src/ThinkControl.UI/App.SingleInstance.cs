@@ -29,8 +29,8 @@ public partial class App
             {
             }
 
-            // A second desktop/start-menu launch should only activate the existing
-            // tray instance. Exit before WPF creates another NotifyIcon.
+            // A second desktop/start-menu launch activates the existing process and
+            // exits before a second NotifyIcon can ever be created.
             Environment.Exit(0);
             return;
         }
@@ -57,7 +57,7 @@ public partial class App
                 {
                     Dispatcher.BeginInvoke(
                         DispatcherPriority.ApplicationIdle,
-                        new Action(ShowThinkControlFromTray));
+                        new Action(ShowThinkControlFromDesktopLaunch));
                 }
                 catch
                 {
@@ -67,6 +67,13 @@ public partial class App
         }, token);
 
         Exit += (_, _) => DisposeSingleInstanceGuard();
+    }
+
+    private void ShowThinkControlFromDesktopLaunch()
+    {
+        // Re-opening ThinkControl should behave like a fresh user launch and honor
+        // the saved Compact / Advanced preference instead of always forcing Advanced.
+        ShowPreferredDesktopLaunchView();
     }
 
     private void DisposeSingleInstanceGuard()

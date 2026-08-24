@@ -1,5 +1,6 @@
 using LibreHardwareMonitor.PawnIo;
 using Microsoft.Win32.SafeHandles;
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace ThinkControl.Hardware.X9;
@@ -37,11 +38,10 @@ internal sealed class ThinkPadEc : IDisposable
 
     internal ThinkPadEc()
     {
-        // LHM's PawnIO wrapper intentionally returns zero-filled results when the
-        // driver device cannot be opened. That is useful for generic monitoring,
-        // but a verified fan-write provider must never confuse an inaccessible
-        // driver with a legitimate EC value of 0x00. Prove the signed PawnIO device
-        // can be opened before loading the embedded LpcACPIEC module.
+        // Prove that the signed driver device is reachable before asking LHM to
+        // load its embedded EC port module. LHM intentionally returns zero-filled
+        // results when PawnIO is not loaded; treating those zeros as real EC bytes
+        // would be unsafe for a write-capable provider.
         using SafeFileHandle driver = CreateFileW(
             PawnIoDevicePath,
             GenericRead | GenericWrite,
@@ -63,7 +63,30 @@ internal sealed class ThinkPadEc : IDisposable
                 $"PawnIO {installed} is too old for the verified ThinkControl EC provider. Hardware setup installs PawnIO 2.2.0.");
         }
 
-        _ports = new LpcAcpiEc();
+        LpcAcpiEc ports = new();
+        try
+        {
+            VerifyPawnIoModuleLoaded(ports);
+            _ports = ports;
+        }
+        catch
+        {
+            try { ports.Close(); } catch { }
+            throw;
+        }
+    }
+
+    private static void VerifyPawnIoModuleLoaded(LpcAcpiEc ports)
+    {
+        // LibreHardwareMonitorLib is pinned, and its LpcAcpiEc wrapper keeps the
+        // loaded PawnIo module in this private field. Checking IsLoaded closes a
+        // dangerous gap where Execute() would otherwise return a plausible 0 byte.
+        FieldInfo? field = typeof(LpcAcpiEc).GetField("_pawnIO", BindingFlags.Instance | BindingFlags.NonPublic);
+        if (field?.GetValue(ports) is not PawnIo module || !module.IsLoaded)
+        {
+            throw new InvalidOperationException(
+                "PawnIO is installed, but the LibreHardwareMonitor EC module could not load. Repair PawnIO or restart Windows, then retry Hardware setup.");
+        }
     }
 
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));

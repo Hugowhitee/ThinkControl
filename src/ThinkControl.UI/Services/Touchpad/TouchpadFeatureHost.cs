@@ -8,6 +8,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private readonly TouchpadGestureService _gestures;
     private readonly TouchpadHapticsService _haptics = new();
     private readonly NativeInputService _nativeInput;
+    private readonly GestureActionRouter _actions;
     private readonly GestureOsdService _osd;
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
@@ -27,7 +28,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
             app.UserSettings.Current.TouchpadGestures ??
             (TouchpadGestureConfiguration.Default with { Enabled = false });
 
-        var actions = new GestureActionRouter(
+        _actions = new GestureActionRouter(
             _nativeInput,
             new MediaSessionService(),
             () => app.State.Brightness,
@@ -40,7 +41,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
 
         _gestures = new TouchpadGestureService(
             configuration,
-            actions,
+            _actions,
             fallbackWidthMm: x9 ? 135.0 : 100.0,
             fallbackHeightMm: x9 ? 80.0 : 60.0);
         _gestures.GestureChanged += signal => GestureChanged?.Invoke(signal);
@@ -55,6 +56,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     internal TouchpadGestureConfiguration Configuration => _gestures.Configuration;
     internal TouchpadGeometry? Geometry => _gestures.Geometry;
     internal bool IsInputRunning => _gestures.IsRunning;
+    internal double CurrentSeekDeltaSeconds => _actions.CurrentSeekDeltaSeconds;
     internal TouchpadHapticStatus HapticStatus => _haptics.Read(
         hidTouchpadPresent: _gestures.Geometry is not null,
         hidFeedbackSupported: _gestures.HapticFeedbackSupported,

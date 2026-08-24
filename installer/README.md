@@ -1,14 +1,16 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.5` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
+ThinkControl `v0.1.0-alpha.6` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
 
 ## Release assets
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.5.exe
-ThinkControl-Payload-0.1.0-alpha.5.zip
+ThinkControl-Setup-0.1.0-alpha.6.exe
+ThinkControl-Payload-0.1.0-alpha.6.zip
 SHA256SUMS.txt
 ```
+
+The tagged release also publishes the WPF-generated Compact/Home/Touchpad/Sensors previews in the same immutable release creation step. The README itself uses version-controlled copies under `docs/screenshots/`, so its previews do not break when release assets are immutable.
 
 The Setup executable does not embed the ThinkControl UI/service payload or a duplicate .NET runtime. The matching payload is downloaded from the same GitHub release and verified before extraction.
 
@@ -101,7 +103,7 @@ The practical installed-payload target remains much smaller than the hard ceilin
 
 Pull requests that change application, installer, branding or version code run the package workflow. It verifies branding, restores/builds the solution, publishes framework-dependent UI and service files, creates and hashes the external payload, builds the bootstrapper, installs it with the verified local payload override, waits for `ThinkControlService` to reach Running, uninstalls it and verifies cleanup.
 
-Tagged release packaging repeats the validated path and publishes Setup, payload and `SHA256SUMS.txt` together as the GitHub release assets.
+Tagged release packaging repeats the validated path and publishes Setup, payload, `SHA256SUMS.txt` and the selected WPF previews in one immutable GitHub Release creation.
 
 ## Uninstall
 
