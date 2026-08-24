@@ -1,0 +1,62 @@
+name: Publish alpha.8 once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/publish-alpha8-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate release metadata
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python -c "import json; print(json.load(open('version.json'))['version'])")
+          ready=$(python -c "import json; print(str(json.load(open('version.json')).get('releaseReady', False)).lower())")
+          if [[ "$ready" != "true" ]]; then
+            echo "version.json is not release-ready" >&2
+            exit 1
+          fi
+          if [[ "$version" != "0.1.0-alpha.8" ]]; then
+            echo "Refusing to publish unexpected version: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Remove one-shot publisher from main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/publish-alpha8-once.yml
+          git commit -m 'Remove one-shot alpha.8 publisher'
+          git push origin HEAD:main
+
+      - name: Create release tag on cleaned main
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "$TAG already exists; leaving it untouched."
+            exit 0
+          fi
+          git tag -a "$TAG" -m "ThinkControl $TAG"
+          git push origin "$TAG"
+          echo "Published tag $TAG at $(git rev-parse HEAD)"
