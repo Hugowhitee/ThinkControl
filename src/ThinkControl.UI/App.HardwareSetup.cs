@@ -1,5 +1,3 @@
-using System.Windows;
-using System.Windows.Threading;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
@@ -8,60 +6,32 @@ namespace ThinkControl.UI;
 public partial class App
 {
     private readonly HardwareSetupService _hardwareSetupService = new();
-    private HardwareSetupWindow? _hardwareSetupWindow;
-    private DispatcherTimer? _hardwareSetupTimer;
     private bool _hardwareSetupEvaluated;
     private bool _providerRefreshBusy;
+    private bool _hardwareRepairBusy;
 
     private void OnHardwareSetupActivated(object? sender, EventArgs e)
     {
-        if (_hardwareSetupEvaluated || _hardwareSetupTimer is not null)
-            return;
-
-        _hardwareSetupTimer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromSeconds(2.5)
-        };
-        _hardwareSetupTimer.Tick += HardwareSetupTimer_Tick;
-        _hardwareSetupTimer.Start();
-    }
-
-    private async void HardwareSetupTimer_Tick(object? sender, EventArgs e)
-    {
-        _hardwareSetupTimer?.Stop();
-        _hardwareSetupTimer = null;
         if (_hardwareSetupEvaluated)
             return;
         _hardwareSetupEvaluated = true;
 
+        // Hardware discovery is silent on startup. Missing components are surfaced
+        // inside ThinkControl's notification/System UI; a repair window must never
+        // cover the app or steal focus simply because a service is stopped.
+        _ = EvaluateHardwareSetupSilentlyAsync();
+    }
+
+    private async Task EvaluateHardwareSetupSilentlyAsync()
+    {
         try
         {
-            HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync();
-
-            // Provider-unavailable states belong in Notifications and on their
-            // respective pages. Only hard prerequisites and an explicitly diagnosed
-            // low-level device/module failure get a one-time repair prompt. Opening
-            // the prompt never starts UAC or an installer by itself.
-            bool hardRequirementMissing =
-                !status.ServiceInstalled ||
-                !status.ServiceRunning ||
-                !status.ServiceReachable ||
-                (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled) ||
-                (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess));
-
-            if (!hardRequirementMissing)
-                return;
-
-            string version = State.AppVersion ?? string.Empty;
-            if (string.Equals(UserSettings.Current.HardwareSetupPromptedVersion, version, StringComparison.OrdinalIgnoreCase))
-                return;
-
-            UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
-            _ = Dispatcher.BeginInvoke(OpenHardwareSetup, DispatcherPriority.Background);
+            await Task.Delay(900).ConfigureAwait(true);
+            await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
         }
         catch
         {
-            State.DriverStatus = "Hardware status could not be refreshed";
+            State.DriverStatus = "Hardware status unavailable · open Notifications to retry";
         }
     }
 
@@ -70,20 +40,16 @@ public partial class App
         bool expectsFanTelemetry = DeviceCapabilityExpectations.ExpectsFanTelemetry(State);
         bool expectsFanControl = DeviceCapabilityExpectations.ExpectsWritableFanControl(State);
 
-        // Low-level access is relevant for generic sensor discovery and for fan
-        // telemetry/control only when the resolved model/family is expected to
-        // provide those capabilities. An unsupported fan capability on another OEM
-        // must not turn into a PawnIO installation prompt.
         bool needsSensorProvider =
             !State.CanSensorTelemetry ||
             (expectsFanTelemetry && !State.CanFanTelemetry) ||
             (expectsFanControl && !State.CanFanControl);
 
-        bool serviceReachable = await HardwareClient.PingAsync();
+        bool serviceReachable = await HardwareClient.PingAsync().ConfigureAwait(true);
         HardwareSetupStatus status = await _hardwareSetupService.ReadStatusAsync(
             State.MachineType,
             needsSensorProvider,
-            serviceReachable);
+            serviceReachable).ConfigureAwait(true);
         State.DriverStatus = DescribeHardwareSetup(status);
         return status;
     }
@@ -97,18 +63,18 @@ public partial class App
         try
         {
             State.DriverStatus = "Refreshing hardware providers…";
-            ServiceResponse? response = await HardwareClient.RefreshProvidersAsync();
+            ServiceResponse? response = await HardwareClient.RefreshProvidersAsync().ConfigureAwait(true);
             if (response?.Success != true)
             {
                 State.DriverStatus = response?.Error ?? "Hardware service did not accept provider refresh";
                 return false;
             }
 
-            // The service's background provider loop owns heavy provider discovery.
-            // Give it one cycle, then read the fresh cached snapshot without blocking UI.
-            await Task.Delay(2300);
-            await RefreshStatusAsync(forceSystemInfo: false);
-            await RefreshHardwareSetupStatusAsync();
+            // Heavy provider discovery belongs to the service. The UI only waits for
+            // one bounded service cycle and then consumes its cached status.
+            await Task.Delay(2300).ConfigureAwait(true);
+            await RefreshStatusAsync(forceSystemInfo: false).ConfigureAwait(true);
+            await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
             return State.CanSensorTelemetry || State.CanFanTelemetry || State.CanFanControl || State.CanKeyboardBacklight;
         }
         finally
@@ -117,18 +83,92 @@ public partial class App
         }
     }
 
+    internal async Task<HardwareSetupResult> RepairDetectedHardwareAsync()
+    {
+        if (_hardwareRepairBusy)
+            return new(false, false, "A hardware repair is already running.");
+
+        _hardwareRepairBusy = true;
+        try
+        {
+            HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+
+            if (!status.ServiceRunning || !status.ServiceReachable)
+            {
+                State.DriverStatus = status.ServiceRunning
+                    ? "Restarting hardware service…"
+                    : "Starting hardware service…";
+                HardwareSetupResult service = await _hardwareSetupService.RepairServiceAsync().ConfigureAwait(true);
+                if (!service.Success)
+                {
+                    State.DriverStatus = service.Message;
+                    return service;
+                }
+
+                await Task.Delay(650).ConfigureAwait(true);
+                await RefreshStatusAsync(forceSystemInfo: true).ConfigureAwait(true);
+                status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+                if (!status.ServiceReachable)
+                {
+                    const string message = "The ThinkControl hardware service is running, but the app connection still does not respond. Reinstall ThinkControl if this persists.";
+                    State.DriverStatus = message;
+                    return new(false, false, message);
+                }
+            }
+
+            bool pawnIoRepair = status.LowLevelAccessRelevant &&
+                                (!status.LowLevelAccessInstalled || HasConcretePawnIoReadinessFailure(State.HardwareAccess));
+            if (pawnIoRepair)
+            {
+                State.DriverStatus = status.LowLevelAccessInstalled
+                    ? "Repairing low-level hardware access…"
+                    : "Installing low-level hardware access…";
+                HardwareSetupResult pawnIo = await _hardwareSetupService.InstallLowLevelAccessAsync().ConfigureAwait(true);
+                if (!pawnIo.Success || pawnIo.RestartRequired)
+                {
+                    State.DriverStatus = pawnIo.Message;
+                    return pawnIo;
+                }
+            }
+
+            State.DriverStatus = "Verifying hardware providers…";
+            await RefreshHardwareProvidersAsync().ConfigureAwait(true);
+            HardwareSetupStatus finalStatus = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+
+            bool expectedFanTelemetry = DeviceCapabilityExpectations.ExpectsFanTelemetry(State);
+            bool expectedFanControl = DeviceCapabilityExpectations.ExpectsWritableFanControl(State);
+            bool expectedKeyboard = DeviceCapabilityExpectations.ExpectsKeyboardBacklight(State);
+            bool ready = finalStatus.ServiceRunning && finalStatus.ServiceReachable &&
+                         (!finalStatus.LowLevelAccessRelevant || finalStatus.LowLevelAccessInstalled) &&
+                         State.CanSensorTelemetry &&
+                         (!expectedFanTelemetry || State.CanFanTelemetry) &&
+                         (!expectedFanControl || State.CanFanControl) &&
+                         (!expectedKeyboard || State.CanKeyboardBacklight);
+
+            string message = ready
+                ? "Hardware setup complete. All expected providers passed readback."
+                : "Repair completed, but one or more hardware providers still did not pass readback. ThinkControl left unsupported writes disabled; check the provider details below.";
+            State.DriverStatus = ready ? "Ready" : message;
+            return new(ready, false, message);
+        }
+        finally
+        {
+            _hardwareRepairBusy = false;
+        }
+    }
+
     private string DescribeHardwareSetup(HardwareSetupStatus status)
     {
         if (!status.ServiceInstalled)
             return "ThinkControl hardware service not installed";
         if (!status.ServiceRunning)
-            return "ThinkControl hardware service stopped · repair available";
+            return "Hardware service stopped · action available in Notifications";
         if (!status.ServiceReachable)
-            return "Hardware service is running · app connection needs repair";
+            return "Hardware service running · app connection needs attention";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
-            return "PawnIO missing · install available";
+            return "Low-level hardware access missing · action available in Notifications";
         if (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess))
-            return "PawnIO installed · device/module repair available";
+            return "Low-level hardware access needs repair";
 
         bool providerAttention =
             !State.CanSensorTelemetry ||
@@ -154,25 +194,13 @@ public partial class App
     public void OpenHardwareAttention()
     {
         OpenAdvanced("System");
-        _ = Dispatcher.BeginInvoke(() => OpenHardwareSetup(), DispatcherPriority.Background);
+        _advancedWindow?.ShowNotificationSheet();
     }
 
     public void OpenHardwareSetup()
     {
-        if (_hardwareSetupWindow is null)
-        {
-            _hardwareSetupWindow = new HardwareSetupWindow(this, _hardwareSetupService);
-            _hardwareSetupWindow.Closed += (_, _) => _hardwareSetupWindow = null;
-        }
-
-        Window? owner = _advancedWindow?.IsVisible == true ? _advancedWindow : CompactWindow;
-        if (owner?.IsVisible == true)
-            _hardwareSetupWindow.Owner = owner;
-
-        if (!_hardwareSetupWindow.IsVisible)
-            _hardwareSetupWindow.Show();
-        if (_hardwareSetupWindow.WindowState == WindowState.Minimized)
-            _hardwareSetupWindow.WindowState = WindowState.Normal;
-        _hardwareSetupWindow.Activate();
+        // Kept as the public call site for older UI code, but setup is now an
+        // in-app notification/System workflow rather than a separate Window.
+        OpenHardwareAttention();
     }
 }
