@@ -31,9 +31,6 @@ public partial class AdvancedWindow
 
         _notificationButtonConfigured = true;
 
-        // Keep notifications available from every Advanced page without floating a
-        // button over Home content. The sidebar footer owns a quiet icon-only target;
-        // the red dot is the status signal, not another framed toolbar button.
         var icon = new Grid
         {
             Width = 28,
@@ -49,7 +46,7 @@ public partial class AdvancedWindow
         var bell = new Path
         {
             Data = Geometry.Parse("M10,2.1 C6.5,2.1 5,4.7 5,7.7 V10.6 L3.3,13.2 H16.7 L15,10.6 V7.7 C15,4.7 13.5,2.1 10,2.1 Z M7.7,15 C8.1,16.1 8.9,16.6 10,16.6 C11.1,16.6 11.9,16.1 12.3,15"),
-            StrokeThickness = 1.75,
+            StrokeThickness = 1.8,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
@@ -81,7 +78,7 @@ public partial class AdvancedWindow
         icon.MouseLeftButtonUp += (_, e) =>
         {
             e.Handled = true;
-            _app.OpenNotificationCenter();
+            ShowNotificationSheet();
         };
 
         _notificationIndicator = icon;
@@ -91,14 +88,19 @@ public partial class AdvancedWindow
 
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;
+        _app.UpdateAvailabilityChanged += App_UpdateNotificationAvailabilityChanged;
         Closed += (_, _) =>
         {
             if (DataContext is AppState closingState)
                 closingState.PropertyChanged -= NotificationState_PropertyChanged;
+            _app.UpdateAvailabilityChanged -= App_UpdateNotificationAvailabilityChanged;
         };
 
         SyncNotificationIndicator();
     }
+
+    private void App_UpdateNotificationAvailabilityChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(SyncNotificationIndicator);
 
     private void NotificationState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -117,13 +119,20 @@ public partial class AdvancedWindow
         if (_notificationDot is null || _notificationIndicator is null || DataContext is not AppState state)
             return;
 
-        bool attention = !state.DriverStatus.Equals("Ready", StringComparison.OrdinalIgnoreCase) ||
-                         !state.CanSensorTelemetry ||
-                         !state.CanFanTelemetry ||
-                         !state.CanKeyboardBacklight;
+        bool hardwareAttention = !state.DriverStatus.Equals("Ready", StringComparison.OrdinalIgnoreCase) ||
+                                 !state.CanSensorTelemetry ||
+                                 !state.CanFanTelemetry ||
+                                 !state.CanKeyboardBacklight;
+        bool updateAttention = _app.LatestUpdateResult?.Available == true;
+        bool attention = hardwareAttention || updateAttention;
+
         _notificationDot.Visibility = attention ? Visibility.Visible : Visibility.Collapsed;
-        _notificationIndicator.ToolTip = attention
-            ? "Notifications · hardware setup needs attention"
-            : "Notifications";
+        _notificationIndicator.ToolTip = updateAttention && hardwareAttention
+            ? "Notifications · update and hardware attention"
+            : updateAttention
+                ? "Notifications · update available"
+                : hardwareAttention
+                    ? "Notifications · hardware setup needs attention"
+                    : "Notifications";
     }
 }
