@@ -27,7 +27,7 @@
             </Grid>
 
             <TextBlock x:Name="ConsentDescription"
-                       Text="Keep a small redacted compatibility history locally so unsupported devices are easier to diagnose. Nothing is uploaded automatically."
+                       Text="Allow redacted compatibility data to be prepared for optional support sharing. The bounded troubleshooting history stays local and nothing is uploaded automatically."
                        Foreground="{DynamicResource Tc.TextMuted}"
                        FontSize="10.5"
                        TextWrapping="Wrap"
