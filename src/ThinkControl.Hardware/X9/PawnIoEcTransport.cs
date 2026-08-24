@@ -72,8 +72,9 @@ internal sealed class PawnIoEcTransport : IDisposable
                     $"PawnIO device opened, but the LibreHardwareMonitor LPC/ACPI EC module could not be loaded (Win32 {error}: {new Win32Exception(error).Message}).");
             }
 
-            // A harmless status-port read proves that the loaded module can execute
-            // before ThinkControl touches any ThinkPad EC register.
+            // A harmless legacy status-port read proves that the loaded module can
+            // execute. Actual ThinkPad EC port-pair detection happens read-only in
+            // ThinkPadEc and includes the modern 0x1604/0x1600 pair.
             _ = ReadPort(0x66);
         }
         catch
@@ -83,17 +84,17 @@ internal sealed class PawnIoEcTransport : IDisposable
         }
     }
 
-    internal byte ReadPort(byte port)
+    internal byte ReadPort(ushort port)
     {
-        long[] result = Execute("ioctl_pio_read", [port], 1);
+        long[] result = Execute("ioctl_pio_read", [(long)port], 1);
         if (result.Length != 1)
             throw new InvalidOperationException("PawnIO LPC read returned no data.");
         return unchecked((byte)result[0]);
     }
 
-    internal void WritePort(byte port, byte value)
+    internal void WritePort(ushort port, byte value)
     {
-        _ = Execute("ioctl_pio_write", [port, value], 0);
+        _ = Execute("ioctl_pio_write", [(long)port, value], 0);
     }
 
     private long[] Execute(string functionName, long[] input, int outputLength)
