@@ -11,6 +11,9 @@ namespace ThinkControl.UI.Services;
 /// </summary>
 internal static class DeviceCapabilityExpectations
 {
+    internal static bool ExpectsFanTelemetry(AppState state) =>
+        IsVerifiedX9(state.MachineType);
+
     internal static bool ExpectsWritableFanControl(AppState state) =>
         IsVerifiedX9(state.MachineType);
 
