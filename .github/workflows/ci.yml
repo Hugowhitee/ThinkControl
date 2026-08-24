@@ -6,48 +6,18 @@ on:
   pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-          fetch-depth: 0
 
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.0.x
-
-      - name: Normalize alpha.8 README and snapshot state
-        if: github.event_name == 'pull_request' && github.head_ref == 'chore/alpha7-finalize'
-        shell: pwsh
-        run: |
-          $programPath = 'tools/ThinkControl.Snapshots/Program.cs'
-          $program = Get-Content $programPath -Raw
-          $program = $program.Replace('UpdateStatus = "Up to date · v0.1.0-alpha.4",', 'UpdateStatus = $"Up to date · v{UpdateService.CurrentVersion}",')
-          Set-Content $programPath $program -Encoding utf8
-
-          $readmePath = 'README.md'
-          $readme = Get-Content $readmePath -Raw
-          $readme = $readme.Replace('v0.1.0-alpha.7', 'v0.1.0-alpha.8')
-          $readme = $readme.Replace('ThinkControl-Setup-0.1.0-alpha.7.exe', 'ThinkControl-Setup-0.1.0-alpha.8.exe')
-          $readme = $readme.Replace('ThinkControl-Payload-0.1.0-alpha.7.zip', 'ThinkControl-Payload-0.1.0-alpha.8.zip')
-          $old = @'
-ThinkControl checks GitHub Releases automatically. The Updates page shows when it was **last checked**; a manual check enters a visible `Checking…` state and updates the timestamp only when the request completes.
-
-When a newer release is found, ThinkControl downloads the installer to a temporary location, verifies it against `SHA256SUMS.txt`, and starts the verified setup in update mode. The normal update path does not send the user to a browser.
-'@
-          $new = @'
-ThinkControl checks GitHub Releases automatically and keeps a persistent **Last checked** time. Background checks only report availability: they never open UAC or start setup on their own, so a failed update cannot re-prompt on every app launch.
-
-When you click **Install update**, ThinkControl downloads both the small setup bootstrapper and the full application payload first, verifies both against `SHA256SUMS.txt`, and only then asks Windows for administrator permission. The app stays visible during download and verification; the verified installer closes it only when replacement is actually ready and relaunches the new build when setup succeeds.
-'@
-          $readme = $readme.Replace($old, $new)
-          Set-Content $readmePath $readme -Encoding utf8
 
       - name: Restore
         run: dotnet restore ThinkControl.slnx
@@ -75,9 +45,7 @@ When you click **Install update**, ThinkControl downloads both the small setup b
             'advanced-home.png',
             'advanced-performance.png',
             'advanced-fans.png',
-            'advanced-sensors.png',
             'advanced-display.png',
-            'advanced-audio.png',
             'advanced-keyboard.png',
             'advanced-battery.png',
             'advanced-touchpad.png',
@@ -116,32 +84,3 @@ When you click **Install update**, ThinkControl downloads both the small setup b
           name: ThinkControl-Visual-QA
           path: artifacts/snapshots/**
           if-no-files-found: error
-
-      - name: Commit current alpha.8 README previews
-        if: github.event_name == 'pull_request' && github.head_ref == 'chore/alpha7-finalize'
-        shell: pwsh
-        run: |
-          $target = Join-Path $PWD 'docs\screenshots'
-          foreach ($name in @(
-            'compact-dark.png',
-            'advanced-home.png',
-            'advanced-touchpad.png',
-            'advanced-audio.png',
-            'advanced-battery.png',
-            'advanced-sensors.png',
-            'advanced-fans.png',
-            'advanced-updates.png'
-          )) {
-            Copy-Item (Join-Path $PWD "artifacts\snapshots\$name") (Join-Path $target $name) -Force
-          }
-
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md tools/ThinkControl.Snapshots/Program.cs docs/screenshots/*.png
-          git diff --cached --quiet
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host 'README previews already current.'
-            exit 0
-          }
-          git commit -m 'Refresh alpha.8 README previews'
-          git push origin HEAD:${{ github.head_ref }}
