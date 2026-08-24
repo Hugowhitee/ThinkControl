@@ -48,9 +48,6 @@ public sealed class HardwareServiceClient
         if (response is not null || cancellationToken.IsCancellationRequested)
             return response;
 
-        // The service returns GetStatus from an in-memory cache, so a multi-second
-        // retry only makes the UI feel frozen. Use a very small ping to distinguish
-        // a transient status miss from a genuinely unreachable pipe.
         bool online = await PingAsync(cancellationToken).ConfigureAwait(false);
         if (online && _lastValidStatus is not null)
         {
@@ -60,8 +57,6 @@ public sealed class HardwareServiceClient
             };
         }
 
-        // Do not throw away all live telemetry because of one short IPC hiccup.
-        // A persistent failure still becomes offline after this bounded grace window.
         if (_lastValidStatus is not null && DateTimeOffset.UtcNow - _lastValidStatusAt <= LastKnownGoodGrace)
         {
             return _lastValidStatus with
@@ -81,6 +76,9 @@ public sealed class HardwareServiceClient
             timeoutMs: 350).ConfigureAwait(false);
         return response?.Success == true;
     }
+
+    public async Task<ServiceResponse?> RefreshProvidersAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("RefreshProviders", null, cancellationToken, timeoutMs: 1800);
 
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken);
