@@ -137,10 +137,9 @@ internal sealed class TouchpadFeatureHost : IDisposable
         }
 
         // Do not clear the latest volume/brightness target when the finger lifts.
-        // Alpha.10 did that and could discard the final value while a worker was
-        // coalescing frames. The worker now applies at most the latest outstanding
-        // target and then exits, so release is deterministic without a tail of stale
-        // writes.
+        // The worker owns the final outstanding write. Failed writes clear only the
+        // exact failed target, so an unchanged unavailable endpoint cannot create an
+        // infinite retry loop while a newer concurrently queued target is preserved.
     }
 
     private void QueueVolume(int value)
@@ -164,7 +163,10 @@ internal sealed class TouchpadFeatureHost : IDisposable
                     break;
 
                 if (!_nativeInput.SetVolume(target))
+                {
+                    Interlocked.CompareExchange(ref _pendingVolume, -1, target);
                     break;
+                }
 
                 lastApplied = target;
                 await Task.Delay(36).ConfigureAwait(false);
@@ -217,6 +219,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
                 }
                 else
                 {
+                    Interlocked.CompareExchange(ref _pendingBrightness, -1, target);
                     break;
                 }
 
