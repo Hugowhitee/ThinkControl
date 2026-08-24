@@ -5,7 +5,6 @@ using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
-using MediaColor = System.Windows.Media.Color;
 using MediaFontFamily = System.Windows.Media.FontFamily;
 using WpfApplication = System.Windows.Application;
 
@@ -73,7 +72,12 @@ internal sealed class GestureOsdService : IDisposable
             _syncing = false;
         }
 
-        _window.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0.65, 1.0);
+        // Keep text and controls crisp while the whole card has the same light
+        // transparency requested by the user. DynamicResource references below
+        // make dark/light theme changes propagate to an already-created popup.
+        _shell.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0.65, 1.0);
+        _window.Opacity = 1;
+
         Rect area = SystemParameters.WorkArea;
         double targetLeft = settings.TouchpadOsdPosition switch
         {
@@ -86,8 +90,6 @@ internal sealed class GestureOsdService : IDisposable
 
         if (!_window.IsVisible)
         {
-            // Start just below the usable desktop so the card rises from the
-            // taskbar edge rather than appearing detached above it.
             double startTop = area.Bottom + 6;
             _window.Top = startTop;
             _window.Show();
@@ -117,35 +119,30 @@ internal sealed class GestureOsdService : IDisposable
         if (_window is not null)
             return;
 
-        Brush surface = BrushResource("Tc.Surface", new SolidColorBrush(MediaColor.FromRgb(28, 30, 33)));
-        Brush surfaceAlt = BrushResource("Tc.SurfaceAlt", new SolidColorBrush(MediaColor.FromRgb(34, 36, 40)));
-        Brush border = BrushResource("Tc.BorderStrong", new SolidColorBrush(MediaColor.FromRgb(70, 75, 82)));
-        Brush text = BrushResource("Tc.Text", Brushes.White);
-        Brush muted = BrushResource("Tc.TextMuted", Brushes.LightGray);
-        Brush accent = BrushResource("Tc.Accent", new SolidColorBrush(MediaColor.FromRgb(227, 41, 41)));
-
         _iconPath = new Path
         {
             Width = 18,
             Height = 18,
             Stretch = Stretch.Uniform,
-            Stroke = text,
             StrokeThickness = 1.65,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
             Data = Geometry.Parse(VolumeGeometry)
         };
+        _iconPath.SetResourceReference(Shape.StrokeProperty, "Tc.Text");
+
         _iconButton = new Button
         {
             Width = 38,
             Height = 38,
             Padding = new Thickness(0),
-            Background = Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Content = _iconPath,
-            Cursor = System.Windows.Input.Cursors.Hand
+            Cursor = System.Windows.Input.Cursors.Hand,
+            Style = WpfApplication.Current?.TryFindResource("TcIconButton") as Style
         };
+        _iconButton.SetResourceReference(Control.BackgroundProperty, "Tc.SurfaceAlt");
         _iconButton.Click += (_, _) =>
         {
             if (_activeLabel.Contains("Volume", StringComparison.OrdinalIgnoreCase) || _activeLabel.Contains("Muted", StringComparison.OrdinalIgnoreCase))
@@ -158,17 +155,18 @@ internal sealed class GestureOsdService : IDisposable
             FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
             FontSize = 12.5,
             FontWeight = FontWeights.SemiBold,
-            Foreground = text,
             VerticalAlignment = VerticalAlignment.Center
         };
+        _label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Text");
+
         _value = new TextBlock
         {
             FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
             FontSize = 11,
-            Foreground = muted,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };
+        _value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
 
         var header = new Grid { Margin = new Thickness(0, 1, 0, 5) };
         header.ColumnDefinitions.Add(new ColumnDefinition());
@@ -215,13 +213,13 @@ internal sealed class GestureOsdService : IDisposable
 
         _shell = new Border
         {
-            Background = surface,
-            BorderBrush = border,
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(10),
             Padding = new Thickness(11, 9, 13, 9),
             Child = content
         };
+        _shell.SetResourceReference(Border.BackgroundProperty, "Tc.Surface");
+        _shell.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
         _shell.MouseEnter += (_, _) => _hideTimer.Stop();
         _shell.MouseLeave += (_, _) => RestartHideTimer();
 
@@ -274,9 +272,6 @@ internal sealed class GestureOsdService : IDisposable
         };
         _window.BeginAnimation(Window.TopProperty, animation);
     }
-
-    private static Brush BrushResource(string key, Brush fallback) =>
-        WpfApplication.Current?.TryFindResource(key) as Brush ?? fallback;
 
     public void Dispose()
     {
