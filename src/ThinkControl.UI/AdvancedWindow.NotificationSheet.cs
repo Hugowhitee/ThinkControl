@@ -14,6 +14,7 @@ public partial class AdvancedWindow
     private StackPanel? _notificationMessages;
     private TextBlock? _notificationSummary;
     private bool _notificationRefreshBusy;
+    private string? _notificationLastResult;
 
     internal async void ShowNotificationSheet()
     {
@@ -192,7 +193,7 @@ public partial class AdvancedWindow
 
         _notificationRefreshBusy = true;
         _notificationMessages.Children.Clear();
-        _notificationSummary.Text = "Refreshing…";
+        _notificationSummary.Text = "Checking app and hardware status…";
         try
         {
             HardwareSetupStatus setup;
@@ -212,6 +213,16 @@ public partial class AdvancedWindow
             bool ecCompatibilityFailure = verifiedX9 && IsEcCompatibilityFailure(hardwareDetail);
 
             var messages = new List<SheetMessage>();
+            if (!string.IsNullOrWhiteSpace(_notificationLastResult))
+            {
+                messages.Add(new(
+                    "Last hardware action",
+                    _notificationLastResult!,
+                    string.Empty,
+                    SheetAction.None,
+                    false));
+            }
+
             UpdateCheckResult? update = _app.LatestUpdateResult;
             if (update is { Available: true })
             {
@@ -228,68 +239,66 @@ public partial class AdvancedWindow
             if (!setup.ServiceRunning || !setup.ServiceReachable)
             {
                 messages.Add(new(
-                    "Hardware service needs attention",
-                    setup.ServiceDetail + ". Repair ThinkControl's service before retrying hardware providers.",
-                    "Hardware setup",
-                    SheetAction.HardwareSetup,
+                    "Hardware service",
+                    setup.ServiceDetail + ". ThinkControl can repair and start its own service after one Windows approval.",
+                    "Fix required components",
+                    SheetAction.HardwareRepair,
                     true));
             }
 
             if (setup.LowLevelAccessRelevant && !setup.LowLevelAccessInstalled)
             {
                 messages.Add(new(
-                    "Low-level sensor access is required",
+                    "Low-level hardware access",
                     verifiedX9
-                        ? "The verified X9 sensor/EC provider needs PawnIO. Hardware setup can install the pinned, hash-verified package after you choose Install."
-                        : "Additional hardware sensors require the configured low-level provider. Hardware setup can install the pinned, hash-verified component after you choose Install.",
-                    "Hardware setup",
-                    SheetAction.HardwareSetup,
+                        ? "PawnIO is required for X9 sensor discovery and the verified EC provider. ThinkControl downloads the pinned package, verifies SHA-256, then asks Windows once before installation."
+                        : "An additional low-level provider is required for the detected hardware. ThinkControl verifies the pinned package before Windows is asked to install it.",
+                    "Fix required components",
+                    SheetAction.HardwareRepair,
                     true));
             }
             else if (pawnIoRepair)
             {
                 messages.Add(new(
-                    "Low-level access needs repair",
+                    "Low-level hardware access",
                     FriendlyPawnIoDetail(hardwareDetail),
                     "Repair component",
-                    SheetAction.HardwareSetup,
+                    SheetAction.HardwareRepair,
                     true));
             }
 
-            if (!_app.State.CanSensorTelemetry && !pawnIoRepair && setup.LowLevelAccessRelevant && setup.LowLevelAccessInstalled)
+            if (!_app.State.CanSensorTelemetry && !pawnIoRepair && setup.ServiceRunning && setup.ServiceReachable &&
+                setup.LowLevelAccessRelevant && setup.LowLevelAccessInstalled)
             {
                 messages.Add(new(
-                    "Sensors are unavailable",
-                    "The configured sensor provider has not produced usable telemetry. Retry performs one clean provider rebuild; it does not blindly reinstall the driver.",
+                    "Sensors",
+                    "The configured sensor provider has not produced usable telemetry. Retry performs one clean provider rebuild; it does not reinstall a working driver.",
                     "Retry sensors",
                     SheetAction.RefreshProviders,
                     true));
             }
 
-            // Writable fan control is a requirement only for an exact profile whose
-            // provider is expected to supply it. Other laptops without a writable
-            // fan provider are simply unsupported for that capability, not broken.
-            if (verifiedX9 && !_app.State.CanFanControl && !pawnIoRepair)
+            if (verifiedX9 && !_app.State.CanFanControl && !pawnIoRepair && setup.ServiceRunning && setup.ServiceReachable)
             {
                 string detail = ecCompatibilityFailure
-                    ? "Low-level access is working, but neither supported ThinkPad EC port pair passed the read-only X9 validation. Lenovo firmware remains in control; no fan write is attempted."
+                    ? "Low-level access is working, but neither supported ThinkPad EC port pair passed read-only X9 validation. Lenovo firmware remains in control; no fan write is attempted."
                     : _app.State.CanFanTelemetry
-                        ? "Fan telemetry is visible, but the verified X9 EC read/write gate has not passed. Lenovo firmware remains in control."
-                        : "The verified X9 EC fan path is not ready yet. Lenovo firmware remains in control.";
+                        ? "Fan telemetry is visible, but the verified X9 EC control/readback gate has not passed. Lenovo firmware remains in control."
+                        : "The verified X9 fan provider has not produced telemetry yet. Lenovo firmware remains in control.";
 
                 messages.Add(new(
-                    ecCompatibilityFailure ? "X9 EC validation needs attention" : "Fan control is unavailable",
+                    "Fans",
                     detail,
-                    ecCompatibilityFailure ? "Hardware details" : "Retry provider",
-                    ecCompatibilityFailure ? SheetAction.HardwareSetup : SheetAction.RefreshProviders,
+                    ecCompatibilityFailure ? string.Empty : "Retry provider",
+                    ecCompatibilityFailure ? SheetAction.None : SheetAction.RefreshProviders,
                     true));
             }
 
-            if (!_app.State.CanKeyboardBacklight && verifiedX9)
+            if (!_app.State.CanKeyboardBacklight && verifiedX9 && setup.ServiceRunning && setup.ServiceReachable)
             {
                 messages.Add(new(
-                    "Keyboard control is unavailable",
-                    "The X9 keyboard provider has not produced a valid readback. Retry probes the installed verified Lenovo contracts without inventing another hardware write path.",
+                    "Keyboard",
+                    "The Lenovo keyboard provider has not produced a valid readback. Retry probes the installed provider contracts once; failed probes are backed off instead of hammered in the background.",
                     "Retry keyboard",
                     SheetAction.RefreshProviders,
                     true));
@@ -335,6 +344,7 @@ public partial class AdvancedWindow
 
     private static bool IsPawnIoRepairFailure(string detail) =>
         detail.Contains("PawnIO is not installed", StringComparison.OrdinalIgnoreCase) ||
+        detail.Contains("too old for", StringComparison.OrdinalIgnoreCase) ||
         detail.Contains("PawnIO is registered but its device is not available", StringComparison.OrdinalIgnoreCase) ||
         detail.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase) ||
         detail.Contains("LPC/ACPI EC module could not be loaded", StringComparison.OrdinalIgnoreCase) ||
@@ -346,13 +356,15 @@ public partial class AdvancedWindow
 
     private static string FriendlyPawnIoDetail(string detail)
     {
+        if (detail.Contains("too old for", StringComparison.OrdinalIgnoreCase))
+            return "The installed low-level provider is older than the verified ThinkControl contract. Repair upgrades the pinned package and then verifies provider readback.";
         if (detail.Contains("access to its device was denied", StringComparison.OrdinalIgnoreCase))
             return "The low-level component is installed, but ThinkControl's hardware service was denied access to its device. Repair it once, then providers can be rechecked.";
         if (detail.Contains("module could not be loaded", StringComparison.OrdinalIgnoreCase))
-            return "The low-level device opened, but its sensor/EC module did not load. Hardware setup can repair the pinned component before one clean retry.";
+            return "The low-level device opened, but its sensor/EC module did not load. Repair the pinned component before one clean retry.";
         if (detail.Contains("device is not available", StringComparison.OrdinalIgnoreCase) || detail.Contains("device could not be opened", StringComparison.OrdinalIgnoreCase))
-            return "The low-level component is registered in Windows, but its kernel device is not accessible to ThinkControl. Hardware setup can repair it before dependent providers are retried.";
-        return "The low-level component did not pass its service-side device/module readiness check. Hardware setup can repair it once and then verify providers again.";
+            return "The low-level component is registered in Windows, but its kernel device is not accessible to ThinkControl. Repair it before dependent providers are retried.";
+        return "The low-level component did not pass its service-side readiness check. Repair it once and then verify providers again.";
     }
 
     private FrameworkElement CreateNotificationCard(SheetMessage message)
@@ -430,14 +442,20 @@ public partial class AdvancedWindow
                     HideNotificationSheet();
                     Navigate("Updates");
                     break;
-                case SheetAction.HardwareSetup:
-                    HideNotificationSheet();
-                    Navigate("System");
-                    _app.OpenHardwareSetup();
+                case SheetAction.HardwareRepair:
+                    button.Content = "Repairing…";
+                    if (_notificationSummary is not null)
+                        _notificationSummary.Text = "Repairing required components and verifying readback…";
+                    HardwareSetupResult result = await _app.RepairDetectedHardwareAsync();
+                    _notificationLastResult = result.Message;
+                    await RefreshNotificationSheetAsync();
                     break;
                 case SheetAction.RefreshProviders:
                     button.Content = "Retrying…";
-                    await _app.RefreshHardwareProvidersAsync();
+                    bool ready = await _app.RefreshHardwareProvidersAsync();
+                    _notificationLastResult = ready
+                        ? "Provider refresh completed and at least one hardware capability responded."
+                        : "Provider refresh completed, but no unavailable capability passed readback yet.";
                     await RefreshNotificationSheetAsync();
                     break;
                 case SheetAction.Diagnostics:
@@ -458,7 +476,7 @@ public partial class AdvancedWindow
     {
         None,
         Updates,
-        HardwareSetup,
+        HardwareRepair,
         RefreshProviders,
         Diagnostics
     }
