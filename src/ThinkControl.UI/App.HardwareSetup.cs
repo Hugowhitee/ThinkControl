@@ -57,7 +57,7 @@ public partial class App
                 return;
 
             UserSettings.Update(settings => settings with { HardwareSetupPromptedVersion = version });
-            Dispatcher.BeginInvoke(OpenHardwareSetup, DispatcherPriority.Background);
+            _ = Dispatcher.BeginInvoke(OpenHardwareSetup, DispatcherPriority.Background);
         }
         catch
         {
@@ -136,7 +136,7 @@ public partial class App
     public void OpenHardwareAttention()
     {
         OpenAdvanced("System");
-        Dispatcher.BeginInvoke(() => OpenHardwareSetup(), DispatcherPriority.Background);
+        _ = Dispatcher.BeginInvoke(() => OpenHardwareSetup(), DispatcherPriority.Background);
     }
 
     public void OpenHardwareSetup()
