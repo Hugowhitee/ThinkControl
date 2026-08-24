@@ -1,4 +1,4 @@
-name: Publish alpha.11 once
+name: Finalize alpha.11 review branch once
 
 on:
   push:
@@ -8,140 +8,216 @@ on:
 
 permissions:
   contents: write
-  actions: write
-  issues: write
-  pull-requests: write
-  statuses: write
 
 jobs:
-  publish-and-verify:
+  patch-final-review:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
     steps:
-      - name: Ensure tagged package release exists
-        uses: actions/github-script@v7
+      - uses: actions/checkout@v4
         with:
-          script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const tag = 'v0.1.0-alpha.11';
-            const sha = '5dca8571c0fdc4aed4e6b8fb13636cbac5c5500a';
-            const statusContext = 'release/alpha11';
-            const expectedAssets = [
-              'ThinkControl-Setup-0.1.0-alpha.11.exe',
-              'ThinkControl-Payload-0.1.0-alpha.11.zip',
-              'SHA256SUMS.txt',
-              'ui-overview.png'
-            ];
+          ref: fix/alpha11-final-review
+          fetch-depth: 0
 
-            async function setStatus(state, description, target_url) {
-              await github.rest.repos.createCommitStatus({
-                owner,
-                repo,
-                sha,
-                state,
-                context: statusContext,
-                description,
-                ...(target_url ? { target_url } : {})
-              });
-            }
+      - name: Apply narrow final-review fixes
+        shell: python
+        run: |
+          from pathlib import Path
 
-            await setStatus('pending', 'Publishing and verifying alpha.11 release');
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected block not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
 
-            try {
-              let tagRef;
-              try {
-                tagRef = await github.rest.git.getRef({ owner, repo, ref: `tags/${tag}` });
-              } catch (error) {
-                if (error.status !== 404) throw error;
-                tagRef = await github.rest.git.createRef({ owner, repo, ref: `refs/tags/${tag}`, sha });
-                core.info(`Created ${tag} at ${sha}`);
+          history = "src/ThinkControl.UI/Services/BatteryHistoryService.cs"
+          replace(history,
+          '''public sealed record BatteryHistoryView(
+              IReadOnlyList<TimeSeriesPoint> ChargePowerTimeline,
+              IReadOnlyList<TimeSeriesPoint> HealthTrendTimeline,''',
+          '''public sealed record BatteryHistoryView(
+              IReadOnlyList<TimeSeriesPoint> ChargePowerTimeline,
+              IReadOnlyList<TimeSeriesPoint> ChargePercentTimeline,
+              IReadOnlyList<TimeSeriesPoint> HealthTrendTimeline,''')
+          replace(history,
+          '''    IReadOnlyList<TimeSeriesPoint> PowerTimeline,
+              string Summary,''',
+          '''    IReadOnlyList<TimeSeriesPoint> PowerTimeline,
+              IReadOnlyList<TimeSeriesPoint> PercentTimeline,
+              string Summary,''')
+          replace(history,
+          '''        bool discharging = !charging && onBattery && watts is > 0.4 and < 500;''',
+          '''        // A discharge session is defined by the real AC/battery state, not by
+                  // optional power-rate telemetry. Some firmware exposes percentage but no
+                  // ChargeRate/DischargeRate; those laptops must still retain useful history.
+                  bool discharging = !charging && onBattery;''')
+          replace(history,
+          '''    public string GetLatestDischargeSummary()
+              {''',
+          '''    public IReadOnlyList<TimeSeriesPoint> GetLatestDischargePercentTimeline()
+              {
+                  DischargeSession? session = _document.ActiveDischargeSession ??
+                                              _document.DischargeSessions.FirstOrDefault(item => item.Points.Count > 0);
+                  return session?.Points
+                      .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                      .ToArray() ?? [];
               }
 
-              if (tagRef.data.object.sha !== sha) {
-                throw new Error(`${tag} points at ${tagRef.data.object.sha}, expected tested merge ${sha}`);
-              }
+              public string GetLatestDischargeSummary()
+              {''')
+          replace(history,
+          '''        IReadOnlyList<TimeSeriesPoint> chargePower = curveSession?.Points
+                  .Where(point => point.Watts is > 0)
+                  .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                  .ToArray() ?? [];
 
-              async function getRelease() {
+              string curveLabel = active is not null''',
+          '''        IReadOnlyList<TimeSeriesPoint> chargePower = curveSession?.Points
+                  .Where(point => point.Watts is > 0)
+                  .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                  .ToArray() ?? [];
+              IReadOnlyList<TimeSeriesPoint> chargePercent = curveSession?.Points
+                  .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                  .ToArray() ?? [];
+
+              string curveLabel = active is not null''')
+          replace(history,
+          '''        return new BatteryHistoryView(
+                  chargePower,
+                  healthTimeline,''',
+          '''        return new BatteryHistoryView(
+                  chargePower,
+                  chargePercent,
+                  healthTimeline,''')
+          replace(history,
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  FormatChargeSession(session, active),''',
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  session.Points
+                      .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                      .ToArray(),
+                  FormatChargeSession(session, active),''')
+          replace(history,
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  FormatDischargeSession(session, active),''',
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  session.Points
+                      .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                      .ToArray(),
+                  FormatDischargeSession(session, active),''')
+
+          state = "src/ThinkControl.UI/ViewModels/AppState.cs"
+          replace(state,
+          '''    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
+              public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();''',
+          '''    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
+              public ObservableCollection<TimeSeriesPoint> BatteryChargePercentTimeline { get; } = new();
+              public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();''')
+          replace(state,
+          '''        ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
+              ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);''',
+          '''        ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
+              ReplaceCollection(BatteryChargePercentTimeline, history.ChargePercentTimeline);
+              ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);''')
+
+          panel = "src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml.cs"
+          replace(panel,
+          '''        TimeSeriesPoint[] chargePower = app.State.BatteryChargePowerTimeline.ToArray();
+              IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
+
+              ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+              DischargeChart.Values = dischargePower;
+              DischargePercentChart.Values = BuildPercentTimeline(dischargePower);''',
+          '''        TimeSeriesPoint[] chargePower = app.State.BatteryChargePowerTimeline.ToArray();
+              IReadOnlyList<TimeSeriesPoint> chargePercent = app.State.BatteryChargePercentTimeline;
+              IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
+              IReadOnlyList<TimeSeriesPoint> dischargePercent = app.BatteryHistoryService.GetLatestDischargePercentTimeline();
+
+              ChargePercentChart.Values = chargePercent;
+              DischargeChart.Values = dischargePower;
+              DischargePercentChart.Values = dischargePercent;''')
+          replace(panel,
+          '''        TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
+              ChargePercentChart.Values = BuildPercentTimeline(chargePower);''',
+          '''        TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
+              ChargePercentChart.Values = state.BatteryChargePercentTimeline.Count > 0
+                  ? state.BatteryChargePercentTimeline
+                  : BuildPercentTimeline(chargePower);''')
+          replace(panel,
+          '''        IReadOnlyList<TimeSeriesPoint> percentTimeline = BuildPercentTimeline(session.PowerTimeline);
+              var model = new TelemetryDetailModel(''',
+          '''        IReadOnlyList<TimeSeriesPoint> percentTimeline = session.PercentTimeline;
+              var model = new TelemetryDetailModel(''')
+
+          snapshots = "tools/ThinkControl.Snapshots/Program.cs"
+          replace(snapshots,
+          '''            BatteryHealthPercent = 97.6,
+                  BatteryRemainingWh = charging ? 56.2 : 45.4,''',
+          '''            BatteryHealthPercent = 97.6,
+                  BatteryTemperatureC = hardwareReady ? 34.8 : null,
+                  BatteryRemainingWh = charging ? 56.2 : 45.4,''')
+          replace(snapshots,
+          '''        for (int i = 0; i <= 43; i++)
+              {
+                  double watts = 18.8 - i * 0.028 + Math.Sin(i / 3.5) * 0.55;
+                  int percent = (int)Math.Round(61d + 17d * i / 43d);
+                  state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(
+                      now - TimeSpan.FromMinutes(43 - i),
+                      watts,
+                      $"{percent}%"));
+              }''',
+          '''        for (int i = 0; i <= 43; i++)
+              {
+                  double watts = 18.8 - i * 0.028 + Math.Sin(i / 3.5) * 0.55;
+                  int percent = (int)Math.Round(61d + 17d * i / 43d);
+                  DateTimeOffset at = now - TimeSpan.FromMinutes(43 - i);
+                  state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(at, watts, $"{percent}%"));
+                  state.BatteryChargePercentTimeline.Add(new TimeSeriesPoint(at, percent));
+              }''')
+
+          release = ".github/workflows/release.yml"
+          replace(release,
+          '''            function Draw-Preview([string]$name, [int]$x, [int]$y, [int]$width, [int]$height) {
+                $image = [System.Drawing.Image]::FromFile((Join-Path $output $name))
                 try {
-                  const result = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
-                  return result.data;
-                } catch (error) {
-                  if (error.status === 404) return null;
-                  throw error;
+                  $graphics.DrawImage($image, $x, $y, $width, $height)
                 }
-              }
-
-              let release = await getRelease();
-              if (!release) {
-                const runs = await github.rest.actions.listWorkflowRuns({
-                  owner,
-                  repo,
-                  workflow_id: 'release.yml',
-                  per_page: 100
-                });
-                const active = runs.data.workflow_runs.find(run =>
-                  run.head_sha === sha && (run.status === 'queued' || run.status === 'in_progress'));
-
-                if (active) {
-                  core.info(`Tagged package run already active: ${active.html_url}`);
-                } else {
-                  core.info('No active tagged package run found; dispatching release.yml explicitly on the tag.');
-                  await github.rest.actions.createWorkflowDispatch({
-                    owner,
-                    repo,
-                    workflow_id: 'release.yml',
-                    ref: tag
-                  });
+                finally {
+                  $image.Dispose()
                 }
-
-                const deadline = Date.now() + 20 * 60 * 1000;
-                while (Date.now() < deadline) {
-                  await new Promise(resolve => setTimeout(resolve, 15000));
-                  release = await getRelease();
-                  if (release) break;
+              }''',
+          '''            function Draw-Preview([string]$name, [int]$x, [int]$y, [int]$width, [int]$height) {
+                $image = [System.Drawing.Image]::FromFile((Join-Path $output $name))
+                try {
+                  $scale = [math]::Min(([double]$width / $image.Width), ([double]$height / $image.Height))
+                  $drawWidth = [int][math]::Round($image.Width * $scale)
+                  $drawHeight = [int][math]::Round($image.Height * $scale)
+                  $drawX = $x + [int][math]::Floor(($width - $drawWidth) / 2)
+                  $drawY = $y + [int][math]::Floor(($height - $drawHeight) / 2)
+                  $graphics.DrawImage($image, $drawX, $drawY, $drawWidth, $drawHeight)
                 }
-              }
-
-              if (!release) {
-                throw new Error(`GitHub Release ${tag} was not created within the verification window.`);
-              }
-              if (!release.prerelease) {
-                throw new Error(`${tag} exists but is not marked as a prerelease.`);
-              }
-
-              const actual = release.assets.map(asset => asset.name).sort();
-              const missing = expectedAssets.filter(name => !actual.includes(name));
-              const unexpected = actual.filter(name => !expectedAssets.includes(name));
-              if (missing.length) {
-                throw new Error(`Release is missing assets: ${missing.join(', ')}. Actual: ${actual.join(', ')}`);
-              }
-              if (unexpected.length) {
-                core.warning(`Release has additional assets: ${unexpected.join(', ')}`);
-              }
-
-              for (const asset of release.assets) {
-                if (expectedAssets.includes(asset.name) && asset.size <= 0) {
-                  throw new Error(`Release asset ${asset.name} is empty.`);
+                finally {
+                  $image.Dispose()
                 }
-              }
+              }''')
 
-              await setStatus('success', 'alpha.11 prerelease and assets verified', release.html_url);
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: 34,
-                body: `✅ **${tag} release verified**\n\nPrerelease is published at ${release.html_url} and contains the expected public assets:\n${expectedAssets.map(name => `- \`${name}\``).join('\n')}\n\nTag target: \`${sha}\`.`
-              });
-              core.info(`Release verified: ${release.html_url}`);
-            } catch (error) {
-              const message = error instanceof Error ? error.message : String(error);
-              await setStatus('failure', 'alpha.11 release verification failed');
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number: 34,
-                body: `❌ **${tag} release verification failed**\n\n\`${message}\``
-              });
-              throw error;
-            }
+          Path(".github/workflows/publish-alpha11-once.yml").unlink(missing_ok=True)
+          Path(".github/workflows/alpha11-finalize-once.yml").unlink(missing_ok=True)
+
+      - name: Commit final-review fixes
+        shell: bash
+        run: |
+          git config user.name "Hugo"
+          git config user.email "119423227+Hugowhitee@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Finish alpha.11 release blockers"
+          git push origin HEAD:fix/alpha11-final-review
