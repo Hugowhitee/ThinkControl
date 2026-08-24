@@ -1,7 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Shapes;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI.Services;
@@ -88,7 +86,13 @@ internal static class AdvancedFeaturePages
             Style = window.TryFindResource("TcNav") as Style
         };
         var navContent = new StackPanel { Orientation = Orientation.Horizontal };
-        navContent.Children.Add(CreateAudioIcon(window));
+        navContent.Children.Add(new PackIconLucide
+        {
+            Kind = "Audio",
+            Width = 15,
+            Height = 15,
+            Margin = new Thickness(0, 0, 12, 0)
+        });
         navContent.Children.Add(new TextBlock { Text = "Audio" });
         nav.Content = navContent;
 
@@ -123,6 +127,8 @@ internal static class AdvancedFeaturePages
             HideDynamic(window, TouchpadPageKey);
             HideDynamic(window, SensorsPageKey);
             scroll.Visibility = Visibility.Visible;
+            scroll.ScrollToTop();
+            panel.Initialize(app);
         };
 
         foreach (RadioButton known in FindSidebarNav(window))
@@ -130,27 +136,6 @@ internal static class AdvancedFeaturePages
             if (!ReferenceEquals(known, nav))
                 known.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
         }
-    }
-
-    private static Viewbox CreateAudioIcon(FrameworkElement owner)
-    {
-        Brush stroke = owner.TryFindResource("Tc.TextMuted") as Brush ?? Brushes.Gray;
-        var path = new Path
-        {
-            Stroke = stroke,
-            StrokeThickness = 1.45,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            Data = Geometry.Parse("M2,6 L5,6 L9,3 L9,13 L5,10 L2,10 Z M11,6 C12.5,7 12.5,9 11,10 M13,4 C16,6 16,10 13,12")
-        };
-        return new Viewbox
-        {
-            Width = 15,
-            Height = 15,
-            Margin = new Thickness(0, 0, 12, 0),
-            Child = path
-        };
     }
 
     private static void Resize(AdvancedWindow window)
