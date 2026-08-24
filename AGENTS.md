@@ -18,13 +18,24 @@ These rules apply to automated coding assistants and human contributors working 
 3. Do not add features while a related regression is unresolved. A stabilization release prioritizes correctness, responsiveness and consistency over feature count.
 4. Keep startup, navigation and compact-mode rendering independent of slow hardware discovery. Render cached/placeholder state first and refresh hardware asynchronously.
 
+## Multi-OEM architecture
+
+1. ThinkControl is a general laptop-control product. The ThinkPad X9-15 Gen 1 is the current verified low-level reference device, not the architectural product boundary.
+2. Keep the UI capability-first. Fans, Sensors, Battery, Audio, Keyboard, Display and Touchpad must not be duplicated into vendor-specific pages.
+3. Device support follows `Windows generic → OEM generic → family → exact model`. See `devices/README.md`.
+4. Device profiles are data that select/provider-prioritize probes. Hardware implementations, readback, lifecycle and write allowlists belong to provider code.
+5. Never put an X9 register, Lenovo IOCTL or other model-specific contract into generic/family code simply to make another model work.
+6. New OEM support should first reuse Windows-safe capabilities, then an OEM provider, then family specialization, with model-specific writes last.
+7. Vendor-specific actions in shared UI must be capability/identity gated. Do not make a generic page assume Lenovo Vantage, ASUS Armoury Crate, Dell software or another OEM application exists.
+8. Keep provider boundaries replaceable. Future OEM/provider modules must be able to evolve without rewriting `ThinkControl.Core` or the main UI.
+
 ## Hardware reliability and safety
 
 1. Model service reachability, driver installation, driver/device accessibility, provider readiness, telemetry availability and write capability as separate states. Never call the Windows service offline merely because a sensor/provider is unavailable.
 2. Real telemetry only: never synthesize fan RPM, temperature, power or hardware state to make the UI look populated.
 3. Unknown hardware stays read-only. Direct EC/IOCTL writes require an explicitly verified device/provider contract and readback where available.
-4. Manual fan ownership must have a safe Lenovo/firmware fallback on failure, shutdown and disposal paths.
-5. Provider probing must be bounded and recoverable. Failed PawnIO/LHM/Lenovo probes back off; explicit Repair/Retry may bypass that backoff once.
+4. Manual fan ownership must have a safe firmware/OEM fallback on failure, shutdown and disposal paths.
+5. Provider probing must be bounded and recoverable. Failed PawnIO/LHM/OEM probes back off; explicit Repair/Retry may bypass that backoff once.
 6. Per-frame or high-frequency input must never fan out into unbounded OS, driver or async calls. Gestures/media/telemetry use one state owner, coalescing and bounded write cadence.
 
 ## UI and performance consistency
@@ -46,6 +57,8 @@ For updater/installer work, validation includes update availability, cancellatio
 ## README and public claims
 
 The top-level README is written for people evaluating or downloading ThinkControl. Do not write it as a private development log or in terms of one tester's conversation/context. Claims must reflect behavior actually implemented and validated; clearly distinguish physically verified hardware behavior from capability-gated or experimental support.
+
+The README should describe ThinkControl as a general Windows laptop-control product while clearly identifying the currently verified low-level reference devices. Do not market a planned OEM/model as supported before its provider contract is implemented and validated.
 
 ## Source of truth
 
