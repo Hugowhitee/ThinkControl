@@ -1,5 +1,6 @@
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
+using Forms = System.Windows.Forms;
 
 namespace ThinkControl.UI;
 
@@ -12,7 +13,11 @@ public partial class App
     {
         Startup += (_, _) =>
         {
-            _powerSourceTimer = new DispatcherTimer(TimeSpan.FromSeconds(5), DispatcherPriority.Background,
+            // Power-line state is available through the cheap Windows PowerStatus
+            // snapshot. Do not call BatteryTelemetryService.Read() from a WPF timer:
+            // that path performs WMI work and shares a lock with the background
+            // telemetry sampler, which can stall the UI thread.
+            _powerSourceTimer = new DispatcherTimer(TimeSpan.FromSeconds(10), DispatcherPriority.ApplicationIdle,
                 (_, _) => ObservePowerSource(), Dispatcher);
             _powerSourceTimer.Start();
             ObservePowerSource(force: true);
@@ -52,8 +57,17 @@ public partial class App
 
     internal bool IsCurrentlyOnBattery()
     {
-        try { return !BatteryTelemetryService.Read().OnAc; }
-        catch { return false; }
+        if (_lastObservedOnAc.HasValue)
+            return !_lastObservedOnAc.Value;
+
+        try
+        {
+            return Forms.SystemInformation.PowerStatus.PowerLineStatus != Forms.PowerLineStatus.Online;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     internal static string PowerPreferenceDisplayName(ThinkControlPowerMode mode) =>
@@ -62,8 +76,14 @@ public partial class App
     private void ObservePowerSource(bool force = false)
     {
         bool onAc;
-        try { onAc = BatteryTelemetryService.Read().OnAc; }
-        catch { return; }
+        try
+        {
+            onAc = Forms.SystemInformation.PowerStatus.PowerLineStatus == Forms.PowerLineStatus.Online;
+        }
+        catch
+        {
+            return;
+        }
 
         if (!force && _lastObservedOnAc == onAc)
             return;
