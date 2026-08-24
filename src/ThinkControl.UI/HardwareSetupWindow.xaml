@@ -37,11 +37,11 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <StackPanel Margin="0,0,18,0">
-                            <TextBlock Text="Repair detected hardware issues" FontWeight="SemiBold" />
-                            <TextBlock Text="Recommended. Repairs only the component that failed its current readiness check, then performs one clean provider rebuild and readback."
+                            <TextBlock Text="Hardware check &amp; repair" FontWeight="SemiBold" />
+                            <TextBlock Text="Checks current readiness. If a component fails, ThinkControl repairs only that component, then performs one clean provider rebuild and readback."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
                         </StackPanel>
-                        <Button x:Name="FixDetectedIssuesButton" Grid.Column="1" Content="Fix detected issues" Style="{StaticResource TcButton}" MinWidth="138" VerticalAlignment="Center" Click="FixDetectedIssues_Click" />
+                        <Button x:Name="FixDetectedIssuesButton" Grid.Column="1" Content="Check / repair" Style="{StaticResource TcButton}" MinWidth="128" VerticalAlignment="Center" Click="FixDetectedIssues_Click" />
                     </Grid>
                 </Border>
 
