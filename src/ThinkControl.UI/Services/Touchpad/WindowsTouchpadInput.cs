@@ -33,6 +33,8 @@ internal sealed class WindowsTouchpadInput : IDisposable
 
     internal bool Start()
     {
+        if (_disposed)
+            return false;
         if (_registered)
             return true;
 
@@ -52,23 +54,47 @@ internal sealed class WindowsTouchpadInput : IDisposable
             1,
             checked((uint)Marshal.SizeOf<TouchpadNativeMethods.RawInputDevice>()));
 
-        // Raw Input normally teaches us about a device on the first WM_INPUT frame.
-        // Enumerate already-connected PTP collections as well so haptic capability
-        // detection is ready as soon as the Touchpad page opens, without requiring
-        // the user to touch the pad first.
         if (_registered)
             ProbeConnectedTouchpads();
 
         return _registered;
     }
 
+    internal void Stop()
+    {
+        if (!_registered)
+            return;
+
+        var devices = new[]
+        {
+            new TouchpadNativeMethods.RawInputDevice
+            {
+                UsagePage = TouchpadNativeMethods.HidUsagePageDigitizer,
+                Usage = TouchpadNativeMethods.HidUsageTouchPad,
+                Flags = TouchpadNativeMethods.RidevRemove,
+                Target = IntPtr.Zero
+            }
+        };
+
+        try
+        {
+            TouchpadNativeMethods.RegisterRawInputDevices(
+                devices,
+                1,
+                checked((uint)Marshal.SizeOf<TouchpadNativeMethods.RawInputDevice>()));
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _registered = false;
+        }
+    }
+
     private void ProbeConnectedTouchpads()
     {
         uint entrySize = checked((uint)Marshal.SizeOf<RawInputDeviceListEntry>());
-
-        // Device lists can change between the size query and the fill call. Retry a
-        // few times on ERROR_INSUFFICIENT_BUFFER/UINT_MAX rather than treating hotplug
-        // during startup as a permanent detection failure.
         for (int attempt = 0; attempt < 3; attempt++)
         {
             uint count = 0;
@@ -99,10 +125,6 @@ internal sealed class WindowsTouchpadInput : IDisposable
                     continue;
 
                 Geometry ??= device.Geometry;
-
-                // Fire for every newly observed PTP. Capability flags are aggregate,
-                // so this also refreshes the UI if a second device adds haptics or
-                // click-force support while the first device supplied the geometry.
                 TouchpadDetected?.Invoke(Geometry);
             }
 
@@ -131,7 +153,7 @@ internal sealed class WindowsTouchpadInput : IDisposable
 
     private void ProcessRawInput(IntPtr rawInputHandle)
     {
-        if (_disposed)
+        if (_disposed || !_registered)
             return;
 
         try
@@ -196,8 +218,6 @@ internal sealed class WindowsTouchpadInput : IDisposable
         }
         catch
         {
-            // A malformed or vendor-specific HID report must never take down the
-            // tray process. The next valid report can continue normally.
         }
     }
 
@@ -225,24 +245,7 @@ internal sealed class WindowsTouchpadInput : IDisposable
             return;
         _disposed = true;
 
-        if (_registered)
-        {
-            var devices = new[]
-            {
-                new TouchpadNativeMethods.RawInputDevice
-                {
-                    UsagePage = TouchpadNativeMethods.HidUsagePageDigitizer,
-                    Usage = TouchpadNativeMethods.HidUsageTouchPad,
-                    Flags = TouchpadNativeMethods.RidevRemove,
-                    Target = IntPtr.Zero
-                }
-            };
-            TouchpadNativeMethods.RegisterRawInputDevices(
-                devices,
-                1,
-                checked((uint)Marshal.SizeOf<TouchpadNativeMethods.RawInputDevice>()));
-        }
-
+        Stop();
         foreach (TouchpadHidDevice device in _devices.Values)
             device.Dispose();
         _devices.Clear();
@@ -266,9 +269,6 @@ internal sealed class WindowsTouchpadInput : IDisposable
         internal ushort Usage;
     }
 
-    // RID_DEVICE_INFO's union is 24 bytes because the keyboard arm is larger than
-    // RID_DEVICE_INFO_HID. Keep the native 32-byte outer size even though we only
-    // consume the HID arm at offset 8.
     [StructLayout(LayoutKind.Explicit, Size = 32)]
     private struct RawInputDeviceInfo
     {
