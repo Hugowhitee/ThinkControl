@@ -24,6 +24,7 @@ public partial class AdvancedWindow
         ConfigureNotificationButton();
         ConfigureSupportCard();
         ConfigureUpdateUi();
+        ConfigureAppPreferencesUi();
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -46,6 +47,7 @@ public partial class AdvancedWindow
         ConfigureNotificationButton();
         ConfigureSupportCard();
         ConfigureUpdateUi();
+        ConfigureAppPreferencesUi();
         DiagnosticsPanelControl?.Refresh();
 
         if (DataContext is ViewModels.AppState snapshotState)
