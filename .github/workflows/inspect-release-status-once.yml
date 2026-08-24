@@ -1,0 +1,45 @@
+name: Inspect release status once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/inspect-release-status-once.yml"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Inspect releases and tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+
+          # Give an already-running alpha.10 package job a chance to finish.
+          alpha10="missing"
+          alpha10_assets=""
+          for _ in $(seq 1 60); do
+            if gh release view v0.1.0-alpha.10 --repo "$repo" >/dev/null 2>&1; then
+              alpha10="present"
+              alpha10_assets=$(gh release view v0.1.0-alpha.10 --repo "$repo" --json assets,isPrerelease --jq '"prerelease=" + (.isPrerelease|tostring) + "; assets=" + ([.assets[].name] | join(", "))')
+              break
+            fi
+            sleep 10
+          done
+
+          if gh api "repos/$repo/commits/v0.1.0-alpha.11" >/dev/null 2>&1; then
+            alpha11_sha=$(gh api "repos/$repo/commits/v0.1.0-alpha.11" --jq '.sha')
+            alpha11="present at $alpha11_sha"
+          else
+            alpha11="missing"
+          fi
+
+          gh pr comment 35 --repo "$repo" --body "Release status check · alpha.10: **$alpha10** ${alpha10_assets:+($alpha10_assets)} · alpha.11 tag: **$alpha11**. This observer made no release or source changes."
