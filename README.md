@@ -23,7 +23,7 @@
 
 ## Current prerelease
 
-ThinkControl `v0.1.0-alpha.7` is the current prerelease. Windows-owned controls stay device-neutral where possible; low-level fan, EC and keyboard writes remain capability-gated and only become available after the relevant provider/profile checks pass.
+ThinkControl `v0.1.0-alpha.8` is the current prerelease. Windows-owned controls stay device-neutral where possible; low-level fan, EC and keyboard writes remain capability-gated and only become available after the relevant provider/profile checks pass.
 
 The ThinkPad X9-15 Gen 1 machine types `21Q6` and `21Q7` are the current physically verified low-level reference profile. ThinkControl targets Windows 11 x64 and .NET 10.
 
@@ -60,7 +60,7 @@ The UI uses one shared theme and interaction system for pages, menus, sliders, g
 | Touchpad | Live red contact point + trail, configurable edge zones, speed-aware actions and live value/delta feedback |
 | Haptics | Windows-style discrete feedback levels and intuitive Light → Medium → Firm click sensitivity |
 | Battery | Percentage, watts, Wh, filtered ETA, health, charge/discharge history, session detail graphs and local drain-rate learning |
-| Updates | Automatic release checks, persistent last-checked time, loading state, SHA-256 verified download and in-place update |
+| Updates | Automatic checks, persistent last-checked time, one-click verified setup + payload download, and in-place update without startup UAC loops |
 | Hardware setup | Service repair, PawnIO recovery, Lenovo driver guidance, provider re-detection and hardware-only support reports |
 
 ThinkControl deliberately does **not** substitute fake PWM percentages, invented sensors, guessed fan registers or synthetic hardware values when a provider is unavailable.
@@ -139,17 +139,17 @@ Recent discharge-rate history acts only as a bounded stabilising input for batte
 
 ## Updates and installer
 
-ThinkControl checks GitHub Releases automatically. The Updates page shows when it was **last checked**; a manual check enters a visible `Checking…` state and updates the timestamp only when the request completes.
+ThinkControl checks GitHub Releases automatically and keeps a persistent **Last checked** time. Background checks only report availability: they never open UAC or start setup on their own, so a failed update cannot re-prompt on every app launch.
 
-When a newer release is found, ThinkControl downloads the installer to a temporary location, verifies it against `SHA256SUMS.txt`, and starts the verified setup in update mode. The normal update path does not send the user to a browser.
+When you click **Install update**, ThinkControl downloads both the small setup bootstrapper and the full application payload first, verifies both against `SHA256SUMS.txt`, and only then asks Windows for administrator permission. The app stays visible during download and verification; the verified installer closes it only when replacement is actually ready and relaunches the new build when setup succeeds.
 
 The installer recognises an existing installation, uses update wording, skips first-install shortcut questions, can close a running tray/UI instance, safely stops/re-registers the hardware service and can relaunch the app after an in-app update.
 
 The setup itself stays small: the release uses a web bootstrap installer plus a separately verified application payload.
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.7.exe
-ThinkControl-Payload-0.1.0-alpha.7.zip
+ThinkControl-Setup-0.1.0-alpha.8.exe
+ThinkControl-Payload-0.1.0-alpha.8.zip
 SHA256SUMS.txt
 ```
 
