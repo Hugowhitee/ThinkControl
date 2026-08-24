@@ -4,6 +4,8 @@ using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Shapes;
 using ThinkControl.UI.Services;
+using WpfButton = System.Windows.Controls.Button;
+using WpfCheckBox = System.Windows.Controls.CheckBox;
 
 namespace ThinkControl.UI;
 
@@ -61,7 +63,7 @@ public partial class AdvancedWindow
         AttachScrollReset(nav, page);
     }
 
-    private static void FixSwitchRow(CheckBox toggle)
+    private static void FixSwitchRow(WpfCheckBox toggle)
     {
         toggle.VerticalAlignment = VerticalAlignment.Center;
         toggle.Margin = new Thickness(0, 4, 0, 4);
@@ -83,7 +85,7 @@ public partial class AdvancedWindow
             description.Text = "ThinkControl checks GitHub Releases automatically, verifies SHA-256 and installs updates in place. No permanent updater service is required.";
         }
 
-        Button? checkButton = FindVisualChildren<Button>(PageUpdates)
+        WpfButton? checkButton = FindVisualChildren<WpfButton>(PageUpdates)
             .FirstOrDefault(button => string.Equals(button.Content?.ToString(), "Check for updates", StringComparison.Ordinal));
         if (checkButton is not null)
         {
@@ -97,7 +99,7 @@ public partial class AdvancedWindow
         OpenReleaseButton.ToolTip = "Download, verify and install the newest ThinkControl release";
         OpenReleaseButton.IsEnabled = false;
 
-        var autoSwitch = new CheckBox
+        var autoSwitch = new WpfCheckBox
         {
             Style = TryFindResource("TcSwitch") as Style,
             IsChecked = _app.UserSettings.Current.AutomaticUpdates,
@@ -134,7 +136,7 @@ public partial class AdvancedWindow
 
     private async void CheckUpdatesAndPrepare_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button button)
+        if (sender is not WpfButton button)
             return;
 
         button.IsEnabled = false;
@@ -158,7 +160,7 @@ public partial class AdvancedWindow
 
     private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
     {
-        Button button = OpenReleaseButton;
+        WpfButton button = OpenReleaseButton;
         button.IsEnabled = false;
         try
         {
