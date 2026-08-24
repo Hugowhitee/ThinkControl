@@ -46,7 +46,12 @@ public partial class BatteryTelemetryPanel : UserControl
             return;
 
         IReadOnlyList<BatterySessionDetail> sessions = app.BatteryHistoryService.GetRecentSessionDetails(10);
-        DischargeChart.Values = app.BatteryHistoryService.GetLatestDischargeTimeline();
+        TimeSeriesPoint[] chargePower = app.State.BatteryChargePowerTimeline.ToArray();
+        IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
+
+        ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+        DischargeChart.Values = dischargePower;
+        DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
         DischargeSummaryText.Text = app.BatteryHistoryService.GetLatestDischargeSummary();
 
         RecentSessionItems.Children.Clear();
@@ -123,7 +128,7 @@ public partial class BatteryTelemetryPanel : UserControl
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Cursor = System.Windows.Input.Cursors.Hand,
             Content = grid,
-            ToolTip = "Open session statistics and graph"
+            ToolTip = "Open session statistics and graphs"
         };
         row.SetResourceReference(Button.BorderBrushProperty, "Tc.Border");
         row.Click += (_, _) => ShowSession(session);
@@ -156,6 +161,7 @@ public partial class BatteryTelemetryPanel : UserControl
             new(session.Kind == "Charge" ? "Charge rate" : "Drain rate", rate)
         ];
 
+        IReadOnlyList<TimeSeriesPoint> percentTimeline = BuildPercentTimeline(session.PowerTimeline);
         var model = new TelemetryDetailModel(
             $"{session.Kind} session",
             subtitle,
@@ -164,13 +170,34 @@ public partial class BatteryTelemetryPanel : UserControl
             "W",
             "0.0",
             metrics,
-            "Battery history is stored locally in ThinkControl and automatically compacted over time.");
+            "Battery history is stored locally in ThinkControl and automatically compacted over time.",
+            SecondaryTimeline: percentTimeline,
+            SecondaryChartTitle: "Battery level",
+            SecondaryUnit: "%",
+            SecondaryValueFormat: "0");
 
         var window = new TelemetryDetailWindow(model)
         {
             Owner = Window.GetWindow(this)
         };
         window.ShowDialog();
+    }
+
+    private static IReadOnlyList<TimeSeriesPoint> BuildPercentTimeline(IEnumerable<TimeSeriesPoint> points)
+    {
+        var result = new List<TimeSeriesPoint>();
+        foreach (TimeSeriesPoint point in points)
+        {
+            string label = point.Label?.Trim() ?? string.Empty;
+            if (label.EndsWith('%'))
+                label = label[..^1].Trim();
+            if (!double.TryParse(label, NumberStyles.Float, CultureInfo.InvariantCulture, out double percent))
+                continue;
+            if (percent is < 0 or > 100)
+                continue;
+            result.Add(new TimeSeriesPoint(point.At, percent));
+        }
+        return result;
     }
 
     private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
