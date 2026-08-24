@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Shapes;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.ViewModels;
 
@@ -21,18 +20,14 @@ internal static class AdvancedWindowEnhancer
     internal static void Ensure(AdvancedWindow window, App app)
     {
         if (window.Resources.Contains(EnhancedKey))
-        {
-            ApplyResponsiveLayout(window);
             return;
-        }
 
         window.Resources[EnhancedKey] = true;
         AddTouchpadPage(window, app);
         AddSensorsPage(window);
         PolishHome(window);
-        window.SizeChanged += (_, _) => ApplyResponsiveLayout(window);
         AttachPageMotion(window);
-        ApplyResponsiveLayout(window);
+        // AdvancedWindow.UiConsistency is deliberately the only width/resize owner.
     }
 
     internal static void SelectTouchpad(AdvancedWindow window)
@@ -84,13 +79,13 @@ internal static class AdvancedWindowEnhancer
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch
+            HorizontalContentAlignment = HorizontalAlignment.Left
         };
         var panel = new TouchpadPanel
         {
             MaxWidth = 1040,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(0, 0, 4, 0)
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0)
         };
         panel.Initialize(app);
         scroll.Content = panel;
@@ -104,6 +99,7 @@ internal static class AdvancedWindowEnhancer
             CollapseKnownPages(window);
             HideDynamicPage(window, SensorsPageName);
             scroll.Visibility = Visibility.Visible;
+            scroll.ScrollToTop();
             panel.Initialize(app);
             AnimateElement(scroll);
         };
@@ -130,7 +126,13 @@ internal static class AdvancedWindowEnhancer
             Style = window.TryFindResource("TcNav") as Style
         };
         var navContent = new StackPanel { Orientation = Orientation.Horizontal };
-        navContent.Children.Add(CreateSensorsIcon(window));
+        navContent.Children.Add(new PackIconLucide
+        {
+            Kind = "Activity",
+            Width = 15,
+            Height = 15,
+            Margin = new Thickness(0, 0, 12, 0)
+        });
         navContent.Children.Add(new TextBlock { Text = "Sensors" });
         sensorsNav.Content = navContent;
 
@@ -143,13 +145,13 @@ internal static class AdvancedWindowEnhancer
             Visibility = Visibility.Collapsed,
             VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
             HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch
+            HorizontalContentAlignment = HorizontalAlignment.Left
         };
         var panel = new SensorsPanel
         {
             MaxWidth = 1040,
-            HorizontalAlignment = HorizontalAlignment.Stretch,
-            Margin = new Thickness(0, 0, 4, 0)
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Margin = new Thickness(0)
         };
         scroll.Content = panel;
         pageHost.Children.Add(scroll);
@@ -162,6 +164,7 @@ internal static class AdvancedWindowEnhancer
             CollapseKnownPages(window);
             HideDynamicPage(window, TouchpadPageName);
             scroll.Visibility = Visibility.Visible;
+            scroll.ScrollToTop();
             AnimateElement(scroll);
         };
 
@@ -169,26 +172,6 @@ internal static class AdvancedWindowEnhancer
             button.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
         if (window.Resources[TouchpadNavName] is RadioButton touchpadNav)
             touchpadNav.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
-    }
-
-    private static FrameworkElement CreateSensorsIcon(FrameworkElement owner)
-    {
-        var path = new Path
-        {
-            Stroke = owner.TryFindResource("Tc.TextMuted") as Brush ?? Brushes.Gray,
-            StrokeThickness = 1.35,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            Data = Geometry.Parse("M1,8 L4,8 L6,3 L9,13 L11,8 L15,8")
-        };
-        return new Viewbox
-        {
-            Width = 15,
-            Height = 15,
-            Margin = new Thickness(0, 0, 12, 0),
-            Child = path
-        };
     }
 
     private static void PolishHome(AdvancedWindow window)
@@ -201,8 +184,6 @@ internal static class AdvancedWindowEnhancer
 
         window.Resources[HomePolishedKey] = true;
 
-        // Replace the stretched three-card telemetry row with a battery-first hero
-        // that surfaces charging state/ETA while keeping CPU and fan data visible.
         Grid? oldTelemetry = stack.Children.OfType<Grid>().FirstOrDefault();
         if (oldTelemetry is not null)
             stack.Children.Remove(oldTelemetry);
@@ -318,60 +299,13 @@ internal static class AdvancedWindowEnhancer
             return;
         }
 
-        var transform = element.RenderTransform as TranslateTransform ?? new TranslateTransform();
-        element.RenderTransform = transform;
+        // Opacity only: subtle feedback without moving page geometry during a
+        // layout pass. Competing TranslateTransform animations were a source of
+        // visual jitter and right-edge clipping at small widths.
         element.Opacity = 0;
-        transform.X = 9;
-
         var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
         element.BeginAnimation(UIElement.OpacityProperty,
-            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(165)) { EasingFunction = ease });
-        transform.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(9, 0, TimeSpan.FromMilliseconds(180)) { EasingFunction = ease });
-    }
-
-    private static void ApplyResponsiveLayout(AdvancedWindow window)
-    {
-        double windowWidth = window.ActualWidth > 1 ? window.ActualWidth : window.Width;
-        double available = Math.Max(560, windowWidth - 204);
-
-        SetContentWidth(window, "PageHome", Math.Min(1040, available));
-        SetContentWidth(window, "PagePerformance", Math.Min(940, available));
-        SetContentWidth(window, "PageFans", Math.Min(1040, available));
-        SetContentWidth(window, "PageDisplay", Math.Min(920, available));
-        SetContentWidth(window, "PageKeyboard", Math.Min(980, available));
-        SetContentWidth(window, "PageBattery", Math.Min(1040, available));
-        SetContentWidth(window, "PageSystem", Math.Min(1080, available));
-        SetContentWidth(window, "PageUpdates", Math.Min(820, available));
-        SetContentWidth(window, "PageSettings", Math.Min(860, available));
-
-        ResizeDynamicPage(window, TouchpadPageName, Math.Min(1040, available));
-        ResizeDynamicPage(window, SensorsPageName, Math.Min(1040, available));
-    }
-
-    private static void ResizeDynamicPage(AdvancedWindow window, string resourceName, double maxWidth)
-    {
-        if (window.Resources[resourceName] is not ScrollViewer scroll || scroll.Content is not FrameworkElement content)
-            return;
-
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-        content.Width = double.NaN;
-        content.MinWidth = 0;
-        content.MaxWidth = maxWidth;
-        content.HorizontalAlignment = HorizontalAlignment.Stretch;
-    }
-
-    private static void SetContentWidth(AdvancedWindow window, string scrollName, double maxWidth)
-    {
-        if (window.FindName(scrollName) is not ScrollViewer scroll || scroll.Content is not FrameworkElement content)
-            return;
-
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Center;
-        content.Width = double.NaN;
-        content.MinWidth = 0;
-        content.MaxWidth = Math.Max(520, maxWidth);
-        content.HorizontalAlignment = HorizontalAlignment.Stretch;
-        content.Margin = new Thickness(0, 0, 2, 0);
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(135)) { EasingFunction = ease });
     }
 
     private static void CollapseKnownPages(AdvancedWindow window)
