@@ -61,7 +61,7 @@ public sealed class HardwareServiceClient
         {
             // SCM Running / pipe reachable is a different state from provider-ready.
             // Returning null here made the app call a healthy service "offline" while
-            // LHM/PawnIO or Lenovo backends were still initializing.
+            // hardware backends were still initializing.
             return OnlineDiscoveryResponse();
         }
 
@@ -177,12 +177,12 @@ public sealed class HardwareServiceClient
             "Detecting",
             null,
             "Detecting",
-            "Lenovo managed · provider discovery in progress",
+            "Firmware/provider managed · discovery in progress",
             "Hardware service online · detecting hardware providers",
             "Detecting…",
             Fans: Array.Empty<FanTelemetrySnapshot>(),
             Sensors: Array.Empty<HardwareSensorSnapshot>(),
-            CoolingStatus: "Lenovo firmware owns fan control while providers are detected");
+            CoolingStatus: "Firmware/OEM cooling control remains active while providers are detected");
         var capabilities = new HardwareCapabilitySnapshot(false, false, false, false, false, 0);
         return new ServiceResponse(
             ThinkControlProtocol.Version,
