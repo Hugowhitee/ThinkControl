@@ -36,12 +36,7 @@ public sealed class SensorHub : IDisposable
     private DateTimeOffset _lastRefresh = DateTimeOffset.MinValue;
     private DateTimeOffset _lastProviderRecycle = DateTimeOffset.MinValue;
     private int _emptyCriticalRefreshes;
-    private SensorHubSnapshot _last = new(
-        Array.Empty<HardwareSensorReading>(),
-        null,
-        "Unavailable",
-        null,
-        "Unavailable");
+    private SensorHubSnapshot _last = EmptySnapshot();
 
     public SensorHubSnapshot Read()
     {
@@ -68,9 +63,6 @@ public sealed class SensorHub : IDisposable
                 }
                 catch
                 {
-                    // Keep read-only telemetry best-effort. If LHM's provider was
-                    // invalidated (for example PawnIO was installed after service
-                    // startup), recycle it so the next status poll can rediscover.
                     CloseComputer();
                 }
             }
@@ -105,6 +97,20 @@ public sealed class SensorHub : IDisposable
                 control?.Source ?? "Unavailable");
             _lastRefresh = now;
             return _last;
+        }
+    }
+
+    public void RefreshProviders()
+    {
+        lock (_gate)
+        {
+            ThrowIfDisposed();
+            CloseComputer();
+            _last = EmptySnapshot();
+            _lastOpenAttempt = DateTimeOffset.MinValue;
+            _lastRefresh = DateTimeOffset.MinValue;
+            _lastProviderRecycle = DateTimeOffset.MinValue;
+            _emptyCriticalRefreshes = 0;
         }
     }
 
@@ -162,10 +168,6 @@ public sealed class SensorHub : IDisposable
             return;
         }
 
-        // Computer/Open providers capture low-level availability when opened. If
-        // PawnIO was installed while the ThinkControl service was already running,
-        // a provider can remain alive but never surface the newly available sensor
-        // path. Periodically recycle only after several missing critical reads.
         CloseComputer();
         _lastProviderRecycle = now;
         _lastOpenAttempt = DateTimeOffset.MinValue;
@@ -303,6 +305,13 @@ public sealed class SensorHub : IDisposable
         try { _computer?.Close(); } catch { }
         _computer = null;
     }
+
+    private static SensorHubSnapshot EmptySnapshot() => new(
+        Array.Empty<HardwareSensorReading>(),
+        null,
+        "Unavailable",
+        null,
+        "Unavailable");
 
     private static bool IsTemperature(HardwareSensorReading reading) =>
         string.Equals(reading.SensorType, "Temperature", StringComparison.OrdinalIgnoreCase);
