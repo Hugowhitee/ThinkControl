@@ -43,7 +43,7 @@ public partial class App
         {
             UpdateCheckResult result = await UpdateService.CheckAsync();
             UpdateCheckHistoryService.Record(DateTimeOffset.UtcNow);
-            State.UpdateStatus = result.Status;
+            PublishUpdateCheckResult(result);
 
             if (_trayIcon is not null)
             {
@@ -53,10 +53,9 @@ public partial class App
                 _trayIcon.Text = text.Length <= 63 ? text : text[..63];
             }
 
-            // Automatic updates mean automatic checks, not surprise UAC prompts.
-            // Installation is a deliberate one-click action from the Updates page
-            // or notification center. This also prevents a failed installer from
-            // being re-launched on every application start.
+            // Automatic update checks now publish the exact same result object used
+            // by the Updates page and notification sheet. They never launch UAC on
+            // their own; installation remains an explicit user action.
         }
         catch
         {
