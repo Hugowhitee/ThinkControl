@@ -1,12 +1,11 @@
 name: Finalize alpha.5 release
 
-# One-shot verification workflow. This intentionally lands through a PR so the
-# merge-to-main push is eligible to trigger GitHub Actions.
+# One-shot verifier. It runs only for the dedicated verification PR so its
+# release checks and logs are observable before the evidence is merged.
 on:
-  push:
-    branches: [main]
+  pull_request:
     paths:
-      - .github/workflows/finalize-alpha5.yml
+      - docs/release-verification-trigger.md
 
 permissions:
   contents: write
@@ -16,10 +15,10 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 18
     steps:
-      - name: Checkout main
+      - name: Checkout verification branch
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: ${{ github.event.pull_request.head.ref }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -47,21 +46,14 @@ jobs:
             if ((Get-Item $path).Length -lt 5000) { throw "Release screenshot too small: $name" }
           }
 
-      - name: Wait for release and publish screenshots
+      - name: Verify release and publish screenshots
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           $tag = 'v0.1.0-alpha.5'
-          $deadline = (Get-Date).AddMinutes(10)
-          do {
-            gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-            if ($LASTEXITCODE -eq 0) { break }
-            Start-Sleep -Seconds 10
-          } while ((Get-Date) -lt $deadline)
-
           gh release view $tag --repo $env:GITHUB_REPOSITORY *> $null
-          if ($LASTEXITCODE -ne 0) { throw "Release $tag did not become available in time" }
+          if ($LASTEXITCODE -ne 0) { throw "Release $tag is not published" }
 
           gh release upload $tag `
             "artifacts/release-screenshots/compact-dark.png" `
@@ -71,12 +63,6 @@ jobs:
             --clobber
           if ($LASTEXITCODE -ne 0) { throw "Screenshot upload failed" }
 
-      - name: Download and verify published release assets
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = 'v0.1.0-alpha.5'
           $dir = Join-Path $PWD 'artifacts\published-release'
           New-Item $dir -ItemType Directory -Force | Out-Null
           gh release download $tag --repo $env:GITHUB_REPOSITORY --dir $dir
@@ -132,14 +118,13 @@ jobs:
             'Verification: release metadata readable; installer and payload downloaded from the release; SHA256SUMS matched both published binaries; README screenshots are published release assets.'
           ) | Set-Content 'docs/release-verification/v0.1.0-alpha.5.md' -Encoding utf8
 
-      - name: Commit verification and remove one-shot workflow
+      - name: Commit verification to PR branch
         shell: pwsh
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add docs/release-verification/v0.1.0-alpha.5.md
-          git rm .github/workflows/finalize-alpha5.yml
           git commit -m 'Record verified alpha.5 release assets'
           if ($LASTEXITCODE -ne 0) { throw "Could not commit release verification" }
-          git push origin HEAD:main
-          if ($LASTEXITCODE -ne 0) { throw "Could not push release verification" }
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          if ($LASTEXITCODE -ne 0) { throw "Could not push release verification to PR branch" }
