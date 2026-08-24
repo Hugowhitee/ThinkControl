@@ -1,0 +1,59 @@
+name: Refresh alpha.5 README screenshots
+
+on:
+  push:
+    branches:
+      - feature/alpha5-finalize
+    paths:
+      - .github/workflows/docs-screenshots.yml
+
+permissions:
+  contents: write
+
+jobs:
+  screenshots:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Render validated screenshots
+        shell: pwsh
+        run: |
+          dotnet restore ThinkControl.slnx
+          if ($LASTEXITCODE -ne 0) { throw 'Restore failed' }
+          dotnet build ThinkControl.slnx --configuration Release --no-restore
+          if ($LASTEXITCODE -ne 0) { throw 'Build failed' }
+
+          $output = Join-Path $PWD 'artifacts\snapshots'
+          dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj `
+            --configuration Release `
+            --no-build `
+            -- $output
+          if ($LASTEXITCODE -ne 0) { throw 'Snapshot renderer failed' }
+
+          New-Item 'docs/screenshots' -ItemType Directory -Force | Out-Null
+          foreach ($name in @('compact-dark.png', 'advanced-touchpad.png', 'advanced-fans.png')) {
+            $source = Join-Path $output $name
+            if (-not (Test-Path $source)) { throw "Missing snapshot: $name" }
+            if ((Get-Item $source).Length -lt 5000) { throw "Snapshot too small: $name" }
+            Copy-Item $source (Join-Path 'docs/screenshots' $name) -Force
+          }
+
+      - name: Commit screenshots and remove one-shot workflow
+        shell: pwsh
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/screenshots
+          git rm .github/workflows/docs-screenshots.yml
+          git commit -m 'Add validated alpha.5 README screenshots'
+          if ($LASTEXITCODE -ne 0) { throw 'Could not create screenshot commit' }
+          git push origin "HEAD:${{ github.ref_name }}"
+          if ($LASTEXITCODE -ne 0) { throw 'Could not push screenshot commit' }
