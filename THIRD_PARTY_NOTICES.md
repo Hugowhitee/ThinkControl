@@ -16,6 +16,18 @@ Upstream license:
 
 https://github.com/google/material-design-icons/blob/master/LICENSE
 
+## Buy Me a Coffee mark
+
+Project: Buy Me a Coffee brand mark / Simple Icons representation
+
+Brand kit: https://buymeacoffee.com/brand
+
+Icon source: https://github.com/simple-icons/simple-icons
+
+License for the Simple Icons geometry: CC0-1.0
+
+ThinkControl uses the recognizable Buy Me a Coffee cup mark inside its support controls and the standard Buy Me a Coffee button in the README. Buy Me a Coffee and its marks are trademarks of their respective owner; their appearance in ThinkControl only identifies the external support link and does not imply endorsement.
+
 ## EdgeSlide
 
 Project: EdgeSlide
