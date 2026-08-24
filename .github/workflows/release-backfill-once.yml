@@ -1,0 +1,161 @@
+name: Backfill alpha.10 and alpha.11 once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/release-backfill-once.yml"
+
+permissions:
+  contents: write
+  actions: write
+  pull-requests: write
+
+concurrency:
+  group: thinkcontrol-release-backfill
+  cancel-in-progress: false
+
+jobs:
+  release-backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      GH_TOKEN: ${{ github.token }}
+      ALPHA11_TAG: v0.1.0-alpha.11
+      ALPHA11_SHA: 7f0c5c76bc2059d94e8f950ac606dc3d55097446
+      ALPHA10_TAG: v0.1.0-alpha.10
+      ALPHA10_SHA: d7e6f3d0c6b176163ae9352a9e7633b72bd51f05
+    steps:
+      - name: Report start
+        shell: bash
+        run: |
+          gh pr comment 35 --repo "$GITHUB_REPOSITORY" --body "🚀 Release backfill run $GITHUB_RUN_ID started. alpha.11 will be pinned to $ALPHA11_SHA; alpha.10 remains pinned to $ALPHA10_SHA. Both releases must pass Package ThinkControl and end with exactly Setup EXE + Payload ZIP + SHA256SUMS.txt."
+
+      - name: Prepare exact alpha.11 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          if gh release view "$ALPHA11_TAG" --repo "$repo" >/dev/null 2>&1; then
+            gh release delete "$ALPHA11_TAG" --repo "$repo" --yes
+          fi
+          if gh api "repos/$repo/git/ref/tags/$ALPHA11_TAG" >/dev/null 2>&1; then
+            gh api --method DELETE "repos/$repo/git/refs/tags/$ALPHA11_TAG"
+          fi
+          gh api --method POST "repos/$repo/git/refs" -f ref="refs/tags/$ALPHA11_TAG" -f sha="$ALPHA11_SHA" >/dev/null
+          resolved=$(gh api "repos/$repo/commits/$ALPHA11_TAG" --jq '.sha')
+          test "$resolved" = "$ALPHA11_SHA" || { echo "alpha.11 tag resolved to $resolved, expected $ALPHA11_SHA"; exit 1; }
+          echo "alpha.11 tag verified at $resolved"
+
+      - name: Package and publish alpha.11
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          started=$(date -u +%s)
+          run_id=""
+
+          # Creating the tag may already trigger the tag-push package workflow.
+          for _ in $(seq 1 15); do
+            candidate=$(gh run list --repo "$repo" --workflow release.yml --limit 30 --json databaseId,headSha,status,createdAt,event --jq ".[] | select(.headSha == \"$ALPHA11_SHA\") | .databaseId" | head -n1 || true)
+            if [ -n "$candidate" ]; then run_id="$candidate"; break; fi
+            sleep 4
+          done
+
+          if [ -z "$run_id" ]; then
+            gh workflow run release.yml --repo "$repo" --ref "$ALPHA11_TAG"
+            for _ in $(seq 1 30); do
+              candidate=$(gh run list --repo "$repo" --workflow release.yml --event workflow_dispatch --limit 30 --json databaseId,headSha,status,createdAt --jq ".[] | select(.headSha == \"$ALPHA11_SHA\") | .databaseId" | head -n1 || true)
+              if [ -n "$candidate" ]; then run_id="$candidate"; break; fi
+              sleep 4
+            done
+          fi
+
+          test -n "$run_id" || { echo "Could not find alpha.11 Package ThinkControl run"; exit 1; }
+          echo "Watching alpha.11 package run $run_id"
+          gh run watch "$run_id" --repo "$repo" --exit-status
+          echo "ALPHA11_RUN=$run_id" >> "$GITHUB_ENV"
+
+      - name: Prune and verify alpha.11 release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          gh release view "$ALPHA11_TAG" --repo "$repo" >/dev/null
+          mapfile -t assets < <(gh release view "$ALPHA11_TAG" --repo "$repo" --json assets --jq '.assets[].name')
+          for asset in "${assets[@]}"; do
+            case "$asset" in
+              ThinkControl-Setup-*.exe|ThinkControl-Payload-*.zip|SHA256SUMS.txt) ;;
+              *) echo "Removing non-user release asset: $asset"; gh release delete-asset "$ALPHA11_TAG" "$asset" --repo "$repo" --yes ;;
+            esac
+          done
+          mapfile -t final < <(gh release view "$ALPHA11_TAG" --repo "$repo" --json assets --jq '.assets[].name' | sort)
+          printf 'alpha.11 assets:\n%s\n' "${final[*]}"
+          test "${#final[@]}" -eq 3
+          printf '%s\n' "${final[@]}" | grep -Eq '^ThinkControl-Setup-0\.1\.0-alpha\.11\.exe$'
+          printf '%s\n' "${final[@]}" | grep -Eq '^ThinkControl-Payload-0\.1\.0-alpha\.11\.zip$'
+          printf '%s\n' "${final[@]}" | grep -Fxq 'SHA256SUMS.txt'
+          prerelease=$(gh release view "$ALPHA11_TAG" --repo "$repo" --json isPrerelease --jq '.isPrerelease')
+          test "$prerelease" = "true"
+
+      - name: Prepare historical alpha.10 release
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          resolved=$(gh api "repos/$repo/commits/$ALPHA10_TAG" --jq '.sha')
+          test "$resolved" = "$ALPHA10_SHA" || { echo "alpha.10 tag resolved to $resolved, expected $ALPHA10_SHA"; exit 1; }
+          if gh release view "$ALPHA10_TAG" --repo "$repo" >/dev/null 2>&1; then
+            gh release delete "$ALPHA10_TAG" --repo "$repo" --yes
+          fi
+          echo "alpha.10 historical tag verified at $resolved"
+
+      - name: Package and publish alpha.10
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          gh workflow run release.yml --repo "$repo" --ref "$ALPHA10_TAG"
+          run_id=""
+          for _ in $(seq 1 30); do
+            candidate=$(gh run list --repo "$repo" --workflow release.yml --event workflow_dispatch --limit 30 --json databaseId,headSha,status,createdAt --jq ".[] | select(.headSha == \"$ALPHA10_SHA\") | .databaseId" | head -n1 || true)
+            if [ -n "$candidate" ]; then run_id="$candidate"; break; fi
+            sleep 4
+          done
+          test -n "$run_id" || { echo "Could not find alpha.10 Package ThinkControl run"; exit 1; }
+          echo "Watching alpha.10 package run $run_id"
+          gh run watch "$run_id" --repo "$repo" --exit-status
+          echo "ALPHA10_RUN=$run_id" >> "$GITHUB_ENV"
+
+      - name: Prune and verify alpha.10 release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          gh release view "$ALPHA10_TAG" --repo "$repo" >/dev/null
+          mapfile -t assets < <(gh release view "$ALPHA10_TAG" --repo "$repo" --json assets --jq '.assets[].name')
+          for asset in "${assets[@]}"; do
+            case "$asset" in
+              ThinkControl-Setup-*.exe|ThinkControl-Payload-*.zip|SHA256SUMS.txt) ;;
+              *) echo "Removing non-user release asset: $asset"; gh release delete-asset "$ALPHA10_TAG" "$asset" --repo "$repo" --yes ;;
+            esac
+          done
+          mapfile -t final < <(gh release view "$ALPHA10_TAG" --repo "$repo" --json assets --jq '.assets[].name' | sort)
+          printf 'alpha.10 assets:\n%s\n' "${final[*]}"
+          test "${#final[@]}" -eq 3
+          printf '%s\n' "${final[@]}" | grep -Eq '^ThinkControl-Setup-0\.1\.0-alpha\.10\.exe$'
+          printf '%s\n' "${final[@]}" | grep -Eq '^ThinkControl-Payload-0\.1\.0-alpha\.10\.zip$'
+          printf '%s\n' "${final[@]}" | grep -Fxq 'SHA256SUMS.txt'
+          prerelease=$(gh release view "$ALPHA10_TAG" --repo "$repo" --json isPrerelease --jq '.isPrerelease')
+          test "$prerelease" = "true"
+
+      - name: Report success
+        shell: bash
+        run: |
+          gh pr comment 35 --repo "$GITHUB_REPOSITORY" --body "✅ Release backfill complete. alpha.11 tag resolves exactly to $ALPHA11_SHA and Package run $ALPHA11_RUN passed. Historical alpha.10 remains at $ALPHA10_SHA and Package run $ALPHA10_RUN passed. Both GitHub prereleases were verified with exactly 3 public assets: Setup EXE, Payload ZIP and SHA256SUMS.txt."
+
+      - name: Report failure
+        if: failure()
+        shell: bash
+        run: |
+          gh pr comment 35 --repo "$GITHUB_REPOSITORY" --body "❌ Release backfill run $GITHUB_RUN_ID failed. No success claim was made. Check this run's exact failed step before retrying; do not create another release branch."
