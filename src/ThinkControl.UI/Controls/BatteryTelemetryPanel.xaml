@@ -37,38 +37,42 @@
             </Grid>
         </Border>
 
+        <!-- Keep the main Battery page calm: one battery-level chart per mode.
+             Detailed power + percentage timelines remain available when a session
+             is opened, instead of stacking four graphs on the overview. -->
         <Grid Margin="0,14,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="100" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="145" />
+                        <RowDefinition Height="150" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <Grid><TextBlock Text="{Binding BatteryChargeCurveLabel}" FontWeight="SemiBold" /><TextBlock Text="Battery level + power" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" /></Grid>
-                    <controls:TimeSeriesChart x:Name="ChargePercentChart" Grid.Row="1" Margin="0,8,0,0" Unit="%" ValueFormat="0" IncludeZero="False" IsLive="{Binding BatteryCharging}" LiveWindowMinutes="60" />
-                    <TextBlock Grid.Row="2" Text="Power" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="2,8,0,0" />
-                    <controls:TimeSeriesChart Grid.Row="3" Margin="0,4,0,0" Values="{Binding BatteryChargePowerTimeline}" Unit="W" ValueFormat="0.0" IncludeZero="True" IsLive="{Binding BatteryCharging}" LiveWindowMinutes="60" />
-                    <TextBlock Grid.Row="4" Text="{Binding BatteryCurrentSessionText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,8,0,0" TextWrapping="Wrap" />
+                    <Grid>
+                        <TextBlock Text="Charge history" FontWeight="SemiBold" />
+                        <TextBlock Text="Battery level" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
+                    </Grid>
+                    <controls:TimeSeriesChart x:Name="ChargePercentChart" Grid.Row="1" Margin="0,9,0,0" Unit="%" ValueFormat="0" IncludeZero="False" IsLive="{Binding BatteryCharging}" LiveWindowMinutes="60" />
+                    <TextBlock Grid.Row="2" Text="{Binding BatteryCurrentSessionText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,9,0,0" TextWrapping="Wrap" />
                 </Grid>
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="100" />
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="145" />
+                        <RowDefinition Height="150" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <Grid><TextBlock Text="Discharge curve" FontWeight="SemiBold" /><TextBlock Text="Battery level + power" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" /></Grid>
-                    <controls:TimeSeriesChart x:Name="DischargePercentChart" Grid.Row="1" Margin="0,8,0,0" Unit="%" ValueFormat="0" IncludeZero="False" LiveWindowMinutes="90" />
-                    <TextBlock Grid.Row="2" Text="Power draw" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="2,8,0,0" />
-                    <controls:TimeSeriesChart x:Name="DischargeChart" Grid.Row="3" Margin="0,4,0,0" Unit="W" ValueFormat="0.0" IncludeZero="True" LiveWindowMinutes="90" />
-                    <TextBlock x:Name="DischargeSummaryText" Grid.Row="4" Text="Learning from battery use" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,8,0,0" TextWrapping="Wrap" />
+                    <Grid>
+                        <TextBlock Text="Discharge history" FontWeight="SemiBold" />
+                        <TextBlock Text="Battery level" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
+                    </Grid>
+                    <controls:TimeSeriesChart x:Name="DischargePercentChart" Grid.Row="1" Margin="0,9,0,0" Unit="%" ValueFormat="0" IncludeZero="False" LiveWindowMinutes="90" />
+                    <!-- Kept as a non-rendered backing chart for existing detail/snapshot
+                         plumbing; power is no longer another overview graph. -->
+                    <controls:TimeSeriesChart x:Name="DischargeChart" Visibility="Collapsed" Height="0" Unit="W" ValueFormat="0.0" IncludeZero="True" />
+                    <TextBlock x:Name="DischargeSummaryText" Grid.Row="2" Text="Learning from battery use" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,9,0,0" TextWrapping="Wrap" />
                 </Grid>
             </Border>
         </Grid>
