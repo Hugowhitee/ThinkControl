@@ -29,12 +29,12 @@ public partial class AdvancedWindow
         var text = new StackPanel { Margin = new Thickness(0, 0, 18, 0) };
         text.Children.Add(new TextBlock
         {
-            Text = "Hardware setup",
+            Text = "Hardware status",
             FontWeight = FontWeights.SemiBold
         });
         text.Children.Add(new TextBlock
         {
-            Text = "Check the ThinkControl hardware service and install an optional verified hardware component when the detected device needs one.",
+            Text = "See the ThinkControl service, low-level access and detected provider state in one in-app view. Repairs only ask for Windows approval after you choose an action.",
             Foreground = (Brush)FindResource("Tc.TextMuted"),
             FontSize = 10.5,
             TextWrapping = TextWrapping.Wrap,
@@ -43,12 +43,12 @@ public partial class AdvancedWindow
 
         var button = new WpfButton
         {
-            Content = "Open setup",
+            Content = "View status",
             Style = TryFindResource("TcButton") as Style,
             MinWidth = 96,
             VerticalAlignment = VerticalAlignment.Center
         };
-        button.Click += (_, _) => _app.OpenHardwareSetup();
+        button.Click += (_, _) => _app.OpenHardwareAttention();
 
         grid.Children.Add(text);
         Grid.SetColumn(button, 1);
