@@ -12,7 +12,7 @@ public sealed record ThinkControlUserSettings(
     string KeyboardBaseLevel = "High",
     string KeyboardStaticLevel = "High",
     double KeyboardEffectSpeed = 1.0,
-    DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Unknown,
+    DiagnosticsConsent DiagnosticsConsent = DiagnosticsConsent.Enabled,
     TouchpadGestureConfiguration? TouchpadGestures = null,
     bool TouchpadOsdEnabled = true,
     double TouchpadOsdOpacity = 0.92,
@@ -108,9 +108,11 @@ public sealed class UserSettingsService
             _ => "High"
         };
         double speed = Math.Clamp(settings.KeyboardEffectSpeed, 0.5, 2.0);
-        DiagnosticsConsent consent = Enum.IsDefined(settings.DiagnosticsConsent)
-            ? settings.DiagnosticsConsent
-            : DiagnosticsConsent.Unknown;
+        DiagnosticsConsent consent = settings.DiagnosticsConsent switch
+        {
+            DiagnosticsConsent.Disabled => DiagnosticsConsent.Disabled,
+            _ => DiagnosticsConsent.Enabled
+        };
         TouchpadGestureConfiguration touchpad = (settings.TouchpadGestures ??
             (TouchpadGestureConfiguration.Default with { Enabled = false })).Sanitize();
         string osdPosition = settings.TouchpadOsdPosition?.Trim() switch
