@@ -1,17 +1,33 @@
 using System.Diagnostics;
+using System.Globalization;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Threading;
 using ThinkControl.UI.Services;
 using WpfApplication = System.Windows.Application;
 
 namespace ThinkControl.UI.Controls;
 
-public partial class BatteryTelemetryPanel : System.Windows.Controls.UserControl
+public partial class BatteryTelemetryPanel : UserControl
 {
+    private readonly DispatcherTimer _historyRefreshTimer;
+
     public BatteryTelemetryPanel()
     {
         InitializeComponent();
-        Loaded += (_, _) => ApplyBatteryGaugePolish();
+        _historyRefreshTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromSeconds(5)
+        };
+        _historyRefreshTimer.Tick += (_, _) => RefreshHistoryUi();
+        Loaded += (_, _) =>
+        {
+            ApplyBatteryGaugePolish();
+            RefreshHistoryUi();
+            _historyRefreshTimer.Start();
+        };
+        Unloaded += (_, _) => _historyRefreshTimer.Stop();
     }
 
     private void ApplyBatteryGaugePolish()
@@ -22,6 +38,139 @@ public partial class BatteryTelemetryPanel : System.Windows.Controls.UserControl
 
         gauge.Width = 198;
         gauge.Height = 58;
+    }
+
+    private void RefreshHistoryUi()
+    {
+        if (WpfApplication.Current is not App app)
+            return;
+
+        IReadOnlyList<BatterySessionDetail> sessions = app.BatteryHistoryService.GetRecentSessionDetails(10);
+        DischargeChart.Values = app.BatteryHistoryService.GetLatestDischargeTimeline();
+        DischargeSummaryText.Text = app.BatteryHistoryService.GetLatestDischargeSummary();
+
+        RecentSessionItems.Children.Clear();
+        if (sessions.Count == 0)
+        {
+            var empty = new TextBlock
+            {
+                Text = "No completed battery sessions yet. ThinkControl starts learning automatically while you use and charge the laptop.",
+                FontSize = 10.5,
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(1, 5, 1, 2)
+            };
+            empty.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+            RecentSessionItems.Children.Add(empty);
+            return;
+        }
+
+        foreach (BatterySessionDetail session in sessions)
+            RecentSessionItems.Children.Add(CreateSessionRow(session));
+    }
+
+    private Button CreateSessionRow(BatterySessionDetail session)
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+
+        var kind = new Border
+        {
+            CornerRadius = new CornerRadius(4),
+            Padding = new Thickness(7, 3, 7, 3),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        kind.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
+        var kindText = new TextBlock
+        {
+            Text = session.IsActive ? $"{session.Kind} · live" : session.Kind,
+            FontSize = 9.5,
+            FontWeight = FontWeights.SemiBold
+        };
+        kindText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Accent" : "Tc.TextMuted");
+        kind.Child = kindText;
+        grid.Children.Add(kind);
+
+        var summary = new TextBlock
+        {
+            Text = session.Summary,
+            FontSize = 10.5,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        summary.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        Grid.SetColumn(summary, 1);
+        grid.Children.Add(summary);
+
+        var arrow = new TextBlock
+        {
+            Text = "›",
+            FontSize = 18,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        arrow.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        Grid.SetColumn(arrow, 2);
+        grid.Children.Add(arrow);
+
+        var row = new Button
+        {
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(2, 8, 2, 8),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Cursor = System.Windows.Input.Cursors.Hand,
+            Content = grid,
+            ToolTip = "Open session statistics and graph"
+        };
+        row.SetResourceReference(Button.BorderBrushProperty, "Tc.Border");
+        row.Click += (_, _) => ShowSession(session);
+        return row;
+    }
+
+    private void ShowSession(BatterySessionDetail session)
+    {
+        TimeSpan duration = session.Duration < TimeSpan.Zero ? TimeSpan.Zero : session.Duration;
+        string durationText = duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}h {duration.Minutes:00}m"
+            : $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))} min";
+        int percentageChange = session.EndPercent - session.StartPercent;
+        string energy = session.EnergyWh is double wh
+            ? $"{(session.Kind == "Charge" ? "+" : "−")}{wh:0.##} Wh"
+            : "—";
+        string average = session.AveragePowerWatts is double avg ? $"{avg:0.##} W" : "—";
+        string peak = session.PeakPowerWatts is double max ? $"{max:0.##} W" : "—";
+        string rate = session.PercentPerHour is double pp ? $"{pp:0.#}%/h" : "—";
+
+        DateTimeOffset local = session.StartedAt.ToLocalTime();
+        string subtitle = $"{session.Kind} · {local.ToString("g", CultureInfo.CurrentCulture)} · {session.StartPercent}% → {session.EndPercent}%";
+        TelemetryDetailMetric[] metrics =
+        [
+            new("Duration", durationText),
+            new("Battery", $"{percentageChange:+0;-0;0}%", $"{session.StartPercent}% → {session.EndPercent}%"),
+            new("Energy", energy),
+            new("Average power", average),
+            new("Peak power", peak),
+            new(session.Kind == "Charge" ? "Charge rate" : "Drain rate", rate)
+        ];
+
+        var model = new TelemetryDetailModel(
+            $"{session.Kind} session",
+            subtitle,
+            session.Kind == "Charge" ? "Charging power" : "Discharge power",
+            session.PowerTimeline,
+            "W",
+            "0.0",
+            metrics,
+            "Battery history is stored locally in ThinkControl and automatically compacted over time.");
+
+        var window = new TelemetryDetailWindow(model)
+        {
+            Owner = Window.GetWindow(this)
+        };
+        window.ShowDialog();
     }
 
     private static T? FindVisualChild<T>(DependencyObject root) where T : DependencyObject
@@ -45,7 +194,7 @@ public partial class BatteryTelemetryPanel : System.Windows.Controls.UserControl
             return;
 
         MessageBoxResult answer = MessageBox.Show(
-            "Clear ThinkControl's locally stored battery charge history?\n\nCurrent Windows battery health and cycle-count values are not changed.",
+            "Clear ThinkControl's locally stored battery charge and discharge history?\n\nCurrent Windows battery health and cycle-count values are not changed.",
             "ThinkControl · Clear battery history",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
@@ -55,6 +204,7 @@ public partial class BatteryTelemetryPanel : System.Windows.Controls.UserControl
         BatteryHistoryView view = app.BatteryHistoryService.Clear();
         app.State.ApplyBatteryHistory(view);
         app.BatteryTelemetryService.SetHistoricalChargePower(view.TypicalChargePowerWatts);
+        RefreshHistoryUi();
     }
 
     private void OpenVantage_Click(object sender, RoutedEventArgs e)
@@ -65,7 +215,7 @@ public partial class BatteryTelemetryPanel : System.Windows.Controls.UserControl
         try
         {
             Process.Start(new ProcessStartInfo(
-                "ms-windows-store://search/?query=Lenovo%20Commercial%20Vantage")
+                "ms-windows-store://search/?query=Lenovo%20Vantage")
             {
                 UseShellExecute = true
             });
