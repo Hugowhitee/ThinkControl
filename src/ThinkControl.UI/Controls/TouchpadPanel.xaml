@@ -54,7 +54,7 @@
                                 <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
                             </ToggleButton>
                             <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False" StaysOpen="False" PopupAnimation="Fade" IsOpen="{TemplateBinding IsDropDownOpen}">
-                                <Border MinWidth="280" MaxHeight="310" Margin="0,3,0,0" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="4">
+                                <Border MinWidth="280" MaxHeight="330" Margin="0,3,0,0" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="4">
                                     <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto"><ItemsPresenter /></ScrollViewer>
                                 </Border>
                             </Popup>
@@ -78,7 +78,7 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="Touchpad" FontSize="24" FontWeight="SemiBold" />
-                <TextBlock Text="Edge shortcuts that only activate when your finger starts at the edge." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,5,0,0" />
+                <TextBlock Text="Live touch visualization, edge shortcuts, haptics and the gesture pop-up." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,5,0,0" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Edge gestures" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" Margin="0,0,10,0" />
@@ -94,17 +94,17 @@
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                     <Grid>
-                        <TextBlock Text="Choose an edge" FontWeight="SemiBold" />
-                        <TextBlock x:Name="InputStatusText" Text="Touchpad not detected yet" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" />
+                        <StackPanel>
+                            <TextBlock Text="Live touchpad" FontWeight="SemiBold" />
+                            <TextBlock Text="The red point follows your finger; its trail fades after you move." Style="{StaticResource TouchpadLabel}" Margin="0,4,160,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <TextBlock x:Name="InputStatusText" Text="Touchpad not detected yet" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" />
                     </Grid>
                     <controls:TouchpadVisualizer x:Name="Visualizer" Grid.Row="1" Margin="0,8,0,0" Height="260" />
-                    <Grid Grid.Row="2" Margin="0,5,0,0">
-                        <StackPanel>
-                            <TextBlock Text="Selected" Style="{StaticResource TouchpadLabel}" />
-                            <TextBlock x:Name="SelectedZoneText" Text="Top edge" FontWeight="SemiBold" Margin="0,2,0,0" />
-                        </StackPanel>
-                        <CheckBox x:Name="TestModeSwitch" Visibility="Collapsed" Style="{StaticResource TcSwitch}" Checked="TestMode_Checked" Unchecked="TestMode_Unchecked" />
-                    </Grid>
+                    <StackPanel Grid.Row="2" Margin="0,5,0,0">
+                        <TextBlock Text="Selected edge" Style="{StaticResource TouchpadLabel}" />
+                        <TextBlock x:Name="SelectedZoneText" Text="Top edge" FontWeight="SemiBold" Margin="0,2,0,0" />
+                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -114,7 +114,8 @@
                         <TextBlock Text="Selected edge" FontWeight="SemiBold" />
                         <TextBlock x:Name="SelectedEdgeDescription" Text="Choose what sliding along this edge controls." Style="{StaticResource TouchpadLabel}" Margin="0,4,0,12" />
                         <TextBlock Text="Action" Style="{StaticResource TouchpadLabel}" />
-                        <ComboBox x:Name="ActionCombo" Style="{StaticResource TouchpadCombo}" Margin="0,5,0,12" SelectionChanged="ActionCombo_SelectionChanged" />
+                        <ComboBox x:Name="ActionCombo" Style="{StaticResource TouchpadCombo}" Margin="0,5,0,7" SelectionChanged="ActionCombo_SelectionChanged" />
+                        <TextBlock x:Name="ActionHelpText" Style="{StaticResource TouchpadLabel}" TextWrapping="Wrap" Margin="1,0,1,12" />
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="48" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Sensitivity" Style="{StaticResource TouchpadLabel}" />
@@ -138,17 +139,40 @@
                             <CheckBox x:Name="HapticSwitch" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource TcSwitch}" Click="HapticSwitch_Click" />
                         </Grid>
                         <Grid x:Name="HapticStrengthHeader" Margin="0,14,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="46" /></Grid.ColumnDefinitions>
-                            <TextBlock Text="Feedback" Style="{StaticResource TouchpadLabel}" />
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Feedback level" Style="{StaticResource TouchpadLabel}" />
                             <TextBlock x:Name="HapticStrengthValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
                         </Grid>
-                        <Slider x:Name="HapticStrengthSlider" Style="{StaticResource TcSlider}" Margin="0,5,0,8" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                        <Slider x:Name="HapticStrengthSlider" Style="{StaticResource TcSlider}" Margin="0,5,0,8" TickFrequency="25" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
                         <Grid x:Name="ClickForceHeader" Margin="0,5,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="46" /></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Click sensitivity" Style="{StaticResource TouchpadLabel}" />
                             <TextBlock x:Name="ClickForceValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
                         </Grid>
-                        <Slider x:Name="ClickForceSlider" Style="{StaticResource TcSlider}" Margin="0,5,0,0" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                        <Slider x:Name="ClickForceSlider" Style="{StaticResource TcSlider}" Margin="0,5,0,0" TickFrequency="50" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                    </StackPanel>
+                </Border>
+
+                <Border Style="{StaticResource TcSection}" Margin="0,12,0,0">
+                    <StackPanel>
+                        <Grid>
+                            <StackPanel>
+                                <TextBlock Text="Gesture pop-up" FontWeight="SemiBold" />
+                                <TextBlock Text="Windows-style feedback for volume and brightness gestures." Style="{StaticResource TouchpadLabel}" Margin="0,4,70,0" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <CheckBox x:Name="OsdSwitch" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource TcSwitch}" Click="OsdSwitch_Click" />
+                        </Grid>
+                        <Grid Margin="0,13,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="150" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Position" Style="{StaticResource TouchpadLabel}" VerticalAlignment="Center" />
+                            <ComboBox x:Name="OsdPositionCombo" Grid.Column="1" Style="{StaticResource TouchpadCombo}" SelectionChanged="OsdPosition_SelectionChanged" />
+                        </Grid>
+                        <Grid Margin="0,13,0,0">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="48" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Opacity" Style="{StaticResource TouchpadLabel}" />
+                            <TextBlock x:Name="OsdOpacityValue" Grid.Column="1" Style="{StaticResource TouchpadLabel}" HorizontalAlignment="Right" />
+                        </Grid>
+                        <Slider x:Name="OsdOpacitySlider" Style="{StaticResource TcSlider}" Minimum="65" Maximum="100" TickFrequency="5" Margin="0,5,0,0" ValueChanged="OsdOpacity_ValueChanged" PreviewMouseLeftButtonUp="OsdOpacity_MouseUp" />
                     </StackPanel>
                 </Border>
             </StackPanel>
@@ -178,7 +202,7 @@
         </Grid>
 
         <Border Grid.Row="2" Margin="0,12,0,0" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="1" CornerRadius="4" Padding="10,7">
-            <TextBlock x:Name="GestureStatusText" Text="Edge gestures are off." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" />
+            <TextBlock x:Name="GestureStatusText" Text="Edge gestures are off." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
         </Border>
     </Grid>
 </UserControl>
