@@ -6,6 +6,9 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
+        if (args.Any(arg => string.Equals(arg, "--repair-service", StringComparison.OrdinalIgnoreCase)))
+            return ServiceRepairCommand.Run();
+
         bool console = args.Any(arg => string.Equals(arg, "--console", StringComparison.OrdinalIgnoreCase));
 
         if (!Environment.UserInteractive && !console)
