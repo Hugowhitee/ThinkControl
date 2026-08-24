@@ -298,6 +298,12 @@ internal sealed class ThinkPadEc : IDisposable
         if (!WaitForFlagsClear(InputBufferFull, timeoutMs))
             return false;
 
+        // Input acceptance does not mean the EC has produced the requested byte.
+        // Require a fresh OBF indication before touching the data port so delayed
+        // firmware responses can never be mistaken for stale/undefined readback.
+        if (!WaitForFlagsSet(OutputBufferFull, timeoutMs))
+            return false;
+
         value = ReadPort(_dataPort);
         return true;
     }
@@ -348,6 +354,17 @@ internal sealed class ThinkPadEc : IDisposable
         for (int elapsed = 0; elapsed < timeoutMs; elapsed += PollSleepMs)
         {
             if ((ReadPort(_commandPort) & flags) == 0)
+                return true;
+            Thread.Sleep(PollSleepMs);
+        }
+        return false;
+    }
+
+    private bool WaitForFlagsSet(byte flags, int timeoutMs)
+    {
+        for (int elapsed = 0; elapsed < timeoutMs; elapsed += PollSleepMs)
+        {
+            if ((ReadPort(_commandPort) & flags) == flags)
                 return true;
             Thread.Sleep(PollSleepMs);
         }
