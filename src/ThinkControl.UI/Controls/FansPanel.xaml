@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
         <TextBlock Text="Fans" FontSize="24" FontWeight="SemiBold" />
-        <TextBlock Text="Cooling is independent from battery and plugged-in power profiles. ThinkControl uses real ThinkPad levels 1–7, temperature smoothing and hysteresis; Lenovo Auto always remains the firmware fallback."
+        <TextBlock Text="Cooling is independent from battery and plugged-in power profiles. ThinkControl uses the verified fan provider available for this laptop, with temperature smoothing, hysteresis and a firmware/OEM Auto fallback."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
@@ -16,7 +16,9 @@
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
                     </Grid.ColumnDefinitions>
-                    <RadioButton x:Name="AutoProfile" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Lenovo Auto" Tag="Lenovo Auto" Click="Profile_Click" Margin="0,0,5,0" />
+                    <!-- The current service semantic is Lenovo Auto for the verified X9 provider.
+                         The visible label stays provider-neutral so this shared page does not encode an OEM. -->
+                    <RadioButton x:Name="AutoProfile" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Auto" Tag="Lenovo Auto" Click="Profile_Click" Margin="0,0,5,0" />
                     <RadioButton x:Name="SilentProfile" Grid.Column="1" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Silent" Tag="Silent" Click="Profile_Click" Margin="2,0" />
                     <RadioButton x:Name="NormalProfile" Grid.Column="2" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Normal" Tag="Normal" Click="Profile_Click" Margin="2,0" />
                     <RadioButton x:Name="CoolProfile" Grid.Column="3" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Cool" Tag="Cool" Click="Profile_Click" Margin="5,0,0,0" />
@@ -59,7 +61,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="No second fan is invented: another row appears only when a real provider exposes another tachometer." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    <TextBlock Text="Another fan appears only when a real provider exposes another tachometer; ThinkControl never invents a missing RPM channel." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -69,7 +71,7 @@
                 <Grid>
                     <StackPanel>
                         <TextBlock Text="Fan characterization" FontWeight="SemiBold" />
-                        <TextBlock Text="One-time test: ThinkControl validates level 7 first, then measures levels 1–7. It returns to Lenovo Auto when finished, cancelled or unsafe." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
+                        <TextBlock Text="One-time test for providers with verified discrete levels. ThinkControl validates the highest allowed level, measures the supported range and returns cooling ownership to Auto when finished, cancelled or unsafe." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                         <Button x:Name="CharacterizeButton" Content="Characterize fans" Style="{StaticResource TcButton}" Click="Characterize_Click" />
@@ -100,7 +102,7 @@
             <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
                 <StackPanel>
                     <TextBlock Text="Manual fan level" FontWeight="SemiBold" />
-                    <TextBlock Text="Manual mode temporarily stops the selected custom profile. Level 0 and disengaged/full-speed 0x40 remain intentionally blocked." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <TextBlock Text="Only levels explicitly allowed by the active verified provider are writable. Unsupported fan-off, override or raw PWM states remain blocked." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
                     <Grid Margin="0,13,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <Button Content="1" Style="{StaticResource TcButton}" Tag="1" Click="ManualLevel_Click" Margin="0,0,4,0" />
