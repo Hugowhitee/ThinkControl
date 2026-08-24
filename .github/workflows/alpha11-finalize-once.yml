@@ -1,0 +1,230 @@
+name: Alpha.11 finalizer once
+
+on:
+  push:
+    branches: [fix/alpha11-final-review]
+    paths:
+      - ".github/workflows/alpha11-finalize-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-final-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/alpha11-final-review
+          fetch-depth: 0
+
+      - name: Apply narrow final-review fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding="utf-8")
+              if old not in text:
+                  raise SystemExit(f"Expected block not found in {path}: {old[:120]!r}")
+              p.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+          history = "src/ThinkControl.UI/Services/BatteryHistoryService.cs"
+          replace(history,
+          '''public sealed record BatteryHistoryView(
+              IReadOnlyList<TimeSeriesPoint> ChargePowerTimeline,
+              IReadOnlyList<TimeSeriesPoint> HealthTrendTimeline,''',
+          '''public sealed record BatteryHistoryView(
+              IReadOnlyList<TimeSeriesPoint> ChargePowerTimeline,
+              IReadOnlyList<TimeSeriesPoint> ChargePercentTimeline,
+              IReadOnlyList<TimeSeriesPoint> HealthTrendTimeline,''')
+
+          replace(history,
+          '''    IReadOnlyList<TimeSeriesPoint> PowerTimeline,
+              string Summary,''',
+          '''    IReadOnlyList<TimeSeriesPoint> PowerTimeline,
+              IReadOnlyList<TimeSeriesPoint> PercentTimeline,
+              string Summary,''')
+
+          replace(history,
+          '''        bool discharging = !charging && onBattery && watts is > 0.4 and < 500;''',
+          '''        // A discharge session is defined by the real AC/battery state, not by
+                  // optional power-rate telemetry. Some firmware exposes percentage but no
+                  // ChargeRate/DischargeRate; those laptops must still retain useful history.
+                  bool discharging = !charging && onBattery;''')
+
+          replace(history,
+          '''    public string GetLatestDischargeSummary()
+              {''',
+          '''    public IReadOnlyList<TimeSeriesPoint> GetLatestDischargePercentTimeline()
+              {
+                  DischargeSession? session = _document.ActiveDischargeSession ??
+                                              _document.DischargeSessions.FirstOrDefault(item => item.Points.Count > 0);
+                  return session?.Points
+                      .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                      .ToArray() ?? [];
+              }
+
+              public string GetLatestDischargeSummary()
+              {''')
+
+          replace(history,
+          '''        IReadOnlyList<TimeSeriesPoint> chargePower = curveSession?.Points
+                  .Where(point => point.Watts is > 0)
+                  .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                  .ToArray() ?? [];
+
+              string curveLabel = active is not null''',
+          '''        IReadOnlyList<TimeSeriesPoint> chargePower = curveSession?.Points
+                  .Where(point => point.Watts is > 0)
+                  .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                  .ToArray() ?? [];
+              IReadOnlyList<TimeSeriesPoint> chargePercent = curveSession?.Points
+                  .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                  .ToArray() ?? [];
+
+              string curveLabel = active is not null''')
+
+          replace(history,
+          '''        return new BatteryHistoryView(
+                  chargePower,
+                  healthTimeline,''',
+          '''        return new BatteryHistoryView(
+                  chargePower,
+                  chargePercent,
+                  healthTimeline,''')
+
+          replace(history,
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  FormatChargeSession(session, active),''',
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  session.Points
+                      .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                      .ToArray(),
+                  FormatChargeSession(session, active),''')
+
+          replace(history,
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  FormatDischargeSession(session, active),''',
+          '''            session.Points.Where(point => point.Watts is > 0)
+                      .Select(point => new TimeSeriesPoint(point.At, point.Watts!.Value, $"{point.Percent}%"))
+                      .ToArray(),
+                  session.Points
+                      .Select(point => new TimeSeriesPoint(point.At, point.Percent))
+                      .ToArray(),
+                  FormatDischargeSession(session, active),''')
+
+          state = "src/ThinkControl.UI/ViewModels/AppState.cs"
+          replace(state,
+          '''    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
+              public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();''',
+          '''    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
+              public ObservableCollection<TimeSeriesPoint> BatteryChargePercentTimeline { get; } = new();
+              public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();''')
+          replace(state,
+          '''        ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
+              ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);''',
+          '''        ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
+              ReplaceCollection(BatteryChargePercentTimeline, history.ChargePercentTimeline);
+              ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);''')
+
+          panel = "src/ThinkControl.UI/Controls/BatteryTelemetryPanel.xaml.cs"
+          replace(panel,
+          '''        TimeSeriesPoint[] chargePower = app.State.BatteryChargePowerTimeline.ToArray();
+              IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
+
+              ChargePercentChart.Values = BuildPercentTimeline(chargePower);
+              DischargeChart.Values = dischargePower;
+              DischargePercentChart.Values = BuildPercentTimeline(dischargePower);''',
+          '''        TimeSeriesPoint[] chargePower = app.State.BatteryChargePowerTimeline.ToArray();
+              IReadOnlyList<TimeSeriesPoint> chargePercent = app.State.BatteryChargePercentTimeline;
+              IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
+              IReadOnlyList<TimeSeriesPoint> dischargePercent = app.BatteryHistoryService.GetLatestDischargePercentTimeline();
+
+              ChargePercentChart.Values = chargePercent;
+              DischargeChart.Values = dischargePower;
+              DischargePercentChart.Values = dischargePercent;''')
+          replace(panel,
+          '''        TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
+              ChargePercentChart.Values = BuildPercentTimeline(chargePower);''',
+          '''        TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
+              ChargePercentChart.Values = state.BatteryChargePercentTimeline.Count > 0
+                  ? state.BatteryChargePercentTimeline
+                  : BuildPercentTimeline(chargePower);''')
+          replace(panel,
+          '''        IReadOnlyList<TimeSeriesPoint> percentTimeline = BuildPercentTimeline(session.PowerTimeline);
+              var model = new TelemetryDetailModel(''',
+          '''        IReadOnlyList<TimeSeriesPoint> percentTimeline = session.PercentTimeline;
+              var model = new TelemetryDetailModel(''')
+
+          snapshots = "tools/ThinkControl.Snapshots/Program.cs"
+          replace(snapshots,
+          '''            BatteryHealthPercent = 97.6,
+                  BatteryRemainingWh = charging ? 56.2 : 45.4,''',
+          '''            BatteryHealthPercent = 97.6,
+                  BatteryTemperatureC = hardwareReady ? 34.8 : null,
+                  BatteryRemainingWh = charging ? 56.2 : 45.4,''')
+          replace(snapshots,
+          '''        for (int i = 0; i <= 43; i++)
+              {
+                  double watts = 18.8 - i * 0.028 + Math.Sin(i / 3.5) * 0.55;
+                  int percent = (int)Math.Round(61d + 17d * i / 43d);
+                  state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(
+                      now - TimeSpan.FromMinutes(43 - i),
+                      watts,
+                      $"{percent}%"));
+              }''',
+          '''        for (int i = 0; i <= 43; i++)
+              {
+                  double watts = 18.8 - i * 0.028 + Math.Sin(i / 3.5) * 0.55;
+                  int percent = (int)Math.Round(61d + 17d * i / 43d);
+                  DateTimeOffset at = now - TimeSpan.FromMinutes(43 - i);
+                  state.BatteryChargePowerTimeline.Add(new TimeSeriesPoint(at, watts, $"{percent}%"));
+                  state.BatteryChargePercentTimeline.Add(new TimeSeriesPoint(at, percent));
+              }''')
+
+          release = ".github/workflows/release.yml"
+          replace(release,
+          '''            function Draw-Preview([string]$name, [int]$x, [int]$y, [int]$width, [int]$height) {
+                $image = [System.Drawing.Image]::FromFile((Join-Path $output $name))
+                try {
+                  $graphics.DrawImage($image, $x, $y, $width, $height)
+                }
+                finally {
+                  $image.Dispose()
+                }
+              }''',
+          '''            function Draw-Preview([string]$name, [int]$x, [int]$y, [int]$width, [int]$height) {
+                $image = [System.Drawing.Image]::FromFile((Join-Path $output $name))
+                try {
+                  $scale = [math]::Min(([double]$width / $image.Width), ([double]$height / $image.Height))
+                  $drawWidth = [int][math]::Round($image.Width * $scale)
+                  $drawHeight = [int][math]::Round($image.Height * $scale)
+                  $drawX = $x + [int][math]::Floor(($width - $drawWidth) / 2)
+                  $drawY = $y + [int][math]::Floor(($height - $drawHeight) / 2)
+                  $graphics.DrawImage($image, $drawX, $drawY, $drawWidth, $drawHeight)
+                }
+                finally {
+                  $image.Dispose()
+                }
+              }''')
+
+          Path(".github/workflows/publish-alpha11-once.yml").unlink(missing_ok=True)
+          Path(".github/workflows/alpha11-finalize-once.yml").unlink(missing_ok=True)
+
+      - name: Commit final-review fixes
+        shell: bash
+        run: |
+          git config user.name "Hugo"
+          git config user.email "119423227+Hugowhitee@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "Finish alpha.11 release blockers"
+          git push origin HEAD:fix/alpha11-final-review
