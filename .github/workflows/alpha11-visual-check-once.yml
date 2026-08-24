@@ -57,3 +57,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh pr comment 35 --repo $env:GITHUB_REPOSITORY --body "Alpha.11 fresh visual check run: $env:GITHUB_RUN_ID · commit $env:GITHUB_SHA · conclusion available in Actions."
+
+# Retrigger after the workflow already existed on main.
