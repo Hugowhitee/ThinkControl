@@ -30,6 +30,7 @@ public sealed class LenovoHardwareController : IDisposable
     private static readonly TimeSpan GenericFanPollInterval = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan EcRetryInterval = TimeSpan.FromSeconds(45);
     private static readonly TimeSpan KeyboardProbeInterval = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan StaleFanRpmLimit = TimeSpan.FromSeconds(30);
 
     private readonly object _gate = new();
     private readonly HardwareDeviceIdentity _identity;
@@ -42,11 +43,13 @@ public sealed class LenovoHardwareController : IDisposable
     private string? _lastEcError;
     private DateTimeOffset _lastFanStateRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastFanRpmRead = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastFanRpmSuccess = DateTimeOffset.MinValue;
     private DateTimeOffset _lastGenericFanRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastKeyboardProbe = DateTimeOffset.MinValue;
     private byte? _fanControl;
     private int? _x9FanRpm;
     private string _x9FanRpmSource = "Unavailable";
+    private int _x9FanRpmFailures;
     private IReadOnlyList<LenovoFanReading> _genericFans = Array.Empty<LenovoFanReading>();
     private bool _keyboardAvailable;
     private bool _disposed;
@@ -83,11 +86,13 @@ public sealed class LenovoHardwareController : IDisposable
             _lastEcError = null;
             _lastFanStateRead = DateTimeOffset.MinValue;
             _lastFanRpmRead = DateTimeOffset.MinValue;
+            _lastFanRpmSuccess = DateTimeOffset.MinValue;
             _lastGenericFanRead = DateTimeOffset.MinValue;
             _lastKeyboardProbe = DateTimeOffset.MinValue;
             _fanControl = null;
             _x9FanRpm = null;
             _x9FanRpmSource = "Unavailable";
+            _x9FanRpmFailures = 0;
             _genericFans = Array.Empty<LenovoFanReading>();
             _keyboardAvailable = false;
         }
@@ -111,7 +116,12 @@ public sealed class LenovoHardwareController : IDisposable
                     ReadX9FanRpm(now);
             }
 
-            if (_isLenovo && now - _lastGenericFanRead >= GenericFanPollInterval)
+            // The verified X9 EC tachometer is the authoritative fan source on the
+            // X9. Only probe generic Lenovo/WMI fan telemetry when that path is not
+            // available, avoiding extra WMI work and stale generic data overriding
+            // a verified tachometer.
+            bool needGenericFanFallback = !_identity.IsVerifiedX9 || !ecAvailable || !_x9FanRpm.HasValue;
+            if (_isLenovo && needGenericFanFallback && now - _lastGenericFanRead >= GenericFanPollInterval)
                 ReadGenericLenovoFanTelemetry(now);
 
             if (_isLenovo && now - _lastKeyboardProbe >= KeyboardProbeInterval)
@@ -301,17 +311,25 @@ public sealed class LenovoHardwareController : IDisposable
 
     private void ReadX9FanRpm(DateTimeOffset now)
     {
-        if (_ec is null || (_x9FanRpm.HasValue && now - _lastFanRpmRead < FanRpmPollInterval))
+        if (_ec is null || now - _lastFanRpmRead < FanRpmPollInterval)
             return;
 
+        _lastFanRpmRead = now;
         try
         {
             _x9FanRpm = _ec.ReadFanRpm();
             _x9FanRpmSource = "ThinkPad X9 EC tachometer 0x84/0x85";
-            _lastFanRpmRead = now;
+            _lastFanRpmSuccess = now;
+            _x9FanRpmFailures = 0;
         }
-        catch
+        catch (Exception ex)
         {
+            _x9FanRpmFailures++;
+            if (_x9FanRpmFailures >= 2 || now - _lastFanRpmSuccess > StaleFanRpmLimit)
+            {
+                _x9FanRpm = null;
+                _x9FanRpmSource = $"Unavailable · X9 EC tachometer read failed: {ex.GetType().Name}";
+            }
         }
     }
 
@@ -323,6 +341,18 @@ public sealed class LenovoHardwareController : IDisposable
 
     private IReadOnlyList<LenovoFanReading> BuildFanTelemetry(bool ecAvailable, SensorHubSnapshot sensors)
     {
+        if (_identity.IsVerifiedX9 && ecAvailable && _x9FanRpm.HasValue)
+        {
+            return
+            [
+                new LenovoFanReading(
+                    "x9-ec-main",
+                    _x9FanRpm.Value,
+                    "Fan",
+                    _x9FanRpmSource)
+            ];
+        }
+
         if (_genericFans.Count > 0)
             return _genericFans;
 
@@ -342,18 +372,6 @@ public sealed class LenovoHardwareController : IDisposable
             .ToArray();
         if (lhmFans.Length > 0)
             return lhmFans;
-
-        if (_identity.IsVerifiedX9 && ecAvailable && _x9FanRpm.HasValue)
-        {
-            return
-            [
-                new LenovoFanReading(
-                    "x9-ec-main",
-                    _x9FanRpm.Value,
-                    "Fan",
-                    _x9FanRpmSource)
-            ];
-        }
 
         return Array.Empty<LenovoFanReading>();
     }
