@@ -159,8 +159,19 @@ public sealed class KeyboardEffectService : IDisposable
                 return;
         }
 
-        if (!await _writeGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        if (force)
+        {
+            // A direct Off/Low/High click is authoritative. If an effect tick already
+            // owns the writer, wait for that bounded service call to finish and then
+            // apply the user's requested level. The previous zero-timeout gate could
+            // silently drop a static click; Static mode then had no background tick to
+            // retry it, making working Lenovo keyboard hardware appear unresponsive.
+            await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (!await _writeGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
             return;
+        }
 
         try
         {
