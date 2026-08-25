@@ -237,7 +237,9 @@ public partial class TouchpadPanel
             GestureFeedbackTitle.Text = ActionLabel(signal.Action);
             GestureFeedbackValue.Text = FormatGestureValue(signal);
             StartGestureFeedbackFade();
-            _gestureStartValue = null;
+            // Keep the captured start value through the release/fade so the final
+            // overlay and status line retain the real delta. The next Claimed event
+            // replaces it, and page hide/unload clears it.
             return;
         }
 
