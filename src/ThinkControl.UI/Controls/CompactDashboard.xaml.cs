@@ -9,7 +9,6 @@ namespace ThinkControl.UI.Controls;
 public partial class CompactDashboard : UserControl
 {
     private App? _app;
-    private bool _syncingCooling;
 
     public CompactDashboard()
     {
@@ -34,7 +33,6 @@ public partial class CompactDashboard : UserControl
         EnsureAudioRow();
         EnsureQuickControls();
         EnsureHardwareAlert();
-        SyncCoolingProfile();
         SyncQuickControls();
         SyncHardwareAlert();
     }
@@ -44,10 +42,9 @@ public partial class CompactDashboard : UserControl
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AppState.FanStateText) or nameof(AppState.CanFanControl))
-            Dispatcher.BeginInvoke(SyncCoolingProfile);
-
         if (e.PropertyName is nameof(AppState.SelectedMode)
+            or nameof(AppState.CoolingProfile)
+            or nameof(AppState.CanFanControl)
             or nameof(AppState.RefreshAutoEnabled)
             or nameof(AppState.CurrentRefreshHz)
             or nameof(AppState.MaxRefreshHz)
@@ -64,49 +61,6 @@ public partial class CompactDashboard : UserControl
             or nameof(AppState.CanKeyboardBacklight))
         {
             Dispatcher.BeginInvoke(SyncHardwareAlert);
-        }
-    }
-
-    private void SyncCoolingProfile()
-    {
-        if (_app is null)
-            return;
-
-        string profile = _app.State.FanStateText
-            .Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-            .FirstOrDefault() ?? "Lenovo Auto";
-        if (profile is not ("Silent" or "Normal" or "Cool"))
-            profile = "Lenovo Auto";
-
-        _syncingCooling = true;
-        try
-        {
-            CompactFanAuto.IsChecked = profile == "Lenovo Auto";
-            CompactFanSilent.IsChecked = profile == "Silent";
-            CompactFanNormal.IsChecked = profile == "Normal";
-            CompactFanCool.IsChecked = profile == "Cool";
-        }
-        finally
-        {
-            _syncingCooling = false;
-        }
-    }
-
-    private async void CoolingQuick_Click(object sender, RoutedEventArgs e)
-    {
-        if (_syncingCooling || _app is null || sender is not FrameworkElement { Tag: string profile })
-            return;
-
-        CoolingQuickGroup.SetCurrentValue(IsEnabledProperty, false);
-        try
-        {
-            await _app.SetCoolingProfileAsync(profile);
-            await _app.RefreshStatusAsync();
-        }
-        finally
-        {
-            CoolingQuickGroup.SetCurrentValue(IsEnabledProperty, _app.State.CanFanControl);
-            SyncCoolingProfile();
         }
     }
 
