@@ -149,6 +149,6 @@ dotnet build ThinkControl.slnx -c Release
 .\tools\visual-qa.ps1
 ```
 
-Automated CI cannot prove physical-device behavior. Fan ownership/RPM, OEM keyboard readback, touchpad HID behavior, Dolby DAX behavior and haptic response still require validation on the actual target hardware before that exact model/provider is treated as fully proven.
+Automated CI and source-level protocol cross-checking cannot prove physical-device behavior. Fan ownership/RPM, OEM keyboard readback, touchpad HID behavior, Dolby DAX behavior and haptic response still require a run on the actual target hardware before that exact installed driver/firmware combination is treated as physically confirmed.
 
 See [Device support](docs/DEVICE-SUPPORT.md), [Hardware safety](docs/HARDWARE-SAFETY.md), [Diagnostics & privacy](docs/DIAGNOSTICS.md) and [X9-15 research](docs/research/x9-15-gen1.md).
