@@ -217,6 +217,24 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse RefreshProviders()
     {
+        CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
+        if (cooling.Characterization.Running)
+        {
+            return Error("Stop fan characterization before refreshing hardware providers.");
+        }
+
+        bool thinkControlOwnsFan = cooling.AppliedLevel.HasValue ||
+            !cooling.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
+        if (thinkControlOwnsFan && !_fanSupervisor.ReturnToAuto(out string? handoffError))
+        {
+            return Error(
+                "Provider refresh was blocked because ThinkControl could not safely return fan ownership to Lenovo Auto. " +
+                (handoffError ?? "Retry Lenovo Auto, then refresh providers again."));
+        }
+
+        // Never tear down/reprobe EC, sensor or keyboard providers while the fan
+        // supervisor still believes it owns a manual level. RefreshProviders itself
+        // performs a second defensive BIOS handoff if the EC cache disagrees.
         _hardware.RefreshProviders();
         ServiceResponse discovering = ProviderDiscoveryResponse("Providers recycled · re-detecting PawnIO/LHM, X9 EC and Lenovo keyboard backends");
         lock (_statusGate) _lastStatus = discovering;
