@@ -38,6 +38,7 @@ internal sealed class FanSupervisor : IDisposable
     private Task? _characterizationTask;
 
     private CoolingProfile _profile = CoolingProfile.LenovoAuto;
+    private double[] _customThresholds = FanCurvePolicy.DefaultCustomThresholds.ToArray();
     private int? _manualLevel;
     private int? _appliedLevel;
     private double? _smoothedTemperatureC;
@@ -100,12 +101,55 @@ internal sealed class FanSupervisor : IDisposable
         error = null;
         if (!TryParseProfile(raw, out CoolingProfile requested))
         {
-            error = "Cooling profile must be Lenovo Auto, Silent, Normal or Cool.";
+            error = "Cooling profile must be Lenovo Auto, Quiet, Balanced or Max cooling.";
             return false;
         }
         if (requested == CoolingProfile.LenovoAuto)
             return ReturnToAuto(out error);
 
+        if (!CanEnterManagedCooling(out LenovoHardwareStatus? status, out error) || status is null)
+            return false;
+
+        lock (_gate)
+        {
+            _profile = requested;
+            _manualLevel = null;
+            _appliedLevel = null;
+            _smoothedTemperatureC = status.ControlTemperatureC!.Value;
+            _safetyOverride = false;
+            _status = $"{DisplayName(requested)} cooling active";
+            _lastLevelChange = DateTimeOffset.MinValue;
+        }
+        return true;
+    }
+
+    internal bool SetCustomCurve(IReadOnlyList<double>? thresholds, out string? error)
+    {
+        error = null;
+        if (!FanCurvePolicy.TryValidateCustomThresholds(thresholds, out double[] normalized, out error))
+            return false;
+
+        if (!CanEnterManagedCooling(out LenovoHardwareStatus? status, out error) || status is null)
+            return false;
+
+        lock (_gate)
+        {
+            _customThresholds = normalized;
+            _profile = CoolingProfile.Custom;
+            _manualLevel = null;
+            _appliedLevel = null;
+            _smoothedTemperatureC = status.ControlTemperatureC!.Value;
+            _safetyOverride = false;
+            _status = "Custom cooling active · verified EC levels 1–7";
+            _lastLevelChange = DateTimeOffset.MinValue;
+        }
+        return true;
+    }
+
+    private bool CanEnterManagedCooling(out LenovoHardwareStatus? status, out string? error)
+    {
+        error = null;
+        status = null;
         lock (_gate)
         {
             if (_characterizationRunning)
@@ -115,28 +159,17 @@ internal sealed class FanSupervisor : IDisposable
             }
         }
 
-        LenovoHardwareStatus status = _hardware.ReadStatus();
+        status = _hardware.ReadStatus();
         if (!status.CanFanControl || !status.ControlTemperatureC.HasValue)
         {
-            error = "Custom cooling requires the verified fan-control provider and a valid control-temperature sensor.";
+            error = "Managed cooling requires the verified fan-control provider and a valid control-temperature sensor.";
             return false;
         }
         if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(status.ControlTemperatureC.Value))
         {
             ReturnHardwareToAutoSerialized(out _);
-            error = "The system is too hot to enter custom cooling. Lenovo firmware keeps control until temperature falls.";
+            error = "The system is too hot to enter managed cooling. Lenovo firmware keeps control until temperature falls.";
             return false;
-        }
-
-        lock (_gate)
-        {
-            _profile = requested;
-            _manualLevel = null;
-            _appliedLevel = null;
-            _smoothedTemperatureC = status.ControlTemperatureC.Value;
-            _safetyOverride = false;
-            _status = $"{DisplayName(requested)} cooling active";
-            _lastLevelChange = DateTimeOffset.MinValue;
         }
         return true;
     }
@@ -181,7 +214,7 @@ internal sealed class FanSupervisor : IDisposable
             _appliedLevel = level;
             _smoothedTemperatureC = preflight.ControlTemperatureC.Value;
             _safetyOverride = false;
-            _status = $"Manual fan level {level} · {preflight.ControlTemperatureC.Value:0.#} °C control temperature";
+            _status = $"Manual EC level {level} · {preflight.ControlTemperatureC.Value:0.#} °C control temperature";
             _lastLevelChange = DateTimeOffset.UtcNow;
         }
         return true;
@@ -192,7 +225,6 @@ internal sealed class FanSupervisor : IDisposable
         bool success = ReturnHardwareToAutoSerialized(out error);
         if (!success && !_hardware.Identity.IsVerifiedX9)
         {
-            // No ThinkControl manual provider means firmware already owns cooling.
             success = true;
             error = null;
         }
@@ -325,11 +357,13 @@ internal sealed class FanSupervisor : IDisposable
     private async Task ApplyProfileTickAsync(CancellationToken token)
     {
         CoolingProfile profile;
+        double[] customThresholds;
         int? manualLevel;
         bool characterizationRunning;
         lock (_gate)
         {
             profile = _profile;
+            customThresholds = _customThresholds.ToArray();
             manualLevel = _manualLevel;
             characterizationRunning = _characterizationRunning;
         }
@@ -362,7 +396,7 @@ internal sealed class FanSupervisor : IDisposable
                 if (_manualLevel == manualLevel)
                 {
                     _smoothedTemperatureC = manualTemperature;
-                    _status = $"Manual fan level {manualLevel.Value} · {manualTemperature:0.#} °C control temperature";
+                    _status = $"Manual EC level {manualLevel.Value} · {manualTemperature:0.#} °C control temperature";
                 }
             }
             return;
@@ -420,11 +454,11 @@ internal sealed class FanSupervisor : IDisposable
             unstable = new HashSet<int>(_unstableLevels);
         }
 
-        int requested = FanCurvePolicy.ResolveLevel(profile, smooth, current);
+        int requested = profile == CoolingProfile.Custom
+            ? FanCurvePolicy.ResolveCustomLevel(customThresholds, smooth, current)
+            : FanCurvePolicy.ResolveLevel(profile, smooth, current);
         requested = FanCurvePolicy.PreferStableLevel(requested, unstable);
 
-        // Acoustic calibration is preference-only: it may suppress an audible
-        // level at low temperature, but above 72 °C the thermal curve always wins.
         if (profile == CoolingProfile.Silent && audible is >= 2 and <= 7 && smooth < 72 && requested >= audible.Value)
             requested = Math.Max(1, audible.Value - 1);
 
@@ -459,7 +493,7 @@ internal sealed class FanSupervisor : IDisposable
         {
             _appliedLevel = requested;
             _lastLevelChange = DateTimeOffset.UtcNow;
-            _status = $"{DisplayName(profile)} · level {requested} · {smooth:0.#} °C control temperature";
+            _status = $"{DisplayName(profile)} · EC level {requested} · {smooth:0.#} °C control temperature";
         }
     }
 
@@ -504,7 +538,7 @@ internal sealed class FanSupervisor : IDisposable
                     if (!_characterizationRunning)
                         return;
                     _characterizationLevel = level;
-                    _characterizationStatus = $"Testing level {level} of 7 · listen and mark it if clearly audible";
+                    _characterizationStatus = $"Testing EC level {level} of 7 · listen and mark it if clearly audible";
                 }
 
                 LenovoHardwareStatus thermal = _hardware.ReadStatus();
@@ -512,11 +546,8 @@ internal sealed class FanSupervisor : IDisposable
                     throw new InvalidOperationException("Temperature safety check handed control back to Lenovo firmware.");
 
                 if (!await SetHardwareLevelSerializedAsync(level, token).ConfigureAwait(false))
-                    throw new InvalidOperationException($"Level {level} could not be verified.");
+                    throw new InvalidOperationException($"EC level {level} could not be verified.");
 
-                // The X9 EC tachometer is deliberately rate-limited. Two readings
-                // separated by >10 s avoid hammering EC while still detecting the
-                // pulsing/variable levels reported by other X9 fan tools.
                 await Task.Delay(TimeSpan.FromMilliseconds(4500), token).ConfigureAwait(false);
                 LenovoHardwareStatus first = _hardware.ReadStatus();
                 await Task.Delay(TimeSpan.FromMilliseconds(10200), token).ConfigureAwait(false);
@@ -529,15 +560,15 @@ internal sealed class FanSupervisor : IDisposable
                     _calibration.Add(point);
                     if (point.Stable) _unstableLevels.Remove(level); else _unstableLevels.Add(level);
                     _characterizationStatus = point.Stable
-                        ? $"Level {level}: stable · {_calibration.Count}/7 complete"
-                        : $"Level {level}: RPM varies noticeably · {_calibration.Count}/7 complete";
+                        ? $"EC level {level}: stable · {_calibration.Count}/7 complete"
+                        : $"EC level {level}: RPM varies noticeably · {_calibration.Count}/7 complete";
                 }
                 SaveCalibration();
             }
 
             lock (_gate)
                 _characterizationStatus = _unstableLevels.Count == 0
-                    ? "Characterization complete · all measured levels stable"
+                    ? "Characterization complete · all measured EC levels stable"
                     : $"Characterization complete · {_unstableLevels.Count} unstable level(s) will be avoided when thermally safe";
         }
         catch (OperationCanceledException)
@@ -690,20 +721,21 @@ internal sealed class FanSupervisor : IDisposable
         string normalized = raw?.Trim().Replace(" ", string.Empty, StringComparison.Ordinal).ToLowerInvariant() ?? string.Empty;
         profile = normalized switch
         {
-            "silent" => CoolingProfile.Silent,
-            "normal" => CoolingProfile.Normal,
-            "cool" => CoolingProfile.Cool,
+            "quiet" or "silent" => CoolingProfile.Silent,
+            "balanced" or "normal" => CoolingProfile.Normal,
+            "maxcooling" or "cool" => CoolingProfile.Cool,
             "lenovoauto" or "auto" => CoolingProfile.LenovoAuto,
             _ => CoolingProfile.LenovoAuto
         };
-        return normalized is "silent" or "normal" or "cool" or "lenovoauto" or "auto";
+        return normalized is "quiet" or "silent" or "balanced" or "normal" or "maxcooling" or "cool" or "lenovoauto" or "auto";
     }
 
     private static string DisplayName(CoolingProfile profile) => profile switch
     {
-        CoolingProfile.Silent => "Silent",
-        CoolingProfile.Normal => "Normal",
-        CoolingProfile.Cool => "Cool",
+        CoolingProfile.Silent => "Quiet",
+        CoolingProfile.Normal => "Balanced",
+        CoolingProfile.Cool => "Max cooling",
+        CoolingProfile.Custom => "Custom",
         _ => "Lenovo Auto"
     };
 
@@ -717,8 +749,6 @@ internal sealed class FanSupervisor : IDisposable
         try { _runCts?.Cancel(); } catch { }
         _disposeCts.Cancel();
 
-        // The shutdown path gets one serialized chance to return ownership to
-        // firmware; the hardware controller has a second defensive Auto fallback.
         try { ReturnHardwareToAutoSerialized(out _); } catch { }
         try { _characterizationTask?.Wait(TimeSpan.FromSeconds(1)); } catch { }
         try { _loopTask?.Wait(TimeSpan.FromSeconds(1)); } catch { }
