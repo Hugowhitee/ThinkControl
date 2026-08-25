@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using System.Windows;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
 
