@@ -40,7 +40,10 @@ internal sealed class PawnIoEcTransport : IDisposable
         if (!PawnIo.IsInstalled)
             throw new InvalidOperationException("PawnIO is not installed. Open Hardware setup to install the verified low-level component.");
 
-        if (PawnIo.Version is Version installed && installed < new Version(2, 1, 0))
+        // LibreHardwareMonitor 0.9.6 ships the PawnIO 2.2 module set. Accepting 2.1
+        // here created a false-compatible state where the installer/status UI looked
+        // healthy but the module handshake could still fail at runtime.
+        if (PawnIo.Version is Version installed && installed < new Version(2, 2, 0))
         {
             throw new InvalidOperationException(
                 $"PawnIO {installed} is too old for the verified X9 EC provider. Hardware setup installs PawnIO 2.2.0.");
@@ -72,9 +75,6 @@ internal sealed class PawnIoEcTransport : IDisposable
                     $"PawnIO device opened, but the LibreHardwareMonitor LPC/ACPI EC module could not be loaded (Win32 {error}: {new Win32Exception(error).Message}).");
             }
 
-            // A harmless legacy status-port read proves that the loaded module can
-            // execute. Actual ThinkPad EC port-pair detection happens read-only in
-            // ThinkPadEc and includes the modern 0x1604/0x1600 pair.
             _ = ReadPort(0x66);
         }
         catch
