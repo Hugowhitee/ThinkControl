@@ -29,6 +29,7 @@ internal sealed class HardwareSetupService
     private const string ServiceName = "ThinkControlService";
     private const string PawnIoServiceName = "PawnIO";
     private const string PawnIoVersion = "2.2.0";
+    private const int ServiceRepairIpcFailure = 26;
     private static readonly Version MinimumPawnIoVersion = new(2, 2, 0);
     private const string PawnIoUrl = "https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe";
     private const string PawnIoSha256 = "1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032";
@@ -101,7 +102,7 @@ internal sealed class HardwareSetupService
         if (string.IsNullOrWhiteSpace(serviceExe) || !File.Exists(serviceExe))
         {
             return new(false, false,
-                "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the application payload.");
+                "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the missing application payload.");
         }
 
         try
@@ -120,14 +121,20 @@ internal sealed class HardwareSetupService
             await process.WaitForExitAsync().ConfigureAwait(false);
             if (process.ExitCode != 0)
             {
+                if (process.ExitCode == ServiceRepairIpcFailure)
+                {
+                    return new(false, false,
+                        "Windows started the hardware service, but its local ThinkControl IPC handshake never became responsive. The installed files were not replaced. Retry once; if it repeats, review the hardware-service log in Diagnostics.");
+                }
+
                 return new(false, false,
-                    $"Hardware service repair returned code {process.ExitCode}. The app payload was left unchanged.");
+                    $"Hardware service repair returned code {process.ExitCode}. The installed application payload was left unchanged; review Diagnostics before reinstalling.");
             }
 
             await Task.Delay(500).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
             return after.Running
-                ? new(true, false, "ThinkControl hardware service is running. Verifying hardware providers now…")
+                ? new(true, false, "ThinkControl hardware service and local app connection were verified. Checking hardware providers now…")
                 : new(false, false, "The hardware service repair completed, but Windows still reports the service as stopped.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
