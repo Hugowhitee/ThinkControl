@@ -29,9 +29,31 @@ public partial class App
             if (response?.Success == true && response.Telemetry is not null)
             {
                 TelemetrySnapshot telemetry = response.Telemetry;
+                State.HardwareAccess = telemetry.HardwareAccess;
+                State.CpuTemperatureC = telemetry.CpuTemperatureC;
                 State.ControlTemperatureC = telemetry.ControlTemperatureC;
                 State.ControlTemperatureSource = telemetry.ControlTemperatureSource ?? "Unavailable";
+                State.FanRpm = telemetry.FanRpm;
+                State.FanStateText = telemetry.FanState;
+                State.KeyboardStatus = telemetry.KeyboardBacklight;
+                if (!string.IsNullOrWhiteSpace(telemetry.ThermalSolutionVersion))
+                    State.ThermalSolution = telemetry.ThermalSolutionVersion!;
+
                 State.ApplyHardwareTelemetry(telemetry.Fans, telemetry.Sensors);
+
+                if (response.Capabilities is HardwareCapabilitySnapshot capabilities)
+                {
+                    State.CanSensorTelemetry = capabilities.SensorTelemetry;
+                    State.CanFanTelemetry = capabilities.FanTelemetry;
+                    State.CanFanControl = capabilities.FanControl;
+                    State.CanKeyboardBacklight = capabilities.KeyboardBacklight;
+                    State.CanCpuTemperature = capabilities.CpuTemperature;
+                }
+                else
+                {
+                    State.CanSensorTelemetry = State.Sensors.Count > 0;
+                    State.CanFanTelemetry = State.Fans.Count > 0;
+                }
 
                 string profile = telemetry.CoolingProfile;
                 if (!string.IsNullOrWhiteSpace(profile) && !profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase))
@@ -41,20 +63,26 @@ public partial class App
                         : profile;
                 }
 
-                if (response.Capabilities is not null)
-                    State.CanSensorTelemetry = response.Capabilities.SensorTelemetry;
-
                 _ = TryRestoreCoolingPreferenceAsync(response);
                 return;
             }
 
             State.ControlTemperatureC = null;
             State.ControlTemperatureSource = "Unavailable";
+            State.CpuTemperatureC = null;
+            State.FanRpm = null;
             State.CanSensorTelemetry = false;
+            State.CanFanTelemetry = false;
+            State.CanFanControl = false;
+            State.CanKeyboardBacklight = false;
+            State.CanCpuTemperature = false;
             State.ClearHardwareTelemetry();
         }
 
-        Dispatcher.BeginInvoke(Apply);
+        if (Dispatcher.CheckAccess())
+            Apply();
+        else
+            Dispatcher.BeginInvoke(Apply);
     }
 
     private void HardwareClient_HardwareOperationCompleted(object? sender, HardwareOperationResult operation)
