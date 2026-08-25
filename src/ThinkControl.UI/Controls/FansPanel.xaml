@@ -12,10 +12,17 @@
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="Fan profile" FontWeight="SemiBold" />
                     <TextBlock x:Name="CoolingDetailText" Text="Lenovo firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <TextBlock Text="Quiet, Balanced and Max cooling are editable starting points. Add named profiles in the curve editor; they also appear in compact mode." Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock Text="Built-in and custom curves use the same verified fan-output mapping. Custom profiles can be created and edited in the curve editor." Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,7,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="ProfileMenuButton" Content="Auto  ⌄" Style="{StaticResource TcButton}" MinWidth="145" Padding="11,6" Click="ProfileMenu_Click" />
+                    <ComboBox x:Name="ProfileComboBox"
+                              Style="{StaticResource TcComboBox}"
+                              MinWidth="158"
+                              MaxWidth="210"
+                              Height="36"
+                              DisplayMemberPath="Name"
+                              SelectionChanged="ProfileComboBox_SelectionChanged"
+                              DropDownOpened="ProfileComboBox_DropDownOpened" />
                     <Button Content="Edit curves" Style="{StaticResource TcButton}" Padding="11,6" Margin="8,0,0,0" Click="EditCurves_Click" />
                 </StackPanel>
             </Grid>
