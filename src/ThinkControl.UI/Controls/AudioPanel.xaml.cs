@@ -142,6 +142,56 @@ public partial class AudioPanel : UserControl
         }
     }
 
+    internal void PrepareFusionForSnapshot()
+    {
+        _snapshotMode = true;
+        _volumeApplyTimer.Stop();
+        _volumeRefreshTimer.Stop();
+        _status = new DolbyAudioStatus(
+            DolbyAccessInstalled: true,
+            DaxBackendDetected: false,
+            Detail: "Dolby Fusion is active. Profile changes use the installed Dolby Access controls on demand.",
+            FusionBackendDetected: true);
+        _directState = new DolbyDirectState(
+            Available: false,
+            CanProfileControl: false,
+            CanToneControl: false,
+            ActiveProfile: null,
+            ActiveTone: null,
+            Detail: "Legacy DAX direct API not exposed on this Fusion generation");
+
+        _syncing = true;
+        try
+        {
+            VolumeSlider.IsEnabled = true;
+            VolumeSlider.Value = 58;
+            VolumeValueText.Text = "58%";
+            VolumeDeviceText.Text = "Speakers · default Windows output";
+            MuteButton.IsEnabled = true;
+            MuteButton.Content = "Mute";
+            MuteButton.Tag = false;
+
+            BackendStatusText.Text = _status.Detail;
+            InstallButton.Visibility = Visibility.Collapsed;
+            OpenButton.IsEnabled = true;
+            ProfileGrid.Visibility = Visibility.Visible;
+            FusionControlCard.Visibility = Visibility.Visible;
+            SetProfilesEnabled(true);
+
+            DynamicProfile.IsChecked = true;
+            MovieProfile.IsChecked = false;
+            MusicProfile.IsChecked = false;
+            GameProfile.IsChecked = false;
+            VoiceProfile.IsChecked = false;
+            UpdateToneSection("Dynamic", directToneAvailable: false);
+            ActionStatusText.Text = "Fusion profile controls are ready on demand; no Dolby UI work runs in the background.";
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
     internal void RefreshStatus()
     {
         if (_snapshotMode || _app is null || _dolby is null || !IsVisible)
