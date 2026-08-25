@@ -9,11 +9,39 @@ Set-StrictMode -Version Latest
 $serviceName = 'ThinkControlService'
 $pipeName = 'ThinkControl.Service.v1'
 $smokeDir = Join-Path $env:TEMP 'ThinkControlInstallerReliabilitySmoke'
+$updateLog = Join-Path $env:TEMP 'ThinkControlInstallerReliabilityUpdate.log'
 
 $setup = Get-ChildItem $ArtifactDirectory -Recurse -File -Filter 'ThinkControl-Setup-*.exe' | Select-Object -First 1
 $payload = Get-ChildItem $ArtifactDirectory -Recurse -File -Filter 'ThinkControl-Payload-*.zip' | Select-Object -First 1
 if ($null -eq $setup) { throw 'Installer artifact is missing.' }
 if ($null -eq $payload) { throw 'Payload artifact is missing.' }
+
+function Assert-UpdaterElevationContract {
+    $updateSource = Join-Path $PWD 'src/ThinkControl.UI/Services/UpdateService.cs'
+    $installerSource = Join-Path $PWD 'installer/ThinkControl.iss'
+    if (-not (Test-Path $updateSource) -or -not (Test-Path $installerSource)) {
+        Write-Host '[smoke] Source contract files not present; skipping elevation-source assertions.'
+        return
+    }
+
+    $updateText = Get-Content $updateSource -Raw
+    $installerText = Get-Content $installerSource -Raw
+
+    # Inno Setup must own elevation. If the app pre-elevates Setup with Verb=runas,
+    # Inno can lose the original unelevated desktop token and relaunch ThinkControl
+    # elevated, which breaks PowerToys/FancyZones/AlwaysOnTop interaction.
+    if ($updateText -match 'Verb\s*=\s*"runas"') {
+        throw 'UpdateService pre-elevates Setup. Let Inno Setup own the UAC transition instead.'
+    }
+    if ($installerText -notmatch 'runasoriginaluser') {
+        throw 'Installer no longer guarantees a normal-user ThinkControl relaunch after elevation.'
+    }
+    if ($installerText -notmatch 'PrivilegesRequired=admin') {
+        throw 'Installer no longer owns the expected administrator transition.'
+    }
+
+    Write-Host '[smoke] Updater elevation contract verified: Inno owns UAC + app relaunches as original user.'
+}
 
 function Remove-SmokeService {
     Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('stop', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
@@ -84,16 +112,30 @@ function Assert-ServiceIpc {
     Write-Host "[smoke] IPC verified: Ping + GetStatus protocol v1"
 }
 
-function Install-SmokeCopy([string]$phase) {
+function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false) {
     Write-Host "[smoke] $phase $($setup.Name) with external payload $($payload.Name)"
-    $process = Start-Process -FilePath $setup.FullName -ArgumentList @(
+    $arguments = @(
         '/VERYSILENT',
         '/SUPPRESSMSGBOXES',
         '/NORESTART',
-        '/SP-',
+        '/SP-'
+    )
+
+    if ($legacyUpdateMode) {
+        # Alpha.14 used this hidden updater shape. The new Setup must remain compatible
+        # with it so users upgrading from that build cannot end up with "UAC → close →
+        # nothing" just because the launcher itself is old. Relaunch is disabled only
+        # for CI so a desktop window cannot make the runner flaky; the source assertion
+        # above separately guarantees runasoriginaluser for real /RELAUNCH=1 updates.
+        $arguments += @('/CLOSEAPPLICATIONS', '/UPDATE=1', '/RELAUNCH=0', "/LOG=`"$updateLog`"")
+    }
+
+    $arguments += @(
         "/DIR=`"$smokeDir`"",
         "/PAYLOAD=`"$($payload.FullName)`""
-    ) -Wait -PassThru
+    )
+
+    $process = Start-Process -FilePath $setup.FullName -ArgumentList $arguments -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "$phase failed with installer exit code $($process.ExitCode)." }
 
     $ui = Join-Path $smokeDir 'ui\ThinkControl.UI.exe'
@@ -103,22 +145,28 @@ function Install-SmokeCopy([string]$phase) {
     if (-not (Test-Path $serviceExe)) { throw "Service executable missing after $phase." }
     if (-not (Test-Path $uninstaller)) { throw "Uninstaller missing after $phase." }
 
+    if ($legacyUpdateMode) {
+        if (-not (Test-Path $updateLog)) { throw 'Legacy-style update did not create its requested installer log.' }
+        if ((Get-Item $updateLog).Length -lt 100) { throw 'Legacy-style update log is unexpectedly empty.' }
+    }
+
     Wait-ServiceRunning
     Assert-ServiceIpc
 }
 
 try {
     Write-Host '[smoke] Cleaning previous installer reliability state'
+    Assert-UpdaterElevationContract
     Remove-SmokeService
     Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
 
     Install-SmokeCopy 'clean install'
 
-    # A second install into the occupied directory exercises the same service/file
-    # replacement path used by ThinkControl's updater without needing a mutable old
-    # release. This catches locked service binaries, broken restart logic and pipe ACL
-    # regressions that a fresh-install-only smoke cannot see.
-    Install-SmokeCopy 'in-place reinstall/update path'
+    # Exercise the exact hidden argument family used by alpha.14's in-app updater.
+    # This catches locked service binaries, broken staging/restart logic, ignored
+    # /UPDATE parameters and regressions that a fresh-install-only smoke cannot see.
+    Install-SmokeCopy 'alpha.14-compatible in-place update path' $true
 
     $uninstaller = Join-Path $smokeDir 'unins000.exe'
     Write-Host '[smoke] Uninstalling verified in-place installation'
@@ -138,9 +186,10 @@ try {
     if (Test-Path (Join-Path $smokeDir 'ui\ThinkControl.UI.exe')) { throw 'UI executable remained after uninstall.' }
     if (Test-Path (Join-Path $smokeDir 'service\ThinkControl.Service.exe')) { throw 'Service executable remained after uninstall.' }
 
-    Write-Host '[smoke] Deep installer + service IPC + in-place update lifecycle passed'
+    Write-Host '[smoke] Deep installer + IPC + alpha.14 update compatibility + uninstall lifecycle passed'
 }
 finally {
     Remove-SmokeService
     Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
 }
