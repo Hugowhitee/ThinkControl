@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Controls;
@@ -34,9 +35,9 @@ public partial class TouchpadPanel
         ConfigureResetButton(ClickForceSlider, ClickForceValue, App.DefaultHapticClickSensitivity, ResetHapticSlider, "Touchpad");
         ConfigureResetButton(OsdOpacitySlider, OsdOpacityValue, 92.0, ResetOsdOpacity, "Monitor");
 
-        if (_host is not null)
-            _host.GestureChanged += Host_GestureValueFeedback;
-
+        // GestureChanged is owned by TouchpadPanel.xaml.cs. Keeping a second event
+        // handler here used to dispatch hidden-page UI work and race the status text.
+        // Value feedback is now called from that one page-visible gesture path.
         RefreshValueFeedback();
     }
 
@@ -59,6 +60,7 @@ public partial class TouchpadPanel
         var button = new Button
         {
             Content = "Reset",
+            Style = TryFindResource("TcButton") as Style,
             MinWidth = 0,
             Height = 24,
             Padding = new Thickness(8, 0, 0, 0),
@@ -76,10 +78,9 @@ public partial class TouchpadPanel
         button.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         button.Click += (_, _) => reset(slider, defaultValue);
 
-        // Put reset beside the slider instead of in the value header. The previous
-        // boxed/history-looking icon made every row look like an undo control and
-        // stole width from the actual value. This flat text affordance stays out of
-        // the way and appears only when the value differs from default.
+        // Put reset beside the slider instead of in the value header. The flat text
+        // affordance stays out of the way and appears only when the value differs
+        // from the default.
         if (slider.Parent is StackPanel stack)
         {
             int index = stack.Children.IndexOf(slider);
@@ -212,37 +213,71 @@ public partial class TouchpadPanel
         }
     }
 
-    private void Host_GestureValueFeedback(GestureSignal signal)
+    private void UpdateGestureValueFeedback(GestureSignal signal)
     {
-        Dispatcher.InvokeAsync(() =>
+        if (!IsVisible)
+            return;
+
+        if (signal.Phase == GesturePhase.Claimed)
+            _gestureStartValue = ReadGestureStartValue(signal.Action);
+
+        if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
         {
-            if (signal.Phase == GesturePhase.Claimed)
-                _gestureStartValue = ReadGestureStartValue(signal.Action);
+            StopGestureFeedbackFade();
+            GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
+            GestureFeedbackTitle.Text = $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}";
+            GestureFeedbackValue.Text = FormatGestureValue(signal);
+            GestureFeedbackOverlay.Opacity = 1;
+            return;
+        }
 
-            if (signal.Phase == GesturePhase.Active)
-                GestureStatusText.Text = FormatActiveGestureValue(signal);
+        if (signal.Phase == GesturePhase.Released)
+        {
+            GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
+            GestureFeedbackTitle.Text = ActionLabel(signal.Action);
+            GestureFeedbackValue.Text = FormatGestureValue(signal);
+            StartGestureFeedbackFade();
+            _gestureStartValue = null;
+            return;
+        }
 
-            if (signal.Phase is GesturePhase.Released or GesturePhase.Cancelled)
-                _gestureStartValue = null;
-        });
+        if (signal.Phase == GesturePhase.Cancelled)
+        {
+            GestureFeedbackIcon.Kind = "Touchpad";
+            GestureFeedbackTitle.Text = "Gesture cancelled";
+            GestureFeedbackValue.Text = string.IsNullOrWhiteSpace(signal.Reason) ? "Not claimed" : signal.Reason;
+            StartGestureFeedbackFade(250, 500);
+            _gestureStartValue = null;
+        }
     }
 
-    private string FormatActiveGestureValue(GestureSignal signal)
+    private string FormatGestureStatus(GestureSignal signal) =>
+        $"{ActionLabel(signal.Action)} · {FormatGestureValue(signal)}";
+
+    private string FormatGestureValue(GestureSignal signal)
     {
         if (signal.Action == GestureActionKind.MediaSeek && _host is not null)
         {
             double seconds = _host.CurrentSeekDeltaSeconds;
-            return $"Media seek · {seconds:+0.0;-0.0;0.0} s";
+            return $"{seconds:+0.0;-0.0;0.0} s";
         }
 
         int? current = ReadGestureTargetValue(signal.Action);
         if (current.HasValue)
         {
             int change = _gestureStartValue.HasValue ? current.Value - _gestureStartValue.Value : 0;
-            return $"{ActionLabel(signal.Action)} · {current.Value}% · {change:+0;-0;0}%";
+            return $"{current.Value}% · {change:+0;-0;0}%";
         }
 
-        return $"{ActionLabel(signal.Action)} · {signal.TotalTravelMm:+0.0;-0.0;0.0} mm";
+        if (_gestureStartValue.HasValue && signal.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
+            return $"{_gestureStartValue.Value}%";
+
+        if (signal.Action is GestureActionKind.PreviousNextTrack or GestureActionKind.PlayPause or GestureActionKind.Mute or
+            GestureActionKind.TaskView or GestureActionKind.ShowDesktop or GestureActionKind.KeyboardBacklight or
+            GestureActionKind.PerformanceMode or GestureActionKind.CustomShortcut)
+            return "Triggered";
+
+        return $"{signal.TotalTravelMm:+0.0;-0.0;0.0} mm";
     }
 
     private int? ReadGestureStartValue(GestureActionKind action)
@@ -266,6 +301,49 @@ public partial class TouchpadPanel
 
         return null;
     }
+
+    private void StopGestureFeedbackFade()
+    {
+        GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+    }
+
+    private void StartGestureFeedbackFade(int holdMilliseconds = 450, int fadeMilliseconds = 700)
+    {
+        StopGestureFeedbackFade();
+        GestureFeedbackOverlay.Opacity = 1;
+        var fade = new DoubleAnimation
+        {
+            From = 1,
+            To = 0,
+            BeginTime = TimeSpan.FromMilliseconds(holdMilliseconds),
+            Duration = new Duration(TimeSpan.FromMilliseconds(fadeMilliseconds)),
+            FillBehavior = FillBehavior.Stop
+        };
+        fade.Completed += (_, _) =>
+        {
+            GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+            GestureFeedbackOverlay.Opacity = 0;
+        };
+        GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
+    }
+
+    private void ClearGestureFeedback()
+    {
+        _gestureStartValue = null;
+        StopGestureFeedbackFade();
+        GestureFeedbackOverlay.Opacity = 0;
+    }
+
+    private static string FeedbackIcon(GestureActionKind action) => action switch
+    {
+        GestureActionKind.Volume or GestureActionKind.MediaSeek or GestureActionKind.PreviousNextTrack or
+            GestureActionKind.PlayPause or GestureActionKind.Mute => "Audio",
+        GestureActionKind.Brightness => "Monitor",
+        GestureActionKind.KeyboardBacklight => "Keyboard",
+        GestureActionKind.PerformanceMode => "Gauge",
+        GestureActionKind.TaskView or GestureActionKind.ShowDesktop => "Laptop",
+        _ => "Touchpad"
+    };
 
     private static string FormatSetting(
         double value,
