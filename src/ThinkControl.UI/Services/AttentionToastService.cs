@@ -100,7 +100,7 @@ internal sealed class AttentionToastService : IDisposable
             MinWidth = 82,
             Padding = new Thickness(12, 3, 12, 3),
             HorizontalAlignment = HorizontalAlignment.Left,
-            Style = Application.Current.TryFindResource("TcButton") as Style
+            Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
         _action.Click += (_, _) =>
         {
@@ -114,7 +114,7 @@ internal sealed class AttentionToastService : IDisposable
             Height = 30,
             Padding = new Thickness(10, 3, 10, 3),
             Margin = new Thickness(7, 0, 0, 0),
-            Style = Application.Current.TryFindResource("TcButton") as Style
+            Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
         dismiss.Click += (_, _) => Hide();
 
