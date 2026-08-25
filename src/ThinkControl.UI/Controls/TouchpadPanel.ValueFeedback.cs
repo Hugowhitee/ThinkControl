@@ -41,6 +41,52 @@ public partial class TouchpadPanel
         RefreshValueFeedback();
     }
 
+    internal void PrepareForSnapshot(bool showActiveGesture)
+    {
+        _settingsSaveTimer.Stop();
+        ClearGestureFeedback();
+        InputStatusText.Text = "Precision Touchpad detected";
+
+        if (!showActiveGesture)
+        {
+            Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
+            return;
+        }
+
+        _syncing = true;
+        try
+        {
+            _selectedEdge = TouchpadEdge.Left;
+            GestureEnableSwitch.IsChecked = true;
+            Visualizer.SelectedEdge = _selectedEdge;
+            Visualizer.Configuration = _configuration with { Enabled = true };
+            SyncSelectedEdge();
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        var signal = new GestureSignal(
+            GesturePhase.Active,
+            TouchpadEdge.Left,
+            GestureActionKind.Volume,
+            TotalTravelMm: 24.8,
+            DeltaMm: 3.1,
+            ContactId: 1);
+
+        // Two deterministic frames exercise both the red contact point and trail.
+        // The value card itself is populated directly because snapshot mode must not
+        // write the real Windows volume endpoint merely to create visual QA data.
+        Visualizer.SetTestFrame([new TouchContact(1, 420, 6400, true)], signal);
+        Visualizer.SetTestFrame([new TouchContact(1, 420, 3900, true)], signal);
+        GestureFeedbackIcon.Kind = "Audio";
+        GestureFeedbackTitle.Text = "Left edge · Volume";
+        GestureFeedbackValue.Text = "62% · +25%";
+        GestureFeedbackOverlay.Opacity = 1;
+        GestureStatusText.Text = "Volume · 62% · +25%";
+    }
+
     private void ConfigureResetButton(
         Slider slider,
         TextBlock valueLabel,
