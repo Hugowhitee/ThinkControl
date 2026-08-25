@@ -70,12 +70,9 @@ public sealed class LenovoHardwareController : IDisposable
 
         lock (_gate)
         {
-            // Explicit full repair bypasses provider backoff. This path is reserved
-            // for the Hardware Setup workflow because recycling every provider for a
-            // keyboard retry can temporarily make a healthy sensor stack disappear.
             try
             {
-                if (_fanControl is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel && _ec is not null)
+                if (IsThinkControlFanState(_fanControl) && _ec is not null)
                     _ec.ReturnToBios();
             }
             catch
@@ -108,9 +105,6 @@ public sealed class LenovoHardwareController : IDisposable
         _sensors.RefreshProviders();
         lock (_gate)
         {
-            // Keep the already validated X9 EC and keyboard handles untouched. A
-            // sensor-only retry must not regress fan/keyboard capabilities that were
-            // healthy before the user pressed Retry sensors.
             _lastEcThermalRead = DateTimeOffset.MinValue;
             _x9EcThermals = Array.Empty<HardwareSensorReading>();
         }
@@ -121,9 +115,6 @@ public sealed class LenovoHardwareController : IDisposable
         ThrowIfDisposed();
         lock (_gate)
         {
-            // Keyboard retry is intentionally narrow. In alpha.15.1 the shared retry
-            // recycled LHM/PawnIO too, so the Notifications sheet could immediately
-            // replace a keyboard failure with a transient Sensors failure.
             _keyboard.RefreshBackend();
             _lastKeyboardProbe = DateTimeOffset.MinValue;
             _keyboardAvailable = false;
@@ -133,7 +124,6 @@ public sealed class LenovoHardwareController : IDisposable
     public LenovoHardwareStatus ReadStatus()
     {
         ThrowIfDisposed();
-
         SensorHubSnapshot sensorSnapshot = _sensors.Read();
 
         lock (_gate)
@@ -144,10 +134,6 @@ public sealed class LenovoHardwareController : IDisposable
 
             if (ecAvailable && _ec is not null)
             {
-                // The initial EC compatibility probe already reads and validates the
-                // fan-control register. Every ThinkControl write also performs its own
-                // immediate readback. Re-reading that same register every six seconds
-                // added periodic EC transactions with no new safety information.
                 if (lhmFans.Count == 0)
                     ReadX9FanRpm(now);
 
@@ -239,7 +225,7 @@ public sealed class LenovoHardwareController : IDisposable
 
         if (level is < 1 or > 7)
         {
-            error = "Fan level must be between 1 and 7. Level 0 and 0x40 override states are intentionally blocked.";
+            error = "Manual EC step must be between 1 and 7. Full speed is a separate readback-gated state.";
             return false;
         }
 
@@ -262,7 +248,73 @@ public sealed class LenovoHardwareController : IDisposable
             catch (Exception ex)
             {
                 MarkEcFailed(ex, now);
-                error = $"Fan level could not be verified: {ex.Message}";
+                error = $"Fan step could not be verified: {ex.Message}";
+                return false;
+            }
+        }
+    }
+
+    public bool SetFanPercent(int percent, out int appliedStep, out bool fullSpeed, out string? detail, out string? error)
+    {
+        appliedStep = 0;
+        fullSpeed = false;
+        detail = null;
+        error = null;
+        ThrowIfDisposed();
+
+        if (!_identity.IsVerifiedX9)
+        {
+            error = "0–100% fan output is available only through the verified ThinkPad X9-15 Gen 1 EC provider.";
+            return false;
+        }
+        if (percent is < 0 or > 100)
+        {
+            error = "Fan output must be between 0% and 100%.";
+            return false;
+        }
+
+        lock (_gate)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            if (!EnsureX9Ec(now) || _ec is null)
+            {
+                error = _lastEcError ?? "PawnIO/EC access is unavailable.";
+                return false;
+            }
+
+            try
+            {
+                if (percent == 100)
+                {
+                    _ec.SetFullSpeed();
+                    _fanControl = ThinkPadRegisters.FullSpeedControl;
+                    appliedStep = 8;
+                    fullSpeed = true;
+                    detail = "100% target · ThinkPad EC full-speed state 0x47 readback verified";
+                }
+                else
+                {
+                    // ThinkPad EC exposes seven discrete normal manual states, not a
+                    // continuous PWM register. Quantize the graph target instead of
+                    // rapidly alternating states; that avoids pulsing and EC traffic.
+                    // 0% deliberately maps to the minimum verified state, never to
+                    // the unverified fan-off byte 0x00.
+                    int level = Math.Clamp(1 + (int)Math.Floor(percent * 7.0 / 100.0), 1, 7);
+                    _ec.SetManualLevel((byte)level);
+                    _fanControl = (byte)level;
+                    appliedStep = level;
+                    detail = $"{percent}% target · discrete ThinkPad EC step {level} applied";
+                }
+
+                _lastFanRpmRead = now - FanRpmPollInterval + TimeSpan.FromSeconds(4);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MarkEcFailed(ex, now);
+                error = percent == 100
+                    ? $"Full-speed state was not accepted with valid readback; Lenovo Auto was restored. {ex.Message}"
+                    : $"Fan output could not be verified: {ex.Message}";
                 return false;
             }
         }
@@ -478,7 +530,7 @@ public sealed class LenovoHardwareController : IDisposable
         {
             var candidate = new ThinkPadEc();
             byte control = candidate.ReadFanControl();
-            if (!(control <= 0x07 || control is >= 0x40 and <= 0x47 || control == ThinkPadRegisters.BiosControl))
+            if (!(control <= ThinkPadRegisters.MaxManualLevel || ThinkPadFanProtocol.IsFullSpeed(control) || control == ThinkPadRegisters.BiosControl))
             {
                 candidate.Dispose();
                 _lastEcError = $"EC probe returned unexpected fan state 0x{control:X2}.";
@@ -548,6 +600,10 @@ public sealed class LenovoHardwareController : IDisposable
         return "Limited · Lenovo device · Windows features available";
     }
 
+    private static bool IsThinkControlFanState(byte? value) =>
+        value is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel ||
+        value.HasValue && ThinkPadFanProtocol.IsFullSpeed(value.Value);
+
     private void ThrowIfDisposed()
     {
         if (_disposed)
@@ -564,7 +620,7 @@ public sealed class LenovoHardwareController : IDisposable
             if (_disposed)
                 return;
 
-            if (_fanControl is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel && _ec is not null)
+            if (IsThinkControlFanState(_fanControl) && _ec is not null)
             {
                 try { _ec.ReturnToBios(); } catch { }
             }
