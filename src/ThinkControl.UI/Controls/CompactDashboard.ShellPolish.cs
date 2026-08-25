@@ -20,7 +20,11 @@ public partial class CompactDashboard
 
         StackPanel? captionButtons = header.Children.OfType<StackPanel>()
             .FirstOrDefault(stack => Grid.GetColumn(stack) == 1 && stack.Orientation == Orientation.Horizontal);
-        if (captionButtons is null || captionButtons.Children.OfType<Button>().ToArray() is not { Length: >= 2 } buttons)
+        if (captionButtons is null)
+            return;
+
+        Button[] buttons = captionButtons.Children.OfType<Button>().ToArray();
+        if (buttons.Length < 2)
             return;
 
         _shellPolished = true;
