@@ -82,6 +82,7 @@ public sealed class LenovoHardwareController : IDisposable
             }
 
             try { _ec?.Dispose(); } catch { }
+            try { _keyboard.RefreshBackend(); } catch { }
             _ec = null;
             _lastEcFailure = DateTimeOffset.MinValue;
             _lastEcError = null;
