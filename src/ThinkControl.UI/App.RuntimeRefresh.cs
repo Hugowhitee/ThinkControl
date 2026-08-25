@@ -1,36 +1,86 @@
+using Microsoft.Win32;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
 
 /// <summary>
-/// Lightweight always-on status scheduler. The original global refresh called WMI,
-/// powercfg and display discovery together on a fixed cadence; on some Lenovo
-/// firmware that produced a visible system-wide hitch every few seconds. Runtime
-/// state now uses direct Windows APIs and the service's cached snapshot. Full/slow
-/// discovery still happens on startup and explicit page/repair actions.
+/// Low-impact runtime telemetry coordinator. Slow discovery is startup/explicit-only;
+/// the steady-state path samples the native Windows battery API at the same cadence
+/// used by battery history, reacts to display changes through Windows events, and
+/// requests hardware-service snapshots only while a ThinkControl window is visible.
+/// The hardware service remains responsible for fan safety when the UI is hidden.
 /// </summary>
 public partial class App
 {
+    private static readonly TimeSpan RuntimeBatteryInterval = TimeSpan.FromSeconds(10);
+
     private readonly WindowsBatteryStateService _runtimeBattery = new();
     private DispatcherTimer? _runtimeStatusTimer;
     private bool _runtimeRefreshBusy;
+    private bool _runtimeEventsAttached;
     private double? _runtimeAveragePowerWatts;
 
     internal void StartRuntimeStatusScheduler()
     {
+        // Alpha.14 and earlier used the heavyweight RefreshStatusAsync timer. Stop it
+        // permanently once the one startup discovery pass has completed.
         _statusTimer?.Stop();
 
         if (_runtimeStatusTimer is not null)
             return;
 
+        AttachRuntimeEvents();
         _runtimeStatusTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromSeconds(2)
+            Interval = RuntimeBatteryInterval
         };
         _runtimeStatusTimer.Tick += async (_, _) => await RefreshRuntimeStatusAsync();
         _runtimeStatusTimer.Start();
+
+        RefreshRuntimeDisplayState();
         _ = RefreshRuntimeStatusAsync();
+    }
+
+    private void AttachRuntimeEvents()
+    {
+        if (_runtimeEventsAttached)
+            return;
+
+        _runtimeEventsAttached = true;
+        SystemEvents.DisplaySettingsChanged += Runtime_DisplaySettingsChanged;
+        Activated += Runtime_Activated;
+        Exit += Runtime_Exit;
+    }
+
+    private void Runtime_DisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+        {
+            RefreshRuntimeDisplayState();
+            if (State.RefreshAutoEnabled)
+                ApplyRefreshAuto(IsCurrentlyOnBattery());
+        }));
+    }
+
+    private void Runtime_Activated(object? sender, EventArgs e)
+    {
+        // Resuming interaction should show current fan/sensor/keyboard state without
+        // keeping the named-pipe + hardware snapshot path alive while tray-only.
+        if (ShouldRefreshHardwareRuntime())
+            _ = HardwareClient.GetStatusAsync();
+    }
+
+    private void Runtime_Exit(object? sender, ExitEventArgs e)
+    {
+        _runtimeStatusTimer?.Stop();
+        if (!_runtimeEventsAttached)
+            return;
+
+        SystemEvents.DisplaySettingsChanged -= Runtime_DisplaySettingsChanged;
+        Activated -= Runtime_Activated;
+        Exit -= Runtime_Exit;
+        _runtimeEventsAttached = false;
     }
 
     private async Task RefreshRuntimeStatusAsync()
@@ -80,13 +130,8 @@ public partial class App
             State.ApplyBatteryHistory(history);
             BatteryTelemetryService.SetHistoricalChargePower(history.TypicalChargePowerWatts);
 
-            // EnumDisplaySettings is a direct user32 call and is cheap enough to keep
-            // compact/full refresh selectors synchronized without periodic WMI.
-            int refresh = DisplayService.GetCurrentRefreshRate();
-            if (refresh > 0)
-                State.CurrentRefreshHz = refresh;
-
-            _ = await HardwareClient.GetStatusAsync().ConfigureAwait(true);
+            if (ShouldRefreshHardwareRuntime())
+                _ = await HardwareClient.GetStatusAsync().ConfigureAwait(true);
 
             if (State.RefreshAutoEnabled)
                 ApplyRefreshAuto(onBattery: !battery.OnAc);
@@ -95,5 +140,15 @@ public partial class App
         {
             _runtimeRefreshBusy = false;
         }
+    }
+
+    private bool ShouldRefreshHardwareRuntime() =>
+        CompactWindow?.IsVisible == true || _advancedWindow?.IsVisible == true;
+
+    private void RefreshRuntimeDisplayState()
+    {
+        int refresh = DisplayService.GetCurrentRefreshRate();
+        if (refresh > 0)
+            State.CurrentRefreshHz = refresh;
     }
 }
