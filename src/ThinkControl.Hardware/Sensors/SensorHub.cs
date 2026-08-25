@@ -164,11 +164,15 @@ public sealed class SensorHub : IDisposable
 
     private void RecycleStaleProviderIfNeeded(DateTimeOffset now, IReadOnlyCollection<HardwareSensorReading> readings)
     {
-        bool hasCriticalTelemetry = readings.Any(reading =>
-            reading.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase) ||
-            reading.SensorType.Equals("Fan", StringComparison.OrdinalIgnoreCase));
+        // Provider health is based only on LHM/PawnIO telemetry. The separate ACPI
+        // fallback is useful to display, but it must not make an opened-yet-empty LHM
+        // instance look healthy forever and thereby prevent the bounded recycle path.
+        bool hasCriticalProviderTelemetry = readings.Any(reading =>
+            reading.Source.StartsWith("LibreHardwareMonitor/PawnIO", StringComparison.OrdinalIgnoreCase) &&
+            (reading.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase) ||
+             reading.SensorType.Equals("Fan", StringComparison.OrdinalIgnoreCase)));
 
-        if (hasCriticalTelemetry)
+        if (hasCriticalProviderTelemetry)
         {
             _emptyCriticalRefreshes = 0;
             return;
