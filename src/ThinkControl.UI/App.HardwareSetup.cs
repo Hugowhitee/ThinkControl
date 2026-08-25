@@ -242,12 +242,14 @@ public partial class App
 
     public void OpenHardwareAttention()
     {
+        // Hardware status is a destination, not a second entry point to the
+        // notification drawer. The bell owns Notifications; hardware warnings and
+        // proactive toasts take the user straight to the System/hardware page.
         OpenAdvanced("System");
-        _advancedWindow?.ShowNotificationSheet();
     }
 
     public void OpenHardwareSetup()
     {
-        OpenHardwareAttention();
+        OpenAdvanced("System");
     }
 }
