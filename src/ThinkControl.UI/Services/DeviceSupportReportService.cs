@@ -1,7 +1,10 @@
+using System.Security.Cryptography;
 using System.Text;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Services;
+
+internal sealed record DeviceSupportReport(string Title, string Body, string Fingerprint);
 
 internal static class DeviceSupportReportService
 {
@@ -9,37 +12,45 @@ internal static class DeviceSupportReportService
 
     internal static bool HasUsefulDiscovery(AppState state)
     {
-        if (state.Sensors.Count > 0 || state.Fans.Count > 0 ||
-            state.CanFanControl || state.CanKeyboardBacklight ||
-            state.ControlTemperatureC.HasValue)
-        {
-            return true;
-        }
-
+        // Do not unlock sharing while startup/provider discovery is still in flight.
+        // A few generic Windows/LHM values can arrive before ThinkControl knows
+        // whether a provider is actually usable; that is not yet a useful report.
+        string driver = state.DriverStatus ?? string.Empty;
         string access = state.HardwareAccess ?? string.Empty;
-        return access.Contains("PawnIO", StringComparison.OrdinalIgnoreCase) ||
-               access.Contains("LibreHardwareMonitor", StringComparison.OrdinalIgnoreCase) ||
-               access.Contains("EC", StringComparison.OrdinalIgnoreCase) ||
-               access.Contains("keyboard", StringComparison.OrdinalIgnoreCase) ||
-               access.Contains("provider", StringComparison.OrdinalIgnoreCase) &&
-               !access.Contains("unavailable", StringComparison.OrdinalIgnoreCase);
+        if (IsTransient(driver) || IsTransient(access))
+            return false;
+
+        bool usefulSensors = state.CanSensorTelemetry && state.Sensors.Count >= 3;
+        bool usefulTemperature = state.CanCpuTemperature && state.ControlTemperatureC.HasValue &&
+                                 !string.IsNullOrWhiteSpace(state.ControlTemperatureSource) &&
+                                 !state.ControlTemperatureSource.Equals("Unavailable", StringComparison.OrdinalIgnoreCase);
+        bool usefulFans = state.CanFanTelemetry && state.Fans.Count > 0;
+        bool usefulWritableProvider = state.CanFanControl || state.CanKeyboardBacklight;
+        bool explicitProviderEvidence = access.Contains("PawnIO", StringComparison.OrdinalIgnoreCase) ||
+                                        access.Contains("LibreHardwareMonitor", StringComparison.OrdinalIgnoreCase) ||
+                                        access.Contains("EC", StringComparison.OrdinalIgnoreCase) ||
+                                        access.Contains("keyboard", StringComparison.OrdinalIgnoreCase) ||
+                                        access.Contains("provider", StringComparison.OrdinalIgnoreCase) &&
+                                        !access.Contains("unavailable", StringComparison.OrdinalIgnoreCase);
+
+        return usefulSensors || usefulTemperature || usefulFans || usefulWritableProvider || explicitProviderEvidence;
     }
 
     internal static string DiscoverySummary(AppState state)
     {
         if (!HasUsefulDiscovery(state))
-            return "Still learning · run Hardware setup / Retry detection first";
+            return "Still learning · wait for hardware discovery to finish or run Hardware setup / Retry detection";
 
         var parts = new List<string>();
-        if (state.Sensors.Count > 0) parts.Add($"{state.Sensors.Count} sensors");
-        if (state.Fans.Count > 0) parts.Add($"{state.Fans.Count} fan source{(state.Fans.Count == 1 ? string.Empty : "s")}");
+        if (state.CanSensorTelemetry && state.Sensors.Count > 0) parts.Add($"{state.Sensors.Count} sensors");
+        if (state.CanFanTelemetry && state.Fans.Count > 0) parts.Add($"{state.Fans.Count} fan source{(state.Fans.Count == 1 ? string.Empty : "s")}");
         if (state.CanKeyboardBacklight) parts.Add("keyboard provider");
         if (state.CanFanControl) parts.Add("verified fan control");
-        if (state.ControlTemperatureC.HasValue) parts.Add("control temperature");
+        if (state.CanCpuTemperature && state.ControlTemperatureC.HasValue) parts.Add("control temperature");
         return parts.Count == 0 ? "Useful provider information detected" : string.Join(" · ", parts);
     }
 
-    internal static string BuildIssueUrl(AppState state, SystemStatusSnapshot system)
+    internal static DeviceSupportReport BuildReport(AppState state, SystemStatusSnapshot system)
     {
         string machine = Safe(system.MachineType, "unknown");
         string product = Safe(system.DeviceName, "Unknown device");
@@ -70,7 +81,7 @@ internal static class DeviceSupportReportService
         var body = new StringBuilder();
         body.AppendLine("## ThinkControl device support report");
         body.AppendLine();
-        body.AppendLine("> Generated locally after ThinkControl found useful hardware/provider information. Please review before submitting. Serial numbers, Windows usernames, hostnames, paths and raw logs are intentionally excluded.");
+        body.AppendLine("> Generated locally after ThinkControl found stable hardware/provider information. Serial numbers, Windows usernames, hostnames, paths and raw logs are intentionally excluded.");
         body.AppendLine();
         body.AppendLine("### Device");
         body.AppendLine($"- ThinkControl: `{Safe(UpdateService.CurrentVersion, "unknown")}`");
@@ -97,10 +108,27 @@ internal static class DeviceSupportReportService
         body.AppendLine("### Physical verification");
         body.AppendLine("Please add anything you personally verified on this laptop (for example whether RPM changes match audible fan speed, whether keyboard levels read back correctly, and whether haptic controls work). Do not paste serial numbers or unrelated logs.");
 
-        return NewIssueUrl +
-               "?title=" + Uri.EscapeDataString(title) +
-               "&body=" + Uri.EscapeDataString(body.ToString());
+        string text = body.ToString();
+        string fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(title + "\n" + text)));
+        return new DeviceSupportReport(title, text, fingerprint);
     }
+
+    internal static string BuildIssueUrl(AppState state, SystemStatusSnapshot system) =>
+        BuildIssueUrl(BuildReport(state, system));
+
+    internal static string BuildIssueUrl(DeviceSupportReport report) =>
+        NewIssueUrl +
+        "?title=" + Uri.EscapeDataString(report.Title) +
+        "&body=" + Uri.EscapeDataString(report.Body);
+
+    private static bool IsTransient(string value) =>
+        string.IsNullOrWhiteSpace(value) ||
+        value.Contains("Checking", StringComparison.OrdinalIgnoreCase) ||
+        value.Contains("Refreshing", StringComparison.OrdinalIgnoreCase) ||
+        value.Contains("Retrying", StringComparison.OrdinalIgnoreCase) ||
+        value.Contains("Starting", StringComparison.OrdinalIgnoreCase) ||
+        value.Contains("Installing", StringComparison.OrdinalIgnoreCase) ||
+        value.Contains("Verifying", StringComparison.OrdinalIgnoreCase);
 
     private static string YesNo(bool value) => value ? "yes" : "no";
 
