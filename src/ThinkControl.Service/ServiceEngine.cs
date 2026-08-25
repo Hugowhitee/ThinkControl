@@ -3,6 +3,7 @@ using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
+using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 using ThinkControl.Hardware.Lenovo;
 
@@ -10,7 +11,7 @@ namespace ThinkControl.Service;
 
 internal sealed class ServiceEngine : IDisposable
 {
-    private const int MaxRequestBytes = 4096;
+    private const int MaxRequestBytes = 8192;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly LenovoHardwareController _hardware = new();
@@ -176,8 +177,10 @@ internal sealed class ServiceEngine : IDisposable
                 "RefreshSensorProviders" => RefreshSensorProviders(),
                 "RefreshKeyboardProvider" => RefreshKeyboardProvider(),
                 "SetFanLevel" => SetFanLevel(request.Value),
+                "SetFanPercent" => SetFanPercent(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
                 "SetCoolingProfile" => SetCoolingProfile(request.Value),
+                "SetCoolingCurve" => SetCoolingCurve(request.Value),
                 "SetCustomCoolingCurve" => SetCustomCoolingCurve(request.Value),
                 "StartFanCharacterization" => StartFanCharacterization(),
                 "MarkFanLevelAudible" => MarkFanLevelAudible(),
@@ -196,14 +199,19 @@ internal sealed class ServiceEngine : IDisposable
         lock (_statusGate) return _lastStatus ?? ProviderDiscoveryResponse("Service online · detecting hardware providers");
     }
 
+    private static bool ThinkControlOwnsFan(CoolingSupervisorSnapshot cooling) =>
+        cooling.AppliedLevel.HasValue ||
+        cooling.AppliedPercent.HasValue ||
+        !string.IsNullOrWhiteSpace(cooling.ProfileId) ||
+        !cooling.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
+
     private ServiceResponse RefreshProviders()
     {
         CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
         if (cooling.Characterization.Running)
             return Error("Stop fan characterization before refreshing hardware providers.");
 
-        bool ownsFan = cooling.AppliedLevel.HasValue || !cooling.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
-        if (ownsFan && !_fanSupervisor.ReturnToAuto(out string? handoffError))
+        if (ThinkControlOwnsFan(cooling) && !_fanSupervisor.ReturnToAuto(out string? handoffError))
             return Error("Provider refresh was blocked because ThinkControl could not safely return fan ownership to Lenovo Auto. " +
                          (handoffError ?? "Retry Lenovo Auto, then refresh providers again."));
 
@@ -220,8 +228,7 @@ internal sealed class ServiceEngine : IDisposable
         if (cooling.Characterization.Running)
             return Error("Stop fan characterization before refreshing sensor providers.");
 
-        bool ownsFan = cooling.AppliedLevel.HasValue || !cooling.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
-        if (ownsFan && !_fanSupervisor.ReturnToAuto(out string? handoffError))
+        if (ThinkControlOwnsFan(cooling) && !_fanSupervisor.ReturnToAuto(out string? handoffError))
             return Error("Sensor refresh was blocked because ThinkControl could not safely return fan ownership to Lenovo Auto. " +
                          (handoffError ?? "Retry Lenovo Auto, then refresh sensors again."));
 
@@ -267,7 +274,9 @@ internal sealed class ServiceEngine : IDisposable
             CoolingSmoothedTemperatureC: cooling.SmoothedTemperatureC,
             CoolingStatus: cooling.Status,
             CoolingSafetyOverride: cooling.SafetyOverride,
-            FanCharacterization: cooling.Characterization);
+            FanCharacterization: cooling.Characterization,
+            CoolingProfileId: cooling.ProfileId,
+            CoolingAppliedPercent: cooling.AppliedPercent);
         var capabilities = new HardwareCapabilitySnapshot(
             status.CanFanTelemetry,
             status.CanFanControl,
@@ -308,13 +317,33 @@ internal sealed class ServiceEngine : IDisposable
         return _fanSupervisor.SetManualLevel(level, out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Fan level rejected.");
     }
 
+    private ServiceResponse SetFanPercent(string? raw)
+    {
+        if (!int.TryParse(raw, out int percent)) return Error("Fan percentage is missing or invalid.");
+        return _fanSupervisor.SetManualPercent(percent, out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Fan percentage rejected.");
+    }
+
     private ServiceResponse ReturnFanToAuto() =>
         _fanSupervisor.ReturnToAuto(out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Lenovo Auto rejected.");
 
     private ServiceResponse SetCoolingProfile(string? value)
     {
-        if (string.IsNullOrWhiteSpace(value)) return Error("Cooling profile is missing.");
-        return _fanSupervisor.SetProfile(value, out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Cooling profile rejected.");
+        if (string.IsNullOrWhiteSpace(value)) return Error("Fan profile is missing.");
+        return _fanSupervisor.SetProfile(value, out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Fan profile rejected.");
+    }
+
+    private ServiceResponse SetCoolingCurve(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Error("Fan curve is missing.");
+
+        FanCurveDefinition? definition;
+        try { definition = JsonSerializer.Deserialize<FanCurveDefinition>(value, JsonOptions); }
+        catch (JsonException) { return Error("Fan curve is malformed."); }
+
+        return _fanSupervisor.SetCurve(definition, out string? error)
+            ? RefreshAndReturnStatus()
+            : Error(error ?? "Fan curve rejected.");
     }
 
     private ServiceResponse SetCustomCoolingCurve(string? value)
@@ -335,7 +364,7 @@ internal sealed class ServiceEngine : IDisposable
         _fanSupervisor.StartCharacterization(out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Fan characterization could not start.");
 
     private ServiceResponse MarkFanLevelAudible() =>
-        _fanSupervisor.MarkCurrentLevelAudible(out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Audible fan level could not be recorded.");
+        _fanSupervisor.MarkCurrentLevelAudible(out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Audible fan state could not be recorded.");
 
     private ServiceResponse StopFanCharacterization() =>
         _fanSupervisor.StopCharacterization(out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Fan characterization could not stop.");
