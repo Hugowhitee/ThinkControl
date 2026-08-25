@@ -150,11 +150,16 @@ public partial class AdvancedWindow
         Grid.SetColumn(chevron, 2);
         grid.Children.Add(chevron);
 
-        return new Button
+        // Explicitly use ThinkControl's button template. The stock WPF Button
+        // chrome is what produced the blue focus/selection rectangle behind these
+        // three cards even though their child Border used TcSection.
+        var button = new Button
         {
             Height = 66,
+            Style = TryFindResource("TcButton") as Style,
             Background = System.Windows.Media.Brushes.Transparent,
             BorderThickness = new Thickness(0),
+            Padding = new Thickness(0),
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Content = new Border
             {
@@ -165,5 +170,6 @@ public partial class AdvancedWindow
             Cursor = System.Windows.Input.Cursors.Hand,
             ToolTip = tooltip
         };
+        return button;
     }
 }

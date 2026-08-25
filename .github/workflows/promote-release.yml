@@ -1,0 +1,120 @@
+name: Promote release-ready main
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: thinkcontrol-release-promotion
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout promoted commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Promote and verify release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          repo="$GITHUB_REPOSITORY"
+          version=$(jq -r '.version // empty' version.json)
+          release_ready=$(jq -r '.releaseReady // false' version.json)
+
+          if [[ -z "$version" ]]; then
+            echo "version.json does not contain a version"
+            exit 1
+          fi
+
+          if [[ "$release_ready" != "true" ]]; then
+            echo "version.json is not release-ready; nothing to promote."
+            exit 0
+          fi
+
+          tag="v$version"
+          setup="ThinkControl-Setup-$version.exe"
+          payload="ThinkControl-Payload-$version.zip"
+          expected=("$setup" "$payload" "SHA256SUMS.txt" "ui-overview.png")
+
+          release_exists=false
+          if gh api "repos/$repo/releases/tags/$tag" >/tmp/release.json 2>/dev/null; then
+            release_exists=true
+          fi
+
+          if [[ "$release_exists" != "true" ]]; then
+            tag_sha=$(gh api "repos/$repo/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)
+            if [[ -z "$tag_sha" ]]; then
+              echo "Creating $tag at $GITHUB_SHA"
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "refs/tags/$tag"
+            elif [[ "$tag_sha" != "$GITHUB_SHA" ]]; then
+              echo "$tag exists at $tag_sha but has no release; refusing to publish a different main commit ($GITHUB_SHA) under that version."
+              exit 1
+            else
+              echo "$tag already exists at the promoted commit; recovering the missing release."
+            fi
+
+            # Tag pushes made with GITHUB_TOKEN intentionally do not trigger another
+            # workflow. workflow_dispatch is exempt from that recursion guard, so
+            # explicitly run the canonical package/release workflow on the tag.
+            gh workflow run release.yml --repo "$repo" --ref "$tag"
+          else
+            echo "$tag already has a GitHub Release; verifying it idempotently."
+          fi
+
+          deadline=$((SECONDS + 20 * 60))
+          while (( SECONDS < deadline )); do
+            if gh api "repos/$repo/releases/tags/$tag" >/tmp/release.json 2>/dev/null; then
+              prerelease=$(jq -r '.prerelease' /tmp/release.json)
+              if [[ "$prerelease" != "true" ]]; then
+                echo "$tag exists but is not marked as a prerelease."
+                exit 1
+              fi
+
+              missing=0
+              for asset in "${expected[@]}"; do
+                size=$(jq -r --arg name "$asset" '.assets[] | select(.name == $name) | .size' /tmp/release.json | head -n1)
+                if [[ -z "$size" || "$size" == "null" || "$size" -le 0 ]]; then
+                  missing=1
+                  break
+                fi
+              done
+
+              if [[ "$missing" == "0" ]]; then
+                rm -rf /tmp/thinkcontrol-release-verify
+                mkdir -p /tmp/thinkcontrol-release-verify
+                cd /tmp/thinkcontrol-release-verify
+                gh release download "$tag" --repo "$repo" \
+                  --pattern "$setup" \
+                  --pattern "$payload" \
+                  --pattern "SHA256SUMS.txt" \
+                  --pattern "ui-overview.png"
+                sha256sum --check SHA256SUMS.txt
+                test -s ui-overview.png
+                echo "Verified $tag prerelease, checksums and all expected public assets."
+                exit 0
+              fi
+            fi
+
+            echo "Waiting for $tag release assets…"
+            sleep 15
+          done
+
+          echo "Timed out waiting for a complete $tag GitHub Release."
+          exit 1

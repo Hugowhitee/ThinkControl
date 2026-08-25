@@ -1,47 +1,62 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
 
 public partial class PerformancePanel : UserControl
 {
     private App? _app;
-    private DispatcherTimer? _timer;
+    private AppState? _subscribedState;
     private bool _syncing;
 
     public PerformancePanel()
     {
         InitializeComponent();
-        Loaded += (_, _) => StartTimer();
-        Unloaded += (_, _) => StopTimer();
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is true)
+                Sync();
+        };
+        Unloaded += (_, _) => DetachState();
     }
 
     internal void Initialize(App app)
     {
-        _app = app;
+        if (!ReferenceEquals(_app, app))
+        {
+            DetachState();
+            _app = app;
+            _subscribedState = app.State;
+            _subscribedState.PropertyChanged += State_PropertyChanged;
+        }
         Sync();
     }
 
-    private void StartTimer()
+    private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (_timer is not null)
-            return;
-        _timer = new DispatcherTimer(TimeSpan.FromSeconds(3), DispatcherPriority.Background, (_, _) => Sync(), Dispatcher);
-        _timer.Start();
-        Sync();
+        // This panel has no independent polling loop. The app's single telemetry
+        // owner updates cached state; only relevant state changes repaint this page.
+        if (e.PropertyName is nameof(AppState.SelectedMode) or
+            nameof(AppState.BatteryStatus) or
+            nameof(AppState.BatteryCharging))
+        {
+            Dispatcher.BeginInvoke(Sync);
+        }
     }
 
-    private void StopTimer()
+    private void DetachState()
     {
-        _timer?.Stop();
-        _timer = null;
+        if (_subscribedState is not null)
+            _subscribedState.PropertyChanged -= State_PropertyChanged;
+        _subscribedState = null;
     }
 
     private void Sync()
     {
-        if (_app is null)
+        if (_app is null || !IsVisible)
             return;
 
         _syncing = true;

@@ -19,10 +19,12 @@ public sealed class HardwareServiceClient
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan LastKnownGoodGrace = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan StatusEventInterval = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan OfflineRetryInterval = TimeSpan.FromSeconds(12);
 
     private ServiceResponse? _lastValidStatus;
     private DateTimeOffset _lastValidStatusAt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastStatusEventAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _offlineRetryAfter = DateTimeOffset.MinValue;
     private bool _lastObservedOnline;
 
     public event EventHandler<HardwareOperationResult>? HardwareOperationCompleted;
@@ -37,6 +39,23 @@ public sealed class HardwareServiceClient
 
     private async Task<ServiceResponse?> GetStatusCoreAsync(CancellationToken cancellationToken)
     {
+        // When the Windows service is actually stopped, repeatedly creating a named
+        // pipe client every UI refresh just burns kernel time and cannot make the
+        // service recover. Preserve a very recent good snapshot for a short grace
+        // period, but otherwise wait for the bounded retry or an explicit repair.
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (now < _offlineRetryAfter)
+        {
+            if (_lastValidStatus is not null && now - _lastValidStatusAt <= LastKnownGoodGrace)
+            {
+                return _lastValidStatus with
+                {
+                    Error = "Hardware service response was briefly delayed; showing the last known good snapshot."
+                };
+            }
+            return null;
+        }
+
         ServiceRequest request = new(ThinkControlProtocol.Version, "GetStatus");
         ServiceResponse? response = await SendAsync(request, cancellationToken, timeoutMs: 900).ConfigureAwait(false);
         if (IsValidStatus(response))
@@ -49,23 +68,23 @@ public sealed class HardwareServiceClient
             return response;
 
         bool online = await PingAsync(cancellationToken).ConfigureAwait(false);
-        if (online && _lastValidStatus is not null)
-        {
-            return _lastValidStatus with
-            {
-                Error = "Hardware service is online; showing the last complete provider snapshot while status refresh catches up."
-            };
-        }
-
         if (online)
         {
-            // SCM Running / pipe reachable is a different state from provider-ready.
-            // Returning null here made the app call a healthy service "offline" while
-            // hardware backends were still initializing.
+            _offlineRetryAfter = DateTimeOffset.MinValue;
+            if (_lastValidStatus is not null)
+            {
+                return _lastValidStatus with
+                {
+                    Error = "Hardware service is online; showing the last complete provider snapshot while status refresh catches up."
+                };
+            }
+
             return OnlineDiscoveryResponse();
         }
 
-        if (_lastValidStatus is not null && DateTimeOffset.UtcNow - _lastValidStatusAt <= LastKnownGoodGrace)
+        now = DateTimeOffset.UtcNow;
+        _offlineRetryAfter = now + OfflineRetryInterval;
+        if (_lastValidStatus is not null && now - _lastValidStatusAt <= LastKnownGoodGrace)
         {
             return _lastValidStatus with
             {
@@ -151,6 +170,7 @@ public sealed class HardwareServiceClient
     {
         _lastValidStatus = response;
         _lastValidStatusAt = DateTimeOffset.UtcNow;
+        _offlineRetryAfter = DateTimeOffset.MinValue;
     }
 
     private void PublishStatusIfNeeded(ServiceResponse? response, bool force = false)

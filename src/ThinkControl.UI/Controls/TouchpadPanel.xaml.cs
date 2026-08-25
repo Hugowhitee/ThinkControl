@@ -59,6 +59,7 @@ public partial class TouchpadPanel : UserControl
 
         Visualizer.EdgeSelected += OnEdgeSelected;
         SizeChanged += (_, _) => ApplyResponsiveLayout();
+        IsVisibleChanged += (_, e) => OnVisibilityChanged(e.NewValue is true);
         Unloaded += OnUnloaded;
     }
 
@@ -66,7 +67,8 @@ public partial class TouchpadPanel : UserControl
     {
         if (ReferenceEquals(_app, app))
         {
-            _host?.EnsureInputStarted();
+            if (IsVisible || _host?.Configuration.Enabled == true)
+                _host?.EnsureInputStarted();
             SyncAll();
             return;
         }
@@ -78,7 +80,8 @@ public partial class TouchpadPanel : UserControl
         _host.TouchpadDetected += Host_TouchpadDetected;
         _host.ContactFrameReceived += Host_ContactFrameReceived;
         _configuration = _host.Configuration.Sanitize();
-        _host.EnsureInputStarted();
+        if (IsVisible || _configuration.Enabled)
+            _host.EnsureInputStarted();
         SyncAll();
     }
 
@@ -108,7 +111,7 @@ public partial class TouchpadPanel : UserControl
                 : (_host.Geometry.PhysicalSizeEstimated ? "Precision Touchpad · size estimated" : "Precision Touchpad detected");
             GestureStatusText.Text = _configuration.Enabled
                 ? "Edge gestures are active. Start inside a highlighted edge band and move along that edge."
-                : "Edge gestures are off. Live touch visualization and Windows haptic settings stay available.";
+                : "Edge gestures are off. Live touch visualization runs only while this page is open.";
         }
         finally
         {
@@ -197,10 +200,12 @@ public partial class TouchpadPanel : UserControl
         _host.UpdateConfiguration(_configuration);
         if (_configuration.Enabled)
             _host.EnsureInputStarted();
+        else if (!IsVisible)
+            _host.StopInputIfGesturesDisabled();
         Visualizer.Configuration = _configuration;
         GestureStatusText.Text = _configuration.Enabled
             ? "Edge gestures are active."
-            : "Edge gestures are off. Live touch visualization and haptics remain active.";
+            : "Edge gestures are off. Live visualization stops when you leave this page.";
     }
 
     private void ActionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -333,8 +338,12 @@ public partial class TouchpadPanel : UserControl
 
     private void Host_GestureChanged(GestureSignal signal)
     {
+        if (!IsVisible)
+            return;
         Dispatcher.InvokeAsync(() =>
         {
+            if (!IsVisible)
+                return;
             _signal = signal.Phase is GesturePhase.Released or GesturePhase.Cancelled ? null : signal;
             Visualizer.SetTestFrame(_contacts, _signal);
             GestureStatusText.Text = signal.Phase switch
@@ -351,8 +360,12 @@ public partial class TouchpadPanel : UserControl
 
     private void Host_TouchpadDetected(TouchpadGeometry geometry)
     {
+        if (!IsVisible)
+            return;
         Dispatcher.InvokeAsync(() =>
         {
+            if (!IsVisible)
+                return;
             Visualizer.Geometry = geometry;
             InputStatusText.Text = geometry.PhysicalSizeEstimated
                 ? "Precision Touchpad · size estimated"
@@ -363,9 +376,13 @@ public partial class TouchpadPanel : UserControl
 
     private void Host_ContactFrameReceived(IReadOnlyList<TouchContact> contacts, TouchpadGeometry geometry)
     {
+        if (!IsVisible)
+            return;
         TouchContact[] snapshot = contacts.ToArray();
         Dispatcher.InvokeAsync(() =>
         {
+            if (!IsVisible)
+                return;
             _contacts = snapshot;
             Visualizer.Geometry = geometry;
             Visualizer.SetTestFrame(_contacts, _signal);
@@ -423,9 +440,28 @@ public partial class TouchpadPanel : UserControl
         }
     }
 
+    private void OnVisibilityChanged(bool visible)
+    {
+        if (_host is null)
+            return;
+
+        if (visible)
+        {
+            _host.EnsureInputStarted();
+            SyncAll();
+            return;
+        }
+
+        _settingsSaveTimer.Stop();
+        _contacts = Array.Empty<TouchContact>();
+        _signal = null;
+        _host.StopInputIfGesturesDisabled();
+    }
+
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _settingsSaveTimer.Stop();
+        _host?.StopInputIfGesturesDisabled();
     }
 
     private void DetachHost()

@@ -18,17 +18,41 @@ public sealed class DisplayService
     private const int DmDisplayFrequency = 0x00400000;
     private static readonly TimeSpan CapabilityCacheLifetime = TimeSpan.FromMinutes(2);
     private static readonly TimeSpan AdaptiveCacheLifetime = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan SnapshotCacheLifetime = TimeSpan.FromSeconds(12);
 
     private readonly object _cacheGate = new();
+    private readonly object _snapshotGate = new();
     private IReadOnlyList<int> _cachedRates = Array.Empty<int>();
     private DateTimeOffset _ratesReadAt = DateTimeOffset.MinValue;
     private bool? _cachedAdaptive;
     private DateTimeOffset _adaptiveReadAt = DateTimeOffset.MinValue;
+    private DisplaySnapshot? _cachedSnapshot;
+    private DateTimeOffset _snapshotReadAt = DateTimeOffset.MinValue;
 
     public DisplaySnapshot Read()
     {
-        int current = GetCurrentRefreshRate();
-        return new DisplaySnapshot(current, GetSupportedRefreshRates(), GetBrightness(), GetAdaptiveBrightness());
+        lock (_snapshotGate)
+        {
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            if (_cachedSnapshot is not null && now - _snapshotReadAt < SnapshotCacheLifetime)
+                return _cachedSnapshot;
+        }
+
+        // Brightness uses WMI and adaptive-brightness discovery can invoke powercfg.
+        // Those are capability/telemetry reads, not animation data. Sample them at a
+        // human-scale cadence rather than every global UI refresh.
+        var snapshot = new DisplaySnapshot(
+            GetCurrentRefreshRate(),
+            GetSupportedRefreshRates(),
+            GetBrightness(),
+            GetAdaptiveBrightness());
+
+        lock (_snapshotGate)
+        {
+            _cachedSnapshot = snapshot;
+            _snapshotReadAt = DateTimeOffset.UtcNow;
+        }
+        return snapshot;
     }
 
     public bool SetRefreshRate(int hz)
@@ -47,7 +71,10 @@ public sealed class DisplayService
         mode.dmFields |= DmDisplayFrequency;
         bool changed = ChangeDisplaySettings(ref mode, 0) == DispChangeSuccessful;
         if (changed)
+        {
             InvalidateCapabilities();
+            InvalidateSnapshot();
+        }
         return changed;
     }
 
@@ -142,6 +169,14 @@ public sealed class DisplayService
                 changed = true;
             }
 
+            if (changed)
+            {
+                lock (_snapshotGate)
+                {
+                    if (_cachedSnapshot is not null)
+                        _cachedSnapshot = _cachedSnapshot with { Brightness = value };
+                }
+            }
             return changed;
         }
         catch (ManagementException)
@@ -199,6 +234,11 @@ public sealed class DisplayService
                 _cachedAdaptive = enabled;
                 _adaptiveReadAt = DateTimeOffset.UtcNow;
             }
+            lock (_snapshotGate)
+            {
+                if (_cachedSnapshot is not null)
+                    _cachedSnapshot = _cachedSnapshot with { AdaptiveBrightness = enabled };
+            }
         }
         return changed;
     }
@@ -209,6 +249,15 @@ public sealed class DisplayService
         {
             _ratesReadAt = DateTimeOffset.MinValue;
             _cachedRates = Array.Empty<int>();
+        }
+    }
+
+    private void InvalidateSnapshot()
+    {
+        lock (_snapshotGate)
+        {
+            _snapshotReadAt = DateTimeOffset.MinValue;
+            _cachedSnapshot = null;
         }
     }
 

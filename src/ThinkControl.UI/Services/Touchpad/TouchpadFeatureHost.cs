@@ -91,6 +91,11 @@ internal sealed class TouchpadFeatureHost : IDisposable
         hidClickForceSupported: _gestures.ClickForceSupported);
 
     internal bool EnsureInputStarted() => !_disposed && _gestures.Start();
+    internal void StopInputIfGesturesDisabled()
+    {
+        if (!_disposed)
+            _gestures.StopIfDisabled();
+    }
 
     internal void UpdateConfiguration(TouchpadGestureConfiguration configuration)
     {
@@ -135,11 +140,6 @@ internal sealed class TouchpadFeatureHost : IDisposable
                 Interlocked.Exchange(ref _lastQueuedPerformanceIndex, -1);
             return;
         }
-
-        // Do not clear the latest volume/brightness target when the finger lifts.
-        // The worker owns the final outstanding write. Failed writes clear only the
-        // exact failed target, so an unchanged unavailable endpoint cannot create an
-        // infinite retry loop while a newer concurrently queued target is preserved.
     }
 
     private void QueueVolume(int value)

@@ -1,9 +1,9 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
-using System.Windows.Threading;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfApplication = System.Windows.Application;
@@ -12,23 +12,68 @@ namespace ThinkControl.UI.Controls;
 
 public partial class BatteryTelemetryPanel : UserControl
 {
-    private readonly DispatcherTimer _historyRefreshTimer;
+    private AppState? _subscribedState;
+    private bool _historyRefreshQueued;
 
     public BatteryTelemetryPanel()
     {
         InitializeComponent();
-        _historyRefreshTimer = new DispatcherTimer(DispatcherPriority.Background)
-        {
-            Interval = TimeSpan.FromSeconds(5)
-        };
-        _historyRefreshTimer.Tick += (_, _) => RefreshHistoryUi();
         Loaded += (_, _) =>
         {
             ApplyBatteryGaugePolish();
+            AttachState();
             RefreshHistoryUi();
-            _historyRefreshTimer.Start();
         };
-        Unloaded += (_, _) => _historyRefreshTimer.Stop();
+        Unloaded += (_, _) => DetachState();
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is true)
+                QueueHistoryRefresh();
+        };
+    }
+
+    private void AttachState()
+    {
+        if (DataContext is not AppState state || ReferenceEquals(_subscribedState, state))
+            return;
+        DetachState();
+        _subscribedState = state;
+        state.PropertyChanged += State_PropertyChanged;
+    }
+
+    private void DetachState()
+    {
+        if (_subscribedState is not null)
+            _subscribedState.PropertyChanged -= State_PropertyChanged;
+        _subscribedState = null;
+    }
+
+    private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        // History repaint is driven by actual history changes instead of a second
+        // page-local polling timer. Normal battery percentage/power text continues
+        // to update through bindings without rebuilding charts/session rows.
+        if (e.PropertyName is "BatteryChargePercentTimeline" or
+            "BatteryChargePowerTimeline" or
+            "BatteryHealthTrendTimeline" or
+            "BatteryCurrentSessionText" or
+            "BatteryHealthTrendText")
+        {
+            QueueHistoryRefresh();
+        }
+    }
+
+    private void QueueHistoryRefresh()
+    {
+        if (!IsVisible || _historyRefreshQueued)
+            return;
+        _historyRefreshQueued = true;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _historyRefreshQueued = false;
+            if (IsVisible)
+                RefreshHistoryUi();
+        }, System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void ApplyBatteryGaugePolish()
@@ -77,8 +122,8 @@ public partial class BatteryTelemetryPanel : UserControl
 
     /// <summary>
     /// Seeds the same production charts with deterministic data for screenshot QA.
-    /// Snapshot rendering never raises Loaded, so relying on the runtime history
-    /// timer would leave the percentage/discharge charts visually untested.
+    /// Snapshot rendering never raises Loaded, so runtime events do not populate the
+    /// battery history controls during visual validation.
     /// </summary>
     internal void PrepareForSnapshot(AppState state)
     {

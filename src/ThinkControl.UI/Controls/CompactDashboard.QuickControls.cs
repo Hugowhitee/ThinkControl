@@ -1,11 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
 using ThinkControl.UI.Services;
 using WpfButton = System.Windows.Controls.Button;
-using WpfContextMenu = System.Windows.Controls.ContextMenu;
-using WpfControl = System.Windows.Controls.Control;
-using WpfMenuItem = System.Windows.Controls.MenuItem;
 
 namespace ThinkControl.UI.Controls;
 
@@ -16,6 +15,7 @@ public partial class CompactDashboard
     private WpfButton? _quickPerformance;
     private WpfButton? _quickRefresh;
     private WpfButton? _quickKeyboard;
+    private Popup? _quickPopup;
 
     private void EnsureQuickControls()
     {
@@ -101,37 +101,68 @@ public partial class CompactDashboard
         if (_syncingQuickControls || _app is null || !button.IsEnabled)
             return;
 
-        var menu = new WpfContextMenu
+        _quickPopup?.SetCurrentValue(Popup.IsOpenProperty, false);
+
+        var list = new StackPanel();
+        Popup? popup = null;
+        foreach (string option in options)
+        {
+            var item = new WpfButton
+            {
+                Content = option,
+                Style = TryFindResource("TcButton") as Style,
+                Height = 32,
+                MinWidth = Math.Max(116, button.ActualWidth + 20),
+                Margin = new Thickness(0, 0, 0, 2),
+                Padding = new Thickness(10, 4, 10, 4),
+                Background = Brushes.Transparent,
+                BorderThickness = new Thickness(0),
+                HorizontalContentAlignment = HorizontalAlignment.Left,
+                Cursor = System.Windows.Input.Cursors.Hand
+            };
+            item.Click += (_, _) =>
+            {
+                if (popup is not null)
+                    popup.IsOpen = false;
+                selected(option);
+            };
+            list.Children.Add(item);
+        }
+
+        var surface = new Border
+        {
+            MinWidth = Math.Max(122, button.ActualWidth + 24),
+            Padding = new Thickness(5, 5, 5, 3),
+            Margin = new Thickness(0, 5, 0, 0),
+            CornerRadius = new CornerRadius(6),
+            BorderThickness = new Thickness(1),
+            Child = list,
+            Effect = new DropShadowEffect
+            {
+                BlurRadius = 18,
+                ShadowDepth = 4,
+                Opacity = 0.32
+            }
+        };
+        surface.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
+        surface.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
+
+        popup = new Popup
         {
             PlacementTarget = button,
             Placement = PlacementMode.Bottom,
-            MinWidth = button.ActualWidth,
-            HasDropShadow = true
+            AllowsTransparency = true,
+            StaysOpen = false,
+            PopupAnimation = PopupAnimation.Fade,
+            Child = surface
         };
-        menu.SetResourceReference(WpfControl.BackgroundProperty, "Tc.SurfaceAlt");
-        menu.SetResourceReference(WpfControl.ForegroundProperty, "Tc.Text");
-        menu.SetResourceReference(WpfControl.BorderBrushProperty, "Tc.BorderStrong");
-        menu.BorderThickness = new Thickness(1);
-        menu.Padding = new Thickness(4);
-
-        foreach (string option in options)
+        popup.Closed += (_, _) =>
         {
-            var item = new WpfMenuItem
-            {
-                Header = option,
-                FontSize = 10.5,
-                Padding = new Thickness(9, 6, 12, 6),
-                Cursor = System.Windows.Input.Cursors.Hand
-            };
-            item.SetResourceReference(WpfControl.BackgroundProperty, "Tc.SurfaceAlt");
-            item.SetResourceReference(WpfControl.ForegroundProperty, "Tc.Text");
-            item.Click += (_, _) => selected(option);
-            menu.Items.Add(item);
-        }
-
-        button.ContextMenu = menu;
-        menu.Closed += (_, _) => button.ContextMenu = null;
-        menu.IsOpen = true;
+            if (ReferenceEquals(_quickPopup, popup))
+                _quickPopup = null;
+        };
+        _quickPopup = popup;
+        popup.IsOpen = true;
     }
 
     private IReadOnlyList<string> BuildRefreshOptions()

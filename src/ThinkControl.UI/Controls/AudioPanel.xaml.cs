@@ -33,23 +33,18 @@ public partial class AudioPanel : UserControl
             ApplyVolumeSlider();
         };
 
-        _volumeRefreshTimer = new DispatcherTimer(DispatcherPriority.Background)
+        _volumeRefreshTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
         {
-            Interval = TimeSpan.FromSeconds(1)
+            Interval = TimeSpan.FromSeconds(2)
         };
         _volumeRefreshTimer.Tick += (_, _) =>
         {
-            if (!_volumeDragging && !_snapshotMode)
+            if (IsVisible && !_volumeDragging && !_snapshotMode)
                 RefreshVolume();
         };
 
-        Loaded += (_, _) =>
-        {
-            if (_snapshotMode)
-                return;
-            RefreshVolume();
-            _volumeRefreshTimer.Start();
-        };
+        Loaded += (_, _) => UpdateLivePolling(refreshNow: true);
+        IsVisibleChanged += (_, e) => UpdateLivePolling(refreshNow: e.NewValue is true);
         Unloaded += (_, _) =>
         {
             _volumeApplyTimer.Stop();
@@ -63,8 +58,25 @@ public partial class AudioPanel : UserControl
         _dolby ??= new DolbyAudioService();
         if (_snapshotMode)
             return;
-        RefreshVolume();
-        RefreshStatus();
+        UpdateLivePolling(refreshNow: IsVisible);
+    }
+
+    private void UpdateLivePolling(bool refreshNow)
+    {
+        if (_snapshotMode || !IsLoaded || !IsVisible)
+        {
+            _volumeApplyTimer.Stop();
+            _volumeRefreshTimer.Stop();
+            return;
+        }
+
+        if (refreshNow)
+        {
+            RefreshVolume();
+            RefreshStatus();
+        }
+        if (!_volumeRefreshTimer.IsEnabled)
+            _volumeRefreshTimer.Start();
     }
 
     /// <summary>
@@ -134,7 +146,7 @@ public partial class AudioPanel : UserControl
 
     internal void RefreshStatus()
     {
-        if (_snapshotMode || _app is null || _dolby is null)
+        if (_snapshotMode || _app is null || _dolby is null || !IsVisible)
             return;
 
         _status = _dolby.Probe();
@@ -189,7 +201,7 @@ public partial class AudioPanel : UserControl
 
     private void RefreshVolume()
     {
-        if (_snapshotMode)
+        if (_snapshotMode || !IsVisible)
             return;
 
         WindowsVolumeStatus status = _volume.Read();
@@ -219,7 +231,7 @@ public partial class AudioPanel : UserControl
 
     private void VolumeSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_snapshotMode || _syncing || !IsLoaded)
+        if (_snapshotMode || _syncing || !IsLoaded || !IsVisible)
             return;
 
         int percent = (int)Math.Round(e.NewValue);
@@ -241,7 +253,7 @@ public partial class AudioPanel : UserControl
 
     private void ApplyVolumeSlider()
     {
-        if (_snapshotMode || _syncing || !VolumeSlider.IsEnabled)
+        if (_snapshotMode || _syncing || !VolumeSlider.IsEnabled || !IsVisible)
             return;
 
         int requested = (int)Math.Round(VolumeSlider.Value);
@@ -275,13 +287,9 @@ public partial class AudioPanel : UserControl
         ActionStatusText.Text = result.Detail;
 
         if (result.Success)
-        {
             _app.UserSettings.Update(settings => settings with { DolbyProfile = profile });
-        }
         else
-        {
             ActionStatusText.Text += " · Dolby Access was not opened. Use the explicit button if you want to change it there.";
-        }
 
         RefreshStatus();
     }
@@ -318,9 +326,6 @@ public partial class AudioPanel : UserControl
             DolbyProfileResult profile = await _directDolby.SetProfileAsync("Dynamic");
             if (profile.Success)
             {
-                // Dynamic is content-aware and does not use the Music IEQ picker.
-                // Store Balanced as the portable Music default without applying it
-                // while Dynamic owns processing.
                 _app.UserSettings.Update(settings => settings with
                 {
                     DolbyProfile = "Dynamic",
