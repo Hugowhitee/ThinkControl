@@ -22,6 +22,7 @@ public partial class TouchpadPanel : UserControl
     private IReadOnlyList<TouchContact> _contacts = Array.Empty<TouchContact>();
     private GestureSignal? _signal;
     private bool _syncing;
+    private bool _hostUiSubscribed;
 
     public TouchpadPanel()
     {
@@ -60,6 +61,7 @@ public partial class TouchpadPanel : UserControl
         Visualizer.EdgeSelected += OnEdgeSelected;
         SizeChanged += (_, _) => ApplyResponsiveLayout();
         IsVisibleChanged += (_, e) => OnVisibilityChanged(e.NewValue is true);
+        Loaded += (_, _) => SyncHostUiSubscriptions(IsVisible);
         Unloaded += OnUnloaded;
     }
 
@@ -67,6 +69,7 @@ public partial class TouchpadPanel : UserControl
     {
         if (ReferenceEquals(_app, app))
         {
+            SyncHostUiSubscriptions(IsVisible);
             if (IsVisible || _host?.Configuration.Enabled == true)
                 _host?.EnsureInputStarted();
             SyncAll();
@@ -76,10 +79,8 @@ public partial class TouchpadPanel : UserControl
         DetachHost();
         _app = app;
         _host = app.TouchpadFeature;
-        _host.GestureChanged += Host_GestureChanged;
-        _host.TouchpadDetected += Host_TouchpadDetected;
-        _host.ContactFrameReceived += Host_ContactFrameReceived;
         _configuration = _host.Configuration.Sanitize();
+        SyncHostUiSubscriptions(IsVisible);
         if (IsVisible || _configuration.Enabled)
             _host.EnsureInputStarted();
         SyncAll();
@@ -338,11 +339,9 @@ public partial class TouchpadPanel : UserControl
 
     private void Host_GestureChanged(GestureSignal signal)
     {
-        if (!IsVisible)
-            return;
         Dispatcher.InvokeAsync(() =>
         {
-            if (!IsVisible)
+            if (!IsVisible || !_hostUiSubscribed)
                 return;
 
             UpdateGestureValueFeedback(signal);
@@ -362,11 +361,9 @@ public partial class TouchpadPanel : UserControl
 
     private void Host_TouchpadDetected(TouchpadGeometry geometry)
     {
-        if (!IsVisible)
-            return;
         Dispatcher.InvokeAsync(() =>
         {
-            if (!IsVisible)
+            if (!IsVisible || !_hostUiSubscribed)
                 return;
             Visualizer.Geometry = geometry;
             InputStatusText.Text = geometry.PhysicalSizeEstimated
@@ -378,12 +375,10 @@ public partial class TouchpadPanel : UserControl
 
     private void Host_ContactFrameReceived(IReadOnlyList<TouchContact> contacts, TouchpadGeometry geometry)
     {
-        if (!IsVisible)
-            return;
         TouchContact[] snapshot = contacts.ToArray();
         Dispatcher.InvokeAsync(() =>
         {
-            if (!IsVisible)
+            if (!IsVisible || !_hostUiSubscribed)
                 return;
             _contacts = snapshot;
             Visualizer.Geometry = geometry;
@@ -447,6 +442,7 @@ public partial class TouchpadPanel : UserControl
         if (_host is null)
             return;
 
+        SyncHostUiSubscriptions(visible);
         if (visible)
         {
             ClearGestureFeedback();
@@ -467,16 +463,34 @@ public partial class TouchpadPanel : UserControl
     {
         _settingsSaveTimer.Stop();
         ClearGestureFeedback();
+        SyncHostUiSubscriptions(false);
         _host?.StopInputIfGesturesDisabled();
+    }
+
+    private void SyncHostUiSubscriptions(bool subscribe)
+    {
+        if (_host is null || subscribe == _hostUiSubscribed)
+            return;
+
+        if (subscribe)
+        {
+            _host.GestureChanged += Host_GestureChanged;
+            _host.TouchpadDetected += Host_TouchpadDetected;
+            _host.ContactFrameReceived += Host_ContactFrameReceived;
+            _hostUiSubscribed = true;
+            return;
+        }
+
+        _host.GestureChanged -= Host_GestureChanged;
+        _host.TouchpadDetected -= Host_TouchpadDetected;
+        _host.ContactFrameReceived -= Host_ContactFrameReceived;
+        _hostUiSubscribed = false;
     }
 
     private void DetachHost()
     {
-        if (_host is null)
-            return;
-        _host.GestureChanged -= Host_GestureChanged;
-        _host.TouchpadDetected -= Host_TouchpadDetected;
-        _host.ContactFrameReceived -= Host_ContactFrameReceived;
+        SyncHostUiSubscriptions(false);
+        _host = null;
     }
 
     private static double Quantize(double value, int step) => Math.Clamp(Math.Round(value / step) * step, 0, 100);
