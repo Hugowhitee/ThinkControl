@@ -24,6 +24,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
+        ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
@@ -51,6 +52,7 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
+        ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
