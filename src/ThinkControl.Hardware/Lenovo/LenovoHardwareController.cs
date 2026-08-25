@@ -70,8 +70,9 @@ public sealed class LenovoHardwareController : IDisposable
 
         lock (_gate)
         {
-            // Explicit repair bypasses provider backoff. Normal status refreshes never
-            // recycle healthy providers or repeatedly probe a failed EC/keyboard path.
+            // Explicit full repair bypasses provider backoff. This path is reserved
+            // for the Hardware Setup workflow because recycling every provider for a
+            // keyboard retry can temporarily make a healthy sensor stack disappear.
             try
             {
                 if (_fanControl is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel && _ec is not null)
@@ -101,6 +102,34 @@ public sealed class LenovoHardwareController : IDisposable
         }
     }
 
+    public void RefreshSensorProviders()
+    {
+        ThrowIfDisposed();
+        _sensors.RefreshProviders();
+        lock (_gate)
+        {
+            // Keep the already validated X9 EC and keyboard handles untouched. A
+            // sensor-only retry must not regress fan/keyboard capabilities that were
+            // healthy before the user pressed Retry sensors.
+            _lastEcThermalRead = DateTimeOffset.MinValue;
+            _x9EcThermals = Array.Empty<HardwareSensorReading>();
+        }
+    }
+
+    public void RefreshKeyboardProvider()
+    {
+        ThrowIfDisposed();
+        lock (_gate)
+        {
+            // Keyboard retry is intentionally narrow. In alpha.15.1 the shared retry
+            // recycled LHM/PawnIO too, so the Notifications sheet could immediately
+            // replace a keyboard failure with a transient Sensors failure.
+            _keyboard.RefreshBackend();
+            _lastKeyboardProbe = DateTimeOffset.MinValue;
+            _keyboardAvailable = false;
+        }
+    }
+
     public LenovoHardwareStatus ReadStatus()
     {
         ThrowIfDisposed();
@@ -118,19 +147,10 @@ public sealed class LenovoHardwareController : IDisposable
                 // The initial EC compatibility probe already reads and validates the
                 // fan-control register. Every ThinkControl write also performs its own
                 // immediate readback. Re-reading that same register every six seconds
-                // added periodic EC transactions with no new safety information and
-                // matched the reported 5–8 second system hitch, so normal status
-                // refreshes keep the last verified control state instead.
-
-                // Prefer LibreHardwareMonitor/PawnIO fan telemetry whenever it is
-                // already available. This is the same working sensor stack used by
-                // FanControl and avoids a second direct EC tachometer transaction.
+                // added periodic EC transactions with no new safety information.
                 if (lhmFans.Count == 0)
                     ReadX9FanRpm(now);
 
-                // Do not add extra EC traffic when LHM already provides a usable
-                // CPU/GPU control temperature. The generic ThinkPad EC thermal bank
-                // remains only a read-only fallback for genuine provider gaps.
                 if (!sensorSnapshot.ControlTemperatureC.HasValue)
                     ReadX9EcThermals(now);
                 else
@@ -152,9 +172,6 @@ public sealed class LenovoHardwareController : IDisposable
                     ? $"ThinkPad X9 EC · hottest read-only thermal sensor · {_ec?.PortLabel ?? "detected port"}"
                     : "Unavailable";
 
-            // Generic Lenovo/WMI fan discovery is a last fallback only. Do not run it
-            // when LHM already exposes a tachometer or the verified X9 EC fallback
-            // succeeded, because that duplicates provider work for no user benefit.
             bool needGenericFanFallback = lhmFans.Count == 0 &&
                 (!_identity.IsVerifiedX9 || !ecAvailable || !_x9FanRpm.HasValue);
             if (_isLenovo && needGenericFanFallback && now - _lastGenericFanRead >= GenericFanPollInterval)
@@ -376,8 +393,6 @@ public sealed class LenovoHardwareController : IDisposable
         }
         catch
         {
-            // Thermal fallback is additive only. A failed optional thermal-bank
-            // read must not invalidate an otherwise healthy verified EC fan path.
             _x9EcThermals = Array.Empty<HardwareSensorReading>();
         }
     }
