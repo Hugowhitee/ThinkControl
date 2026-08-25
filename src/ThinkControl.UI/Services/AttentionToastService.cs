@@ -2,7 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Media.Effects;
 using System.Windows.Threading;
+using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI.Services;
 
@@ -28,7 +30,6 @@ internal sealed class AttentionToastService : IDisposable
 
     internal void Show(string key, string title, string message, string actionText, Action action)
     {
-        // Repeated status refreshes must not keep re-opening the same notice.
         if (key == _lastKey && DateTimeOffset.UtcNow - _lastShown < TimeSpan.FromMinutes(10))
             return;
 
@@ -43,19 +44,26 @@ internal sealed class AttentionToastService : IDisposable
         _action.Content = actionText;
         _actionCallback = action;
 
+        _window.UpdateLayout();
         Rect area = SystemParameters.WorkArea;
-        double left = area.Right - _window.Width - 18;
-        double top = area.Bottom - _window.Height - 18;
-        _window.Left = left;
-        _window.Top = top;
+        double width = Math.Max(_window.ActualWidth, _window.Width);
+        double height = Math.Max(_window.ActualHeight, _window.MinHeight);
+        _window.Left = area.Right - width - 18;
+        _window.Top = area.Bottom - height - 18;
 
         if (!_window.IsVisible)
         {
             _window.Opacity = 0;
             _window.Show();
+            _window.UpdateLayout();
+            height = Math.Max(_window.ActualHeight, _window.MinHeight);
+            _window.Top = area.Bottom - height - 18;
             if (SystemParameters.ClientAreaAnimation)
             {
-                _window.BeginAnimation(Window.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(130)));
+                _window.BeginAnimation(Window.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                });
             }
             else
             {
@@ -77,9 +85,33 @@ internal sealed class AttentionToastService : IDisposable
         if (_window is not null)
             return;
 
+        var brand = new BrandMark
+        {
+            Width = 24,
+            Height = 24,
+            Margin = new Thickness(0, 0, 9, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+
+        var appName = new TextBlock
+        {
+            Text = "ThinkControl",
+            FontSize = 10,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        appName.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+
+        var brandHeader = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 9)
+        };
+        brandHeader.Children.Add(brand);
+        brandHeader.Children.Add(appName);
+
         _title = new TextBlock
         {
-            FontSize = 13,
+            FontSize = 14,
             FontWeight = FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap
         };
@@ -90,15 +122,15 @@ internal sealed class AttentionToastService : IDisposable
             FontSize = 10.5,
             Margin = new Thickness(0, 5, 0, 0),
             TextWrapping = TextWrapping.Wrap,
-            MaxHeight = 42
+            MaxHeight = 68
         };
         _message.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
 
         _action = new Button
         {
-            Height = 30,
-            MinWidth = 82,
-            Padding = new Thickness(12, 3, 12, 3),
+            MinHeight = 32,
+            MinWidth = 104,
+            Padding = new Thickness(13, 4, 13, 4),
             HorizontalAlignment = HorizontalAlignment.Left,
             Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
@@ -111,9 +143,10 @@ internal sealed class AttentionToastService : IDisposable
         var dismiss = new Button
         {
             Content = "Later",
-            Height = 30,
-            Padding = new Thickness(10, 3, 10, 3),
-            Margin = new Thickness(7, 0, 0, 0),
+            MinHeight = 32,
+            MinWidth = 78,
+            Padding = new Thickness(12, 4, 12, 4),
+            Margin = new Thickness(8, 0, 0, 0),
             Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
         dismiss.Click += (_, _) => Hide();
@@ -121,22 +154,30 @@ internal sealed class AttentionToastService : IDisposable
         var actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            Margin = new Thickness(0, 10, 0, 0)
+            Margin = new Thickness(0, 13, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Left
         };
         actions.Children.Add(_action);
         actions.Children.Add(dismiss);
 
         var content = new StackPanel();
+        content.Children.Add(brandHeader);
         content.Children.Add(_title);
         content.Children.Add(_message);
         content.Children.Add(actions);
 
         var shell = new Border
         {
-            Padding = new Thickness(14, 12, 14, 12),
+            Padding = new Thickness(16, 13, 16, 14),
             BorderThickness = new Thickness(1),
-            CornerRadius = new CornerRadius(9),
-            Child = content
+            CornerRadius = new CornerRadius(10),
+            Child = content,
+            Effect = new DropShadowEffect
+            {
+                BlurRadius = 18,
+                ShadowDepth = 5,
+                Opacity = 0.28
+            }
         };
         shell.SetResourceReference(Border.BackgroundProperty, "Tc.Surface");
         shell.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
@@ -149,8 +190,10 @@ internal sealed class AttentionToastService : IDisposable
 
         _window = new Window
         {
-            Width = 350,
-            Height = 126,
+            Width = 390,
+            MinHeight = 150,
+            MaxHeight = 230,
+            SizeToContent = SizeToContent.Height,
             WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.NoResize,
             ShowInTaskbar = false,
