@@ -23,6 +23,8 @@ public sealed record ThinkControlUserSettings(
     string AcPowerMode = "",
     string CoolingProfile = "Lenovo Auto",
     double[]? CustomFanThresholds = null,
+    FanCurveDefinition[]? FanProfileOverrides = null,
+    FanCurveDefinition[]? CustomFanProfiles = null,
     string DolbyProfile = "Dynamic",
     string DolbySubProfile = "Balanced",
     bool AutomaticUpdates = true,
@@ -134,21 +136,15 @@ public sealed class UserSettingsService
 
         string batteryPower = NormalizePowerPreference(settings.BatteryPowerMode);
         string acPower = NormalizePowerPreference(settings.AcPowerMode);
-        string cooling = settings.CoolingProfile?.Trim() switch
-        {
-            "Quiet" or "Silent" => "Silent",
-            "Balanced" or "Normal" => "Normal",
-            "Max cooling" or "Cool" => "Cool",
-            "Custom" => "Custom",
-            _ => "Lenovo Auto"
-        };
 
-        double[] customFan = FanCurvePolicy.TryValidateCustomThresholds(
-            settings.CustomFanThresholds,
-            out double[] savedCustom,
-            out _)
-            ? savedCustom
-            : FanCurvePolicy.DefaultCustomThresholds.ToArray();
+        FanCurveDefinition[] overrides = SanitizeBuiltInOverrides(settings.FanProfileOverrides);
+        var customProfiles = SanitizeCustomProfiles(settings.CustomFanProfiles).ToList();
+        if (customProfiles.Count == 0 && settings.CoolingProfile?.Trim() == "Custom")
+        {
+            FanCurveDefinition migrated = MigrateLegacyCustom(settings.CustomFanThresholds);
+            customProfiles.Add(migrated);
+        }
+        string cooling = NormalizeCoolingProfile(settings.CoolingProfile, customProfiles);
 
         string dolby = settings.DolbyProfile?.Trim() switch
         {
@@ -185,11 +181,101 @@ public sealed class UserSettingsService
             BatteryPowerMode = batteryPower,
             AcPowerMode = acPower,
             CoolingProfile = cooling,
-            CustomFanThresholds = customFan,
+            CustomFanThresholds = null,
+            FanProfileOverrides = overrides,
+            CustomFanProfiles = customProfiles.ToArray(),
             DolbyProfile = dolby,
             DolbySubProfile = dolbyTone,
             DefaultOpeningView = defaultOpeningView
         };
+    }
+
+    private static FanCurveDefinition[] SanitizeBuiltInOverrides(IReadOnlyList<FanCurveDefinition>? profiles)
+    {
+        if (profiles is null)
+            return [];
+
+        var result = new List<FanCurveDefinition>(3);
+        foreach (FanCurveDefinition profile in profiles)
+        {
+            FanCurveDefinition factory = FanCurveDefaults.ById(profile.Id);
+            if (!string.Equals(factory.Id, profile.Id, StringComparison.OrdinalIgnoreCase) ||
+                result.Any(existing => string.Equals(existing.Id, factory.Id, StringComparison.OrdinalIgnoreCase)) ||
+                !FanCurveGraphPolicy.TryNormalize(profile.Points, out FanCurvePoint[] points, out _))
+            {
+                continue;
+            }
+            result.Add(new FanCurveDefinition(factory.Id, factory.Name, points));
+        }
+        return result.ToArray();
+    }
+
+    private static FanCurveDefinition[] SanitizeCustomProfiles(IReadOnlyList<FanCurveDefinition>? profiles)
+    {
+        if (profiles is null)
+            return [];
+
+        var result = new List<FanCurveDefinition>(12);
+        foreach (FanCurveDefinition profile in profiles)
+        {
+            if (result.Count >= 12)
+                break;
+            string id = profile.Id?.Trim() ?? string.Empty;
+            string name = profile.Name?.Trim() ?? string.Empty;
+            if (!id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase) || id.Length > 80 ||
+                string.IsNullOrWhiteSpace(name) || name.Length > 32 ||
+                result.Any(existing => string.Equals(existing.Id, id, StringComparison.OrdinalIgnoreCase)) ||
+                !FanCurveGraphPolicy.TryNormalize(profile.Points, out FanCurvePoint[] points, out _))
+            {
+                continue;
+            }
+            result.Add(new FanCurveDefinition(id, name, points));
+        }
+        return result.ToArray();
+    }
+
+    private static FanCurveDefinition MigrateLegacyCustom(IReadOnlyList<double>? thresholds)
+    {
+        if (!FanCurvePolicy.TryValidateCustomThresholds(thresholds, out double[] old, out _))
+            return FanCurveDefaults.Balanced with { Id = "custom:migrated", Name = "Custom" };
+
+        FanCurvePoint[] points =
+        [
+            new(35, 0),
+            new(old[0], 16),
+            new(old[1], 32),
+            new(old[2], 48),
+            new(old[3], 64),
+            new(old[4], 80),
+            new(old[5], 94),
+            new(92, 100)
+        ];
+        Array.Sort(points, (a, b) => a.TemperatureC.CompareTo(b.TemperatureC));
+        return FanCurveGraphPolicy.TryNormalize(points, out FanCurvePoint[] normalized, out _)
+            ? new FanCurveDefinition("custom:migrated", "Custom", normalized)
+            : FanCurveDefaults.Balanced with { Id = "custom:migrated", Name = "Custom" };
+    }
+
+    private static string NormalizeCoolingProfile(string? value, IReadOnlyList<FanCurveDefinition> customs)
+    {
+        string raw = value?.Trim() ?? string.Empty;
+        string migrated = raw switch
+        {
+            "Quiet" or "Silent" => FanCurveDefaults.QuietId,
+            "Balanced" or "Normal" => FanCurveDefaults.BalancedId,
+            "Max cooling" or "Cool" => FanCurveDefaults.MaxCoolingId,
+            "Custom" => customs.FirstOrDefault()?.Id ?? "Lenovo Auto",
+            _ => raw
+        };
+
+        if (migrated is FanCurveDefaults.QuietId or FanCurveDefaults.BalancedId or FanCurveDefaults.MaxCoolingId)
+            return migrated;
+        if (migrated.StartsWith("custom:", StringComparison.OrdinalIgnoreCase) &&
+            customs.Any(profile => string.Equals(profile.Id, migrated, StringComparison.OrdinalIgnoreCase)))
+        {
+            return migrated;
+        }
+        return "Lenovo Auto";
     }
 
     private static string NormalizePowerPreference(string? value) => value?.Trim() switch
