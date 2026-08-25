@@ -49,6 +49,13 @@ public partial class AdvancedWindow
         if (!Resources.Contains(audioPageKey) || Resources[audioPageKey] is not ScrollViewer { Content: AudioPanel panel })
             throw new InvalidOperationException("Audio page could not be prepared for visual QA.");
 
-        panel.PrepareForSnapshot(providersAvailable);
+        // Normal/minimum cover the direct DAX state, unavailable has its dedicated
+        // render, and the wide matrix exercises modern Fusion-only layout. This keeps
+        // both provider generations under the existing visual gate without inventing
+        // a second snapshot harness.
+        if (providersAvailable && Width >= 1500)
+            panel.PrepareFusionForSnapshot();
+        else
+            panel.PrepareForSnapshot(providersAvailable);
     }
 }
