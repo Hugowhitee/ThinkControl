@@ -10,14 +10,18 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private Button? _updateCheckButton;
+    private Button? _homeUpdateCheckButton;
     private WpfProgressBar? _updateCheckProgress;
     private TextBlock? _updateLastCheckedText;
     private Border? _updateUpToDateBadge;
     private DateTimeOffset? _snapshotLastChecked;
     private bool _updateUiConfigured;
+    private bool _homeUpdateUiConfigured;
 
     private void ConfigureUpdateUi()
     {
+        ConfigureHomeUpdateUi();
+
         if (_updateUiConfigured)
         {
             RefreshUpdateUi();
@@ -72,6 +76,93 @@ public partial class AdvancedWindow
 
         _updateUiConfigured = true;
         RefreshUpdateUi();
+    }
+
+    private void ConfigureHomeUpdateUi()
+    {
+        if (_homeUpdateUiConfigured || PageHome is null)
+        {
+            RefreshHomeUpdateUi();
+            return;
+        }
+
+        _homeUpdateCheckButton = FindVisualChildren<Button>(PageHome)
+            .FirstOrDefault(button =>
+            {
+                string text = button.Content?.ToString() ?? string.Empty;
+                return text is "Check now" or "Checking…" or "Up to date ✓" or "Update available";
+            });
+        if (_homeUpdateCheckButton is null)
+            return;
+
+        // Home used the original one-off check handler, which neither published the
+        // result nor shared automatic-update state with the real Updates page. Keep
+        // one release state across both surfaces instead of two independent finders.
+        _homeUpdateCheckButton.Click -= CheckUpdates_Click;
+        _homeUpdateCheckButton.Click += HomeUpdateCheck_Click;
+        _app.UpdateAvailabilityChanged += HomeUpdateAvailabilityChanged;
+        Closed += (_, _) => _app.UpdateAvailabilityChanged -= HomeUpdateAvailabilityChanged;
+        _homeUpdateUiConfigured = true;
+        RefreshHomeUpdateUi();
+    }
+
+    private void HomeUpdateAvailabilityChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(RefreshHomeUpdateUi);
+
+    private async void HomeUpdateCheck_Click(object sender, RoutedEventArgs e)
+    {
+        if (_homeUpdateCheckButton is null || IsUpdateCheckInProgress())
+            return;
+
+        _homeUpdateCheckButton.IsEnabled = false;
+        _app.State.UpdateStatus = "Checking for updates…";
+        try
+        {
+            _lastUpdate = await _app.UpdateService.CheckAsync();
+            _app.PublishUpdateCheckResult(_lastUpdate);
+            DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
+            UpdateCheckHistoryService.Record(checkedAt);
+            RefreshLastChecked(checkedAt);
+        }
+        finally
+        {
+            RefreshHomeUpdateUi();
+        }
+    }
+
+    private void RefreshHomeUpdateUi()
+    {
+        if (_homeUpdateCheckButton is null)
+            return;
+
+        bool checking = IsUpdateCheckInProgress();
+        UpdateCheckResult? result = _app.LatestUpdateResult;
+        if (checking)
+        {
+            _homeUpdateCheckButton.Content = "Checking…";
+            _homeUpdateCheckButton.IsEnabled = false;
+            return;
+        }
+
+        if (result is { Available: true })
+        {
+            _homeUpdateCheckButton.Content = "Update available";
+            _homeUpdateCheckButton.IsEnabled = false;
+            _homeUpdateCheckButton.ToolTip = "A newer version is available. Use the update notification or Updates page to install it.";
+            return;
+        }
+
+        if (result is not null && result.Status.StartsWith("Up to date", StringComparison.OrdinalIgnoreCase))
+        {
+            _homeUpdateCheckButton.Content = "Up to date ✓";
+            _homeUpdateCheckButton.IsEnabled = false;
+            _homeUpdateCheckButton.ToolTip = result.Status;
+            return;
+        }
+
+        _homeUpdateCheckButton.Content = "Check now";
+        _homeUpdateCheckButton.IsEnabled = !IsUpdateInstallInProgress();
+        _homeUpdateCheckButton.ToolTip = "Check the ThinkControl release channel";
     }
 
     private void ConfigureVersionStatusBadge(StackPanel content)
@@ -137,6 +228,7 @@ public partial class AdvancedWindow
             bool checking = IsUpdateCheckInProgress();
             SetUpdateCheckingVisual(checking);
             RefreshUpdateAvailabilityVisual();
+            RefreshHomeUpdateUi();
             if (!checking)
                 RefreshLastChecked(_snapshotLastChecked ?? UpdateCheckHistoryService.Read());
         }));
@@ -146,6 +238,7 @@ public partial class AdvancedWindow
     {
         SetUpdateCheckingVisual(IsUpdateCheckInProgress());
         RefreshUpdateAvailabilityVisual();
+        RefreshHomeUpdateUi();
         RefreshLastChecked(_snapshotLastChecked ?? UpdateCheckHistoryService.Read());
     }
 
