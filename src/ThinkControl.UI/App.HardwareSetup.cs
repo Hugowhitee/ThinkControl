@@ -8,6 +8,8 @@ public partial class App
     private readonly HardwareSetupService _hardwareSetupService = new();
     private bool _hardwareSetupEvaluated;
     private bool _providerRefreshBusy;
+    private bool _sensorRefreshBusy;
+    private bool _keyboardRefreshBusy;
     private bool _hardwareRepairBusy;
 
     private void OnHardwareSetupActivated(object? sender, EventArgs e)
@@ -15,10 +17,6 @@ public partial class App
         if (_hardwareSetupEvaluated)
             return;
         _hardwareSetupEvaluated = true;
-
-        // Hardware discovery is silent on startup. Missing components are surfaced
-        // inside ThinkControl's notification/System UI; a repair window must never
-        // cover the app or steal focus simply because a service is stopped.
         _ = EvaluateHardwareSetupSilentlyAsync();
     }
 
@@ -70,8 +68,9 @@ public partial class App
                 return false;
             }
 
-            // Heavy provider discovery belongs to the service. The UI only waits for
-            // one bounded service cycle and then consumes its cached status.
+            // Full provider repair is intentionally reserved for Hardware Setup.
+            // It can rebuild PawnIO/LHM, X9 EC and keyboard together after returning
+            // cooling to firmware. Page-level Retry actions use narrower paths below.
             await Task.Delay(2300).ConfigureAwait(true);
             await RefreshStatusAsync(forceSystemInfo: false).ConfigureAwait(true);
             await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
@@ -80,6 +79,56 @@ public partial class App
         finally
         {
             _providerRefreshBusy = false;
+        }
+    }
+
+    internal async Task<bool> RefreshSensorProvidersAsync()
+    {
+        if (_sensorRefreshBusy)
+            return false;
+
+        _sensorRefreshBusy = true;
+        try
+        {
+            State.DriverStatus = "Refreshing sensor provider…";
+            ServiceResponse? response = await HardwareClient.RefreshSensorProvidersAsync().ConfigureAwait(true);
+            if (response?.Success != true)
+            {
+                State.DriverStatus = response?.Error ?? "Sensor provider refresh was not accepted";
+                return false;
+            }
+
+            await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+            return response.Capabilities?.SensorTelemetry == true;
+        }
+        finally
+        {
+            _sensorRefreshBusy = false;
+        }
+    }
+
+    internal async Task<bool> RefreshKeyboardProviderAsync()
+    {
+        if (_keyboardRefreshBusy)
+            return false;
+
+        _keyboardRefreshBusy = true;
+        try
+        {
+            State.DriverStatus = "Retrying Lenovo keyboard provider…";
+            ServiceResponse? response = await HardwareClient.RefreshKeyboardProviderAsync().ConfigureAwait(true);
+            if (response?.Success != true)
+            {
+                State.DriverStatus = response?.Error ?? "Keyboard provider refresh was not accepted";
+                return false;
+            }
+
+            await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+            return response.Capabilities?.KeyboardBacklight == true;
+        }
+        finally
+        {
+            _keyboardRefreshBusy = false;
         }
     }
 
@@ -199,8 +248,6 @@ public partial class App
 
     public void OpenHardwareSetup()
     {
-        // Kept as the public call site for older UI code, but setup is now an
-        // in-app notification/System workflow rather than a separate Window.
         OpenHardwareAttention();
     }
 }
