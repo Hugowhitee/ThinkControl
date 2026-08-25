@@ -1,11 +1,16 @@
 using System.Diagnostics;
+using System.IO.Pipes;
 using System.ServiceProcess;
+using System.Text;
+using System.Text.Json;
+using ThinkControl.Core.Ipc;
 
 namespace ThinkControl.Service;
 
 internal static class ServiceRepairCommand
 {
     private const string ServiceName = "ThinkControlService";
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     internal static int Run()
     {
@@ -52,11 +57,75 @@ internal static class ServiceRepairCommand
             if (start != 0 && !IsRunning())
                 return 23;
 
-            return WaitFor(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10)) ? 0 : 24;
+            if (!WaitFor(ServiceControllerStatus.Running, TimeSpan.FromSeconds(10)))
+                return 24;
+
+            // SCM reporting RUNNING is not enough. The regression that prompted this
+            // repair path was exactly a service process that stayed registered/running
+            // while the user-session pipe was unusable. Verify the same Ping protocol
+            // the UI uses before reporting a successful repair.
+            if (!WaitForResponsivePipe(TimeSpan.FromSeconds(10)))
+            {
+                ServiceLog.Write("Repair started the service, but IPC Ping never became responsive.");
+                return 26;
+            }
+
+            ServiceLog.Write("Repair verified SCM running state and user-session IPC Ping.");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            ServiceLog.Write($"Repair command failed: {ex.GetType().Name}: {ex.Message}");
+            return 25;
+        }
+    }
+
+    private static bool WaitForResponsivePipe(TimeSpan timeout)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (TryPingPipe())
+                return true;
+            Thread.Sleep(250);
+        }
+        return false;
+    }
+
+    private static bool TryPingPipe()
+    {
+        try
+        {
+            using var pipe = new NamedPipeClientStream(
+                ".",
+                ThinkControlProtocol.PipeName,
+                PipeDirection.InOut,
+                PipeOptions.None);
+            pipe.Connect(450);
+            if (!pipe.IsConnected)
+                return false;
+
+            string json = JsonSerializer.Serialize(
+                new ServiceRequest(ThinkControlProtocol.Version, "Ping"),
+                JsonOptions) + "\n";
+            byte[] bytes = Encoding.UTF8.GetBytes(json);
+            pipe.Write(bytes, 0, bytes.Length);
+            pipe.Flush();
+
+            using var reader = new StreamReader(pipe, Encoding.UTF8, false, 1024, leaveOpen: true);
+            Task<string?> read = reader.ReadLineAsync();
+            if (!read.Wait(TimeSpan.FromMilliseconds(700)))
+                return false;
+            string? line = read.Result;
+            if (string.IsNullOrWhiteSpace(line))
+                return false;
+
+            ServiceResponse? response = JsonSerializer.Deserialize<ServiceResponse>(line, JsonOptions);
+            return response?.Success == true;
         }
         catch
         {
-            return 25;
+            return false;
         }
     }
 
