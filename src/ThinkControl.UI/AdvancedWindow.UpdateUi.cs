@@ -252,6 +252,7 @@ public partial class AdvancedWindow
         UpdateViewState.UpdateStatus.StartsWith("Verifying", StringComparison.OrdinalIgnoreCase) ||
         UpdateViewState.UpdateStatus.StartsWith("Ready to install", StringComparison.OrdinalIgnoreCase) ||
         UpdateViewState.UpdateStatus.StartsWith("Installing", StringComparison.OrdinalIgnoreCase) ||
+        UpdateViewState.UpdateStatus.StartsWith("Installer open", StringComparison.OrdinalIgnoreCase) ||
         UpdateViewState.UpdateStatus.StartsWith("Installer started", StringComparison.OrdinalIgnoreCase) ||
         UpdateViewState.UpdateStatus.StartsWith("Updater started", StringComparison.OrdinalIgnoreCase);
 
