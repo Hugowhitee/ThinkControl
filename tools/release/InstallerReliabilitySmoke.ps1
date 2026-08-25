@@ -40,7 +40,36 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer owns the expected administrator transition.'
     }
 
-    Write-Host '[smoke] Updater elevation contract verified: Inno owns UAC + app relaunches as original user.'
+    # Regression contract for the alpha.15.1 failure shape reported on real hardware:
+    # user approved UAC, ThinkControl disappeared, and Setup also vanished. The app
+    # must keep running until the verified installer bootstrapper has demonstrably
+    # survived launch; Setup must fully acquire+stage before it kills the old UI.
+    if ($updateText -notmatch 'Process\?\s+process\s*=\s*Process\.Start\(start\)') {
+        throw 'UpdateService no longer verifies the spawned Setup process.'
+    }
+    if ($updateText -notmatch 'process\.HasExited') {
+        throw 'UpdateService no longer detects an installer that dies during handoff.'
+    }
+    if ($updateText -notmatch 'Task\.Delay\(900') {
+        throw 'UpdateService no longer gives Setup a bounded survival window before reporting handoff success.'
+    }
+    if ($updateText -notmatch 'ArgumentList\.Add\("/SILENT"\)') {
+        throw 'User-triggered updates must use visible /SILENT Setup, not a hidden very-silent flow.'
+    }
+    if ($updateText -match 'Application\.Current\.Shutdown|Current\.Shutdown\(\)') {
+        throw 'UpdateService must not shut ThinkControl down immediately after launching Setup.'
+    }
+
+    $stageIndex = $installerText.IndexOf('Result := StagePayload();', [System.StringComparison]::Ordinal)
+    $closeIndex = $installerText.IndexOf('CloseRunningThinkControl();', [System.StringComparison]::Ordinal)
+    if ($stageIndex -lt 0 -or $closeIndex -lt 0 -or $stageIndex -ge $closeIndex) {
+        throw 'Installer must completely stage the verified payload before closing the running ThinkControl UI.'
+    }
+    if ($installerText -notmatch 'ShouldRelaunchAfterSilentUpdate') {
+        throw 'Installer no longer carries the silent-update relaunch gate.'
+    }
+
+    Write-Host '[smoke] Updater handoff verified: Inno owns UAC, Setup survival is checked, staging precedes app close, relaunch uses original user.'
 }
 
 function Remove-SmokeService {
@@ -122,11 +151,9 @@ function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false) {
     )
 
     if ($legacyUpdateMode) {
-        # Alpha.14 used this hidden updater shape. The new Setup must remain compatible
-        # with it so users upgrading from that build cannot end up with "UAC → close →
-        # nothing" just because the launcher itself is old. Relaunch is disabled only
-        # for CI so a desktop window cannot make the runner flaky; the source assertion
-        # above separately guarantees runasoriginaluser for real /RELAUNCH=1 updates.
+        # Older updater builds used this hidden argument family. New Setup must stay
+        # compatible so an update initiated by the previous version cannot strand
+        # the user. Relaunch stays disabled only in CI to avoid desktop UI flakiness.
         $arguments += @('/CLOSEAPPLICATIONS', '/UPDATE=1', '/RELAUNCH=0', "/LOG=`"$updateLog`"")
     }
 
@@ -163,10 +190,10 @@ try {
 
     Install-SmokeCopy 'clean install'
 
-    # Exercise the exact hidden argument family used by alpha.14's in-app updater.
-    # This catches locked service binaries, broken staging/restart logic, ignored
-    # /UPDATE parameters and regressions that a fresh-install-only smoke cannot see.
-    Install-SmokeCopy 'alpha.14-compatible in-place update path' $true
+    # Exercise the hidden argument family used by older in-app updaters. This catches
+    # locked service binaries, staging/restart regressions and ignored /UPDATE args;
+    # the source contract above separately validates the current visible handoff.
+    Install-SmokeCopy 'previous-alpha-compatible in-place update path' $true
 
     $uninstaller = Join-Path $smokeDir 'unins000.exe'
     Write-Host '[smoke] Uninstalling verified in-place installation'
@@ -186,7 +213,7 @@ try {
     if (Test-Path (Join-Path $smokeDir 'ui\ThinkControl.UI.exe')) { throw 'UI executable remained after uninstall.' }
     if (Test-Path (Join-Path $smokeDir 'service\ThinkControl.Service.exe')) { throw 'Service executable remained after uninstall.' }
 
-    Write-Host '[smoke] Deep installer + IPC + alpha.14 update compatibility + uninstall lifecycle passed'
+    Write-Host '[smoke] Deep installer + IPC + previous-alpha update compatibility + uninstall lifecycle passed'
 }
 finally {
     Remove-SmokeService
