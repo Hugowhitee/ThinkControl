@@ -6,9 +6,14 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
-    public App()
+    public App() : this(enforceSingleInstance: true)
     {
-        InitializeSingleInstanceGuard();
+    }
+
+    private App(bool enforceSingleInstance)
+    {
+        if (enforceSingleInstance)
+            InitializeSingleInstanceGuard();
         UiMotionService.Enable();
         HardwareClient.HardwareOperationCompleted += HardwareClient_HardwareOperationCompleted;
         HardwareClient.StatusObserved += HardwareClient_StatusObserved;
@@ -22,6 +27,13 @@ public partial class App
         Activated += OnHardwareSetupActivated;
         Exit += OnTouchpadApplicationExit;
     }
+
+    /// <summary>
+    /// Creates the real WPF application resources for deterministic rendering
+    /// without treating the renderer as a second desktop launch. Startup is not
+    /// raised by the snapshot host, so tray, polling and hardware work stay idle.
+    /// </summary>
+    public static App CreateForVisualQa() => new(enforceSingleInstance: false);
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
     {
@@ -42,6 +54,8 @@ public partial class App
                     State.ThermalSolution = telemetry.ThermalSolutionVersion!;
 
                 State.ApplyHardwareTelemetry(telemetry.Fans, telemetry.Sensors);
+                if (State.BatteryTemperatureC is null)
+                    State.BatteryTemperatureC = ResolveCredibleBatteryTemperature(State.Sensors);
 
                 if (response.Capabilities is HardwareCapabilitySnapshot capabilities)
                 {
@@ -86,6 +100,28 @@ public partial class App
         else
             Dispatcher.BeginInvoke(Apply);
     }
+
+    private static double? ResolveCredibleBatteryTemperature(IEnumerable<HardwareSensorSnapshot> sensors)
+    {
+        // Never infer a battery temperature from an arbitrary motherboard/ACPI
+        // thermal zone. Accept only a plausible temperature whose hardware, sensor
+        // name or provider source explicitly identifies the battery.
+        HardwareSensorSnapshot? reading = sensors
+            .Where(sensor => sensor.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase))
+            .Where(sensor => sensor.Value is >= 0 and <= 70)
+            .Where(sensor => ContainsBatteryIdentity(sensor.HardwareName) ||
+                             ContainsBatteryIdentity(sensor.Name) ||
+                             ContainsBatteryIdentity(sensor.Source))
+            .OrderByDescending(sensor => ContainsBatteryIdentity(sensor.HardwareName))
+            .ThenByDescending(sensor => ContainsBatteryIdentity(sensor.Name))
+            .FirstOrDefault();
+        return reading is null ? null : Math.Round(reading.Value, 1);
+    }
+
+    private static bool ContainsBatteryIdentity(string? value) =>
+        !string.IsNullOrWhiteSpace(value) &&
+        (value.Contains("battery", StringComparison.OrdinalIgnoreCase) ||
+         value.Contains("batt", StringComparison.OrdinalIgnoreCase));
 
     private void HardwareClient_HardwareOperationCompleted(object? sender, HardwareOperationResult operation)
     {

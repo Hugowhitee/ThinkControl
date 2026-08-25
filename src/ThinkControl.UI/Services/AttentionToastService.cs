@@ -15,6 +15,7 @@ internal sealed class AttentionToastService : IDisposable
     private TextBlock? _message;
     private Button? _action;
     private Action? _actionCallback;
+    private Action? _dismissCallback;
     private readonly DispatcherTimer _hideTimer;
     private string _lastKey = string.Empty;
     private DateTimeOffset _lastShown = DateTimeOffset.MinValue;
@@ -28,7 +29,7 @@ internal sealed class AttentionToastService : IDisposable
         _hideTimer.Tick += (_, _) => Hide();
     }
 
-    internal void Show(string key, string title, string message, string actionText, Action action)
+    internal void Show(string key, string title, string message, string actionText, Action action, Action? dismissed = null)
     {
         if (key == _lastKey && DateTimeOffset.UtcNow - _lastShown < TimeSpan.FromMinutes(10))
             return;
@@ -43,6 +44,7 @@ internal sealed class AttentionToastService : IDisposable
         _message.Text = message;
         _action.Content = actionText;
         _actionCallback = action;
+        _dismissCallback = dismissed;
 
         _window.UpdateLayout();
         Rect area = SystemParameters.WorkArea;
@@ -149,7 +151,11 @@ internal sealed class AttentionToastService : IDisposable
             Margin = new Thickness(8, 0, 0, 0),
             Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
-        dismiss.Click += (_, _) => Hide();
+        dismiss.Click += (_, _) =>
+        {
+            Hide();
+            _dismissCallback?.Invoke();
+        };
 
         var actions = new StackPanel
         {

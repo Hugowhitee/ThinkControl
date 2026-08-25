@@ -114,4 +114,34 @@ public sealed class FanCurvePolicyTests
         Assert.Equal(4, FanOutputMapping.Resolve(40).HardwareState);
         Assert.Equal(8, FanOutputMapping.Resolve(100).HardwareState);
     }
+
+    [Fact]
+    public void GraphCurve_AllowsThreeToEightPointsAndRejectsMore()
+    {
+        Assert.True(FanCurveGraphPolicy.TryNormalize(
+            [new(40, 0), new(70, 50), new(92, 100)], out FanCurvePoint[] compact, out _));
+        Assert.Equal(3, compact.Length);
+
+        Assert.False(FanCurveGraphPolicy.TryNormalize(
+            [
+                new(35, 0), new(42, 10), new(49, 20), new(56, 30), new(63, 40),
+                new(70, 50), new(77, 60), new(84, 80), new(92, 100)
+            ], out _, out string? error));
+        Assert.Contains("between 3 and 8", error);
+    }
+
+    [Fact]
+    public void GraphCurve_SmoothsAbruptInteriorStepsWithoutMovingTemperatures()
+    {
+        FanCurvePoint[] rough =
+        [
+            new(40, 0), new(52, 0), new(64, 70), new(78, 70), new(92, 100)
+        ];
+
+        FanCurvePoint[] smooth = FanCurveGraphPolicy.Smooth(rough);
+
+        Assert.Equal([40d, 52d, 64d, 78d, 92d], smooth.Select(point => point.TemperatureC));
+        Assert.Equal([0, 18, 53, 78, 100], smooth.Select(point => point.Percent));
+        Assert.True(FanCurveGraphPolicy.TryNormalize(smooth, out _, out _));
+    }
 }

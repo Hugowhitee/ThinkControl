@@ -155,7 +155,7 @@ public partial class App : System.Windows.Application
             State.BatteryPowerWatts = battery.PowerWatts;
             State.BatterySmoothedPowerWatts = battery.SmoothedPowerWatts;
             State.BatteryHealthPercent = battery.HealthPercent;
-            State.BatteryTemperatureC = battery.TemperatureC;
+            State.BatteryTemperatureC = battery.TemperatureC ?? ResolveCredibleBatteryTemperature(State.Sensors);
             State.BatteryRemainingWh = battery.RemainingCapacityWh;
             State.BatteryFullWh = battery.FullChargeCapacityWh;
             State.BatteryEtaToFull = battery.EstimatedTimeToFull;

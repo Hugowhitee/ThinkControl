@@ -15,6 +15,7 @@ public partial class BatteryTelemetryPanel : UserControl
     private AppState? _subscribedState;
     private bool _historyRefreshQueued;
     private bool _batteryUsageCardAdded;
+    private bool _showAllSessions;
 
     public BatteryTelemetryPanel()
     {
@@ -179,8 +180,11 @@ public partial class BatteryTelemetryPanel : UserControl
             return;
         }
 
-        foreach (BatterySessionDetail session in sessions)
+        int visibleCount = _showAllSessions ? sessions.Count : Math.Min(3, sessions.Count);
+        foreach (BatterySessionDetail session in sessions.Take(visibleCount))
             RecentSessionItems.Children.Add(CreateSessionRow(session));
+        ToggleSessionsButton.Visibility = sessions.Count > 3 ? Visibility.Visible : Visibility.Collapsed;
+        ToggleSessionsButton.Content = _showAllSessions ? "Show less" : $"Show all {sessions.Count}";
     }
 
     internal void PrepareForSnapshot(AppState state)
@@ -356,6 +360,12 @@ public partial class BatteryTelemetryPanel : UserControl
         BatteryHistoryView view = app.BatteryHistoryService.Clear();
         app.State.ApplyBatteryHistory(view);
         app.BatteryTelemetryService.SetHistoricalChargePower(view.TypicalChargePowerWatts);
+        RefreshHistoryUi();
+    }
+
+    private void ToggleSessions_Click(object sender, RoutedEventArgs e)
+    {
+        _showAllSessions = !_showAllSessions;
         RefreshHistoryUi();
     }
 

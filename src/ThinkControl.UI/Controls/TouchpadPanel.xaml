@@ -4,67 +4,6 @@
              xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
              MinWidth="520">
     <UserControl.Resources>
-        <Style x:Key="TouchpadComboItem" TargetType="ComboBoxItem">
-            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
-            <Setter Property="Padding" Value="10,8" />
-            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBoxItem">
-                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
-                            <ContentPresenter VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger>
-                            <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /><Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <Style x:Key="TouchpadCombo" TargetType="ComboBox">
-            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="MinHeight" Value="34" />
-            <Setter Property="ItemContainerStyle" Value="{StaticResource TouchpadComboItem}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ComboBox">
-                        <Grid>
-                            <ToggleButton x:Name="ToggleButton" Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
-                                <ToggleButton.Template>
-                                    <ControlTemplate TargetType="ToggleButton">
-                                        <Border x:Name="ComboBorder" MinHeight="34" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="4" SnapsToDevicePixels="True">
-                                            <Grid>
-                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="30" /></Grid.ColumnDefinitions>
-                                                <ContentPresenter Margin="10,0,6,0" VerticalAlignment="Center" HorizontalAlignment="Left" Content="{TemplateBinding Content}" />
-                                                <Path Grid.Column="1" Width="8" Height="5" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource Tc.TextMuted}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M0,0 L4,4 L8,0" />
-                                            </Grid>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ComboBorder" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger>
-                                            <Trigger Property="IsChecked" Value="True"><Setter TargetName="ComboBorder" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" /></Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </ToggleButton.Template>
-                                <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" />
-                            </ToggleButton>
-                            <Popup x:Name="PART_Popup" Placement="Bottom" AllowsTransparency="True" Focusable="False" StaysOpen="False" PopupAnimation="Fade" IsOpen="{TemplateBinding IsDropDownOpen}">
-                                <Border MinWidth="280" MaxHeight="330" Margin="0,3,0,0" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="4">
-                                    <ScrollViewer CanContentScroll="True" VerticalScrollBarVisibility="Auto"><ItemsPresenter /></ScrollViewer>
-                                </Border>
-                            </Popup>
-                        </Grid>
-                        <ControlTemplate.Triggers><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45" /></Trigger></ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
         <Style x:Key="TouchpadLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
             <Setter Property="FontSize" Value="10.5" />
@@ -138,7 +77,7 @@
                         <TextBlock Text="Selected edge" FontWeight="SemiBold" />
                         <TextBlock x:Name="SelectedEdgeDescription" Text="Choose what sliding along this edge controls." Style="{StaticResource TouchpadLabel}" Margin="0,4,0,12" />
                         <TextBlock Text="Action" Style="{StaticResource TouchpadLabel}" />
-                        <ComboBox x:Name="ActionCombo" Style="{StaticResource TouchpadCombo}" Margin="0,5,0,7" SelectionChanged="ActionCombo_SelectionChanged" />
+                        <ComboBox x:Name="ActionCombo" Style="{StaticResource TcComboBox}" Margin="0,5,0,7" SelectionChanged="ActionCombo_SelectionChanged" />
                         <TextBlock x:Name="ActionHelpText" Style="{StaticResource TouchpadLabel}" TextWrapping="Wrap" Margin="1,0,1,12" />
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="48" /></Grid.ColumnDefinitions>
@@ -189,7 +128,7 @@
                         <Grid Margin="0,13,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="150" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Position" Style="{StaticResource TouchpadLabel}" VerticalAlignment="Center" />
-                            <ComboBox x:Name="OsdPositionCombo" Grid.Column="1" Style="{StaticResource TouchpadCombo}" SelectionChanged="OsdPosition_SelectionChanged" />
+                            <ComboBox x:Name="OsdPositionCombo" Grid.Column="1" Style="{StaticResource TcComboBox}" SelectionChanged="OsdPosition_SelectionChanged" />
                         </Grid>
                         <Grid Margin="0,13,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="48" /></Grid.ColumnDefinitions>

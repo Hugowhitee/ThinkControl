@@ -366,16 +366,14 @@ jobs:
             Remove-SmokeService
             Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
 
-            Write-Host "[smoke] Installing $($setup.Name) using external verified payload $($payload.Name)"
-            $payloadArg = "/PAYLOAD=`"$($payload.FullName)`""
+            Write-Host "[smoke] Installing $($setup.Name) using its automatically discovered sibling payload $($payload.Name)"
             $dirArg = "/DIR=`"$smokeDir`""
             $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
               "/VERYSILENT",
               "/SUPPRESSMSGBOXES",
               "/NORESTART",
               "/SP-",
-              $dirArg,
-              $payloadArg
+              $dirArg
             ) -Wait -PassThru
             Write-Host "[smoke] Installer exit code: $($install.ExitCode)"
             if ($install.ExitCode -ne 0) { throw "Silent install failed with exit code $($install.ExitCode)" }

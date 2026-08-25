@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
+using ThinkControl.Core.Notifications;
 
 namespace ThinkControl.UI;
 
@@ -58,6 +59,26 @@ public partial class App
         if (!NeedsProactiveHardwareAttention(status))
         {
             try { _hardwareAttentionDelay?.Cancel(); } catch { }
+            if (status.Equals("Ready", StringComparison.OrdinalIgnoreCase) &&
+                UserSettings.Current.AttentionAcknowledgedKey.StartsWith("hardware:", StringComparison.Ordinal))
+            {
+                UserSettings.Update(settings => settings with
+                {
+                    AttentionAcknowledgedKey = string.Empty,
+                    AttentionAcknowledgedAtUtc = string.Empty
+                });
+            }
+            return;
+        }
+
+        string key = AttentionCooldownPolicy.HardwareKey(status);
+        ThinkControlUserSettings preferences = UserSettings.Current;
+        if (AttentionCooldownPolicy.IsSuppressed(
+                key,
+                preferences.AttentionAcknowledgedKey,
+                preferences.AttentionAcknowledgedAtUtc,
+                DateTimeOffset.UtcNow))
+        {
             return;
         }
 
@@ -89,12 +110,27 @@ public partial class App
                 }
 
                 (string title, string detail) = HardwareAttentionCopy(status);
+                string key = AttentionCooldownPolicy.HardwareKey(status);
+                ThinkControlUserSettings preferences = UserSettings.Current;
+                if (AttentionCooldownPolicy.IsSuppressed(
+                        key,
+                        preferences.AttentionAcknowledgedKey,
+                        preferences.AttentionAcknowledgedAtUtc,
+                        DateTimeOffset.UtcNow))
+                {
+                    return;
+                }
                 _attentionToast.Show(
-                    "hardware:" + status,
+                    key,
                     title,
                     detail,
                     "Open hardware",
-                    OpenHardwareAttention);
+                    () =>
+                    {
+                        AcknowledgeHardwareAttention(key);
+                        OpenHardwareAttention();
+                    },
+                    () => AcknowledgeHardwareAttention(key));
             });
         }
         catch (OperationCanceledException)
@@ -108,6 +144,15 @@ public partial class App
                 owner.Dispose();
             }
         }
+    }
+
+    private void AcknowledgeHardwareAttention(string key)
+    {
+        UserSettings.Update(settings => settings with
+        {
+            AttentionAcknowledgedKey = key,
+            AttentionAcknowledgedAtUtc = DateTimeOffset.UtcNow.ToString("O")
+        });
     }
 
     private void TryShowPendingUpdateAttention()

@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.Core.Ipc;
@@ -12,13 +13,18 @@ public partial class SensorsPanel : UserControl
     private const int MaxPoints = 900;
 
     private readonly ObservableCollection<TimeSeriesPoint> _controlHistory = [];
+    private readonly ObservableCollection<HardwareSensorSnapshot> _visibleSensors = [];
     private App? _app;
     private bool _statusSubscribed;
+    private bool _showAllSensors;
+    private AppState? _sensorState;
 
     public SensorsPanel()
     {
         InitializeComponent();
         SensorChart.Values = _controlHistory;
+        VisibleSensorItems.ItemsSource = _visibleSensors;
+        DataContextChanged += SensorsPanel_DataContextChanged;
         Loaded += SensorsPanel_Loaded;
         Unloaded += SensorsPanel_Unloaded;
         IsVisibleChanged += SensorsPanel_IsVisibleChanged;
@@ -38,6 +44,8 @@ public partial class SensorsPanel : UserControl
         GraphSubtitle.Text = string.IsNullOrWhiteSpace(state.ControlTemperatureSource)
             ? "Hottest relevant CPU/GPU thermal domain"
             : state.ControlTemperatureSource;
+        AttachSensorState(state);
+        RefreshVisibleSensors();
     }
 
     private void SensorsPanel_Loaded(object sender, RoutedEventArgs e)
@@ -50,6 +58,7 @@ public partial class SensorsPanel : UserControl
     private void SensorsPanel_Unloaded(object sender, RoutedEventArgs e)
     {
         UnsubscribeStatus();
+        DetachSensorState();
         _app = null;
     }
 
@@ -108,5 +117,63 @@ public partial class SensorsPanel : UserControl
         GraphSubtitle.Text = string.IsNullOrWhiteSpace(telemetry.ControlTemperatureSource)
             ? "Hottest relevant CPU/GPU thermal domain"
             : telemetry.ControlTemperatureSource;
+    }
+
+    private void SensorsPanel_DataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue is AppState state)
+            AttachSensorState(state);
+        else
+            DetachSensorState();
+        RefreshVisibleSensors();
+    }
+
+    private void AttachSensorState(AppState state)
+    {
+        if (ReferenceEquals(_sensorState, state))
+            return;
+        DetachSensorState();
+        _sensorState = state;
+        _sensorState.Sensors.CollectionChanged += Sensors_CollectionChanged;
+    }
+
+    private void DetachSensorState()
+    {
+        if (_sensorState is not null)
+            _sensorState.Sensors.CollectionChanged -= Sensors_CollectionChanged;
+        _sensorState = null;
+    }
+
+    private void Sensors_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) => RefreshVisibleSensors();
+
+    private void RefreshVisibleSensors()
+    {
+        HardwareSensorSnapshot[] ordered = (_sensorState?.Sensors ?? [])
+            .OrderByDescending(sensor => sensor.ControlTemperature)
+            .ThenBy(sensor => SensorPriority(sensor.SensorType))
+            .ThenBy(sensor => sensor.HardwareName, StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(sensor => sensor.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToArray();
+        int visibleCount = _showAllSensors ? ordered.Length : Math.Min(6, ordered.Length);
+        _visibleSensors.Clear();
+        foreach (HardwareSensorSnapshot sensor in ordered.Take(visibleCount))
+            _visibleSensors.Add(sensor);
+        ToggleSensorsButton.Visibility = ordered.Length > 6 ? Visibility.Visible : Visibility.Collapsed;
+        ToggleSensorsButton.Content = _showAllSensors ? "Show less" : $"Show all {ordered.Length}";
+    }
+
+    private static int SensorPriority(string? type) => type?.Trim().ToLowerInvariant() switch
+    {
+        "temperature" => 0,
+        "fan" => 1,
+        "power" => 2,
+        "load" => 3,
+        _ => 4
+    };
+
+    private void ToggleSensors_Click(object sender, RoutedEventArgs e)
+    {
+        _showAllSensors = !_showAllSensors;
+        RefreshVisibleSensors();
     }
 }

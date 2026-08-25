@@ -34,7 +34,7 @@ public sealed class DolbyAudioService
     public DolbyAudioStatus Probe()
     {
         bool access = IsDolbyAccessInstalled();
-        bool dax = IsKnownDaxBackendRegistered();
+        bool dax = IsDaxBackendPresent();
         bool fusion = IsDolbyFusionBackendPresent();
 
         string detail;
@@ -124,8 +124,23 @@ public sealed class DolbyAudioService
         return false;
     }
 
-    private static bool IsKnownDaxBackendRegistered()
+    private static bool IsDaxBackendPresent()
     {
+        // Current Lenovo packages can expose DAX3API only as a Windows service and
+        // APO software component; the legacy automation COM class is not present on
+        // the X9 generation. Backend detection must not confuse that with the much
+        // narrower direct-control capability checked by DolbyDirectControlService.
+        try
+        {
+            using RegistryKey? service = Registry.LocalMachine.OpenSubKey(
+                @"SYSTEM\CurrentControlSet\Services\DolbyDAXAPI");
+            if (service is not null)
+                return true;
+        }
+        catch
+        {
+        }
+
         try
         {
             using RegistryKey? key = Registry.ClassesRoot.OpenSubKey($@"CLSID\{DaxClsid}");

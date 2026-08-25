@@ -11,6 +11,7 @@ public partial class FansPanel : UserControl
 {
     private readonly ObservableCollection<CalibrationRow> _calibrationRows = [];
     private readonly ObservableCollection<FanProfileChoice> _profileChoices = [];
+    private readonly FanCurveGraph _activeCurveGraph = new() { IsReadOnly = true, ShowLiveLabel = false };
     private App? _app;
     private bool _resetAdded;
     private bool _statusSubscribed;
@@ -20,6 +21,7 @@ public partial class FansPanel : UserControl
     public FansPanel()
     {
         InitializeComponent();
+        ActiveCurvePreviewHost.Content = _activeCurveGraph;
         CalibrationResults.ItemsSource = _calibrationRows;
         ProfileComboBox.ItemsSource = _profileChoices;
         Loaded += (_, _) => SyncStatusSubscription();
@@ -52,7 +54,7 @@ public partial class FansPanel : UserControl
         CoolingDetailText.Text = state.CanFanControl
             ? $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
             : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
-        AppliedLevelText.Text = state.CanFanControl ? "Auto" : "Unavailable";
+        AppliedLevelText.Text = state.CanFanControl ? state.FanStateText : "Unavailable";
         CharacterizeButton.IsEnabled = state.CanFanControl;
         StopCharacterizationButton.Visibility = Visibility.Collapsed;
         CharacterizationProgress.Visibility = Visibility.Collapsed;
@@ -62,6 +64,7 @@ public partial class FansPanel : UserControl
         MarkAudibleButton.Visibility = Visibility.Collapsed;
         ManualPercentSlider.IsEnabled = state.CanFanControl;
         _calibrationRows.Clear();
+        UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, state.ControlTemperatureC, state.FanRpm);
     }
 
     private void SyncStatusSubscription()
@@ -151,6 +154,7 @@ public partial class FansPanel : UserControl
 
         ManualPercentSlider.IsEnabled = canControl;
         BuildCalibrationRows(characterization);
+        UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, telemetry?.ControlTemperatureC, telemetry?.FanRpm);
     }
 
     private void BuildCalibrationRows(FanCharacterizationSnapshot? characterization)
@@ -207,11 +211,34 @@ public partial class FansPanel : UserControl
                 selected = _profileChoices.FirstOrDefault(choice => string.Equals(choice.Name, display, StringComparison.OrdinalIgnoreCase));
             }
             ProfileComboBox.SelectedItem = selected ?? _profileChoices.FirstOrDefault();
+            UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, _app?.State.ControlTemperatureC, _app?.State.FanRpm);
         }
         finally
         {
             _syncingProfileSelection = false;
         }
+    }
+
+    private void UpdateActiveCurvePreview(FanProfileChoice? choice, double? temperatureC, int? rpm)
+    {
+        FanCurveDefinition? curve = choice is null ? null : _app?.FanProfiles.Find(choice.Id);
+        if (curve is null)
+        {
+            ActiveCurvePreview.Visibility = Visibility.Collapsed;
+            _activeCurveGraph.SetLiveState(null, null, null);
+            return;
+        }
+
+        _activeCurveGraph.SetCurve(curve.Points);
+        _activeCurveGraph.SelectedIndex = -1;
+        int? target = temperatureC is double temperature
+            ? FanCurveGraphPolicy.ResolvePercent(curve.Points, temperature)
+            : null;
+        _activeCurveGraph.SetLiveState(temperatureC, target, rpm);
+        LiveCurveStatus.Text = temperatureC is double live && target is int percent
+            ? $"{live:0.0} °C → {percent}% target" + (rpm is int actual ? $" · {actual:N0} RPM now" : string.Empty)
+            : "Waiting for control temperature";
+        ActiveCurvePreview.Visibility = Visibility.Visible;
     }
 
     private void RebuildProfileChoices()
@@ -392,14 +419,6 @@ public partial class FansPanel : UserControl
             _ = _app.HardwareClient.GetStatusAsync();
         }
     }
-
-    // Kept as no-op compatibility handlers for stale alpha.16 visual snapshots that
-    // may instantiate the hidden migration controls from older XAML revisions.
-    private void CustomCurveSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e) { }
-    private void ApplyCustomCurve_Click(object sender, RoutedEventArgs e) { }
-    private void ResetCustomCurve_Click(object sender, RoutedEventArgs e) { }
-    private void Profile_Click(object sender, RoutedEventArgs e) { }
-    private void ProfileMenuItem_Click(object sender, RoutedEventArgs e) { }
 
     private sealed record CalibrationRow(string LevelText, string RpmText, string StabilityText);
     private sealed record FanProfileChoice(string Id, string Name);

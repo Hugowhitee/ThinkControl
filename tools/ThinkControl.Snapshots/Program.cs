@@ -31,13 +31,15 @@ internal static class Program
             : Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "snapshots"));
         Directory.CreateDirectory(output);
 
-        var app = new App();
+        var app = App.CreateForVisualQa();
         app.InitializeComponent();
         var snapshots = new List<SnapshotEntry>();
 
         AppState charging = CreateDemoState(charging: true, hardwareReady: true);
         AppState onBattery = CreateDemoState(charging: false, hardwareReady: true);
         AppState serviceOffline = CreateDemoState(charging: true, hardwareReady: false);
+        AppState activeFanCurve = CreateDemoState(charging: true, hardwareReady: true);
+        activeFanCurve.CoolingProfile = "Balanced";
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
         pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
         pawnIoRepair.HardwareAccess =
@@ -85,6 +87,7 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
+        RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker");
         RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
 
         // High-value overlays/windows are part of the release gate too. They use
@@ -97,6 +100,7 @@ internal static class Program
             "hardware-setup-pawnio-repair-min.png", "PawnIO device repair · minimum window");
         RenderHardwareSetup(app, charging, readySetup, 700, 720, output, snapshots,
             "hardware-setup-ready.png", "all providers ready");
+        RenderFanCurveEditor(app, charging, output, snapshots);
         RenderTelemetryDetail(output, snapshots);
 
         ThemeService.Apply(ThemeMode.Light);
@@ -186,7 +190,11 @@ internal static class Program
                 new HardwareSensorSnapshot("cpu-power", "Intel Core Ultra 7 258V", "Cpu", "CPU Package", "Power", 12.8, "W", false, "LibreHardwareMonitor"),
                 new HardwareSensorSnapshot("gpu-temp", "Intel Arc 140V", "GpuIntel", "GPU Core", "Temperature", 43.5, "°C", true, "LibreHardwareMonitor"),
                 new HardwareSensorSnapshot("gpu-load", "Intel Arc 140V", "GpuIntel", "GPU Core", "Load", 18.0, "%", false, "LibreHardwareMonitor"),
-                new HardwareSensorSnapshot("ssd-temp", "NVMe SSD", "Storage", "Temperature", "Temperature", 39.0, "°C", false, "LibreHardwareMonitor")
+                new HardwareSensorSnapshot("ssd-temp", "NVMe SSD", "Storage", "Temperature", "Temperature", 39.0, "°C", false, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("memory-temp", "LPDDR5X memory", "Memory", "Memory modules", "Temperature", 41.1, "°C", false, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("gpu-power", "Intel Arc 140V", "GpuIntel", "GPU Package", "Power", 4.7, "W", false, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("cpu-load", "Intel Core Ultra 7 258V", "Cpu", "CPU Total", "Load", 21.4, "%", false, "LibreHardwareMonitor"),
+                new HardwareSensorSnapshot("ssd-load", "NVMe SSD", "Storage", "Total activity", "Load", 3.0, "%", false, "LibreHardwareMonitor")
             ]);
         }
 
@@ -365,6 +373,22 @@ internal static class Program
         var window = new TelemetryDetailWindow(model) { Width = width, Height = height };
         RenderWindowContent(window, Path.Combine(output, "telemetry-detail-battery.png"));
         snapshots.Add(new SnapshotEntry("telemetry-detail-battery.png", "Telemetry detail", "battery charge session · % + W", width, height));
+        window.Close();
+    }
+
+    private static void RenderFanCurveEditor(
+        App app,
+        AppState state,
+        string output,
+        ICollection<SnapshotEntry> snapshots)
+    {
+        const int width = 940;
+        const int height = 680;
+        SyncAppState(state, app.State);
+        var window = new FanCurveEditorWindow(app) { Width = width, Height = height };
+        window.PrepareForSnapshot();
+        RenderWindowContent(window, Path.Combine(output, "fan-curve-editor.png"));
+        snapshots.Add(new SnapshotEntry("fan-curve-editor.png", "Fan curve editor", "custom profile · live marker", width, height));
         window.Close();
     }
 

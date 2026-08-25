@@ -24,7 +24,6 @@ public partial class AdvancedWindow
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
-        ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
@@ -53,7 +52,6 @@ public partial class AdvancedWindow
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
-        ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
@@ -142,7 +140,10 @@ public partial class AdvancedWindow
         AdvancedWindowEnhancer.SelectTouchpad(this);
 
         if (_snapshotUiPrepared)
+        {
+            RevealDynamicPageForSnapshot("ThinkControl.Dynamic.PageTouchpad");
             PrepareTouchpadForSnapshot();
+        }
     }
 
     private void PrepareTouchpadForSnapshot()
@@ -177,6 +178,17 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectSensors(this);
+        if (_snapshotUiPrepared)
+            RevealDynamicPageForSnapshot("ThinkControl.Dynamic.PageSensors");
+    }
+
+    private void RevealDynamicPageForSnapshot(string resourceKey)
+    {
+        if (!Resources.Contains(resourceKey) || Resources[resourceKey] is not FrameworkElement page)
+            throw new InvalidOperationException($"Dynamic page '{resourceKey}' is unavailable for visual QA.");
+        page.BeginAnimation(UIElement.OpacityProperty, null);
+        page.Opacity = 1;
+        page.Visibility = Visibility.Visible;
     }
 
     public void NavigateAudio()

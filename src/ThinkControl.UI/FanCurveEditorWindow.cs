@@ -1,9 +1,12 @@
 using System.Globalization;
+using System.ComponentModel;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ThinkControl.Core.Cooling;
+using ThinkControl.UI.Services;
 using ListBox = System.Windows.Controls.ListBox;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
@@ -14,17 +17,24 @@ namespace ThinkControl.UI;
 internal sealed class FanCurveEditorWindow : Window
 {
     private readonly App _app;
-    private readonly ListBox _profiles = new();
+    private readonly ListBox _builtInProfiles = new();
+    private readonly ListBox _customProfiles = new();
+    private readonly TextBlock _customHeading = new();
+    private readonly TextBlock _customEmpty = new();
     private readonly FanCurveGraph _graph = new();
-    private readonly Slider _temperature = new() { Minimum = FanCurveGraphPolicy.MinTemperatureC, Maximum = FanCurveGraphPolicy.MaxTemperatureC, TickFrequency = 1, IsSnapToTickEnabled = true };
-    private readonly Slider _output = new() { Minimum = 0, Maximum = 100, TickFrequency = 1, IsSnapToTickEnabled = true };
+    private readonly TextBox _temperature = new();
+    private readonly TextBox _output = new();
     private readonly TextBlock _pointValue = new();
+    private readonly TextBlock _liveValue = new();
     private readonly TextBlock _status = new();
     private readonly Button _rename = new();
     private readonly Button _delete = new();
     private readonly Button _reset = new();
+    private readonly Button _addPoint = new();
+    private readonly Button _removePoint = new();
     private readonly Button _apply = new();
     private bool _syncing;
+    private bool _syncingProfileSelection;
     private FanCurveDefinition? _editing;
 
     internal FanCurveEditorWindow(App app)
@@ -41,12 +51,19 @@ internal sealed class FanCurveEditorWindow : Window
         Foreground = Application.Current.TryFindResource("Tc.Text") as Brush ?? SystemColors.WindowTextBrush;
 
         Content = BuildLayout();
-        _profiles.SelectionChanged += Profiles_SelectionChanged;
+        _builtInProfiles.SelectionChanged += Profiles_SelectionChanged;
+        _customProfiles.SelectionChanged += Profiles_SelectionChanged;
         _graph.SelectionChanged += Graph_SelectionChanged;
         _graph.CurveChanged += Graph_CurveChanged;
-        _temperature.ValueChanged += Precision_ValueChanged;
-        _output.ValueChanged += Precision_ValueChanged;
-        Loaded += (_, _) => ReloadProfiles(_app.UserSettings.Current.CoolingProfile);
+        ConfigureNumberField(_temperature, allowDecimal: true);
+        ConfigureNumberField(_output, allowDecimal: false);
+        Loaded += (_, _) =>
+        {
+            ReloadProfiles(_app.UserSettings.Current.CoolingProfile);
+            _app.State.PropertyChanged += State_PropertyChanged;
+            RefreshLiveMarker();
+        };
+        Unloaded += (_, _) => _app.State.PropertyChanged -= State_PropertyChanged;
     }
 
     private UIElement BuildLayout()
@@ -70,7 +87,7 @@ internal sealed class FanCurveEditorWindow : Window
         root.Children.Add(heading);
 
         var body = new Grid();
-        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(205) });
+        body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(224) });
         body.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(16) });
         body.ColumnDefinitions.Add(new ColumnDefinition());
         Grid.SetRow(body, 1);
@@ -78,11 +95,21 @@ internal sealed class FanCurveEditorWindow : Window
 
         var profileCard = Section();
         var profileStack = new StackPanel();
-        profileStack.Children.Add(new TextBlock { Text = "Profiles", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 8) });
-        _profiles.MinHeight = 260;
-        _profiles.BorderThickness = new Thickness(0);
-        _profiles.Background = Brushes.Transparent;
-        profileStack.Children.Add(_profiles);
+        profileStack.Children.Add(new TextBlock { Text = "Built-in", FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 7) });
+        ConfigureProfileList(_builtInProfiles, maxHeight: 116);
+        profileStack.Children.Add(_builtInProfiles);
+
+        _customHeading.Text = $"Custom · 0/{FanProfileCatalog.MaxCustomProfiles}";
+        _customHeading.FontWeight = FontWeights.SemiBold;
+        _customHeading.Margin = new Thickness(0, 13, 0, 7);
+        profileStack.Children.Add(_customHeading);
+        _customEmpty.Text = "No custom curves yet";
+        _customEmpty.FontSize = 10;
+        _customEmpty.Margin = new Thickness(5, 6, 0, 7);
+        _customEmpty.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
+        profileStack.Children.Add(_customEmpty);
+        ConfigureProfileList(_customProfiles, maxHeight: 132);
+        profileStack.Children.Add(_customProfiles);
 
         var row1 = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         row1.ColumnDefinitions.Add(new ColumnDefinition());
@@ -102,7 +129,7 @@ internal sealed class FanCurveEditorWindow : Window
         var row2 = new Grid { Margin = new Thickness(0, 6, 0, 0) };
         row2.ColumnDefinitions.Add(new ColumnDefinition());
         row2.ColumnDefinitions.Add(new ColumnDefinition());
-        _reset.Content = "Factory reset";
+        _reset.Content = "Reset built-in";
         ConfigureSmallButton(_reset);
         _reset.Click += Reset_Click;
         _delete.Content = "Delete";
@@ -122,6 +149,7 @@ internal sealed class FanCurveEditorWindow : Window
         editor.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         editor.RowDefinitions.Add(new RowDefinition());
         editor.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        editor.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var editorHeader = new Grid { Margin = new Thickness(0, 0, 0, 8) };
         editorHeader.ColumnDefinitions.Add(new ColumnDefinition());
@@ -133,19 +161,46 @@ internal sealed class FanCurveEditorWindow : Window
         editorHeader.Children.Add(safety);
         editor.Children.Add(editorHeader);
 
-        _graph.MinHeight = 310;
+        _graph.MinHeight = 300;
         _graph.Focusable = true;
         Grid.SetRow(_graph, 1);
         editor.Children.Add(_graph);
 
-        var precision = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+        var pointTools = new Grid { Margin = new Thickness(0, 10, 0, 0) };
+        pointTools.ColumnDefinitions.Add(new ColumnDefinition());
+        pointTools.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        _liveValue.FontSize = 10;
+        _liveValue.VerticalAlignment = VerticalAlignment.Center;
+        _liveValue.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        pointTools.Children.Add(_liveValue);
+        var toolButtons = new StackPanel { Orientation = Orientation.Horizontal };
+        _addPoint.Content = "+ Point";
+        ConfigureSmallButton(_addPoint);
+        _addPoint.Click += AddPoint_Click;
+        _removePoint.Content = "Remove";
+        ConfigureSmallButton(_removePoint);
+        _removePoint.Margin = new Thickness(6, 0, 0, 0);
+        _removePoint.Click += RemovePoint_Click;
+        Button smooth = SmallButton("Smooth");
+        smooth.Margin = new Thickness(6, 0, 0, 0);
+        smooth.ToolTip = "Even out abrupt changes while keeping temperatures and safety endpoints";
+        smooth.Click += Smooth_Click;
+        toolButtons.Children.Add(_addPoint);
+        toolButtons.Children.Add(_removePoint);
+        toolButtons.Children.Add(smooth);
+        Grid.SetColumn(toolButtons, 1);
+        pointTools.Children.Add(toolButtons);
+        Grid.SetRow(pointTools, 2);
+        editor.Children.Add(pointTools);
+
+        var precision = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         precision.ColumnDefinitions.Add(new ColumnDefinition());
         precision.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
         precision.ColumnDefinitions.Add(new ColumnDefinition());
         precision.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         precision.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        precision.Children.Add(PrecisionPanel("Temperature", _temperature));
-        var outputPanel = PrecisionPanel("Fan target", _output);
+        precision.Children.Add(PrecisionPanel("Temperature", _temperature, "°C"));
+        var outputPanel = PrecisionPanel("Fan target", _output, "%");
         Grid.SetColumn(outputPanel, 2);
         precision.Children.Add(outputPanel);
         _pointValue.FontSize = 10;
@@ -154,7 +209,7 @@ internal sealed class FanCurveEditorWindow : Window
         Grid.SetRow(_pointValue, 1);
         Grid.SetColumnSpan(_pointValue, 3);
         precision.Children.Add(_pointValue);
-        Grid.SetRow(precision, 2);
+        Grid.SetRow(precision, 3);
         editor.Children.Add(precision);
         editorCard.Child = editor;
         body.Children.Add(editorCard);
@@ -194,14 +249,60 @@ internal sealed class FanCurveEditorWindow : Window
         return border;
     }
 
-    private StackPanel PrecisionPanel(string title, Slider slider)
+    private StackPanel PrecisionPanel(string title, TextBox input, string suffix)
     {
         var panel = new StackPanel();
         panel.Children.Add(new TextBlock { Text = title, FontSize = 10, Margin = new Thickness(0, 0, 0, 4) });
-        slider.SetResourceReference(Slider.StyleProperty, "TcSlider");
-        panel.Children.Add(slider);
+        var field = new Grid();
+        field.ColumnDefinitions.Add(new ColumnDefinition());
+        field.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        input.Height = 32;
+        input.Padding = new Thickness(9, 4, 9, 4);
+        input.VerticalContentAlignment = VerticalAlignment.Center;
+        input.SetResourceReference(Control.BackgroundProperty, "Tc.SurfaceAlt");
+        input.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
+        input.SetResourceReference(Control.BorderBrushProperty, "Tc.BorderStrong");
+        field.Children.Add(input);
+        var unit = new TextBlock { Text = suffix, FontSize = 10.5, Margin = new Thickness(7, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        unit.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        Grid.SetColumn(unit, 1);
+        field.Children.Add(unit);
+        panel.Children.Add(field);
         return panel;
     }
+
+    private static void ConfigureProfileList(ListBox list, double maxHeight)
+    {
+        list.MaxHeight = maxHeight;
+        list.BorderThickness = new Thickness(0);
+        list.Background = Brushes.Transparent;
+        list.DisplayMemberPath = nameof(FanCurveDefinition.Name);
+    }
+
+    private void ConfigureNumberField(TextBox input, bool allowDecimal)
+    {
+        input.PreviewTextInput += (_, e) =>
+        {
+            string candidate = input.Text.Remove(input.SelectionStart, input.SelectionLength)
+                .Insert(input.SelectionStart, e.Text);
+            e.Handled = !IsValidNumericInput(candidate, allowDecimal);
+        };
+        System.Windows.DataObject.AddPastingHandler(input, (_, e) =>
+        {
+            string pasted = e.DataObject.GetData(System.Windows.DataFormats.UnicodeText) as string ?? string.Empty;
+            string candidate = input.Text.Remove(input.SelectionStart, input.SelectionLength)
+                .Insert(input.SelectionStart, pasted);
+            if (!IsValidNumericInput(candidate, allowDecimal))
+                e.CancelCommand();
+        });
+        input.LostKeyboardFocus += PrecisionField_LostKeyboardFocus;
+        input.KeyDown += PrecisionField_KeyDown;
+    }
+
+    private static bool IsValidNumericInput(string candidate, bool allowDecimal) =>
+        allowDecimal
+            ? Regex.IsMatch(candidate, @"^\d{0,2}([\.,]\d?)?$")
+            : Regex.IsMatch(candidate, @"^\d{0,3}$");
 
     private Button SmallButton(string text)
     {
@@ -219,29 +320,59 @@ internal sealed class FanCurveEditorWindow : Window
 
     private void ReloadProfiles(string? selectId)
     {
-        FanCurveDefinition[] profiles = _app.FanProfiles.GetProfiles().ToArray();
-        _profiles.ItemsSource = profiles;
-        _profiles.DisplayMemberPath = nameof(FanCurveDefinition.Name);
+        SetProfileLists(_app.FanProfiles.GetProfiles(), selectId);
+    }
+
+    private void SetProfileLists(IReadOnlyList<FanCurveDefinition> profiles, string? selectId)
+    {
+        FanCurveDefinition[] builtIns = profiles.Where(profile => _app.FanProfiles.IsBuiltIn(profile.Id)).ToArray();
+        FanCurveDefinition[] customs = profiles.Where(profile => !_app.FanProfiles.IsBuiltIn(profile.Id)).ToArray();
+        _syncingProfileSelection = true;
+        _builtInProfiles.ItemsSource = builtIns;
+        _customProfiles.ItemsSource = customs;
+        _customHeading.Text = $"Custom · {customs.Length}/{FanProfileCatalog.MaxCustomProfiles}";
+        _customEmpty.Visibility = customs.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        _customProfiles.Visibility = customs.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         FanCurveDefinition? selected = profiles.FirstOrDefault(profile => string.Equals(profile.Id, selectId, StringComparison.OrdinalIgnoreCase))
             ?? profiles.FirstOrDefault(profile => profile.Id == FanCurveDefaults.BalancedId)
             ?? profiles.FirstOrDefault();
-        _profiles.SelectedItem = selected;
+        _builtInProfiles.SelectedItem = builtIns.FirstOrDefault(profile => string.Equals(profile.Id, selected?.Id, StringComparison.OrdinalIgnoreCase));
+        _customProfiles.SelectedItem = customs.FirstOrDefault(profile => string.Equals(profile.Id, selected?.Id, StringComparison.OrdinalIgnoreCase));
+        _syncingProfileSelection = false;
+        if (selected is not null)
+            BeginEditing(selected);
     }
 
     private void Profiles_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_profiles.SelectedItem is not FanCurveDefinition selected)
+        if (_syncingProfileSelection || sender is not ListBox list || list.SelectedItem is not FanCurveDefinition selected)
             return;
+
+        _syncingProfileSelection = true;
+        if (ReferenceEquals(list, _builtInProfiles))
+            _customProfiles.SelectedItem = null;
+        else
+            _builtInProfiles.SelectedItem = null;
+        _syncingProfileSelection = false;
+        BeginEditing(selected);
+    }
+
+    private FanCurveDefinition? SelectedProfile =>
+        _builtInProfiles.SelectedItem as FanCurveDefinition ?? _customProfiles.SelectedItem as FanCurveDefinition;
+
+    private void BeginEditing(FanCurveDefinition selected)
+    {
         _editing = new FanCurveDefinition(selected.Id, selected.Name, selected.Points.Select(point => point with { }).ToArray());
         _graph.SetCurve(_editing.Points);
         _graph.SelectedIndex = 0;
         SyncSelectedPoint();
+        RefreshLiveMarker();
         bool builtIn = _app.FanProfiles.IsBuiltIn(selected.Id);
         _rename.IsEnabled = !builtIn;
         _delete.IsEnabled = !builtIn;
         _reset.IsEnabled = builtIn;
         _status.Text = builtIn
-            ? "Built-in profile · edits are stored as an override; Factory reset restores ThinkControl defaults."
+            ? "Built-in profile · edits are stored as an override; Reset built-in restores ThinkControl defaults."
             : "Custom profile · edit the graph, rename it, or delete it without changing the built-in profiles.";
     }
 
@@ -250,6 +381,7 @@ internal sealed class FanCurveEditorWindow : Window
     private void Graph_CurveChanged(object? sender, EventArgs e)
     {
         SyncSelectedPoint();
+        RefreshLiveMarker();
         _status.Text = "Unsaved curve changes · hardware is not touched until Save and apply.";
     }
 
@@ -260,24 +392,63 @@ internal sealed class FanCurveEditorWindow : Window
         _syncing = true;
         try
         {
-            _temperature.Value = point.TemperatureC;
-            _output.Value = point.Percent;
-            _output.IsEnabled = _graph.SelectedIndex != FanCurveGraphPolicy.PointCount - 1;
-            _pointValue.Text = $"Point {_graph.SelectedIndex + 1}/8 · {point.TemperatureC:0} °C · {point.Percent}%" +
-                               (_graph.SelectedIndex == 7 ? " · final point is locked to 100%" : string.Empty);
+            _temperature.Text = point.TemperatureC.ToString("0.0", CultureInfo.CurrentCulture);
+            _output.Text = point.Percent.ToString(CultureInfo.CurrentCulture);
+            _output.IsEnabled = _graph.SelectedIndex != _graph.PointCount - 1;
+            _pointValue.Text = $"Point {_graph.SelectedIndex + 1}/{_graph.PointCount} · drag it or type an exact value" +
+                               (_graph.SelectedIndex == _graph.PointCount - 1 ? " · final target stays at 100%" : string.Empty);
+            _addPoint.IsEnabled = _graph.PointCount < FanCurveGraphPolicy.MaxPointCount;
+            _removePoint.IsEnabled = _graph.PointCount > FanCurveGraphPolicy.MinPointCount;
         }
         finally { _syncing = false; }
     }
 
-    private void Precision_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void PrecisionField_KeyDown(object sender, KeyEventArgs e)
     {
-        if (!_syncing && _graph.SelectedIndex >= 0)
-            _graph.SetSelectedPoint(_temperature.Value, (int)Math.Round(_output.Value));
+        if (e.Key != Key.Enter)
+            return;
+        CommitPrecisionFields();
+        e.Handled = true;
+        _graph.Focus();
+    }
+
+    private void PrecisionField_LostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e) => CommitPrecisionFields();
+
+    private void CommitPrecisionFields()
+    {
+        if (_syncing || _graph.SelectedIndex < 0)
+            return;
+        string rawTemperature = _temperature.Text.Replace(',', '.');
+        if (!double.TryParse(rawTemperature, NumberStyles.Number, CultureInfo.InvariantCulture, out double temperature) ||
+            !int.TryParse(_output.Text, NumberStyles.Integer, CultureInfo.CurrentCulture, out int output))
+        {
+            SyncSelectedPoint();
+            return;
+        }
+        _graph.SetSelectedPoint(Math.Round(temperature, 1), output);
+    }
+
+    private void AddPoint_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_graph.AddPointNearSelection())
+            _status.Text = $"A curve can contain at most {FanCurveGraphPolicy.MaxPointCount} points.";
+    }
+
+    private void RemovePoint_Click(object sender, RoutedEventArgs e)
+    {
+        if (!_graph.RemoveSelectedPoint())
+            _status.Text = $"Keep at least {FanCurveGraphPolicy.MinPointCount} points so the curve stays predictable.";
+    }
+
+    private void Smooth_Click(object sender, RoutedEventArgs e)
+    {
+        _graph.Smooth();
+        _status.Text = "Abrupt target changes were softened; temperatures and safety endpoints were kept.";
     }
 
     private void Add_Click(object sender, RoutedEventArgs e)
     {
-        string? source = (_profiles.SelectedItem as FanCurveDefinition)?.Id;
+        string? source = SelectedProfile?.Id;
         FanCurveDefinition? created = _app.FanProfiles.CreateCustom(source, out string? error);
         if (created is null)
         {
@@ -290,7 +461,7 @@ internal sealed class FanCurveEditorWindow : Window
 
     private void Rename_Click(object sender, RoutedEventArgs e)
     {
-        if (_profiles.SelectedItem is not FanCurveDefinition selected || _app.FanProfiles.IsBuiltIn(selected.Id))
+        if (SelectedProfile is not FanCurveDefinition selected || _app.FanProfiles.IsBuiltIn(selected.Id))
             return;
         string? name = PromptName(selected.Name);
         if (name is null)
@@ -305,7 +476,7 @@ internal sealed class FanCurveEditorWindow : Window
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (_profiles.SelectedItem is not FanCurveDefinition selected || _app.FanProfiles.IsBuiltIn(selected.Id))
+        if (SelectedProfile is not FanCurveDefinition selected || _app.FanProfiles.IsBuiltIn(selected.Id))
             return;
         if (MessageBox.Show(this, $"Delete fan profile ‘{selected.Name}’?", "ThinkControl · Fan curves", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
@@ -319,7 +490,7 @@ internal sealed class FanCurveEditorWindow : Window
 
     private void Reset_Click(object sender, RoutedEventArgs e)
     {
-        if (_profiles.SelectedItem is not FanCurveDefinition selected || !_app.FanProfiles.IsBuiltIn(selected.Id))
+        if (SelectedProfile is not FanCurveDefinition selected || !_app.FanProfiles.IsBuiltIn(selected.Id))
             return;
         FanCurveDefinition factory = _app.FanProfiles.ResetBuiltIn(selected.Id);
         ReloadProfiles(factory.Id);
@@ -347,6 +518,45 @@ internal sealed class FanCurveEditorWindow : Window
             ReloadProfiles(definition.Id);
         }
         finally { _apply.IsEnabled = true; }
+    }
+
+    private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(_app.State.ControlTemperatureC) or nameof(_app.State.FanRpm))
+            RefreshLiveMarker();
+    }
+
+    private void RefreshLiveMarker()
+    {
+        if (_editing is null || _app.State.ControlTemperatureC is not double temperature)
+        {
+            _graph.SetLiveState(null, null, null);
+            _liveValue.Text = "Live marker appears when control temperature is available";
+            return;
+        }
+
+        FanCurvePoint[] curve = _graph.GetCurve();
+        int target;
+        try { target = FanCurveGraphPolicy.ResolvePercent(curve, temperature); }
+        catch
+        {
+            _graph.SetLiveState(null, null, null);
+            return;
+        }
+
+        _graph.SetLiveState(temperature, target, _app.State.FanRpm);
+        string rpm = _app.State.FanRpm is int actual ? $" · current {actual:N0} RPM" : string.Empty;
+        _liveValue.Text = $"Live {temperature:0.0} °C → {target}% target{rpm}";
+    }
+
+    internal void PrepareForSnapshot()
+    {
+        var sampleCustom = new FanCurveDefinition(
+            "custom:visual-qa",
+            "Travel",
+            [new(40, 0), new(54, 12), new(65, 36), new(76, 58), new(85, 78), new(92, 100)]);
+        SetProfileLists([.. FanCurveDefaults.BuiltIns, sampleCustom], sampleCustom.Id);
+        RefreshLiveMarker();
     }
 
     private string? PromptName(string current)
@@ -389,6 +599,12 @@ internal sealed class FanCurveGraph : FrameworkElement
     private readonly List<FanCurvePoint> _points = [];
     private int _selectedIndex = -1;
     private bool _dragging;
+    private double? _liveTemperatureC;
+    private int? _liveTargetPercent;
+    private int? _liveRpm;
+
+    internal bool IsReadOnly { get; set; }
+    internal bool ShowLiveLabel { get; set; } = true;
 
     internal event EventHandler? SelectionChanged;
     internal event EventHandler? CurveChanged;
@@ -398,7 +614,7 @@ internal sealed class FanCurveGraph : FrameworkElement
         get => _selectedIndex;
         set
         {
-            int next = _points.Count == 0 ? -1 : Math.Clamp(value, 0, _points.Count - 1);
+            int next = _points.Count == 0 || value < 0 ? -1 : Math.Clamp(value, 0, _points.Count - 1);
             if (_selectedIndex == next) return;
             _selectedIndex = next;
             InvalidateVisual();
@@ -407,6 +623,7 @@ internal sealed class FanCurveGraph : FrameworkElement
     }
 
     internal FanCurvePoint? SelectedPoint => _selectedIndex >= 0 && _selectedIndex < _points.Count ? _points[_selectedIndex] : null;
+    internal int PointCount => _points.Count;
 
     internal FanCurveGraph()
     {
@@ -424,6 +641,46 @@ internal sealed class FanCurveGraph : FrameworkElement
     }
 
     internal FanCurvePoint[] GetCurve() => _points.Select(point => point with { }).ToArray();
+
+    internal void SetLiveState(double? temperatureC, int? targetPercent, int? rpm)
+    {
+        _liveTemperatureC = temperatureC;
+        _liveTargetPercent = targetPercent;
+        _liveRpm = rpm;
+        InvalidateVisual();
+    }
+
+    internal bool AddPointNearSelection()
+    {
+        if (_points.Count >= FanCurveGraphPolicy.MaxPointCount || _points.Count < 2)
+            return false;
+        int lower = Enumerable.Range(0, _points.Count - 1)
+            .OrderByDescending(index => _points[index + 1].TemperatureC - _points[index].TemperatureC)
+            .First();
+        FanCurvePoint a = _points[lower];
+        FanCurvePoint b = _points[lower + 1];
+        return AddPoint((a.TemperatureC + b.TemperatureC) / 2.0, (a.Percent + b.Percent) / 2.0);
+    }
+
+    internal bool RemoveSelectedPoint()
+    {
+        if (_points.Count <= FanCurveGraphPolicy.MinPointCount || _selectedIndex < 0)
+            return false;
+        int removed = _selectedIndex;
+        _points.RemoveAt(removed);
+        _points[^1] = _points[^1] with { Percent = 100 };
+        _selectedIndex = Math.Clamp(removed, 0, _points.Count - 1);
+        NotifyCurveChanged();
+        return true;
+    }
+
+    internal void Smooth()
+    {
+        FanCurvePoint[] smooth = FanCurveGraphPolicy.Smooth(_points);
+        _points.Clear();
+        _points.AddRange(smooth);
+        NotifyCurveChanged();
+    }
 
     internal void SetSelectedPoint(double temperature, int percent)
     {
@@ -474,18 +731,49 @@ internal sealed class FanCurveGraph : FrameworkElement
             double radius = i == _selectedIndex ? 7 : 5;
             dc.DrawEllipse(i == _selectedIndex ? accent : surface, new Pen(accent, 2), pt, radius, radius);
         }
-        DrawText(dc, "Temperature", muted, 9, new Point(plot.Right - 63, plot.Bottom + 7));
+
+        if (_liveTemperatureC is double liveTemperature && _liveTargetPercent is int liveTarget)
+        {
+            double clampedTemperature = Math.Clamp(liveTemperature, FanCurveGraphPolicy.MinTemperatureC, FanCurveGraphPolicy.MaxTemperatureC);
+            Point live = new(X(plot, clampedTemperature), Y(plot, liveTarget));
+            var livePen = new Pen(accent, 1) { DashStyle = DashStyles.Dash };
+            dc.DrawLine(livePen, new Point(live.X, plot.Top), new Point(live.X, plot.Bottom));
+            dc.DrawEllipse(accent, new Pen(surface, 2), live, 5, 5);
+            if (ShowLiveLabel)
+            {
+                string rpm = _liveRpm is int value ? $" · {value:N0} RPM now" : string.Empty;
+                string label = $"{liveTemperature:0.0} °C → {liveTarget}%{rpm}";
+                var text = CreateText(label, muted, 9);
+                double labelX = Math.Clamp(live.X + 8, plot.Left + 5, plot.Right - text.Width - 5);
+                double labelY = Math.Clamp(live.Y - text.Height - 7, plot.Top + 4, plot.Bottom - text.Height - 4);
+                dc.DrawRoundedRectangle(surface, new Pen(grid.Brush, 1), new Rect(labelX - 4, labelY - 2, text.Width + 8, text.Height + 4), 3, 3);
+                dc.DrawText(text, new Point(labelX, labelY));
+            }
+        }
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
     {
         base.OnMouseLeftButtonDown(e);
+        if (IsReadOnly)
+            return;
         Focus();
         if (_points.Count == 0) return;
         Rect plot = PlotRect();
         Point mouse = e.GetPosition(this);
         int nearest = Enumerable.Range(0, _points.Count).OrderBy(i => (ToPoint(plot, _points[i]) - mouse).LengthSquared).First();
-        if ((ToPoint(plot, _points[nearest]) - mouse).Length > 18) return;
+        if ((ToPoint(plot, _points[nearest]) - mouse).Length > 18)
+        {
+            if (e.ClickCount == 2 && plot.Contains(mouse))
+            {
+                double temperature = FanCurveGraphPolicy.MinTemperatureC + (mouse.X - plot.Left) / plot.Width *
+                    (FanCurveGraphPolicy.MaxTemperatureC - FanCurveGraphPolicy.MinTemperatureC);
+                double percent = (1 - (mouse.Y - plot.Top) / plot.Height) * 100;
+                AddPoint(temperature, percent);
+                e.Handled = true;
+            }
+            return;
+        }
         SelectedIndex = nearest;
         _dragging = true;
         CaptureMouse();
@@ -501,7 +789,7 @@ internal sealed class FanCurveGraph : FrameworkElement
         double temperature = FanCurveGraphPolicy.MinTemperatureC + Math.Clamp((p.X - plot.Left) / plot.Width, 0, 1) *
             (FanCurveGraphPolicy.MaxTemperatureC - FanCurveGraphPolicy.MinTemperatureC);
         int percent = (int)Math.Round((1 - Math.Clamp((p.Y - plot.Top) / plot.Height, 0, 1)) * 100);
-        MovePoint(_selectedIndex, Math.Round(temperature), percent);
+        MovePoint(_selectedIndex, Math.Round(temperature, 1), percent);
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)
@@ -515,7 +803,7 @@ internal sealed class FanCurveGraph : FrameworkElement
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
-        if (_selectedIndex < 0 || _points.Count == 0) return;
+        if (IsReadOnly || _selectedIndex < 0 || _points.Count == 0) return;
         int step = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? 5 : 1;
         FanCurvePoint point = _points[_selectedIndex];
         switch (e.Key)
@@ -538,9 +826,35 @@ internal sealed class FanCurveGraph : FrameworkElement
         double maxT = index == _points.Count - 1 ? FanCurveGraphPolicy.MaxTemperatureC : _points[index + 1].TemperatureC - FanCurveGraphPolicy.MinimumTemperatureSpacingC;
         int minP = index == 0 ? 0 : _points[index - 1].Percent;
         int maxP = index == _points.Count - 1 ? 100 : _points[index + 1].Percent;
-        FanCurvePoint next = new(Math.Clamp(Math.Round(temperature), minT, maxT), index == _points.Count - 1 ? 100 : Math.Clamp(percent, minP, maxP));
+        FanCurvePoint next = new(Math.Clamp(Math.Round(temperature, 1), minT, maxT), index == _points.Count - 1 ? 100 : Math.Clamp(percent, minP, maxP));
         if (_points[index] == next) return;
         _points[index] = next;
+        NotifyCurveChanged();
+    }
+
+    private bool AddPoint(double temperature, double percent)
+    {
+        if (_points.Count >= FanCurveGraphPolicy.MaxPointCount)
+            return false;
+        int insert = _points.FindIndex(point => point.TemperatureC > temperature);
+        if (insert <= 0 || insert >= _points.Count)
+            return false;
+        FanCurvePoint lower = _points[insert - 1];
+        FanCurvePoint upper = _points[insert];
+        double min = lower.TemperatureC + FanCurveGraphPolicy.MinimumTemperatureSpacingC;
+        double max = upper.TemperatureC - FanCurveGraphPolicy.MinimumTemperatureSpacingC;
+        if (min > max)
+            return false;
+        double t = Math.Clamp(Math.Round(temperature, 1), min, max);
+        int p = Math.Clamp((int)Math.Round(percent), lower.Percent, upper.Percent);
+        _points.Insert(insert, new FanCurvePoint(t, p));
+        _selectedIndex = insert;
+        NotifyCurveChanged();
+        return true;
+    }
+
+    private void NotifyCurveChanged()
+    {
         InvalidateVisual();
         SelectionChanged?.Invoke(this, EventArgs.Empty);
         CurveChanged?.Invoke(this, EventArgs.Empty);
@@ -553,8 +867,10 @@ internal sealed class FanCurveGraph : FrameworkElement
 
     private void DrawText(DrawingContext dc, string text, Brush brush, double size, Point origin)
     {
-        var formatted = new FormattedText(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
-        dc.DrawText(formatted, origin);
+        dc.DrawText(CreateText(text, brush, size), origin);
     }
+
+    private FormattedText CreateText(string text, Brush brush, double size) =>
+        new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"), size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
 }
