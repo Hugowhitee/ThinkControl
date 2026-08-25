@@ -249,13 +249,21 @@ public sealed class KeyboardBacklightService : IDisposable
         return true;
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Drops every cached Lenovo keyboard backend so an explicit Hardware Setup
+    /// refresh really performs a fresh read-probe after a driver/Vantage repair.
+    /// Normal status polling keeps using the validated backend and its normal backoff.
+    /// </summary>
+    public void RefreshBackend()
     {
         _handle?.Dispose();
         _handle = null;
         _driver = null;
         _vantage = null;
+        _lastVantageProbe = DateTimeOffset.MinValue;
     }
+
+    public void Dispose() => RefreshBackend();
 
     private sealed record DriverConfig(
         string Name,
