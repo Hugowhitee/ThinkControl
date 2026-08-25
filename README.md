@@ -73,7 +73,7 @@ Alpha.15 is a reliability and performance pass over alpha.14.1. The focus is on 
 - Sensor discovery avoids unnecessary storage, battery, network, controller and PSU providers in the always-on path and uses bounded retry/recycle behavior rather than repeatedly hammering failed providers.
 - On the verified X9 profile, real LibreHardwareMonitor/PawnIO fan telemetry is preferred when available. Direct EC tachometer and read-only thermal access are conservative fallbacks, and periodic EC control-register probing was removed from the normal status loop.
 - Manual X9 fan writes remain restricted to `21Q6` / `21Q7`, verified by readback and returned to firmware/OEM Auto on supported failure/disposal paths.
-- Lenovo keyboard control requires provider readback and failed probes are backed off rather than retried every status cycle.
+- Lenovo keyboard control requires provider readback, failed probes are backed off rather than retried every status cycle, and an explicit provider refresh now drops cached driver/Vantage backends before probing again.
 - Hardware Setup and Notifications now surface root causes instead of multiplying one failed dependency into several identical repair actions.
 - Update checking, Home and the Updates page share one release state. A user-triggered update downloads Setup + Payload + checksums, verifies SHA-256, shows the Windows elevation handoff and keeps update controls locked while the installer owns the swap.
 - Automatic update checks never install or open UAC by themselves.
