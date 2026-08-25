@@ -71,9 +71,17 @@ public partial class App
 
     private void ShowThinkControlFromDesktopLaunch()
     {
-        // Re-opening ThinkControl should behave like a fresh user launch and honor
-        // the saved Compact / Advanced preference instead of always forcing Advanced.
-        ShowPreferredDesktopLaunchView();
+        // The desktop/start/taskbar app entry represents the full application. The
+        // tray icon represents the quick compact surface. Keeping those entry points
+        // distinct makes switching predictable even when the other view is open.
+        OpenAdvanced("Home");
+        if (_advancedWindow is { } advanced)
+        {
+            if (advanced.WindowState == System.Windows.WindowState.Minimized)
+                advanced.WindowState = System.Windows.WindowState.Normal;
+            advanced.ShowInTaskbar = true;
+            advanced.Activate();
+        }
     }
 
     private void DisposeSingleInstanceGuard()

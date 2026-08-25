@@ -20,8 +20,8 @@ public partial class App
         // so there is exactly one left-click path and no double-click race.
         Forms.NotifyIcon old = _trayIcon;
         var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open ThinkControl", null, (_, _) => Dispatcher.Invoke(ShowThinkControlFromTray));
-        menu.Items.Add("Advanced", null, (_, _) => Dispatcher.Invoke(() => OpenAdvanced("Home")));
+        menu.Items.Add("Open compact view", null, (_, _) => Dispatcher.Invoke(ShowThinkControlFromTray));
+        menu.Items.Add("Open full view", null, (_, _) => Dispatcher.Invoke(() => OpenAdvanced("Home")));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, _) => Dispatcher.Invoke(ExitApplication));
 
@@ -50,9 +50,12 @@ public partial class App
 
     private void ToggleThinkControlFromTray()
     {
-        if (_advancedWindow is { IsVisible: true } advanced)
+        // The tray icon represents the quick/compact surface. If the full window is
+        // open, one tray click should switch to compact rather than merely hiding the
+        // full window and leaving the user with no visible ThinkControl surface.
+        if (_advancedWindow is { IsVisible: true })
         {
-            advanced.HideAnimated();
+            ReturnToCompact();
             return;
         }
 

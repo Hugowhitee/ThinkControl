@@ -15,6 +15,11 @@ public enum ThemeMode
 
 public static class ThemeService
 {
+    // Use an assembly-qualified pack URI. ThemeService is also exercised by the
+    // separate snapshot host; a plain relative URI would resolve against that EXE
+    // instead of ThinkControl.UI and make visual QA fail even though the app builds.
+    private const string SelectionStylesSource = "/ThinkControl.UI;component/Resources/SelectionStyles.xaml";
+
     public static ThemeMode Current { get; private set; } = ThemeMode.System;
 
     public static bool IsLightEffective =>
@@ -42,14 +47,28 @@ public static class ThemeService
         SetBrush(resources, "Tc.Success", light ? "#168A45" : "#4CCB7A");
         SetBrush(resources, "Tc.Warning", light ? "#A76800" : "#E7A640");
 
-        // Stock WPF controls otherwise fall back to the Windows blue selection
-        // brush. A few diagnostic/list surfaces intentionally keep native control
-        // behavior, so override only the system selection palette app-wide and let
-        // their own templates/layout remain untouched.
+        // Native WPF selectors can still consult Windows system-selection colors
+        // even when a custom container template is not in play. Keep this fallback
+        // neutral too, so no system-blue flash can leak through the app.
         resources[SystemColors.HighlightBrushKey] = resources["Tc.SurfaceHover"];
         resources[SystemColors.HighlightTextBrushKey] = resources["Tc.Text"];
         resources[SystemColors.InactiveSelectionHighlightBrushKey] = resources["Tc.SurfaceAlt"];
         resources[SystemColors.InactiveSelectionHighlightTextBrushKey] = resources["Tc.Text"];
+
+        EnsureSelectionStyles(resources);
+    }
+
+    private static void EnsureSelectionStyles(ResourceDictionary resources)
+    {
+        bool alreadyLoaded = resources.MergedDictionaries.Any(dictionary =>
+            dictionary.Source?.OriginalString.EndsWith("SelectionStyles.xaml", StringComparison.OrdinalIgnoreCase) == true);
+        if (alreadyLoaded)
+            return;
+
+        resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri(SelectionStylesSource, UriKind.RelativeOrAbsolute)
+        });
     }
 
     private static bool SystemPrefersLight()

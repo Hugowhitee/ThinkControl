@@ -100,6 +100,8 @@ public partial class AudioPanel : UserControl
                 BackendStatusText.Text = "Dolby DAX direct control detected · semantic profile and Music IEQ readback available";
                 InstallButton.Visibility = Visibility.Collapsed;
                 OpenButton.IsEnabled = true;
+                ProfileGrid.Visibility = Visibility.Visible;
+                FusionControlCard.Visibility = Visibility.Collapsed;
                 SetProfilesEnabled(true);
 
                 DynamicProfile.IsChecked = false;
@@ -123,14 +125,14 @@ public partial class AudioPanel : UserControl
                 MuteButton.IsEnabled = false;
                 MuteButton.Content = "Mute";
 
-                BackendStatusText.Text = "Dolby direct controls are not exposed by this driver. ThinkControl will not invent profile mappings.";
+                BackendStatusText.Text = "Dolby direct controls are not exposed by this driver. ThinkControl does not invent profile mappings.";
                 InstallButton.Visibility = Visibility.Visible;
-                OpenButton.IsEnabled = false;
+                OpenButton.IsEnabled = true;
+                ProfileGrid.Visibility = Visibility.Collapsed;
+                FusionControlCard.Visibility = Visibility.Collapsed;
                 SetProfilesEnabled(false);
                 UpdateToneSection("Dynamic", directToneAvailable: false);
-                DynamicProfile.IsChecked = true;
-                MovieProfile.IsChecked = MusicProfile.IsChecked = GameProfile.IsChecked = VoiceProfile.IsChecked = false;
-                ActionStatusText.Text = "Unavailable controls stay visible but disabled.";
+                ActionStatusText.Text = "Use Dolby Access when the OEM profile API is not exposed.";
             }
         }
         finally
@@ -147,13 +149,20 @@ public partial class AudioPanel : UserControl
         _status = _dolby.Probe();
         _directState = _directDolby.Probe();
 
-        BackendStatusText.Text = _directState.Available
+        bool directProfiles = _directState.CanProfileControl;
+        bool fusionOnly = !directProfiles && _status.FusionBackendDetected;
+
+        BackendStatusText.Text = _directState.Available && (directProfiles || _directState.CanToneControl)
             ? _directState.Detail
             : _status.Detail;
-        InstallButton.Visibility = _status.DolbyAccessInstalled || _status.OemBackendDetected
-            ? Visibility.Collapsed
-            : Visibility.Visible;
-        OpenButton.IsEnabled = _status.DolbyAccessInstalled;
+
+        // OEM Fusion presence proves the Lenovo Dolby stack exists, but not that the
+        // Store app registry probe sees Dolby Access. Keep both recovery paths clear:
+        // try the canonical AUMID and offer Store install when Access was not detected.
+        InstallButton.Visibility = _status.DolbyAccessInstalled ? Visibility.Collapsed : Visibility.Visible;
+        OpenButton.IsEnabled = _status.DolbyAccessInstalled || _status.OemBackendDetected;
+        ProfileGrid.Visibility = directProfiles ? Visibility.Visible : Visibility.Collapsed;
+        FusionControlCard.Visibility = fusionOnly ? Visibility.Visible : Visibility.Collapsed;
 
         string profile = NormalizeKnownProfile(_directState.ActiveProfile) ??
                          _app.UserSettings.Current.DolbyProfile;
@@ -161,8 +170,8 @@ public partial class AudioPanel : UserControl
                       NormalizeKnownTone(_app.UserSettings.Current.DolbySubProfile) ??
                       "Balanced";
 
-        SetProfilesEnabled(_directState.CanProfileControl);
-        UpdateToneSection(profile, _directState.CanToneControl);
+        SetProfilesEnabled(directProfiles);
+        UpdateToneSection(profile, _directState.CanToneControl && directProfiles);
 
         _syncing = true;
         try
@@ -182,17 +191,20 @@ public partial class AudioPanel : UserControl
         {
             _syncing = false;
         }
+
+        if (fusionOnly)
+            ActionStatusText.Text = "Dolby Fusion processing detected · profile control stays with Dolby Access on this generation.";
     }
 
     private void UpdateToneSection(string profile, bool directToneAvailable)
     {
         bool music = string.Equals(profile, "Music", StringComparison.OrdinalIgnoreCase);
-        SubprofileCard.Visibility = music ? Visibility.Visible : Visibility.Collapsed;
+        SubprofileCard.Visibility = music && directToneAvailable ? Visibility.Visible : Visibility.Collapsed;
         SetToneEnabled(music && directToneAvailable);
         SubprofileStatusText.Text = directToneAvailable
             ? "Direct DAX · Music"
             : _status?.FusionBackendDetected == true
-                ? "Dolby Fusion · use Dolby Access"
+                ? "Dolby Fusion · Dolby Access"
                 : "Not exposed by this Dolby build";
     }
 
@@ -286,7 +298,7 @@ public partial class AudioPanel : UserControl
         if (result.Success)
             _app.UserSettings.Update(settings => settings with { DolbyProfile = profile });
         else
-            ActionStatusText.Text += " · Dolby Access was not opened. Use the explicit button if you want to change it there.";
+            ActionStatusText.Text += " · Direct control was not accepted; use Dolby Access.";
 
         RefreshStatus();
     }
@@ -307,7 +319,7 @@ public partial class AudioPanel : UserControl
         if (result.Success)
             _app.UserSettings.Update(settings => settings with { DolbySubProfile = tone });
         else
-            ActionStatusText.Text += " · Dolby Access was not opened.";
+            ActionStatusText.Text += " · Direct control was not accepted; use Dolby Access.";
 
         RefreshStatus();
     }
@@ -328,13 +340,15 @@ public partial class AudioPanel : UserControl
                     DolbyProfile = "Dynamic",
                     DolbySubProfile = "Balanced"
                 });
-                ActionStatusText.Text = "Audio processing reset to Dynamic. Music IEQ default is Balanced; Windows output volume was left unchanged.";
+                ActionStatusText.Text = "Audio processing reset to Dynamic. Windows output volume was left unchanged.";
+            }
+            else if (_status?.FusionBackendDetected == true)
+            {
+                ActionStatusText.Text = "Dolby Fusion keeps profile reset inside Dolby Access on this Lenovo generation. Windows output volume was left unchanged.";
             }
             else
             {
-                ActionStatusText.Text = _status?.FusionBackendDetected == true
-                    ? "This Lenovo audio stack uses Dolby Fusion. Use Dolby Access for Atmos profile reset; Windows output volume was left unchanged."
-                    : "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
+                ActionStatusText.Text = "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
             }
             RefreshStatus();
         }
@@ -352,8 +366,17 @@ public partial class AudioPanel : UserControl
 
     private void Open_Click(object sender, RoutedEventArgs e)
     {
-        if (!_snapshotMode)
-            _dolby?.OpenDolbyAccess();
+        if (_snapshotMode || _dolby is null)
+            return;
+
+        if (_dolby.OpenDolbyAccess())
+        {
+            ActionStatusText.Text = "Opening Dolby Access for the OEM Atmos profile controls…";
+            return;
+        }
+
+        ActionStatusText.Text = "Windows could not open Dolby Access. Use Install Dolby Access to repair/install the profile app.";
+        InstallButton.Visibility = Visibility.Visible;
     }
 
     private void SetProfilesEnabled(bool enabled)

@@ -7,7 +7,7 @@ internal sealed class GestureActionRouter
 {
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
-    private const double TrackSwipeThresholdMm = 7.0;
+    private const double TrackSwipeThresholdMm = 5.5;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -74,6 +74,12 @@ internal sealed class GestureActionRouter
                 Release(signal);
                 break;
             case GesturePhase.Cancelled:
+                // A fast finger can leave the continuation strip on its final frame.
+                // For a discrete track swipe, preserve an already deliberate along-
+                // edge motion instead of throwing it away just because that final
+                // contact was outside tolerance. Other gesture kinds still cancel.
+                if (signal.Action == GestureActionKind.PreviousNextTrack)
+                    TryFireTrackSwipe(signal, allowReleaseFallback: true);
                 End(signal.Action);
                 break;
         }
@@ -114,9 +120,8 @@ internal sealed class GestureActionRouter
             case GestureActionKind.PreviousNextTrack:
                 _setGestureActive(signal.Action, true);
                 _trackSwipeFired = false;
-                // Do not fire at the 2 mm claim point. A track skip is a discrete
-                // directional gesture and needs a deliberate swipe to avoid random
-                // skips from simply touching an enabled edge.
+                // Claiming starts around the configurable activation distance. Never
+                // skip there: this action requires a deliberate directional swipe.
                 TryFireTrackSwipe(signal);
                 break;
             case GestureActionKind.PlayPause:
@@ -174,29 +179,29 @@ internal sealed class GestureActionRouter
             return;
 
         double signed = ToPositiveControlDelta(signal, signal.TotalTravelMm);
-        double threshold = allowReleaseFallback ? TrackSwipeThresholdMm * 0.85 : TrackSwipeThresholdMm;
+        double threshold = allowReleaseFallback ? TrackSwipeThresholdMm * 0.82 : TrackSwipeThresholdMm;
         if (Math.Abs(signed) < threshold)
             return;
 
         _trackSwipeFired = true;
         bool next = signed > 0;
-        _ = SkipTrackAsync(next);
+
+        // MEDIA_NEXT/PREV are Windows' broad compatibility surface and work for
+        // Spotify, browsers and legacy players even when a GSMTC session is stale.
+        // Alpha.16 tried GSMTC first; some sessions can acknowledge the command while
+        // not visibly advancing, which suppressed the fallback and looked like a
+        // dead gesture. Inject the system media key first and use GSMTC only if
+        // Windows rejects the input injection itself.
+        bool injected = next ? _nativeInput.NextTrack() : _nativeInput.PreviousTrack();
+        if (!injected)
+            _ = SkipTrackWithSessionAsync(next);
     }
 
-    private async Task SkipTrackAsync(bool next)
+    private async Task SkipTrackWithSessionAsync(bool next)
     {
-        bool changed = next
+        _ = next
             ? await _media.TrySkipNextAsync().ConfigureAwait(false)
             : await _media.TrySkipPreviousAsync().ConfigureAwait(false);
-
-        // GSMTC is the preferred path because Spotify/browser media sessions can
-        // ignore synthetic media keys depending on focus. Keep SendInput as a
-        // broad compatibility fallback for apps that expose only legacy controls.
-        if (!changed)
-        {
-            if (next) _nativeInput.NextTrack();
-            else _nativeInput.PreviousTrack();
-        }
     }
 
     private void BeginContinuous(GestureSignal signal, double baseGain)

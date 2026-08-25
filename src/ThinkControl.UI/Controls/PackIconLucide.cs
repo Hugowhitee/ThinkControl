@@ -8,6 +8,7 @@ namespace ThinkControl.UI.Controls;
 /// Small dependency-free icon renderer. The historical PackIconLucide type name is
 /// retained for XAML compatibility. All icons use the control Foreground so the
 /// navigation style can brighten them automatically when selected or hovered.
+/// Selection changes color only; icon geometry/weight stays constant across pages.
 /// </summary>
 public sealed class PackIconLucide : System.Windows.Controls.Control
 {
@@ -33,8 +34,10 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
 
         Brush brush = Foreground ?? Brushes.Gray;
-        bool emphasized = FontWeight.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight();
-        double stroke = Math.Max(1.2, Math.Min(width, height) / (emphasized ? 8.9d : 10.5d));
+        // Do not derive stroke weight from inherited FontWeight. TcNav makes the
+        // selected label SemiBold; Audio/Sensors/Touchpad are stroked custom glyphs,
+        // so using FontWeight here made only those icons become visibly bolder.
+        double stroke = Math.Max(1.2, Math.Min(width, height) / 10.5d);
         var pen = new Pen(brush, stroke)
         {
             StartLineCap = PenLineCap.Round,
@@ -66,7 +69,7 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             double sx = width / 16d;
             double sy = height / 16d;
             drawingContext.PushTransform(new ScaleTransform(sx, sy));
-            double audioStroke = emphasized ? 1.7 : 1.45;
+            const double audioStroke = 1.45;
             Geometry speaker = Geometry.Parse("M2,6 L5,6 L9,3 L9,13 L5,10 L2,10 Z");
             drawingContext.DrawGeometry(null, new Pen(brush, audioStroke) { LineJoin = PenLineJoin.Round }, speaker);
             drawingContext.DrawGeometry(null, new Pen(brush, audioStroke) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, Geometry.Parse("M11,6 C12.5,7 12.5,9 11,10 M13,4 C16,6 16,10 13,12"));
@@ -77,11 +80,11 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         if (Kind == "Sensors")
         {
             // Use a compact gauge/pulse motif with the same rounded stroke language
-            // as the other navigation glyphs instead of the old thin ECG zig-zag.
+            // as the other navigation glyphs. Selection changes foreground only.
             double sx = width / 16d;
             double sy = height / 16d;
             drawingContext.PushTransform(new ScaleTransform(sx, sy));
-            var sensorPen = new Pen(brush, emphasized ? 1.75 : 1.5)
+            var sensorPen = new Pen(brush, 1.5)
             {
                 StartLineCap = PenLineCap.Round,
                 EndLineCap = PenLineCap.Round,

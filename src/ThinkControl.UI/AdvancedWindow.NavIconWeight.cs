@@ -1,5 +1,5 @@
+using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Shapes;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -17,22 +17,16 @@ public partial class AdvancedWindow
         if (Resources[resourceKey] is not RadioButton nav)
             return;
 
-        void Apply()
+        // TcNav deliberately makes the selected label SemiBold. These two dynamic
+        // pages use stroked custom glyphs, so pin the icon itself to Normal and the
+        // same 15×15 box as every static navigation icon. Selection should brighten,
+        // never grow or change visual weight.
+        foreach (PackIconLucide icon in FindVisualChildren<PackIconLucide>(nav))
         {
-            bool selected = nav.IsChecked == true;
-            foreach (Path path in FindVisualChildren<Path>(nav))
-                path.StrokeThickness = selected ? 1.8 : 1.35;
-
-            foreach (PackIconLucide icon in FindVisualChildren<PackIconLucide>(nav))
-            {
-                icon.Width = selected ? 16.5 : 15;
-                icon.Height = selected ? 16.5 : 15;
-                icon.InvalidateVisual();
-            }
+            icon.Width = 15;
+            icon.Height = 15;
+            icon.FontWeight = FontWeights.Normal;
+            icon.InvalidateVisual();
         }
-
-        nav.Checked += (_, _) => Apply();
-        nav.Unchecked += (_, _) => Apply();
-        Apply();
     }
 }

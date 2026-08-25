@@ -45,15 +45,15 @@ public sealed class DolbyAudioService
         else if (fusion)
         {
             detail = access
-                ? "Dolby Access and the OEM Dolby Fusion audio component are installed. This generation does not expose ThinkControl's verified legacy DAX3 profile API; use Dolby Access for Atmos profiles while Fusion remains active."
-                : "The OEM Dolby Fusion audio component is installed, but Dolby Access was not detected for this user. Audio processing can remain active; install/open Dolby Access for profile controls not exposed through a verified API.";
+                ? "Dolby Fusion is active. This Lenovo generation does not expose ThinkControl's verified DAX profile API, so profile control opens Dolby Access instead of guessing private Fusion IDs."
+                : "The OEM Dolby Fusion audio component is installed. ThinkControl can try the Dolby Access app directly; if Windows reports it missing, the Store action is available.";
         }
         else
         {
             detail = (access, dax) switch
             {
                 (true, true) => "Dolby Access and the OEM DAX3 backend are installed. ThinkControl enables only direct controls that the DAX provider can read back.",
-                (false, true) => "Dolby processing is installed, but Dolby Access is not. Direct DAX controls remain available where the driver exposes verified state.",
+                (false, true) => "Dolby processing is installed, but Dolby Access was not detected. Direct DAX controls remain available where the driver exposes verified state.",
                 (true, false) => "Dolby Access is installed, but no supported OEM Dolby backend was detected. Lenovo's current audio driver may need repair; ThinkControl will not guess a profile API.",
                 _ => "Dolby Access and a supported OEM Dolby backend were not detected. Lenovo's audio driver may also be required for Dolby processing."
             };
@@ -64,9 +64,10 @@ public sealed class DolbyAudioService
 
     public bool OpenDolbyAccess()
     {
-        if (!IsDolbyAccessInstalled())
-            return false;
-
+        // Do not make activation depend solely on one package-registry view. Lenovo
+        // OEM provisioning and Store updates can leave the AUMID launchable even
+        // when the per-user Repository key is missing/inaccessible. Let Windows
+        // resolve the canonical Dolby Access AUMID and report failure naturally.
         try
         {
             string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
@@ -122,9 +123,6 @@ public sealed class DolbyAudioService
 
     private static bool IsDolbyFusionBackendPresent()
     {
-        // Current Lenovo X9 audio packages identify the modern software component as
-        // SWC\VEN_DOLBY&PID_FUSIONAPOSVC. Check that exact PnP component first; it is
-        // much cheaper and less ambiguous than broad WMI/device enumeration.
         try
         {
             using RegistryKey? swc = Registry.LocalMachine.OpenSubKey(FusionSwcEnumPath);
@@ -133,7 +131,6 @@ public sealed class DolbyAudioService
         }
         catch
         {
-            // Enum permissions vary. The service registry fallback below is read-only.
         }
 
         try
@@ -157,8 +154,6 @@ public sealed class DolbyAudioService
                 }
                 catch
                 {
-                    // One inaccessible service must not turn an Audio page probe into
-                    // a failure or trigger an elevated/background discovery path.
                 }
             }
         }
