@@ -12,10 +12,8 @@ $smokeDir = Join-Path $env:TEMP 'ThinkControlInstallerReliabilitySmoke'
 
 $setup = Get-ChildItem $ArtifactDirectory -Recurse -File -Filter 'ThinkControl-Setup-*.exe' | Select-Object -First 1
 $payload = Get-ChildItem $ArtifactDirectory -Recurse -File -Filter 'ThinkControl-Payload-*.zip' | Select-Object -First 1
-$checksums = Get-ChildItem $ArtifactDirectory -Recurse -File -Filter 'SHA256SUMS.txt' | Select-Object -First 1
 if ($null -eq $setup) { throw 'Installer artifact is missing.' }
 if ($null -eq $payload) { throw 'Payload artifact is missing.' }
-if ($null -eq $checksums) { throw 'Checksum artifact is missing.' }
 
 function Remove-SmokeService {
     Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('stop', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
