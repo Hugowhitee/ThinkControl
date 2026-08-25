@@ -48,7 +48,7 @@ jobs:
           tag="v$version"
           setup="ThinkControl-Setup-$version.exe"
           payload="ThinkControl-Payload-$version.zip"
-          expected=("$setup" "$payload" "SHA256SUMS.txt" "ui-overview.png")
+          expected=("$setup" "$payload" "SHA256SUMS.txt")
 
           release_exists=false
           if gh api "repos/$repo/releases/tags/$tag" >/tmp/release.json 2>/dev/null; then
@@ -99,6 +99,15 @@ jobs:
                 fi
               done
 
+              unexpected=$(jq -r --arg setup "$setup" --arg payload "$payload" '
+                [.assets[].name | select(. != $setup and . != $payload and . != "SHA256SUMS.txt")] | length
+              ' /tmp/release.json)
+              if [[ "$unexpected" != "0" ]]; then
+                echo "$tag contains unmanaged public release assets; expected only Setup, Payload and SHA256SUMS.txt."
+                jq -r '.assets[].name' /tmp/release.json
+                exit 1
+              fi
+
               if [[ "$missing" == "0" ]]; then
                 rm -rf /tmp/thinkcontrol-release-verify
                 mkdir -p /tmp/thinkcontrol-release-verify
@@ -106,11 +115,9 @@ jobs:
                 gh release download "$tag" --repo "$repo" \
                   --pattern "$setup" \
                   --pattern "$payload" \
-                  --pattern "SHA256SUMS.txt" \
-                  --pattern "ui-overview.png"
+                  --pattern "SHA256SUMS.txt"
                 sha256sum --check SHA256SUMS.txt
-                test -s ui-overview.png
-                echo "Verified $tag prerelease, checksums and all expected public assets."
+                echo "Verified $tag prerelease, checksums and exactly three managed public assets."
                 exit 0
               fi
             fi
