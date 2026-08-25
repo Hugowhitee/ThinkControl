@@ -76,12 +76,6 @@ internal sealed class ServiceEngine : IDisposable
 
     private async Task StatusRefreshLoopAsync(CancellationToken token)
     {
-        // One startup discovery gives the first UI request useful cached state. From
-        // then on, each wake performs at most one provider snapshot. The previous
-        // 12-second demand hold kept LHM/PawnIO traversing hardware every 2 seconds
-        // whenever any ThinkControl window was open, even though the UI only asked
-        // for status every ~10 seconds. A request-driven cache removes those hidden
-        // extra scans and the periodic laptop wakeups they could cause.
         bool initialDiscovery = true;
         while (!token.IsCancellationRequested)
         {
@@ -106,9 +100,6 @@ internal sealed class ServiceEngine : IDisposable
 
     private void SignalStatusDemand()
     {
-        // Coalesce simultaneous UI reads into one hardware traversal. Semaphore count
-        // one means a request arriving during an active refresh schedules at most one
-        // follow-up refresh instead of building an unbounded queue.
         if (_statusWake.CurrentCount != 0)
             return;
         try { _statusWake.Release(); }
@@ -182,6 +173,8 @@ internal sealed class ServiceEngine : IDisposable
                 "Ping" => new ServiceResponse(ThinkControlProtocol.Version, true),
                 "GetStatus" => GetCachedStatusAndRequestRefresh(),
                 "RefreshProviders" => RefreshProviders(),
+                "RefreshSensorProviders" => RefreshSensorProviders(),
+                "RefreshKeyboardProvider" => RefreshKeyboardProvider(),
                 "SetFanLevel" => SetFanLevel(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
                 "SetCoolingProfile" => SetCoolingProfile(request.Value),
@@ -218,6 +211,33 @@ internal sealed class ServiceEngine : IDisposable
         lock (_statusGate) _lastStatus = discovering;
         SignalStatusDemand();
         return discovering;
+    }
+
+    private ServiceResponse RefreshSensorProviders()
+    {
+        CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
+        if (cooling.Characterization.Running)
+            return Error("Stop fan characterization before refreshing sensor providers.");
+
+        bool ownsFan = cooling.AppliedLevel.HasValue || !cooling.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
+        if (ownsFan && !_fanSupervisor.ReturnToAuto(out string? handoffError))
+            return Error("Sensor refresh was blocked because ThinkControl could not safely return fan ownership to Lenovo Auto. " +
+                         (handoffError ?? "Retry Lenovo Auto, then refresh sensors again."));
+
+        _hardware.RefreshSensorProviders();
+        ServiceResponse status = RefreshAndReturnStatus();
+        ServiceLog.Write("Sensor providers refreshed without recycling the verified EC or keyboard backend.");
+        return status;
+    }
+
+    private ServiceResponse RefreshKeyboardProvider()
+    {
+        // Keyboard probing is independent of LHM/PawnIO sensor state and fan
+        // ownership. Do not recycle healthy sensors or EC state for this action.
+        _hardware.RefreshKeyboardProvider();
+        ServiceResponse status = RefreshAndReturnStatus();
+        ServiceLog.Write("Lenovo keyboard provider refreshed independently.");
+        return status;
     }
 
     private ServiceResponse BuildStatusResponse()
