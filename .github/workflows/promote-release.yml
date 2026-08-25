@@ -75,9 +75,8 @@ jobs:
             fi
 
             # Tag pushes made with GITHUB_TOKEN intentionally do not trigger another
-            # workflow. workflow_dispatch is exempt from that recursion guard, so
-            # explicitly run the canonical package/release workflow on the tag.
-            gh workflow run release.yml --repo "$repo" --ref "$tag"
+            # workflow. Dispatch the complete immutable package workflow explicitly.
+            gh workflow run release-complete.yml --repo "$repo" --ref "$tag"
           else
             echo "$tag already has a GitHub Release; verifying it idempotently."
           fi
