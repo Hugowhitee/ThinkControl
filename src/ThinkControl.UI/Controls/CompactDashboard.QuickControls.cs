@@ -170,11 +170,15 @@ public partial class CompactDashboard
         if (_app is null)
             return new[] { "Auto" };
 
+        // Keep compact mode identical to the full Display page: one adaptive mode,
+        // one battery-friendly 60 Hz choice, and the panel maximum. Exposing every
+        // EDID timing here made a tiny quick menu look like an engineering selector.
         var values = new List<string> { "Auto" };
-        foreach (int hz in _app.DisplayService.GetSupportedRefreshRates().Where(hz => hz > 0).Distinct().OrderBy(hz => hz))
-            values.Add($"{hz} Hz");
-        if (_app.State.MaxRefreshHz > 0 && !values.Contains($"{_app.State.MaxRefreshHz} Hz", StringComparer.Ordinal))
-            values.Add($"{_app.State.MaxRefreshHz} Hz");
+        IReadOnlyList<int> supported = _app.DisplayService.GetSupportedRefreshRates();
+        if (supported.Contains(60))
+            values.Add("60 Hz");
+        if (supported.Count > 0 || _app.State.MaxRefreshHz > 0)
+            values.Add("Max");
         return values;
     }
 
@@ -187,9 +191,14 @@ public partial class CompactDashboard
         try
         {
             _quickPerformance.Content = QuickButtonContent(_app.State.SelectedMode);
-            _quickRefresh.Content = QuickButtonContent(_app.State.RefreshAutoEnabled
+            string refresh = _app.State.RefreshAutoEnabled
                 ? "Auto"
-                : _app.State.CurrentRefreshHz > 0 ? $"{_app.State.CurrentRefreshHz} Hz" : "Refresh");
+                : _app.State.MaxRefreshHz > 0 && _app.State.CurrentRefreshHz == _app.State.MaxRefreshHz
+                    ? "Max"
+                    : _app.State.CurrentRefreshHz == 60
+                        ? "60 Hz"
+                        : _app.State.CurrentRefreshHz > 0 ? $"{_app.State.CurrentRefreshHz} Hz" : "Refresh";
+            _quickRefresh.Content = QuickButtonContent(refresh);
 
             _quickKeyboard.IsEnabled = _app.State.CanKeyboardBacklight;
             string keyboard = _app.State.KeyboardMode == "Auto"
@@ -247,10 +256,24 @@ public partial class CompactDashboard
     {
         if (_app is null)
             return;
+
         if (raw == "Auto")
+        {
             _app.EnableRefreshAuto();
-        else if (int.TryParse(raw.Split(' ')[0], out int hz))
-            _app.SetRefresh(hz);
+        }
+        else if (raw == "Max")
+        {
+            int max = _app.State.MaxRefreshHz;
+            if (max <= 0)
+                max = _app.DisplayService.GetSupportedRefreshRates().DefaultIfEmpty(0).Max();
+            if (max > 0)
+                _app.SetRefresh(max);
+        }
+        else if (raw == "60 Hz")
+        {
+            _app.SetRefresh(60);
+        }
+
         SyncQuickControls();
     }
 
