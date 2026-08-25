@@ -4,9 +4,9 @@
     <StackPanel>
         <Grid>
             <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
-            <Button Content="Defaults" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic without changing Windows output volume" />
+            <Button Content="Defaults" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic where direct DAX control is available" />
         </Grid>
-        <TextBlock Text="Windows output volume and Lenovo's installed Dolby processing in one place. ThinkControl uses direct DAX controls only when the driver exposes readable state and never opens Dolby Access unless you ask it to."
+        <TextBlock Text="Windows output volume and Lenovo's installed Dolby processing in one place. ThinkControl uses direct Dolby controls only when the installed API exposes verifiable state."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
@@ -40,7 +40,7 @@
                     </StackPanel>
                 </Grid>
 
-                <Grid Margin="0,16,0,0">
+                <Grid x:Name="ProfileGrid" Margin="0,16,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
                     </Grid.ColumnDefinitions>
@@ -50,6 +50,18 @@
                     <RadioButton x:Name="GameProfile" Grid.Column="3" GroupName="DolbyProfile" Style="{StaticResource TcSegment}" Content="Game" Tag="Game" Click="Profile_Click" Margin="2,0" />
                     <RadioButton x:Name="VoiceProfile" Grid.Column="4" GroupName="DolbyProfile" Style="{StaticResource TcSegment}" Content="Voice" Tag="Voice" Click="Profile_Click" Margin="4,0,0,0" />
                 </Grid>
+
+                <Border x:Name="FusionControlCard" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="1" CornerRadius="4" Padding="11" Margin="0,14,0,0" Visibility="Collapsed">
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel Margin="0,0,18,0">
+                            <TextBlock Text="Dolby Fusion profiles" FontWeight="SemiBold" />
+                            <TextBlock Text="This Lenovo generation exposes the Dolby Fusion processing service, but not ThinkControl's verified DAX profile API. ThinkControl will not guess private profile IDs. Use Dolby Access for the actual Atmos profile controls."
+                                       Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,4,0,0" />
+                        </StackPanel>
+                        <Button Grid.Column="1" Content="Control profiles" Style="{StaticResource TcButton}" Padding="11,6" VerticalAlignment="Center" Click="Open_Click" />
+                    </Grid>
+                </Border>
                 <TextBlock x:Name="ActionStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,11,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
@@ -60,7 +72,7 @@
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="Music · Intelligent Equalizer" FontWeight="SemiBold" />
-                        <TextBlock Text="These tone choices are shown only for Music. Dynamic is content-aware; ThinkControl does not invent equivalent subprofiles for Movie, Game or Voice when the installed DAX build does not expose them."
+                        <TextBlock Text="These tone choices are shown only for Music when the installed DAX API exposes direct readback."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,30,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <TextBlock x:Name="SubprofileStatusText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
@@ -79,19 +91,19 @@
             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
                 <StackPanel>
-                    <TextBlock Text="Dynamic" FontWeight="SemiBold" />
-                    <TextBlock Text="Automatic content-aware Dolby processing. Dynamic intentionally has no Music IEQ picker in ThinkControl." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="Direct when verified" FontWeight="SemiBold" />
+                    <TextBlock Text="Legacy DAX systems stay controllable inside ThinkControl when a semantic setter/readback contract is available." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
-                    <TextBlock Text="Direct by default" FontWeight="SemiBold" />
-                    <TextBlock Text="Profile and tone buttons never launch Dolby Access automatically. If this OEM driver hides its DAX controls, use the explicit Open Dolby Access button instead." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="Fusion stays OEM-owned" FontWeight="SemiBold" />
+                    <TextBlock Text="On Fusion-only systems ThinkControl detects the OEM stack and opens Dolby Access explicitly instead of pretending an unsupported direct change succeeded." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>
 
-        <TextBlock Text="Availability is discovered at runtime because Lenovo ships different Dolby DAX generations. Unsupported controls remain visible only where useful and are disabled instead of pretending a setting was applied."
+        <TextBlock Text="Dolby availability is discovered at runtime because Lenovo ships different DAX/Fusion generations. Unsupported private APIs are never guessed."
                    Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="2,12,2,0" TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>
