@@ -32,8 +32,18 @@ public partial class App
         if (response?.Success == true && response.Telemetry is not null)
         {
             TelemetrySnapshot telemetry = response.Telemetry;
+            State.HardwareAccess = telemetry.HardwareAccess;
+            State.CpuTemperatureC = telemetry.CpuTemperatureC;
             State.ControlTemperatureC = telemetry.ControlTemperatureC;
             State.ControlTemperatureSource = telemetry.ControlTemperatureSource ?? "Unavailable";
+            State.FanRpm = telemetry.FanRpm;
+            State.FanStateText = telemetry.FanState;
+            State.KeyboardStatus = telemetry.KeyboardBacklight;
+            if (!string.IsNullOrWhiteSpace(telemetry.ThermalSolutionVersion))
+                State.ThermalSolution = telemetry.ThermalSolutionVersion!;
+            if (telemetry.CpuTemperatureC is double temp)
+                State.AddTemperature(temp);
+
             State.ApplyHardwareTelemetry(telemetry.Fans, telemetry.Sensors);
 
             if (response.Capabilities is HardwareCapabilitySnapshot capabilities)
@@ -58,7 +68,13 @@ public partial class App
 
         State.ControlTemperatureC = null;
         State.ControlTemperatureSource = "Unavailable";
+        State.CpuTemperatureC = null;
+        State.FanRpm = null;
         State.CanSensorTelemetry = false;
+        State.CanFanTelemetry = false;
+        State.CanFanControl = false;
+        State.CanKeyboardBacklight = false;
+        State.CanCpuTemperature = false;
         State.ClearHardwareTelemetry();
     }
 }
