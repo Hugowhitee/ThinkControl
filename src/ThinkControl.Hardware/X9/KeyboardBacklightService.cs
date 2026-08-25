@@ -27,6 +27,10 @@ public sealed class KeyboardBacklightService : IDisposable
     private const uint FileShareWrite = 0x00000002;
     private const uint OpenExisting = 3;
 
+    // These contracts intentionally match the public Lenovo keyboard-backlight
+    // controller implementations that use IBMPmDrv/EnergyDrv. Do not add guessed
+    // X9 IOCTLs here: unknown writes remain disabled until a read contract proves
+    // the backend is compatible.
     private static readonly DriverConfig[] Drivers =
     [
         new(
@@ -76,7 +80,7 @@ public sealed class KeyboardBacklightService : IDisposable
     [
         @"C:\ProgramData\Lenovo\Vantage\Addins\ThinkKeyboardAddin",
         @"C:\ProgramData\Lenovo\VantageService\Addins\ThinkKeyboardAddin",
-        @"C:\ProgramData\Lenovo\ImController\Plugins\ThinkKeyboardPlugin\x64"
+        @"C:\ProgramData\Lenovo\ImController\Plugins\ThinkKeyboardPlugin"
     ];
 
     private SafeFileHandle? _handle;
@@ -160,8 +164,16 @@ public sealed class KeyboardBacklightService : IDisposable
                 return false;
             }
 
-            Thread.Sleep(55);
-            return TryGet(out KeyboardBacklightLevel current) && current == level;
+            // Lenovo firmware/readback can lag the successful IOCTL by more than one
+            // scheduler quantum. Verify a few bounded times instead of declaring the
+            // working provider dead after one 55 ms sample.
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                Thread.Sleep(attempt == 0 ? 55 : 70);
+                if (TryGet(out KeyboardBacklightLevel current) && current == level)
+                    return true;
+            }
+            return false;
         }
 
         return _vantage?.SetAndVerify(level) == true;
@@ -298,63 +310,48 @@ public sealed class KeyboardBacklightService : IDisposable
 
         internal static VantageKeyboardBackend? TryCreate()
         {
-            foreach (string root in VantageKeyboardRoots)
+            foreach (string dllPath in EnumerateKeyboardCoreCandidates())
             {
                 try
                 {
-                    if (!Directory.Exists(root))
+                    string directory = Path.GetDirectoryName(dllPath) ?? string.Empty;
+                    if (directory.Length == 0)
                         continue;
 
-                    IEnumerable<string> candidates = Directory
-                        .EnumerateDirectories(root)
-                        .OrderByDescending(path => Directory.GetLastWriteTimeUtc(path));
-
-                    foreach (string directory in candidates.Prepend(root))
+                    // Lenovo's recent ThinkKeyboardAddin builds have not kept
+                    // assembly metadata consistent. The containing ProgramData path
+                    // is Lenovo-owned, so blank metadata must not reject an OEM DLL.
+                    FileVersionInfo info = FileVersionInfo.GetVersionInfo(dllPath);
+                    string vendor = $"{info.CompanyName} {info.ProductName}".Trim();
+                    if (!string.IsNullOrWhiteSpace(vendor) &&
+                        !vendor.Contains("Lenovo", StringComparison.OrdinalIgnoreCase))
                     {
-                        string dllPath = Path.Combine(directory, "Keyboard_Core.dll");
-                        if (!File.Exists(dllPath))
-                            continue;
-
-                        // Lenovo's recent ThinkKeyboardAddin builds have not kept
-                        // assembly metadata consistent. The containing ProgramData
-                        // path is already Lenovo-owned, so blank metadata must not
-                        // reject an otherwise valid OEM backend. A non-empty foreign
-                        // vendor string is still rejected.
-                        FileVersionInfo info = FileVersionInfo.GetVersionInfo(dllPath);
-                        string vendor = $"{info.CompanyName} {info.ProductName}".Trim();
-                        if (!string.IsNullOrWhiteSpace(vendor) &&
-                            !vendor.Contains("Lenovo", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continue;
-                        }
-
-                        // Keyboard_Core depends on adjacent Lenovo assemblies. Load
-                        // the known contract first, then any managed references that
-                        // are present beside Keyboard_Core before resolving its types.
-                        string contractPath = Path.Combine(directory, "Contract_Keyboard.dll");
-                        if (File.Exists(contractPath))
-                        {
-                            try { _ = Assembly.LoadFrom(contractPath); }
-                            catch { }
-                        }
-
-                        Assembly assembly = Assembly.LoadFrom(dllPath);
-                        LoadAdjacentManagedDependencies(assembly, directory);
-
-                        Type? type = assembly.GetType("Keyboard_Core.KeyboardControl", throwOnError: false, ignoreCase: false);
-                        if (type is null)
-                            continue;
-
-                        object? control = Activator.CreateInstance(type);
-                        MethodInfo? get = type.GetMethod("GetKeyboardBackLightStatus", BindingFlags.Public | BindingFlags.Instance);
-                        MethodInfo? set = type.GetMethod("SetKeyboardBackLightStatus", BindingFlags.Public | BindingFlags.Instance);
-                        if (control is null || get is null || set is null)
-                            continue;
-
-                        var backend = new VantageKeyboardBackend(control, get, set, dllPath);
-                        if (backend.TryGet(out _))
-                            return backend;
+                        continue;
                     }
+
+                    string contractPath = Path.Combine(directory, "Contract_Keyboard.dll");
+                    if (File.Exists(contractPath))
+                    {
+                        try { _ = Assembly.LoadFrom(contractPath); }
+                        catch { }
+                    }
+
+                    Assembly assembly = Assembly.LoadFrom(dllPath);
+                    LoadAdjacentManagedDependencies(assembly, directory);
+
+                    Type? type = assembly.GetType("Keyboard_Core.KeyboardControl", throwOnError: false, ignoreCase: false);
+                    if (type is null)
+                        continue;
+
+                    object? control = Activator.CreateInstance(type);
+                    MethodInfo? get = type.GetMethod("GetKeyboardBackLightStatus", BindingFlags.Public | BindingFlags.Instance);
+                    MethodInfo? set = type.GetMethod("SetKeyboardBackLightStatus", BindingFlags.Public | BindingFlags.Instance);
+                    if (control is null || get is null || set is null)
+                        continue;
+
+                    var backend = new VantageKeyboardBackend(control, get, set, dllPath);
+                    if (backend.TryGet(out _))
+                        return backend;
                 }
                 catch
                 {
@@ -364,6 +361,39 @@ public sealed class KeyboardBacklightService : IDisposable
             }
 
             return null;
+        }
+
+        private static IEnumerable<string> EnumerateKeyboardCoreCandidates()
+        {
+            var candidates = new List<string>();
+            foreach (string root in VantageKeyboardRoots)
+            {
+                try
+                {
+                    if (!Directory.Exists(root))
+                        continue;
+
+                    // Newer Vantage/ImController packages may put the managed add-in
+                    // under version/x64/bin layers rather than directly below root.
+                    // Search only inside Lenovo's known keyboard-plugin roots.
+                    candidates.AddRange(Directory.EnumerateFiles(
+                        root,
+                        "Keyboard_Core.dll",
+                        SearchOption.AllDirectories));
+                }
+                catch
+                {
+                }
+            }
+
+            return candidates
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(path => path.Contains("\\x64\\", StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(path =>
+                {
+                    try { return File.GetLastWriteTimeUtc(path); }
+                    catch { return DateTime.MinValue; }
+                });
         }
 
         private static void LoadAdjacentManagedDependencies(Assembly assembly, string directory)
@@ -393,17 +423,25 @@ public sealed class KeyboardBacklightService : IDisposable
             try
             {
                 ParameterInfo[] parameters = _get.GetParameters();
-                if (parameters.Length < 1)
-                    return false;
-
                 object?[] args = CreateInvocationArguments(parameters);
-                _ = _get.Invoke(_control, args);
+                object? result = _get.Invoke(_control, args);
 
-                int raw = Convert.ToInt32(args[0]);
-                if (raw is < 0 or > 2)
+                // Lenovo has shipped both ref/out and direct-return variants. Prefer
+                // an actual by-ref/out status parameter; otherwise accept a direct
+                // numeric/enum return. Never interpret a Boolean success return as a
+                // backlight level.
+                object? raw = null;
+                int byRefIndex = Array.FindIndex(parameters, parameter =>
+                    parameter.ParameterType.IsByRef || parameter.IsOut);
+                if (byRefIndex >= 0 && byRefIndex < args.Length)
+                    raw = args[byRefIndex];
+                else if (result is not null && result is not bool)
+                    raw = result;
+                else if (args.Length > 0)
+                    raw = args[0];
+
+                if (!TryReadLevel(raw, out level))
                     return false;
-
-                level = (KeyboardBacklightLevel)raw;
                 return true;
             }
             catch
@@ -427,8 +465,30 @@ public sealed class KeyboardBacklightService : IDisposable
                     : Convert.ChangeType((int)level, levelType);
 
                 _ = _set.Invoke(_control, args);
-                Thread.Sleep(90);
-                return TryGet(out KeyboardBacklightLevel current) && current == level;
+                for (int attempt = 0; attempt < 4; attempt++)
+                {
+                    Thread.Sleep(attempt == 0 ? 90 : 75);
+                    if (TryGet(out KeyboardBacklightLevel current) && current == level)
+                        return true;
+                }
+                return false;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool TryReadLevel(object? raw, out KeyboardBacklightLevel level)
+        {
+            level = KeyboardBacklightLevel.Off;
+            try
+            {
+                int value = Convert.ToInt32(raw);
+                if (value is < 0 or > 3)
+                    return false;
+                level = (KeyboardBacklightLevel)value;
+                return true;
             }
             catch
             {
