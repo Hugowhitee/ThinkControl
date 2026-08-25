@@ -11,9 +11,19 @@
     <Authors>ThinkControl Project</Authors>
     <Company>ThinkControl Project</Company>
     <RepositoryUrl>https://github.com/Hugowhitee/ThinkControl</RepositoryUrl>
-    <VersionPrefix>0.1.0</VersionPrefix>
-    <VersionSuffix>alpha.11</VersionSuffix>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+
+    <!-- version.json is the repository source of truth. Package CI may override the
+         informational version with APP_VERSION for dev artifacts while tagged builds
+         resolve to the exact source version. This keeps normal local/CI builds from
+         silently reporting an old hard-coded alpha version. -->
+    <ThinkControlVersionJson>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)version.json'))</ThinkControlVersionJson>
+    <ThinkControlSourceVersion>$([System.Text.RegularExpressions.Regex]::Replace('$(ThinkControlVersionJson)', '(?s).*&quot;version&quot;\s*:\s*&quot;([^&quot;]+)&quot;.*', '$1'))</ThinkControlSourceVersion>
+    <Version Condition="'$(APP_VERSION)' != ''">$(APP_VERSION)</Version>
+    <Version Condition="'$(APP_VERSION)' == ''">$(ThinkControlSourceVersion)</Version>
+
+    <AssemblyVersion Condition="'$(NUMERIC_VERSION)' != ''">$(NUMERIC_VERSION)</AssemblyVersion>
+    <AssemblyVersion Condition="'$(NUMERIC_VERSION)' == ''">0.1.0.0</AssemblyVersion>
+    <FileVersion Condition="'$(NUMERIC_VERSION)' != ''">$(NUMERIC_VERSION)</FileVersion>
+    <FileVersion Condition="'$(NUMERIC_VERSION)' == ''">0.1.0.0</FileVersion>
   </PropertyGroup>
 </Project>
