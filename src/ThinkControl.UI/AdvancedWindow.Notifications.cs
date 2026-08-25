@@ -11,81 +11,86 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private bool _notificationButtonConfigured;
-    private Grid? _notificationIndicator;
+    private Button? _notificationIndicator;
     private Ellipse? _notificationDot;
 
     private void ConfigureNotificationButton()
     {
+        ConfigureShellChromePolish();
+
         if (_notificationButtonConfigured)
         {
             SyncNotificationIndicator();
             return;
         }
 
-        if (Content is not Border { Child: Grid root } ||
-            root.Children.OfType<Grid>().FirstOrDefault(grid => Grid.GetRow(grid) == 1) is not Grid body ||
-            body.Children.OfType<Border>().FirstOrDefault(border => Grid.GetColumn(border) == 0) is not Border sidebar ||
-            sidebar.Child is not Grid sidebarGrid)
-        {
+        if (NavHome.Parent is not StackPanel navStack)
             return;
-        }
 
         _notificationButtonConfigured = true;
-
-        var icon = new Grid
-        {
-            Width = 28,
-            Height = 28,
-            Background = Brushes.Transparent,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 10, 0),
-            Opacity = 0.78
-        };
 
         var bell = new Path
         {
             Data = Geometry.Parse("M10,2.1 C6.5,2.1 5,4.7 5,7.7 V10.6 L3.3,13.2 H16.7 L15,10.6 V7.7 C15,4.7 13.5,2.1 10,2.1 Z M7.7,15 C8.1,16.1 8.9,16.6 10,16.6 C11.1,16.6 11.9,16.1 12.3,15"),
-            StrokeThickness = 1.8,
+            StrokeThickness = 1.45,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
             Fill = Brushes.Transparent,
-            Width = 18,
-            Height = 18,
+            Width = 17,
+            Height = 17,
             Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
         bell.SetResourceReference(Shape.StrokeProperty, "Tc.TextMuted");
-        icon.Children.Add(bell);
 
         _notificationDot = new Ellipse
         {
-            Width = 6,
-            Height = 6,
+            Width = 7,
+            Height = 7,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 3, 3, 0),
+            VerticalAlignment = VerticalAlignment.Center,
             StrokeThickness = 1
         };
         _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
-        _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Window");
-        icon.Children.Add(_notificationDot);
+        _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Surface");
 
-        icon.MouseEnter += (_, _) => icon.Opacity = 1.0;
-        icon.MouseLeave += (_, _) => icon.Opacity = 0.78;
-        icon.MouseLeftButtonUp += (_, e) =>
+        var content = new Grid();
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
+        content.ColumnDefinitions.Add(new ColumnDefinition());
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        content.Children.Add(bell);
+
+        var label = new TextBlock
         {
-            e.Handled = true;
-            ShowNotificationSheet();
+            Text = "Notifications",
+            FontSize = 11,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(2, 0, 0, 0)
         };
+        Grid.SetColumn(label, 1);
+        content.Children.Add(label);
 
-        _notificationIndicator = icon;
-        Grid.SetRow(icon, 1);
-        Panel.SetZIndex(icon, 20);
-        sidebarGrid.Children.Add(icon);
+        Grid.SetColumn(_notificationDot, 2);
+        content.Children.Add(_notificationDot);
+
+        var button = new Button
+        {
+            Height = 40,
+            Margin = new Thickness(10, 2, 8, 5),
+            Padding = new Thickness(6, 0, 7, 0),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Content = content,
+            Style = TryFindResource("TcButton") as Style,
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent,
+            ToolTip = "Notifications"
+        };
+        button.Click += (_, _) => ShowNotificationSheet();
+
+        _notificationIndicator = button;
+        navStack.Children.Insert(0, button);
 
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;
