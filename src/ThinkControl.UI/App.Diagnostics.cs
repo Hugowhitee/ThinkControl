@@ -96,6 +96,7 @@ public partial class App
             "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
             "MarkFanLevelAudible" => ("fan.audible_level_marked", "FanControl", "FanSupervisor"),
             "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),
+            "SetKeyboardBacklight" => ("keyboard.level_set", "KeyboardBacklight", "Lenovo"),
             "SetThermalMode" => ("thermal.policy_set", "ThermalPolicy", "LenovoLITS"),
             _ => ("hardware.operation", "Hardware", "ThinkControlService")
         };
