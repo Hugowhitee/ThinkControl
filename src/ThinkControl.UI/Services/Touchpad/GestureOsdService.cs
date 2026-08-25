@@ -18,6 +18,7 @@ internal sealed class GestureOsdService : IDisposable
     private readonly DispatcherTimer _hideTimer;
     private Window? _window;
     private Border? _shell;
+    private TranslateTransform? _shellTransform;
     private Button? _iconButton;
     private Path? _iconPath;
     private TextBlock? _label;
@@ -48,7 +49,8 @@ internal sealed class GestureOsdService : IDisposable
             return;
 
         EnsureWindow();
-        if (_window is null || _label is null || _value is null || _slider is null || _shell is null || _iconPath is null || _iconButton is null)
+        if (_window is null || _label is null || _value is null || _slider is null || _shell is null ||
+            _shellTransform is null || _iconPath is null || _iconButton is null)
             return;
 
         _activeLabel = label;
@@ -84,28 +86,35 @@ internal sealed class GestureOsdService : IDisposable
         };
         double targetTop = area.Bottom - _window.Height - 14;
         _window.Left = targetLeft;
+        _window.Top = targetTop;
 
         if (!_window.IsVisible)
         {
-            double startTop = area.Bottom + 6;
-            _window.Top = startTop;
+            // Keep the actual topmost window entirely inside the work area. Only its
+            // clipped child moves up from below the window bounds, so the OSD appears
+            // to emerge from behind the taskbar rather than painting over it.
+            _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+            _shellTransform.Y = _window.Height + 10;
             _window.Show();
             if (SystemParameters.ClientAreaAnimation)
             {
-                _window.BeginAnimation(Window.TopProperty, new DoubleAnimation(startTop, targetTop, TimeSpan.FromMilliseconds(145))
+                _shellTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(
+                    _window.Height + 10,
+                    0,
+                    TimeSpan.FromMilliseconds(155))
                 {
                     EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
                 });
             }
             else
             {
-                _window.Top = targetTop;
+                _shellTransform.Y = 0;
             }
         }
         else
         {
-            _window.BeginAnimation(Window.TopProperty, null);
-            _window.Top = targetTop;
+            _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+            _shellTransform.Y = 0;
         }
 
         RestartHideTimer();
@@ -186,9 +195,9 @@ internal sealed class GestureOsdService : IDisposable
         {
             if (_syncing || !_slider.IsMouseCaptureWithin)
                 return;
-            int value = (int)Math.Round(e.NewValue);
-            if (_setValue(_activeLabel, value))
-                _value!.Text = $"{value}%";
+            int current = (int)Math.Round(e.NewValue);
+            if (_setValue(_activeLabel, current))
+                _value!.Text = $"{current}%";
             RestartHideTimer();
         };
         _slider.PreviewMouseDown += (_, _) => _hideTimer.Stop();
@@ -208,17 +217,26 @@ internal sealed class GestureOsdService : IDisposable
         Grid.SetColumn(right, 1);
         content.Children.Add(right);
 
+        _shellTransform = new TranslateTransform();
         _shell = new Border
         {
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(9),
             Padding = new Thickness(10, 7, 12, 7),
+            RenderTransform = _shellTransform,
             Child = content
         };
         _shell.SetResourceReference(Border.BackgroundProperty, "Tc.Surface");
         _shell.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
         _shell.MouseEnter += (_, _) => _hideTimer.Stop();
         _shell.MouseLeave += (_, _) => RestartHideTimer();
+
+        var clippingHost = new Grid
+        {
+            ClipToBounds = true,
+            Background = Brushes.Transparent
+        };
+        clippingHost.Children.Add(_shell);
 
         _window = new Window
         {
@@ -231,7 +249,7 @@ internal sealed class GestureOsdService : IDisposable
             Topmost = true,
             AllowsTransparency = true,
             Background = Brushes.Transparent,
-            Content = _shell
+            Content = clippingHost
         };
     }
 
@@ -244,30 +262,33 @@ internal sealed class GestureOsdService : IDisposable
     private void Hide()
     {
         _hideTimer.Stop();
-        if (_window is null || !_window.IsVisible)
+        if (_window is null || !_window.IsVisible || _shellTransform is null)
             return;
 
         if (!SystemParameters.ClientAreaAnimation)
         {
             _window.Hide();
+            _shellTransform.Y = 0;
             return;
         }
 
-        Rect area = SystemParameters.WorkArea;
-        double from = _window.Top;
-        double to = area.Bottom + 6;
-        var animation = new DoubleAnimation(from, to, TimeSpan.FromMilliseconds(110))
+        _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        var animation = new DoubleAnimation(
+            _shellTransform.Y,
+            _window.Height + 10,
+            TimeSpan.FromMilliseconds(120))
         {
             EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
         };
         animation.Completed += (_, _) =>
         {
-            if (_window is null)
+            if (_window is null || _shellTransform is null)
                 return;
             _window.Hide();
-            _window.BeginAnimation(Window.TopProperty, null);
+            _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+            _shellTransform.Y = 0;
         };
-        _window.BeginAnimation(Window.TopProperty, animation);
+        _shellTransform.BeginAnimation(TranslateTransform.YProperty, animation);
     }
 
     public void Dispose()
