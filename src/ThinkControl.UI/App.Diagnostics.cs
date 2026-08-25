@@ -15,6 +15,7 @@ public partial class App
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
         InitializePowerProfileCoordinator();
         InitializeCoolingCoordinator();
+        InitializeAttentionNotifications();
         Startup += OnBootstrapStartup;
         Startup += OnShellIconStartup;
         Activated += OnTouchpadApplicationActivated;
