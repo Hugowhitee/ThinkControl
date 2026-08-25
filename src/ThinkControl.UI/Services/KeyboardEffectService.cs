@@ -224,8 +224,18 @@ public sealed class KeyboardEffectService : IDisposable
                 return;
         }
 
-        if (!await _writeGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        if (force)
+        {
+            // A direct Off/Low/High click is authoritative. If an effect write is
+            // already in flight, wait for that bounded service call and then apply
+            // the user's explicit level. Dropping a static click leaves no effect
+            // loop to retry it and makes working keyboard hardware look broken.
+            await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (!await _writeGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
             return;
+        }
 
         try
         {
