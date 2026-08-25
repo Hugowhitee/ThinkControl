@@ -30,14 +30,11 @@ internal sealed class ThinkPadEc : IDisposable
     private ushort _dataPort;
     private DateTimeOffset _thermalBackoffUntil = DateTimeOffset.MinValue;
     private bool _manualControlEngaged;
-    private byte? _lastManualLevel;
+    private byte? _lastManualControl;
     private bool _disposed;
 
     internal ThinkPadEc()
     {
-        // Construct the transport before allocating mutex handles. A missing/broken
-        // PawnIO provider may throw here and must not leak one pair of native mutex
-        // handles on every controller retry.
         var ports = new PawnIoEcTransport();
         Mutex? thinkPadMutex = null;
         Mutex? globalEcMutex = null;
@@ -49,11 +46,6 @@ internal sealed class ThinkPadEc : IDisposable
             _thinkPadMutex = thinkPadMutex;
             _globalEcMutex = globalEcMutex;
 
-            // Do not infer PawnIO readiness from its Windows service entry alone.
-            // The transport proves device/module access first; then a read-only EC
-            // capability probe selects the modern ThinkPad Type 1 ports before the
-            // older ACPI Type 2 fallback. Detection uses the same global ThinkPad EC
-            // mutex discipline as established TPFanCtrl implementations.
             WithEcLock(() =>
             {
                 DetectPortPair();
@@ -87,13 +79,6 @@ internal sealed class ThinkPadEc : IDisposable
         });
     }
 
-    /// <summary>
-    /// Reads classic ThinkPad EC thermal banks without assigning semantic CPU/GPU
-    /// labels. This is an optional safety fallback, never a reason to hold the EC
-    /// lock through repeated long timeouts. One timed-out register aborts the whole
-    /// scan and backs the optional path off; partial scans are not used as a control
-    /// temperature because they may have missed the hottest sensor.
-    /// </summary>
     internal IReadOnlyList<(byte Register, byte Celsius)> ReadThermalSensors()
     {
         if (DateTimeOffset.UtcNow < _thermalBackoffUntil)
@@ -122,7 +107,28 @@ internal sealed class ThinkPadEc : IDisposable
         if (level < ThinkPadRegisters.MinManualLevel || level > ThinkPadRegisters.MaxManualLevel)
             throw new ArgumentOutOfRangeException(nameof(level), "Manual fan level must be between 1 and 7.");
 
-        if (_manualControlEngaged && _lastManualLevel == level)
+        SetFanControlVerified(
+            level,
+            readBack => readBack == level,
+            $"manual fan level {level}");
+    }
+
+    internal void SetFullSpeed()
+    {
+        // The upstream Linux thinkpad_acpi driver defines bit 0x40 as EC full-speed
+        // and writes it together with level 7 (0x47) as a safe fallback. We use the
+        // same state only on the already model-gated X9 provider and require the EC
+        // to read back the full-speed bit. If the firmware ignores that bit, 100%
+        // remains unavailable instead of being falsely reported as level 7.
+        SetFanControlVerified(
+            ThinkPadRegisters.FullSpeedControl,
+            ThinkPadFanProtocol.IsFullSpeed,
+            "full-speed override");
+    }
+
+    private void SetFanControlVerified(byte requested, Func<byte, bool> acceptsReadBack, string label)
+    {
+        if (_manualControlEngaged && _lastManualControl == requested)
             return;
 
         _manualControlEngaged = true;
@@ -130,16 +136,17 @@ internal sealed class ThinkPadEc : IDisposable
         {
             WithEcLock(() =>
             {
-                WriteByteUnlocked(ThinkPadRegisters.FanControl, level);
+                WriteByteUnlocked(ThinkPadRegisters.FanControl, requested);
                 return 0;
             });
 
             Thread.Sleep(45);
             byte readBack = ReadFanControl();
-            if (readBack != level)
-                throw new InvalidOperationException($"Fan write verification failed. Requested {level}, EC returned 0x{readBack:X2}.");
+            if (!acceptsReadBack(readBack))
+                throw new InvalidOperationException(
+                    $"Fan write verification failed for {label}. Requested 0x{requested:X2}, EC returned 0x{readBack:X2}.");
 
-            _lastManualLevel = level;
+            _lastManualControl = readBack;
         }
         catch
         {
@@ -162,7 +169,7 @@ internal sealed class ThinkPadEc : IDisposable
             throw new InvalidOperationException($"BIOS fan-control verification failed. EC returned 0x{readBack:X2}.");
 
         _manualControlEngaged = false;
-        _lastManualLevel = null;
+        _lastManualControl = null;
     }
 
     private void DetectPortPair()
@@ -191,14 +198,9 @@ internal sealed class ThinkPadEc : IDisposable
                 return false;
             }
 
-            // Auto, manual 1-7 and the known 0x40-0x47 override states are strong
-            // non-zero evidence that this is the real ThinkPad EC port pair. 0x00 is
-            // a legitimate fan-off state but also the most likely false value from a
-            // wrong port, so only that ambiguous state requires a second read-only
-            // thermal sanity check.
             if (control == ThinkPadRegisters.BiosControl ||
                 control is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel ||
-                control is >= 0x40 and <= 0x47)
+                ThinkPadFanProtocol.IsFullSpeed(control))
             {
                 return true;
             }
@@ -254,7 +256,7 @@ internal sealed class ThinkPadEc : IDisposable
                 return 0;
             });
             _manualControlEngaged = false;
-            _lastManualLevel = null;
+            _lastManualControl = null;
         }
         catch
         {
@@ -285,14 +287,6 @@ internal sealed class ThinkPadEc : IDisposable
     private bool TryReadByte(byte register, out byte value, int timeoutMs = TransactionTimeoutMs)
     {
         value = 0;
-
-        // Drain any stale output byte before starting a new transaction. After the
-        // command/register have been accepted, prefer a fresh OBF indication, but
-        // retain the IBF-clear compatibility fallback used by LibreHardwareMonitor
-        // and the earlier X9-tested provider. The X9 has been observed to complete
-        // valid EC reads without asserting OBF reliably, especially for tachometer
-        // readback; requiring OBF unconditionally makes verified fan writes appear to
-        // fail even though the EC accepted them.
         if (!PrepareForTransaction(timeoutMs))
             return false;
 
@@ -373,10 +367,6 @@ internal sealed class ThinkPadEc : IDisposable
             Thread.Sleep(1);
         }
 
-        // LibreHardwareMonitor's Windows EC reader and TPFanCtrl both tolerate ECs
-        // that finish a read once IBF clears without presenting a dependable OBF bit.
-        // The stale-output drain in PrepareForTransaction makes this fallback much
-        // safer than blindly reading the data port at the start of a transaction.
         int fallbackBudget = Math.Min(Math.Max(timeoutMs - obfBudget, 1), ReadFallbackTimeoutMs);
         for (int elapsed = 0; elapsed < fallbackBudget; elapsed++)
         {
