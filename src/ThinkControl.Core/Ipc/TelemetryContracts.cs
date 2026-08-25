@@ -75,7 +75,9 @@ public sealed record TelemetrySnapshot(
     double? CoolingSmoothedTemperatureC = null,
     string CoolingStatus = "Lenovo firmware owns fan control",
     bool CoolingSafetyOverride = false,
-    FanCharacterizationSnapshot? FanCharacterization = null);
+    FanCharacterizationSnapshot? FanCharacterization = null,
+    string? CoolingProfileId = null,
+    int? CoolingAppliedPercent = null);
 
 public sealed record HardwareCapabilitySnapshot(
     bool FanTelemetry,

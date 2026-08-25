@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Controls;
@@ -25,13 +26,13 @@ public partial class TouchpadPanel
         OsdOpacitySlider.ValueChanged += (_, _) => RefreshSliderResetButtons();
         Loaded += (_, _) => RefreshValueFeedback();
 
-        ConfigureResetButton(EdgeWidthSlider, EdgeWidthValue, 5.0, ResetGestureSlider);
-        ConfigureResetButton(ActivationSlider, ActivationValue, 2.0, ResetGestureSlider);
-        ConfigureResetButton(ToleranceSlider, ToleranceValue, 12.0, ResetGestureSlider);
-        ConfigureResetButton(SensitivitySlider, SensitivityValue, 1.0, ResetGestureSlider);
-        ConfigureResetButton(HapticStrengthSlider, HapticStrengthValue, App.DefaultHapticFeedbackIntensity, ResetHapticSlider);
-        ConfigureResetButton(ClickForceSlider, ClickForceValue, App.DefaultHapticClickSensitivity, ResetHapticSlider);
-        ConfigureResetButton(OsdOpacitySlider, OsdOpacityValue, 92.0, ResetOsdOpacity);
+        ConfigureResetButton(EdgeWidthSlider, EdgeWidthValue, 5.0, ResetGestureSlider, "Touchpad");
+        ConfigureResetButton(ActivationSlider, ActivationValue, 2.0, ResetGestureSlider, "Gauge");
+        ConfigureResetButton(ToleranceSlider, ToleranceValue, 12.0, ResetGestureSlider, "Gauge");
+        ConfigureResetButton(SensitivitySlider, SensitivityValue, 1.0, ResetGestureSlider, "Gauge");
+        ConfigureResetButton(HapticStrengthSlider, HapticStrengthValue, App.DefaultHapticFeedbackIntensity, ResetHapticSlider, "Touchpad");
+        ConfigureResetButton(ClickForceSlider, ClickForceValue, App.DefaultHapticClickSensitivity, ResetHapticSlider, "Touchpad");
+        ConfigureResetButton(OsdOpacitySlider, OsdOpacityValue, 92.0, ResetOsdOpacity, "Monitor");
 
         if (_host is not null)
             _host.GestureChanged += Host_GestureValueFeedback;
@@ -43,7 +44,8 @@ public partial class TouchpadPanel
         Slider slider,
         TextBlock valueLabel,
         double defaultValue,
-        Action<Slider, double> reset)
+        Action<Slider, double> reset,
+        string iconKind)
     {
         if (_sliderResetButtons.ContainsKey(slider))
             return;
@@ -52,47 +54,91 @@ public partial class TouchpadPanel
         if (header is null)
             return;
 
-        // Some setting headers already dedicate a right-hand Grid column to the
-        // value. The reset button intentionally sits at the right edge of the label
-        // column (column 0), so those value labels do not need to reserve another
-        // 27 px. Reserving it unconditionally clipped short fixed-width values such
-        // as "1.00×" down to ".00×" in the Touchpad page snapshots.
-        int valueColumn = Grid.GetColumn(valueLabel);
-        if (valueColumn == 0)
-        {
-            valueLabel.Margin = new Thickness(
-                valueLabel.Margin.Left,
-                valueLabel.Margin.Top,
-                Math.Max(valueLabel.Margin.Right, 27),
-                valueLabel.Margin.Bottom);
-        }
-
-        var icon = new PackIconLucide
-        {
-            Kind = "RefreshCw",
-            Width = 11,
-            Height = 11
-        };
-        icon.SetResourceReference(ForegroundProperty, "Tc.TextMuted");
+        AddSettingIcon(header, valueLabel, iconKind);
 
         var button = new Button
         {
-            Width = 23,
-            Height = 23,
-            Padding = new Thickness(0),
+            Content = "Reset",
+            MinWidth = 0,
+            Height = 24,
+            Padding = new Thickness(8, 0, 0, 0),
+            Margin = new Thickness(8, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Content = icon,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            FontSize = 9.5,
+            Cursor = System.Windows.Input.Cursors.Hand,
             ToolTip = $"Reset to default ({FormatDefault(defaultValue, slider)})",
             Tag = defaultValue,
-            Style = TryFindResource("TcIconButton") as Style,
             Visibility = Visibility.Collapsed
         };
-        Grid.SetColumn(button, 0);
+        button.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         button.Click += (_, _) => reset(slider, defaultValue);
-        Panel.SetZIndex(button, 4);
-        header.Children.Add(button);
+
+        // Put reset beside the slider instead of in the value header. The previous
+        // boxed/history-looking icon made every row look like an undo control and
+        // stole width from the actual value. This flat text affordance stays out of
+        // the way and appears only when the value differs from default.
+        if (slider.Parent is StackPanel stack)
+        {
+            int index = stack.Children.IndexOf(slider);
+            if (index >= 0)
+            {
+                stack.Children.RemoveAt(index);
+                var row = new Grid { Margin = slider.Margin };
+                row.ColumnDefinitions.Add(new ColumnDefinition());
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                slider.Margin = new Thickness(0);
+                row.Children.Add(slider);
+                Grid.SetColumn(button, 1);
+                row.Children.Add(button);
+                stack.Children.Insert(index, row);
+            }
+        }
+
         _sliderResetButtons[slider] = button;
+    }
+
+    private void AddSettingIcon(Grid header, TextBlock valueLabel, string iconKind)
+    {
+        TextBlock? label = header.Children
+            .OfType<TextBlock>()
+            .FirstOrDefault(text => !ReferenceEquals(text, valueLabel));
+        if (label is null || label.Tag as string == "ThinkControl.IconizedSettingLabel")
+            return;
+
+        int column = Grid.GetColumn(label);
+        int row = Grid.GetRow(label);
+        int columnSpan = Grid.GetColumnSpan(label);
+        int rowSpan = Grid.GetRowSpan(label);
+        int index = header.Children.IndexOf(label);
+        header.Children.Remove(label);
+
+        var icon = new PackIconLucide
+        {
+            Kind = iconKind,
+            Width = 12,
+            Height = 12,
+            Margin = new Thickness(0, 0, 6, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        icon.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
+
+        label.Tag = "ThinkControl.IconizedSettingLabel";
+        var panel = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = label.HorizontalAlignment
+        };
+        panel.Children.Add(icon);
+        panel.Children.Add(label);
+        Grid.SetColumn(panel, column);
+        Grid.SetRow(panel, row);
+        Grid.SetColumnSpan(panel, columnSpan);
+        Grid.SetRowSpan(panel, rowSpan);
+        header.Children.Insert(Math.Min(index, header.Children.Count), panel);
     }
 
     private static Grid? FindHeaderBeforeSlider(Slider slider)
@@ -143,16 +189,16 @@ public partial class TouchpadPanel
 
     private void RefreshValueFeedback()
     {
-        RefreshSignedSettingLabels();
+        RefreshSettingLabels();
         RefreshSliderResetButtons();
     }
 
-    private void RefreshSignedSettingLabels()
+    private void RefreshSettingLabels()
     {
         EdgeWidthValue.Text = FormatSetting(EdgeWidthSlider.Value, 5.0, "mm", 1);
         ActivationValue.Text = FormatSetting(ActivationSlider.Value, 2.0, "mm", 1);
         ToleranceValue.Text = FormatSetting(ToleranceSlider.Value, 12.0, "mm", 1);
-        SensitivityValue.Text = FormatSetting(SensitivitySlider.Value, 1.0, "×", 2, unitBeforeDelta: true);
+        SensitivityValue.Text = FormatSetting(SensitivitySlider.Value, 1.0, "×", 2, unitBeforeValue: false);
     }
 
     private void RefreshSliderResetButtons()
@@ -226,20 +272,18 @@ public partial class TouchpadPanel
         double defaultValue,
         string unit,
         int decimals,
-        bool unitBeforeDelta = false)
+        bool unitBeforeValue = false)
     {
         string format = decimals == 2 ? "0.00" : "0.0";
-        double delta = value - defaultValue;
-        string current = unitBeforeDelta
-            ? $"{value.ToString(format)}{unit}"
-            : $"{value.ToString(format)} {unit}";
-        if (Math.Abs(delta) < Math.Pow(10, -decimals) / 2d)
-            return $"{current} · default";
+        string current = unitBeforeValue
+            ? $"{unit}{value.ToString(format)}"
+            : $"{value.ToString(format)}{(unit == "×" ? string.Empty : " ")}{unit}";
 
-        string signed = delta.ToString(decimals == 2 ? "+0.00;-0.00;0.00" : "+0.0;-0.0;0.0");
-        return unitBeforeDelta
-            ? $"{current} · {signed}"
-            : $"{current} · {signed} {unit}";
+        // Tuning controls show the actual setting only. Delta text such as +0.2 is
+        // useful during a live gesture, not while configuring a persistent slider.
+        return Math.Abs(value - defaultValue) < Math.Pow(10, -decimals) / 2d
+            ? $"{current} · default"
+            : current;
     }
 
     private string FormatDefault(double value, Slider slider)

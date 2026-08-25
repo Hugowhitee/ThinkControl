@@ -26,7 +26,9 @@ public static class ThemeService
         bool light = IsLightEffective;
         ResourceDictionary resources = System.Windows.Application.Current.Resources;
 
-        SetBrush(resources, "Tc.Window", light ? "#F5F5F7" : "#101214");
+        string window = light ? "#F5F5F7" : "#101214";
+        SetBrush(resources, "Tc.Window", window);
+        SetBrush(resources, "Tc.Background", window);
         SetBrush(resources, "Tc.Surface", light ? "#FFFFFF" : "#171A1D");
         SetBrush(resources, "Tc.SurfaceAlt", light ? "#F1F2F4" : "#1D2024");
         SetBrush(resources, "Tc.SurfaceHover", light ? "#E7E9EC" : "#25292E");
@@ -39,6 +41,15 @@ public static class ThemeService
         SetBrush(resources, "Tc.AccentHover", "#F13B3B");
         SetBrush(resources, "Tc.Success", light ? "#168A45" : "#4CCB7A");
         SetBrush(resources, "Tc.Warning", light ? "#A76800" : "#E7A640");
+
+        // Stock WPF controls otherwise fall back to the Windows blue selection
+        // brush. A few diagnostic/list surfaces intentionally keep native control
+        // behavior, so override only the system selection palette app-wide and let
+        // their own templates/layout remain untouched.
+        resources[SystemColors.HighlightBrushKey] = resources["Tc.SurfaceHover"];
+        resources[SystemColors.HighlightTextBrushKey] = resources["Tc.Text"];
+        resources[SystemColors.InactiveSelectionHighlightBrushKey] = resources["Tc.SurfaceAlt"];
+        resources[SystemColors.InactiveSelectionHighlightTextBrushKey] = resources["Tc.Text"];
     }
 
     private static bool SystemPrefersLight()

@@ -7,6 +7,7 @@ internal sealed class GestureActionRouter
 {
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
+    private const double TrackSwipeThresholdMm = 7.0;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -29,6 +30,7 @@ internal sealed class GestureActionRouter
     private double _seekCumulativeSeconds;
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
+    private bool _trackSwipeFired;
 
     internal GestureActionRouter(
         NativeInputService nativeInput,
@@ -69,6 +71,8 @@ internal sealed class GestureActionRouter
                 Update(signal);
                 break;
             case GesturePhase.Released:
+                Release(signal);
+                break;
             case GesturePhase.Cancelled:
                 End(signal.Action);
                 break;
@@ -108,8 +112,12 @@ internal sealed class GestureActionRouter
                 ApplyDiscreteTarget(signal, signal.TotalTravelMm, _performanceAtStart, _queuePerformanceIndex);
                 break;
             case GestureActionKind.PreviousNextTrack:
-                if (ToPositiveControlDelta(signal, signal.TotalTravelMm) >= 0) _nativeInput.NextTrack();
-                else _nativeInput.PreviousTrack();
+                _setGestureActive(signal.Action, true);
+                _trackSwipeFired = false;
+                // Do not fire at the 2 mm claim point. A track skip is a discrete
+                // directional gesture and needs a deliberate swipe to avoid random
+                // skips from simply touching an enabled edge.
+                TryFireTrackSwipe(signal);
                 break;
             case GestureActionKind.PlayPause:
                 _nativeInput.TogglePlayPause();
@@ -147,6 +155,47 @@ internal sealed class GestureActionRouter
             case GestureActionKind.PerformanceMode:
                 ApplyDiscreteTarget(signal, signal.TotalTravelMm, _performanceAtStart, _queuePerformanceIndex);
                 break;
+            case GestureActionKind.PreviousNextTrack:
+                TryFireTrackSwipe(signal);
+                break;
+        }
+    }
+
+    private void Release(GestureSignal signal)
+    {
+        if (signal.Action == GestureActionKind.PreviousNextTrack)
+            TryFireTrackSwipe(signal, allowReleaseFallback: true);
+        End(signal.Action);
+    }
+
+    private void TryFireTrackSwipe(GestureSignal signal, bool allowReleaseFallback = false)
+    {
+        if (_trackSwipeFired)
+            return;
+
+        double signed = ToPositiveControlDelta(signal, signal.TotalTravelMm);
+        double threshold = allowReleaseFallback ? TrackSwipeThresholdMm * 0.85 : TrackSwipeThresholdMm;
+        if (Math.Abs(signed) < threshold)
+            return;
+
+        _trackSwipeFired = true;
+        bool next = signed > 0;
+        _ = SkipTrackAsync(next);
+    }
+
+    private async Task SkipTrackAsync(bool next)
+    {
+        bool changed = next
+            ? await _media.TrySkipNextAsync().ConfigureAwait(false)
+            : await _media.TrySkipPreviousAsync().ConfigureAwait(false);
+
+        // GSMTC is the preferred path because Spotify/browser media sessions can
+        // ignore synthetic media keys depending on focus. Keep SendInput as a
+        // broad compatibility fallback for apps that expose only legacy controls.
+        if (!changed)
+        {
+            if (next) _nativeInput.NextTrack();
+            else _nativeInput.PreviousTrack();
         }
     }
 
@@ -204,17 +253,11 @@ internal sealed class GestureActionRouter
 
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
-
-        // Seek is intentionally much finer than volume/brightness. Slow finger
-        // travel maps almost one-to-one to sub-second movement, while a deliberate
-        // fast swipe still accelerates enough for long videos. The old curve could
-        // generate a 22-second jump from one input frame, which felt unusably chunky
-        // in browser video even though its slow GSMTC cadence protected Spotify.
-        double speed01 = Math.Clamp((velocity - 48.0) / 210.0, 0.0, 1.0);
-        double acceleration = 1.0 + 1.65 * Math.Pow(speed01, 1.35);
-        double seconds = deltaMm * 0.11 * acceleration;
-        seconds = Math.Clamp(seconds, -4.0, 4.0);
-        _seekCumulativeSeconds = Math.Clamp(_seekCumulativeSeconds + seconds, -600.0, 600.0);
+        double speed01 = Math.Clamp((velocity - 32.0) / 185.0, 0.0, 1.0);
+        double acceleration = 1.0 + 2.7 * Math.Pow(speed01, 1.45);
+        double secondsPerMm = 0.18 * acceleration;
+        double seconds = Math.Clamp(deltaMm * secondsPerMm, -8.0, 8.0);
+        _seekCumulativeSeconds = Math.Clamp(_seekCumulativeSeconds + seconds, -1800.0, 1800.0);
         _ = QueueMediaWhenReadyAsync(seconds);
     }
 
@@ -240,6 +283,9 @@ internal sealed class GestureActionRouter
         _setGestureActive(action, false);
         _continuousDeltaPercent = 0;
         _lastContinuousTimestamp = 0;
+
+        if (action == GestureActionKind.PreviousNextTrack)
+            _trackSwipeFired = false;
 
         if (action == GestureActionKind.MediaSeek)
         {

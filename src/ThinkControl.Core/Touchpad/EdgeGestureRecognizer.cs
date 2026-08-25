@@ -19,6 +19,7 @@ public sealed class EdgeGestureRecognizer
     private TouchpadEdge? _claimedEdge;
     private GestureActionKind _claimedAction;
     private GesturePhase? _phase;
+    private double _lastTotalTravelMm;
 
     public EdgeGestureRecognizer(TouchpadGestureConfiguration? configuration = null)
     {
@@ -62,6 +63,7 @@ public sealed class EdgeGestureRecognizer
                     GesturePhase.Released,
                     _claimedEdge,
                     _claimedAction,
+                    TotalTravelMm: _lastTotalTravelMm,
                     ContactId: _contactId);
                 Reset();
                 return released;
@@ -128,10 +130,6 @@ public sealed class EdgeGestureRecognizer
                 candidates.Add(edge);
         }
 
-        // Edge gestures must genuinely START at an enabled edge. Without this
-        // lockout, a normal pointer movement that began in the middle of the pad
-        // could become a candidate later when it happened to reach an edge,
-        // unexpectedly capturing/freezing the cursor until the finger was lifted.
         if (candidates.Count == 0)
         {
             _lockoutUntilAllLift = true;
@@ -143,6 +141,7 @@ public sealed class EdgeGestureRecognizer
         _startX = _lastX = contact.X;
         _startY = _lastY = contact.Y;
         _phase = GesturePhase.Candidate;
+        _lastTotalTravelMm = 0;
 
         return new GestureSignal(
             GesturePhase.Candidate,
@@ -180,8 +179,6 @@ public sealed class EdgeGestureRecognizer
         if (chosen is null || !_candidateEdges.Contains(chosen.Value))
             return Cancel("Wrong direction");
 
-        // FirstOrDefault returns Left for an empty vertical match because Left is
-        // enum zero. Confirm explicitly that the chosen orientation was present.
         if (horizontalIntent && !_candidateEdges.Any(IsHorizontalEdge))
             return Cancel("Wrong direction");
         if (verticalIntent && !_candidateEdges.Any(IsVerticalEdge))
@@ -196,13 +193,15 @@ public sealed class EdgeGestureRecognizer
         double total = AxisTravelMm(chosen.Value, contact.X, contact.Y);
         if (_configuration.BindingFor(chosen.Value).Inverted)
             total = -total;
+        total *= _configuration.BindingFor(chosen.Value).Sensitivity;
+        _lastTotalTravelMm = total;
 
         return new GestureSignal(
             GesturePhase.Claimed,
             chosen,
             _claimedAction,
-            total * _configuration.BindingFor(chosen.Value).Sensitivity,
-            total * _configuration.BindingFor(chosen.Value).Sensitivity,
+            total,
+            total,
             ContactId: contact.ContactId);
     }
 
@@ -227,6 +226,7 @@ public sealed class EdgeGestureRecognizer
 
         total *= binding.Sensitivity;
         delta *= binding.Sensitivity;
+        _lastTotalTravelMm = total;
         _lastX = contact.X;
         _lastY = contact.Y;
         _phase = GesturePhase.Active;
@@ -254,6 +254,7 @@ public sealed class EdgeGestureRecognizer
             GesturePhase.Cancelled,
             _claimedEdge ?? (_candidateEdges.Length == 1 ? _candidateEdges[0] : null),
             _claimedAction,
+            TotalTravelMm: _lastTotalTravelMm,
             Reason: reason,
             ContactId: _contactId);
 
@@ -270,6 +271,7 @@ public sealed class EdgeGestureRecognizer
         _claimedEdge = null;
         _claimedAction = GestureActionKind.Disabled;
         _phase = null;
+        _lastTotalTravelMm = 0;
         _startX = _startY = _lastX = _lastY = 0;
     }
 

@@ -51,9 +51,24 @@ public partial class AdvancedWindow
         ConfigureUpdateControls();
     }
 
-    private static void AttachScrollReset(RadioButton nav, ScrollViewer page)
+    private void AttachScrollReset(RadioButton nav, ScrollViewer page)
     {
-        nav.Checked += (_, _) => page.Dispatcher.BeginInvoke(() => page.ScrollToTop());
+        nav.Checked += (_, _) => page.Dispatcher.BeginInvoke(() =>
+        {
+            ResetTransientPageUi(page);
+            page.ScrollToTop();
+        });
+    }
+
+    private static void ResetTransientPageUi(DependencyObject root)
+    {
+        // Page-local disclosure state is transient UI, not a user setting. Returning
+        // to a page starts clean while actual switches/sliders/settings stay exactly
+        // as the user left them.
+        foreach (ComboBox combo in FindVisualChildren<ComboBox>(root))
+            combo.IsDropDownOpen = false;
+        foreach (Expander expander in FindVisualChildren<Expander>(root))
+            expander.IsExpanded = false;
     }
 
     private void AttachDynamicScrollReset(string navKey, string pageKey)
@@ -224,9 +239,6 @@ public partial class AdvancedWindow
             _app.State.UpdateStatus = result.Status;
             if (result.Success)
             {
-                // The app intentionally remains open here. The verified installer is
-                // responsible for closing ThinkControl after its local payload is
-                // prepared and Windows elevation has actually succeeded.
                 updaterStarted = true;
                 button.Content = "Installer started…";
                 button.IsEnabled = false;

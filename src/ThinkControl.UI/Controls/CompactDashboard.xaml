@@ -12,12 +12,6 @@
             <Setter Property="Height" Value="45" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="5" Padding="8,0"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
         </Style>
-        <Style x:Key="CompactCoolingSegment" TargetType="RadioButton" BasedOn="{StaticResource TcSegment}">
-            <Setter Property="Height" Value="22" />
-            <Setter Property="Padding" Value="2,0" />
-            <Setter Property="FontSize" Value="8.5" />
-            <Setter Property="Margin" Value="1,0" />
-        </Style>
     </UserControl.Resources>
 
     <Border Background="{DynamicResource Tc.Window}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="8" Padding="14">
@@ -65,12 +59,17 @@
                             <TextBlock Text="FANS" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding FanRpmText}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </Grid>
-                        <UniformGrid x:Name="CoolingQuickGroup" Grid.Row="1" Rows="1" Columns="4" Margin="-1,6,-1,0" HorizontalAlignment="Stretch" VerticalAlignment="Center" IsEnabled="{Binding CanFanControl}">
-                            <RadioButton x:Name="CompactFanAuto" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Auto" Tag="Lenovo Auto" Click="CoolingQuick_Click" />
-                            <RadioButton x:Name="CompactFanSilent" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Silent" Tag="Silent" Click="CoolingQuick_Click" />
-                            <RadioButton x:Name="CompactFanNormal" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Normal" Tag="Normal" Click="CoolingQuick_Click" />
-                            <RadioButton x:Name="CompactFanCool" GroupName="CompactCooling" Style="{StaticResource CompactCoolingSegment}" Content="Cool" Tag="Cool" Click="CoolingQuick_Click" />
-                        </UniformGrid>
+                        <Grid Grid.Row="1" Margin="0,6,0,0" VerticalAlignment="Center">
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="{Binding CoolingProfile}" FontSize="11" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="Fan profile" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
+                                <TextBlock Text="{Binding ControlTemperatureText}" FontSize="11" HorizontalAlignment="Right" />
+                                <TextBlock Text="control" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" />
+                            </StackPanel>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>

@@ -7,34 +7,31 @@ namespace ThinkControl.UI;
 
 /// <summary>
 /// Low-impact runtime telemetry coordinator. Slow discovery is startup/explicit-only;
-/// the steady-state path samples the native Windows battery API at the same cadence
-/// used by battery history, reacts to display changes through Windows events, and
-/// requests hardware-service snapshots only while a ThinkControl window is visible.
-/// The hardware service remains responsible for fan safety when the UI is hidden.
+/// battery sampling becomes sparse while tray-only and stops during suspend. Hardware
+/// snapshots are requested only while a ThinkControl window is visible.
 /// </summary>
 public partial class App
 {
-    private static readonly TimeSpan RuntimeBatteryInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan RuntimeBatteryVisibleInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan RuntimeBatteryTrayInterval = TimeSpan.FromMinutes(1);
 
     private readonly WindowsBatteryStateService _runtimeBattery = new();
     private DispatcherTimer? _runtimeStatusTimer;
     private bool _runtimeRefreshBusy;
     private bool _runtimeEventsAttached;
+    private bool _runtimeSuspended;
     private double? _runtimeAveragePowerWatts;
 
     internal void StartRuntimeStatusScheduler()
     {
-        // Alpha.14 and earlier used the heavyweight RefreshStatusAsync timer. Stop it
-        // permanently once the one startup discovery pass has completed.
         _statusTimer?.Stop();
-
         if (_runtimeStatusTimer is not null)
             return;
 
         AttachRuntimeEvents();
         _runtimeStatusTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = RuntimeBatteryInterval
+            Interval = RuntimeBatteryVisibleInterval
         };
         _runtimeStatusTimer.Tick += async (_, _) => await RefreshRuntimeStatusAsync();
         _runtimeStatusTimer.Start();
@@ -50,6 +47,7 @@ public partial class App
 
         _runtimeEventsAttached = true;
         SystemEvents.DisplaySettingsChanged += Runtime_DisplaySettingsChanged;
+        SystemEvents.PowerModeChanged += Runtime_PowerModeChanged;
         Activated += Runtime_Activated;
         Exit += Runtime_Exit;
     }
@@ -64,10 +62,33 @@ public partial class App
         }));
     }
 
+    private void Runtime_PowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Suspend)
+        {
+            _runtimeSuspended = true;
+            _runtimeStatusTimer?.Stop();
+            return;
+        }
+
+        if (e.Mode == PowerModes.Resume)
+        {
+            _runtimeSuspended = false;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                if (_runtimeStatusTimer is not null)
+                {
+                    UpdateRuntimeTimerCadence();
+                    _runtimeStatusTimer.Start();
+                }
+                _ = RefreshRuntimeStatusAsync();
+            }));
+        }
+    }
+
     private void Runtime_Activated(object? sender, EventArgs e)
     {
-        // Resuming interaction should show current fan/sensor/keyboard state without
-        // keeping the named-pipe + hardware snapshot path alive while tray-only.
+        UpdateRuntimeTimerCadence();
         if (ShouldRefreshHardwareRuntime())
             _ = HardwareClient.GetStatusAsync();
     }
@@ -79,6 +100,7 @@ public partial class App
             return;
 
         SystemEvents.DisplaySettingsChanged -= Runtime_DisplaySettingsChanged;
+        SystemEvents.PowerModeChanged -= Runtime_PowerModeChanged;
         Activated -= Runtime_Activated;
         Exit -= Runtime_Exit;
         _runtimeEventsAttached = false;
@@ -86,12 +108,13 @@ public partial class App
 
     private async Task RefreshRuntimeStatusAsync()
     {
-        if (_runtimeRefreshBusy)
+        if (_runtimeRefreshBusy || _runtimeSuspended)
             return;
 
         _runtimeRefreshBusy = true;
         try
         {
+            UpdateRuntimeTimerCadence();
             WindowsBatteryStateSnapshot battery = await Task.Run(_runtimeBattery.Read).ConfigureAwait(true);
             if (battery.Percent is int percent)
                 State.BatteryPercent = percent;
@@ -141,6 +164,15 @@ public partial class App
         {
             _runtimeRefreshBusy = false;
         }
+    }
+
+    private void UpdateRuntimeTimerCadence()
+    {
+        if (_runtimeStatusTimer is null)
+            return;
+        TimeSpan desired = ShouldRefreshHardwareRuntime() ? RuntimeBatteryVisibleInterval : RuntimeBatteryTrayInterval;
+        if (_runtimeStatusTimer.Interval != desired)
+            _runtimeStatusTimer.Interval = desired;
     }
 
     private bool ShouldRefreshHardwareRuntime() =>

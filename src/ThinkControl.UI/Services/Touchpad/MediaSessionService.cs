@@ -23,6 +23,33 @@ internal sealed class MediaSessionService
     private int _workerRunning;
     private int _generation;
 
+    internal async Task<bool> TrySkipNextAsync() => await TrySkipAsync(next: true).ConfigureAwait(false);
+    internal async Task<bool> TrySkipPreviousAsync() => await TrySkipAsync(next: false).ConfigureAwait(false);
+
+    private async Task<bool> TrySkipAsync(bool next)
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            _manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            GlobalSystemMediaTransportControlsSession? session = _manager.GetCurrentSession();
+            if (session is null)
+                return false;
+
+            return next
+                ? await session.TrySkipNextAsync()
+                : await session.TrySkipPreviousAsync();
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     internal async Task<bool> BeginSeekAsync()
     {
         await _gate.WaitAsync().ConfigureAwait(false);
@@ -90,10 +117,6 @@ internal sealed class MediaSessionService
         {
             while (_seekReady)
             {
-                // Browsers handle GSMTC seeks well at ~12 Hz and feel much closer to
-                // scrubbing a native timeline. Spotify remains on the conservative
-                // cadence because some bridge versions glitch when hammered with
-                // remote seeks. Both modes still coalesce every touch-frame delta.
                 await Task.Delay(_seekCadence).ConfigureAwait(false);
 
                 double offset;
@@ -156,13 +179,7 @@ internal sealed class MediaSessionService
                 target = _maximum;
 
             bool changed = await _session.TryChangePlaybackPositionAsync(target.Ticks);
-            if (!changed)
-                return false;
-
-            // Do not replace the gesture anchor with the new target: queued offsets
-            // are cumulative from gesture start. Keeping one anchor avoids compounding
-            // delayed timeline updates into ever-larger seeks.
-            return true;
+            return changed;
         }
         catch
         {

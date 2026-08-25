@@ -3,29 +3,39 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
         <TextBlock Text="Fans" FontSize="24" FontWeight="SemiBold" />
-        <TextBlock Text="Cooling is independent from battery and plugged-in power profiles. ThinkControl uses the verified fan provider available for this laptop, with temperature smoothing, hysteresis and a firmware/OEM Auto fallback."
+        <TextBlock Text="Fan behavior is independent from Windows performance mode. ThinkControl keeps Lenovo Auto as the fail-safe and maps custom curves only to verified X9 EC states."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
-            <StackPanel>
-                <Grid>
-                    <TextBlock Text="Cooling profile" FontWeight="SemiBold" />
-                    <TextBlock x:Name="ProfileStatusText" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" />
-                </Grid>
-                <Grid Margin="0,14,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
-                    </Grid.ColumnDefinitions>
-                    <!-- The current service semantic is Lenovo Auto for the verified X9 provider.
-                         The visible label stays provider-neutral so this shared page does not encode an OEM. -->
-                    <RadioButton x:Name="AutoProfile" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Auto" Tag="Lenovo Auto" Click="Profile_Click" Margin="0,0,5,0" />
-                    <RadioButton x:Name="SilentProfile" Grid.Column="1" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Silent" Tag="Silent" Click="Profile_Click" Margin="2,0" />
-                    <RadioButton x:Name="NormalProfile" Grid.Column="2" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Normal" Tag="Normal" Click="Profile_Click" Margin="2,0" />
-                    <RadioButton x:Name="CoolProfile" Grid.Column="3" GroupName="CoolingProfile" Style="{StaticResource TcSegment}" Content="Cool" Tag="Cool" Click="Profile_Click" Margin="5,0,0,0" />
-                </Grid>
-                <TextBlock x:Name="CoolingDetailText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,10,0,0" />
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,18,0">
+                    <TextBlock Text="Fan profile" FontWeight="SemiBold" />
+                    <TextBlock x:Name="CoolingDetailText" Text="Lenovo firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <TextBlock Text="Quiet, Balanced and Max cooling are editable starting points. Add named profiles in the curve editor; they also appear in compact mode." Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,7,0,0" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="ProfileMenuButton" Content="Auto  ⌄" Style="{StaticResource TcButton}" MinWidth="145" Padding="11,6" Click="ProfileMenu_Click" />
+                    <Button Content="Edit curves" Style="{StaticResource TcButton}" Padding="11,6" Margin="8,0,0,0" Click="EditCurves_Click" />
+                </StackPanel>
+            </Grid>
         </Border>
+
+        <!-- Legacy names remain hidden so older visual-state helpers never need to
+             invent a second profile model while alpha.16 migrates to named curves. -->
+        <StackPanel Visibility="Collapsed">
+            <RadioButton x:Name="AutoProfile" />
+            <RadioButton x:Name="SilentProfile" />
+            <RadioButton x:Name="NormalProfile" />
+            <RadioButton x:Name="CoolProfile" />
+            <RadioButton x:Name="CustomProfile" />
+            <Button x:Name="ApplyCustomCurveButton" />
+            <Border x:Name="CustomCurveCard" />
+            <Slider x:Name="Custom2Slider" /><Slider x:Name="Custom3Slider" /><Slider x:Name="Custom4Slider" />
+            <Slider x:Name="Custom5Slider" /><Slider x:Name="Custom6Slider" /><Slider x:Name="Custom7Slider" />
+            <TextBlock x:Name="Custom2Value" /><TextBlock x:Name="Custom3Value" /><TextBlock x:Name="Custom4Value" />
+            <TextBlock x:Name="Custom5Value" /><TextBlock x:Name="Custom6Value" /><TextBlock x:Name="Custom7Value" />
+        </StackPanel>
 
         <Grid Margin="0,14,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="1.15*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions>
@@ -39,8 +49,8 @@
                             <TextBlock Text="{Binding ControlTemperatureText}" FontSize="28" FontWeight="Light" Margin="0,4,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                            <TextBlock Text="Applied level" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" />
-                            <TextBlock x:Name="AppliedLevelText" Text="—" FontSize="22" FontWeight="Light" Margin="0,6,0,0" HorizontalAlignment="Right" />
+                            <TextBlock Text="Applied fan output" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" />
+                            <TextBlock x:Name="AppliedLevelText" Text="Auto" FontSize="19" FontWeight="Light" Margin="0,7,0,0" HorizontalAlignment="Right" />
                         </StackPanel>
                     </Grid>
                     <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
@@ -61,7 +71,7 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="Another fan appears only when a real provider exposes another tachometer; ThinkControl never invents a missing RPM channel." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    <TextBlock Text="ThinkControl shows only tachometers exposed by a real provider; missing fan channels are never invented." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -70,15 +80,16 @@
             <StackPanel>
                 <Grid>
                     <StackPanel>
-                        <TextBlock Text="Fan characterization" FontWeight="SemiBold" />
-                        <TextBlock Text="One-time test for providers with verified discrete levels. ThinkControl validates the highest allowed level, measures the supported range and returns cooling ownership to Auto when finished, cancelled or unsafe." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
+                        <TextBlock Text="Fan calibration" FontWeight="SemiBold" />
+                        <TextBlock Text="Measure EC steps 1–7 and the separate full-speed state. After calibration, percentages are derived from measured RPM relative to full speed instead of pretending step 7 is 100%."
+                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,200,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                        <Button x:Name="CharacterizeButton" Content="Characterize fans" Style="{StaticResource TcButton}" Click="Characterize_Click" />
+                        <Button x:Name="CharacterizeButton" Content="Calibrate fan" Style="{StaticResource TcButton}" Click="Characterize_Click" />
                         <Button x:Name="StopCharacterizationButton" Content="Stop" Style="{StaticResource TcButton}" Click="StopCharacterization_Click" Margin="8,0,0,0" Visibility="Collapsed" />
                     </StackPanel>
                 </Grid>
-                <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="7" Margin="0,14,0,0" Visibility="Collapsed" />
+                <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="8" Margin="0,14,0,0" Visibility="Collapsed" />
                 <Grid Margin="0,10,0,0">
                     <TextBlock x:Name="CharacterizationStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
                     <Button x:Name="MarkAudibleButton" HorizontalAlignment="Right" Content="Clearly audible here" Style="{StaticResource TcButton}" Click="MarkAudible_Click" Visibility="Collapsed" />
@@ -87,7 +98,7 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid Margin="0,3,0,3">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="70" /><ColumnDefinition /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="105" /><ColumnDefinition /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
                                 <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" />
                                 <TextBlock Grid.Column="1" Text="{Binding RpmText}" FontSize="10" TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Column="2" Text="{Binding StabilityText}" HorizontalAlignment="Right" FontSize="10" />
@@ -101,18 +112,36 @@
         <Expander Header="Advanced manual control" Margin="0,14,0,0">
             <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
                 <StackPanel>
-                    <TextBlock Text="Manual fan level" FontWeight="SemiBold" />
-                    <TextBlock Text="Only levels explicitly allowed by the active verified provider are writable. Unsupported fan-off, override or raw PWM states remain blocked." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <Grid Margin="0,13,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <Button Content="1" Style="{StaticResource TcButton}" Tag="1" Click="ManualLevel_Click" Margin="0,0,4,0" />
-                        <Button Grid.Column="1" Content="2" Style="{StaticResource TcButton}" Tag="2" Click="ManualLevel_Click" Margin="2,0" />
-                        <Button Grid.Column="2" Content="3" Style="{StaticResource TcButton}" Tag="3" Click="ManualLevel_Click" Margin="2,0" />
-                        <Button Grid.Column="3" Content="4" Style="{StaticResource TcButton}" Tag="4" Click="ManualLevel_Click" Margin="2,0" />
-                        <Button Grid.Column="4" Content="5" Style="{StaticResource TcButton}" Tag="5" Click="ManualLevel_Click" Margin="2,0" />
-                        <Button Grid.Column="5" Content="6" Style="{StaticResource TcButton}" Tag="6" Click="ManualLevel_Click" Margin="2,0" />
-                        <Button Grid.Column="6" Content="7" Style="{StaticResource TcButton}" Tag="7" Click="ManualLevel_Click" Margin="4,0,0,0" />
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
+                            <TextBlock Text="0% means the lowest verified running state, not fan-off. 100% requests ThinkPad full speed (0x47) and is accepted only when the X9 EC reads the full-speed bit back. Intermediate targets select the safest calibrated discrete state."
+                                       Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,170,0" />
+                        </StackPanel>
+                        <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="18" FontWeight="Light" />
                     </Grid>
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <Slider x:Name="ManualPercentSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" Value="50" TickFrequency="1" ValueChanged="ManualPercentSlider_ValueChanged" />
+                        <Button Grid.Column="1" Content="Apply" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
+                    </Grid>
+
+                    <Expander Header="Raw verified EC steps" Margin="0,13,0,0">
+                        <StackPanel Margin="0,8,0,0">
+                            <TextBlock Text="Use these only for diagnostics. Step 7 is the highest normal closed-loop state; it is not labeled 100%."
+                                       Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,0,0,8" />
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <Button Content="1" Style="{StaticResource TcButton}" Tag="1" Click="ManualLevel_Click" Margin="0,0,4,0" />
+                                <Button Grid.Column="1" Content="2" Style="{StaticResource TcButton}" Tag="2" Click="ManualLevel_Click" Margin="2,0" />
+                                <Button Grid.Column="2" Content="3" Style="{StaticResource TcButton}" Tag="3" Click="ManualLevel_Click" Margin="2,0" />
+                                <Button Grid.Column="3" Content="4" Style="{StaticResource TcButton}" Tag="4" Click="ManualLevel_Click" Margin="2,0" />
+                                <Button Grid.Column="4" Content="5" Style="{StaticResource TcButton}" Tag="5" Click="ManualLevel_Click" Margin="2,0" />
+                                <Button Grid.Column="5" Content="6" Style="{StaticResource TcButton}" Tag="6" Click="ManualLevel_Click" Margin="2,0" />
+                                <Button Grid.Column="6" Content="7" Style="{StaticResource TcButton}" Tag="7" Click="ManualLevel_Click" Margin="4,0,0,0" />
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
                 </StackPanel>
             </Border>
         </Expander>

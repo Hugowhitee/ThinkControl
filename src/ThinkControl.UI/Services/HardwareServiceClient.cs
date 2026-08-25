@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
+using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 
 namespace ThinkControl.UI.Services;
@@ -39,10 +40,6 @@ public sealed class HardwareServiceClient
 
     private async Task<ServiceResponse?> GetStatusCoreAsync(CancellationToken cancellationToken)
     {
-        // When the Windows service is actually stopped, repeatedly creating a named
-        // pipe client every UI refresh just burns kernel time and cannot make the
-        // service recover. Preserve a very recent good snapshot for a short grace
-        // period, but otherwise wait for the bounded retry or an explicit repair.
         DateTimeOffset now = DateTimeOffset.UtcNow;
         if (now < _offlineRetryAfter)
         {
@@ -107,14 +104,41 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> RefreshProvidersAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("RefreshProviders", null, cancellationToken, timeoutMs: 5000);
 
+    public async Task<ServiceResponse?> RefreshSensorProvidersAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("RefreshSensorProviders", null, cancellationToken, timeoutMs: 5000);
+
+    public async Task<ServiceResponse?> RefreshKeyboardProviderAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("RefreshKeyboardProvider", null, cancellationToken, timeoutMs: 5000);
+
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken, timeoutMs: 4500);
+
+    public async Task<ServiceResponse?> SetFanPercentAsync(int percent, CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("SetFanPercent", Math.Clamp(percent, 0, 100).ToString(), cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> ReturnFanToAutoAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> SetCoolingProfileAsync(string profile, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 3500);
+
+    public async Task<ServiceResponse?> SetCoolingCurveAsync(
+        FanCurveDefinition definition,
+        CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync(
+            "SetCoolingCurve",
+            JsonSerializer.Serialize(definition, JsonOptions),
+            cancellationToken,
+            timeoutMs: 3500);
+
+    public async Task<ServiceResponse?> SetCustomCoolingCurveAsync(
+        IReadOnlyList<double> thresholds,
+        CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync(
+            "SetCustomCoolingCurve",
+            JsonSerializer.Serialize(thresholds, JsonOptions),
+            cancellationToken,
+            timeoutMs: 3500);
 
     public async Task<ServiceResponse?> StartFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("StartFanCharacterization", null, cancellationToken, timeoutMs: 3500);
@@ -234,7 +258,7 @@ public sealed class HardwareServiceClient
             await pipe.WriteAsync(requestBytes, timeoutCts.Token).ConfigureAwait(false);
             await pipe.FlushAsync(timeoutCts.Token).ConfigureAwait(false);
 
-            using var reader = new StreamReader(pipe, Encoding.UTF8, false, 4096, leaveOpen: true);
+            using var reader = new StreamReader(pipe, Encoding.UTF8, false, 8192, leaveOpen: true);
             string? responseLine = await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false);
             return string.IsNullOrWhiteSpace(responseLine)
                 ? null

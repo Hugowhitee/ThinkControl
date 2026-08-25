@@ -149,6 +149,44 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         StatusText.Text = "Redacted support bundle exported.";
     }
 
+    private void OpenHardwareLog_Click(object sender, RoutedEventArgs e)
+    {
+        string path = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "ThinkControl",
+            "hardware-service.log");
+
+        if (!File.Exists(path))
+        {
+            StatusText.Text = "No hardware-service log exists yet. The service creates it after startup or a hardware-provider event.";
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"")
+            {
+                UseShellExecute = true
+            });
+            StatusText.Text = "Opened the local hardware-service log in Notepad.";
+        }
+        catch
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"")
+                {
+                    UseShellExecute = true
+                });
+                StatusText.Text = "Opened the hardware-service log location in File Explorer.";
+            }
+            catch
+            {
+                StatusText.Text = $"Hardware-service log: {path}";
+            }
+        }
+    }
+
     private void OpenBugReport_Click(object sender, RoutedEventArgs e)
     {
         try

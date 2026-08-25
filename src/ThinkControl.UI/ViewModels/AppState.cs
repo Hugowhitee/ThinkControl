@@ -16,6 +16,7 @@ public sealed class AppState : INotifyPropertyChanged
     private string _controlTemperatureSource = "Unavailable";
     private int? _fanRpm;
     private string _fanStateText = "Lenovo Auto";
+    private string _coolingProfile = "Lenovo Auto";
     private int _batteryPercent;
     private bool _batteryCharging;
     private string _batteryStatus = "Unknown";
@@ -76,6 +77,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string ControlTemperatureSource { get => _controlTemperatureSource; set => Set(ref _controlTemperatureSource, value); }
     public int? FanRpm { get => _fanRpm; set => Set(ref _fanRpm, value); }
     public string FanStateText { get => _fanStateText; set => Set(ref _fanStateText, value); }
+    public string CoolingProfile { get => _coolingProfile; set => Set(ref _coolingProfile, string.IsNullOrWhiteSpace(value) ? "Lenovo Auto" : value); }
     public int BatteryPercent { get => _batteryPercent; set => Set(ref _batteryPercent, Math.Clamp(value, 0, 100)); }
     public bool BatteryCharging { get => _batteryCharging; set => Set(ref _batteryCharging, value); }
     public string BatteryStatus { get => _batteryStatus; set => Set(ref _batteryStatus, value); }
@@ -134,6 +136,14 @@ public sealed class AppState : INotifyPropertyChanged
     public string SelectedModeDisplay => SelectedMode.Equals(nameof(ThinkControlPowerMode.Quiet), StringComparison.OrdinalIgnoreCase)
         ? "Efficiency"
         : SelectedMode;
+    public string CoolingProfileDisplay => CoolingProfile switch
+    {
+        "Silent" or "Quiet" => "Quiet",
+        "Normal" or "Balanced" => "Balanced",
+        "Cool" or "Max cooling" => "Max cooling",
+        "Custom" => "Custom",
+        _ => "Auto"
+    };
     public string BatteryPercentText => $"{BatteryPercent}%";
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
@@ -230,6 +240,8 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(FanRpmText));
         else if (propertyName == nameof(SelectedMode))
             OnPropertyChanged(nameof(SelectedModeDisplay));
+        else if (propertyName == nameof(CoolingProfile))
+            OnPropertyChanged(nameof(CoolingProfileDisplay));
         else if (propertyName == nameof(BatteryPercent))
             OnPropertyChanged(nameof(BatteryPercentText));
         else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToFull) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))
@@ -272,14 +284,6 @@ public sealed class AppState : INotifyPropertyChanged
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 
-    /// <summary>
-    /// Replaces a telemetry snapshot with one collection reset instead of Clear plus
-    /// dozens/hundreds of Add notifications. The old pattern rebuilt hidden WPF item
-    /// controls every service sample and was a strong candidate for the periodic
-    /// 5–8 second hitch reported on battery. Public properties remain normal
-    /// ObservableCollection instances, so existing bindings and snapshot tooling do
-    /// not need a second data model.
-    /// </summary>
     private sealed class ResettableObservableCollection<T> : ObservableCollection<T>
     {
         internal void ReplaceAll(IReadOnlyList<T> values)

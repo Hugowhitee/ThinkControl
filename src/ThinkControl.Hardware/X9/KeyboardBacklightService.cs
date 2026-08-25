@@ -75,7 +75,8 @@ public sealed class KeyboardBacklightService : IDisposable
     private static readonly string[] VantageKeyboardRoots =
     [
         @"C:\ProgramData\Lenovo\Vantage\Addins\ThinkKeyboardAddin",
-        @"C:\ProgramData\Lenovo\VantageService\Addins\ThinkKeyboardAddin"
+        @"C:\ProgramData\Lenovo\VantageService\Addins\ThinkKeyboardAddin",
+        @"C:\ProgramData\Lenovo\ImController\Plugins\ThinkKeyboardPlugin\x64"
     ];
 
     private SafeFileHandle? _handle;
@@ -314,20 +315,32 @@ public sealed class KeyboardBacklightService : IDisposable
                         if (!File.Exists(dllPath))
                             continue;
 
+                        // Lenovo's recent ThinkKeyboardAddin builds have not kept
+                        // assembly metadata consistent. The containing ProgramData
+                        // path is already Lenovo-owned, so blank metadata must not
+                        // reject an otherwise valid OEM backend. A non-empty foreign
+                        // vendor string is still rejected.
                         FileVersionInfo info = FileVersionInfo.GetVersionInfo(dllPath);
-                        string vendor = $"{info.CompanyName} {info.ProductName}";
-                        if (!vendor.Contains("Lenovo", StringComparison.OrdinalIgnoreCase))
+                        string vendor = $"{info.CompanyName} {info.ProductName}".Trim();
+                        if (!string.IsNullOrWhiteSpace(vendor) &&
+                            !vendor.Contains("Lenovo", StringComparison.OrdinalIgnoreCase))
+                        {
                             continue;
+                        }
 
-                        // Keyboard_Core depends on Contract_Keyboard in Lenovo's
-                        // ThinkKeyboard add-in. Load the adjacent contract first when
-                        // present so the fallback works in the service load context as
-                        // reliably as established standalone ThinkPad backlight tools.
+                        // Keyboard_Core depends on adjacent Lenovo assemblies. Load
+                        // the known contract first, then any managed references that
+                        // are present beside Keyboard_Core before resolving its types.
                         string contractPath = Path.Combine(directory, "Contract_Keyboard.dll");
                         if (File.Exists(contractPath))
-                            _ = Assembly.LoadFrom(contractPath);
+                        {
+                            try { _ = Assembly.LoadFrom(contractPath); }
+                            catch { }
+                        }
 
                         Assembly assembly = Assembly.LoadFrom(dllPath);
+                        LoadAdjacentManagedDependencies(assembly, directory);
+
                         Type? type = assembly.GetType("Keyboard_Core.KeyboardControl", throwOnError: false, ignoreCase: false);
                         if (type is null)
                             continue;
@@ -353,6 +366,27 @@ public sealed class KeyboardBacklightService : IDisposable
             return null;
         }
 
+        private static void LoadAdjacentManagedDependencies(Assembly assembly, string directory)
+        {
+            foreach (AssemblyName reference in assembly.GetReferencedAssemblies())
+            {
+                if (string.IsNullOrWhiteSpace(reference.Name) ||
+                    AppDomain.CurrentDomain.GetAssemblies().Any(existing =>
+                        string.Equals(existing.GetName().Name, reference.Name, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                string candidate = Path.Combine(directory, reference.Name + ".dll");
+                if (!File.Exists(candidate))
+                    continue;
+
+                try { _ = Assembly.LoadFrom(candidate); }
+                catch (BadImageFormatException) { }
+                catch (FileLoadException) { }
+            }
+        }
+
         internal bool TryGet(out KeyboardBacklightLevel level)
         {
             level = KeyboardBacklightLevel.Off;
@@ -362,11 +396,7 @@ public sealed class KeyboardBacklightService : IDisposable
                 if (parameters.Length < 1)
                     return false;
 
-                Type statusType = parameters[0].ParameterType.IsByRef
-                    ? parameters[0].ParameterType.GetElementType() ?? typeof(int)
-                    : parameters[0].ParameterType;
-                object status = Activator.CreateInstance(statusType) ?? 0;
-                object?[] args = parameters.Length >= 2 ? [status, null] : [status];
+                object?[] args = CreateInvocationArguments(parameters);
                 _ = _get.Invoke(_control, args);
 
                 int raw = Convert.ToInt32(args[0]);
@@ -390,13 +420,12 @@ public sealed class KeyboardBacklightService : IDisposable
                 if (parameters.Length < 1)
                     return false;
 
-                Type levelType = parameters[0].ParameterType.IsByRef
-                    ? parameters[0].ParameterType.GetElementType() ?? typeof(int)
-                    : parameters[0].ParameterType;
-                object value = levelType.IsEnum
+                object?[] args = CreateInvocationArguments(parameters);
+                Type levelType = UnwrapByRef(parameters[0].ParameterType);
+                args[0] = levelType.IsEnum
                     ? Enum.ToObject(levelType, (int)level)
                     : Convert.ChangeType((int)level, levelType);
-                object?[] args = parameters.Length >= 2 ? [value, null] : [value];
+
                 _ = _set.Invoke(_control, args);
                 Thread.Sleep(90);
                 return TryGet(out KeyboardBacklightLevel current) && current == level;
@@ -406,5 +435,19 @@ public sealed class KeyboardBacklightService : IDisposable
                 return false;
             }
         }
+
+        private static object?[] CreateInvocationArguments(ParameterInfo[] parameters)
+        {
+            var args = new object?[parameters.Length];
+            for (int index = 0; index < parameters.Length; index++)
+            {
+                Type type = UnwrapByRef(parameters[index].ParameterType);
+                args[index] = type.IsValueType ? Activator.CreateInstance(type) : null;
+            }
+            return args;
+        }
+
+        private static Type UnwrapByRef(Type type) =>
+            type.IsByRef ? type.GetElementType() ?? typeof(object) : type;
     }
 }

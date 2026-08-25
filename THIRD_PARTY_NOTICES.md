@@ -2,6 +2,36 @@
 
 ThinkControl redistributes selected third-party material and adapts selected open-source implementation techniques as described below.
 
+## LibreHardwareMonitor
+
+Project: LibreHardwareMonitor
+
+Upstream: https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+
+License: Mozilla Public License 2.0 (MPL-2.0), with additional third-party components covered by the upstream project's own notices.
+
+ThinkControl references the official `LibreHardwareMonitorLib` NuGet package for read-only hardware sensor discovery. ThinkControl does not present LibreHardwareMonitor as its own implementation and keeps Lenovo-specific control/write gates separate from generic sensor discovery.
+
+Upstream license and third-party notices:
+
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/LICENSE
+
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor/blob/master/THIRD-PARTY-NOTICES.txt
+
+## PawnIO
+
+Project: PawnIO
+
+Upstream: https://github.com/namazso/PawnIO
+
+License: GNU General Public License version 2 or later, with the additional upstream exception described in PawnIO's `COPYING`/README.
+
+ThinkControl does not bundle or silently install the PawnIO driver/setup package. On supported hardware, the app can download the pinned official PawnIO installer only after an explicit user action, verifies its expected SHA-256 before launch, and then lets Windows handle the elevated installation. LibreHardwareMonitor can use an installed PawnIO provider for low-level sensor access; ThinkControl's verified X9 EC provider also requires PawnIO to be present before any direct EC control path is enabled.
+
+Upstream license:
+
+https://github.com/namazso/PawnIO/blob/master/COPYING
+
 ## Material Symbols
 
 Project: Google Material Symbols / Material Design Icons
