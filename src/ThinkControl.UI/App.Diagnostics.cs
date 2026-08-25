@@ -36,6 +36,7 @@ public partial class App
                 State.ControlTemperatureSource = telemetry.ControlTemperatureSource ?? "Unavailable";
                 State.FanRpm = telemetry.FanRpm;
                 State.FanStateText = telemetry.FanState;
+                State.CoolingProfile = telemetry.CoolingProfile;
                 State.KeyboardStatus = telemetry.KeyboardBacklight;
                 if (!string.IsNullOrWhiteSpace(telemetry.ThermalSolutionVersion))
                     State.ThermalSolution = telemetry.ThermalSolutionVersion!;
@@ -60,7 +61,7 @@ public partial class App
                 if (!string.IsNullOrWhiteSpace(profile) && !profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase))
                 {
                     State.FanStateText = telemetry.CoolingAppliedLevel is int level
-                        ? $"{profile} · level {level}"
+                        ? $"{profile} · EC level {level}"
                         : profile;
                 }
 
@@ -93,6 +94,7 @@ public partial class App
             "SetFanLevel" => ("fan.level_set", "FanControl", "ThinkPadEC"),
             "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", "ThinkPadEC"),
             "SetCoolingProfile" => ("fan.cooling_profile_set", "FanControl", "FanSupervisor"),
+            "SetCustomCoolingCurve" => ("fan.custom_curve_set", "FanControl", "FanSupervisor"),
             "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
             "MarkFanLevelAudible" => ("fan.audible_level_marked", "FanControl", "FanSupervisor"),
             "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),
@@ -107,7 +109,9 @@ public partial class App
 
         string state = operation.Operation == "ReturnFanToAuto"
             ? "LenovoAuto"
-            : operation.Value ?? "unknown";
+            : operation.Operation == "SetCustomCoolingCurve"
+                ? "Custom"
+                : operation.Value ?? "unknown";
 
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
