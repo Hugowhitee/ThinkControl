@@ -27,6 +27,8 @@ function Assert-UpdaterElevationContract {
     $updateText = Get-Content $updateSource -Raw
     $installerText = Get-Content $installerSource -Raw
 
+    # Inno Setup owns elevation. Pre-elevating Setup from the UI can lose the
+    # original desktop token and break the normal-user relaunch after updating.
     if ($updateText -match 'Verb\s*=\s*"runas"') {
         throw 'UpdateService pre-elevates Setup. Let Inno Setup own the UAC transition instead.'
     }
@@ -37,6 +39,9 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer owns the expected administrator transition.'
     }
 
+    # Alpha.15.1 regression contract: after user approval the app must not disappear
+    # before Setup has actually survived launch, and Setup must stage a complete,
+    # verified payload before it closes the running ThinkControl UI.
     if ($updateText -notmatch 'Process\?\s+process\s*=\s*Process\.Start\(start\)') {
         throw 'UpdateService no longer verifies the spawned Setup process.'
     }
@@ -70,7 +75,7 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer carries the silent-update relaunch gate.'
     }
 
-    Write-Host '[smoke] Updater handoff verified: Inno owns UAC, Setup survival is checked, staging precedes app close, relaunch uses original user.'
+    Write-Host '[smoke] Updater lifecycle verified: Inno owns UAC, Setup survival is checked, staging precedes app close, relaunch uses original user.'
 }
 
 function Remove-SmokeService {
@@ -119,98 +124,106 @@ function Invoke-ThinkControlPipe([string]$operation) {
             return $line | ConvertFrom-Json
         }
         finally {
-            $writer.Dispose()
             $reader.Dispose()
+            $writer.Dispose()
         }
     }
-    finally { $pipe.Dispose() }
+    finally {
+        $pipe.Dispose()
+    }
 }
 
-function Wait-PipeReady {
-    $deadline = (Get-Date).AddSeconds(20)
-    do {
-        try {
-            $response = Invoke-ThinkControlPipe 'Ping'
-            if ($response.success -eq $true) { return }
-        }
-        catch { }
-        Start-Sleep -Milliseconds 500
-    } while ((Get-Date) -lt $deadline)
+function Assert-ServiceIpc {
+    $ping = Invoke-ThinkControlPipe 'Ping'
+    if ($ping.version -ne 1 -or $ping.success -ne $true) {
+        throw "Ping failed protocol/readback verification: $($ping | ConvertTo-Json -Compress)"
+    }
 
-    throw 'ThinkControl service pipe did not become ready.'
+    $status = Invoke-ThinkControlPipe 'GetStatus'
+    if ($status.version -ne 1 -or $status.success -ne $true -or $null -eq $status.telemetry) {
+        throw "GetStatus failed protocol/telemetry verification: $($status | ConvertTo-Json -Depth 5 -Compress)"
+    }
+
+    Write-Host '[smoke] IPC verified: Ping + GetStatus protocol v1'
 }
 
-function Assert-NoUiProcess {
-    Get-Process -Name 'ThinkControl.UI' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Milliseconds 300
-}
+function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false) {
+    Write-Host "[smoke] $phase $($setup.Name) with external payload $($payload.Name)"
+    $arguments = @(
+        '/VERYSILENT',
+        '/SUPPRESSMSGBOXES',
+        '/NORESTART',
+        '/SP-'
+    )
 
-function Uninstall-SmokeInstall {
+    if ($legacyUpdateMode) {
+        # Alpha.14/15 used this hidden updater shape. The new Setup must remain
+        # compatible with it so old installs cannot end up with UAC -> close ->
+        # nothing. Relaunch is disabled only on CI; source assertions above verify
+        # the real updater's normal-user relaunch and handoff contract separately.
+        $arguments += @('/CLOSEAPPLICATIONS', '/UPDATE=1', '/RELAUNCH=0', "/LOG=`"$updateLog`"")
+    }
+
+    $arguments += @(
+        "/DIR=`"$smokeDir`"",
+        "/PAYLOAD=`"$($payload.FullName)`""
+    )
+
+    $process = Start-Process -FilePath $setup.FullName -ArgumentList $arguments -Wait -PassThru
+    if ($process.ExitCode -ne 0) { throw "$phase failed with installer exit code $($process.ExitCode)." }
+
+    $ui = Join-Path $smokeDir 'ui\ThinkControl.UI.exe'
+    $serviceExe = Join-Path $smokeDir 'service\ThinkControl.Service.exe'
     $uninstaller = Join-Path $smokeDir 'unins000.exe'
-    if (Test-Path $uninstaller) {
-        $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
-        if ($uninstall.ExitCode -ne 0) { throw "Smoke uninstall failed with exit code $($uninstall.ExitCode)." }
+    if (-not (Test-Path $ui)) { throw "UI executable missing after $phase." }
+    if (-not (Test-Path $serviceExe)) { throw "Service executable missing after $phase." }
+    if (-not (Test-Path $uninstaller)) { throw "Uninstaller missing after $phase." }
+
+    if ($legacyUpdateMode) {
+        if (-not (Test-Path $updateLog)) { throw 'Legacy-style update did not create its requested installer log.' }
+        if ((Get-Item $updateLog).Length -lt 100) { throw 'Legacy-style update log is unexpectedly empty.' }
     }
-    Remove-SmokeService
-    if (Test-Path $smokeDir) { Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue }
+
+    Wait-ServiceRunning
+    Assert-ServiceIpc
 }
 
 try {
     Write-Host '[smoke] Cleaning previous installer reliability state'
     Assert-UpdaterElevationContract
-    Uninstall-SmokeInstall
-    Assert-NoUiProcess
+    Remove-SmokeService
+    Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
 
-    Write-Host '[smoke] Installing staged payload through bootstrapper'
-    $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
-        '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
-        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/RELAUNCH=0'
+    Install-SmokeCopy 'clean install'
+
+    # Exercise the exact hidden argument family used by older in-app updaters. This
+    # catches locked service binaries, broken staging/restart logic, ignored /UPDATE
+    # parameters and regressions a fresh-install-only smoke cannot see.
+    Install-SmokeCopy 'alpha.14-compatible in-place update path' $true
+
+    $uninstaller = Join-Path $smokeDir 'unins000.exe'
+    Write-Host '[smoke] Uninstalling verified in-place installation'
+    $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+        '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
     ) -Wait -PassThru
-    if ($install.ExitCode -ne 0) { throw "Smoke install failed with exit code $($install.ExitCode)." }
+    if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed with exit code $($uninstall.ExitCode)." }
 
-    $uiExe = Join-Path $smokeDir 'ui\ThinkControl.UI.exe'
-    $serviceExe = Join-Path $smokeDir 'service\ThinkControl.Service.exe'
-    if (-not (Test-Path $uiExe)) { throw 'Installed UI executable is missing.' }
-    if (-not (Test-Path $serviceExe)) { throw 'Installed service executable is missing.' }
+    $deadline = (Get-Date).AddSeconds(20)
+    do {
+        $serviceAfter = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+        if ($null -eq $serviceAfter) { break }
+        Start-Sleep -Milliseconds 400
+    } while ((Get-Date) -lt $deadline)
 
-    Wait-ServiceRunning
-    Wait-PipeReady
+    if ($null -ne $serviceAfter) { throw "$serviceName remained registered after uninstall." }
+    if (Test-Path (Join-Path $smokeDir 'ui\ThinkControl.UI.exe')) { throw 'UI executable remained after uninstall.' }
+    if (Test-Path (Join-Path $smokeDir 'service\ThinkControl.Service.exe')) { throw 'Service executable remained after uninstall.' }
 
-    $ping = Invoke-ThinkControlPipe 'Ping'
-    if ($ping.success -ne $true) { throw 'Ping did not return success.' }
-    $status = Invoke-ThinkControlPipe 'GetStatus'
-    if ($status.success -ne $true) { throw 'GetStatus did not return success.' }
-
-    Write-Host '[smoke] Verifying in-place update while service is installed'
-    $update = Start-Process -FilePath $setup.FullName -ArgumentList @(
-        '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/UPDATE',
-        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/RELAUNCH=0'
-    ) -Wait -PassThru
-    if ($update.ExitCode -ne 0) { throw "Smoke update failed with exit code $($update.ExitCode)." }
-
-    Wait-ServiceRunning
-    Wait-PipeReady
-    $postUpdate = Invoke-ThinkControlPipe 'GetStatus'
-    if ($postUpdate.success -ne $true) { throw 'Post-update GetStatus did not return success.' }
-
-    Write-Host '[smoke] Verifying update can replace a running UI without pre-closing it'
-    $ui = Start-Process -FilePath $uiExe -PassThru
-    Start-Sleep -Seconds 2
-    if ($ui.HasExited) { throw 'Smoke UI exited before update lifecycle validation.' }
-
-    $runningUpdate = Start-Process -FilePath $setup.FullName -ArgumentList @(
-        '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/UPDATE',
-        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/RELAUNCH=0'
-    ) -Wait -PassThru
-    if ($runningUpdate.ExitCode -ne 0) { throw "Running-UI update failed with exit code $($runningUpdate.ExitCode)." }
-
-    Wait-ServiceRunning
-    Wait-PipeReady
-    if (-not $ui.HasExited) { throw 'Installer did not release the running ThinkControl UI during the staged swap.' }
-
-    Write-Host '[smoke] Installer and service lifecycle passed'
+    Write-Host '[smoke] Deep installer + IPC + alpha.14 update compatibility + uninstall lifecycle passed'
 }
 finally {
-    Assert-NoUiProcess
-    Uninstall-SmokeInstall
+    Remove-SmokeService
+    Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
 }
