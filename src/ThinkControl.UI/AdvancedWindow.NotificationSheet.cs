@@ -262,9 +262,9 @@ public partial class AdvancedWindow
             {
                 messages.Add(new(
                     "Sensors",
-                    "The configured sensor provider has not produced usable telemetry. Retry performs one clean provider rebuild; it does not reinstall a working driver.",
+                    "The sensor provider has not produced usable telemetry. Retry rebuilds only the sensor stack; fan EC and keyboard providers stay untouched.",
                     "Retry sensors",
-                    SheetAction.RefreshProviders,
+                    SheetAction.RefreshSensors,
                     true));
             }
 
@@ -284,17 +284,13 @@ public partial class AdvancedWindow
                     true));
             }
 
-            // PawnIO/EC readiness is the root cause for multiple dependent X9
-            // capabilities. While that component needs repair, do not repeat the same
-            // underlying problem as a separate Keyboard card; provider-specific cards
-            // return after low-level access itself is healthy.
             if (!_app.State.CanKeyboardBacklight && !pawnIoRepair && verifiedX9 && setup.ServiceRunning && setup.ServiceReachable)
             {
                 messages.Add(new(
                     "Keyboard",
-                    "The Lenovo keyboard provider has not produced a valid readback. Retry probes the installed provider contracts once; failed probes are backed off instead of hammered in the background.",
+                    "The Lenovo keyboard provider has not produced a valid readback. Retry probes only keyboard backlight contracts and does not recycle working sensors or fan control.",
                     "Retry keyboard",
-                    SheetAction.RefreshProviders,
+                    SheetAction.RefreshKeyboard,
                     true));
             }
 
@@ -302,7 +298,7 @@ public partial class AdvancedWindow
             {
                 messages.Add(new(
                     "Useful device support data is ready",
-                    DeviceSupportReportService.DiscoverySummary(_app.State) + ". Review the hardware-only report before sharing it.",
+                    DeviceSupportReportService.DiscoverySummary(_app.State) + ". Preview the hardware-only report locally before opening the GitHub draft.",
                     "Review sharing",
                     SheetAction.Diagnostics,
                     false));
@@ -319,9 +315,12 @@ public partial class AdvancedWindow
             }
 
             int attention = messages.Count(message => message.Attention);
-            _notificationSummary.Text = attention > 0
-                ? $"{attention} item{(attention == 1 ? string.Empty : "s")} need attention"
-                : "You're all caught up";
+            _notificationSummary.Text = attention switch
+            {
+                0 => "You're all caught up",
+                1 => "1 item needs attention",
+                _ => $"{attention} items need attention"
+            };
 
             foreach (SheetMessage message in messages)
                 _notificationMessages.Children.Add(CreateNotificationCard(message));
@@ -443,10 +442,24 @@ public partial class AdvancedWindow
                     await _app.RepairDetectedHardwareAsync();
                     await RefreshNotificationSheetAsync();
                     break;
+                case SheetAction.RefreshSensors:
+                    button.Content = "Retrying…";
+                    if (_notificationSummary is not null)
+                        _notificationSummary.Text = "Refreshing sensor telemetry without touching fan or keyboard providers…";
+                    await _app.RefreshSensorProvidersAsync();
+                    await RefreshNotificationSheetAsync();
+                    break;
+                case SheetAction.RefreshKeyboard:
+                    button.Content = "Retrying…";
+                    if (_notificationSummary is not null)
+                        _notificationSummary.Text = "Retrying only the Lenovo keyboard backlight provider…";
+                    await _app.RefreshKeyboardProviderAsync();
+                    await RefreshNotificationSheetAsync();
+                    break;
                 case SheetAction.RefreshProviders:
                     button.Content = "Retrying…";
                     if (_notificationSummary is not null)
-                        _notificationSummary.Text = "Refreshing hardware providers and verifying current readback…";
+                        _notificationSummary.Text = "Refreshing the full hardware provider set after returning fan control safely…";
                     await _app.RefreshHardwareProvidersAsync();
                     await RefreshNotificationSheetAsync();
                     break;
@@ -469,6 +482,8 @@ public partial class AdvancedWindow
         None,
         Updates,
         HardwareRepair,
+        RefreshSensors,
+        RefreshKeyboard,
         RefreshProviders,
         Diagnostics
     }
