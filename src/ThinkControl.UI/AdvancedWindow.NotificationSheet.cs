@@ -284,7 +284,11 @@ public partial class AdvancedWindow
                     true));
             }
 
-            if (!_app.State.CanKeyboardBacklight && verifiedX9 && setup.ServiceRunning && setup.ServiceReachable)
+            // PawnIO/EC readiness is the root cause for multiple dependent X9
+            // capabilities. While that component needs repair, do not repeat the same
+            // underlying problem as a separate Keyboard card; provider-specific cards
+            // return after low-level access itself is healthy.
+            if (!_app.State.CanKeyboardBacklight && !pawnIoRepair && verifiedX9 && setup.ServiceRunning && setup.ServiceReachable)
             {
                 messages.Add(new(
                     "Keyboard",
