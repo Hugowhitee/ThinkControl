@@ -71,9 +71,6 @@ public sealed class UpdateService
             SemanticVersion? newestVersion = null;
             UpdateCheckResult? newestResult = null;
 
-            // GitHub does not guarantee that the Releases API is ordered by semantic
-            // version. Never trust the first item: scan every compatible release and
-            // select the highest SemVer explicitly.
             foreach (JsonElement release in json.RootElement.EnumerateArray())
             {
                 bool draft = release.TryGetProperty("draft", out JsonElement draftElement) && draftElement.GetBoolean();
@@ -187,8 +184,13 @@ public sealed class UpdateService
                 Verb = "runas",
                 WorkingDirectory = folder
             };
-            start.ArgumentList.Add("/VERYSILENT");
-            start.ArgumentList.Add("/SUPPRESSMSGBOXES");
+
+            // User-triggered updates must never disappear into a fully hidden Inno
+            // process. /SILENT keeps the flow one-click but shows the installer
+            // progress window and any real error. The previous /VERYSILENT plus
+            // /SUPPRESSMSGBOXES combination made failures look like "the app closed
+            // and nothing happened" and hid the only useful diagnostic message.
+            start.ArgumentList.Add("/SILENT");
             start.ArgumentList.Add("/NORESTART");
             start.ArgumentList.Add("/CLOSEAPPLICATIONS");
             start.ArgumentList.Add("/UPDATE=1");
@@ -196,17 +198,31 @@ public sealed class UpdateService
             start.ArgumentList.Add($"/PAYLOAD={payloadPath}");
             start.ArgumentList.Add($"/LOG={logPath}");
 
-            // Keep ThinkControl visible until the user has explicitly approved the
-            // Windows elevation prompt. The installer itself closes the running UI
-            // only after its already-downloaded local payload is ready to replace.
             progress?.Report("Ready to install · approve the Windows administrator prompt");
             Process? process = Process.Start(start);
             if (process is null)
                 return new(false, "Windows could not start the verified updater.");
 
+            // A valid update cannot finish this quickly: PrepareToInstall validates
+            // and stages the payload before a deliberate service-stop handoff. If the
+            // elevated process exits immediately while this UI is still alive, report
+            // that as a launch failure instead of pretending an updater is running.
+            await Task.Delay(650, cancellationToken).ConfigureAwait(false);
+            if (process.HasExited)
+            {
+                int code = process.ExitCode;
+                return new(false,
+                    code == 0
+                        ? "The installer exited before the update handoff started. Open Updates and try again; the update log was preserved."
+                        : $"The installer exited before the update started (code {code}). The update log was preserved.",
+                    installerPath,
+                    payloadPath);
+            }
+
+            progress?.Report("Installer open · ThinkControl will close when the verified payload swap begins");
             return new(
                 true,
-                $"Installer started for {update.Version ?? "the update"} · ThinkControl will close automatically when installation begins",
+                $"Installer open for {update.Version ?? "the update"} · ThinkControl will relaunch after installation",
                 installerPath,
                 payloadPath);
         }
