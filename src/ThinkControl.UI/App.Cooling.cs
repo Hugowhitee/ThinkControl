@@ -39,6 +39,10 @@ public partial class App
                 return false;
             }
             UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
+            // Keep Compact and Advanced on one immediate source of truth. Hardware
+            // telemetry will confirm this on the next status snapshot, but the UI
+            // must not remain visually stuck on the previous profile meanwhile.
+            State.CoolingProfile = "Lenovo Auto";
             _coolingPreferenceRestoreAttempted = true;
             return true;
         }
@@ -74,6 +78,11 @@ public partial class App
 
         if (persistSelection)
             UserSettings.Update(settings => settings with { CoolingProfile = normalized.Id });
+
+        // The service owns hardware truth, while AppState owns current UI truth.
+        // Publish the friendly profile name synchronously so Compact reflects a
+        // selection made in Advanced (and vice versa) without waiting for polling.
+        State.CoolingProfile = normalized.Name;
         _coolingPreferenceRestoreAttempted = true;
         return true;
     }
@@ -151,18 +160,24 @@ public partial class App
         _coolingPreferenceRestoreAttempted = true;
         string selected = UserSettings.Current.CoolingProfile;
         if (selected == "Lenovo Auto")
+        {
+            State.CoolingProfile = "Lenovo Auto";
             return;
+        }
 
         FanCurveDefinition? definition = FanProfiles.Find(selected);
         if (definition is null)
         {
             UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
+            State.CoolingProfile = "Lenovo Auto";
             return;
         }
 
         ServiceResponse? applied = await HardwareClient.SetCoolingCurveAsync(definition);
         if (applied?.Success != true)
             State.HardwareAccess = applied?.Error ?? "Saved fan profile could not be restored";
+        else
+            State.CoolingProfile = definition.Name;
     }
 
     private static string NormalizeProfileId(string profile) => profile switch

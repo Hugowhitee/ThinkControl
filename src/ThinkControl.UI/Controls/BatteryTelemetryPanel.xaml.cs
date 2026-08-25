@@ -14,6 +14,7 @@ public partial class BatteryTelemetryPanel : UserControl
 {
     private AppState? _subscribedState;
     private bool _historyRefreshQueued;
+    private bool _batteryUsageCardAdded;
 
     public BatteryTelemetryPanel()
     {
@@ -21,6 +22,7 @@ public partial class BatteryTelemetryPanel : UserControl
         Loaded += (_, _) =>
         {
             ApplyBatteryGaugePolish();
+            EnsureBatteryUsageCard();
             AttachState();
             RefreshHistoryUi();
         };
@@ -50,9 +52,6 @@ public partial class BatteryTelemetryPanel : UserControl
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // History repaint is driven by actual history changes instead of a second
-        // page-local polling timer. Normal battery percentage/power text continues
-        // to update through bindings without rebuilding charts/session rows.
         if (e.PropertyName is "BatteryChargePercentTimeline" or
             "BatteryChargePowerTimeline" or
             "BatteryHealthTrendTimeline" or
@@ -79,11 +78,75 @@ public partial class BatteryTelemetryPanel : UserControl
     private void ApplyBatteryGaugePolish()
     {
         BatteryGauge? gauge = FindVisualChild<BatteryGauge>(this);
-        if (gauge is null)
+        if (gauge is not null)
+        {
+            gauge.Width = 198;
+            gauge.Height = 58;
+        }
+
+        // Never imply that ThinkControl measured continuously while Windows was
+        // asleep, hibernated or the app was not scheduled. A real sampling gap is
+        // rendered as a gap in the line rather than a fake straight connection.
+        ChargePercentChart.GapThresholdMinutes = 2;
+        DischargePercentChart.GapThresholdMinutes = 2;
+        DischargeChart.GapThresholdMinutes = 2;
+    }
+
+    private void EnsureBatteryUsageCard()
+    {
+        if (_batteryUsageCardAdded || Content is not StackPanel root)
             return;
 
-        gauge.Width = 198;
-        gauge.Height = 58;
+        var copy = new StackPanel();
+        copy.Children.Add(new TextBlock { Text = "App battery usage", FontWeight = FontWeights.SemiBold });
+        var detail = new TextBlock
+        {
+            Text = "See Windows' own per-app battery estimates without running another profiler in ThinkControl. This keeps background overhead near zero and uses the same system energy accounting Windows Settings relies on.",
+            FontSize = 10.5,
+            Margin = new Thickness(0, 5, 190, 0),
+            TextWrapping = TextWrapping.Wrap
+        };
+        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        copy.Children.Add(detail);
+
+        var button = new Button
+        {
+            Content = "Open app battery usage",
+            Style = TryFindResource("TcButton") as Style,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(12, 6, 12, 6)
+        };
+        button.Click += OpenBatteryUsage_Click;
+
+        var grid = new Grid();
+        grid.Children.Add(copy);
+        grid.Children.Add(button);
+        var card = new Border
+        {
+            Style = TryFindResource("TcSection") as Style,
+            Margin = new Thickness(0, 14, 0, 0),
+            Child = grid
+        };
+
+        // Keep Recent sessions as the final full-width history section, with the
+        // local-history footer underneath it.
+        int insert = Math.Max(0, root.Children.Count - 2);
+        root.Children.Insert(insert, card);
+        _batteryUsageCardAdded = true;
+    }
+
+    private void OpenBatteryUsage_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("ms-settings:batterysaver-usagedetails") { UseShellExecute = true });
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo("ms-settings:batterysaver") { UseShellExecute = true }); }
+            catch { }
+        }
     }
 
     private void RefreshHistoryUi()
@@ -120,14 +183,10 @@ public partial class BatteryTelemetryPanel : UserControl
             RecentSessionItems.Children.Add(CreateSessionRow(session));
     }
 
-    /// <summary>
-    /// Seeds the same production charts with deterministic data for screenshot QA.
-    /// Snapshot rendering never raises Loaded, so runtime events do not populate the
-    /// battery history controls during visual validation.
-    /// </summary>
     internal void PrepareForSnapshot(AppState state)
     {
         ApplyBatteryGaugePolish();
+        EnsureBatteryUsageCard();
 
         TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
         ChargePercentChart.Values = state.BatteryChargePercentTimeline.Count > 0
@@ -140,10 +199,7 @@ public partial class BatteryTelemetryPanel : UserControl
             {
                 double watts = 6.5 + Math.Sin(index / 4.2) * 0.7 + index * 0.018;
                 int percent = (int)Math.Round(88d - 25d * index / 45d);
-                return new TimeSeriesPoint(
-                    end - TimeSpan.FromMinutes((45 - index) * 5),
-                    watts,
-                    $"{percent}%");
+                return new TimeSeriesPoint(end - TimeSpan.FromMinutes((45 - index) * 5), watts, $"{percent}%");
             })
             .ToArray();
 
@@ -201,6 +257,7 @@ public partial class BatteryTelemetryPanel : UserControl
 
         var row = new Button
         {
+            Style = TryFindResource("TcButton") as Style,
             Background = Brushes.Transparent,
             BorderThickness = new Thickness(0, 1, 0, 0),
             Padding = new Thickness(2, 8, 2, 8),
@@ -221,9 +278,7 @@ public partial class BatteryTelemetryPanel : UserControl
             ? $"{(int)duration.TotalHours}h {duration.Minutes:00}m"
             : $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))} min";
         int percentageChange = session.EndPercent - session.StartPercent;
-        string energy = session.EnergyWh is double wh
-            ? $"{(session.Kind == "Charge" ? "+" : "−")}{wh:0.##} Wh"
-            : "—";
+        string energy = session.EnergyWh is double wh ? $"{(session.Kind == "Charge" ? "+" : "−")}{wh:0.##} Wh" : "—";
         string average = session.AveragePowerWatts is double avg ? $"{avg:0.##} W" : "—";
         string peak = session.PeakPowerWatts is double max ? $"{max:0.##} W" : "—";
         string rate = session.PercentPerHour is double pp ? $"{pp:0.#}%/h" : "—";
@@ -240,7 +295,6 @@ public partial class BatteryTelemetryPanel : UserControl
             new(session.Kind == "Charge" ? "Charge rate" : "Drain rate", rate)
         ];
 
-        IReadOnlyList<TimeSeriesPoint> percentTimeline = session.PercentTimeline;
         var model = new TelemetryDetailModel(
             $"{session.Kind} session",
             subtitle,
@@ -250,15 +304,12 @@ public partial class BatteryTelemetryPanel : UserControl
             "0.0",
             metrics,
             "Battery history is stored locally in ThinkControl and automatically compacted over time.",
-            SecondaryTimeline: percentTimeline,
+            SecondaryTimeline: session.PercentTimeline,
             SecondaryChartTitle: "Battery level",
             SecondaryUnit: "%",
             SecondaryValueFormat: "0");
 
-        var window = new TelemetryDetailWindow(model)
-        {
-            Owner = Window.GetWindow(this)
-        };
+        var window = new TelemetryDetailWindow(model) { Owner = Window.GetWindow(this) };
         window.ShowDialog();
     }
 
@@ -268,12 +319,9 @@ public partial class BatteryTelemetryPanel : UserControl
         foreach (TimeSeriesPoint point in points)
         {
             string label = point.Label?.Trim() ?? string.Empty;
-            if (label.EndsWith('%'))
-                label = label[..^1].Trim();
-            if (!double.TryParse(label, NumberStyles.Float, CultureInfo.InvariantCulture, out double percent))
-                continue;
-            if (percent is < 0 or > 100)
-                continue;
+            if (label.EndsWith('%')) label = label[..^1].Trim();
+            if (!double.TryParse(label, NumberStyles.Float, CultureInfo.InvariantCulture, out double percent)) continue;
+            if (percent is < 0 or > 100) continue;
             result.Add(new TimeSeriesPoint(point.At, percent));
         }
         return result;
@@ -285,11 +333,9 @@ public partial class BatteryTelemetryPanel : UserControl
         for (int i = 0; i < count; i++)
         {
             DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            if (child is T match)
-                return match;
+            if (child is T match) return match;
             T? nested = FindVisualChild<T>(child);
-            if (nested is not null)
-                return nested;
+            if (nested is not null) return nested;
         }
         return null;
     }
@@ -318,15 +364,7 @@ public partial class BatteryTelemetryPanel : UserControl
         if (LenovoSoftwareLauncher.TryOpenVantage())
             return;
 
-        try
-        {
-            Process.Start(new ProcessStartInfo("ms-settings:batterysaver")
-            {
-                UseShellExecute = true
-            });
-        }
-        catch
-        {
-        }
+        try { Process.Start(new ProcessStartInfo("ms-settings:batterysaver") { UseShellExecute = true }); }
+        catch { }
     }
 }

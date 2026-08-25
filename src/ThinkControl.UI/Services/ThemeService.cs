@@ -28,8 +28,6 @@ public static class ThemeService
 
         string window = light ? "#F5F5F7" : "#101214";
         SetBrush(resources, "Tc.Window", window);
-        // Code-only secondary windows created during the alpha.16 UI migration use
-        // this semantic alias. Keep it identical to the canonical window surface.
         SetBrush(resources, "Tc.Background", window);
         SetBrush(resources, "Tc.Surface", light ? "#FFFFFF" : "#171A1D");
         SetBrush(resources, "Tc.SurfaceAlt", light ? "#F1F2F4" : "#1D2024");
@@ -43,6 +41,15 @@ public static class ThemeService
         SetBrush(resources, "Tc.AccentHover", "#F13B3B");
         SetBrush(resources, "Tc.Success", light ? "#168A45" : "#4CCB7A");
         SetBrush(resources, "Tc.Warning", light ? "#A76800" : "#E7A640");
+
+        // Stock WPF controls otherwise fall back to the Windows blue selection
+        // brush. A few diagnostic/list surfaces intentionally keep native control
+        // behavior, so override only the system selection palette app-wide and let
+        // their own templates/layout remain untouched.
+        resources[SystemColors.HighlightBrushKey] = resources["Tc.SurfaceHover"];
+        resources[SystemColors.HighlightTextBrushKey] = resources["Tc.Text"];
+        resources[SystemColors.InactiveSelectionHighlightBrushKey] = resources["Tc.SurfaceAlt"];
+        resources[SystemColors.InactiveSelectionHighlightTextBrushKey] = resources["Tc.Text"];
     }
 
     private static bool SystemPrefersLight()

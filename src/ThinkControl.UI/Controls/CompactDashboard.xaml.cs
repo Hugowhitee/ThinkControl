@@ -13,6 +13,11 @@ public partial class CompactDashboard : UserControl
     public CompactDashboard()
     {
         InitializeComponent();
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is false && _quickPopup is not null)
+                _quickPopup.IsOpen = false;
+        };
     }
 
     internal void Initialize(App app)
