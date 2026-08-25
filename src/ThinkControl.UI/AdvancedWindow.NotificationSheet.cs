@@ -14,7 +14,6 @@ public partial class AdvancedWindow
     private StackPanel? _notificationMessages;
     private TextBlock? _notificationSummary;
     private bool _notificationRefreshBusy;
-    private string? _notificationLastResult;
 
     internal async void ShowNotificationSheet()
     {
@@ -213,15 +212,6 @@ public partial class AdvancedWindow
             bool ecCompatibilityFailure = verifiedX9 && IsEcCompatibilityFailure(hardwareDetail);
 
             var messages = new List<SheetMessage>();
-            if (!string.IsNullOrWhiteSpace(_notificationLastResult))
-            {
-                messages.Add(new(
-                    "Last hardware action",
-                    _notificationLastResult!,
-                    string.Empty,
-                    SheetAction.None,
-                    false));
-            }
 
             UpdateCheckResult? update = _app.LatestUpdateResult;
             if (update is { Available: true })
@@ -446,16 +436,14 @@ public partial class AdvancedWindow
                     button.Content = "Repairing…";
                     if (_notificationSummary is not null)
                         _notificationSummary.Text = "Repairing required components and verifying readback…";
-                    HardwareSetupResult result = await _app.RepairDetectedHardwareAsync();
-                    _notificationLastResult = result.Message;
+                    await _app.RepairDetectedHardwareAsync();
                     await RefreshNotificationSheetAsync();
                     break;
                 case SheetAction.RefreshProviders:
                     button.Content = "Retrying…";
-                    bool ready = await _app.RefreshHardwareProvidersAsync();
-                    _notificationLastResult = ready
-                        ? "Provider refresh completed and at least one hardware capability responded."
-                        : "Provider refresh completed, but no unavailable capability passed readback yet.";
+                    if (_notificationSummary is not null)
+                        _notificationSummary.Text = "Refreshing hardware providers and verifying current readback…";
+                    await _app.RefreshHardwareProvidersAsync();
                     await RefreshNotificationSheetAsync();
                     break;
                 case SheetAction.Diagnostics:
