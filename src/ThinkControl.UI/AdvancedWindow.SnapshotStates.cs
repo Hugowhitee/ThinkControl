@@ -18,27 +18,15 @@ public partial class AdvancedWindow
             throw new InvalidOperationException("Notifications sheet could not be prepared for visual QA.");
 
         _notificationMessages.Children.Clear();
-        _notificationSummary.Text = "3 items need attention";
+        _notificationSummary.Text = "1 item needs attention";
 
         SheetMessage[] messages =
         [
             new(
                 "Low-level hardware access",
-                "PawnIO is installed, but the ThinkControl hardware service cannot open its device. Fans and low-level sensors remain firmware-managed until the device handshake succeeds.",
+                "PawnIO is installed, but the ThinkControl hardware service cannot open its device. Repair this prerequisite once; dependent fan, sensor and keyboard providers are checked again only after low-level access is healthy.",
                 "Repair component",
                 SheetAction.HardwareRepair,
-                true),
-            new(
-                "Sensors",
-                "LibreHardwareMonitor has not produced usable telemetry yet. Retry rebuilds the provider once after the low-level component is healthy.",
-                "Retry sensors",
-                SheetAction.RefreshProviders,
-                true),
-            new(
-                "Keyboard",
-                "The active hardware provider has not produced a valid readback. ThinkControl will not send unverified keyboard writes.",
-                "Retry keyboard",
-                SheetAction.RefreshProviders,
                 true),
             new(
                 "ThinkControl is up to date",
