@@ -6,6 +6,8 @@ namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
+    private bool _snapshotUiPrepared;
+
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
@@ -37,6 +39,7 @@ public partial class AdvancedWindow
 
     public void PrepareEnhancedUiForSnapshot()
     {
+        _snapshotUiPrepared = true;
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedFeaturePages.Ensure(this, _app);
@@ -137,6 +140,24 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectTouchpad(this);
+
+        if (_snapshotUiPrepared)
+            PrepareTouchpadForSnapshot();
+    }
+
+    private void PrepareTouchpadForSnapshot()
+    {
+        const string touchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
+        if (!Resources.Contains(touchpadPageKey) ||
+            Resources[touchpadPageKey] is not ScrollViewer { Content: Controls.TouchpadPanel panel })
+        {
+            throw new InvalidOperationException("Touchpad page could not be prepared for visual QA.");
+        }
+
+        // The normal and minimum renders preserve the resting layout; the wide
+        // render exercises the transient contact/trail/value feedback state that
+        // otherwise cannot be caught by a static screenshot gate.
+        panel.PrepareForSnapshot(showActiveGesture: Width >= 1500);
     }
 
     public void NavigateSensors()
