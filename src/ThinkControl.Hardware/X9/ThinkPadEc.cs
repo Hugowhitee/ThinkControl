@@ -15,6 +15,8 @@ internal sealed class ThinkPadEc : IDisposable
     private const byte EcThermalBank1Start = 0xC0;
 
     private const int ReadMaxRetries = 5;
+    private const int ReadObfProbeMs = 5;
+    private const int ReadFallbackTimeoutMs = 50;
     private const int TransactionTimeoutMs = 1000;
     private const int OptionalThermalTimeoutMs = 120;
     private const int PollSleepMs = 10;
@@ -284,9 +286,13 @@ internal sealed class ThinkPadEc : IDisposable
     {
         value = 0;
 
-        // A stale OBF byte is cleared by reading the data port, not by repeatedly
-        // polling the status port. Drain it only before a new transaction, while the
-        // shared EC mutexes are held, then wait for a genuinely idle input queue.
+        // Drain any stale output byte before starting a new transaction. After the
+        // command/register have been accepted, prefer a fresh OBF indication, but
+        // retain the IBF-clear compatibility fallback used by LibreHardwareMonitor
+        // and the earlier X9-tested provider. The X9 has been observed to complete
+        // valid EC reads without asserting OBF reliably, especially for tachometer
+        // readback; requiring OBF unconditionally makes verified fan writes appear to
+        // fail even though the EC accepted them.
         if (!PrepareForTransaction(timeoutMs))
             return false;
 
@@ -298,10 +304,7 @@ internal sealed class ThinkPadEc : IDisposable
         if (!WaitForFlagsClear(InputBufferFull, timeoutMs))
             return false;
 
-        // Input acceptance does not mean the EC has produced the requested byte.
-        // Require a fresh OBF indication before touching the data port so delayed
-        // firmware responses can never be mistaken for stale/undefined readback.
-        if (!WaitForFlagsSet(OutputBufferFull, timeoutMs))
+        if (!WaitForReadReady(timeoutMs))
             return false;
 
         value = ReadPort(_dataPort);
@@ -360,14 +363,31 @@ internal sealed class ThinkPadEc : IDisposable
         return false;
     }
 
-    private bool WaitForFlagsSet(byte flags, int timeoutMs)
+    private bool WaitForReadReady(int timeoutMs)
     {
-        for (int elapsed = 0; elapsed < timeoutMs; elapsed += PollSleepMs)
+        int obfBudget = Math.Min(timeoutMs, ReadObfProbeMs);
+        for (int elapsed = 0; elapsed < obfBudget; elapsed++)
         {
-            if ((ReadPort(_commandPort) & flags) == flags)
+            if ((ReadPort(_commandPort) & OutputBufferFull) != 0)
                 return true;
-            Thread.Sleep(PollSleepMs);
+            Thread.Sleep(1);
         }
+
+        // LibreHardwareMonitor's Windows EC reader and TPFanCtrl both tolerate ECs
+        // that finish a read once IBF clears without presenting a dependable OBF bit.
+        // The stale-output drain in PrepareForTransaction makes this fallback much
+        // safer than blindly reading the data port at the start of a transaction.
+        int fallbackBudget = Math.Min(Math.Max(timeoutMs - obfBudget, 1), ReadFallbackTimeoutMs);
+        for (int elapsed = 0; elapsed < fallbackBudget; elapsed++)
+        {
+            if ((ReadPort(_commandPort) & InputBufferFull) == 0)
+            {
+                Thread.Sleep(1);
+                return true;
+            }
+            Thread.Sleep(1);
+        }
+
         return false;
     }
 

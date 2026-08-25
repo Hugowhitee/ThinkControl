@@ -37,6 +37,7 @@ jobs:
           candidates["polish/windows-ui-consistency"]=1
           candidates["chore/alpha5-verifier-run"]=1
           candidates["chore/verify-alpha6-release"]=1
+          candidates["fix/alpha15-x9-ec-readback"]=1
 
           # Branches from merged PRs are safe to remove even when the PR was
           # squash-merged and their original commit SHAs are not ancestors of main.

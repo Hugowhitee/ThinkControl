@@ -82,7 +82,12 @@ public partial class SensorsPanel : UserControl
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
             _statusSubscribed = true;
-            _ = _app.RefreshStatusAsync();
+
+            // Entering Sensors only asks the hardware cache/provider path for a fresh
+            // snapshot. It must not trigger the old all-system refresh (WMI battery,
+            // display discovery, power policy etc.) just because a telemetry page was
+            // opened. The app-level StatusObserved handler updates shared state.
+            _ = _app.HardwareClient.GetStatusAsync();
         }
         else
         {

@@ -35,7 +35,7 @@ public partial class FansPanel : UserControl
 
         SyncStatusSubscription();
         if (IsVisible)
-            _ = app.RefreshStatusAsync();
+            _ = app.HardwareClient.GetStatusAsync();
     }
 
     internal void PrepareForSnapshot(AppState state)
@@ -85,7 +85,11 @@ public partial class FansPanel : UserControl
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
             _statusSubscribed = true;
-            _ = _app.RefreshStatusAsync();
+
+            // The fan page needs the hardware provider snapshot only. Do not invoke
+            // the legacy whole-system refresh path merely because this page becomes
+            // visible; that path also rereads battery/system/display state.
+            _ = _app.HardwareClient.GetStatusAsync();
         }
         else
         {
@@ -242,7 +246,6 @@ public partial class FansPanel : UserControl
         try
         {
             _ = await _app.ResetFanDefaultsAsync();
-            await _app.RefreshStatusAsync();
         }
         finally
         {
@@ -273,7 +276,7 @@ public partial class FansPanel : UserControl
         if (_syncing || _app is null || sender is not FrameworkElement { Tag: string profile })
             return;
         if (!await _app.SetCoolingProfileAsync(profile))
-            await _app.RefreshStatusAsync();
+            _ = _app.HardwareClient.GetStatusAsync();
     }
 
     private async void Characterize_Click(object sender, RoutedEventArgs e)
@@ -281,7 +284,6 @@ public partial class FansPanel : UserControl
         if (_app is null)
             return;
         await _app.StartFanCharacterizationAsync();
-        await _app.RefreshStatusAsync();
     }
 
     private async void StopCharacterization_Click(object sender, RoutedEventArgs e)
@@ -289,7 +291,6 @@ public partial class FansPanel : UserControl
         if (_app is null)
             return;
         await _app.StopFanCharacterizationAsync();
-        await _app.RefreshStatusAsync();
     }
 
     private async void MarkAudible_Click(object sender, RoutedEventArgs e)
@@ -297,7 +298,6 @@ public partial class FansPanel : UserControl
         if (_app is null)
             return;
         await _app.MarkCurrentFanLevelAudibleAsync();
-        await _app.RefreshStatusAsync();
     }
 
     private async void ManualLevel_Click(object sender, RoutedEventArgs e)
@@ -306,8 +306,10 @@ public partial class FansPanel : UserControl
             return;
         ServiceResponse? response = await _app.HardwareClient.SetFanLevelAsync(level);
         if (response?.Success != true)
+        {
             _app.State.HardwareAccess = response?.Error ?? "Manual fan control unavailable";
-        await _app.RefreshStatusAsync();
+            _ = _app.HardwareClient.GetStatusAsync();
+        }
     }
 
     private sealed record CalibrationRow(string LevelText, string RpmText, string StabilityText);

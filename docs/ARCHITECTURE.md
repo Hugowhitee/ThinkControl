@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture used by ThinkControl `v0.1.0-alpha.15` and the compatibility boundaries new provider work must preserve.
+This document describes the architecture used by ThinkControl `v0.1.0-alpha.15.1` and the compatibility boundaries new provider work must preserve.
 
 ThinkControl is a general Windows laptop-control product. The current low-level reference implementation is Lenovo/ThinkPad/X9, but the core/UI architecture is intentionally vendor-neutral.
 
@@ -41,7 +41,7 @@ Current implementations include Windows/LHM/PawnIO sensor routes and Lenovo/X9 p
 
 ### ThinkControl.Service
 
-The Windows service owns elevated hardware operations and provider lifetime. Its IPC listener is established before slow hardware discovery, and normal `GetStatus` requests consume a cached hardware snapshot rather than synchronously rebuilding providers. Public operations are semantic, for example:
+The Windows service owns elevated hardware operations and provider lifetime. Its IPC listener is established before slow hardware discovery, and normal `GetStatus` requests consume a cached hardware snapshot rather than synchronously rebuilding providers. The status provider is demand-driven: idle telemetry sleeps until a client requests state, while active fan supervision owns its own safety cadence. Public operations are semantic, for example:
 
 ```text
 Ping
@@ -104,6 +104,8 @@ The current pipe is `ThinkControl.Service.v1`. Requests are versioned and length
 
 Service readiness and provider readiness remain separate. A repair is only reported successful after SCM reaches Running **and** the real ThinkControl `Ping` request succeeds through the named pipe.
 
+Longer semantic hardware operations use bounded per-operation client timeouts so a valid readback/recovery path can finish without the UI declaring failure while the service is still completing the command. Fast `Ping` and cached `GetStatus` remain short.
+
 These operations are intentionally absent:
 
 ```text
@@ -155,11 +157,13 @@ Level 7      0x07
 
 The backend blocks fan-off `0x00` and the unverified `0x40` override family. EC transport probes modern ThinkPad ports `0x1604/0x1600` first with `0x66/0x62` fallback, under shared ThinkPad EC mutexes.
 
+EC reads drain stale output before a new transaction, prefer a fresh Output Buffer Full indication, then use the same bounded Input Buffer Full-clear compatibility fallback used by LibreHardwareMonitor when firmware has completed the read without reliably asserting OBF. Writes still require explicit register/value acceptance followed by readback; this fallback does not widen the set of writable registers or states.
+
 Fan telemetry prefers real LibreHardwareMonitor/PawnIO readings when that provider exposes them. The verified `0x84/0x85` EC tachometer remains a conservative fallback. Fan-control register state is validated during provider setup and explicit write/readback paths rather than continuously polled in the normal status loop.
 
 The physical X9 chassis has two fans, but ThinkControl does not use an unverified selector write to fabricate separate per-fan telemetry.
 
-Normal controller disposal attempts to return active manual fan ownership to Lenovo Auto.
+Normal controller disposal attempts to return active manual fan ownership to Lenovo Auto. Provider refresh also refuses to tear down an actively owned fan path until ownership has been safely returned to firmware.
 
 ## Cooling profiles
 
@@ -179,9 +183,9 @@ The always-on UI scheduler reads battery state through the Windows power manager
 
 ## Keyboard
 
-Keyboard backlight is a capability, not a Lenovo page. The current Lenovo implementation probes established `IBMPmDrv`/`EnergyDrv` contracts and requires readback before writes. Failed probes are backed off; future OEM providers should implement the same capability contract behind the shared UI.
+Keyboard backlight is a capability, not a Lenovo page. The current Lenovo implementation probes established `IBMPmDrv`/`EnergyDrv` contracts and requires readback before writes. It can also reuse the installed Lenovo Vantage ThinkKeyboard component after validating Lenovo metadata, loading its adjacent contract dependency when present and marshalling reflected enum parameters using the target type. Failed probes are backed off; future OEM providers should implement the same capability contract behind the shared UI.
 
-User-session effects (Auto/Breathing/Reactive/Audio) remain separate from the privileged hardware-level setter.
+User-session effects (Auto/Breathing/Reactive/Audio) remain separate from the privileged hardware-level setter. Their hooks/timers are demand-driven. Explicit static Off/Low/High changes wait for an in-flight effect write rather than being discarded.
 
 ## Audio
 
@@ -225,7 +229,7 @@ Generated screenshots live in Actions artifacts and are inspected as visual QA. 
 
 `version.json` is the build and release version source. Normal builds read it directly; package CI may temporarily append a development build suffix through `APP_VERSION`, while a tagged build must match the exact `v<version>` tag.
 
-A release-ready change merges to `main`, the exact commit is tagged and the tagged packaging workflow repeats build/visual QA/payload/installer/service-lifecycle checks before publication.
+A release-ready change merges to `main`, the exact commit is tagged and the tagged packaging workflow repeats build/visual QA/payload/installer/service-lifecycle checks before publication. Pull requests that touch runtime or installer code additionally run a Windows reliability gate covering clean install, service start, `Ping`, `GetStatus`, in-place reinstall/update and uninstall cleanup.
 
 Published release assets are intentionally limited to:
 
@@ -237,7 +241,7 @@ SHA256SUMS.txt
 
 ## Branch hygiene
 
-Merged same-repository release/feature branches are disposable and cleaned automatically. Tags remain immutable release references.
+Merged same-repository release/feature branches are disposable and cleaned automatically. Tags remain immutable release references. Ephemeral Actions artifacts are bounded separately and are never confused with immutable GitHub Release assets.
 
 ## Diagnostics
 

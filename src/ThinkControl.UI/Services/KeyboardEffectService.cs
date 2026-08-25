@@ -6,7 +6,6 @@ namespace ThinkControl.UI.Services;
 
 public sealed class KeyboardEffectService : IDisposable
 {
-    private static readonly TimeSpan TickInterval = TimeSpan.FromMilliseconds(120);
     private static readonly TimeSpan MinHardwareWriteInterval = TimeSpan.FromMilliseconds(260);
     private static readonly TimeSpan ReactiveHold = TimeSpan.FromMilliseconds(430);
     private static readonly TimeSpan IdleLowAfter = TimeSpan.FromSeconds(15);
@@ -14,11 +13,12 @@ public sealed class KeyboardEffectService : IDisposable
 
     private readonly HardwareServiceClient _hardware;
     private readonly AppState _state;
-    private readonly KeyboardActivityHook _keyboardHook;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
-    private readonly CancellationTokenSource _cts = new();
-    private readonly Task _loop;
+    private readonly object _runtimeGate = new();
 
+    private KeyboardActivityHook? _keyboardHook;
+    private CancellationTokenSource? _effectCts;
+    private Task? _effectLoop;
     private DateTimeOffset _lastKeyboardActivity = DateTimeOffset.UtcNow;
     private DateTimeOffset _lastHardwareWrite = DateTimeOffset.MinValue;
     private DateTimeOffset _breathingStarted = DateTimeOffset.UtcNow;
@@ -31,16 +31,18 @@ public sealed class KeyboardEffectService : IDisposable
     {
         _hardware = hardware;
         _state = state;
-        _keyboardHook = new KeyboardActivityHook();
-        _keyboardHook.KeyPressed += OnKeyPressed;
-        _loop = Task.Run(() => RunAsync(_cts.Token));
     }
 
-    public bool ReactiveInputAvailable => _keyboardHook.IsAvailable;
+    // Reactive input is deliberately not probed at application startup. Installing a
+    // global low-level keyboard hook simply to advertise capability would keep every
+    // keystroke flowing through ThinkControl even when the user selected Static.
+    public bool ReactiveInputAvailable => _keyboardHook?.IsAvailable == true;
 
     public async Task SetStaticLevelAsync(string level, CancellationToken cancellationToken = default)
     {
+        await StopEffectRuntimeAsync().ConfigureAwait(false);
         StopAudioCapture();
+        StopKeyboardHook();
         _state.KeyboardMode = "Static";
         _state.KeyboardBaseLevel = NormalizeLevel(level);
         _breathingStarted = DateTimeOffset.UtcNow;
@@ -58,37 +60,100 @@ public sealed class KeyboardEffectService : IDisposable
             _ => "Static"
         };
 
+        await StopEffectRuntimeAsync().ConfigureAwait(false);
+        StopAudioCapture();
+        StopKeyboardHook();
+
         _state.KeyboardMode = normalized;
         _breathingStarted = DateTimeOffset.UtcNow;
         _lastKeyboardActivity = DateTimeOffset.UtcNow;
 
-        if (normalized == "Audio")
-            StartAudioCapture();
-        else
-            StopAudioCapture();
-
         if (normalized == "Static")
+        {
             await ApplyLevelAsync(_state.KeyboardBaseLevel, force: true, cancellationToken).ConfigureAwait(false);
-        else
-            await TickEffectAsync(cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (normalized == "Reactive")
+            StartKeyboardHook();
+        else if (normalized == "Audio")
+            StartAudioCapture();
+
+        await TickEffectAsync(cancellationToken).ConfigureAwait(false);
+        StartEffectRuntime();
     }
 
     public void SetBaseLevel(string level) => _state.KeyboardBaseLevel = NormalizeLevel(level);
 
     public void SetSpeed(double speed) => _state.KeyboardEffectSpeed = speed;
 
-    private async Task RunAsync(CancellationToken cancellationToken)
+    private void StartEffectRuntime()
     {
-        using var timer = new PeriodicTimer(TickInterval);
+        if (_disposed || _state.KeyboardMode == "Static")
+            return;
+
+        lock (_runtimeGate)
+        {
+            if (_effectLoop is { IsCompleted: false })
+                return;
+
+            _effectCts?.Dispose();
+            _effectCts = new CancellationTokenSource();
+            CancellationToken token = _effectCts.Token;
+            _effectLoop = Task.Run(() => RunEffectAsync(token), token);
+        }
+    }
+
+    private async Task StopEffectRuntimeAsync()
+    {
+        CancellationTokenSource? cts;
+        Task? loop;
+        lock (_runtimeGate)
+        {
+            cts = _effectCts;
+            loop = _effectLoop;
+            _effectCts = null;
+            _effectLoop = null;
+        }
+
+        try { cts?.Cancel(); } catch { }
+        if (loop is not null)
+        {
+            try { await loop.WaitAsync(TimeSpan.FromMilliseconds(500)).ConfigureAwait(false); }
+            catch (OperationCanceledException) { }
+            catch (TimeoutException) { }
+            catch { }
+        }
+        cts?.Dispose();
+    }
+
+    private async Task RunEffectAsync(CancellationToken cancellationToken)
+    {
         try
         {
-            while (await timer.WaitForNextTickAsync(cancellationToken).ConfigureAwait(false))
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(CurrentEffectInterval(), cancellationToken).ConfigureAwait(false);
                 await TickEffectAsync(cancellationToken).ConfigureAwait(false);
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
         }
     }
+
+    private TimeSpan CurrentEffectInterval() => _state.KeyboardMode switch
+    {
+        // Auto only reacts to 15/35 second idle thresholds; a one-second cadence is
+        // indistinguishable to the user and avoids an 8 Hz background wakeup.
+        "Auto" => TimeSpan.FromSeconds(1),
+        // User-selected animated/reactive modes can sample faster while active, but
+        // still coalesce hardware writes through MinHardwareWriteInterval below.
+        "Reactive" => TimeSpan.FromMilliseconds(90),
+        "Audio" => TimeSpan.FromMilliseconds(100),
+        "Breathing" => TimeSpan.FromMilliseconds(120),
+        _ => TimeSpan.FromSeconds(1)
+    };
 
     private async Task TickEffectAsync(CancellationToken cancellationToken)
     {
@@ -159,8 +224,18 @@ public sealed class KeyboardEffectService : IDisposable
                 return;
         }
 
-        if (!await _writeGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        if (force)
+        {
+            // A direct Off/Low/High click is authoritative. If an effect write is
+            // already in flight, wait for that bounded service call and then apply
+            // the user's explicit level. Dropping a static click leaves no effect
+            // loop to retry it and makes working keyboard hardware look broken.
+            await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        else if (!await _writeGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
+        {
             return;
+        }
 
         try
         {
@@ -176,6 +251,34 @@ public sealed class KeyboardEffectService : IDisposable
         {
             _writeGate.Release();
         }
+    }
+
+    private void StartKeyboardHook()
+    {
+        if (_keyboardHook is not null || _disposed)
+            return;
+
+        try
+        {
+            var hook = new KeyboardActivityHook();
+            hook.KeyPressed += OnKeyPressed;
+            _keyboardHook = hook;
+        }
+        catch
+        {
+            StopKeyboardHook();
+        }
+    }
+
+    private void StopKeyboardHook()
+    {
+        KeyboardActivityHook? hook = _keyboardHook;
+        _keyboardHook = null;
+        if (hook is null)
+            return;
+
+        try { hook.KeyPressed -= OnKeyPressed; } catch { }
+        try { hook.Dispose(); } catch { }
     }
 
     private void OnKeyPressed() => _lastKeyboardActivity = DateTimeOffset.UtcNow;
@@ -284,13 +387,10 @@ public sealed class KeyboardEffectService : IDisposable
         if (_disposed)
             return;
         _disposed = true;
-        _cts.Cancel();
-        try { _loop.Wait(TimeSpan.FromSeconds(1)); } catch { }
+        try { StopEffectRuntimeAsync().GetAwaiter().GetResult(); } catch { }
         StopAudioCapture();
-        _keyboardHook.KeyPressed -= OnKeyPressed;
-        _keyboardHook.Dispose();
+        StopKeyboardHook();
         _writeGate.Dispose();
-        _cts.Dispose();
     }
 
     [StructLayout(LayoutKind.Sequential)]

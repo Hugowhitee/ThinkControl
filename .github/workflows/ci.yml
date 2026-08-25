@@ -83,3 +83,4 @@ jobs:
           name: ThinkControl-Visual-QA
           path: artifacts/snapshots/**
           if-no-files-found: error
+          retention-days: 7

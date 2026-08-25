@@ -10,6 +10,7 @@ public partial class AdvancedWindow
     private const string WindowsLinksKey = "ThinkControl.Advanced.WindowsSettingsLinks";
     private const string DisplayWindowsLinkTag = "ThinkControl.Display.WindowsSettings";
     private const string TouchpadWindowsLinkTag = "ThinkControl.Touchpad.WindowsSettings";
+    private const string DisplayHeaderActionsTag = "ThinkControl.Display.HeaderActions";
 
     private void ConfigureWindowsSettingsLinks()
     {
@@ -24,13 +25,50 @@ public partial class AdvancedWindow
     {
         if (PageDisplay.Content is not StackPanel stack || stack.Children.Count == 0 || stack.Children[0] is not Grid header)
             return;
-        if (header.Children.OfType<Button>().Any(button => Equals(button.Tag, DisplayWindowsLinkTag)))
+
+        // ResetDefaults builds the page header first. Keep every right-side action in
+        // one explicit Auto column instead of relying on magic right margins; the old
+        // 38px offset let "Windows display settings" collide with "Defaults".
+        StackPanel? actions = header.Children
+            .OfType<StackPanel>()
+            .FirstOrDefault(panel => Equals(panel.Tag, DisplayHeaderActionsTag));
+
+        if (actions is null)
+        {
+            Button[] existingButtons = header.Children.OfType<Button>().ToArray();
+            foreach (Button button in existingButtons)
+                header.Children.Remove(button);
+
+            header.ColumnDefinitions.Clear();
+            header.ColumnDefinitions.Add(new ColumnDefinition());
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            foreach (UIElement child in header.Children)
+                Grid.SetColumn(child, 0);
+
+            actions = new StackPanel
+            {
+                Tag = DisplayHeaderActionsTag,
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            foreach (Button button in existingButtons)
+            {
+                button.Margin = new Thickness(8, 0, 0, 0);
+                actions.Children.Add(button);
+            }
+
+            Grid.SetColumn(actions, 1);
+            header.Children.Add(actions);
+        }
+
+        if (actions.Children.OfType<Button>().Any(button => Equals(button.Tag, DisplayWindowsLinkTag)))
             return;
 
         Button link = CreateWindowsLink("Windows display settings ↗", "ms-settings:display", DisplayWindowsLinkTag);
-        link.HorizontalAlignment = HorizontalAlignment.Right;
-        link.Margin = new Thickness(0, 0, 38, 0);
-        header.Children.Add(link);
+        link.Margin = new Thickness(0, 0, 2, 0);
+        actions.Children.Insert(0, link);
     }
 
     private void AddTouchpadWindowsSettingsLink()

@@ -319,6 +319,14 @@ public sealed class KeyboardBacklightService : IDisposable
                         if (!vendor.Contains("Lenovo", StringComparison.OrdinalIgnoreCase))
                             continue;
 
+                        // Keyboard_Core depends on Contract_Keyboard in Lenovo's
+                        // ThinkKeyboard add-in. Load the adjacent contract first when
+                        // present so the fallback works in the service load context as
+                        // reliably as established standalone ThinkPad backlight tools.
+                        string contractPath = Path.Combine(directory, "Contract_Keyboard.dll");
+                        if (File.Exists(contractPath))
+                            _ = Assembly.LoadFrom(contractPath);
+
                         Assembly assembly = Assembly.LoadFrom(dllPath);
                         Type? type = assembly.GetType("Keyboard_Core.KeyboardControl", throwOnError: false, ignoreCase: false);
                         if (type is null)
@@ -385,7 +393,9 @@ public sealed class KeyboardBacklightService : IDisposable
                 Type levelType = parameters[0].ParameterType.IsByRef
                     ? parameters[0].ParameterType.GetElementType() ?? typeof(int)
                     : parameters[0].ParameterType;
-                object value = Convert.ChangeType((int)level, levelType);
+                object value = levelType.IsEnum
+                    ? Enum.ToObject(levelType, (int)level)
+                    : Convert.ChangeType((int)level, levelType);
                 object?[] args = parameters.Length >= 2 ? [value, null] : [value];
                 _ = _set.Invoke(_control, args);
                 Thread.Sleep(90);

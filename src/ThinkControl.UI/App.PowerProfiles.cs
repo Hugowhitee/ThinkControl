@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
 using Forms = System.Windows.Forms;
@@ -6,23 +7,41 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
-    private DispatcherTimer? _powerSourceTimer;
     private bool? _lastObservedOnAc;
+    private bool _powerEventsAttached;
 
     private void InitializePowerProfileCoordinator()
     {
         Startup += (_, _) =>
         {
-            // Power-line state is available through the cheap Windows PowerStatus
-            // snapshot. Do not call BatteryTelemetryService.Read() from a WPF timer:
-            // that path performs WMI work and shares a lock with the background
-            // telemetry sampler, which can stall the UI thread.
-            _powerSourceTimer = new DispatcherTimer(TimeSpan.FromSeconds(10), DispatcherPriority.ApplicationIdle,
-                (_, _) => ObservePowerSource(), Dispatcher);
-            _powerSourceTimer.Start();
+            if (!_powerEventsAttached)
+            {
+                SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+                _powerEventsAttached = true;
+            }
+
+            // Read once at startup, then react to Windows' AC/DC notifications. A
+            // periodic WPF timer is unnecessary for a state that Windows already
+            // publishes as an event and only adds needless wakeups while tray-only.
             ObservePowerSource(force: true);
         };
-        Exit += (_, _) => _powerSourceTimer?.Stop();
+        Exit += (_, _) =>
+        {
+            if (!_powerEventsAttached)
+                return;
+            SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
+            _powerEventsAttached = false;
+        };
+    }
+
+    private void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode is not PowerModes.StatusChange and not PowerModes.Resume)
+            return;
+
+        Dispatcher.BeginInvoke(
+            DispatcherPriority.Background,
+            new Action(() => ObservePowerSource(force: e.Mode == PowerModes.Resume)));
     }
 
     internal ThinkControlPowerMode GetPowerPreference(bool onBattery)
