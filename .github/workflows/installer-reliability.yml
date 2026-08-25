@@ -1,0 +1,100 @@
+name: Installer reliability
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "src/**"
+      - "installer/**"
+      - "tools/release/**"
+      - "version.json"
+      - ".github/workflows/installer-reliability.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Resolve smoke version
+        shell: pwsh
+        run: |
+          $metadata = Get-Content version.json -Raw | ConvertFrom-Json
+          $sourceVersion = [string]$metadata.version
+          if ([string]::IsNullOrWhiteSpace($sourceVersion)) { throw "version.json does not contain a version" }
+          $coreVersion = $sourceVersion.Split('-')[0]
+          $build = [int]$env:GITHUB_RUN_NUMBER % 65535
+          "APP_VERSION=$sourceVersion-smoke.$env:GITHUB_RUN_NUMBER" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "NUMERIC_VERSION=$coreVersion.$build" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore and build
+        shell: pwsh
+        run: |
+          dotnet restore ThinkControl.slnx
+          dotnet build ThinkControl.slnx -c Release --no-restore
+
+      - name: Publish smoke payload
+        shell: pwsh
+        run: |
+          dotnet publish src/ThinkControl.UI/ThinkControl.UI.csproj `
+            -c Release -r win-x64 --self-contained false `
+            -p:Version=$env:APP_VERSION -p:InformationalVersion=$env:APP_VERSION `
+            -p:DebugType=None -p:DebugSymbols=false -o artifacts/ui
+          dotnet publish src/ThinkControl.Service/ThinkControl.Service.csproj `
+            -c Release -r win-x64 --self-contained false `
+            -p:Version=$env:APP_VERSION -p:InformationalVersion=$env:APP_VERSION `
+            -p:DebugType=None -p:DebugSymbols=false -o artifacts/service
+
+          $root = "artifacts/payload-root"
+          $installerDir = "artifacts/installer"
+          New-Item "$root/ui" -ItemType Directory -Force | Out-Null
+          New-Item "$root/service" -ItemType Directory -Force | Out-Null
+          New-Item $installerDir -ItemType Directory -Force | Out-Null
+          Copy-Item "artifacts/ui/*" "$root/ui" -Recurse -Force
+          Copy-Item "artifacts/service/*" "$root/service" -Recurse -Force
+
+          $payloadFile = "ThinkControl-Payload-$env:APP_VERSION.zip"
+          $payloadPath = Join-Path $installerDir $payloadFile
+          Compress-Archive -Path "$root/*" -DestinationPath $payloadPath -CompressionLevel Optimal -Force
+          $payload = Get-Item $payloadPath
+          if ($payload.Length -gt 20MB) { throw "Smoke payload exceeds 20 MB budget." }
+          $hash = (Get-FileHash $payload.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "PAYLOAD_FILE=$payloadFile" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_PATH=$($payload.FullName)" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_SHA256=$hash" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build bootstrap installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found" }
+          & $iscc `
+            "/DAppVersion=$env:APP_VERSION" `
+            "/DNumericVersion=$env:NUMERIC_VERSION" `
+            "/DPayloadFile=$env:PAYLOAD_FILE" `
+            "/DPayloadUrl=https://invalid.example/$env:PAYLOAD_FILE" `
+            "/DPayloadSha256=$env:PAYLOAD_SHA256" `
+            "installer/ThinkControl.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          if ($null -eq $setup) { throw "Installer was not produced" }
+          if ($setup.Length -gt 5MB) { throw "Bootstrap installer exceeds 5 MB budget." }
+
+      - name: Deep installer and IPC smoke
+        shell: pwsh
+        run: ./tools/release/InstallerReliabilitySmoke.ps1 -ArtifactDirectory ./artifacts/installer
