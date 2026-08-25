@@ -88,6 +88,7 @@
                     <Button x:Name="ShareDeviceButton" Content="Share device report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ShareDeviceReport_Click" />
                     <Button Content="Preview data" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Preview_Click" />
                     <Button Content="Export bundle" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Export_Click" />
+                    <Button Content="Hardware log" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenHardwareLog_Click" ToolTip="Open the local ThinkControl hardware-service log" />
                     <Button Content="Bug report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenBugReport_Click" />
                 </WrapPanel>
                 <Button Grid.Column="1" Content="Delete local data" Style="{StaticResource TcButton}" Margin="8,0,0,7" Click="Delete_Click" />
