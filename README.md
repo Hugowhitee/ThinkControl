@@ -23,20 +23,20 @@
   </a>
 </div>
 
-## ThinkControl alpha.15
+## ThinkControl alpha.15.1
 
 ThinkControl is a lightweight Windows 11 companion for laptop controls that are normally spread across Windows Settings, OEM utilities and monitoring tools. It has a small notification-area popup for everyday changes and a resizable Advanced window for deeper controls and telemetry.
 
 The product is capability-driven rather than tied to one laptop brand. Windows-safe features form the generic baseline; OEM, product-family and exact-model providers can add deeper hardware support without duplicating the main UI. The ThinkPad X9-15 Gen 1 is currently the physically reviewed low-level reference device, not the architectural product boundary.
 
-**Current prerelease:** `v0.1.0-alpha.15`  
+**Current prerelease:** `v0.1.0-alpha.15.1`  
 **Reviewed low-level reference profile:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 11 x64 · .NET 10
 
 Download the latest setup from **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**. For a normal install, this is the only file to download:
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.15.exe
+ThinkControl-Setup-0.1.0-alpha.15.1.exe
 ```
 
 The release also contains a versioned application payload and `SHA256SUMS.txt`. Those are updater/verification infrastructure used so ThinkControl can download and verify the complete app **before** elevation; users do not need to extract or install them manually.
@@ -62,9 +62,9 @@ Release CI renders the real WPF interface in dark/light themes at minimum, norma
 
 ThinkControl does **not** invent missing RPM values, fake PWM percentages, guessed EC registers or synthetic sensor readings. Low-level controls remain visible but unavailable until their provider is actually detected and validated.
 
-## Alpha.15 stabilization changes
+## Alpha.15.1 stabilization changes
 
-Alpha.15 is a reliability and performance pass over alpha.14.1. The focus is on fixing regressions and reducing background work before expanding the product further.
+Alpha.15.1 includes the alpha.15 reliability/performance pass plus a release-blocking X9 EC readback correction found during the final protocol audit. The verified X9 fan provider now keeps the stale-output protection and write readback added in alpha.15 while restoring the bounded tolerant read-ready behavior used by LibreHardwareMonitor, TPFanCtrl and the earlier X9-tested ThinkControl/FanControl provider. It prefers a fresh OBF signal, then accepts the established IBF-clear fallback when firmware completes a valid EC read without reliably asserting OBF. This prevents a successful fan write from being falsely treated as a failed readback and immediately handed back to BIOS Auto.
 
 - The privileged hardware service creates its named-pipe endpoint before slow provider discovery and keeps a cached hardware snapshot, so the UI can distinguish a running Windows service from a working app connection.
 - Service repair now verifies the same named-pipe `Ping` protocol the app uses instead of treating SCM `Running` as sufficient proof.
@@ -72,15 +72,16 @@ Alpha.15 is a reliability and performance pass over alpha.14.1. The focus is on 
 - The always-on runtime scheduler uses the Windows power manager and cheap display APIs instead of repeatedly running battery WMI, `powercfg` and full display discovery.
 - Sensor discovery avoids unnecessary storage, battery, network, controller and PSU providers in the always-on path and uses bounded retry/recycle behavior rather than repeatedly hammering failed providers.
 - On the verified X9 profile, real LibreHardwareMonitor/PawnIO fan telemetry is preferred when available. Direct EC tachometer and read-only thermal access are conservative fallbacks, and periodic EC control-register probing was removed from the normal status loop.
-- Manual X9 fan writes remain restricted to `21Q6` / `21Q7`, verified by readback and returned to firmware/OEM Auto on supported failure/disposal paths.
+- Manual X9 fan writes remain restricted to `21Q6` / `21Q7`, verified by readback and returned to firmware/OEM Auto on supported failure/disposal paths. Manual mode is also supervised against lost temperature/provider state and the shared thermal safety handoff.
+- Provider refresh cannot tear down EC/sensor/keyboard providers while ThinkControl still owns a fan level; active ownership must first return successfully to Lenovo Auto, and characterization blocks refresh until stopped.
 - Lenovo keyboard control requires provider readback, failed probes are backed off rather than retried every status cycle, and an explicit provider refresh now drops cached driver/Vantage backends before probing again.
-- Hardware Setup and Notifications now surface root causes instead of multiplying one failed dependency into several identical repair actions.
+- Hardware Setup and Notifications surface root causes instead of multiplying one failed dependency into several identical repair actions.
 - Update checking, Home and the Updates page share one release state. A user-triggered update downloads Setup + Payload + checksums, verifies SHA-256, shows the Windows elevation handoff and keeps update controls locked while the installer owns the swap.
 - Automatic update checks never install or open UAC by themselves.
 - Touchpad media seeking uses smaller per-frame deltas and coalesced GSMTC writes; browser sessions update more responsively while Spotify/Apple Music keep a conservative cadence.
 - Gesture OSD placement, Home quick controls and hardware/sensor state propagation were tightened so unavailable states stay explicit rather than looking blank or stale.
-- `version.json` is now the build version source of truth for normal builds as well as packaging, preventing stale hard-coded app versions from appearing in the UI.
-- Windows CI builds with zero compiler warnings, runs the core test suite and renders the complete 52-snapshot visual-QA matrix before packaging.
+- `version.json` is the build version source of truth for normal builds as well as packaging, preventing stale hard-coded app versions from appearing in the UI.
+- Windows CI builds the solution, runs the core test suite and renders the complete 52-snapshot visual-QA matrix before packaging.
 
 ## Multi-device architecture
 
