@@ -1,3 +1,4 @@
+using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 
 namespace ThinkControl.UI;
@@ -23,9 +24,10 @@ public partial class App
 
     internal async Task<bool> SetCoolingProfileAsync(string profile)
     {
-        ServiceResponse? response = profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase)
+        string internalProfile = NormalizeCoolingProfile(profile);
+        ServiceResponse? response = internalProfile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase)
             ? await HardwareClient.ReturnFanToAutoAsync()
-            : await HardwareClient.SetCoolingProfileAsync(profile);
+            : await HardwareClient.SetCoolingProfileAsync(internalProfile);
 
         if (response?.Success != true)
         {
@@ -33,14 +35,31 @@ public partial class App
             return false;
         }
 
-        string normalized = profile switch
+        UserSettings.Update(settings => settings with { CoolingProfile = internalProfile });
+        _coolingPreferenceRestoreAttempted = true;
+        return true;
+    }
+
+    internal async Task<bool> SetCustomCoolingCurveAsync(IReadOnlyList<double> thresholds)
+    {
+        if (!FanCurvePolicy.TryValidateCustomThresholds(thresholds, out double[] normalized, out string? error))
         {
-            "Silent" => "Silent",
-            "Normal" => "Normal",
-            "Cool" => "Cool",
-            _ => "Lenovo Auto"
-        };
-        UserSettings.Update(settings => settings with { CoolingProfile = normalized });
+            State.HardwareAccess = error ?? "Custom cooling curve is invalid";
+            return false;
+        }
+
+        ServiceResponse? response = await HardwareClient.SetCustomCoolingCurveAsync(normalized);
+        if (response?.Success != true)
+        {
+            State.HardwareAccess = response?.Error ?? "Custom cooling curve unavailable";
+            return false;
+        }
+
+        UserSettings.Update(settings => settings with
+        {
+            CoolingProfile = "Custom",
+            CustomFanThresholds = normalized
+        });
         _coolingPreferenceRestoreAttempted = true;
         return true;
     }
@@ -78,16 +97,30 @@ public partial class App
             return;
 
         _coolingPreferenceRestoreAttempted = true;
-        string profile = UserSettings.Current.CoolingProfile;
-        if (profile is not ("Silent" or "Normal" or "Cool"))
+        ThinkControlUserSettings settings = UserSettings.Current;
+        if (settings.CoolingProfile == "Custom")
+        {
+            double[] curve = settings.CustomFanThresholds ?? FanCurvePolicy.DefaultCustomThresholds.ToArray();
+            ServiceResponse? custom = await HardwareClient.SetCustomCoolingCurveAsync(curve);
+            if (custom?.Success != true)
+                State.HardwareAccess = custom?.Error ?? "Saved custom cooling curve could not be restored";
+            return;
+        }
+
+        if (settings.CoolingProfile is not ("Silent" or "Normal" or "Cool"))
             return;
 
-        ServiceResponse? applied = await HardwareClient.SetCoolingProfileAsync(profile);
+        ServiceResponse? applied = await HardwareClient.SetCoolingProfileAsync(settings.CoolingProfile);
         if (applied?.Success != true)
-        {
-            // Do not retry every 2 seconds. A repair/restart or the next app launch
-            // provides a fresh attempt while Lenovo firmware remains the safe owner.
             State.HardwareAccess = applied?.Error ?? "Saved cooling profile could not be restored";
-        }
     }
+
+    private static string NormalizeCoolingProfile(string profile) => profile.Trim() switch
+    {
+        "Quiet" or "Silent" => "Silent",
+        "Balanced" or "Normal" => "Normal",
+        "Max cooling" or "Cool" => "Cool",
+        "Custom" => "Custom",
+        _ => "Lenovo Auto"
+    };
 }
