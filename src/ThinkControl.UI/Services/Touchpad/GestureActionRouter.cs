@@ -205,16 +205,16 @@ internal sealed class GestureActionRouter
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
 
-        // Seek is intentionally much finer than volume/brightness. Slow finger
-        // travel maps almost one-to-one to sub-second movement, while a deliberate
-        // fast swipe still accelerates enough for long videos. The old curve could
-        // generate a 22-second jump from one input frame, which felt unusably chunky
-        // in browser video even though its slow GSMTC cadence protected Spotify.
-        double speed01 = Math.Clamp((velocity - 48.0) / 210.0, 0.0, 1.0);
-        double acceleration = 1.0 + 1.65 * Math.Pow(speed01, 1.35);
-        double seconds = deltaMm * 0.11 * acceleration;
-        seconds = Math.Clamp(seconds, -4.0, 4.0);
-        _seekCumulativeSeconds = Math.Clamp(_seekCumulativeSeconds + seconds, -600.0, 600.0);
+        // A slow drag stays precise, but a deliberate swipe ramps much harder than
+        // alpha.15.1. This behaves more like direct timeline scrubbing: small finger
+        // corrections move by fractions of a second while a fast 40–60 mm sweep can
+        // cover tens of seconds instead of feeling stuck. MediaSessionService still
+        // coalesces GSMTC writes, and Spotify/Apple Music keep their lower cadence.
+        double speed01 = Math.Clamp((velocity - 32.0) / 185.0, 0.0, 1.0);
+        double acceleration = 1.0 + 2.7 * Math.Pow(speed01, 1.45);
+        double secondsPerMm = 0.18 * acceleration;
+        double seconds = Math.Clamp(deltaMm * secondsPerMm, -8.0, 8.0);
+        _seekCumulativeSeconds = Math.Clamp(_seekCumulativeSeconds + seconds, -1800.0, 1800.0);
         _ = QueueMediaWhenReadyAsync(seconds);
     }
 
