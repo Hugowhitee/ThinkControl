@@ -3,13 +3,13 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
         Title="ThinkControl · Details"
-        Width="720" Height="600" MinWidth="540" MinHeight="430"
+        Width="760" Height="620" MinWidth="560" MinHeight="440"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource Tc.Window}"
         Foreground="{DynamicResource Tc.Text}"
         FontFamily="Segoe UI Variable Text, Segoe UI"
         ShowInTaskbar="False">
-    <Grid Margin="18">
+    <Grid Margin="20">
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <Grid>
             <StackPanel>
@@ -20,25 +20,21 @@
 
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="0,16,0,12">
             <StackPanel>
-                <UniformGrid x:Name="MetricsGrid" Rows="1" Margin="0,0,0,14" />
-
-                <Border x:Name="SecondaryChartCard" Style="{StaticResource TcSection}" Margin="0,0,0,12" Visibility="Collapsed">
-                    <Grid>
-                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="145" /></Grid.RowDefinitions>
-                        <Grid>
-                            <TextBlock x:Name="SecondaryChartTitleText" FontWeight="SemiBold" />
-                            <TextBlock HorizontalAlignment="Right" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Text="Battery level over the same session" />
-                        </Grid>
-                        <controls:TimeSeriesChart x:Name="SecondaryDetailChart" Grid.Row="1" Margin="0,8,0,0" IncludeZero="False" />
-                    </Grid>
-                </Border>
+                <UniformGrid x:Name="MetricsGrid" Columns="3" Margin="0,0,0,10" />
 
                 <Border Style="{StaticResource TcSection}">
                     <Grid>
-                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="200" /></Grid.RowDefinitions>
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="220" /></Grid.RowDefinitions>
                         <Grid>
-                            <TextBlock x:Name="ChartTitleText" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ChartHintText" HorizontalAlignment="Right" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Text="Hover for exact values" />
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock x:Name="ChartTitleText" FontWeight="SemiBold" />
+                                <TextBlock x:Name="ChartHintText" Margin="0,3,0,0" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Text="Hover for exact values" />
+                            </StackPanel>
+                            <StackPanel x:Name="ChartModePanel" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
+                                <Button x:Name="PrimaryChartButton" Content="Power" Style="{StaticResource TcButton}" Padding="10,4" MinWidth="68" Click="PrimaryChart_Click" />
+                                <Button x:Name="SecondaryChartButton" Content="Battery" Style="{StaticResource TcButton}" Padding="10,4" MinWidth="68" Margin="6,0,0,0" Click="SecondaryChart_Click" />
+                            </StackPanel>
                         </Grid>
                         <controls:TimeSeriesChart x:Name="DetailChart" Grid.Row="1" Margin="0,10,0,0" IncludeZero="True" />
                     </Grid>
