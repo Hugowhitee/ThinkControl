@@ -3,7 +3,6 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Media.Effects;
-using ThinkControl.Core.Cooling;
 using ThinkControl.UI.Services;
 using WpfButton = System.Windows.Controls.Button;
 
@@ -29,28 +28,16 @@ public partial class CompactDashboard
             return;
 
         _quickPerformance = CreateQuickButton();
-        _quickPerformance.Click += (_, _) => OpenQuickMenu(
-            _quickPerformance,
-            ["Efficiency", "Balanced", "Performance"],
-            QuickPerformanceSelected);
+        _quickPerformance.Click += (_, _) => OpenQuickMenu(_quickPerformance, ["Efficiency", "Balanced", "Performance"], QuickPerformanceSelected);
 
         _quickFan = CreateQuickButton();
-        _quickFan.Click += (_, _) => OpenQuickMenu(
-            _quickFan,
-            ["Auto", "Quiet", "Balanced", "Max cooling", "Custom"],
-            QuickFanSelected);
+        _quickFan.Click += (_, _) => OpenQuickMenu(_quickFan, BuildFanOptions(), QuickFanSelected);
 
         _quickRefresh = CreateQuickButton();
-        _quickRefresh.Click += (_, _) => OpenQuickMenu(
-            _quickRefresh,
-            BuildRefreshOptions(),
-            QuickRefreshSelected);
+        _quickRefresh.Click += (_, _) => OpenQuickMenu(_quickRefresh, BuildRefreshOptions(), QuickRefreshSelected);
 
         _quickKeyboard = CreateQuickButton();
-        _quickKeyboard.Click += (_, _) => OpenQuickMenu(
-            _quickKeyboard,
-            ["Off", "Low", "High", "Auto"],
-            QuickKeyboardSelected);
+        _quickKeyboard.Click += (_, _) => OpenQuickMenu(_quickKeyboard, ["Off", "Low", "High", "Auto"], QuickKeyboardSelected);
 
         var grid = new Grid();
         for (int i = 0; i < 4; i++)
@@ -84,10 +71,7 @@ public partial class CompactDashboard
 
     private FrameworkElement CreateQuickColumn(string label, WpfButton button, int column)
     {
-        var panel = new StackPanel
-        {
-            Margin = new Thickness(column == 0 ? 0 : 3, 0, column == 3 ? 0 : 3, 0)
-        };
+        var panel = new StackPanel { Margin = new Thickness(column == 0 ? 0 : 3, 0, column == 3 ? 0 : 3, 0) };
         var title = new TextBlock { Text = label, FontSize = 9.5, Margin = new Thickness(1, 0, 0, 4) };
         title.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
         panel.Children.Add(title);
@@ -102,10 +86,10 @@ public partial class CompactDashboard
             return;
 
         _quickPopup?.SetCurrentValue(Popup.IsOpenProperty, false);
-
         var list = new StackPanel();
         Popup? popup = null;
-        foreach (string option in options)
+
+        foreach (string option in options.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             var item = new WpfButton
             {
@@ -137,12 +121,7 @@ public partial class CompactDashboard
             CornerRadius = new CornerRadius(6),
             BorderThickness = new Thickness(1),
             Child = list,
-            Effect = new DropShadowEffect
-            {
-                BlurRadius = 18,
-                ShadowDepth = 4,
-                Opacity = 0.32
-            }
+            Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 4, Opacity = 0.32 }
         };
         surface.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
         surface.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
@@ -165,11 +144,19 @@ public partial class CompactDashboard
         popup.IsOpen = true;
     }
 
+    private IReadOnlyList<string> BuildFanOptions()
+    {
+        if (_app is null)
+            return ["Auto"];
+        var values = new List<string> { "Auto" };
+        values.AddRange(_app.FanProfiles.GetProfiles().Select(profile => profile.Name));
+        return values;
+    }
+
     private IReadOnlyList<string> BuildRefreshOptions()
     {
         if (_app is null)
             return ["Auto"];
-
         var values = new List<string> { "Auto" };
         IReadOnlyList<int> supported = _app.DisplayService.GetSupportedRefreshRates();
         if (supported.Contains(60))
@@ -187,13 +174,9 @@ public partial class CompactDashboard
         _syncingQuickControls = true;
         try
         {
-            // Performance is Windows power behavior; it must not read like a fan
-            // profile. The internal historical enum value Quiet is displayed as the
-            // actual user concept: Efficiency.
             _quickPerformance.Content = QuickButtonContent(_app.State.SelectedModeDisplay);
-
             _quickFan.IsEnabled = _app.State.CanFanControl;
-            _quickFan.Content = QuickButtonContent(_app.State.CoolingProfileDisplay);
+            _quickFan.Content = QuickButtonContent(DisplayFanName(_app.State.CoolingProfile));
 
             string refresh = _app.State.RefreshAutoEnabled
                 ? "Auto"
@@ -216,31 +199,26 @@ public partial class CompactDashboard
                             : "Keyboard";
             _quickKeyboard.Content = QuickButtonContent(keyboard);
         }
-        finally
-        {
-            _syncingQuickControls = false;
-        }
+        finally { _syncingQuickControls = false; }
     }
+
+    private static string DisplayFanName(string? raw) => raw?.Trim() switch
+    {
+        null or "" or "Lenovo Auto" or "Auto" => "Auto",
+        "Silent" => "Quiet",
+        "Normal" => "Balanced",
+        "Cool" => "Max cooling",
+        string value when value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase) => "Manual",
+        string value => value
+    };
 
     private static FrameworkElement QuickButtonContent(string value)
     {
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        var text = new TextBlock
-        {
-            Text = value,
-            FontSize = 10.5,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        var chevron = new TextBlock
-        {
-            Text = "⌄",
-            FontSize = 10,
-            Margin = new Thickness(6, -1, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        };
+        var text = new TextBlock { Text = value, FontSize = 10.5, VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
+        var chevron = new TextBlock { Text = "⌄", FontSize = 10, Margin = new Thickness(6, -1, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         chevron.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         grid.Children.Add(text);
         Grid.SetColumn(chevron, 1);
@@ -250,9 +228,7 @@ public partial class CompactDashboard
 
     private void QuickPerformanceSelected(string raw)
     {
-        if (_app is null)
-            return;
-
+        if (_app is null) return;
         ThinkControlPowerMode mode = raw switch
         {
             "Efficiency" => ThinkControlPowerMode.Quiet,
@@ -265,69 +241,35 @@ public partial class CompactDashboard
 
     private async void QuickFanSelected(string raw)
     {
-        if (_app is null || _quickFan is null)
-            return;
-
+        if (_app is null || _quickFan is null) return;
         _quickFan.IsEnabled = false;
-        try
-        {
-            if (raw == "Custom")
-            {
-                double[] curve = _app.UserSettings.Current.CustomFanThresholds ?? FanCurvePolicy.DefaultCustomThresholds.ToArray();
-                await _app.SetCustomCoolingCurveAsync(curve);
-            }
-            else
-            {
-                await _app.SetCoolingProfileAsync(raw);
-            }
-        }
-        finally
-        {
-            SyncQuickControls();
-        }
+        try { await _app.SetCoolingProfileAsync(raw); }
+        finally { SyncQuickControls(); }
     }
 
     private void QuickRefreshSelected(string raw)
     {
-        if (_app is null)
-            return;
-
-        if (raw == "Auto")
-        {
-            _app.EnableRefreshAuto();
-        }
+        if (_app is null) return;
+        if (raw == "Auto") _app.EnableRefreshAuto();
         else if (raw == "Max")
         {
             int max = _app.State.MaxRefreshHz;
-            if (max <= 0)
-                max = _app.DisplayService.GetSupportedRefreshRates().DefaultIfEmpty(0).Max();
-            if (max > 0)
-                _app.SetRefresh(max);
+            if (max <= 0) max = _app.DisplayService.GetSupportedRefreshRates().DefaultIfEmpty(0).Max();
+            if (max > 0) _app.SetRefresh(max);
         }
-        else if (raw == "60 Hz")
-        {
-            _app.SetRefresh(60);
-        }
-
+        else if (raw == "60 Hz") _app.SetRefresh(60);
         SyncQuickControls();
     }
 
     private async void QuickKeyboardSelected(string raw)
     {
-        if (_app is null || _quickKeyboard is null)
-            return;
-
+        if (_app is null || _quickKeyboard is null) return;
         _quickKeyboard.IsEnabled = false;
         try
         {
-            if (raw == "Auto")
-                await _app.SetKeyboardModeAsync("Auto");
-            else
-                await _app.SetKeyboardStaticLevelAsync(raw);
+            if (raw == "Auto") await _app.SetKeyboardModeAsync("Auto");
+            else await _app.SetKeyboardStaticLevelAsync(raw);
         }
-        finally
-        {
-            SyncQuickControls();
-        }
+        finally { SyncQuickControls(); }
     }
 }
