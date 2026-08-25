@@ -126,7 +126,7 @@ public sealed class HardwareServiceClient
         await SendTrackedAsync("StopFanCharacterization", null, cancellationToken, timeoutMs: 1800);
 
     public async Task<ServiceResponse?> SetKeyboardBacklightAsync(string value, CancellationToken cancellationToken = default) =>
-        await SendAsync(new ServiceRequest(ThinkControlProtocol.Version, "SetKeyboardBacklight", value), cancellationToken, timeoutMs: 1400);
+        await SendTrackedAsync("SetKeyboardBacklight", value, cancellationToken, timeoutMs: 1400);
 
     public async Task<ServiceResponse?> SetThermalModeAsync(string value, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 3200);
