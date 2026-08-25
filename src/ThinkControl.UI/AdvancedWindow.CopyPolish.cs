@@ -14,6 +14,17 @@ public partial class AdvancedWindow
             return;
         _copyPolishConfigured = true;
 
+        // Keep the home shortcut vocabulary identical to Performance and compact.
+        // The underlying enum/tag intentionally remains Quiet for compatibility.
+        if (HomeQuiet?.Content is StackPanel homeEfficiency)
+        {
+            TextBlock[] labels = homeEfficiency.Children.OfType<TextBlock>().ToArray();
+            if (labels.Length > 0)
+                labels[0].Text = "Efficiency";
+            if (labels.Length > 1)
+                labels[1].Text = "Lower power";
+        }
+
         // System is hidden when the advanced shell is first composed. A visual-tree
         // scan therefore misses its buttons in both normal startup and snapshot QA.
         // Walk the logical tree instead so user-facing copy is correct before the
