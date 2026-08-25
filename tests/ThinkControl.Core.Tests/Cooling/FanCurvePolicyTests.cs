@@ -30,6 +30,25 @@ public sealed class FanCurvePolicyTests
     }
 
     [Fact]
+    public void CustomCurve_UsesSameHysteresisAndLevelFloor()
+    {
+        double[] curve = [50, 58, 66, 74, 82, 90];
+        Assert.Equal(1, FanCurvePolicy.ResolveCustomLevel(curve, 49.9, null));
+        Assert.Equal(4, FanCurvePolicy.ResolveCustomLevel(curve, 66, null));
+        Assert.Equal(5, FanCurvePolicy.ResolveCustomLevel(curve, 71, 5));
+        Assert.Equal(4, FanCurvePolicy.ResolveCustomLevel(curve, 69, 5));
+    }
+
+    [Fact]
+    public void CustomCurve_RejectsUnsafeOrCrowdedThresholds()
+    {
+        Assert.False(FanCurvePolicy.TryValidateCustomThresholds([50, 58, 66, 74, 82, 93], out _, out _));
+        Assert.False(FanCurvePolicy.TryValidateCustomThresholds([50, 51, 66, 74, 82, 90], out _, out _));
+        Assert.True(FanCurvePolicy.TryValidateCustomThresholds([50, 58, 66, 74, 82, 90], out double[] normalized, out _));
+        Assert.Equal(6, normalized.Length);
+    }
+
+    [Fact]
     public void SafetyHandoff_HasSeparateResumeThreshold()
     {
         Assert.True(FanCurvePolicy.RequiresFirmwareSafetyHandoff(94));
