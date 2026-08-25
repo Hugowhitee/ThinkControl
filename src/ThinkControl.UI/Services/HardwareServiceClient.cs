@@ -105,28 +105,28 @@ public sealed class HardwareServiceClient
     }
 
     public async Task<ServiceResponse?> RefreshProvidersAsync(CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("RefreshProviders", null, cancellationToken, timeoutMs: 1800);
+        await SendTrackedAsync("RefreshProviders", null, cancellationToken, timeoutMs: 5000);
 
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken);
+        await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> ReturnFanToAutoAsync(CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken);
+        await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> SetCoolingProfileAsync(string profile, CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 1800);
+        await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 3500);
 
     public async Task<ServiceResponse?> StartFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("StartFanCharacterization", null, cancellationToken, timeoutMs: 1800);
+        await SendTrackedAsync("StartFanCharacterization", null, cancellationToken, timeoutMs: 3500);
 
     public async Task<ServiceResponse?> MarkFanLevelAudibleAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("MarkFanLevelAudible", null, cancellationToken, timeoutMs: 1200);
 
     public async Task<ServiceResponse?> StopFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("StopFanCharacterization", null, cancellationToken, timeoutMs: 1800);
+        await SendTrackedAsync("StopFanCharacterization", null, cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> SetKeyboardBacklightAsync(string value, CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("SetKeyboardBacklight", value, cancellationToken, timeoutMs: 1400);
+        await SendTrackedAsync("SetKeyboardBacklight", value, cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> SetThermalModeAsync(string value, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 3200);
