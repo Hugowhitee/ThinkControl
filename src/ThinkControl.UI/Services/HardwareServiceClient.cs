@@ -3,6 +3,7 @@ using System.IO;
 using System.IO.Pipes;
 using System.Text;
 using System.Text.Json;
+using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 
 namespace ThinkControl.UI.Services;
@@ -112,11 +113,23 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken, timeoutMs: 4500);
 
+    public async Task<ServiceResponse?> SetFanPercentAsync(int percent, CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("SetFanPercent", Math.Clamp(percent, 0, 100).ToString(), cancellationToken, timeoutMs: 4500);
+
     public async Task<ServiceResponse?> ReturnFanToAutoAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> SetCoolingProfileAsync(string profile, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 3500);
+
+    public async Task<ServiceResponse?> SetCoolingCurveAsync(
+        FanCurveDefinition definition,
+        CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync(
+            "SetCoolingCurve",
+            JsonSerializer.Serialize(definition, JsonOptions),
+            cancellationToken,
+            timeoutMs: 3500);
 
     public async Task<ServiceResponse?> SetCustomCoolingCurveAsync(
         IReadOnlyList<double> thresholds,
@@ -245,7 +258,7 @@ public sealed class HardwareServiceClient
             await pipe.WriteAsync(requestBytes, timeoutCts.Token).ConfigureAwait(false);
             await pipe.FlushAsync(timeoutCts.Token).ConfigureAwait(false);
 
-            using var reader = new StreamReader(pipe, Encoding.UTF8, false, 4096, leaveOpen: true);
+            using var reader = new StreamReader(pipe, Encoding.UTF8, false, 8192, leaveOpen: true);
             string? responseLine = await reader.ReadLineAsync(timeoutCts.Token).ConfigureAwait(false);
             return string.IsNullOrWhiteSpace(responseLine)
                 ? null
