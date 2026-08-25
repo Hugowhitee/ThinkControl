@@ -26,7 +26,11 @@ public static class ThemeService
         bool light = IsLightEffective;
         ResourceDictionary resources = System.Windows.Application.Current.Resources;
 
-        SetBrush(resources, "Tc.Window", light ? "#F5F5F7" : "#101214");
+        string window = light ? "#F5F5F7" : "#101214";
+        SetBrush(resources, "Tc.Window", window);
+        // Code-only secondary windows created during the alpha.16 UI migration use
+        // this semantic alias. Keep it identical to the canonical window surface.
+        SetBrush(resources, "Tc.Background", window);
         SetBrush(resources, "Tc.Surface", light ? "#FFFFFF" : "#171A1D");
         SetBrush(resources, "Tc.SurfaceAlt", light ? "#F1F2F4" : "#1D2024");
         SetBrush(resources, "Tc.SurfaceHover", light ? "#E7E9EC" : "#25292E");
