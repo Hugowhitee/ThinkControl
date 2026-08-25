@@ -14,12 +14,14 @@ public partial class SensorsPanel : UserControl
     private readonly Dictionary<string, ObservableCollection<TimeSeriesPoint>> _history = new(StringComparer.OrdinalIgnoreCase);
     private App? _app;
     private string? _selectedSensorId;
+    private bool _statusSubscribed;
 
     public SensorsPanel()
     {
         InitializeComponent();
         Loaded += SensorsPanel_Loaded;
         Unloaded += SensorsPanel_Unloaded;
+        IsVisibleChanged += SensorsPanel_IsVisibleChanged;
     }
 
     internal void PrepareForSnapshot(AppState state)
@@ -55,49 +57,81 @@ public partial class SensorsPanel : UserControl
     private void SensorsPanel_Loaded(object sender, RoutedEventArgs e)
     {
         if (_app is null && System.Windows.Application.Current is App app)
-        {
             _app = app;
-            _app.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
-        }
 
+        SyncStatusSubscription();
         SelectPreferredSensor();
     }
 
     private void SensorsPanel_Unloaded(object sender, RoutedEventArgs e)
     {
-        if (_app is not null)
-            _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
+        UnsubscribeStatus();
         _app = null;
+    }
+
+    private void SensorsPanel_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e) =>
+        SyncStatusSubscription();
+
+    private void SyncStatusSubscription()
+    {
+        bool shouldSubscribe = _app is not null && IsLoaded && IsVisible;
+        if (shouldSubscribe == _statusSubscribed)
+            return;
+
+        if (shouldSubscribe)
+        {
+            _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
+            _statusSubscribed = true;
+            _ = _app.RefreshStatusAsync();
+        }
+        else
+        {
+            UnsubscribeStatus();
+        }
+    }
+
+    private void UnsubscribeStatus()
+    {
+        if (!_statusSubscribed || _app is null)
+            return;
+        _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
+        _statusSubscribed = false;
     }
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
     {
-        HardwareSensorSnapshot[] sensors = response?.Success == true && response.Telemetry?.Sensors is not null
-            ? response.Telemetry.Sensors.ToArray()
-            : [];
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(() => HardwareClient_StatusObserved(sender, response));
+            return;
+        }
+
+        if (!IsVisible)
+            return;
+
+        IReadOnlyList<HardwareSensorSnapshot> sensors = response?.Success == true && response.Telemetry?.Sensors is not null
+            ? response.Telemetry.Sensors
+            : Array.Empty<HardwareSensorSnapshot>();
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
-        Dispatcher.BeginInvoke(() =>
+        foreach (HardwareSensorSnapshot sensor in sensors)
         {
-            foreach (HardwareSensorSnapshot sensor in sensors)
+            if (!_history.TryGetValue(sensor.Id, out ObservableCollection<TimeSeriesPoint>? points))
             {
-                if (!_history.TryGetValue(sensor.Id, out ObservableCollection<TimeSeriesPoint>? points))
-                {
-                    points = [];
-                    _history[sensor.Id] = points;
-                }
-
-                if (points.Count == 0 || now - points[^1].At >= TimeSpan.FromMilliseconds(750))
-                    points.Add(new TimeSeriesPoint(now, sensor.Value));
-
-                DateTimeOffset cutoff = now - HistoryWindow;
-                while (points.Count > 0 && (points[0].At < cutoff || points.Count > MaxPointsPerSensor))
-                    points.RemoveAt(0);
+                points = [];
+                _history[sensor.Id] = points;
             }
 
-            SelectPreferredSensor();
-            RefreshGraph();
-        });
+            if (points.Count == 0 || now - points[^1].At >= TimeSpan.FromMilliseconds(750))
+                points.Add(new TimeSeriesPoint(now, sensor.Value));
+
+            DateTimeOffset cutoff = now - HistoryWindow;
+            while (points.Count > 0 && (points[0].At < cutoff || points.Count > MaxPointsPerSensor))
+                points.RemoveAt(0);
+        }
+
+        SelectPreferredSensor();
+        RefreshGraph();
     }
 
     private void SensorPicker_SelectionChanged(object sender, SelectionChangedEventArgs e)
