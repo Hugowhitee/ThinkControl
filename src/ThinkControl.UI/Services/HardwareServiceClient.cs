@@ -39,10 +39,6 @@ public sealed class HardwareServiceClient
 
     private async Task<ServiceResponse?> GetStatusCoreAsync(CancellationToken cancellationToken)
     {
-        // When the Windows service is actually stopped, repeatedly creating a named
-        // pipe client every UI refresh just burns kernel time and cannot make the
-        // service recover. Preserve a very recent good snapshot for a short grace
-        // period, but otherwise wait for the bounded retry or an explicit repair.
         DateTimeOffset now = DateTimeOffset.UtcNow;
         if (now < _offlineRetryAfter)
         {
@@ -106,6 +102,12 @@ public sealed class HardwareServiceClient
 
     public async Task<ServiceResponse?> RefreshProvidersAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("RefreshProviders", null, cancellationToken, timeoutMs: 5000);
+
+    public async Task<ServiceResponse?> RefreshSensorProvidersAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("RefreshSensorProviders", null, cancellationToken, timeoutMs: 5000);
+
+    public async Task<ServiceResponse?> RefreshKeyboardProviderAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("RefreshKeyboardProvider", null, cancellationToken, timeoutMs: 5000);
 
     public async Task<ServiceResponse?> SetFanLevelAsync(int level, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetFanLevel", level.ToString(), cancellationToken, timeoutMs: 4500);
