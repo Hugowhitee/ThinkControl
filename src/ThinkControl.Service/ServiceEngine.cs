@@ -178,6 +178,7 @@ internal sealed class ServiceEngine : IDisposable
                 "SetFanLevel" => SetFanLevel(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
                 "SetCoolingProfile" => SetCoolingProfile(request.Value),
+                "SetCustomCoolingCurve" => SetCustomCoolingCurve(request.Value),
                 "StartFanCharacterization" => StartFanCharacterization(),
                 "MarkFanLevelAudible" => MarkFanLevelAudible(),
                 "StopFanCharacterization" => StopFanCharacterization(),
@@ -232,8 +233,6 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse RefreshKeyboardProvider()
     {
-        // Keyboard probing is independent of LHM/PawnIO sensor state and fan
-        // ownership. Do not recycle healthy sensors or EC state for this action.
         _hardware.RefreshKeyboardProvider();
         ServiceResponse status = RefreshAndReturnStatus();
         ServiceLog.Write("Lenovo keyboard provider refreshed independently.");
@@ -316,6 +315,20 @@ internal sealed class ServiceEngine : IDisposable
     {
         if (string.IsNullOrWhiteSpace(value)) return Error("Cooling profile is missing.");
         return _fanSupervisor.SetProfile(value, out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Cooling profile rejected.");
+    }
+
+    private ServiceResponse SetCustomCoolingCurve(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Error("Custom cooling curve is missing.");
+
+        double[]? thresholds;
+        try { thresholds = JsonSerializer.Deserialize<double[]>(value, JsonOptions); }
+        catch (JsonException) { return Error("Custom cooling curve is malformed."); }
+
+        return _fanSupervisor.SetCustomCurve(thresholds, out string? error)
+            ? RefreshAndReturnStatus()
+            : Error(error ?? "Custom cooling curve rejected.");
     }
 
     private ServiceResponse StartFanCharacterization() =>
