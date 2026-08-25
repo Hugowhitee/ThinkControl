@@ -2,6 +2,8 @@ using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media;
+using System.Windows.Media.Effects;
 using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.ViewModels;
@@ -15,14 +17,24 @@ public partial class FansPanel : UserControl
     private bool _resetAdded;
     private bool _statusSubscribed;
     private string _currentProfileId = "Lenovo Auto";
+    private Popup? _profilePopup;
 
     public FansPanel()
     {
         InitializeComponent();
         CalibrationResults.ItemsSource = _calibrationRows;
         Loaded += (_, _) => SyncStatusSubscription();
-        Unloaded += (_, _) => UnsubscribeStatus();
-        IsVisibleChanged += (_, _) => SyncStatusSubscription();
+        Unloaded += (_, _) =>
+        {
+            CloseProfilePopup();
+            UnsubscribeStatus();
+        };
+        IsVisibleChanged += (_, e) =>
+        {
+            if (e.NewValue is false)
+                CloseProfilePopup();
+            SyncStatusSubscription();
+        };
     }
 
     internal void Initialize(App app)
@@ -211,37 +223,135 @@ public partial class FansPanel : UserControl
         if (_app is null || sender is not Button button || !button.IsEnabled)
             return;
 
-        var menu = new ContextMenu { PlacementTarget = button, Placement = PlacementMode.Bottom };
-        var auto = new MenuItem { Header = "Auto · Lenovo firmware", Tag = "Lenovo Auto", IsCheckable = true, IsChecked = _currentProfileId == "Lenovo Auto" };
-        auto.Click += ProfileMenuItem_Click;
-        menu.Items.Add(auto);
-        menu.Items.Add(new Separator());
+        if (_profilePopup?.IsOpen == true)
+        {
+            CloseProfilePopup();
+            return;
+        }
+
+        var list = new StackPanel();
+        var heading = new TextBlock
+        {
+            Text = "Fan profile",
+            FontSize = 9.5,
+            FontWeight = FontWeights.SemiBold,
+            Margin = new Thickness(9, 5, 9, 7)
+        };
+        heading.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
+        list.Children.Add(heading);
+        list.Children.Add(CreateProfilePickerItem("Auto", "Lenovo firmware", "Lenovo Auto"));
+
+        var separator = new Border { Height = 1, Margin = new Thickness(7, 4, 7, 5) };
+        separator.SetResourceReference(Border.BackgroundProperty, "Tc.Border");
+        list.Children.Add(separator);
 
         foreach (FanCurveDefinition profile in _app.FanProfiles.GetProfiles())
         {
-            var item = new MenuItem
-            {
-                Header = profile.Name,
-                Tag = profile.Id,
-                IsCheckable = true,
-                IsChecked = string.Equals(_currentProfileId, profile.Id, StringComparison.OrdinalIgnoreCase)
-            };
-            item.Click += ProfileMenuItem_Click;
-            menu.Items.Add(item);
+            string detail = _app.FanProfiles.IsBuiltIn(profile.Id) ? "Built-in curve" : "Custom curve";
+            list.Children.Add(CreateProfilePickerItem(profile.Name, detail, profile.Id));
         }
 
-        menu.IsOpen = true;
+        var scroller = new ScrollViewer
+        {
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
+            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+            MaxHeight = 330,
+            Content = list
+        };
+        var surface = new Border
+        {
+            MinWidth = Math.Max(220, button.ActualWidth + 55),
+            Padding = new Thickness(5),
+            Margin = new Thickness(0, 5, 0, 0),
+            CornerRadius = new CornerRadius(6),
+            BorderThickness = new Thickness(1),
+            Child = scroller,
+            Effect = new DropShadowEffect { BlurRadius = 18, ShadowDepth = 4, Opacity = 0.28 }
+        };
+        surface.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
+        surface.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
+
+        var popup = new Popup
+        {
+            PlacementTarget = button,
+            Placement = PlacementMode.Bottom,
+            AllowsTransparency = true,
+            StaysOpen = false,
+            PopupAnimation = PopupAnimation.Fade,
+            Child = surface
+        };
+        popup.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_profilePopup, popup))
+                _profilePopup = null;
+        };
+        _profilePopup = popup;
+        popup.IsOpen = true;
     }
 
-    private async void ProfileMenuItem_Click(object sender, RoutedEventArgs e)
+    private Button CreateProfilePickerItem(string title, string detail, string id)
     {
-        if (_app is null || sender is not MenuItem { Tag: string id })
+        bool selected = string.Equals(_currentProfileId, id, StringComparison.OrdinalIgnoreCase) ||
+                        id == "Lenovo Auto" && string.Equals(_currentProfileId, "Auto", StringComparison.OrdinalIgnoreCase);
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        var marker = new Border
+        {
+            Width = 6,
+            Height = 6,
+            CornerRadius = new CornerRadius(3),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visibility = selected ? Visibility.Visible : Visibility.Hidden
+        };
+        marker.SetResourceReference(Border.BackgroundProperty, "Tc.Accent");
+        grid.Children.Add(marker);
+
+        var copy = new StackPanel { Margin = new Thickness(5, 0, 8, 0) };
+        copy.Children.Add(new TextBlock { Text = title, FontSize = 11 });
+        var sub = new TextBlock { Text = detail, FontSize = 9.2, Margin = new Thickness(0, 1, 0, 0) };
+        sub.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
+        copy.Children.Add(sub);
+        Grid.SetColumn(copy, 1);
+        grid.Children.Add(copy);
+
+        var item = new Button
+        {
+            Content = grid,
+            Style = TryFindResource("TcButton") as Style,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(5, 6, 5, 6),
+            Margin = new Thickness(0, 1, 0, 1),
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Tag = id
+        };
+        if (selected)
+            item.SetResourceReference(Button.BackgroundProperty, "Tc.SurfaceHover");
+        item.Click += async (_, _) => await ApplyProfileFromPickerAsync(id);
+        return item;
+    }
+
+    private async Task ApplyProfileFromPickerAsync(string id)
+    {
+        if (_app is null)
             return;
+
+        CloseProfilePopup();
         ProfileMenuButton.IsEnabled = false;
         try
         {
             if (!await _app.SetCoolingProfileAsync(id))
+            {
                 CoolingDetailText.Text = _app.State.HardwareAccess;
+                return;
+            }
+
+            // AppState is the immediate UI source of truth; the service readback
+            // will confirm hardware state on the next status snapshot.
+            SyncProfileButton(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile);
         }
         finally
         {
@@ -249,10 +359,27 @@ public partial class FansPanel : UserControl
         }
     }
 
+    private void CloseProfilePopup()
+    {
+        if (_profilePopup is not null)
+            _profilePopup.IsOpen = false;
+        _profilePopup = null;
+    }
+
+    private async void ProfileMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        // Compatibility handler for old XAML/snapshot revisions. The live fan picker
+        // no longer uses stock WPF MenuItem controls.
+        if (_app is null || sender is not MenuItem { Tag: string id })
+            return;
+        await ApplyProfileFromPickerAsync(id);
+    }
+
     private void EditCurves_Click(object sender, RoutedEventArgs e)
     {
         if (_app is null)
             return;
+        CloseProfilePopup();
         var editor = new FanCurveEditorWindow(_app) { Owner = Window.GetWindow(this) };
         editor.ShowDialog();
         SyncProfileButton(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile);
