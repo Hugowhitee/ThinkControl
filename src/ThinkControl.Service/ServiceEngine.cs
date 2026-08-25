@@ -11,8 +11,6 @@ namespace ThinkControl.Service;
 internal sealed class ServiceEngine : IDisposable
 {
     private const int MaxRequestBytes = 4096;
-    private static readonly TimeSpan StatusRefreshInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan StatusDemandHold = TimeSpan.FromSeconds(12);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly LenovoHardwareController _hardware = new();
@@ -22,7 +20,6 @@ internal sealed class ServiceEngine : IDisposable
     private readonly SemaphoreSlim _statusWake = new(0, 1);
     private Task? _statusRefreshTask;
     private ServiceResponse? _lastStatus;
-    private DateTimeOffset _statusDemandUntil = DateTimeOffset.MinValue;
     private bool _disposed;
 
     internal ServiceEngine() => _fanSupervisor = new FanSupervisor(_hardware);
@@ -36,7 +33,7 @@ internal sealed class ServiceEngine : IDisposable
         try
         {
             nextServer = CreateServerPipe();
-            ServiceLog.Write($"IPC ready on {ThinkControlProtocol.PipeName}; hardware telemetry is demand-driven.");
+            ServiceLog.Write($"IPC ready on {ThinkControlProtocol.PipeName}; hardware telemetry is request-driven.");
         }
         catch (Exception ex)
         {
@@ -79,22 +76,22 @@ internal sealed class ServiceEngine : IDisposable
 
     private async Task StatusRefreshLoopAsync(CancellationToken token)
     {
+        // One startup discovery gives the first UI request useful cached state. From
+        // then on, each wake performs at most one provider snapshot. The previous
+        // 12-second demand hold kept LHM/PawnIO traversing hardware every 2 seconds
+        // whenever any ThinkControl window was open, even though the UI only asked
+        // for status every ~10 seconds. A request-driven cache removes those hidden
+        // extra scans and the periodic laptop wakeups they could cause.
         bool initialDiscovery = true;
         while (!token.IsCancellationRequested)
         {
-            bool demanded;
-            lock (_statusGate) demanded = DateTimeOffset.UtcNow < _statusDemandUntil;
-
-            if (!initialDiscovery && !demanded)
+            if (!initialDiscovery)
             {
-                // Keep exactly one idle waiter. Task.WhenAny with an uncancelled
-                // SemaphoreSlim waiter leaks losing waiters and consumes later wakes.
                 try { await _statusWake.WaitAsync(token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { break; }
-                continue;
             }
-
             initialDiscovery = false;
+
             try
             {
                 ServiceResponse status = BuildStatusResponse();
@@ -104,15 +101,14 @@ internal sealed class ServiceEngine : IDisposable
             {
                 lock (_statusGate) _lastStatus = ProviderDiscoveryResponse($"Provider refresh failed safely: {ex.Message}");
             }
-
-            try { await Task.Delay(StatusRefreshInterval, token).ConfigureAwait(false); }
-            catch (OperationCanceledException) { break; }
         }
     }
 
     private void SignalStatusDemand()
     {
-        lock (_statusGate) _statusDemandUntil = DateTimeOffset.UtcNow + StatusDemandHold;
+        // Coalesce simultaneous UI reads into one hardware traversal. Semaphore count
+        // one means a request arriving during an active refresh schedules at most one
+        // follow-up refresh instead of building an unbounded queue.
         if (_statusWake.CurrentCount != 0)
             return;
         try { _statusWake.Release(); }
