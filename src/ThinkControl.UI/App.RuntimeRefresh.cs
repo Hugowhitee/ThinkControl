@@ -76,7 +76,7 @@ public partial class App
                 battery.PowerWatts,
                 battery.RemainingWh,
                 battery.FullWh,
-                designCapacityWh: null);
+                designWh: null);
             State.ApplyBatteryHistory(history);
             BatteryTelemetryService.SetHistoricalChargePower(history.TypicalChargePowerWatts);
 
