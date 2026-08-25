@@ -12,15 +12,18 @@ internal sealed class ServiceEngine : IDisposable
 {
     private const int MaxRequestBytes = 4096;
     private static readonly TimeSpan StatusRefreshInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan StatusDemandHold = TimeSpan.FromSeconds(12);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly LenovoHardwareController _hardware = new();
     private readonly FanSupervisor _fanSupervisor;
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly object _statusGate = new();
+    private readonly SemaphoreSlim _statusWake = new(0, 1);
 
     private Task? _statusRefreshTask;
     private ServiceResponse? _lastStatus;
+    private DateTimeOffset _statusDemandUntil = DateTimeOffset.MinValue;
     private bool _disposed;
 
     internal ServiceEngine()
@@ -40,7 +43,7 @@ internal sealed class ServiceEngine : IDisposable
         try
         {
             nextServer = CreateServerPipe();
-            ServiceLog.Write($"IPC ready on {ThinkControlProtocol.PipeName}; starting provider discovery.");
+            ServiceLog.Write($"IPC ready on {ThinkControlProtocol.PipeName}; hardware telemetry is demand-driven.");
         }
         catch (Exception ex)
         {
@@ -90,8 +93,25 @@ internal sealed class ServiceEngine : IDisposable
 
     private async Task StatusRefreshLoopAsync(CancellationToken token)
     {
+        // Do one startup discovery so the first UI request can return useful state.
+        // After that, LHM/PawnIO traversal sleeps completely unless a UI client has
+        // requested telemetry recently. FanSupervisor owns its own safety loop while
+        // manual/custom fan control is active, so tray-idle telemetry is unnecessary.
+        bool initialDiscovery = true;
         while (!token.IsCancellationRequested)
         {
+            bool demanded;
+            lock (_statusGate)
+                demanded = DateTimeOffset.UtcNow < _statusDemandUntil;
+
+            if (!initialDiscovery && !demanded)
+            {
+                try { await _statusWake.WaitAsync(token).ConfigureAwait(false); }
+                catch (OperationCanceledException) { break; }
+                continue;
+            }
+
+            initialDiscovery = false;
             try
             {
                 ServiceResponse status = BuildStatusResponse();
@@ -103,8 +123,28 @@ internal sealed class ServiceEngine : IDisposable
                     _lastStatus = ProviderDiscoveryResponse($"Provider refresh failed safely: {ex.Message}");
             }
 
-            try { await Task.Delay(StatusRefreshInterval, token).ConfigureAwait(false); }
-            catch (OperationCanceledException) { break; }
+            try
+            {
+                Task delay = Task.Delay(StatusRefreshInterval, token);
+                Task wake = _statusWake.WaitAsync(token);
+                await Task.WhenAny(delay, wake).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+        }
+    }
+
+    private void SignalStatusDemand()
+    {
+        lock (_statusGate)
+            _statusDemandUntil = DateTimeOffset.UtcNow + StatusDemandHold;
+
+        if (_statusWake.CurrentCount == 0)
+        {
+            try { _statusWake.Release(); }
+            catch (SemaphoreFullException) { }
         }
     }
 
@@ -119,10 +159,6 @@ internal sealed class ServiceEngine : IDisposable
         security.AddAccessRule(new PipeAccessRule(system, PipeAccessRights.FullControl, AccessControlType.Allow));
         security.AddAccessRule(new PipeAccessRule(admins, PipeAccessRights.FullControl, AccessControlType.Allow));
 
-        // NamedPipeClientStream(PipeDirection.InOut) asks Windows for generic read and
-        // write access. The old hand-picked ACL omitted write attributes/extended
-        // attributes, which can make an ordinary interactive client fail with access
-        // denied while SCM still reports the service as RUNNING.
         security.AddAccessRule(new PipeAccessRule(
             interactive,
             PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize,
@@ -190,7 +226,7 @@ internal sealed class ServiceEngine : IDisposable
             return request.Operation switch
             {
                 "Ping" => new ServiceResponse(ThinkControlProtocol.Version, true),
-                "GetStatus" => CachedStatusResponse(),
+                "GetStatus" => GetCachedStatusAndRequestRefresh(),
                 "RefreshProviders" => RefreshProviders(),
                 "SetFanLevel" => SetFanLevel(request.Value),
                 "ReturnFanToAuto" => ReturnFanToAuto(),
@@ -209,6 +245,12 @@ internal sealed class ServiceEngine : IDisposable
         }
     }
 
+    private ServiceResponse GetCachedStatusAndRequestRefresh()
+    {
+        SignalStatusDemand();
+        return CachedStatusResponse();
+    }
+
     private ServiceResponse CachedStatusResponse()
     {
         lock (_statusGate)
@@ -219,9 +261,7 @@ internal sealed class ServiceEngine : IDisposable
     {
         CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
         if (cooling.Characterization.Running)
-        {
             return Error("Stop fan characterization before refreshing hardware providers.");
-        }
 
         bool thinkControlOwnsFan = cooling.AppliedLevel.HasValue ||
             !cooling.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
@@ -232,12 +272,10 @@ internal sealed class ServiceEngine : IDisposable
                 (handoffError ?? "Retry Lenovo Auto, then refresh providers again."));
         }
 
-        // Never tear down/reprobe EC, sensor or keyboard providers while the fan
-        // supervisor still believes it owns a manual level. RefreshProviders itself
-        // performs a second defensive BIOS handoff if the EC cache disagrees.
         _hardware.RefreshProviders();
         ServiceResponse discovering = ProviderDiscoveryResponse("Providers recycled · re-detecting PawnIO/LHM, X9 EC and Lenovo keyboard backends");
         lock (_statusGate) _lastStatus = discovering;
+        SignalStatusDemand();
         return discovering;
     }
 
@@ -405,9 +443,11 @@ internal sealed class ServiceEngine : IDisposable
             return;
         _disposed = true;
         _disposeCts.Cancel();
+        try { _statusWake.Release(); } catch { }
         try { _statusRefreshTask?.Wait(TimeSpan.FromSeconds(1)); } catch { }
         _fanSupervisor.Dispose();
         _hardware.Dispose();
+        _statusWake.Dispose();
         _disposeCts.Dispose();
     }
 }
