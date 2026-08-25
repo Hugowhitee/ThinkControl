@@ -25,14 +25,28 @@ $candidatePayload = Get-ChildItem $CandidateArtifactDirectory -File -Filter 'Thi
 if ($null -eq $legacySetup -or $null -eq $legacyPayload) { throw 'Published alpha.14.1 fixture is incomplete.' }
 if ($null -eq $candidateSetup -or $null -eq $candidatePayload) { throw 'Candidate installer fixture is incomplete.' }
 
+function Stop-UiProcesses {
+    Get-Process -Name 'ThinkControl.UI' -ErrorAction SilentlyContinue |
+        Stop-Process -Force -ErrorAction SilentlyContinue
+}
+
 function Remove-SmokeState {
-    Get-Process -Name 'ThinkControl.UI' -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Stop-UiProcesses
     Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('stop', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
     Start-Sleep -Milliseconds 350
     Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('delete', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
     Start-Sleep -Milliseconds 350
     Remove-Item $installDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
+}
+
+function Start-AndWait([string]$file, [string[]]$arguments, [int]$timeoutSeconds, [string]$label) {
+    $process = Start-Process -FilePath $file -ArgumentList $arguments -PassThru
+    if (-not $process.WaitForExit($timeoutSeconds * 1000)) {
+        try { $process.Kill($true) } catch { }
+        throw "$label did not exit within $timeoutSeconds seconds."
+    }
+    return $process
 }
 
 function Wait-ServiceRunning {
@@ -85,11 +99,11 @@ try {
     Remove-SmokeState
 
     Write-Host '[alpha14-upgrade] Installing the real immutable alpha.14.1 release fixture'
-    $legacy = Start-Process -FilePath $legacySetup.FullName -ArgumentList @(
+    $legacy = Start-AndWait $legacySetup.FullName @(
         '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
         "/DIR=`"$installDir`"",
         "/PAYLOAD=`"$($legacyPayload.FullName)`""
-    ) -Wait -PassThru
+    ) 90 'alpha.14.1 fixture installer'
     if ($legacy.ExitCode -ne 0) { throw "alpha.14.1 fixture install failed with exit code $($legacy.ExitCode)." }
 
     $legacyUi = Join-Path $installDir 'ui\ThinkControl.UI.exe'
@@ -100,7 +114,7 @@ try {
     $legacyServiceHash = (Get-FileHash $legacyService -Algorithm SHA256).Hash
 
     Write-Host '[alpha14-upgrade] Invoking candidate with the exact hidden flags used by alpha.14.1'
-    $candidate = Start-Process -FilePath $candidateSetup.FullName -ArgumentList @(
+    $candidate = Start-AndWait $candidateSetup.FullName @(
         '/VERYSILENT',
         '/SUPPRESSMSGBOXES',
         '/NORESTART',
@@ -109,7 +123,7 @@ try {
         '/RELAUNCH=1',
         "/PAYLOAD=`"$($candidatePayload.FullName)`"",
         "/LOG=`"$updateLog`""
-    ) -Wait -PassThru
+    ) 90 'alpha.14.1-compatible candidate updater'
     if ($candidate.ExitCode -ne 0) {
         $tail = if (Test-Path $updateLog) { (Get-Content $updateLog -Tail 40) -join [Environment]::NewLine } else { '<no installer log>' }
         throw "alpha.14.1-compatible candidate update exited with code $($candidate.ExitCode).`n$tail"
@@ -134,18 +148,18 @@ try {
 
     if (-not (Test-Path $updateLog)) { throw 'Legacy-compatible update did not preserve an installer log.' }
     $logText = Get-Content $updateLog -Raw
-    if ($logText -notmatch 'Installation process succeeded|Installation process succeeded') {
-        # Inno wording varies slightly by build; exit code + swapped binaries + IPC
-        # remain authoritative, but an empty/truncated log is still a regression.
-        if ($logText.Length -lt 200) { throw 'Legacy-compatible update log is unexpectedly empty or truncated.' }
-    }
+    if ($logText.Length -lt 200) { throw 'Legacy-compatible update log is unexpectedly empty or truncated.' }
 
     Write-Host "[alpha14-upgrade] PASS: real alpha.14.1 -> $ExpectedVersion swapped UI/service and restored IPC"
 }
 finally {
+    Stop-UiProcesses
     $uninstaller = Join-Path $installDir 'unins000.exe'
     if (Test-Path $uninstaller) {
-        try { Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') -Wait -PassThru | Out-Null } catch { }
+        try {
+            $cleanup = Start-AndWait $uninstaller @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART') 45 'cleanup uninstaller'
+            if ($cleanup.ExitCode -ne 0) { Write-Warning "Cleanup uninstaller returned $($cleanup.ExitCode)." }
+        } catch { Write-Warning $_ }
     }
     Remove-SmokeState
 }
