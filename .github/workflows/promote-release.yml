@@ -56,7 +56,11 @@ jobs:
           fi
 
           if [[ "$release_exists" != "true" ]]; then
-            tag_sha=$(gh api "repos/$repo/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)
+            tag_sha=""
+            if ref_json=$(gh api "repos/$repo/git/ref/tags/$tag" 2>/dev/null); then
+              tag_sha=$(jq -r '.object.sha // empty' <<<"$ref_json")
+            fi
+
             if [[ -z "$tag_sha" ]]; then
               echo "Creating $tag at $GITHUB_SHA"
               git config user.name "github-actions[bot]"
