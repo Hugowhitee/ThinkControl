@@ -4,6 +4,10 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using ThinkControl.Core.Cooling;
+using ListBox = System.Windows.Controls.ListBox;
+using MouseEventArgs = System.Windows.Input.MouseEventArgs;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using Point = System.Windows.Point;
 
 namespace ThinkControl.UI;
 
@@ -42,7 +46,6 @@ internal sealed class FanCurveEditorWindow : Window
         _graph.CurveChanged += Graph_CurveChanged;
         _temperature.ValueChanged += Precision_ValueChanged;
         _output.ValueChanged += Precision_ValueChanged;
-
         Loaded += (_, _) => ReloadProfiles(_app.UserSettings.Current.CoolingProfile);
     }
 
@@ -57,7 +60,7 @@ internal sealed class FanCurveEditorWindow : Window
         heading.Children.Add(new TextBlock { Text = "Fan curves", FontSize = 24, FontWeight = FontWeights.SemiBold });
         var subtitle = new TextBlock
         {
-            Text = "Tune temperature against a real 0–100% target. ThinkControl maps the graph to measured X9 EC states after characterization; 100% uses the separately verified full-speed state.",
+            Text = "Tune temperature against a real 0–100% target. ThinkControl maps the graph to measured X9 EC states after calibration; 100% uses the separately verified full-speed state.",
             FontSize = 11,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
@@ -139,14 +142,12 @@ internal sealed class FanCurveEditorWindow : Window
         precision.ColumnDefinitions.Add(new ColumnDefinition());
         precision.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
         precision.ColumnDefinitions.Add(new ColumnDefinition());
-
-        var tempPanel = PrecisionPanel("Temperature", _temperature);
+        precision.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        precision.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        precision.Children.Add(PrecisionPanel("Temperature", _temperature));
         var outputPanel = PrecisionPanel("Fan target", _output);
         Grid.SetColumn(outputPanel, 2);
-        precision.Children.Add(tempPanel);
         precision.Children.Add(outputPanel);
-        precision.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        precision.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         _pointValue.FontSize = 10;
         _pointValue.Margin = new Thickness(0, 7, 0, 0);
         _pointValue.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
@@ -182,7 +183,6 @@ internal sealed class FanCurveEditorWindow : Window
         footer.Children.Add(actions);
         Grid.SetRow(footer, 2);
         root.Children.Add(footer);
-
         return root;
     }
 
@@ -271,9 +271,8 @@ internal sealed class FanCurveEditorWindow : Window
 
     private void Precision_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_syncing || _graph.SelectedIndex < 0)
-            return;
-        _graph.SetSelectedPoint(_temperature.Value, (int)Math.Round(_output.Value));
+        if (!_syncing && _graph.SelectedIndex >= 0)
+            _graph.SetSelectedPoint(_temperature.Value, (int)Math.Round(_output.Value));
     }
 
     private void Add_Click(object sender, RoutedEventArgs e)
@@ -331,8 +330,7 @@ internal sealed class FanCurveEditorWindow : Window
     {
         if (_editing is null)
             return;
-        FanCurvePoint[] points = _graph.GetCurve();
-        FanCurveDefinition definition = _editing with { Points = points };
+        FanCurveDefinition definition = _editing with { Points = _graph.GetCurve() };
         if (!_app.FanProfiles.SaveCurve(definition, out string? saveError))
         {
             _status.Text = saveError ?? "Curve could not be saved.";
@@ -414,7 +412,7 @@ internal sealed class FanCurveGraph : FrameworkElement
     {
         SnapsToDevicePixels = true;
         Cursor = Cursors.Cross;
-        KeyDown += OnKeyDown;
+        PreviewKeyDown += OnKeyDown;
     }
 
     internal void SetCurve(IReadOnlyList<FanCurvePoint> points)
@@ -429,18 +427,14 @@ internal sealed class FanCurveGraph : FrameworkElement
 
     internal void SetSelectedPoint(double temperature, int percent)
     {
-        if (_selectedIndex < 0 || _selectedIndex >= _points.Count)
-            return;
-        MovePoint(_selectedIndex, temperature, percent);
+        if (_selectedIndex >= 0 && _selectedIndex < _points.Count)
+            MovePoint(_selectedIndex, temperature, percent);
     }
 
     protected override void OnRender(DrawingContext dc)
     {
         base.OnRender(dc);
-        double w = Math.Max(1, ActualWidth);
-        double h = Math.Max(1, ActualHeight);
-        Rect plot = new(46, 14, Math.Max(40, w - 62), Math.Max(40, h - 48));
-
+        Rect plot = PlotRect();
         Brush faint = Application.Current.TryFindResource("Tc.TextFaint") as Brush ?? Brushes.Gray;
         Brush muted = Application.Current.TryFindResource("Tc.TextMuted") as Brush ?? Brushes.Gray;
         Brush accent = Application.Current.TryFindResource("Tc.Accent") as Brush ?? Brushes.DodgerBlue;
@@ -464,7 +458,6 @@ internal sealed class FanCurveGraph : FrameworkElement
 
         if (_points.Count == 0)
             return;
-
         var geometry = new StreamGeometry();
         using (StreamGeometryContext context = geometry.Open())
         {
@@ -481,7 +474,6 @@ internal sealed class FanCurveGraph : FrameworkElement
             double radius = i == _selectedIndex ? 7 : 5;
             dc.DrawEllipse(i == _selectedIndex ? accent : surface, new Pen(accent, 2), pt, radius, radius);
         }
-
         DrawText(dc, "Temperature", muted, 9, new Point(plot.Right - 63, plot.Bottom + 7));
     }
 
@@ -492,11 +484,8 @@ internal sealed class FanCurveGraph : FrameworkElement
         if (_points.Count == 0) return;
         Rect plot = PlotRect();
         Point mouse = e.GetPosition(this);
-        int nearest = Enumerable.Range(0, _points.Count)
-            .OrderBy(i => (ToPoint(plot, _points[i]) - mouse).LengthSquared)
-            .First();
-        if ((ToPoint(plot, _points[nearest]) - mouse).Length > 18)
-            return;
+        int nearest = Enumerable.Range(0, _points.Count).OrderBy(i => (ToPoint(plot, _points[i]) - mouse).LengthSquared).First();
+        if ((ToPoint(plot, _points[nearest]) - mouse).Length > 18) return;
         SelectedIndex = nearest;
         _dragging = true;
         CaptureMouse();
@@ -506,12 +495,11 @@ internal sealed class FanCurveGraph : FrameworkElement
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (!_dragging || _selectedIndex < 0 || e.LeftButton != MouseButtonState.Pressed)
-            return;
+        if (!_dragging || _selectedIndex < 0 || e.LeftButton != MouseButtonState.Pressed) return;
         Rect plot = PlotRect();
         Point p = e.GetPosition(this);
-        double temperature = FanCurveGraphPolicy.MinTemperatureC +
-            Math.Clamp((p.X - plot.Left) / plot.Width, 0, 1) * (FanCurveGraphPolicy.MaxTemperatureC - FanCurveGraphPolicy.MinTemperatureC);
+        double temperature = FanCurveGraphPolicy.MinTemperatureC + Math.Clamp((p.X - plot.Left) / plot.Width, 0, 1) *
+            (FanCurveGraphPolicy.MaxTemperatureC - FanCurveGraphPolicy.MinTemperatureC);
         int percent = (int)Math.Round((1 - Math.Clamp((p.Y - plot.Top) / plot.Height, 0, 1)) * 100);
         MovePoint(_selectedIndex, Math.Round(temperature), percent);
     }
@@ -532,10 +520,7 @@ internal sealed class FanCurveGraph : FrameworkElement
         FanCurvePoint point = _points[_selectedIndex];
         switch (e.Key)
         {
-            case Key.Tab:
-                SelectedIndex = Math.Clamp(_selectedIndex + (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1), 0, _points.Count - 1);
-                e.Handled = true;
-                return;
+            case Key.Tab: SelectedIndex = Math.Clamp(_selectedIndex + (Keyboard.Modifiers.HasFlag(ModifierKeys.Shift) ? -1 : 1), 0, _points.Count - 1); e.Handled = true; return;
             case Key.Left: MovePoint(_selectedIndex, point.TemperatureC - step, point.Percent); break;
             case Key.Right: MovePoint(_selectedIndex, point.TemperatureC + step, point.Percent); break;
             case Key.Down: MovePoint(_selectedIndex, point.TemperatureC, point.Percent - step); break;
@@ -553,9 +538,7 @@ internal sealed class FanCurveGraph : FrameworkElement
         double maxT = index == _points.Count - 1 ? FanCurveGraphPolicy.MaxTemperatureC : _points[index + 1].TemperatureC - FanCurveGraphPolicy.MinimumTemperatureSpacingC;
         int minP = index == 0 ? 0 : _points[index - 1].Percent;
         int maxP = index == _points.Count - 1 ? 100 : _points[index + 1].Percent;
-        double nextT = Math.Clamp(Math.Round(temperature), minT, maxT);
-        int nextP = index == _points.Count - 1 ? 100 : Math.Clamp(percent, minP, maxP);
-        FanCurvePoint next = new(nextT, nextP);
+        FanCurvePoint next = new(Math.Clamp(Math.Round(temperature), minT, maxT), index == _points.Count - 1 ? 100 : Math.Clamp(percent, minP, maxP));
         if (_points[index] == next) return;
         _points[index] = next;
         InvalidateVisual();
