@@ -241,8 +241,9 @@ public sealed class TimeSeriesChart : FrameworkElement
         double top = Math.Clamp(p.Y - boxHeight - 10, plot.Top, Math.Max(plot.Top, plot.Bottom - boxHeight));
         dc.DrawRoundedRectangle(surface, new Pen(gridBrush, 1), new Rect(left, top, boxWidth, boxHeight), 4, 4);
         dc.DrawText(ft, new Point(left + 8, top + 5));
-        DrawText(dc, value, new Point(plot.Left - 7, p.Y), 9, accent, rightAligned: true, verticallyCentered: true);
-        DrawText(dc, time, new Point(p.X, plot.Bottom + 8), 9, accent, centered: true);
+
+        // The tooltip already owns the exact hovered time/value. Drawing a second
+        // red label over both axes made digits collide with the normal tick labels.
     }
 
     private static Point Map(TimeSeriesPoint point, Rect plot, DateTimeOffset xMin, DateTimeOffset xMax, double yMin, double yMax)
