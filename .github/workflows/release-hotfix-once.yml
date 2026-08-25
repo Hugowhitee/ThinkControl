@@ -35,32 +35,19 @@ jobs:
 
           release_path = Path(".github/workflows/release.yml")
           release = release_path.read_text(encoding="utf-8")
-          old = '''          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          $payload = Get-Item $env:PAYLOAD_PATH
-          $args = @(
-            'release', 'create', $env:GITHUB_REF_NAME,
-            $setup.FullName,
-            $payload.FullName,
-            'artifacts/installer/SHA256SUMS.txt',
-            '--title', "ThinkControl v$env:APP_VERSION",
-            '--generate-notes'
-          )'''
-          new = '''          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          $payload = Get-Item $env:PAYLOAD_PATH
-          $overview = Join-Path "artifacts/release-previews" 'ui-overview.png'
-          if (-not (Test-Path $overview)) { throw "Release overview is missing" }
-          $args = @(
-            'release', 'create', $env:GITHUB_REF_NAME,
-            $setup.FullName,
-            $payload.FullName,
-            'artifacts/installer/SHA256SUMS.txt',
-            $overview,
-            '--title', "ThinkControl v$env:APP_VERSION",
-            '--generate-notes'
-          )'''
-          if old not in release:
-              raise SystemExit("Expected tagged-release publish block was not found")
-          release_path.write_text(release.replace(old, new, 1), encoding="utf-8")
+
+          needle = '$payload = Get-Item $env:PAYLOAD_PATH\n          $args = @('
+          replacement = '$payload = Get-Item $env:PAYLOAD_PATH\n          $overview = Join-Path "artifacts/release-previews" \'ui-overview.png\'\n          if (-not (Test-Path $overview)) { throw "Release overview is missing" }\n          $args = @('
+          if needle not in release:
+              raise SystemExit("Expected payload/release-args block was not found")
+          release = release.replace(needle, replacement, 1)
+
+          asset_needle = "'artifacts/installer/SHA256SUMS.txt',\n            '--title'"
+          asset_replacement = "'artifacts/installer/SHA256SUMS.txt',\n            $overview,\n            '--title'"
+          if asset_needle not in release:
+              raise SystemExit("Expected release asset list was not found")
+          release = release.replace(asset_needle, asset_replacement, 1)
+          release_path.write_text(release, encoding="utf-8")
 
           promote_path = Path(".github/workflows/promote-release.yml")
           promote = promote_path.read_text(encoding="utf-8")
