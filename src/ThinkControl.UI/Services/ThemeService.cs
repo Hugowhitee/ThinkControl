@@ -15,7 +15,10 @@ public enum ThemeMode
 
 public static class ThemeService
 {
-    private const string SelectionStylesSource = "Resources/SelectionStyles.xaml";
+    // Use an assembly-qualified pack URI. ThemeService is also exercised by the
+    // separate snapshot host; a plain relative URI would resolve against that EXE
+    // instead of ThinkControl.UI and make visual QA fail even though the app builds.
+    private const string SelectionStylesSource = "/ThinkControl.UI;component/Resources/SelectionStyles.xaml";
 
     public static ThemeMode Current { get; private set; } = ThemeMode.System;
 
@@ -64,7 +67,7 @@ public static class ThemeService
 
         resources.MergedDictionaries.Add(new ResourceDictionary
         {
-            Source = new Uri(SelectionStylesSource, UriKind.Relative)
+            Source = new Uri(SelectionStylesSource, UriKind.RelativeOrAbsolute)
         });
     }
 
