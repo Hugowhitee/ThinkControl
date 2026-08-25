@@ -19,14 +19,14 @@ public sealed record DolbyAudioStatus(
 public sealed record DolbyProfileResult(bool Success, string Detail);
 
 /// <summary>
-/// Installation/launcher helper only. Direct Dolby state and changes are owned by
-/// DolbyDirectControlService. Modern ThinkPad generations can use Dolby Fusion SWC
-/// rather than the older DAX3 COM class, so provider detection must not report that
-/// the OEM audio stack is missing merely because the legacy CLSID is absent.
+/// Installation/launcher and non-mutating provider detection. Direct DAX state is
+/// owned by DolbyDirectControlService; modern Fusion profile selection is an
+/// explicit user action owned by DolbyAccessProfileBridge.
 /// </summary>
 public sealed class DolbyAudioService
 {
     private const string AppUserModelId = "DolbyLaboratories.DolbyAccess_rz1tebttyb220!App";
+    private const string PackageFamilyName = "DolbyLaboratories.DolbyAccess_rz1tebttyb220";
     private const string StoreUri = "ms-windows-store://pdp/?ProductId=9N0866FS04W8";
     private const string DaxClsid = "{20532D01-15BE-4BB9-A727-CA34555D881C}";
     private const string FusionSwcEnumPath = @"SYSTEM\CurrentControlSet\Enum\SWC\VEN_DOLBY&PID_FUSIONAPOSVC";
@@ -40,20 +40,20 @@ public sealed class DolbyAudioService
         string detail;
         if (fusion && dax)
         {
-            detail = "Dolby Access/OEM audio is installed. This system exposes Dolby Fusion plus the legacy DAX3 API; ThinkControl enables only direct controls that pass a real readback.";
+            detail = "Dolby Access/OEM audio is installed. This system exposes Dolby Fusion plus the legacy DAX3 API; ThinkControl prefers verified direct DAX control.";
         }
         else if (fusion)
         {
             detail = access
-                ? "Dolby Fusion is active. This Lenovo generation does not expose ThinkControl's verified DAX profile API, so profile control opens Dolby Access instead of guessing private Fusion IDs."
-                : "The OEM Dolby Fusion audio component is installed. ThinkControl can try the Dolby Access app directly; if Windows reports it missing, the Store action is available.";
+                ? "Dolby Fusion is active. Profile changes use the official Dolby Access controls on demand because this generation does not expose ThinkControl's verified DAX profile API."
+                : "The OEM Dolby Fusion component is installed. Profile selection can try the official Dolby Access app on demand; install/repair remains available if Windows cannot open it.";
         }
         else
         {
             detail = (access, dax) switch
             {
-                (true, true) => "Dolby Access and the OEM DAX3 backend are installed. ThinkControl enables only direct controls that the DAX provider can read back.",
-                (false, true) => "Dolby processing is installed, but Dolby Access was not detected. Direct DAX controls remain available where the driver exposes verified state.",
+                (true, true) => "Dolby Access and the OEM DAX3 backend are installed. ThinkControl enables only direct controls that the DAX provider exposes safely.",
+                (false, true) => "Dolby processing is installed, but Dolby Access was not detected. Direct DAX controls remain available where the driver exposes them.",
                 (true, false) => "Dolby Access is installed, but no supported OEM Dolby backend was detected. Lenovo's current audio driver may need repair; ThinkControl will not guess a profile API.",
                 _ => "Dolby Access and a supported OEM Dolby backend were not detected. Lenovo's audio driver may also be required for Dolby processing."
             };
@@ -66,8 +66,8 @@ public sealed class DolbyAudioService
     {
         // Do not make activation depend solely on one package-registry view. Lenovo
         // OEM provisioning and Store updates can leave the AUMID launchable even
-        // when the per-user Repository key is missing/inaccessible. Let Windows
-        // resolve the canonical Dolby Access AUMID and report failure naturally.
+        // when the Repository key is missing/inaccessible. Let Windows resolve the
+        // canonical Dolby Access AUMID and report failure naturally.
         try
         {
             string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
@@ -99,13 +99,29 @@ public sealed class DolbyAudioService
         {
             using RegistryKey? packages = Registry.CurrentUser.OpenSubKey(
                 @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages");
-            return packages?.GetSubKeyNames().Any(name =>
-                name.StartsWith("DolbyLaboratories.DolbyAccess_", StringComparison.OrdinalIgnoreCase)) == true;
+            if (packages?.GetSubKeyNames().Any(name =>
+                    name.StartsWith("DolbyLaboratories.DolbyAccess_", StringComparison.OrdinalIgnoreCase)) == true)
+            {
+                return true;
+            }
         }
         catch
         {
-            return false;
         }
+
+        // The package family folder is a cheap second signal and avoids invoking a
+        // package-manager process just to render the Audio page.
+        try
+        {
+            string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            if (!string.IsNullOrWhiteSpace(local) && Directory.Exists(Path.Combine(local, "Packages", PackageFamilyName)))
+                return true;
+        }
+        catch
+        {
+        }
+
+        return false;
     }
 
     private static bool IsKnownDaxBackendRegistered()
