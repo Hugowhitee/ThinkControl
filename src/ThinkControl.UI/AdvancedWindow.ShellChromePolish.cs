@@ -122,17 +122,20 @@ public partial class AdvancedWindow
             Content = compactContent,
             Style = TryFindResource("TcButton") as Style,
             Height = 28,
-            Padding = new Thickness(10, 3, 10, 3),
+            Padding = new Thickness(8, 3, 8, 3),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
             VerticalAlignment = VerticalAlignment.Center,
             ToolTip = "Switch to the compact tray view"
         };
+        compactButton.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         compactButton.Click += (_, _) => _app.ReturnToCompact();
 
         var rightDivider = new Border
         {
             Width = 1,
             Height = 18,
-            Margin = new Thickness(0, 0, 9, 0),
+            Margin = new Thickness(0, 0, 7, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
         rightDivider.SetResourceReference(Border.BackgroundProperty, "Tc.Border");
