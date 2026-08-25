@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a compact tray interface for common controls and a resizable Advanced window for deeper controls, history and diagnostics.
 
-Current prerelease: `v0.1.0-alpha.15`.
+Current prerelease: `v0.1.0-alpha.15.1`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -78,6 +78,7 @@ On the verified X9 profile, the service supports:
 - fan-control state validation/readback from EC register `0x2F` without continuously polling it in the normal status loop;
 - tachometer RPM fallback from `0x84/0x85` when a broad hardware provider does not expose usable RPM;
 - modern ThinkPad EC transport `0x1604/0x1600` with legacy `0x66/0x62` fallback;
+- stale-output draining plus a bounded OBF-first / IBF-clear-compatible read-ready path for X9 EC readback;
 - duplicate-write suppression, conservative fallback polling and readback verification;
 - return to Lenovo Auto during normal shutdown/disposal when manual ownership is active.
 
@@ -103,7 +104,7 @@ Dolby controls are provider-driven rather than Lenovo-specific. If the installed
 
 The UI models hardware backlight levels and optional ThinkControl user-session effects independently from the backend.
 
-Current Lenovo providers include established `IBMPmDrv` and `EnergyDrv` contracts plus a validated Lenovo keyboard component fallback. Each provider requires a successful read probe before writes are enabled and failed probes are backed off. Other OEMs should supply their own provider behind the same keyboard capability instead of adding vendor-specific UI.
+Current Lenovo providers include established `IBMPmDrv` and `EnergyDrv` contracts plus a validated Lenovo keyboard component fallback. Each provider requires a successful read probe before writes are enabled and failed probes are backed off. The Vantage fallback loads its adjacent keyboard contract dependency when present and marshals Lenovo enum parameters using the reflected target type. Direct static level changes wait for an in-flight effect write instead of being silently dropped. Other OEMs should supply their own provider behind the same keyboard capability instead of adding vendor-specific UI.
 
 ## Battery
 
@@ -136,9 +137,9 @@ ThinkControl provides bounded local diagnostics, support-bundle export and struc
 
 ## Installation and updates
 
-Alpha.15 uses a small installer/bootstrap flow plus the application payload. In-app updates download Setup + Payload + `SHA256SUMS.txt` first, verify the managed files, then request one explicit elevation handoff. Background update checks never install software or open UAC on their own.
+Alpha.15.1 uses a small installer/bootstrap flow plus the application payload. In-app updates download Setup + Payload + `SHA256SUMS.txt` first, verify the managed files, then request one explicit elevation handoff. Background update checks never install software or open UAC on their own.
 
-Packaging CI tests build, application payload, installer, service startup and uninstall cleanup. `version.json` is the build and release version source of truth.
+Packaging CI tests build, application payload, installer, service startup and uninstall cleanup. A deeper pull-request gate also validates named-pipe IPC plus an in-place reinstall/update path. `version.json` is the build and release version source of truth.
 
 ## Safety boundary
 
