@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.ViewModels;
 
@@ -13,6 +14,7 @@ public partial class FansPanel : UserControl
     private bool _syncing;
     private bool _resetAdded;
     private bool _statusSubscribed;
+    private bool _customCurveLoaded;
 
     public FansPanel()
     {
@@ -31,8 +33,10 @@ public partial class FansPanel : UserControl
             UnsubscribeStatus();
             _app = app;
             DataContext = app.State;
+            _customCurveLoaded = false;
         }
 
+        LoadCustomCurveFromSettings();
         SyncStatusSubscription();
         if (IsVisible)
             _ = app.HardwareClient.GetStatusAsync();
@@ -42,23 +46,26 @@ public partial class FansPanel : UserControl
     {
         EnsureResetButton();
         DataContext = state;
-        string profile = NormalizeProfile(state.FanStateText);
+        string profile = NormalizeProfile(state.CoolingProfile);
 
         _syncing = true;
         try
         {
+            if (!_customCurveLoaded)
+                SetCustomCurveValues(FanCurvePolicy.DefaultCustomThresholds);
             SetProfileChecks(profile);
             SetWritableControlsEnabled(state.CanFanControl);
             ProfileStatusText.Text = DisplayProfile(profile);
             CoolingDetailText.Text = state.CanFanControl
-                ? $"{DisplayProfile(profile)} cooling · {state.ControlTemperatureText} control temperature"
+                ? $"{DisplayProfile(profile)} · {state.ControlTemperatureText} control temperature"
                 : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
+            CustomCurveCard.Visibility = profile == "Custom" ? Visibility.Visible : Visibility.Collapsed;
 
             string? levelPart = state.FanStateText.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
-                .FirstOrDefault(part => part.StartsWith("level ", StringComparison.OrdinalIgnoreCase));
+                .FirstOrDefault(part => part.Contains("level ", StringComparison.OrdinalIgnoreCase));
             AppliedLevelText.Text = levelPart is null
                 ? "Auto"
-                : char.ToUpperInvariant(levelPart[0]) + levelPart[1..];
+                : levelPart.Replace("level", "step", StringComparison.OrdinalIgnoreCase);
 
             CharacterizeButton.IsEnabled = state.CanFanControl;
             StopCharacterizationButton.Visibility = Visibility.Collapsed;
@@ -85,10 +92,6 @@ public partial class FansPanel : UserControl
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
             _statusSubscribed = true;
-
-            // The fan page needs the hardware provider snapshot only. Do not invoke
-            // the legacy whole-system refresh path merely because this page becomes
-            // visible; that path also rereads battery/system/display state.
             _ = _app.HardwareClient.GetStatusAsync();
         }
         else
@@ -129,12 +132,13 @@ public partial class FansPanel : UserControl
             string profile = NormalizeProfile(telemetry?.CoolingProfile);
             SetProfileChecks(profile);
             SetWritableControlsEnabled(canControl);
+            CustomCurveCard.Visibility = profile == "Custom" ? Visibility.Visible : Visibility.Collapsed;
 
             ProfileStatusText.Text = telemetry?.CoolingSafetyOverride == true ? "Safety · firmware" : DisplayProfile(profile);
             CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
-                ? "Choose a cooling profile."
+                ? "Choose a fan profile."
                 : DescribeUnavailable(_app?.State.MachineType, telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
-            AppliedLevelText.Text = telemetry?.CoolingAppliedLevel is int level ? $"Level {level}" : "Auto";
+            AppliedLevelText.Text = telemetry?.CoolingAppliedLevel is int level ? $"Step {level}" : "Auto";
 
             FanCharacterizationSnapshot? characterization = telemetry?.FanCharacterization;
             bool running = characterization?.Running == true;
@@ -149,7 +153,7 @@ public partial class FansPanel : UserControl
             MarkAudibleButton.Visibility = running && characterization?.CurrentLevel is >= 1 and <= 7
                 ? Visibility.Visible : Visibility.Collapsed;
             if (characterization?.CurrentLevel is int current)
-                MarkAudibleButton.Content = $"Clearly audible at level {current}";
+                MarkAudibleButton.Content = $"Clearly audible at step {current}";
 
             _calibrationRows.Clear();
             if (characterization is not null)
@@ -160,12 +164,12 @@ public partial class FansPanel : UserControl
                         ? "No tachometer sample"
                         : string.Join(" · ", point.Fans.Select(fan => $"{fan.Label} {fan.MedianRpm:N0} RPM"));
                     _calibrationRows.Add(new CalibrationRow(
-                        $"Level {point.Level}",
+                        $"Step {point.Level}",
                         rpm,
                         point.Stable ? "Stable" : "Variable"));
                 }
                 if (characterization.AudibleFromLevel is int audible)
-                    CharacterizationStatusText.Text += $" · clearly audible from level {audible}";
+                    CharacterizationStatusText.Text += $" · clearly audible from step {audible}";
             }
         }
         finally
@@ -180,6 +184,8 @@ public partial class FansPanel : UserControl
         SilentProfile.IsEnabled = enabled;
         NormalProfile.IsEnabled = enabled;
         CoolProfile.IsEnabled = enabled;
+        CustomProfile.IsEnabled = enabled;
+        ApplyCustomCurveButton.IsEnabled = enabled;
 
         if (Content is StackPanel root)
         {
@@ -194,24 +200,115 @@ public partial class FansPanel : UserControl
     private void SetProfileChecks(string profile)
     {
         AutoProfile.IsChecked = profile == "Lenovo Auto";
-        SilentProfile.IsChecked = profile == "Silent";
-        NormalProfile.IsChecked = profile == "Normal";
-        CoolProfile.IsChecked = profile == "Cool";
+        SilentProfile.IsChecked = profile == "Quiet";
+        NormalProfile.IsChecked = profile == "Balanced";
+        CoolProfile.IsChecked = profile == "Max cooling";
+        CustomProfile.IsChecked = profile == "Custom";
     }
 
     private static string NormalizeProfile(string? raw)
     {
         string profile = raw?.Split('·', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
             .FirstOrDefault() ?? "Lenovo Auto";
-        if (profile is "Silent" or "Normal" or "Cool" or "Lenovo Auto")
-            return profile;
-        if (profile.StartsWith("Manual level ", StringComparison.OrdinalIgnoreCase))
-            return profile;
-        return "Lenovo Auto";
+        return profile switch
+        {
+            "Silent" or "Quiet" => "Quiet",
+            "Normal" or "Balanced" => "Balanced",
+            "Cool" or "Max cooling" => "Max cooling",
+            "Custom" => "Custom",
+            "Lenovo Auto" or "Auto" => "Lenovo Auto",
+            _ when profile.StartsWith("Manual level ", StringComparison.OrdinalIgnoreCase) ||
+                   profile.StartsWith("Manual EC level ", StringComparison.OrdinalIgnoreCase) => profile,
+            _ => "Lenovo Auto"
+        };
     }
 
     private static string DisplayProfile(string profile) =>
         profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Auto" : profile;
+
+    private void LoadCustomCurveFromSettings()
+    {
+        if (_customCurveLoaded || _app is null)
+            return;
+        _customCurveLoaded = true;
+        SetCustomCurveValues(_app.UserSettings.Current.CustomFanThresholds ?? FanCurvePolicy.DefaultCustomThresholds);
+    }
+
+    private void SetCustomCurveValues(IReadOnlyList<double> values)
+    {
+        IReadOnlyList<double> curve = FanCurvePolicy.TryValidateCustomThresholds(values, out double[] valid, out _)
+            ? valid
+            : FanCurvePolicy.DefaultCustomThresholds;
+
+        _syncing = true;
+        try
+        {
+            Slider[] sliders = [Custom2Slider, Custom3Slider, Custom4Slider, Custom5Slider, Custom6Slider, Custom7Slider];
+            for (int i = 0; i < sliders.Length; i++)
+                sliders[i].Value = curve[i];
+            UpdateCustomCurveLabels();
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    private double[] CurrentCustomCurve() =>
+        [Custom2Slider.Value, Custom3Slider.Value, Custom4Slider.Value, Custom5Slider.Value, Custom6Slider.Value, Custom7Slider.Value];
+
+    private void CustomCurveSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (!IsInitialized)
+            return;
+        UpdateCustomCurveLabels();
+    }
+
+    private void UpdateCustomCurveLabels()
+    {
+        if (Custom2Value is null)
+            return;
+        Custom2Value.Text = $"{Custom2Slider.Value:0} °C";
+        Custom3Value.Text = $"{Custom3Slider.Value:0} °C";
+        Custom4Value.Text = $"{Custom4Slider.Value:0} °C";
+        Custom5Value.Text = $"{Custom5Slider.Value:0} °C";
+        Custom6Value.Text = $"{Custom6Slider.Value:0} °C";
+        Custom7Value.Text = $"{Custom7Slider.Value:0} °C";
+    }
+
+    private async Task ApplyCustomCurveAsync()
+    {
+        if (_app is null)
+            return;
+
+        double[] curve = CurrentCustomCurve();
+        if (!FanCurvePolicy.TryValidateCustomThresholds(curve, out _, out string? validation))
+        {
+            CoolingDetailText.Text = validation ?? "Custom curve is invalid.";
+            return;
+        }
+
+        ApplyCustomCurveButton.IsEnabled = false;
+        try
+        {
+            bool applied = await _app.SetCustomCoolingCurveAsync(curve);
+            if (!applied)
+                CoolingDetailText.Text = _app.State.HardwareAccess;
+        }
+        finally
+        {
+            ApplyCustomCurveButton.IsEnabled = _app.State.CanFanControl;
+        }
+    }
+
+    private async void ApplyCustomCurve_Click(object sender, RoutedEventArgs e) =>
+        await ApplyCustomCurveAsync();
+
+    private void ResetCustomCurve_Click(object sender, RoutedEventArgs e)
+    {
+        SetCustomCurveValues(FanCurvePolicy.DefaultCustomThresholds);
+        CoolingDetailText.Text = "Balanced starting curve loaded · press Apply to activate it as Custom.";
+    }
 
     private void EnsureResetButton()
     {
@@ -229,7 +326,7 @@ public partial class FansPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(10, 4, 10, 4),
             FontSize = 10.5,
-            ToolTip = "Return cooling ownership to the provider/firmware default"
+            ToolTip = "Return cooling ownership to Lenovo Auto"
         };
         reset.Click += Reset_Click;
         header.Children.Add(reset);
@@ -243,14 +340,8 @@ public partial class FansPanel : UserControl
             return;
 
         button.IsEnabled = false;
-        try
-        {
-            _ = await _app.ResetFanDefaultsAsync();
-        }
-        finally
-        {
-            button.IsEnabled = true;
-        }
+        try { _ = await _app.ResetFanDefaultsAsync(); }
+        finally { button.IsEnabled = true; }
     }
 
     private static string DescribeUnavailable(string? machineType, string? hardwareAccess, bool telemetryReady)
@@ -275,29 +366,35 @@ public partial class FansPanel : UserControl
     {
         if (_syncing || _app is null || sender is not FrameworkElement { Tag: string profile })
             return;
+
+        if (profile == "Custom")
+        {
+            CustomCurveCard.Visibility = Visibility.Visible;
+            await ApplyCustomCurveAsync();
+            return;
+        }
+
+        CustomCurveCard.Visibility = Visibility.Collapsed;
         if (!await _app.SetCoolingProfileAsync(profile))
             _ = _app.HardwareClient.GetStatusAsync();
     }
 
     private async void Characterize_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null)
-            return;
-        await _app.StartFanCharacterizationAsync();
+        if (_app is not null)
+            await _app.StartFanCharacterizationAsync();
     }
 
     private async void StopCharacterization_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null)
-            return;
-        await _app.StopFanCharacterizationAsync();
+        if (_app is not null)
+            await _app.StopFanCharacterizationAsync();
     }
 
     private async void MarkAudible_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null)
-            return;
-        await _app.MarkCurrentFanLevelAudibleAsync();
+        if (_app is not null)
+            await _app.MarkCurrentFanLevelAudibleAsync();
     }
 
     private async void ManualLevel_Click(object sender, RoutedEventArgs e)
