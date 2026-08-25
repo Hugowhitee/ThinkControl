@@ -1,5 +1,6 @@
 using System.IO;
 using System.Text.Json;
+using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Diagnostics;
 using ThinkControl.Core.Touchpad;
 
@@ -21,6 +22,7 @@ public sealed record ThinkControlUserSettings(
     string BatteryPowerMode = "",
     string AcPowerMode = "",
     string CoolingProfile = "Lenovo Auto",
+    double[]? CustomFanThresholds = null,
     string DolbyProfile = "Dynamic",
     string DolbySubProfile = "Balanced",
     bool AutomaticUpdates = true,
@@ -134,11 +136,20 @@ public sealed class UserSettingsService
         string acPower = NormalizePowerPreference(settings.AcPowerMode);
         string cooling = settings.CoolingProfile?.Trim() switch
         {
-            "Silent" => "Silent",
-            "Normal" => "Normal",
-            "Cool" => "Cool",
+            "Quiet" or "Silent" => "Silent",
+            "Balanced" or "Normal" => "Normal",
+            "Max cooling" or "Cool" => "Cool",
+            "Custom" => "Custom",
             _ => "Lenovo Auto"
         };
+
+        double[] customFan = FanCurvePolicy.TryValidateCustomThresholds(
+            settings.CustomFanThresholds,
+            out double[] savedCustom,
+            out _)
+            ? savedCustom
+            : FanCurvePolicy.DefaultCustomThresholds.ToArray();
+
         string dolby = settings.DolbyProfile?.Trim() switch
         {
             "Movie" => "Movie",
@@ -174,6 +185,7 @@ public sealed class UserSettingsService
             BatteryPowerMode = batteryPower,
             AcPowerMode = acPower,
             CoolingProfile = cooling,
+            CustomFanThresholds = customFan,
             DolbyProfile = dolby,
             DolbySubProfile = dolbyTone,
             DefaultOpeningView = defaultOpeningView
