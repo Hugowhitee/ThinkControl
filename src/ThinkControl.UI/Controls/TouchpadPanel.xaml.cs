@@ -344,15 +344,17 @@ public partial class TouchpadPanel : UserControl
         {
             if (!IsVisible)
                 return;
+
+            UpdateGestureValueFeedback(signal);
             _signal = signal.Phase is GesturePhase.Released or GesturePhase.Cancelled ? null : signal;
             Visualizer.SetTestFrame(_contacts, _signal);
             GestureStatusText.Text = signal.Phase switch
             {
                 GesturePhase.Candidate => signal.Reason ?? "Gesture candidate",
                 GesturePhase.Claimed => $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}",
-                GesturePhase.Active => $"{ActionLabel(signal.Action)} · {signal.TotalTravelMm:+0.0;-0.0;0} mm",
+                GesturePhase.Active => FormatGestureStatus(signal),
                 GesturePhase.Cancelled => $"Rejected · {signal.Reason}",
-                GesturePhase.Released => "Gesture complete",
+                GesturePhase.Released => $"Gesture complete · {FormatGestureStatus(signal)}",
                 _ => "Gesture complete"
             };
         });
@@ -447,6 +449,7 @@ public partial class TouchpadPanel : UserControl
 
         if (visible)
         {
+            ClearGestureFeedback();
             _host.EnsureInputStarted();
             SyncAll();
             return;
@@ -455,12 +458,15 @@ public partial class TouchpadPanel : UserControl
         _settingsSaveTimer.Stop();
         _contacts = Array.Empty<TouchContact>();
         _signal = null;
+        ClearGestureFeedback();
+        Visualizer.SetTestFrame(_contacts, null);
         _host.StopInputIfGesturesDisabled();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _settingsSaveTimer.Stop();
+        ClearGestureFeedback();
         _host?.StopInputIfGesturesDisabled();
     }
 
