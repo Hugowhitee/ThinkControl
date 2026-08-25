@@ -35,6 +35,7 @@ public partial class CompactDashboard : UserControl
             app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
         }
 
+        EnsureShellPolish();
         EnsureAudioRow();
         EnsureQuickControls();
         EnsureHardwareAlert();
