@@ -286,13 +286,11 @@ jobs:
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
           $payload = Get-Item $env:PAYLOAD_PATH
-          $overview = Get-Item "artifacts/release-previews/ui-overview.png"
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,
             $payload.FullName,
             'artifacts/installer/SHA256SUMS.txt',
-            $overview.FullName,
             '--verify-tag',
             '--title', "ThinkControl v$env:APP_VERSION",
             '--generate-notes',
