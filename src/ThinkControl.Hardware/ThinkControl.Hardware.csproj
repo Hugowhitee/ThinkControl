@@ -6,7 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\ThinkControl.Core\ThinkControl.Core.csproj" />
-    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.7-pre726" />
     <PackageReference Include="System.Management" Version="10.0.2" />
   </ItemGroup>
 </Project>
