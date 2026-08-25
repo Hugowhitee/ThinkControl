@@ -4,7 +4,8 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class MediaSessionService
 {
-    private static readonly TimeSpan SeekCadence = TimeSpan.FromMilliseconds(180);
+    private static readonly TimeSpan DefaultSeekCadence = TimeSpan.FromMilliseconds(85);
+    private static readonly TimeSpan ConservativeSeekCadence = TimeSpan.FromMilliseconds(170);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly object _seekGate = new();
     private GlobalSystemMediaTransportControlsSessionManager? _manager;
@@ -17,6 +18,8 @@ internal sealed class MediaSessionService
     private bool _seekReady;
     private double _pendingOffsetSeconds;
     private double _lastAppliedOffsetSeconds;
+    private TimeSpan _seekCadence = DefaultSeekCadence;
+    private double _seekApplyThresholdSeconds = 0.10;
     private int _workerRunning;
     private int _generation;
 
@@ -32,6 +35,11 @@ internal sealed class MediaSessionService
                 ResetSeekState();
                 return false;
             }
+
+            string source = _session.SourceAppUserModelId ?? string.Empty;
+            bool conservative = IsConservativeSeekSession(source);
+            _seekCadence = conservative ? ConservativeSeekCadence : DefaultSeekCadence;
+            _seekApplyThresholdSeconds = conservative ? 0.30 : 0.08;
 
             GlobalSystemMediaTransportControlsSessionTimelineProperties timeline = _session.GetTimelineProperties();
             GlobalSystemMediaTransportControlsSessionPlaybackInfo playback = _session.GetPlaybackInfo();
@@ -62,7 +70,7 @@ internal sealed class MediaSessionService
 
     internal void QueueSeekDelta(double deltaSeconds)
     {
-        if (!_seekReady || !double.IsFinite(deltaSeconds) || Math.Abs(deltaSeconds) < 0.01)
+        if (!_seekReady || !double.IsFinite(deltaSeconds) || Math.Abs(deltaSeconds) < 0.005)
             return;
 
         lock (_seekGate)
@@ -82,10 +90,11 @@ internal sealed class MediaSessionService
         {
             while (_seekReady)
             {
-                // Spotify and several GSMTC bridges do not tolerate a remote seek per
-                // touch frame. Keep only the accumulated target and send at roughly
-                // 5-6 Hz while the finger is down.
-                await Task.Delay(SeekCadence).ConfigureAwait(false);
+                // Browsers handle GSMTC seeks well at ~12 Hz and feel much closer to
+                // scrubbing a native timeline. Spotify remains on the conservative
+                // cadence because some bridge versions glitch when hammered with
+                // remote seeks. Both modes still coalesce every touch-frame delta.
+                await Task.Delay(_seekCadence).ConfigureAwait(false);
 
                 double offset;
                 lock (_seekGate)
@@ -93,7 +102,7 @@ internal sealed class MediaSessionService
                     if (generation != _generation)
                         return;
                     offset = _pendingOffsetSeconds;
-                    if (Math.Abs(offset - _lastAppliedOffsetSeconds) < 0.35)
+                    if (Math.Abs(offset - _lastAppliedOffsetSeconds) < _seekApplyThresholdSeconds)
                         return;
                 }
 
@@ -114,7 +123,8 @@ internal sealed class MediaSessionService
             Interlocked.Exchange(ref _workerRunning, 0);
             bool restart;
             lock (_seekGate)
-                restart = _seekReady && generation == _generation && Math.Abs(_pendingOffsetSeconds - _lastAppliedOffsetSeconds) >= 0.35;
+                restart = _seekReady && generation == _generation &&
+                          Math.Abs(_pendingOffsetSeconds - _lastAppliedOffsetSeconds) >= _seekApplyThresholdSeconds;
             if (restart && Interlocked.CompareExchange(ref _workerRunning, 1, 0) == 0)
                 _ = Task.Run(ProcessSeekQueueAsync);
         }
@@ -151,7 +161,7 @@ internal sealed class MediaSessionService
 
             // Do not replace the gesture anchor with the new target: queued offsets
             // are cumulative from gesture start. Keeping one anchor avoids compounding
-            // Spotify's delayed timeline updates into ever-larger seeks.
+            // delayed timeline updates into ever-larger seeks.
             return true;
         }
         catch
@@ -174,20 +184,12 @@ internal sealed class MediaSessionService
         {
             finalOffset = _pendingOffsetSeconds;
             lastApplied = _lastAppliedOffsetSeconds;
-
-            // Invalidate the cadence worker before issuing the final target. Any
-            // worker that already passed its outer generation check re-checks the
-            // token after acquiring _gate and therefore cannot overwrite the final
-            // released-finger position afterwards.
             finalGeneration = ++_generation;
         }
 
-        if (_seekReady && Math.Abs(finalOffset - lastApplied) >= 0.12)
+        if (_seekReady && Math.Abs(finalOffset - lastApplied) >= 0.06)
             _ = await ApplyOffsetAsync(finalOffset, finalGeneration).ConfigureAwait(false);
 
-        // A new gesture can begin while the final GSMTC write above is awaiting.
-        // In that case BeginSeekAsync increments _generation and owns the new session.
-        // The old teardown must not clear its offsets/readiness/session.
         lock (_seekGate)
         {
             if (finalGeneration != _generation)
@@ -198,6 +200,8 @@ internal sealed class MediaSessionService
             _lastAppliedOffsetSeconds = 0;
             _seekReady = false;
             _session = null;
+            _seekCadence = DefaultSeekCadence;
+            _seekApplyThresholdSeconds = 0.10;
         }
     }
 
@@ -212,6 +216,18 @@ internal sealed class MediaSessionService
             _lastAppliedOffsetSeconds = 0;
             _seekReady = false;
             _session = null;
+            _seekCadence = DefaultSeekCadence;
+            _seekApplyThresholdSeconds = 0.10;
         }
+    }
+
+    private static bool IsConservativeSeekSession(string source)
+    {
+        if (string.IsNullOrWhiteSpace(source))
+            return false;
+
+        return source.Contains("spotify", StringComparison.OrdinalIgnoreCase) ||
+               source.Contains("applemusic", StringComparison.OrdinalIgnoreCase) ||
+               source.Contains("apple.music", StringComparison.OrdinalIgnoreCase);
     }
 }

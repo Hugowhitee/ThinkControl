@@ -25,6 +25,7 @@ public sealed class SensorHub : IDisposable
 {
     private static readonly TimeSpan RefreshInterval = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan OpenRetryInterval = TimeSpan.FromSeconds(45);
+    private static readonly TimeSpan AcpiFallbackInterval = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan EmptyProviderRecycleInterval = TimeSpan.FromMinutes(5);
     private const int MaxSensorCount = 256;
     private const int EmptyCriticalRefreshesBeforeRecycle = 4;
@@ -34,8 +35,10 @@ public sealed class SensorHub : IDisposable
     private bool _disposed;
     private DateTimeOffset _lastOpenAttempt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastRefresh = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastAcpiRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastProviderRecycle = DateTimeOffset.MinValue;
     private int _emptyCriticalRefreshes;
+    private HardwareSensorReading? _cachedAcpiThermal;
     private SensorHubSnapshot _last = EmptySnapshot();
 
     public SensorHubSnapshot Read()
@@ -48,7 +51,7 @@ public sealed class SensorHub : IDisposable
                 return _last;
 
             EnsureOpen(now);
-            var readings = new List<HardwareSensorReading>(96);
+            var readings = new List<HardwareSensorReading>(80);
 
             if (_computer is not null)
             {
@@ -68,14 +71,13 @@ public sealed class SensorHub : IDisposable
             }
 
             HardwareSensorReading? cpu = SelectCpuTemperature(readings);
-            if (cpu is null && TryReadAcpiThermalZone(out HardwareSensorReading? acpi))
+            if (cpu is null && GetAcpiThermalZone(now) is HardwareSensorReading acpi)
             {
                 // ACPI thermal zones are real telemetry, but Windows does not
                 // guarantee that a zone represents the CPU package. Keep the value
-                // visible on Sensors as a system thermal-zone reading; never relabel
-                // it as CpuTemperatureC or use it as the control temperature for a
-                // custom fan curve.
-                readings.Add(acpi!);
+                // visible only as a system thermal-zone reading. Most importantly,
+                // do not execute a root\wmi query every hot sensor refresh.
+                readings.Add(acpi);
             }
 
             RecycleStaleProviderIfNeeded(now, readings);
@@ -113,6 +115,8 @@ public sealed class SensorHub : IDisposable
             _last = EmptySnapshot();
             _lastOpenAttempt = DateTimeOffset.MinValue;
             _lastRefresh = DateTimeOffset.MinValue;
+            _lastAcpiRead = DateTimeOffset.MinValue;
+            _cachedAcpiThermal = null;
             _lastProviderRecycle = DateTimeOffset.MinValue;
             _emptyCriticalRefreshes = 0;
         }
@@ -131,19 +135,18 @@ public sealed class SensorHub : IDisposable
             {
                 IsCpuEnabled = true,
                 IsGpuEnabled = true,
-                IsMemoryEnabled = true,
                 IsMotherboardEnabled = true,
-                IsStorageEnabled = true,
 
-                // Battery telemetry is intentionally owned by ThinkControl's
-                // BatteryTelemetryService. LHM 0.9.6 has a known stale-battery
-                // handle failure mode that can emit a Windows power-status broadcast
-                // on every poll, so enabling the duplicate LHM battery provider here
-                // can create system-wide periodic stutter for no useful benefit.
+                // SMART/storage discovery is one of the few LHM paths that can wake
+                // devices and create noticeable latency spikes on a laptop. ThinkControl
+                // does not use it for cooling, so it stays out of the always-on service.
+                IsStorageEnabled = false,
+                IsMemoryEnabled = false,
+
+                // Battery telemetry is intentionally owned by ThinkControl's native/
+                // WMI battery service. Duplicating it through LHM adds no useful data.
                 IsBatteryEnabled = false,
 
-                // Laptop fan/temperature control does not need these groups. Keeping
-                // them off avoids extra driver/WMI work in the always-on service.
                 IsNetworkEnabled = false,
                 IsControllerEnabled = false,
                 IsPsuEnabled = false,
@@ -161,11 +164,15 @@ public sealed class SensorHub : IDisposable
 
     private void RecycleStaleProviderIfNeeded(DateTimeOffset now, IReadOnlyCollection<HardwareSensorReading> readings)
     {
-        bool hasCriticalTelemetry = readings.Any(reading =>
-            reading.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase) ||
-            reading.SensorType.Equals("Fan", StringComparison.OrdinalIgnoreCase));
+        // Provider health is based only on LHM/PawnIO telemetry. The separate ACPI
+        // fallback is useful to display, but it must not make an opened-yet-empty LHM
+        // instance look healthy forever and thereby prevent the bounded recycle path.
+        bool hasCriticalProviderTelemetry = readings.Any(reading =>
+            reading.Source.StartsWith("LibreHardwareMonitor/PawnIO", StringComparison.OrdinalIgnoreCase) &&
+            (reading.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase) ||
+             reading.SensorType.Equals("Fan", StringComparison.OrdinalIgnoreCase)));
 
-        if (hasCriticalTelemetry)
+        if (hasCriticalProviderTelemetry)
         {
             _emptyCriticalRefreshes = 0;
             return;
@@ -181,9 +188,6 @@ public sealed class SensorHub : IDisposable
             return;
         }
 
-        // Automatic recovery is deliberately slow. A failed provider must never
-        // hammer PawnIO/ACPI every few seconds. Hardware setup can always request an
-        // immediate explicit refresh after installing/repairing a provider.
         CloseComputer();
         _lastProviderRecycle = now;
         _lastOpenAttempt = DateTimeOffset.MinValue;
@@ -195,31 +199,53 @@ public sealed class SensorHub : IDisposable
         if (output.Count >= MaxSensorCount)
             return;
 
+        bool updated = true;
         try { hardware.Update(); }
-        catch { return; }
+        catch { updated = false; }
 
-        foreach (ISensor sensor in hardware.Sensors)
+        if (updated)
         {
-            if (output.Count >= MaxSensorCount)
-                return;
-            if (!sensor.Value.HasValue || !float.IsFinite(sensor.Value.Value))
-                continue;
+            foreach (ISensor sensor in hardware.Sensors)
+            {
+                if (output.Count >= MaxSensorCount)
+                    break;
+                if (!sensor.Value.HasValue || !float.IsFinite(sensor.Value.Value))
+                    continue;
 
-            string type = sensor.SensorType.ToString();
-            output.Add(new HardwareSensorReading(
-                sensor.Identifier.ToString(),
-                Clean(hardware.Name, "Hardware"),
-                hardware.HardwareType.ToString(),
-                Clean(sensor.Name, type),
-                type,
-                Math.Round(sensor.Value.Value, PrecisionFor(type)),
-                UnitFor(type),
-                false,
-                $"LibreHardwareMonitor/PawnIO · {Clean(hardware.Name, hardware.HardwareType.ToString())} · {Clean(sensor.Name, type)}"));
+                string type = sensor.SensorType.ToString();
+                output.Add(new HardwareSensorReading(
+                    sensor.Identifier.ToString(),
+                    Clean(hardware.Name, "Hardware"),
+                    hardware.HardwareType.ToString(),
+                    Clean(sensor.Name, type),
+                    type,
+                    Math.Round(sensor.Value.Value, PrecisionFor(type)),
+                    UnitFor(type),
+                    false,
+                    $"LibreHardwareMonitor/PawnIO · {Clean(hardware.Name, hardware.HardwareType.ToString())} · {Clean(sensor.Name, type)}"));
+            }
         }
 
+        // Some parent hardware objects can fail their own optional update while a
+        // useful child still works. Do not throw away the complete subtree.
         foreach (IHardware child in hardware.SubHardware)
+        {
+            if (output.Count >= MaxSensorCount)
+                break;
             VisitHardware(child, output);
+        }
+    }
+
+    private HardwareSensorReading? GetAcpiThermalZone(DateTimeOffset now)
+    {
+        if (now - _lastAcpiRead < AcpiFallbackInterval)
+            return _cachedAcpiThermal;
+
+        _lastAcpiRead = now;
+        _cachedAcpiThermal = TryReadAcpiThermalZone(out HardwareSensorReading? reading)
+            ? reading
+            : null;
+        return _cachedAcpiThermal;
     }
 
     private static HardwareSensorReading? SelectCpuTemperature(IEnumerable<HardwareSensorReading> readings)
@@ -340,10 +366,7 @@ public sealed class SensorHub : IDisposable
     {
         "Cpu" => 0,
         "GpuIntel" or "GpuNvidia" or "GpuAmd" => 1,
-        "Memory" => 2,
-        "Storage" => 3,
-        "Battery" => 4,
-        "Motherboard" => 5,
+        "Motherboard" => 2,
         _ => 10
     };
 

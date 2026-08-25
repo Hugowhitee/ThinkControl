@@ -158,6 +158,19 @@ internal sealed class FanSupervisor : IDisposable
             }
         }
 
+        LenovoHardwareStatus preflight = _hardware.ReadStatus();
+        if (!preflight.CanFanControl || !preflight.ControlTemperatureC.HasValue)
+        {
+            error = "Manual fan control requires the verified fan-control provider and a valid control-temperature sensor.";
+            return false;
+        }
+        if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(preflight.ControlTemperatureC.Value))
+        {
+            ReturnHardwareToAutoSerialized(out _);
+            error = "The system is too hot to enter manual fan control. Lenovo firmware keeps control until temperature falls.";
+            return false;
+        }
+
         if (!SetHardwareLevelSerialized(level, out error))
             return false;
 
@@ -166,9 +179,9 @@ internal sealed class FanSupervisor : IDisposable
             _profile = CoolingProfile.LenovoAuto;
             _manualLevel = level;
             _appliedLevel = level;
-            _smoothedTemperatureC = null;
+            _smoothedTemperatureC = preflight.ControlTemperatureC.Value;
             _safetyOverride = false;
-            _status = $"Manual fan level {level}";
+            _status = $"Manual fan level {level} · {preflight.ControlTemperatureC.Value:0.#} °C control temperature";
             _lastLevelChange = DateTimeOffset.UtcNow;
         }
         return true;
@@ -312,12 +325,51 @@ internal sealed class FanSupervisor : IDisposable
     private async Task ApplyProfileTickAsync(CancellationToken token)
     {
         CoolingProfile profile;
+        int? manualLevel;
+        bool characterizationRunning;
         lock (_gate)
         {
             profile = _profile;
-            if (_manualLevel.HasValue || _characterizationRunning || profile == CoolingProfile.LenovoAuto)
-                return;
+            manualLevel = _manualLevel;
+            characterizationRunning = _characterizationRunning;
         }
+
+        if (characterizationRunning)
+            return;
+
+        if (manualLevel.HasValue)
+        {
+            LenovoHardwareStatus manualStatus = _hardware.ReadStatus();
+            if (!manualStatus.CanFanControl || !manualStatus.ControlTemperatureC.HasValue)
+            {
+                await SafeAutoHandoffAsync(
+                    "Manual fan safety handoff · sensor or verified fan-control provider became unavailable",
+                    token).ConfigureAwait(false);
+                return;
+            }
+
+            double manualTemperature = manualStatus.ControlTemperatureC.Value;
+            if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(manualTemperature))
+            {
+                await SafeAutoHandoffAsync(
+                    $"Manual fan safety handoff at {manualTemperature:0.#} °C",
+                    token).ConfigureAwait(false);
+                return;
+            }
+
+            lock (_gate)
+            {
+                if (_manualLevel == manualLevel)
+                {
+                    _smoothedTemperatureC = manualTemperature;
+                    _status = $"Manual fan level {manualLevel.Value} · {manualTemperature:0.#} °C control temperature";
+                }
+            }
+            return;
+        }
+
+        if (profile == CoolingProfile.LenovoAuto)
+            return;
 
         LenovoHardwareStatus status = _hardware.ReadStatus();
         if (!status.CanFanControl || !status.ControlTemperatureC.HasValue)
@@ -456,7 +508,7 @@ internal sealed class FanSupervisor : IDisposable
                 }
 
                 LenovoHardwareStatus thermal = _hardware.ReadStatus();
-                if (!thermal.ControlTemperatureC.HasValue || thermal.ControlTemperatureC.Value >= 94)
+                if (!thermal.ControlTemperatureC.HasValue || FanCurvePolicy.RequiresFirmwareSafetyHandoff(thermal.ControlTemperatureC.Value))
                     throw new InvalidOperationException("Temperature safety check handed control back to Lenovo firmware.");
 
                 if (!await SetHardwareLevelSerializedAsync(level, token).ConfigureAwait(false))

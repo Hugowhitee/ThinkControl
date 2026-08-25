@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ThinkControl.Core.Ipc;
@@ -62,12 +63,12 @@ public sealed class AppState : INotifyPropertyChanged
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public ObservableCollection<double> TemperatureHistory { get; } = new();
-    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new();
-    public ObservableCollection<TimeSeriesPoint> BatteryChargePercentTimeline { get; } = new();
-    public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new();
-    public ObservableCollection<string> RecentChargeSessions { get; } = new();
-    public ObservableCollection<FanTelemetrySnapshot> Fans { get; } = new();
-    public ObservableCollection<HardwareSensorSnapshot> Sensors { get; } = new();
+    public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new ResettableObservableCollection<TimeSeriesPoint>();
+    public ObservableCollection<TimeSeriesPoint> BatteryChargePercentTimeline { get; } = new ResettableObservableCollection<TimeSeriesPoint>();
+    public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new ResettableObservableCollection<TimeSeriesPoint>();
+    public ObservableCollection<string> RecentChargeSessions { get; } = new ResettableObservableCollection<string>();
+    public ObservableCollection<FanTelemetrySnapshot> Fans { get; } = new ResettableObservableCollection<FanTelemetrySnapshot>();
+    public ObservableCollection<HardwareSensorSnapshot> Sensors { get; } = new ResettableObservableCollection<HardwareSensorSnapshot>();
 
     public string DeviceName { get => _deviceName; set => Set(ref _deviceName, value); }
     public double? CpuTemperatureC { get => _cpuTemperatureC; set => Set(ref _cpuTemperatureC, value); }
@@ -201,6 +202,13 @@ public sealed class AppState : INotifyPropertyChanged
     {
         if (target.Count == values.Count && target.SequenceEqual(values))
             return;
+
+        if (target is ResettableObservableCollection<T> resettable)
+        {
+            resettable.ReplaceAll(values);
+            return;
+        }
+
         target.Clear();
         foreach (T value in values)
             target.Add(value);
@@ -263,4 +271,26 @@ public sealed class AppState : INotifyPropertyChanged
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+
+    /// <summary>
+    /// Replaces a telemetry snapshot with one collection reset instead of Clear plus
+    /// dozens/hundreds of Add notifications. The old pattern rebuilt hidden WPF item
+    /// controls every service sample and was a strong candidate for the periodic
+    /// 5–8 second hitch reported on battery. Public properties remain normal
+    /// ObservableCollection instances, so existing bindings and snapshot tooling do
+    /// not need a second data model.
+    /// </summary>
+    private sealed class ResettableObservableCollection<T> : ObservableCollection<T>
+    {
+        internal void ReplaceAll(IReadOnlyList<T> values)
+        {
+            Items.Clear();
+            for (int i = 0; i < values.Count; i++)
+                Items.Add(values[i]);
+
+            OnPropertyChanged(new PropertyChangedEventArgs(nameof(Count)));
+            OnPropertyChanged(new PropertyChangedEventArgs("Item[]"));
+            OnCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
+        }
+    }
 }

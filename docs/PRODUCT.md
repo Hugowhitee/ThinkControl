@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a compact tray interface for common controls and a resizable Advanced window for deeper controls, history and diagnostics.
 
-Current prerelease: `v0.1.0-alpha.11`.
+Current prerelease: `v0.1.0-alpha.15`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -75,21 +75,23 @@ On the verified X9 profile, the service supports:
 
 - Lenovo Auto at `0x80`;
 - manual levels `1` through `7`;
-- current fan state from EC register `0x2F`;
-- tachometer RPM from `0x84/0x85`;
+- fan-control state validation/readback from EC register `0x2F` without continuously polling it in the normal status loop;
+- tachometer RPM fallback from `0x84/0x85` when a broad hardware provider does not expose usable RPM;
 - modern ThinkPad EC transport `0x1604/0x1600` with legacy `0x66/0x62` fallback;
-- duplicate-write suppression, conservative polling and readback verification;
+- duplicate-write suppression, conservative fallback polling and readback verification;
 - return to Lenovo Auto during normal shutdown/disposal when manual ownership is active.
 
 The existing supervised cooling profiles use bounded temperature smoothing, hysteresis/downshift dwell, discrete hardware levels and firmware fallback.
 
-LibreHardwareMonitor/PawnIO is the preferred broad sensor path where supported. On the X9, verified read-only EC thermal values can provide a conservative control-temperature fallback if LHM does not expose a usable control domain. Generic EC thermal readings are not relabelled as CPU Package temperature.
+LibreHardwareMonitor/PawnIO is the preferred broad sensor/fan path where supported. On the X9, verified read-only EC thermal values can provide a conservative control-temperature fallback if LHM does not expose a usable control domain. Generic EC thermal readings are not relabelled as CPU Package temperature.
 
 ThinkControl never invents RPM, PWM percentages or temperature values.
 
 ## Display
 
 Where Windows exposes the required capability, ThinkControl supports current/maximum refresh rate, automatic refresh policy, explicit 60 Hz selection, panel maximum selection, internal display brightness and adaptive brightness.
+
+Always-on runtime status uses cheap Windows APIs and cached capabilities. Slow WMI/`powercfg` discovery is reserved for startup, explicit refresh or human-scale cache refreshes rather than every UI status tick.
 
 ## Audio
 
@@ -101,7 +103,7 @@ Dolby controls are provider-driven rather than Lenovo-specific. If the installed
 
 The UI models hardware backlight levels and optional ThinkControl user-session effects independently from the backend.
 
-Current Lenovo providers include established `IBMPmDrv` and `EnergyDrv` contracts plus a validated Lenovo keyboard component fallback. Each provider requires a successful read probe before writes are enabled. Other OEMs should supply their own provider behind the same keyboard capability instead of adding vendor-specific UI.
+Current Lenovo providers include established `IBMPmDrv` and `EnergyDrv` contracts plus a validated Lenovo keyboard component fallback. Each provider requires a successful read probe before writes are enabled and failed probes are backed off. Other OEMs should supply their own provider behind the same keyboard capability instead of adding vendor-specific UI.
 
 ## Battery
 
@@ -109,7 +111,7 @@ ThinkControl can display percentage, charge/discharge state, live and smoothed w
 
 Charge and discharge history is stored locally in a bounded file. Sessions include duration, start/end percentage, Wh added/used, average/peak power and percent/hour. Battery session views show aligned percentage and power timelines rather than a cluttered dual-Y-axis chart.
 
-Static capacity values are cached instead of polled every status tick; live rate data remains frequent enough for responsive telemetry.
+The always-on battery path uses the Windows power manager rather than fixed-cadence battery WMI. Slow/static battery metadata remains cached and explicit.
 
 Charge-threshold control remains capability/provider dependent and is not faked when the OEM interface is unavailable.
 
@@ -134,9 +136,9 @@ ThinkControl provides bounded local diagnostics, support-bundle export and struc
 
 ## Installation and updates
 
-Alpha.11 uses a small installer/bootstrap flow plus the application payload. In-app updates download setup + payload first, verify both against `SHA256SUMS.txt`, then request one explicit elevation handoff. Background update checks never install software or open UAC on their own.
+Alpha.15 uses a small installer/bootstrap flow plus the application payload. In-app updates download Setup + Payload + `SHA256SUMS.txt` first, verify the managed files, then request one explicit elevation handoff. Background update checks never install software or open UAC on their own.
 
-Packaging CI tests build, application payload, installer, service startup and uninstall cleanup.
+Packaging CI tests build, application payload, installer, service startup and uninstall cleanup. `version.json` is the build and release version source of truth.
 
 ## Safety boundary
 

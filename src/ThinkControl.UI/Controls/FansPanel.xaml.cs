@@ -12,27 +12,30 @@ public partial class FansPanel : UserControl
     private App? _app;
     private bool _syncing;
     private bool _resetAdded;
+    private bool _statusSubscribed;
 
     public FansPanel()
     {
         InitializeComponent();
         CalibrationResults.ItemsSource = _calibrationRows;
+        Loaded += (_, _) => SyncStatusSubscription();
+        Unloaded += (_, _) => UnsubscribeStatus();
+        IsVisibleChanged += (_, _) => SyncStatusSubscription();
     }
 
     internal void Initialize(App app)
     {
         EnsureResetButton();
-        if (ReferenceEquals(_app, app))
+        if (!ReferenceEquals(_app, app))
         {
-            _ = app.RefreshStatusAsync();
-            return;
+            UnsubscribeStatus();
+            _app = app;
+            DataContext = app.State;
         }
-        if (_app is not null)
-            _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
-        _app = app;
-        DataContext = app.State;
-        app.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
-        _ = app.RefreshStatusAsync();
+
+        SyncStatusSubscription();
+        if (IsVisible)
+            _ = app.RefreshStatusAsync();
     }
 
     internal void PrepareForSnapshot(AppState state)
@@ -72,13 +75,42 @@ public partial class FansPanel : UserControl
         }
     }
 
+    private void SyncStatusSubscription()
+    {
+        bool shouldSubscribe = _app is not null && IsLoaded && IsVisible;
+        if (shouldSubscribe == _statusSubscribed)
+            return;
+
+        if (shouldSubscribe)
+        {
+            _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
+            _statusSubscribed = true;
+            _ = _app.RefreshStatusAsync();
+        }
+        else
+        {
+            UnsubscribeStatus();
+        }
+    }
+
+    private void UnsubscribeStatus()
+    {
+        if (!_statusSubscribed || _app is null)
+            return;
+        _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
+        _statusSubscribed = false;
+    }
+
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
     {
         if (!Dispatcher.CheckAccess())
         {
-            Dispatcher.BeginInvoke(() => ApplyStatus(response));
+            Dispatcher.BeginInvoke(() => HardwareClient_StatusObserved(sender, response));
             return;
         }
+
+        if (!IsVisible)
+            return;
         ApplyStatus(response);
     }
 

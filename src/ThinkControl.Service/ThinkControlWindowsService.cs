@@ -25,12 +25,39 @@ internal sealed class ThinkControlWindowsService : ServiceBase
             _cts = new CancellationTokenSource();
             _engine = new ServiceEngine();
             _runTask = Task.Run(() => _engine.RunAsync(_cts.Token));
+            _ = ObserveRunTaskAsync(_runTask);
+        }
+        ServiceLog.Write("Windows service started.");
+    }
+
+    private async Task ObserveRunTaskAsync(Task runTask)
+    {
+        try
+        {
+            await runTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception ex)
+        {
+            ServiceLog.Write($"Fatal service engine failure: {ex.GetType().Name}: {ex.Message}");
+            try { Stop(); } catch { }
         }
     }
 
-    protected override void OnStop() => StopEngine();
+    protected override void OnStop()
+    {
+        ServiceLog.Write("Windows service stopping.");
+        StopEngine();
+    }
 
-    protected override void OnShutdown() => StopEngine();
+    protected override void OnShutdown()
+    {
+        ServiceLog.Write("Windows shutdown requested service stop.");
+        StopEngine();
+    }
 
     private void StopEngine()
     {

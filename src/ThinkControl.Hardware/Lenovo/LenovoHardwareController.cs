@@ -25,7 +25,6 @@ public sealed record LenovoHardwareStatus(
 
 public sealed class LenovoHardwareController : IDisposable
 {
-    private static readonly TimeSpan FanStatePollInterval = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan FanRpmPollInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan EcThermalPollInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan GenericFanPollInterval = TimeSpan.FromSeconds(12);
@@ -42,7 +41,6 @@ public sealed class LenovoHardwareController : IDisposable
     private ThinkPadEc? _ec;
     private DateTimeOffset _lastEcFailure = DateTimeOffset.MinValue;
     private string? _lastEcError;
-    private DateTimeOffset _lastFanStateRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastFanRpmRead = DateTimeOffset.MinValue;
     private DateTimeOffset _lastFanRpmSuccess = DateTimeOffset.MinValue;
     private DateTimeOffset _lastEcThermalRead = DateTimeOffset.MinValue;
@@ -72,8 +70,8 @@ public sealed class LenovoHardwareController : IDisposable
 
         lock (_gate)
         {
-            // Explicit repair bypasses backoff. Normal status polling never hammers a
-            // failed EC or Lenovo keyboard backend every few seconds.
+            // Explicit repair bypasses provider backoff. Normal status refreshes never
+            // recycle healthy providers or repeatedly probe a failed EC/keyboard path.
             try
             {
                 if (_fanControl is >= ThinkPadRegisters.MinManualLevel and <= ThinkPadRegisters.MaxManualLevel && _ec is not null)
@@ -84,10 +82,10 @@ public sealed class LenovoHardwareController : IDisposable
             }
 
             try { _ec?.Dispose(); } catch { }
+            try { _keyboard.RefreshBackend(); } catch { }
             _ec = null;
             _lastEcFailure = DateTimeOffset.MinValue;
             _lastEcError = null;
-            _lastFanStateRead = DateTimeOffset.MinValue;
             _lastFanRpmRead = DateTimeOffset.MinValue;
             _lastFanRpmSuccess = DateTimeOffset.MinValue;
             _lastEcThermalRead = DateTimeOffset.MinValue;
@@ -113,24 +111,30 @@ public sealed class LenovoHardwareController : IDisposable
         {
             DateTimeOffset now = DateTimeOffset.UtcNow;
             bool ecAvailable = EnsureX9Ec(now);
+            IReadOnlyList<LenovoFanReading> lhmFans = BuildLhmFanTelemetry(sensorSnapshot);
 
             if (ecAvailable && _ec is not null)
             {
-                ReadX9FanState(now, ref ecAvailable);
-                if (ecAvailable)
-                {
+                // The initial EC compatibility probe already reads and validates the
+                // fan-control register. Every ThinkControl write also performs its own
+                // immediate readback. Re-reading that same register every six seconds
+                // added periodic EC transactions with no new safety information and
+                // matched the reported 5–8 second system hitch, so normal status
+                // refreshes keep the last verified control state instead.
+
+                // Prefer LibreHardwareMonitor/PawnIO fan telemetry whenever it is
+                // already available. This is the same working sensor stack used by
+                // FanControl and avoids a second direct EC tachometer transaction.
+                if (lhmFans.Count == 0)
                     ReadX9FanRpm(now);
 
-                    // Do not add extra EC traffic when LHM already provides a usable
-                    // CPU/GPU control temperature. The generic ThinkPad EC thermal
-                    // bank is a real, read-only fallback for provider gaps; its
-                    // registers intentionally remain unmapped instead of being
-                    // mislabeled as CPU Package.
-                    if (!sensorSnapshot.ControlTemperatureC.HasValue)
-                        ReadX9EcThermals(now);
-                    else
-                        _x9EcThermals = Array.Empty<HardwareSensorReading>();
-                }
+                // Do not add extra EC traffic when LHM already provides a usable
+                // CPU/GPU control temperature. The generic ThinkPad EC thermal bank
+                // remains only a read-only fallback for genuine provider gaps.
+                if (!sensorSnapshot.ControlTemperatureC.HasValue)
+                    ReadX9EcThermals(now);
+                else
+                    _x9EcThermals = Array.Empty<HardwareSensorReading>();
             }
             else
             {
@@ -148,11 +152,11 @@ public sealed class LenovoHardwareController : IDisposable
                     ? $"ThinkPad X9 EC · hottest read-only thermal sensor · {_ec?.PortLabel ?? "detected port"}"
                     : "Unavailable";
 
-            // The verified X9 EC tachometer is the authoritative fan source on the
-            // X9. Only probe generic Lenovo/WMI fan telemetry when that path is not
-            // available, avoiding extra WMI work and stale generic data overriding
-            // a verified tachometer.
-            bool needGenericFanFallback = !_identity.IsVerifiedX9 || !ecAvailable || !_x9FanRpm.HasValue;
+            // Generic Lenovo/WMI fan discovery is a last fallback only. Do not run it
+            // when LHM already exposes a tachometer or the verified X9 EC fallback
+            // succeeded, because that duplicates provider work for no user benefit.
+            bool needGenericFanFallback = lhmFans.Count == 0 &&
+                (!_identity.IsVerifiedX9 || !ecAvailable || !_x9FanRpm.HasValue);
             if (_isLenovo && needGenericFanFallback && now - _lastGenericFanRead >= GenericFanPollInterval)
                 ReadGenericLenovoFanTelemetry(now);
 
@@ -170,7 +174,7 @@ public sealed class LenovoHardwareController : IDisposable
                     : level.ToString();
             }
 
-            IReadOnlyList<LenovoFanReading> fans = BuildFanTelemetry(ecAvailable, sensorSnapshot);
+            IReadOnlyList<LenovoFanReading> fans = BuildFanTelemetry(ecAvailable, lhmFans);
             LenovoFanReading? primaryFan = fans.FirstOrDefault();
 
             string fanState = _identity.IsVerifiedX9 && ecAvailable && _fanControl.HasValue
@@ -235,7 +239,6 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 _ec.SetManualLevel((byte)level);
                 _fanControl = (byte)level;
-                _lastFanStateRead = now;
                 _lastFanRpmRead = now - FanRpmPollInterval + TimeSpan.FromSeconds(4);
                 return true;
             }
@@ -272,7 +275,6 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 _ec.ReturnToBios();
                 _fanControl = ThinkPadRegisters.BiosControl;
-                _lastFanStateRead = now;
                 _lastFanRpmRead = now - FanRpmPollInterval + TimeSpan.FromSeconds(4);
                 return true;
             }
@@ -322,23 +324,6 @@ public sealed class LenovoHardwareController : IDisposable
             _keyboardAvailable = true;
             _lastKeyboardProbe = DateTimeOffset.UtcNow;
             return true;
-        }
-    }
-
-    private void ReadX9FanState(DateTimeOffset now, ref bool ecAvailable)
-    {
-        if (_ec is null || (_fanControl.HasValue && now - _lastFanStateRead < FanStatePollInterval))
-            return;
-
-        try
-        {
-            _fanControl = _ec.ReadFanControl();
-            _lastFanStateRead = now;
-        }
-        catch (Exception ex)
-        {
-            MarkEcFailed(ex, now);
-            ecAvailable = false;
         }
     }
 
@@ -420,8 +405,31 @@ public sealed class LenovoHardwareController : IDisposable
         _genericFans = LenovoFanTelemetryService.Read();
     }
 
-    private IReadOnlyList<LenovoFanReading> BuildFanTelemetry(bool ecAvailable, SensorHubSnapshot sensors)
+    private static IReadOnlyList<LenovoFanReading> BuildLhmFanTelemetry(SensorHubSnapshot sensors)
     {
+        return sensors.Sensors
+            .Where(sensor => string.Equals(sensor.SensorType, "Fan", StringComparison.OrdinalIgnoreCase))
+            .Where(sensor => sensor.Value is >= 0 and <= 20000)
+            .GroupBy(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase)
+            .Select((group, index) =>
+            {
+                HardwareSensorReading sensor = group.First();
+                return new LenovoFanReading(
+                    $"lhm-pawnio-{index + 1}",
+                    (int)Math.Round(sensor.Value),
+                    string.IsNullOrWhiteSpace(sensor.Name) ? $"Fan {index + 1}" : sensor.Name,
+                    sensor.Source);
+            })
+            .ToArray();
+    }
+
+    private IReadOnlyList<LenovoFanReading> BuildFanTelemetry(
+        bool ecAvailable,
+        IReadOnlyList<LenovoFanReading> lhmFans)
+    {
+        if (lhmFans.Count > 0)
+            return lhmFans;
+
         if (_identity.IsVerifiedX9 && ecAvailable && _x9FanRpm.HasValue)
         {
             return
@@ -436,23 +444,6 @@ public sealed class LenovoHardwareController : IDisposable
 
         if (_genericFans.Count > 0)
             return _genericFans;
-
-        LenovoFanReading[] lhmFans = sensors.Sensors
-            .Where(sensor => string.Equals(sensor.SensorType, "Fan", StringComparison.OrdinalIgnoreCase))
-            .Where(sensor => sensor.Value is >= 0 and <= 20000)
-            .GroupBy(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase)
-            .Select((group, index) =>
-            {
-                HardwareSensorReading sensor = group.First();
-                return new LenovoFanReading(
-                    $"lhm-pawnio-{index + 1}",
-                    (int)Math.Round(sensor.Value),
-                    string.IsNullOrWhiteSpace(sensor.Name) ? $"Fan {index + 1}" : sensor.Name,
-                    sensor.Source);
-            })
-            .ToArray();
-        if (lhmFans.Length > 0)
-            return lhmFans;
 
         return Array.Empty<LenovoFanReading>();
     }
@@ -482,7 +473,6 @@ public sealed class LenovoHardwareController : IDisposable
 
             _ec = candidate;
             _fanControl = control;
-            _lastFanStateRead = now;
             _lastEcError = null;
             return true;
         }

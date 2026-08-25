@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
@@ -28,6 +29,8 @@ internal sealed class HardwareSetupService
     private const string ServiceName = "ThinkControlService";
     private const string PawnIoServiceName = "PawnIO";
     private const string PawnIoVersion = "2.2.0";
+    private const int ServiceRepairIpcFailure = 26;
+    private static readonly Version MinimumPawnIoVersion = new(2, 2, 0);
     private const string PawnIoUrl = "https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe";
     private const string PawnIoSha256 = "1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032";
 
@@ -44,23 +47,31 @@ internal sealed class HardwareSetupService
         ServiceQuery service = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
         bool verifiedWriteProfile = IsVerifiedEcProfile(machineType);
         bool lowLevelRelevant = verifiedWriteProfile || sensorProviderNeeded;
-        ServiceQuery pawnIo = lowLevelRelevant
+
+        PawnIoInstallState pawnIoInstall = lowLevelRelevant ? ReadPawnIoInstallState() : default;
+        ServiceQuery pawnIoDriver = lowLevelRelevant
             ? await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false)
             : default;
 
-        // PawnIO is a demand-start kernel driver. Being installed but currently
-        // STOPPED is not a failure: LHM/PawnIO can activate the device on demand.
-        bool pawnIoInstalled = !lowLevelRelevant || pawnIo.Exists;
+        // Match LibreHardwareMonitor's own readiness contract: PawnIO installation is
+        // identified by its uninstall registration and DisplayVersion, not by whether
+        // the demand-start kernel driver happens to be RUNNING at this instant.
+        bool pawnIoCompatible = !lowLevelRelevant ||
+                                (pawnIoInstall.Installed && pawnIoInstall.Version is not null && pawnIoInstall.Version >= MinimumPawnIoVersion);
 
         string lowLevelDetail = !lowLevelRelevant
             ? "Not currently required by detected capabilities"
-            : pawnIo.Running
-                ? "Installed · driver active · provider access can be probed"
-                : pawnIo.Exists
-                    ? "Installed · demand-start driver idle until LibreHardwareMonitor or the verified EC provider opens it"
-                    : verifiedWriteProfile
-                        ? "Missing · required for X9 sensor discovery and the verified EC fan provider"
-                        : "Missing · install it for additional LibreHardwareMonitor sensor discovery";
+            : !pawnIoInstall.Installed
+                ? verifiedWriteProfile
+                    ? "Missing · required for X9 sensor discovery and the verified EC fan provider"
+                    : "Missing · install it for additional LibreHardwareMonitor sensor discovery"
+                : pawnIoInstall.Version is null
+                    ? "Installed · version could not be verified · repair recommended"
+                    : pawnIoInstall.Version < MinimumPawnIoVersion
+                        ? $"Installed {pawnIoInstall.Version} · PawnIO {PawnIoVersion} or newer is required"
+                        : pawnIoDriver.Running
+                            ? $"Installed {pawnIoInstall.Version} · driver active"
+                            : $"Installed {pawnIoInstall.Version} · demand-start driver idle until a provider opens it";
 
         string serviceDetail = service.Running
             ? serviceReachable
@@ -74,8 +85,8 @@ internal sealed class HardwareSetupService
             ServiceInstalled: service.Exists,
             ServiceRunning: service.Running,
             LowLevelAccessRelevant: lowLevelRelevant,
-            LowLevelAccessInstalled: pawnIoInstalled,
-            LowLevelAccessRunning: pawnIo.Running,
+            LowLevelAccessInstalled: pawnIoCompatible,
+            LowLevelAccessRunning: pawnIoDriver.Running,
             ServiceDetail: serviceDetail,
             LowLevelAccessDetail: lowLevelDetail,
             ServiceReachable: service.Running && serviceReachable);
@@ -91,14 +102,11 @@ internal sealed class HardwareSetupService
         if (string.IsNullOrWhiteSpace(serviceExe) || !File.Exists(serviceExe))
         {
             return new(false, false,
-                "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the application payload.");
+                "The installed ThinkControl hardware service executable could not be found. Reinstall ThinkControl to restore the missing application payload.");
         }
 
         try
         {
-            // One normal Windows elevation handoff to ThinkControl's own signed/
-            // packaged service helper. No generated PowerShell script or console
-            // window is involved; the in-app repair card remains the UX owner.
             using Process? process = Process.Start(new ProcessStartInfo
             {
                 FileName = serviceExe,
@@ -113,14 +121,20 @@ internal sealed class HardwareSetupService
             await process.WaitForExitAsync().ConfigureAwait(false);
             if (process.ExitCode != 0)
             {
+                if (process.ExitCode == ServiceRepairIpcFailure)
+                {
+                    return new(false, false,
+                        "Windows started the hardware service, but its local ThinkControl IPC handshake never became responsive. The installed files were not replaced. Retry once; if it repeats, review the hardware-service log in Diagnostics.");
+                }
+
                 return new(false, false,
-                    $"Hardware service repair returned code {process.ExitCode}. The app payload was left unchanged.");
+                    $"Hardware service repair returned code {process.ExitCode}. The installed application payload was left unchanged; review Diagnostics before reinstalling.");
             }
 
             await Task.Delay(500).ConfigureAwait(false);
             ServiceQuery after = await QueryServiceAsync(ServiceName).ConfigureAwait(false);
             return after.Running
-                ? new(true, false, "ThinkControl hardware service is running. Verifying hardware providers now…")
+                ? new(true, false, "ThinkControl hardware service and local app connection were verified. Checking hardware providers now…")
                 : new(false, false, "The hardware service repair completed, but Windows still reports the service as stopped.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
@@ -147,46 +161,77 @@ internal sealed class HardwareSetupService
                 return new(false, false, "The downloaded hardware component failed SHA-256 verification and was not started.");
 
             await File.WriteAllBytesAsync(installer, payload).ConfigureAwait(false);
+
+            // Use the exact public PawnIO installer mode used by LibreHardwareMonitor.
+            // The previous extra -silent switch hid the only useful installation UX
+            // and made a failed UAC/driver install look like a button that did nothing.
             using Process? process = Process.Start(new ProcessStartInfo
             {
                 FileName = installer,
-                Arguments = "-install -silent",
+                Arguments = "-install",
                 UseShellExecute = true,
-                Verb = "runas"
+                Verb = "runas",
+                WorkingDirectory = tempDirectory
             });
             if (process is null)
-                return new(false, false, "Windows could not start the hardware component installer.");
+                return new(false, false, "Windows could not start the PawnIO installer.");
 
             await process.WaitForExitAsync().ConfigureAwait(false);
             bool restart = process.ExitCode == 3010;
             if (process.ExitCode is not 0 and not 3010)
-                return new(false, false, $"The hardware component installer returned exit code {process.ExitCode}.");
+                return new(false, false, $"PawnIO installation returned exit code {process.ExitCode}.");
 
-            await Task.Delay(900).ConfigureAwait(false);
-            ServiceQuery after = await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false);
-            if (after.Exists)
+            await Task.Delay(700).ConfigureAwait(false);
+            PawnIoInstallState after = ReadPawnIoInstallState();
+            if (after.Installed && after.Version is not null && after.Version >= MinimumPawnIoVersion)
             {
                 return new(true, restart,
                     restart
-                        ? "PawnIO is installed. Windows requested a restart; after reboot ThinkControl will refresh LibreHardwareMonitor/PawnIO automatically."
-                        : "PawnIO is installed. Its demand-start driver will activate when ThinkControl opens the LibreHardwareMonitor provider; refreshing providers now is usually enough.");
+                        ? $"PawnIO {after.Version} is installed. Windows requested a restart; ThinkControl will refresh providers after reboot."
+                        : $"PawnIO {after.Version} is installed and verified. ThinkControl can refresh hardware providers now.");
             }
 
             return new(false, restart,
-                "The component installer finished, but Windows does not report PawnIO. Restart Windows or run the repair again.");
+                after.Installed
+                    ? "PawnIO is registered, but its installed version could not be verified as compatible. Run the repair again or restart Windows."
+                    : "The PawnIO installer finished, but Windows does not report the installation. Restart Windows or run the repair again.");
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
-            return new(false, false, "Hardware component installation was cancelled.");
+            return new(false, false, "PawnIO installation was cancelled.");
         }
         catch (Exception ex)
         {
-            return new(false, false, $"Hardware component installation failed: {ex.Message}");
+            return new(false, false, $"PawnIO installation failed: {ex.Message}");
         }
         finally
         {
             try { if (File.Exists(installer)) File.Delete(installer); } catch { }
         }
+    }
+
+    private static PawnIoInstallState ReadPawnIoInstallState()
+    {
+        foreach (RegistryView view in new[] { RegistryView.Registry64, RegistryView.Registry32 })
+        {
+            try
+            {
+                using RegistryKey localMachine = RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, view);
+                using RegistryKey? key = localMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\PawnIO", writable: false);
+                if (key is null)
+                    continue;
+
+                string? rawVersion = key.GetValue("DisplayVersion") as string;
+                Version? version = Version.TryParse(rawVersion, out Version? parsed) ? parsed : null;
+                return new PawnIoInstallState(true, version);
+            }
+            catch
+            {
+                // Try the other registry view before declaring it unavailable.
+            }
+        }
+
+        return new PawnIoInstallState(false, null);
     }
 
     private static bool IsVerifiedEcProfile(string? machineType) =>
@@ -223,4 +268,5 @@ internal sealed class HardwareSetupService
     }
 
     private readonly record struct ServiceQuery(bool Exists, bool Running);
+    private readonly record struct PawnIoInstallState(bool Installed, Version? Version);
 }

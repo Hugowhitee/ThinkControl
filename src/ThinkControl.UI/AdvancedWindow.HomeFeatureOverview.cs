@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -22,10 +23,10 @@ public partial class AdvancedWindow
         var section = new StackPanel
         {
             Tag = HomeFeatureOverviewTag,
-            Margin = new Thickness(0, 14, 0, 0)
+            Margin = new Thickness(0, 16, 0, 1)
         };
 
-        var header = new Grid { Margin = new Thickness(2, 0, 2, 8) };
+        var header = new Grid { Margin = new Thickness(2, 0, 2, 9) };
         header.Children.Add(new TextBlock
         {
             Text = "Quick access",
@@ -42,7 +43,7 @@ public partial class AdvancedWindow
         Button touchpad = CreateHomeFeatureButton(
             "Touchpad",
             "Touchpad",
-            "Gestures · haptics · OSD",
+            "Gestures, haptics and OSD",
             "Open touchpad controls");
         touchpad.Click += (_, _) => NavigateTouchpad();
         row.Children.Add(touchpad);
@@ -50,9 +51,9 @@ public partial class AdvancedWindow
         Button sensors = CreateHomeFeatureButton(
             "Sensors",
             "Sensors",
-            "Live temperature & fan telemetry",
+            "Temperatures, power and fans",
             "Open sensors");
-        sensors.Margin = new Thickness(7, 0, 7, 0);
+        sensors.Margin = new Thickness(8, 0, 8, 0);
         sensors.Click += (_, _) => NavigateSensors();
         Grid.SetColumn(sensors, 1);
         row.Children.Add(sensors);
@@ -60,7 +61,7 @@ public partial class AdvancedWindow
         Button audio = CreateHomeFeatureButton(
             "Audio",
             "Audio",
-            "Volume · Dolby profile · tone",
+            "Volume, Dolby and tone",
             "Open audio controls");
         audio.Click += (_, _) => NavigateAudio();
         Grid.SetColumn(audio, 2);
@@ -110,23 +111,33 @@ public partial class AdvancedWindow
 
     private Button CreateHomeFeatureButton(string title, string iconKind, string detail, string tooltip)
     {
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
-
         var icon = new PackIconLucide
         {
             Kind = iconKind,
-            Width = 16,
-            Height = 16,
+            Width = 17,
+            Height = 17,
+            HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
         };
-        icon.SetResourceReference(ForegroundProperty, "Tc.TextMuted");
-        grid.Children.Add(icon);
+        icon.SetResourceReference(ForegroundProperty, "Tc.Text");
+
+        var iconSurface = new Border
+        {
+            Width = 32,
+            Height = 32,
+            CornerRadius = new CornerRadius(6),
+            Child = icon,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        iconSurface.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
 
         var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        copy.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, FontSize = 11 });
+        copy.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontWeight = FontWeights.SemiBold,
+            FontSize = 11.5
+        });
         var sub = new TextBlock
         {
             Text = detail,
@@ -136,8 +147,6 @@ public partial class AdvancedWindow
         };
         sub.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         copy.Children.Add(sub);
-        Grid.SetColumn(copy, 1);
-        grid.Children.Add(copy);
 
         var chevron = new TextBlock
         {
@@ -147,29 +156,36 @@ public partial class AdvancedWindow
             VerticalAlignment = VerticalAlignment.Center
         };
         chevron.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
+        grid.Children.Add(iconSurface);
+        Grid.SetColumn(copy, 1);
+        grid.Children.Add(copy);
         Grid.SetColumn(chevron, 2);
         grid.Children.Add(chevron);
 
-        // Explicitly use ThinkControl's button template. The stock WPF Button
-        // chrome is what produced the blue focus/selection rectangle behind these
-        // three cards even though their child Border used TcSection.
+        // The card itself is now the button surface. The previous implementation
+        // nested a TcSection inside a TcButton, producing two independent borders and
+        // a selector-like pressed/focus layer. One surface matches the rest of Home.
         var button = new Button
         {
-            Height = 66,
+            Height = 68,
             Style = TryFindResource("TcButton") as Style,
-            Background = System.Windows.Media.Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            Padding = new Thickness(0),
+            BorderThickness = new Thickness(1),
+            Padding = new Thickness(12, 8, 10, 8),
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Content = new Border
-            {
-                Style = TryFindResource("TcSection") as Style,
-                Padding = new Thickness(11, 8, 9, 8),
-                Child = grid
-            },
+            VerticalContentAlignment = VerticalAlignment.Stretch,
+            Content = grid,
             Cursor = System.Windows.Input.Cursors.Hand,
-            ToolTip = tooltip
+            ToolTip = tooltip,
+            Focusable = false,
+            IsTabStop = false
         };
+        button.SetResourceReference(Control.BackgroundProperty, "Tc.Surface");
+        button.SetResourceReference(Control.BorderBrushProperty, "Tc.BorderStrong");
         return button;
     }
 }

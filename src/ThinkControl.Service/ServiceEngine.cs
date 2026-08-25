@@ -32,17 +32,42 @@ internal sealed class ServiceEngine : IDisposable
     {
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _disposeCts.Token);
         CancellationToken token = linked.Token;
-        _fanSupervisor.Start(token);
 
+        // Create the IPC endpoint before starting any hardware discovery. A slow or
+        // broken sensor provider must never make an otherwise healthy Windows service
+        // look unreachable to the non-elevated UI.
+        NamedPipeServerStream? nextServer = null;
+        try
+        {
+            nextServer = CreateServerPipe();
+            ServiceLog.Write($"IPC ready on {ThinkControlProtocol.PipeName}; starting provider discovery.");
+        }
+        catch (Exception ex)
+        {
+            ServiceLog.Write($"IPC startup failed: {ex.GetType().Name}: {ex.Message}");
+            throw;
+        }
+
+        _fanSupervisor.Start(token);
         _statusRefreshTask = Task.Run(() => StatusRefreshLoopAsync(token), token);
 
         while (!token.IsCancellationRequested)
         {
-            NamedPipeServerStream? server = null;
+            NamedPipeServerStream? server = nextServer;
+            nextServer = null;
             try
             {
-                server = CreateServerPipe();
+                server ??= CreateServerPipe();
                 await server.WaitForConnectionAsync(token).ConfigureAwait(false);
+
+                // Prepare the next listener before servicing this client so a status
+                // read cannot transiently block a Ping/repair verification request.
+                try { nextServer = CreateServerPipe(); }
+                catch (Exception ex)
+                {
+                    ServiceLog.Write($"Could not pre-create next IPC listener: {ex.GetType().Name}: {ex.Message}");
+                }
+
                 _ = HandleConnectionAsync(server, token);
                 server = null;
             }
@@ -51,13 +76,16 @@ internal sealed class ServiceEngine : IDisposable
                 server?.Dispose();
                 break;
             }
-            catch
+            catch (Exception ex)
             {
                 server?.Dispose();
+                ServiceLog.Write($"IPC loop recovered from {ex.GetType().Name}: {ex.Message}");
                 try { await Task.Delay(250, token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { break; }
             }
         }
+
+        nextServer?.Dispose();
     }
 
     private async Task StatusRefreshLoopAsync(CancellationToken token)
@@ -90,9 +118,14 @@ internal sealed class ServiceEngine : IDisposable
         security.SetOwner(system);
         security.AddAccessRule(new PipeAccessRule(system, PipeAccessRights.FullControl, AccessControlType.Allow));
         security.AddAccessRule(new PipeAccessRule(admins, PipeAccessRights.FullControl, AccessControlType.Allow));
+
+        // NamedPipeClientStream(PipeDirection.InOut) asks Windows for generic read and
+        // write access. The old hand-picked ACL omitted write attributes/extended
+        // attributes, which can make an ordinary interactive client fail with access
+        // denied while SCM still reports the service as RUNNING.
         security.AddAccessRule(new PipeAccessRule(
             interactive,
-            PipeAccessRights.ReadData | PipeAccessRights.WriteData | PipeAccessRights.ReadAttributes | PipeAccessRights.Synchronize,
+            PipeAccessRights.ReadWrite | PipeAccessRights.Synchronize,
             AccessControlType.Allow));
 
         return NamedPipeServerStreamAcl.Create(
@@ -100,7 +133,7 @@ internal sealed class ServiceEngine : IDisposable
             PipeDirection.InOut,
             NamedPipeServerStream.MaxAllowedServerInstances,
             PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous | PipeOptions.WriteThrough,
+            PipeOptions.Asynchronous,
             MaxRequestBytes,
             MaxRequestBytes,
             security,
@@ -184,6 +217,24 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse RefreshProviders()
     {
+        CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
+        if (cooling.Characterization.Running)
+        {
+            return Error("Stop fan characterization before refreshing hardware providers.");
+        }
+
+        bool thinkControlOwnsFan = cooling.AppliedLevel.HasValue ||
+            !cooling.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
+        if (thinkControlOwnsFan && !_fanSupervisor.ReturnToAuto(out string? handoffError))
+        {
+            return Error(
+                "Provider refresh was blocked because ThinkControl could not safely return fan ownership to Lenovo Auto. " +
+                (handoffError ?? "Retry Lenovo Auto, then refresh providers again."));
+        }
+
+        // Never tear down/reprobe EC, sensor or keyboard providers while the fan
+        // supervisor still believes it owns a manual level. RefreshProviders itself
+        // performs a second defensive BIOS handoff if the EC cache disagrees.
         _hardware.RefreshProviders();
         ServiceResponse discovering = ProviderDiscoveryResponse("Providers recycled · re-detecting PawnIO/LHM, X9 EC and Lenovo keyboard backends");
         lock (_statusGate) _lastStatus = discovering;

@@ -11,7 +11,7 @@ public enum CoolingProfile
 public static class FanCurvePolicy
 {
     public const double DownshiftHysteresisC = 4.0;
-    public const double SafetyHandoffC = 96.0;
+    public const double SafetyHandoffC = 94.0;
     public const double SafetyResumeC = 90.0;
 
     private static readonly double[] SilentThresholds = [double.NegativeInfinity, 62, 70, 77, 83, 88, 92];

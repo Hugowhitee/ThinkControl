@@ -38,13 +38,12 @@ public partial class App
         ApplyTrayIconPolish();
         StartAutomaticUpdateChecks();
 
-        // The original 2-second all-in-one status cadence was too aggressive for a
-        // laptop companion that also talks to WMI, display APIs and a privileged
-        // hardware service. Keep the UI responsive without making Windows do a
-        // multi-provider refresh every two seconds. Live gesture/slider interactions
-        // remain event-driven and are therefore unaffected by this cadence.
-        if (_statusTimer is not null)
-            _statusTimer.Interval = TimeSpan.FromSeconds(4);
+        // The startup refresh intentionally performs one complete discovery pass.
+        // After that, switch to the direct Windows/service runtime scheduler so WMI,
+        // powercfg and display-capability discovery never run on a fixed background
+        // cadence. This removes the periodic whole-laptop hitch seen during discharge
+        // sessions instead of merely moving the hitch to a longer interval.
+        StartRuntimeStatusScheduler();
 
         // A Windows-startup launch is intentionally silent: no compact popup,
         // advanced window, splash screen or hardware onboarding prompt.

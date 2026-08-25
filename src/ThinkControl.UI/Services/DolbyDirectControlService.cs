@@ -347,7 +347,7 @@ internal sealed class DolbyDirectControlService
     }
 
     private static Exception Unwrap(Exception ex) => ex is TargetInvocationException { InnerException: not null } invocation
-        ? invocation.InnerException
+        ? invocation.InnerException!
         : ex;
 
     private static void Release(object? instance)

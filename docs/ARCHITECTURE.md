@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture used by ThinkControl `v0.1.0-alpha.11` and the compatibility boundaries new provider work must preserve.
+This document describes the architecture used by ThinkControl `v0.1.0-alpha.15` and the compatibility boundaries new provider work must preserve.
 
 ThinkControl is a general Windows laptop-control product. The current low-level reference implementation is Lenovo/ThinkPad/X9, but the core/UI architecture is intentionally vendor-neutral.
 
@@ -37,11 +37,11 @@ The current assembly remains intentionally small while profile composition/resol
 
 Hardware/provider implementations and probes. This layer owns provider lifecycle, validation/readback, backoff, low-level safety and write allowlists.
 
-Current implementations include Windows/WMI/LHM sensor routes and Lenovo/X9 providers. Future OEM providers should fit behind the same capability contracts rather than adding vendor-specific product shells.
+Current implementations include Windows/LHM/PawnIO sensor routes and Lenovo/X9 providers. Future OEM providers should fit behind the same capability contracts rather than adding vendor-specific product shells.
 
 ### ThinkControl.Service
 
-The Windows service owns elevated hardware operations and provider lifetime. Public operations are semantic, for example:
+The Windows service owns elevated hardware operations and provider lifetime. Its IPC listener is established before slow hardware discovery, and normal `GetStatus` requests consume a cached hardware snapshot rather than synchronously rebuilding providers. Public operations are semantic, for example:
 
 ```text
 Ping
@@ -102,6 +102,8 @@ High-value overlays such as Notifications, Hardware Setup and telemetry detail u
 
 The current pipe is `ThinkControl.Service.v1`. Requests are versioned and length-bounded, and the local pipe ACL restricts access to the intended Windows identities.
 
+Service readiness and provider readiness remain separate. A repair is only reported successful after SCM reaches Running **and** the real ThinkControl `Ping` request succeeds through the named pipe.
+
 These operations are intentionally absent:
 
 ```text
@@ -132,7 +134,9 @@ Unsupported controls remain visible where useful for context, but show an action
 
 Sensor values must be real provider readings.
 
-LibreHardwareMonitor/PawnIO is one generic Windows provider route where supported. CPU Package is labelled CPU Package only when the provider actually identifies it as such. Generic ACPI thermal zones are not silently promoted to CPU temperature.
+LibreHardwareMonitor/PawnIO is a generic Windows provider route where supported. CPU Package is labelled CPU Package only when the provider actually identifies it as such. Generic ACPI thermal zones are not silently promoted to CPU temperature.
+
+The always-on sensor set is deliberately narrow. CPU/GPU/motherboard data is enabled where useful; storage, battery, network, controller, PSU and power-monitor providers are not continuously opened merely to populate more rows. Failed providers back off and recover through bounded retry/recycle or an explicit user retry.
 
 Model-specific read-only temperature fallbacks may be exposed with honest source labels. A value may become a fan-control temperature only when its provider/safety policy explicitly permits that use.
 
@@ -151,7 +155,9 @@ Level 7      0x07
 
 The backend blocks fan-off `0x00` and the unverified `0x40` override family. EC transport probes modern ThinkPad ports `0x1604/0x1600` first with `0x66/0x62` fallback, under shared ThinkPad EC mutexes.
 
-RPM uses the verified `0x84/0x85` tachometer route with conservative polling. The physical X9 chassis has two fans, but ThinkControl does not use an unverified selector write to fabricate separate per-fan telemetry.
+Fan telemetry prefers real LibreHardwareMonitor/PawnIO readings when that provider exposes them. The verified `0x84/0x85` EC tachometer remains a conservative fallback. Fan-control register state is validated during provider setup and explicit write/readback paths rather than continuously polled in the normal status loop.
+
+The physical X9 chassis has two fans, but ThinkControl does not use an unverified selector write to fabricate separate per-fan telemetry.
 
 Normal controller disposal attempts to return active manual fan ownership to Lenovo Auto.
 
@@ -169,9 +175,11 @@ Windows power mode is the generic baseline.
 
 On the verified X9 profile, ThinkControl additionally coordinates the reviewed Lenovo LITSSvc semantic commands after applying the Windows mode. That provider is profile-specific and is never reused for another OEM/model merely because the UI uses the same Quiet/Balanced/Performance labels.
 
+The always-on UI scheduler reads battery state through the Windows power manager and current refresh rate through direct display APIs. WMI/`powercfg` capability discovery remains cached or explicit instead of running every two seconds.
+
 ## Keyboard
 
-Keyboard backlight is a capability, not a Lenovo page. The current Lenovo implementation probes established `IBMPmDrv`/`EnergyDrv` contracts and requires readback before writes. Future OEM providers should implement the same capability contract behind the shared UI.
+Keyboard backlight is a capability, not a Lenovo page. The current Lenovo implementation probes established `IBMPmDrv`/`EnergyDrv` contracts and requires readback before writes. Failed probes are backed off; future OEM providers should implement the same capability contract behind the shared UI.
 
 User-session effects (Auto/Breathing/Reactive/Audio) remain separate from the privileged hardware-level setter.
 
@@ -181,13 +189,15 @@ Windows output volume stays in the user session. Dolby DAX direct control is ven
 
 ## Battery
 
-Battery live status comes from Windows battery interfaces. Charge/discharge history is local and bounded; static capacity values are cached rather than repeatedly queried each status tick. Session detail supports aligned percentage and power timelines.
+Always-on battery status comes from the Windows power manager rather than fixed-cadence battery WMI. Charge/discharge history is local and bounded; slow/static metadata is cached or read explicitly. Session detail supports aligned percentage and power timelines.
 
 OEM charge-threshold/control providers can be added later behind a battery capability without changing the main Battery page.
 
 ## Precision Touchpad gestures
 
 Precision Touchpad Raw HID input is handled in `ThinkControl.UI` because it belongs to the interactive user session. The pure recognizer lives in Core. OS/media writes are coalesced and bounded so per-frame input cannot create unbounded async/provider work.
+
+Media seeking accumulates a stable gesture target. Browser media can use a responsive bounded cadence while Spotify/Apple Music use a more conservative cadence to avoid flooding fragile GSMTC bridges.
 
 ## Installation
 
@@ -209,13 +219,21 @@ Device-specific prerequisites belong to in-app Hardware Setup and are offered on
 
 The real WPF interface is rendered in CI. Every Advanced page is checked at normal, minimum and wide sizes. High-value provider-unavailable states, Notifications, Hardware Setup, Audio and telemetry detail are rendered deterministically so CI runner hardware does not masquerade as product state.
 
-Generated screenshots live in Actions artifacts; selected current snapshots are published as release previews.
+Generated screenshots live in Actions artifacts and are inspected as visual QA. They are not published as managed release downloads.
 
 ## Release publication
 
-`version.json` is the release version source. A release-ready change merges to `main`, main CI validates the exact commit and the publisher creates/resumes the matching version tag before dispatching the tested packaging workflow.
+`version.json` is the build and release version source. Normal builds read it directly; package CI may temporarily append a development build suffix through `APP_VERSION`, while a tagged build must match the exact `v<version>` tag.
 
-Published release assets include Setup, Payload, `SHA256SUMS.txt` and the selected current UI previews.
+A release-ready change merges to `main`, the exact commit is tagged and the tagged packaging workflow repeats build/visual QA/payload/installer/service-lifecycle checks before publication.
+
+Published release assets are intentionally limited to:
+
+```text
+ThinkControl-Setup-<version>.exe
+ThinkControl-Payload-<version>.zip
+SHA256SUMS.txt
+```
 
 ## Branch hygiene
 

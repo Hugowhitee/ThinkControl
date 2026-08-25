@@ -23,31 +23,27 @@
   </a>
 </div>
 
-## ThinkControl alpha.11
+## ThinkControl alpha.15
 
 ThinkControl is a lightweight Windows 11 companion for laptop controls that are normally spread across Windows Settings, OEM utilities and monitoring tools. It has a small notification-area popup for everyday changes and a resizable Advanced window for deeper controls and telemetry.
 
 The product is capability-driven rather than tied to one laptop brand. Windows-safe features form the generic baseline; OEM, product-family and exact-model providers can add deeper hardware support without duplicating the main UI. The ThinkPad X9-15 Gen 1 is currently the physically reviewed low-level reference device, not the architectural product boundary.
 
-**Current prerelease:** `v0.1.0-alpha.11`  
+**Current prerelease:** `v0.1.0-alpha.15`  
 **Reviewed low-level reference profile:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 11 x64 · .NET 10
 
 Download the latest setup from **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**. For a normal install, this is the only file to download:
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.11.exe
+ThinkControl-Setup-0.1.0-alpha.15.exe
 ```
 
 The release also contains a versioned application payload and `SHA256SUMS.txt`. Those are updater/verification infrastructure used so ThinkControl can download and verify the complete app **before** elevation; users do not need to extract or install them manually.
 
 ## Interface
 
-The release overview is generated from the real WPF interface by release CI. Individual normal/minimum/wide screenshots remain internal visual-QA artifacts so the public download list stays compact.
-
-<p align="center">
-  <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.11/ui-overview.png" alt="ThinkControl interface overview: Compact, Home, Touchpad, Sensors, Fans, Audio, Battery and Hardware Setup" width="100%">
-</p>
+Release CI renders the real WPF interface in dark/light themes at minimum, normal and wide window sizes. The complete screenshot gallery is kept as a CI visual-QA artifact rather than adding PNG files to the public release download list. Public releases intentionally contain only Setup, the updater payload and checksums.
 
 ## Highlights
 
@@ -56,31 +52,35 @@ The release overview is generated from the real WPF interface by release CI. Ind
 | **Home** | Battery, CPU and fan overview plus quick access, notifications and support |
 | **Performance** | Quiet, Balanced and Performance preferences with separate battery/AC behavior |
 | **Fans** | Firmware/OEM Auto, verified manual levels and supervised cooling profiles where a writable provider passes validation |
-| **Sensors** | CPU, GPU, storage, memory, fan and other telemetry from trustworthy detected providers |
+| **Sensors** | CPU, GPU, fan and other telemetry from trustworthy detected providers |
 | **Battery** | Watts, Wh, health, filtered ETA, charge/discharge sessions, `% + W` timelines, drain rate and local history |
 | **Display** | Brightness, adaptive brightness, refresh rate and automatic 60 Hz / maximum switching |
 | **Audio** | Windows system volume plus direct Dolby profile and Music IEQ controls where DAX exposes semantic readback |
 | **Keyboard** | Hardware brightness plus Auto, Breathing, Reactive and experimental Audio effects where a verified provider is available |
 | **Touchpad** | Live touch point/trail, configurable edge gestures, haptics and themed gesture pop-ups |
-| **Updates** | Automatic checks, Last checked time, verified in-app download and explicit one-click installer handoff |
+| **Updates** | Automatic checks, Last checked time, SHA-256 verified download and explicit one-click installer handoff |
 
 ThinkControl does **not** invent missing RPM values, fake PWM percentages, guessed EC registers or synthetic sensor readings. Low-level controls remain visible but unavailable until their provider is actually detected and validated.
 
-## Alpha.11 stabilization changes
+## Alpha.15 stabilization changes
 
-Alpha.11 is a regression and hardware-reliability pass over alpha.10. The focus is on making existing features dependable and keeping failures understandable instead of layering on more speculative controls.
+Alpha.15 is a reliability and performance pass over alpha.14.1. The focus is on fixing regressions and reducing background work before expanding the product further.
 
-- Windows service state and ThinkControl IPC reachability are reported separately, so a running service no longer looks healthy when the app cannot actually reach it.
-- PawnIO readiness checks distinguish installation, device access and provider/module readiness before suggesting a repair.
-- The verified X9 fan path performs read-only EC discovery under the shared ThinkPad EC mutex, prioritizes the modern `0x1604/0x1600` transport, validates RPM/readback and keeps unknown writes blocked.
-- Fan telemetry prefers the verified X9 tachometer route over generic fallback sources; manual levels remain discrete and firmware/OEM Auto remains the recovery owner on that profile.
-- LibreHardwareMonitor/PawnIO sensor discovery uses bounded retry/recycle behavior and selects real CPU/GPU temperature domains without relabelling generic ACPI thermal zones as CPU temperature. A verified read-only X9 EC thermal fallback can provide a conservative control-temperature source without pretending it is CPU Package.
-- Lenovo keyboard control requires provider readback and backs off failed probes instead of repeatedly sending uncertain calls.
-- Hardware Setup and Notifications expose concrete repair states for service, low-level access, sensors, fans and keyboard providers.
-- Dolby control is consolidated around direct semantic DAX operations. Guessed numeric IEQ mappings and automatic Dolby Access launching are removed.
-- Battery charge/discharge history now presents aligned battery-percentage and power timelines, while static capacity polling is cached to reduce background work.
-- Touchpad continuous controls coalesce volume/brightness writes, media seeking rejects stale asynchronous targets and the minimum-width layout is covered by deterministic visual QA.
-- The visual-QA matrix renders every Advanced page at normal, minimum and wide sizes plus provider-unavailable, Hardware Setup, Notifications, Audio and telemetry-detail states.
+- The privileged hardware service creates its named-pipe endpoint before slow provider discovery and keeps a cached hardware snapshot, so the UI can distinguish a running Windows service from a working app connection.
+- Service repair now verifies the same named-pipe `Ping` protocol the app uses instead of treating SCM `Running` as sufficient proof.
+- LibreHardwareMonitor uses its PawnIO-backed provider path with PawnIO 2.2.0 as the minimum compatible low-level component. Installation, driver/device accessibility, provider readiness and actual telemetry remain separate states.
+- The always-on runtime scheduler uses the Windows power manager and cheap display APIs instead of repeatedly running battery WMI, `powercfg` and full display discovery.
+- Sensor discovery avoids unnecessary storage, battery, network, controller and PSU providers in the always-on path and uses bounded retry/recycle behavior rather than repeatedly hammering failed providers.
+- On the verified X9 profile, real LibreHardwareMonitor/PawnIO fan telemetry is preferred when available. Direct EC tachometer and read-only thermal access are conservative fallbacks, and periodic EC control-register probing was removed from the normal status loop.
+- Manual X9 fan writes remain restricted to `21Q6` / `21Q7`, verified by readback and returned to firmware/OEM Auto on supported failure/disposal paths.
+- Lenovo keyboard control requires provider readback, failed probes are backed off rather than retried every status cycle, and an explicit provider refresh now drops cached driver/Vantage backends before probing again.
+- Hardware Setup and Notifications now surface root causes instead of multiplying one failed dependency into several identical repair actions.
+- Update checking, Home and the Updates page share one release state. A user-triggered update downloads Setup + Payload + checksums, verifies SHA-256, shows the Windows elevation handoff and keeps update controls locked while the installer owns the swap.
+- Automatic update checks never install or open UAC by themselves.
+- Touchpad media seeking uses smaller per-frame deltas and coalesced GSMTC writes; browser sessions update more responsively while Spotify/Apple Music keep a conservative cadence.
+- Gesture OSD placement, Home quick controls and hardware/sensor state propagation were tightened so unavailable states stay explicit rather than looking blank or stale.
+- `version.json` is now the build version source of truth for normal builds as well as packaging, preventing stale hard-coded app versions from appearing in the UI.
+- Windows CI builds with zero compiler warnings, runs the core test suite and renders the complete 52-snapshot visual-QA matrix before packaging.
 
 ## Multi-device architecture
 
@@ -98,9 +98,9 @@ ThinkControl checks GitHub Releases shortly after startup and periodically after
 
 When an update is available, clicking **Install update** performs this flow:
 
-`Downloading setup + payload → Verifying SHA-256 → Approve Windows prompt → Installing → Relaunch`
+`Downloading Setup + Payload + checksums → Verifying SHA-256 → Approve Windows prompt → Installing → Relaunch`
 
-Both the small setup executable and application payload are downloaded **before** elevation and verified against `SHA256SUMS.txt`. ThinkControl stays open while the files are downloaded and verified. If the Windows administrator prompt is cancelled or setup fails, the app remains usable and does not automatically reopen the installer on the next startup.
+Both the small setup executable and application payload are downloaded **before** elevation and verified against `SHA256SUMS.txt`. ThinkControl stays open while files are downloaded and verified. If the Windows administrator prompt is cancelled or setup fails before handoff, the running installation remains usable and the updater does not loop prompts on startup.
 
 The setup detects an existing installation, skips first-install shortcut questions in update mode, closes the running tray/UI instance only when replacement is ready, updates the hardware service and relaunches ThinkControl when installation completes.
 
@@ -108,20 +108,20 @@ The setup detects an existing installation, skips first-install shortcut questio
 
 The Touchpad page shows the real contact point with a red marker and fading trail. Edge areas brighten on hover and turn red only when selected. Default actions are Volume on the left edge, Brightness on the right and Media seek on the top edge.
 
-Slow movement stays precise while faster movement changes the value more aggressively. During a gesture ThinkControl shows useful feedback such as `Volume · 58% · +5%`, `Brightness · 72% · −3%` or `Media seek · +18.4 s`. Haptic feedback uses discrete levels and click sensitivity is presented **Light → Medium → Firm**.
+Slow movement stays precise while faster movement accelerates within bounded limits. Volume and brightness writes are coalesced rather than fanning one OS call out per touch frame. Media seek uses an accumulated target and a bounded write cadence so slow movement can remain precise without flooding Spotify or browser media sessions.
 
 ## Hardware recovery
 
 ThinkControl separates normal Windows features from privileged/provider-specific hardware access. Hardware Setup distinguishes the layers rather than collapsing everything into one online/offline flag:
 
-1. **ThinkControl hardware service** — Windows service state plus the app-to-service connection.
+1. **ThinkControl hardware service** — Windows service state plus the app-to-service IPC connection.
 2. **Low-level/sensor access** — required driver/device access and sensor-provider readiness, such as PawnIO/LHM where applicable.
 3. **Model-specific provider** — exact-model telemetry/readback validation before a low-level write capability is enabled.
 4. **OEM platform integration** — keyboard, thermal-policy or other OEM provider availability and readback.
 
-If a required component is missing, controls remain visible and ThinkControl explains what is unavailable instead of leaving them silently disabled. The notification inbox can take users directly to the relevant repair or retry action.
+If a required component is missing, controls remain visible and ThinkControl explains what is unavailable instead of leaving them silently disabled. The notification inbox prioritizes prerequisite/root-cause repairs before downstream provider retries.
 
-The X9-15 Gen 1 (`21Q6` / `21Q7`) remains the reviewed low-level reference profile. Its unknown direct fan writes stay blocked, and manual fan ownership returns to firmware/OEM Auto on supported disposal paths.
+The X9-15 Gen 1 (`21Q6` / `21Q7`) remains the reviewed low-level reference profile. Unknown direct fan writes stay blocked, and manual fan ownership returns to firmware/OEM Auto on supported disposal paths.
 
 ## Audio, battery and reset behavior
 
@@ -141,7 +141,7 @@ Sharing only becomes useful after new provider/capability information is found. 
 
 ## Development and safety
 
-Windows CI builds the solution, runs tests and renders the WPF visual-QA matrix. Packaging CI publishes UI/service payloads, builds the web bootstrapper and performs a real silent **install → service Running → uninstall → cleanup** lifecycle test.
+Windows CI builds the solution, runs tests and renders the WPF visual-QA matrix. Packaging CI publishes framework-dependent UI/service payloads, builds the small web bootstrapper and performs a real silent **install → service Running → uninstall → cleanup** lifecycle test.
 
 ```powershell
 dotnet restore ThinkControl.slnx
@@ -149,6 +149,6 @@ dotnet build ThinkControl.slnx -c Release
 .\tools\visual-qa.ps1
 ```
 
-Automated CI cannot prove physical-device behavior. Fan ownership/RPM, OEM keyboard readback, touchpad HID behavior, Dolby DAX behavior and haptic response still require validation on the actual target hardware before that exact model/provider is treated as fully proven.
+Automated CI and source-level protocol cross-checking cannot prove physical-device behavior. Fan ownership/RPM, OEM keyboard readback, touchpad HID behavior, Dolby DAX behavior and haptic response still require a run on the actual target hardware before that exact installed driver/firmware combination is treated as physically confirmed.
 
 See [Device support](docs/DEVICE-SUPPORT.md), [Hardware safety](docs/HARDWARE-SAFETY.md), [Diagnostics & privacy](docs/DIAGNOSTICS.md) and [X9-15 research](docs/research/x9-15-gen1.md).

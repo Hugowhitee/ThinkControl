@@ -32,8 +32,8 @@ public sealed class FanCurvePolicyTests
     [Fact]
     public void SafetyHandoff_HasSeparateResumeThreshold()
     {
-        Assert.True(FanCurvePolicy.RequiresFirmwareSafetyHandoff(96));
-        Assert.False(FanCurvePolicy.RequiresFirmwareSafetyHandoff(95.9));
+        Assert.True(FanCurvePolicy.RequiresFirmwareSafetyHandoff(94));
+        Assert.False(FanCurvePolicy.RequiresFirmwareSafetyHandoff(93.9));
         Assert.True(FanCurvePolicy.CanResumeAfterSafetyHandoff(90));
         Assert.False(FanCurvePolicy.CanResumeAfterSafetyHandoff(90.1));
     }

@@ -152,10 +152,6 @@ internal sealed class GestureActionRouter
 
     private void BeginContinuous(GestureSignal signal, double baseGain)
     {
-        // Preserve the already-travelled claim distance without deriving a new target
-        // from every future TotalTravelMm sample. The alpha.10 regression came from
-        // repeatedly converting noisy absolute travel into 0-100 targets. From here
-        // on only signed frame deltas advance one stable gesture accumulator.
         _continuousDeltaPercent = Math.Clamp(
             ToPositiveControlDelta(signal, signal.TotalTravelMm) * baseGain,
             -100.0,
@@ -173,11 +169,6 @@ internal sealed class GestureActionRouter
 
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
-
-        // Slow movement remains close to the alpha.7 feel (~1 percentage point/mm).
-        // Deliberate fast movement accelerates monotonically, but because acceleration
-        // is applied to incremental delta instead of TotalTravelMm the value can never
-        // jump backwards merely because the finger slowed down.
         double speed01 = Math.Clamp((velocity - 38.0) / 190.0, 0.0, 1.0);
         double acceleration = 1.0 + 1.9 * Math.Pow(speed01, 1.35);
         _continuousDeltaPercent = Math.Clamp(
@@ -214,12 +205,15 @@ internal sealed class GestureActionRouter
         double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
         double velocity = Math.Abs(deltaMm) / elapsed;
 
-        // Distance gives precision; speed supplies bounded acceleration. The media
-        // service coalesces these deltas and sends only a small number of GSMTC seeks.
-        double speed01 = Math.Clamp((velocity - 24.0) / 175.0, 0.0, 1.0);
-        double acceleration = 1.0 + 5.0 * Math.Pow(speed01, 1.45);
-        double seconds = deltaMm * 0.28 * acceleration;
-        seconds = Math.Clamp(seconds, -22.0, 22.0);
+        // Seek is intentionally much finer than volume/brightness. Slow finger
+        // travel maps almost one-to-one to sub-second movement, while a deliberate
+        // fast swipe still accelerates enough for long videos. The old curve could
+        // generate a 22-second jump from one input frame, which felt unusably chunky
+        // in browser video even though its slow GSMTC cadence protected Spotify.
+        double speed01 = Math.Clamp((velocity - 48.0) / 210.0, 0.0, 1.0);
+        double acceleration = 1.0 + 1.65 * Math.Pow(speed01, 1.35);
+        double seconds = deltaMm * 0.11 * acceleration;
+        seconds = Math.Clamp(seconds, -4.0, 4.0);
         _seekCumulativeSeconds = Math.Clamp(_seekCumulativeSeconds + seconds, -600.0, 600.0);
         _ = QueueMediaWhenReadyAsync(seconds);
     }
