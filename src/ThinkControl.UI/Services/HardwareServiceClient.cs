@@ -118,6 +118,15 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> SetCoolingProfileAsync(string profile, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 3500);
 
+    public async Task<ServiceResponse?> SetCustomCoolingCurveAsync(
+        IReadOnlyList<double> thresholds,
+        CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync(
+            "SetCustomCoolingCurve",
+            JsonSerializer.Serialize(thresholds, JsonOptions),
+            cancellationToken,
+            timeoutMs: 3500);
+
     public async Task<ServiceResponse?> StartFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("StartFanCharacterization", null, cancellationToken, timeoutMs: 3500);
 
