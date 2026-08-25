@@ -1,6 +1,6 @@
 # Device support
 
-This document describes compatibility for ThinkControl `v0.1.0-alpha.11`.
+This document describes compatibility for ThinkControl `v0.1.0-alpha.15`.
 
 ThinkControl is a general Windows laptop-control application. Support is evaluated **per capability and provider**, not by assuming every laptop from one brand or product family uses the same interface.
 
@@ -50,7 +50,7 @@ See [`devices/README.md`](../devices/README.md).
 
 | Device scope | Windows features | Sensor / fan telemetry | Keyboard | Low-level fan control | OEM thermal policy | Status |
 | --- | --- | --- | --- | --- | --- | --- |
-| ThinkPad X9-15 Gen 1 `21Q6/21Q7` | Supported | LHM/PawnIO + verified X9 EC telemetry | Lenovo PM/EnergyDrv + validated fallback | Lenovo Auto + levels 1–7 | Verified X9 LITSSvc semantic commands | Verified reference |
+| ThinkPad X9-15 Gen 1 `21Q6/21Q7` | Supported | LHM/PawnIO first, verified X9 EC fallback | Lenovo PM/EnergyDrv + validated fallback | Lenovo Auto + levels 1–7 | Verified X9 LITSSvc semantic commands | Verified reference |
 | Other ThinkPads | Supported | Generic sensors + Lenovo read-only providers when exposed | Known Lenovo providers after read probe | Exact provider/model contract required | Capability-specific only | Beta |
 | ThinkBook / Yoga / IdeaPad | Supported | Generic sensors + Lenovo read-only providers | Known Lenovo providers after read probe | Exact provider/family contract required | Capability-specific only | Beta |
 | Legion / LOQ | Supported | Generic sensors + supported Lenovo providers | Compatible Lenovo provider | GameZone/provider-specific only when verified | Capability-specific only | Beta |
@@ -84,10 +84,10 @@ A generic ACPI thermal zone is never automatically relabelled as CPU Package. Mo
 
 Read-only RPM may come from different providers depending on the laptop, for example:
 
-1. an exact-model verified EC tachometer;
-2. OEM WMI/CIM telemetry;
-3. Windows `CIM_Tachometer` where implemented;
-4. LibreHardwareMonitor or another real read-only sensor provider.
+1. LibreHardwareMonitor/PawnIO or another real hardware sensor provider;
+2. an exact-model verified EC tachometer fallback;
+3. OEM WMI/CIM telemetry;
+4. Windows `CIM_Tachometer` where implemented.
 
 Missing provider classes are normal compatibility results. ThinkControl never fabricates RPM.
 
@@ -97,9 +97,9 @@ The X9 low-level profile is restricted to machine type `21Q6` or `21Q7`.
 
 | Capability | Implementation |
 | --- | --- |
-| Fan RPM | EC tachometer `0x84/0x85`, conservative polling |
+| Fan RPM | LHM/PawnIO when exposed; verified EC tachometer `0x84/0x85` as conservative fallback |
 | EC transport | `0x1604/0x1600` preferred, `0x66/0x62` fallback |
-| Fan state | EC `0x2F` |
+| Fan state | EC `0x2F` during provider validation and explicit control/readback paths; not continuously polled |
 | Lenovo Auto | `0x80` with readback |
 | Manual fan control | Levels `1` through `7` |
 | Fan off | `0x00` blocked |
@@ -110,7 +110,7 @@ The X9 low-level profile is restricted to machine type `21Q6` or `21Q7`.
 | Keyboard Off/Low/High | Lenovo PM/EnergyDrv with readback and validated component fallback |
 | Keyboard effects | User-session Auto/Breathing/Reactive/experimental Audio policies |
 
-The X9 chassis contains two physical fans, but ThinkControl does not issue an unverified fan-selector write merely to manufacture separate Fan 1/Fan 2 readings. The currently verified tachometer route is reported honestly.
+The X9 chassis contains two physical fans, but ThinkControl does not issue an unverified fan-selector write merely to manufacture separate Fan 1/Fan 2 readings. Only telemetry that a real provider can identify is reported.
 
 ## Adding another OEM or model
 
