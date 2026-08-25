@@ -181,15 +181,20 @@ public sealed class UpdateService
             {
                 FileName = installerPath,
                 UseShellExecute = true,
-                Verb = "runas",
                 WorkingDirectory = folder
             };
 
-            // User-triggered updates must never disappear into a fully hidden Inno
-            // process. /SILENT keeps the flow one-click but shows the installer
-            // progress window and any real error. The previous /VERYSILENT plus
-            // /SUPPRESSMSGBOXES combination made failures look like "the app closed
-            // and nothing happened" and hid the only useful diagnostic message.
+            // Do NOT pre-elevate Setup with ShellExecute's "runas" verb. Inno Setup
+            // already has PrivilegesRequired=admin and owns the one UAC transition.
+            // Starting its bootstrapper normally preserves Inno's original-user token,
+            // which lets the [Run] runasoriginaluser entry relaunch ThinkControl as a
+            // normal desktop app. Pre-elevating here can relaunch ThinkControl elevated
+            // and makes PowerToys/FancyZones/AlwaysOnTop correctly refuse interaction.
+            //
+            // User-triggered updates also stay visible: /SILENT keeps the flow one-click
+            // while showing installer progress and real errors. Older alpha builds used
+            // /VERYSILENT + /SUPPRESSMSGBOXES, which could look like the app simply
+            // closed and did nothing when Setup failed.
             start.ArgumentList.Add("/SILENT");
             start.ArgumentList.Add("/NORESTART");
             start.ArgumentList.Add("/CLOSEAPPLICATIONS");
@@ -198,16 +203,16 @@ public sealed class UpdateService
             start.ArgumentList.Add($"/PAYLOAD={payloadPath}");
             start.ArgumentList.Add($"/LOG={logPath}");
 
-            progress?.Report("Ready to install · approve the Windows administrator prompt");
+            progress?.Report("Ready to install · Windows Setup will request administrator permission");
             Process? process = Process.Start(start);
             if (process is null)
                 return new(false, "Windows could not start the verified updater.");
 
-            // A valid update cannot finish this quickly: PrepareToInstall validates
-            // and stages the payload before a deliberate service-stop handoff. If the
-            // elevated process exits immediately while this UI is still alive, report
-            // that as a launch failure instead of pretending an updater is running.
-            await Task.Delay(650, cancellationToken).ConfigureAwait(false);
+            // The non-elevated Inno bootstrapper stays alive while its elevated worker
+            // validates/stages/swaps the payload. A valid update cannot finish this
+            // quickly. If it exits immediately while this UI is still alive, surface
+            // the failure instead of pretending an updater is running.
+            await Task.Delay(900, cancellationToken).ConfigureAwait(false);
             if (process.HasExited)
             {
                 int code = process.ExitCode;
@@ -219,10 +224,10 @@ public sealed class UpdateService
                     payloadPath);
             }
 
-            progress?.Report("Installer open · ThinkControl will close when the verified payload swap begins");
+            progress?.Report("Installer open · ThinkControl stays open until the verified payload is staged");
             return new(
                 true,
-                $"Installer open for {update.Version ?? "the update"} · ThinkControl will relaunch after installation",
+                $"Installer open for {update.Version ?? "the update"} · ThinkControl will relaunch normally after installation",
                 installerPath,
                 payloadPath);
         }
