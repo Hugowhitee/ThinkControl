@@ -37,7 +37,7 @@ internal sealed class GestureOsdService : IDisposable
         _toggleMute = toggleMute;
         _hideTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(1100)
+            Interval = TimeSpan.FromMilliseconds(1180)
         };
         _hideTimer.Tick += (_, _) => Hide();
     }
@@ -90,9 +90,6 @@ internal sealed class GestureOsdService : IDisposable
 
         if (!_window.IsVisible)
         {
-            // Keep the actual topmost window entirely inside the work area. Only its
-            // clipped child moves up from below the window bounds, so the OSD appears
-            // to emerge from behind the taskbar rather than painting over it.
             _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
             _shellTransform.Y = _window.Height + 10;
             _window.Show();
@@ -101,9 +98,9 @@ internal sealed class GestureOsdService : IDisposable
                 _shellTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(
                     _window.Height + 10,
                     0,
-                    TimeSpan.FromMilliseconds(155))
+                    TimeSpan.FromMilliseconds(180))
                 {
-                    EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
                 });
             }
             else
@@ -276,9 +273,9 @@ internal sealed class GestureOsdService : IDisposable
         var animation = new DoubleAnimation(
             _shellTransform.Y,
             _window.Height + 10,
-            TimeSpan.FromMilliseconds(120))
+            TimeSpan.FromMilliseconds(210))
         {
-            EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
         };
         animation.Completed += (_, _) =>
         {
