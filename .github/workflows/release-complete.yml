@@ -1,0 +1,302 @@
+name: Package complete immutable release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout tagged source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve tagged version
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF -notlike 'refs/tags/v*') {
+            throw "Complete release packaging must run on a v* tag, not '$env:GITHUB_REF'."
+          }
+          $metadata = Get-Content "version.json" -Raw | ConvertFrom-Json
+          $version = [string]$metadata.version
+          if ([string]::IsNullOrWhiteSpace($version)) { throw "version.json does not contain a version" }
+          $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+          if ($tagVersion -ne $version) {
+            throw "Release tag '$env:GITHUB_REF_NAME' does not match version.json ('v$version')."
+          }
+          $coreVersion = $version.Split('-')[0]
+          $build = [int]$env:GITHUB_RUN_NUMBER % 65535
+          "APP_VERSION=$version" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "NUMERIC_VERSION=$coreVersion.$build" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          Write-Host "Packaging immutable ThinkControl release $version"
+
+      - name: Verify canonical branding
+        shell: pwsh
+        run: |
+          $pairs = @(
+            @('assets/brand/v3/windows/ThinkControl.ico', 'src/ThinkControl.UI/Assets/ThinkControl.ico'),
+            @('assets/brand/v3/windows/ThinkControl_mark.ico', 'src/ThinkControl.UI/Assets/tray.ico')
+          )
+          foreach ($pair in $pairs) {
+            if ((Get-FileHash $pair[0] -Algorithm SHA256).Hash -ne (Get-FileHash $pair[1] -Algorithm SHA256).Hash) {
+              throw "Branding drift: $($pair[1]) does not match the canonical v3 asset."
+            }
+          }
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore ThinkControl.slnx
+
+      - name: Build
+        run: dotnet build ThinkControl.slnx -c Release --no-restore
+
+      - name: Test
+        run: dotnet test tests/ThinkControl.Core.Tests/ThinkControl.Core.Tests.csproj -c Release --no-build --no-restore
+
+      - name: Render release overview
+        shell: pwsh
+        run: |
+          $output = Join-Path $PWD "artifacts\release-previews"
+          dotnet run --project tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj --configuration Release --no-build -- $output
+          if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
+
+          $previewNames = @(
+            'compact-dark.png',
+            'advanced-home.png',
+            'advanced-touchpad.png',
+            'advanced-sensors.png',
+            'advanced-fans.png',
+            'advanced-audio.png',
+            'advanced-battery.png',
+            'hardware-setup-ready.png'
+          )
+          foreach ($name in $previewNames) {
+            $path = Join-Path $output $name
+            if (-not (Test-Path $path)) { throw "Missing release preview: $name" }
+            if ((Get-Item $path).Length -lt 5000) { throw "Release preview is unexpectedly small: $name" }
+          }
+
+          Add-Type -AssemblyName System.Drawing
+          $overview = New-Object System.Drawing.Bitmap 1642, 1532
+          $graphics = [System.Drawing.Graphics]::FromImage($overview)
+          try {
+            $graphics.Clear([System.Drawing.Color]::FromArgb(17, 19, 21))
+            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+
+            function Draw-Preview([string]$name, [int]$x, [int]$y, [int]$width, [int]$height) {
+              $image = [System.Drawing.Image]::FromFile((Join-Path $output $name))
+              try {
+                $scale = [math]::Min(([double]$width / $image.Width), ([double]$height / $image.Height))
+                $drawWidth = [int][math]::Round($image.Width * $scale)
+                $drawHeight = [int][math]::Round($image.Height * $scale)
+                $drawX = $x + [int][math]::Floor(($width - $drawWidth) / 2)
+                $drawY = $y + [int][math]::Floor(($height - $drawHeight) / 2)
+                $graphics.DrawImage($image, $drawX, $drawY, $drawWidth, $drawHeight)
+              }
+              finally { $image.Dispose() }
+            }
+
+            Draw-Preview 'compact-dark.png' 24 84 410 640
+            Draw-Preview 'advanced-home.png' 458 24 1160 760
+            $grid = @(
+              'advanced-touchpad.png',
+              'advanced-sensors.png',
+              'advanced-fans.png',
+              'advanced-audio.png',
+              'advanced-battery.png',
+              'hardware-setup-ready.png'
+            )
+            for ($i = 0; $i -lt $grid.Count; $i++) {
+              $column = $i % 3
+              $row = [math]::Floor($i / 3)
+              Draw-Preview $grid[$i] (24 + ($column * 540)) (808 + ($row * 363)) 514 337
+            }
+            $overview.Save((Join-Path $output 'ui-overview.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+          }
+          finally {
+            $graphics.Dispose()
+            $overview.Dispose()
+          }
+          $overviewFile = Get-Item (Join-Path $output 'ui-overview.png')
+          if ($overviewFile.Length -lt 20000) { throw "Release overview is unexpectedly small" }
+
+      - name: Publish UI
+        shell: pwsh
+        run: |
+          dotnet publish src/ThinkControl.UI/ThinkControl.UI.csproj `
+            -c Release -r win-x64 --self-contained false `
+            -p:Version=$env:APP_VERSION -p:InformationalVersion=$env:APP_VERSION `
+            -p:DebugType=None -p:DebugSymbols=false -o artifacts/ui
+
+      - name: Publish hardware service
+        shell: pwsh
+        run: |
+          dotnet publish src/ThinkControl.Service/ThinkControl.Service.csproj `
+            -c Release -r win-x64 --self-contained false `
+            -p:Version=$env:APP_VERSION -p:InformationalVersion=$env:APP_VERSION `
+            -p:DebugType=None -p:DebugSymbols=false -o artifacts/service
+
+      - name: Verify compact managed payloads
+        shell: pwsh
+        run: |
+          $ui = "artifacts/ui/ThinkControl.UI.exe"
+          $service = "artifacts/service/ThinkControl.Service.exe"
+          if (-not (Test-Path $ui)) { throw "UI executable is missing" }
+          if (-not (Test-Path $service)) { throw "Service executable is missing" }
+          $total = (Get-ChildItem artifacts/ui, artifacts/service -Recurse -File | Measure-Object Length -Sum).Sum
+          Write-Host ("Combined installed payload: {0:N2} MB" -f ($total / 1MB))
+          if ($total -gt 65MB) { throw "Framework-dependent installed payload unexpectedly exceeds 65 MB." }
+
+      - name: Create release payload archive
+        shell: pwsh
+        run: |
+          $root = "artifacts/payload-root"
+          $installerDir = "artifacts/installer"
+          New-Item "$root/ui" -ItemType Directory -Force | Out-Null
+          New-Item "$root/service" -ItemType Directory -Force | Out-Null
+          New-Item $installerDir -ItemType Directory -Force | Out-Null
+          Copy-Item "artifacts/ui/*" "$root/ui" -Recurse -Force
+          Copy-Item "artifacts/service/*" "$root/service" -Recurse -Force
+
+          $payloadFile = "ThinkControl-Payload-$env:APP_VERSION.zip"
+          $payloadPath = Join-Path $installerDir $payloadFile
+          Compress-Archive -Path "$root/*" -DestinationPath $payloadPath -CompressionLevel Optimal -Force
+          $payload = Get-Item $payloadPath
+          if ($payload.Length -gt 20MB) { throw "Compressed ThinkControl payload exceeds the 20 MB budget." }
+          $hash = (Get-FileHash $payload.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          $url = "https://github.com/Hugowhitee/ThinkControl/releases/download/v$env:APP_VERSION/$payloadFile"
+          "PAYLOAD_FILE=$payloadFile" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_PATH=$($payload.FullName)" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_SHA256=$hash" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "PAYLOAD_URL=$url" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Build web bootstrap installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found" }
+          & $iscc `
+            "/DAppVersion=$env:APP_VERSION" `
+            "/DNumericVersion=$env:NUMERIC_VERSION" `
+            "/DPayloadFile=$env:PAYLOAD_FILE" `
+            "/DPayloadUrl=$env:PAYLOAD_URL" `
+            "/DPayloadSha256=$env:PAYLOAD_SHA256" `
+            "installer/ThinkControl.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          if ($null -eq $setup) { throw "Installer was not produced" }
+          if ($setup.Length -gt 5MB) { throw "ThinkControl bootstrap installer exceeds the 5 MB budget." }
+
+      - name: Smoke-test installer and service lifecycle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $serviceName = 'ThinkControlService'
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          $payload = Get-Item $env:PAYLOAD_PATH
+          $smokeDir = Join-Path $env:TEMP "ThinkControlInstallerSmoke"
+
+          function Remove-SmokeService {
+            Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('stop', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
+            Start-Sleep -Milliseconds 400
+            Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('delete', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
+            $deadline = (Get-Date).AddSeconds(20)
+            do {
+              if ($null -eq (Get-Service -Name $serviceName -ErrorAction SilentlyContinue)) { return }
+              Start-Sleep -Milliseconds 500
+            } while ((Get-Date) -lt $deadline)
+          }
+
+          try {
+            Remove-SmokeService
+            Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+            $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
+              '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-',
+              "/DIR=`"$smokeDir`"", "/PAYLOAD=`"$($payload.FullName)`""
+            ) -Wait -PassThru
+            if ($install.ExitCode -ne 0) { throw "Silent install failed with exit code $($install.ExitCode)" }
+
+            $ui = Join-Path $smokeDir "ui\ThinkControl.UI.exe"
+            $serviceExe = Join-Path $smokeDir "service\ThinkControl.Service.exe"
+            $uninstaller = Join-Path $smokeDir "unins000.exe"
+            if (-not (Test-Path $ui) -or -not (Test-Path $serviceExe) -or -not (Test-Path $uninstaller)) {
+              throw "Installed ThinkControl files are incomplete"
+            }
+
+            $deadline = (Get-Date).AddSeconds(20)
+            do {
+              $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+              if ($null -ne $service) {
+                $service.Refresh()
+                if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) { break }
+              }
+              Start-Sleep -Milliseconds 750
+            } while ((Get-Date) -lt $deadline)
+            if ($null -eq $service -or $service.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Running) {
+              throw "$serviceName did not reach Running state"
+            }
+
+            $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') -Wait -PassThru
+            if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed with exit code $($uninstall.ExitCode)" }
+            $deadline = (Get-Date).AddSeconds(20)
+            do {
+              $serviceAfter = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
+              if ($null -eq $serviceAfter) { break }
+              Start-Sleep -Milliseconds 500
+            } while ((Get-Date) -lt $deadline)
+            if ($null -ne $serviceAfter) { throw "$serviceName remained registered after uninstall" }
+            if (Test-Path $ui) { throw "UI executable remained after uninstall" }
+            if (Test-Path $serviceExe) { throw "Service executable remained after uninstall" }
+            Write-Host "Installer + service lifecycle passed"
+          }
+          finally {
+            Remove-SmokeService
+            Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Create checksums
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          $payload = Get-Item $env:PAYLOAD_PATH
+          @($setup, $payload) | ForEach-Object {
+            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$hash  $($_.Name)"
+          } | Set-Content "artifacts/installer/SHA256SUMS.txt" -Encoding ascii
+
+      - name: Publish complete immutable prerelease
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
+          $payload = Get-Item $env:PAYLOAD_PATH
+          $overview = Get-Item "artifacts/release-previews/ui-overview.png"
+          $args = @(
+            'release', 'create', $env:GITHUB_REF_NAME,
+            $setup.FullName,
+            $payload.FullName,
+            'artifacts/installer/SHA256SUMS.txt',
+            $overview.FullName,
+            '--verify-tag',
+            '--title', "ThinkControl v$env:APP_VERSION",
+            '--generate-notes',
+            '--prerelease'
+          )
+          & gh @args
+          if ($LASTEXITCODE -ne 0) { throw "Complete GitHub release creation failed" }
