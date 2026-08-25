@@ -27,9 +27,6 @@ function Assert-UpdaterElevationContract {
     $updateText = Get-Content $updateSource -Raw
     $installerText = Get-Content $installerSource -Raw
 
-    # Inno Setup must own elevation. If the app pre-elevates Setup with Verb=runas,
-    # Inno can lose the original unelevated desktop token and relaunch ThinkControl
-    # elevated, which breaks PowerToys/FancyZones/AlwaysOnTop interaction.
     if ($updateText -match 'Verb\s*=\s*"runas"') {
         throw 'UpdateService pre-elevates Setup. Let Inno Setup own the UAC transition instead.'
     }
@@ -40,10 +37,6 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer owns the expected administrator transition.'
     }
 
-    # Regression contract for the alpha.15.1 failure shape reported on real hardware:
-    # user approved UAC, ThinkControl disappeared, and Setup also vanished. The app
-    # must keep running until the verified installer bootstrapper has demonstrably
-    # survived launch; Setup must fully acquire+stage before it kills the old UI.
     if ($updateText -notmatch 'Process\?\s+process\s*=\s*Process\.Start\(start\)') {
         throw 'UpdateService no longer verifies the spawned Setup process.'
     }
@@ -60,9 +53,6 @@ function Assert-UpdaterElevationContract {
         throw 'UpdateService must not shut ThinkControl down immediately after launching Setup.'
     }
 
-    # Inspect only PrepareToInstall. Searching the entire Pascal source for
-    # CloseRunningThinkControl() accidentally finds the procedure declaration above
-    # PrepareToInstall and makes a correct stage-then-close implementation fail.
     $prepareStart = $installerText.IndexOf('function PrepareToInstall', [System.StringComparison]::Ordinal)
     $prepareEnd = if ($prepareStart -ge 0) {
         $installerText.IndexOf('procedure CurStepChanged', $prepareStart, [System.StringComparison]::Ordinal)
@@ -174,7 +164,7 @@ try {
     Write-Host '[smoke] Installing staged payload through bootstrapper'
     $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
         '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART',
-        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/NOAPPRELAUNCH'
+        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/RELAUNCH=0'
     ) -Wait -PassThru
     if ($install.ExitCode -ne 0) { throw "Smoke install failed with exit code $($install.ExitCode)." }
 
@@ -194,7 +184,7 @@ try {
     Write-Host '[smoke] Verifying in-place update while service is installed'
     $update = Start-Process -FilePath $setup.FullName -ArgumentList @(
         '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/UPDATE',
-        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/NOAPPRELAUNCH'
+        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/RELAUNCH=0'
     ) -Wait -PassThru
     if ($update.ExitCode -ne 0) { throw "Smoke update failed with exit code $($update.ExitCode)." }
 
@@ -210,7 +200,7 @@ try {
 
     $runningUpdate = Start-Process -FilePath $setup.FullName -ArgumentList @(
         '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/UPDATE',
-        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/NOAPPRELAUNCH'
+        "/DIR=$smokeDir", "/PAYLOAD=$($payload.FullName)", '/RELAUNCH=0'
     ) -Wait -PassThru
     if ($runningUpdate.ExitCode -ne 0) { throw "Running-UI update failed with exit code $($runningUpdate.ExitCode)." }
 
