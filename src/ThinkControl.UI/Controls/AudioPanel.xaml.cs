@@ -79,11 +79,6 @@ public partial class AudioPanel : UserControl
             _volumeRefreshTimer.Start();
     }
 
-    /// <summary>
-    /// Deterministic visual-QA state. GitHub-hosted Windows runners normally have no
-    /// real audio endpoint or OEM Dolby stack, so release screenshots must not treat
-    /// runner hardware as product state. Runtime never calls this method.
-    /// </summary>
     internal void PrepareForSnapshot(bool providersAvailable)
     {
         _snapshotMode = true;
@@ -128,7 +123,7 @@ public partial class AudioPanel : UserControl
                 MuteButton.IsEnabled = false;
                 MuteButton.Content = "Mute";
 
-                BackendStatusText.Text = "Dolby DAX direct controls are not exposed by this driver. ThinkControl will not invent profile mappings.";
+                BackendStatusText.Text = "Dolby direct controls are not exposed by this driver. ThinkControl will not invent profile mappings.";
                 InstallButton.Visibility = Visibility.Visible;
                 OpenButton.IsEnabled = false;
                 SetProfilesEnabled(false);
@@ -155,7 +150,7 @@ public partial class AudioPanel : UserControl
         BackendStatusText.Text = _directState.Available
             ? _directState.Detail
             : _status.Detail;
-        InstallButton.Visibility = _status.DolbyAccessInstalled || _status.DaxBackendDetected
+        InstallButton.Visibility = _status.DolbyAccessInstalled || _status.OemBackendDetected
             ? Visibility.Collapsed
             : Visibility.Visible;
         OpenButton.IsEnabled = _status.DolbyAccessInstalled;
@@ -196,7 +191,9 @@ public partial class AudioPanel : UserControl
         SetToneEnabled(music && directToneAvailable);
         SubprofileStatusText.Text = directToneAvailable
             ? "Direct DAX · Music"
-            : "Not exposed by this DAX build";
+            : _status?.FusionBackendDetected == true
+                ? "Dolby Fusion · use Dolby Access"
+                : "Not exposed by this Dolby build";
     }
 
     private void RefreshVolume()
@@ -335,7 +332,9 @@ public partial class AudioPanel : UserControl
             }
             else
             {
-                ActionStatusText.Text = "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
+                ActionStatusText.Text = _status?.FusionBackendDetected == true
+                    ? "This Lenovo audio stack uses Dolby Fusion. Use Dolby Access for Atmos profile reset; Windows output volume was left unchanged."
+                    : "Direct Dolby reset is unavailable on this driver. Windows output volume was left unchanged.";
             }
             RefreshStatus();
         }
