@@ -121,15 +121,13 @@ public partial class FansPanel : UserControl
 
         if (telemetry?.CoolingAppliedPercent is int percent)
         {
-            AppliedLevelText.Text = telemetry.CoolingAppliedLevel == 8
-                ? "100% · Full speed"
-                : telemetry.CoolingAppliedLevel is int step
-                    ? $"{percent}% · Step {step}"
-                    : $"{percent}%";
+            AppliedLevelText.Text = telemetry.CoolingAppliedLevel is int step
+                ? $"{percent}% · Step {Math.Min(step, 7)}"
+                : $"{percent}%";
         }
         else if (telemetry?.CoolingAppliedLevel is int legacyLevel)
         {
-            AppliedLevelText.Text = legacyLevel == 8 ? "Full speed" : $"Step {legacyLevel}";
+            AppliedLevelText.Text = $"Step {Math.Min(legacyLevel, 7)}";
         }
         else
         {
@@ -140,17 +138,17 @@ public partial class FansPanel : UserControl
         bool running = characterization?.Running == true;
         CharacterizeButton.IsEnabled = canControl && !running;
         StopCharacterizationButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
-        CharacterizationProgress.Maximum = Math.Max(1, characterization?.TotalLevels ?? 8);
+        CharacterizationProgress.Maximum = Math.Max(1, characterization?.TotalLevels ?? 7);
         CharacterizationProgress.Visibility = running || (characterization?.Levels.Count ?? 0) > 0
             ? Visibility.Visible : Visibility.Collapsed;
         CharacterizationProgress.Value = characterization?.CompletedLevels ?? 0;
         CharacterizationStatusText.Text = characterization?.Status ?? (canControl
             ? "Not calibrated yet"
             : "Calibration requires a verified writable fan provider");
-        MarkAudibleButton.Visibility = running && characterization?.CurrentLevel is >= 1 and <= 8
+        MarkAudibleButton.Visibility = running && characterization?.CurrentLevel is >= 1 and <= 7
             ? Visibility.Visible : Visibility.Collapsed;
         if (characterization?.CurrentLevel is int current)
-            MarkAudibleButton.Content = current == 8 ? "Full speed is clearly audible" : $"Clearly audible at step {current}";
+            MarkAudibleButton.Content = $"Clearly audible at step {current}";
 
         ManualPercentSlider.IsEnabled = canControl;
         BuildCalibrationRows(characterization);
@@ -163,12 +161,12 @@ public partial class FansPanel : UserControl
         if (characterization is null)
             return;
 
-        FanLevelCalibrationSnapshot? full = characterization.Levels.FirstOrDefault(level => level.Level == 8);
-        double? fullRpm = full?.Fans.Count > 0 ? full.Fans.Average(fan => fan.MedianRpm) : null;
+        FanLevelCalibrationSnapshot? maximum = characterization.Levels.FirstOrDefault(level => level.Level == 7);
+        double? maximumRpm = maximum?.Fans.Count > 0 ? maximum.Fans.Average(fan => fan.MedianRpm) : null;
 
         foreach (FanLevelCalibrationSnapshot point in characterization.Levels.OrderBy(level => level.Level))
         {
-            string label = point.Level == 8 ? "Full speed" : $"EC step {point.Level}";
+            string label = $"EC step {point.Level}";
             string rpm;
             if (point.Fans.Count == 0)
             {
@@ -178,10 +176,10 @@ public partial class FansPanel : UserControl
             {
                 double average = point.Fans.Average(fan => fan.MedianRpm);
                 string values = string.Join(" · ", point.Fans.Select(fan => $"{fan.Label} {fan.MedianRpm:N0} RPM"));
-                if (fullRpm is > 0)
+                if (maximumRpm is > 0)
                 {
-                    int relative = point.Level == 8 ? 100 : (int)Math.Round(Math.Clamp(average / fullRpm.Value * 100.0, 0, 99));
-                    rpm = $"{values} · ~{relative}% of full speed";
+                    int relative = point.Level == 7 ? 100 : (int)Math.Round(Math.Clamp(average / maximumRpm.Value * 100.0, 0, 99));
+                    rpm = $"{values} · ~{relative}% of verified maximum";
                 }
                 else
                 {
@@ -193,7 +191,7 @@ public partial class FansPanel : UserControl
         }
 
         if (characterization.AudibleFromLevel is int audible)
-            CharacterizationStatusText.Text += audible == 8 ? " · full speed marked audible" : $" · clearly audible from step {audible}";
+            CharacterizationStatusText.Text += audible >= 7 ? " · verified maximum marked audible" : $" · clearly audible from step {audible}";
     }
 
     private void SyncProfileSelector(string? profileName, string? profileId)

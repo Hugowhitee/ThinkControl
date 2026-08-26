@@ -113,19 +113,6 @@ internal sealed class ThinkPadEc : IDisposable
             $"manual fan level {level}");
     }
 
-    internal void SetFullSpeed()
-    {
-        // The upstream Linux thinkpad_acpi driver defines bit 0x40 as EC full-speed
-        // and writes it together with level 7 (0x47) as a safe fallback. We use the
-        // same state only on the already model-gated X9 provider and require the EC
-        // to read back the full-speed bit. If the firmware ignores that bit, 100%
-        // remains unavailable instead of being falsely reported as level 7.
-        SetFanControlVerified(
-            ThinkPadRegisters.FullSpeedControl,
-            ThinkPadFanProtocol.IsFullSpeed,
-            "full-speed override");
-    }
-
     private void SetFanControlVerified(byte requested, Func<byte, bool> acceptsReadBack, string label)
     {
         if (_manualControlEngaged && _lastManualControl == requested)

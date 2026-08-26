@@ -10,7 +10,6 @@ internal static class AdvancedFeaturePages
     private const string AudioNavKey = "ThinkControl.Dynamic.NavAudio";
     private const string AudioPageKey = "ThinkControl.Dynamic.PageAudio";
     private const string TouchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
-    private const string SensorsPageKey = "ThinkControl.Dynamic.PageSensors";
 
     internal static void Ensure(AdvancedWindow window, App app)
     {
@@ -113,7 +112,6 @@ internal static class AdvancedFeaturePages
         {
             CollapseKnownPages(window);
             HideDynamic(window, TouchpadPageKey);
-            HideDynamic(window, SensorsPageKey);
             scroll.Visibility = Visibility.Visible;
             scroll.ScrollToTop();
             panel.Initialize(app);
@@ -159,7 +157,5 @@ internal static class AdvancedFeaturePages
 
         if (window.Resources.Contains("ThinkControl.Dynamic.NavTouchpad") && window.Resources["ThinkControl.Dynamic.NavTouchpad"] is RadioButton touchpad)
             yield return touchpad;
-        if (window.Resources.Contains("ThinkControl.Dynamic.NavSensors") && window.Resources["ThinkControl.Dynamic.NavSensors"] is RadioButton sensors)
-            yield return sensors;
     }
 }

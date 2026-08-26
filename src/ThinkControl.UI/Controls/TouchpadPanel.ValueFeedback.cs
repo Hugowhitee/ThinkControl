@@ -108,41 +108,42 @@ public partial class TouchpadPanel
             Content = new PackIconLucide
             {
                 Kind = "Reset",
-                Width = 12,
-                Height = 12
+                Width = 14,
+                Height = 14
             },
-            Style = TryFindResource("TcInlineButton") as Style,
-            Width = 20,
-            Height = 20,
+            Style = TryFindResource("TcIconButton") as Style,
+            Width = 26,
+            Height = 26,
             Padding = new Thickness(0),
-            Margin = new Thickness(4, 0, 0, 0),
+            Margin = new Thickness(6, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Cursor = System.Windows.Input.Cursors.Hand,
             ToolTip = $"Reset to default ({FormatDefault(defaultValue, slider)})",
             Tag = defaultValue,
-            Visibility = Visibility.Collapsed
+            Visibility = Visibility.Hidden
         };
         button.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         button.Click += (_, _) => reset(slider, defaultValue);
 
-        // Reset is metadata for the value, not part of the slider's scale. Keep the
-        // full track width and reveal one compact header action only after a change.
-        if (valueLabel.Parent is Grid valueHeader)
+        // Reserve a dedicated right-hand slot beside the entire track. Hidden reset
+        // buttons retain that space, so appearing/disappearing never crowds the
+        // value label or changes the slider width.
+        FrameworkElement trackHost = slider.Parent is Grid sliderOverlay ? sliderOverlay : slider;
+        if (trackHost.Parent is StackPanel stack)
         {
-            int column = Grid.GetColumn(valueLabel);
-            valueHeader.Children.Remove(valueLabel);
-            valueLabel.VerticalAlignment = VerticalAlignment.Center;
-            var actions = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            actions.Children.Add(valueLabel);
-            actions.Children.Add(button);
-            Grid.SetColumn(actions, column);
-            valueHeader.Children.Add(actions);
+            int index = stack.Children.IndexOf(trackHost);
+            Thickness margin = trackHost.Margin;
+            trackHost.Margin = new Thickness(0);
+            stack.Children.RemoveAt(index);
+
+            var row = new Grid { Margin = margin };
+            row.ColumnDefinitions.Add(new ColumnDefinition());
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
+            row.Children.Add(trackHost);
+            Grid.SetColumn(button, 1);
+            row.Children.Add(button);
+            stack.Children.Insert(index, row);
         }
 
         _sliderResetButtons[slider] = button;
@@ -259,7 +260,7 @@ public partial class TouchpadPanel
             double defaultValue = button.Tag is double value ? value : Convert.ToDouble(button.Tag);
             button.Visibility = Math.Abs(slider.Value - defaultValue) >= 0.001
                 ? Visibility.Visible
-                : Visibility.Collapsed;
+                : Visibility.Hidden;
         }
     }
 

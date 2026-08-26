@@ -74,8 +74,19 @@ function Assert-UpdaterElevationContract {
     if ($installerText -notmatch 'ShouldRelaunchAfterSilentUpdate') {
         throw 'Installer no longer carries the silent-update relaunch gate.'
     }
+    if ($installerText -match "taskkill\.exe'\),\s*'/IM \{#UiExeName\} /T") {
+        throw 'Installer recursively kills the UI process tree, which also kills Setup because the updater launched it.'
+    }
+    if ($installerText -notmatch 'Name:\s*"startwithwindows"' -or
+        $installerText -notmatch 'CurrentVersion\\Run' -or
+        $installerText -notmatch 'ValueData:\s*"""\{app\}\\ui\\\{#UiExeName\}"" --tray"') {
+        throw 'Installer no longer offers the default Start with Windows task or its tray-only Run entry.'
+    }
+    if ($installerText -notmatch 'Tasks:\s*not startwithwindows;\s*Flags:\s*deletevalue') {
+        throw 'Installer no longer persists an explicit Start with Windows opt-out by removing the Run entry.'
+    }
 
-    Write-Host '[smoke] Updater lifecycle verified: Inno owns UAC, Setup survival is checked, staging precedes app close, relaunch uses original user.'
+    Write-Host '[smoke] Updater/startup lifecycle verified: Inno owns UAC, Setup survival is checked, staging precedes non-recursive app close, relaunch uses original user, and startup opt-out is explicit.'
 }
 
 function Remove-SmokeService {

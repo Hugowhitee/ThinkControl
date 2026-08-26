@@ -33,21 +33,20 @@ public partial class AdvancedWindow
         // logo/navigation down and left two separate view-switch controls. Reuse
         // that single top-right slot for the bell instead.
         Grid? brandRow = navStack.Children.OfType<Grid>().FirstOrDefault(grid =>
-            grid.Children.OfType<Button>().Any(button => Grid.GetColumn(button) == 1));
+            grid.Children.OfType<Button>().Any(button => button.Tag as string == "ThinkControl.NotificationSlot"));
         Button? button = brandRow?.Children.OfType<Button>()
-            .FirstOrDefault(child => Grid.GetColumn(child) == 1);
+            .FirstOrDefault(child => child.Tag as string == "ThinkControl.NotificationSlot");
         if (button is null)
             return;
 
         _notificationButtonConfigured = true;
-        button.Click -= Dock_Click;
         button.Width = 30;
         button.Height = 30;
         button.Padding = new Thickness(0);
         button.Margin = new Thickness(0);
         button.BorderThickness = new Thickness(0);
         button.Background = Brushes.Transparent;
-        button.ToolTip = "Notifications";
+        button.ToolTip = "Inbox";
 
         var bell = new Path
         {
@@ -67,28 +66,22 @@ public partial class AdvancedWindow
 
         _notificationDot = new Ellipse
         {
-            Width = 5,
-            Height = 5,
+            Width = 6,
+            Height = 6,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, -1, -1, 0),
+            Margin = new Thickness(0, 1, 1, 0),
             StrokeThickness = 1,
             IsHitTestVisible = false
         };
         _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
         _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Surface");
 
-        var content = new Grid { Width = 20, Height = 20 };
+        var content = new Grid { Width = 21, Height = 21 };
         content.Children.Add(bell);
         content.Children.Add(_notificationDot);
         button.Content = content;
-        button.Click += (_, _) =>
-        {
-            if (_notificationOverlay?.Visibility == Visibility.Visible)
-                HideNotificationSheet();
-            else
-                ShowNotificationSheet();
-        };
+        button.Click += (_, _) => ToggleNotificationSheet();
         _notificationIndicator = button;
 
         if (DataContext is AppState state)
@@ -145,11 +138,11 @@ public partial class AdvancedWindow
 
         _notificationDot.Visibility = attention ? Visibility.Visible : Visibility.Collapsed;
         _notificationIndicator.ToolTip = updateAttention && hardwareAttention
-            ? "Notifications · update and hardware attention"
+            ? "Inbox · update and hardware attention"
             : updateAttention
-                ? "Notifications · update available"
+                ? "Inbox · update available"
                 : hardwareAttention
-                    ? "Notifications · hardware setup needs attention"
-                    : "Notifications";
+                    ? "Inbox · a required component needs attention"
+                    : "Inbox";
     }
 }

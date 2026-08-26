@@ -30,9 +30,12 @@ public sealed record ThinkControlUserSettings(
     string DolbyProfile = "Dynamic",
     string DolbySubProfile = "Balanced",
     bool AutomaticUpdates = true,
+    int BatteryDetailRetentionDays = 7,
     string DefaultOpeningView = "Compact",
     string AttentionAcknowledgedKey = "",
-    string AttentionAcknowledgedAtUtc = "");
+    string AttentionAcknowledgedAtUtc = "",
+    bool DiagnosticsSharingPrompted = false,
+    string HardwareIssuePromptedKeys = "");
 
 public sealed class UserSettingsService
 {
@@ -76,20 +79,21 @@ public sealed class UserSettingsService
 
     private ThinkControlUserSettings LoadInternal()
     {
-        if (TryLoad(_path, out ThinkControlUserSettings settings))
-            return settings;
-
         string temporary = _path + ".tmp";
-        if (TryLoad(temporary, out settings))
-        {
-            TryRestoreSettingsFile(temporary);
-            return settings;
-        }
-
         string backup = _path + ".bak";
-        if (TryLoad(backup, out settings))
+
+        // A shutdown or updater handoff can interrupt File.Replace after the fully
+        // flushed .tmp file was written. Prefer the newest valid generation instead
+        // of blindly accepting an older settings.json and making the restart look
+        // like preferences were reset.
+        foreach (string candidate in new[] { _path, temporary, backup }
+                     .Where(File.Exists)
+                     .OrderByDescending(path => File.GetLastWriteTimeUtc(path)))
         {
-            TryRestoreSettingsFile(backup);
+            if (!TryLoad(candidate, out ThinkControlUserSettings settings))
+                continue;
+            if (!string.Equals(candidate, _path, StringComparison.OrdinalIgnoreCase))
+                TryRestoreSettingsFile(candidate);
             return settings;
         }
 
@@ -261,6 +265,9 @@ public sealed class UserSettingsService
         string acknowledgedAt = DateTimeOffset.TryParse(settings.AttentionAcknowledgedAtUtc, out DateTimeOffset parsedAcknowledged)
             ? parsedAcknowledged.ToUniversalTime().ToString("O")
             : string.Empty;
+        string hardwareIssueKeys = settings.HardwareIssuePromptedKeys?.Trim() ?? string.Empty;
+        if (hardwareIssueKeys.Length > 512)
+            hardwareIssueKeys = string.Empty;
 
         return settings with
         {
@@ -281,9 +288,12 @@ public sealed class UserSettingsService
             CustomFanProfiles = customProfiles.ToArray(),
             DolbyProfile = dolby,
             DolbySubProfile = dolbyTone,
+            BatteryDetailRetentionDays = settings.BatteryDetailRetentionDays switch { <= 7 => 7, <= 14 => 14, _ => 30 },
             DefaultOpeningView = defaultOpeningView,
             AttentionAcknowledgedKey = acknowledgedKey,
-            AttentionAcknowledgedAtUtc = acknowledgedAt
+            AttentionAcknowledgedAtUtc = acknowledgedAt,
+            DiagnosticsSharingPrompted = settings.DiagnosticsSharingPrompted,
+            HardwareIssuePromptedKeys = hardwareIssueKeys
         };
     }
 

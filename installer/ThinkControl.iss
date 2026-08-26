@@ -72,6 +72,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
+Name: "startwithwindows"; Description: "Start ThinkControl quietly with Windows for fan control and monitoring"; GroupDescription: "Background features:"
 Name: "compatibilitydiagnostics"; Description: "Help ThinkControl support more devices by preparing redacted compatibility reports locally"; GroupDescription: "Compatibility:"
 
 [Files]
@@ -84,11 +85,14 @@ Name: "{autodesktop}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilen
 [Registry]
 Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "1"; Tasks: compatibilitydiagnostics; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "0"; Tasks: not compatibilitydiagnostics; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ThinkControl"; ValueData: """{app}\ui\{#UiExeName}"" --tray"; Tasks: startwithwindows; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "ThinkControl"; Tasks: not startwithwindows; Flags: deletevalue
 
 [Run]
 Filename: "{sys}\sc.exe"; Parameters: "create {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "description {#ServiceName} ""Verified ThinkControl hardware access service"""; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "config {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated
+Filename: "{sys}\sc.exe"; Parameters: "failure {#ServiceName} reset= 86400 actions= restart/5000/restart/15000/restart/30000"; Flags: runhidden waituntilterminated
 Filename: "{sys}\sc.exe"; Parameters: "start {#ServiceName}"; Flags: runhidden waituntilterminated
 Filename: "{app}\ui\{#UiExeName}"; Description: "Launch ThinkControl"; Flags: nowait postinstall skipifsilent runasoriginaluser
 Filename: "{app}\ui\{#UiExeName}"; Flags: nowait skipifnotsilent runasoriginaluser; Check: ShouldRelaunchAfterSilentUpdate
@@ -422,7 +426,9 @@ begin
   { Inno Setup's Restart Manager normally closes the app. Explicit taskkill is a
     final update-mode guard so stale tray-only instances cannot keep payload DLLs
     locked and turn an update into a file-in-use error. }
-  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM {#UiExeName} /T /F', '', SW_HIDE,
+  { Do not use /T here: Setup is launched by the UI, so killing the UI's process
+    tree also kills this elevated installer immediately after the UAC handoff. }
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM {#UiExeName} /F', '', SW_HIDE,
     ewWaitUntilTerminated, ResultCode);
   Sleep(450);
 end;

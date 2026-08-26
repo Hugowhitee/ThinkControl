@@ -225,7 +225,7 @@ public sealed class LenovoHardwareController : IDisposable
 
         if (level is < 1 or > 7)
         {
-            error = "Manual EC step must be between 1 and 7. Full speed is a separate readback-gated state.";
+            error = "Manual EC step must be between 1 and 7.";
             return false;
         }
 
@@ -249,72 +249,6 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 MarkEcFailed(ex, now);
                 error = $"Fan step could not be verified: {ex.Message}";
-                return false;
-            }
-        }
-    }
-
-    public bool SetFanPercent(int percent, out int appliedStep, out bool fullSpeed, out string? detail, out string? error)
-    {
-        appliedStep = 0;
-        fullSpeed = false;
-        detail = null;
-        error = null;
-        ThrowIfDisposed();
-
-        if (!_identity.IsVerifiedX9)
-        {
-            error = "0–100% fan output is available only through the verified ThinkPad X9-15 Gen 1 EC provider.";
-            return false;
-        }
-        if (percent is < 0 or > 100)
-        {
-            error = "Fan output must be between 0% and 100%.";
-            return false;
-        }
-
-        lock (_gate)
-        {
-            DateTimeOffset now = DateTimeOffset.UtcNow;
-            if (!EnsureX9Ec(now) || _ec is null)
-            {
-                error = _lastEcError ?? "PawnIO/EC access is unavailable.";
-                return false;
-            }
-
-            try
-            {
-                if (percent == 100)
-                {
-                    _ec.SetFullSpeed();
-                    _fanControl = ThinkPadRegisters.FullSpeedControl;
-                    appliedStep = 8;
-                    fullSpeed = true;
-                    detail = "100% target · ThinkPad EC full-speed state 0x47 readback verified";
-                }
-                else
-                {
-                    // ThinkPad EC exposes seven discrete normal manual states, not a
-                    // continuous PWM register. Quantize the graph target instead of
-                    // rapidly alternating states; that avoids pulsing and EC traffic.
-                    // 0% deliberately maps to the minimum verified state, never to
-                    // the unverified fan-off byte 0x00.
-                    int level = Math.Clamp(1 + (int)Math.Floor(percent * 7.0 / 100.0), 1, 7);
-                    _ec.SetManualLevel((byte)level);
-                    _fanControl = (byte)level;
-                    appliedStep = level;
-                    detail = $"{percent}% target · discrete ThinkPad EC step {level} applied";
-                }
-
-                _lastFanRpmRead = now - FanRpmPollInterval + TimeSpan.FromSeconds(4);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                MarkEcFailed(ex, now);
-                error = percent == 100
-                    ? $"Full-speed state was not accepted with valid readback; Lenovo Auto was restored. {ex.Message}"
-                    : $"Fan output could not be verified: {ex.Message}";
                 return false;
             }
         }

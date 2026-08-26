@@ -78,7 +78,7 @@ internal sealed class FanCurveEditorWindow : Window
         heading.Children.Add(new TextBlock { Text = "Fan curves", FontSize = 24, FontWeight = FontWeights.SemiBold });
         var subtitle = new TextBlock
         {
-            Text = "Tune temperature against a real 0–100% target. ThinkControl maps the graph to measured X9 EC states after calibration; 100% uses the separately verified full-speed state.",
+            Text = "Tune temperature against a real 0–100% target. ThinkControl maps the graph to measured X9 EC states after calibration; 100% uses the physically verified maximum, EC step 7.",
             FontSize = 11,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)

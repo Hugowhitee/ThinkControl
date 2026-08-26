@@ -118,7 +118,9 @@ public partial class App
             CoolingProfile: "Lenovo Auto",
             DolbyProfile: "Dynamic",
             DolbySubProfile: "Balanced",
-            AutomaticUpdates: true));
+            AutomaticUpdates: true,
+            DiagnosticsSharingPrompted: current.DiagnosticsSharingPrompted,
+            HardwareIssuePromptedKeys: current.HardwareIssuePromptedKeys));
 
         ThemeService.Apply(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);

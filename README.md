@@ -23,13 +23,13 @@
   </a>
 </div>
 
-## ThinkControl alpha.18
+## ThinkControl alpha.19
 
 ThinkControl is a lightweight Windows 10/11 companion focused first on Lenovo and ThinkPad laptops. It brings controls normally spread across Windows Settings, Lenovo utilities and monitoring tools into a compact notification-area popup and a resizable Advanced window.
 
 This public alpha is ThinkPad-first: Windows-safe controls can still work elsewhere, but Lenovo/ThinkPad provider discovery is the supported product focus. Low-level fan/PWM/EC controls stay visible and unavailable until an exact provider and readback contract passes. The ThinkPad X9-15 Gen 1 is the currently verified low-level reference device.
 
-**Current prerelease:** `v0.1.0-alpha.18`
+**Current prerelease:** `v0.1.0-alpha.19`
 
 **Reviewed low-level reference profile:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)
 
@@ -38,7 +38,7 @@ This public alpha is ThinkPad-first: Windows-safe controls can still work elsewh
 Download the latest setup from **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**. For a normal install, this is the only file to download:
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.18.exe
+ThinkControl-Setup-0.1.0-alpha.19.exe
 ```
 
 The release also contains a versioned application payload and `SHA256SUMS.txt`. Those are updater/verification infrastructure used so ThinkControl can download and verify the complete app **before** elevation; users do not need to extract or install them manually.
@@ -54,19 +54,19 @@ Release CI renders the real WPF interface in dark/light themes at minimum, norma
 | **Home** | Battery, CPU and fan overview plus quick access, notifications and support |
 | **Performance** | Quiet, Balanced and Performance preferences with separate battery/AC behavior |
 | **Fans** | Firmware/OEM Auto, verified manual levels and supervised cooling profiles where a writable provider passes validation |
-| **Sensors** | CPU, GPU, fan and other telemetry from trustworthy detected providers |
-| **Battery** | Watts, Wh, health, filtered ETA, charge/discharge sessions, `% + W` timelines, drain rate and local history |
+| **System & sensors** | Issue-specific required-component prompts plus a focused details window for real CPU, GPU, fan and other detected telemetry |
+| **Battery** | Watts, Wh, health, filtered ETA, day-grouped charge/discharge sessions, `% + W` timelines and retained local trends |
 | **Display** | Brightness, adaptive brightness, refresh rate and automatic 60 Hz / maximum switching |
-| **Audio** | Windows system volume plus direct Dolby profile and Music IEQ controls where DAX exposes semantic readback |
+| **Audio** | Windows output and microphone volume/mute plus direct Dolby profile and Music IEQ controls where DAX exposes semantic readback |
 | **Keyboard** | Hardware brightness plus Auto, Breathing, Reactive and experimental Audio effects where a verified provider is available |
 | **Touchpad** | Live touch point/trail, configurable edge gestures, haptics and themed gesture pop-ups |
 | **Updates** | Automatic checks, Last checked time, SHA-256 verified download and explicit one-click installer handoff |
 
 ThinkControl does **not** invent missing RPM values, fake PWM percentages, guessed EC registers or synthetic sensor readings. Low-level controls remain visible but unavailable until their provider is actually detected and validated.
 
-## Alpha.18 stabilization changes
+## Alpha.19 stabilization changes
 
-Alpha.18 focuses the public experience on ThinkPad hardware, adds Windows 10 installer support, makes PWM/EC provider state visible, preserves settings durably across restarts, and completes the UI/runtime polish and hardware-setup flow.
+Alpha.19 completes the ThinkPad-first stabilization pass with physically verified X9 fan output, a reliable updater elevation handoff, compact battery history and consistent controls throughout the WPF interface.
 
 - Hardware attention opens a dedicated setup/repair window, with the same entry explained clearly on System.
 - Battery temperature never borrows another sensor's identity: a genuine reading is labelled **BATTERY TEMP**, while the explicit control-temperature fallback is labelled **DEVICE TEMP**.
@@ -76,6 +76,13 @@ Alpha.18 focuses the public experience on ThinkPad hardware, adds Windows 10 ins
 - Settings use durable atomic replacement and recover from the newest valid temporary/backup copy after an interrupted write.
 - Shared button/selector hover uses an overlay, preserving custom and selected fills without size or layout shifts.
 - The notification bell badge is anchored to the bell and the bell toggles the notification sheet open and closed.
+- On the verified X9, 100% fan output now maps to physically confirmed EC step 7; the echoed but ineffective `0x47` state is never written.
+- The updater no longer lets Setup terminate itself while closing ThinkControl, and verifies that the elevated installer survives the handoff.
+- All sliders share endpoint-correct geometry at both 0% and 100%, with reserved reset-icon space and no heavy focus ring.
+- Battery sessions are grouped into expandable days. Detailed graph samples expire after 7, 14 or 30 days while compact one-year summaries remain available for health trends and learned estimates.
+- First install offers a minimal, default-enabled **Start ThinkControl with Windows** choice; Settings can change it later and installer opt-out is preserved.
+- Sensors now live naturally under System in a dedicated detail window, while Audio adds native microphone gain and mute controls.
+- Brightness and track-change gesture pop-ups now match the volume surface and icon treatment; media seeking remains intentionally silent.
 
 ### Reliability foundation
 
@@ -92,7 +99,7 @@ Alpha.18 focuses the public experience on ThinkPad hardware, adds Windows 10 ins
 - The always-on runtime scheduler uses the Windows power manager and cheap display APIs instead of repeatedly running battery WMI, `powercfg` and full display discovery.
 - Sensor discovery avoids unnecessary storage, battery, network, controller and PSU providers in the always-on path and uses bounded retry/recycle behavior rather than repeatedly hammering failed providers.
 - On the verified X9 profile, real LibreHardwareMonitor/PawnIO fan telemetry is preferred when available. Direct EC tachometer and read-only thermal access are conservative fallbacks, and periodic EC control-register probing is removed from the normal status loop.
-- Hardware Setup and Notifications surface root causes instead of multiplying one failed dependency into several identical repair actions.
+- Inbox and issue-specific prerequisite prompts surface root causes instead of multiplying one failed dependency into several identical repair actions.
 - Update checking, Home and the Updates page share one release state. A user-triggered update downloads Setup + Payload + checksums, verifies SHA-256, shows the Windows elevation handoff and keeps update controls locked while the installer owns the swap.
 - Automatic update checks never install or open UAC by themselves.
 - A dedicated Windows installer-reliability gate now validates clean install, service start, named-pipe `Ping`, `GetStatus` telemetry, in-place reinstall/update behavior and uninstall cleanup before release work is merged.
@@ -133,7 +140,7 @@ Slow movement stays precise while faster movement accelerates within bounded lim
 
 ## Hardware recovery
 
-ThinkControl separates normal Windows features from privileged/provider-specific hardware access. Hardware Setup distinguishes the layers rather than collapsing everything into one online/offline flag:
+ThinkControl separates normal Windows features from privileged/provider-specific hardware access. Inbox and the focused prerequisite prompt distinguish the layers rather than collapsing everything into one online/offline flag:
 
 1. **ThinkControl hardware service** — Windows service state plus the app-to-service IPC connection.
 2. **Low-level/sensor access** — required driver/device access and sensor-provider readiness, such as PawnIO/LHM where applicable.

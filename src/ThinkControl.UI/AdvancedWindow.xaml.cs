@@ -5,8 +5,8 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Shapes;
 using System.Windows.Shell;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfButton = System.Windows.Controls.Button;
@@ -15,7 +15,6 @@ using WpfGrid = System.Windows.Controls.Grid;
 using WpfSlider = System.Windows.Controls.Slider;
 using WpfStackPanel = System.Windows.Controls.StackPanel;
 using WpfTextBlock = System.Windows.Controls.TextBlock;
-using WpfViewbox = System.Windows.Controls.Viewbox;
 
 namespace ThinkControl.UI;
 
@@ -73,6 +72,7 @@ public partial class AdvancedWindow : Window
         };
         dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
         dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
+        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
 
         var label = new WpfTextBlock
         {
@@ -84,25 +84,33 @@ public partial class AdvancedWindow : Window
         };
         dockRow.Children.Add(label);
 
-        var path = new Path
+        var notificationSlot = new WpfButton
         {
-            Stroke = (System.Windows.Media.Brush)FindResource("Tc.TextMuted"),
-            StrokeThickness = 1.5,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            Data = Geometry.Parse("M2,2 L14,14 M8,14 L14,14 L14,8")
+            Width = 30,
+            Height = 30,
+            Tag = "ThinkControl.NotificationSlot",
+            Style = (Style)FindResource("TcIconButton")
         };
-        var viewbox = new WpfViewbox { Width = 14, Height = 14, Child = path };
+        WpfGrid.SetColumn(notificationSlot, 1);
+        dockRow.Children.Add(notificationSlot);
+
+        var viewbox = new PackIconLucide
+        {
+            Kind = "ViewSidebar",
+            Width = 16,
+            Height = 16,
+            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextMuted")
+        };
         var button = new WpfButton
         {
             Width = 32,
             Height = 32,
-            ToolTip = "Return to compact popup",
+            ToolTip = "Switch to compact layout",
             Content = viewbox,
             Style = (Style)FindResource("TcIconButton")
         };
         button.Click += Dock_Click;
-        WpfGrid.SetColumn(button, 1);
+        WpfGrid.SetColumn(button, 2);
         dockRow.Children.Add(button);
         navStack.Children.Insert(0, dockRow);
     }

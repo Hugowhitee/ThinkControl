@@ -1,16 +1,16 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.18` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
+ThinkControl `v0.1.0-alpha.19` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
 
 ## Release assets
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.18.exe
-ThinkControl-Payload-0.1.0-alpha.18.zip
+ThinkControl-Setup-0.1.0-alpha.19.exe
+ThinkControl-Payload-0.1.0-alpha.19.zip
 SHA256SUMS.txt
 ```
 
-The tagged release also publishes the WPF-generated Compact/Home/Touchpad/Sensors previews in the same immutable release creation step. The README itself uses version-controlled copies under `docs/screenshots/`, so its previews do not break when release assets are immutable.
+Release CI also renders selected WPF Compact/Home/Touchpad/System/Sensor-detail previews as validation evidence. Public GitHub Releases intentionally contain only Setup, Payload and `SHA256SUMS.txt`.
 
 The Setup executable does not embed the ThinkControl UI/service payload or a duplicate .NET runtime. The matching payload is downloaded from the same GitHub release and verified before extraction.
 
@@ -26,13 +26,14 @@ Setup:
 6. extracts only the verified `ui/` and `service/` payload under Program Files;
 7. registers and starts `ThinkControlService`;
 8. creates Start menu and optional desktop shortcuts using the canonical v3 icon;
-9. offers **Launch ThinkControl** on first installation.
+9. offers a default-enabled **Start ThinkControl with Windows** choice, which can be changed later in Settings;
+10. offers **Launch ThinkControl** on first installation.
 
 The installer itself stays device-neutral. Hardware/provider recovery happens after startup so one setup build can work across supported laptops.
 
-## Hardware setup after installation
+## Required components after installation
 
-ThinkControl's in-app **Hardware Setup** checks providers independently instead of treating the whole laptop as supported/unsupported.
+ThinkControl's in-app **Inbox** checks providers independently and opens one focused prerequisite prompt instead of treating the whole laptop as supported/unsupported.
 
 It can:
 

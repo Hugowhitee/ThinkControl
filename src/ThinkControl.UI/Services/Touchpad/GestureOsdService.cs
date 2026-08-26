@@ -63,9 +63,14 @@ internal sealed class GestureOsdService : IDisposable
         {
             _label.Text = label.Contains("Muted", StringComparison.OrdinalIgnoreCase) ? "Volume" : label;
             _value.Text = label.Contains("Muted", StringComparison.OrdinalIgnoreCase) ? "Muted" : $"{clamped}%";
+            _slider.Visibility = Visibility.Visible;
             _slider.Value = clamped;
             _slider.IsEnabled = volume || brightness;
-            _iconButton.IsEnabled = volume;
+            // Keep brightness at the same full-contrast visual weight as volume;
+            // only volume is interactive (mute/unmute).
+            _iconButton.IsEnabled = true;
+            _iconButton.IsHitTestVisible = volume;
+            _iconButton.Cursor = volume ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.Arrow;
             _iconButton.ToolTip = volume ? "Mute / unmute" : brightness ? "Brightness" : null;
             _iconPath.Data = ResolveIconGeometry(brightness, clamped, label);
         }
@@ -121,6 +126,66 @@ internal sealed class GestureOsdService : IDisposable
         }
 
         RestartHideTimer();
+    }
+
+    internal void ShowTrack(bool next)
+    {
+        ThinkControlUserSettings settings = _settings();
+        if (!settings.TouchpadOsdEnabled)
+            return;
+
+        EnsureWindow();
+        if (_window is null || _label is null || _value is null || _slider is null || _shell is null ||
+            _shellTransform is null || _iconPath is null || _iconButton is null)
+            return;
+
+        _activeLabel = next ? "Next track" : "Previous track";
+        _label.Text = _activeLabel;
+        _value.Text = string.Empty;
+        _slider.Visibility = Visibility.Collapsed;
+        _iconButton.IsEnabled = true;
+        _iconButton.IsHitTestVisible = false;
+        _iconButton.Cursor = System.Windows.Input.Cursors.Arrow;
+        _iconButton.ToolTip = _activeLabel;
+        _iconPath.Data = ResolveResourceGeometry(next ? "Tc.Icon.SkipNext" : "Tc.Icon.SkipPrevious");
+
+        Brush backdrop = WpfApplication.Current?.TryFindResource("Tc.Surface") as Brush ?? Brushes.Black;
+        Brush translucentBackdrop = backdrop.CloneCurrentValue();
+        translucentBackdrop.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0, 1.0);
+        _shell.Background = translucentBackdrop;
+        _shell.Opacity = 1;
+        _window.Opacity = 1;
+
+        Rect area = SystemParameters.WorkArea;
+        _window.Left = settings.TouchpadOsdPosition switch
+        {
+            "Left" => area.Left + 24,
+            "Right" => area.Right - _window.Width - 24,
+            _ => area.Left + (area.Width - _window.Width) / 2d
+        };
+        _window.Top = area.Bottom - _window.Height - 14;
+        _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        _shellTransform.Y = 0;
+        if (!_window.IsVisible)
+            _window.Show();
+        RestartHideTimer();
+    }
+
+    internal Window PrepareForSnapshot(string label, int value, bool? nextTrack = null)
+    {
+        if (nextTrack is bool next)
+            ShowTrack(next);
+        else
+            Show(label, value);
+        _hideTimer.Stop();
+        // Snapshot rendering is synchronous; cancel the live slide-in animation so
+        // the captured frame represents the settled pop-up and endpoint geometry.
+        if (_shellTransform is not null)
+        {
+            _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+            _shellTransform.Y = 0;
+        }
+        return _window ?? throw new InvalidOperationException("Gesture OSD window was not created.");
     }
 
     private void EnsureWindow()
@@ -300,7 +365,7 @@ internal sealed class GestureOsdService : IDisposable
     private static Geometry ResolveIconGeometry(bool brightness, int value, string label)
     {
         string key = brightness
-            ? "Tc.Icon.Brightness"
+            ? value < 34 ? "Tc.Icon.BrightnessLow" : value < 67 ? "Tc.Icon.Brightness" : "Tc.Icon.BrightnessHigh"
             : label.Contains("Muted", StringComparison.OrdinalIgnoreCase) || value == 0
                 ? "Tc.Icon.AudioMuted"
                 : value < 45 ? "Tc.Icon.AudioLow" : "Tc.Icon.Audio";

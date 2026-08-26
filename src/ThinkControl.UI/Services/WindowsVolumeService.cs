@@ -6,12 +6,12 @@ internal sealed record WindowsVolumeStatus(bool Available, int Percent, bool Mut
 
 internal sealed class WindowsVolumeService
 {
-    internal WindowsVolumeStatus Read()
+    internal WindowsVolumeStatus Read(DataFlow flow = DataFlow.Render)
     {
         try
         {
             using var enumerator = new MMDeviceEnumerator();
-            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            using MMDevice device = enumerator.GetDefaultAudioEndpoint(flow, Role.Multimedia);
             int percent = (int)Math.Round(device.AudioEndpointVolume.MasterVolumeLevelScalar * 100);
             return new(true, Math.Clamp(percent, 0, 100), device.AudioEndpointVolume.Mute, device.FriendlyName);
         }
@@ -21,13 +21,13 @@ internal sealed class WindowsVolumeService
         }
     }
 
-    internal bool Set(int percent, out int applied)
+    internal bool Set(int percent, out int applied, DataFlow flow = DataFlow.Render)
     {
         applied = Math.Clamp(percent, 0, 100);
         try
         {
             using var enumerator = new MMDeviceEnumerator();
-            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            using MMDevice device = enumerator.GetDefaultAudioEndpoint(flow, Role.Multimedia);
             float scalar = applied / 100f;
             device.AudioEndpointVolume.MasterVolumeLevelScalar = scalar;
             if (device.AudioEndpointVolume.Mute && scalar > 0)
@@ -41,12 +41,12 @@ internal sealed class WindowsVolumeService
         }
     }
 
-    internal bool SetMuted(bool muted)
+    internal bool SetMuted(bool muted, DataFlow flow = DataFlow.Render)
     {
         try
         {
             using var enumerator = new MMDeviceEnumerator();
-            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            using MMDevice device = enumerator.GetDefaultAudioEndpoint(flow, Role.Multimedia);
             device.AudioEndpointVolume.Mute = muted;
             return true;
         }

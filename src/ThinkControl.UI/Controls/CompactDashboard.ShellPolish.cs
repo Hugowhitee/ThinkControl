@@ -1,7 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Shapes;
 
 namespace ThinkControl.UI.Controls;
 
@@ -32,32 +30,26 @@ public partial class CompactDashboard
         captionButtons.ClipToBounds = false;
         header.ColumnDefinitions[1].Width = new GridLength(76);
 
-        // Keep both caption actions icon-only. The previous alpha.17 pass widened
-        // "Full view" inside a column designed for two 36px caption buttons, so its
-        // hover surface could be clipped on the left. One standard caption contract
-        // is both cleaner and impossible to clip here.
+        // The full-window action is a compact layout toggle, not an arrow. Giving
+        // it a small framed application glyph makes that destination obvious and
+        // keeps it visually grounded beside the quiet hide control.
         Button expand = buttons[0];
-        expand.Width = 34;
-        expand.Height = 34;
+        expand.Width = 32;
+        expand.Height = 32;
         expand.Margin = new Thickness(0);
         expand.Padding = new Thickness(0);
+        expand.BorderThickness = new Thickness(1);
+        expand.SetResourceReference(BackgroundProperty, "Tc.SurfaceAlt");
+        expand.SetResourceReference(BorderBrushProperty, "Tc.BorderStrong");
         expand.ToolTip = "Open full ThinkControl window";
 
-        var icon = new Viewbox
+        var icon = new PackIconLucide
         {
-            Width = 13,
-            Height = 13
+            Kind = "ViewSidebar",
+            Width = 17,
+            Height = 17
         };
-        var path = new Path
-        {
-            Data = Geometry.Parse("M3,8 V3 H8 M13,8 V13 H8"),
-            StrokeThickness = 1.45,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round
-        };
-        path.SetResourceReference(Shape.StrokeProperty, "Tc.TextMuted");
-        icon.Child = path;
+        icon.SetResourceReference(ForegroundProperty, "Tc.TextMuted");
         expand.Content = icon;
 
         Button close = buttons[1];

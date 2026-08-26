@@ -66,7 +66,7 @@ public sealed class FanCurvePolicyTests
     }
 
     [Fact]
-    public void FanOutputMapping_UsesMeasuredFullSpeedAsRealHundredPercent()
+    public void FanOutputMapping_UsesVerifiedLevelSevenAsRealHundredPercent()
     {
         var rpm = new Dictionary<int, int>
         {
@@ -76,14 +76,13 @@ public sealed class FanCurvePolicyTests
             [4] = 2000,
             [5] = 2400,
             [6] = 2800,
-            [7] = 3100,
-            [8] = 5200
+            [7] = 5200
         };
 
         IReadOnlyList<FanOutputMapping.State> states = FanOutputMapping.BuildStates(rpm);
-        Assert.Equal(60, states[6].EstimatedPercent);
-        Assert.Equal(100, states[7].EstimatedPercent);
-        Assert.True(states[7].FullSpeed);
+        Assert.Equal(54, states[5].EstimatedPercent);
+        Assert.Equal(100, states[6].EstimatedPercent);
+        Assert.Equal(7, states.Count);
     }
 
     [Fact]
@@ -97,14 +96,12 @@ public sealed class FanCurvePolicyTests
             [4] = 2000,
             [5] = 2400,
             [6] = 2800,
-            [7] = 3000,
-            [8] = 5200
+            [7] = 5200
         };
 
         FanOutputMapping.State state = FanOutputMapping.Resolve(60, rpm);
-        Assert.Equal(8, state.HardwareState);
+        Assert.Equal(7, state.HardwareState);
         Assert.Equal(100, state.EstimatedPercent);
-        Assert.True(state.FullSpeed);
     }
 
     [Fact]
@@ -112,7 +109,7 @@ public sealed class FanCurvePolicyTests
     {
         Assert.Equal(1, FanOutputMapping.Resolve(0).HardwareState);
         Assert.Equal(4, FanOutputMapping.Resolve(40).HardwareState);
-        Assert.Equal(8, FanOutputMapping.Resolve(100).HardwareState);
+        Assert.Equal(7, FanOutputMapping.Resolve(100).HardwareState);
     }
 
     [Fact]

@@ -77,13 +77,6 @@ public partial class AdvancedWindow
             {
                 batteryPanel.PrepareForSnapshot(snapshotState);
             }
-
-            const string sensorsPageKey = "ThinkControl.Dynamic.PageSensors";
-            if (Resources.Contains(sensorsPageKey) &&
-                Resources[sensorsPageKey] is ScrollViewer { Content: Controls.SensorsPanel sensorsPanel })
-            {
-                sensorsPanel.PrepareForSnapshot(snapshotState);
-            }
         }
 
         ValidateSharedPageRailForSnapshot();
@@ -163,25 +156,16 @@ public partial class AdvancedWindow
         panel.PrepareForSnapshot(showActiveGesture: Width >= 1500);
     }
 
-    public void NavigateSensors()
+    public void ExpandBatteryHistoryForSnapshot()
     {
-        ConfigureAdvancedBranding();
-        AdvancedWindowEnhancer.Ensure(this, _app);
-        AdvancedFeaturePages.Ensure(this, _app);
-        ConfigureAdvancedUiConsistency();
-        ConfigureInteractionPolish();
-        ConfigureResetDefaults();
-        ConfigureSliderCommitBehavior();
-        ConfigureCopyPolish();
-        ConfigureNavigationPolish();
-        ConfigureTouchpadPolish();
-        ConfigureWindowsSettingsLinks();
-        ConfigureNotificationButton();
-        ConfigureSupportCard();
-        ConfigureAdvancedUiConsistency();
-        AdvancedWindowEnhancer.SelectSensors(this);
-        if (_snapshotUiPrepared)
-            RevealDynamicPageForSnapshot("ThinkControl.Dynamic.PageSensors");
+        if (PageBattery?.Content is Panel batteryContent &&
+            batteryContent.Children.OfType<Controls.BatteryTelemetryPanel>().FirstOrDefault() is { } batteryPanel)
+        {
+            batteryPanel.ExpandSnapshotHistory();
+            PageBattery.UpdateLayout();
+            PageBattery.ScrollToEnd();
+            PageBattery.UpdateLayout();
+        }
     }
 
     private void RevealDynamicPageForSnapshot(string resourceKey)

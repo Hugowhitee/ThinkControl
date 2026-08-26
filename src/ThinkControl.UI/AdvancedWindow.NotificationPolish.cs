@@ -50,15 +50,15 @@ public partial class AdvancedWindow
             }
 
             bool serviceIssue = cards.Any(item => item.Title == "Hardware service");
-            bool lowLevelIssue = cards.Any(item => item.Title == "Low-level hardware access");
+            bool lowLevelIssue = cards.Any(item => item.Title is "PawnIO installation required" or "PawnIO needs repair");
 
             if (serviceIssue)
             {
                 // Service reachability is the prerequisite for every provider check.
                 // Repair that single root cause first instead of showing multiple
-                // identical "Fix required components" actions at once.
+                // duplicate prerequisite actions at once.
                 RemoveNotificationCards(cards, title =>
-                    title is "Low-level hardware access" or "Sensors" or "Fans" or "Keyboard");
+                    title is "PawnIO installation required" or "PawnIO needs repair" or "Sensors" or "Fans" or "Keyboard");
             }
             else if (lowLevelIssue)
             {
@@ -112,7 +112,8 @@ public partial class AdvancedWindow
         [
             "ThinkControl update available",
             "Hardware service",
-            "Low-level hardware access",
+            "PawnIO installation required",
+            "PawnIO needs repair",
             "Sensors",
             "Fans",
             "Keyboard"

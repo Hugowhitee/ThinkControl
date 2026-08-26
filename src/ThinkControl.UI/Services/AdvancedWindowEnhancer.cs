@@ -12,8 +12,6 @@ internal static class AdvancedWindowEnhancer
     private const string EnhancedKey = "ThinkControl.Advanced.Enhanced";
     private const string TouchpadNavName = "ThinkControl.Dynamic.NavTouchpad";
     private const string TouchpadPageName = "ThinkControl.Dynamic.PageTouchpad";
-    private const string SensorsNavName = "ThinkControl.Dynamic.NavSensors";
-    private const string SensorsPageName = "ThinkControl.Dynamic.PageSensors";
 
     internal static void Ensure(AdvancedWindow window, App app)
     {
@@ -22,19 +20,12 @@ internal static class AdvancedWindowEnhancer
 
         window.Resources[EnhancedKey] = true;
         AddTouchpadPage(window, app);
-        AddSensorsPage(window);
         AttachPageMotion(window);
     }
 
     internal static void SelectTouchpad(AdvancedWindow window)
     {
         if (window.Resources[TouchpadNavName] is RadioButton nav)
-            nav.IsChecked = true;
-    }
-
-    internal static void SelectSensors(AdvancedWindow window)
-    {
-        if (window.Resources[SensorsNavName] is RadioButton nav)
             nav.IsChecked = true;
     }
 
@@ -90,7 +81,6 @@ internal static class AdvancedWindowEnhancer
         touchpadNav.Checked += (_, _) =>
         {
             CollapseKnownPages(window);
-            HideDynamicPage(window, SensorsPageName);
             scroll.Visibility = Visibility.Visible;
             scroll.ScrollToTop();
             panel.Initialize(app);
@@ -99,69 +89,6 @@ internal static class AdvancedWindowEnhancer
 
         foreach (RadioButton button in KnownNav(window))
             button.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
-    }
-
-    private static void AddSensorsPage(AdvancedWindow window)
-    {
-        if (window.FindName("NavFans") is not RadioButton fans ||
-            window.FindName("NavDisplay") is not RadioButton display ||
-            fans.Parent is not Panel navPanel ||
-            window.FindName("PageHome") is not FrameworkElement home ||
-            home.Parent is not Grid pageHost)
-        {
-            return;
-        }
-
-        var sensorsNav = new RadioButton
-        {
-            GroupName = "Nav",
-            Tag = "Sensors",
-            Style = window.TryFindResource("TcNav") as Style
-        };
-        var navContent = new StackPanel { Orientation = Orientation.Horizontal };
-        navContent.Children.Add(new PackIconLucide
-        {
-            Kind = "Sensors",
-            Width = 15,
-            Height = 15,
-            Margin = new Thickness(0, 0, 12, 0)
-        });
-        navContent.Children.Add(new TextBlock { Text = "Sensors" });
-        sensorsNav.Content = navContent;
-
-        int displayIndex = navPanel.Children.IndexOf(display);
-        navPanel.Children.Insert(Math.Max(0, displayIndex), sensorsNav);
-
-        var scroll = new ScrollViewer
-        {
-            Tag = "Sensors",
-            Visibility = Visibility.Collapsed,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-            HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
-        };
-        var panel = new SensorsPanel
-        {
-            Margin = new Thickness(0)
-        };
-        scroll.Content = panel;
-        pageHost.Children.Add(scroll);
-
-        window.Resources[SensorsNavName] = sensorsNav;
-        window.Resources[SensorsPageName] = scroll;
-
-        sensorsNav.Checked += (_, _) =>
-        {
-            CollapseKnownPages(window);
-            HideDynamicPage(window, TouchpadPageName);
-            scroll.Visibility = Visibility.Visible;
-            scroll.ScrollToTop();
-            AnimateElement(scroll);
-        };
-
-        foreach (RadioButton button in KnownNav(window))
-            button.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
-        if (window.Resources[TouchpadNavName] is RadioButton touchpadNav)
-            touchpadNav.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
     }
 
     private static void AttachPageMotion(AdvancedWindow window)
@@ -215,12 +142,6 @@ internal static class AdvancedWindowEnhancer
             if (window.FindName(name) is FrameworkElement element)
                 element.Visibility = Visibility.Collapsed;
         }
-    }
-
-    private static void HideDynamicPage(AdvancedWindow window, string resourceName)
-    {
-        if (window.Resources[resourceName] is FrameworkElement element)
-            element.Visibility = Visibility.Collapsed;
     }
 
     private static IEnumerable<RadioButton> KnownNav(AdvancedWindow window)

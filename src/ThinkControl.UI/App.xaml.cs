@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
@@ -26,19 +27,21 @@ public partial class App : System.Windows.Application
     public PowerModeService PowerModeService { get; } = new();
     public SystemStatusService SystemStatusService { get; } = new();
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
-    public BatteryHistoryService BatteryHistoryService { get; } = new();
+    public UserSettingsService UserSettings { get; } = new();
+    public BatteryHistoryService BatteryHistoryService { get; }
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
-    public UserSettingsService UserSettings { get; } = new();
     public DiagnosticsRecorder DiagnosticsRecorder { get; } = new();
     public KeyboardEffectService KeyboardEffects { get; private set; } = null!;
     public MainWindow CompactWindow { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var synchronousStartup = Stopwatch.StartNew();
         base.OnStartup(e);
 
         ThinkControlUserSettings preferences = UserSettings.Current;
+        BatteryHistoryService.ConfigureDetailedRetentionDays(preferences.BatteryDetailRetentionDays);
         ThemeService.Apply(preferences.Theme);
         State.RefreshAutoEnabled = preferences.RefreshAuto;
         State.KeyboardMode = preferences.KeyboardMode;
@@ -91,9 +94,8 @@ public partial class App : System.Windows.Application
 
         _statusTimer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, OnStatusTimer, Dispatcher);
         _statusTimer.Start();
-        _ = RefreshStatusAsync(forceSystemInfo: true);
-
-        CompactWindow.ShowNearTray(animate: true);
+        Task initialRefresh = RefreshStatusAsync(forceSystemInfo: true);
+        PresentInitialShell(initialRefresh, synchronousStartup.Elapsed);
     }
 
     public void ToggleCompact()

@@ -9,6 +9,7 @@ using ThinkControl.Core.Ipc;
 using ThinkControl.UI;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.Services.Touchpad;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.Snapshots;
@@ -19,7 +20,7 @@ internal static class Program
 
     private static readonly string[] AdvancedPages =
     [
-        "Home", "Performance", "Fans", "Sensors", "Display", "Audio",
+        "Home", "Performance", "Fans", "Display", "Audio",
         "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings"
     ];
 
@@ -69,7 +70,18 @@ internal static class Program
             LowLevelAccessDetail: "Installed · device handshake needs repair",
             ServiceReachable: true);
 
+        var serviceRepairSetup = new HardwareSetupStatus(
+            ServiceInstalled: true,
+            ServiceRunning: false,
+            LowLevelAccessRelevant: true,
+            LowLevelAccessInstalled: true,
+            LowLevelAccessRunning: false,
+            ServiceDetail: "Installed · service stopped",
+            LowLevelAccessDetail: "Installed",
+            ServiceReachable: false);
+
         ThemeService.Apply(ThemeMode.Dark);
+        RenderBootstrap(output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
@@ -77,6 +89,8 @@ internal static class Program
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
+        RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
+            "advanced-battery-day-expanded.png", "expanded daily session detail", expandBatteryDay: true);
 
         // Every page gets minimum-size coverage so clipping and scrollbar overlap
         // cannot hide on a page that happened not to be in a hand-picked subset.
@@ -98,22 +112,61 @@ internal static class Program
         // deterministic provider states but the exact production controls/styles.
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention.png", "PawnIO + provider attention");
-        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 700, 720, output, snapshots,
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
             "hardware-setup-pawnio-repair.png", "PawnIO device repair");
-        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 600, 580, output, snapshots,
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
             "hardware-setup-pawnio-repair-min.png", "PawnIO device repair · minimum window");
-        RenderHardwareSetup(app, charging, readySetup, 700, 720, output, snapshots,
+        RenderHardwareSetup(app, charging, readySetup, 560, 360, output, snapshots,
             "hardware-setup-ready.png", "all providers ready");
+        RenderHardwareSetup(app, charging, readySetup, 500, 330, output, snapshots,
+            "hardware-setup-ready-min.png", "all providers ready · minimum window");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "hardware-setup-pawnio-error.png", "PawnIO setup unsuccessful", terminalFailure: true);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
+            "hardware-setup-pawnio-error-min.png", "PawnIO setup unsuccessful · minimum window", terminalFailure: true);
+        RenderHardwareSetup(app, serviceOffline, serviceRepairSetup, 560, 360, output, snapshots,
+            "required-component-service.png", "service repair", issue: HardwarePrerequisiteIssue.Service);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "required-component-sensors.png", "sensor retry", issue: HardwarePrerequisiteIssue.Sensors);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "required-component-fans.png", "fan provider retry", issue: HardwarePrerequisiteIssue.FanControl);
+        RenderHardwareSetup(app, serviceOffline, readySetup, 560, 360, output, snapshots,
+            "required-component-keyboard.png", "keyboard provider retry", issue: HardwarePrerequisiteIssue.Keyboard);
+        RenderDiagnostics(app, charging, 1160, 760, output, snapshots,
+            "diagnostics-ready.png", "capabilities detected · report ready");
+        RenderDiagnostics(app, serviceOffline, 1160, 760, output, snapshots,
+            "diagnostics-discovering.png", "provider data not ready");
         RenderFanCurveEditor(app, charging, output, snapshots);
         RenderTelemetryDetail(output, snapshots);
+        RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details.png", "normal");
+        RenderSensorDetails(app, charging, 700, 560, output, snapshots, "sensor-details-min.png", "minimum window");
+        RenderGestureOsd(app, output, snapshots, "gesture-osd-brightness.png", "Brightness", 100);
+        RenderGestureOsd(app, output, snapshots, "gesture-osd-brightness-min.png", "Brightness", 0);
+        RenderGestureOsd(app, output, snapshots, "gesture-osd-next-track.png", "Next track", 0, nextTrack: true);
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
-        RenderAdvanced(app, charging, "Sensors", 1160, 760, output, snapshots, "advanced-sensors-light.png", "normal · light");
+        RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention-light.png", "PawnIO + provider attention · light");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "hardware-setup-pawnio-repair-light.png", "PawnIO device repair · light");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
+            "hardware-setup-pawnio-repair-min-light.png", "PawnIO device repair · minimum window · light");
+        RenderHardwareSetup(app, charging, readySetup, 560, 360, output, snapshots,
+            "hardware-setup-ready-light.png", "all providers ready · light");
+        RenderHardwareSetup(app, charging, readySetup, 500, 330, output, snapshots,
+            "hardware-setup-ready-min-light.png", "all providers ready · minimum window · light");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "hardware-setup-pawnio-error-light.png", "PawnIO setup unsuccessful · light", terminalFailure: true);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
+            "hardware-setup-pawnio-error-min-light.png", "PawnIO setup unsuccessful · minimum window · light", terminalFailure: true);
+        RenderDiagnostics(app, charging, 1160, 760, output, snapshots,
+            "diagnostics-ready-light.png", "capabilities detected · report ready · light");
+        RenderDiagnostics(app, serviceOffline, 1160, 760, output, snapshots,
+            "diagnostics-discovering-light.png", "provider data not ready · light");
 
         WriteManifest(output, snapshots);
         WriteGallery(output, snapshots);
@@ -274,7 +327,8 @@ internal static class Program
         ICollection<SnapshotEntry> snapshots,
         string fileName,
         string stateName,
-        bool audioProvidersAvailable = true)
+        bool audioProvidersAvailable = true,
+        bool expandBatteryDay = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -283,8 +337,6 @@ internal static class Program
             app.State.BatteryTemperatureC = null;
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
             window.NavigateTouchpad();
-        else if (string.Equals(page, "Sensors", StringComparison.OrdinalIgnoreCase))
-            window.NavigateSensors();
         else if (string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase))
         {
             window.NavigateAudio();
@@ -292,6 +344,17 @@ internal static class Program
         }
         else
             window.Navigate(page);
+
+        if (expandBatteryDay)
+        {
+            if (window.Content is FrameworkElement root)
+            {
+                root.Measure(new Size(width, height));
+                root.Arrange(new Rect(0, 0, width, height));
+                root.UpdateLayout();
+            }
+            window.ExpandBatteryHistoryForSnapshot();
+        }
 
         if (string.Equals(page, "Updates", StringComparison.OrdinalIgnoreCase))
             window.PrepareUpdateUiForSnapshot(DateTimeOffset.Now.AddMinutes(-4));
@@ -330,18 +393,20 @@ internal static class Program
         string output,
         ICollection<SnapshotEntry> snapshots,
         string fileName,
-        string stateName)
+        string stateName,
+        bool terminalFailure = false,
+        HardwarePrerequisiteIssue issue = HardwarePrerequisiteIssue.Auto)
     {
         SyncAppState(state, app.State);
-        var window = new HardwareSetupWindow(app, new HardwareSetupService())
+        var window = new HardwareSetupWindow(app, new HardwareSetupService(), issue)
         {
             Width = width,
             Height = height,
             DataContext = app.State
         };
-        window.PrepareForSnapshot(setup);
+        window.PrepareForSnapshot(setup, terminalFailure);
         RenderWindowContent(window, Path.Combine(output, fileName));
-        snapshots.Add(new SnapshotEntry(fileName, "Hardware setup", stateName, width, height));
+        snapshots.Add(new SnapshotEntry(fileName, "Required component", stateName, width, height));
         window.Close();
     }
 
@@ -381,6 +446,77 @@ internal static class Program
         RenderWindowContent(window, Path.Combine(output, "telemetry-detail-battery.png"));
         snapshots.Add(new SnapshotEntry("telemetry-detail-battery.png", "Telemetry detail", "battery charge session · % + W", width, height));
         window.Close();
+    }
+
+    private static void RenderBootstrap(string output, ICollection<SnapshotEntry> snapshots)
+    {
+        var window = new BootstrapWindow();
+        RenderWindowContent(window, Path.Combine(output, "startup-loading.png"));
+        snapshots.Add(new SnapshotEntry("startup-loading.png", "Startup", "manual launch · preparing controls", 450, 250));
+        window.Close();
+    }
+
+    private static void RenderDiagnostics(
+        App app,
+        AppState state,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
+    {
+        SyncAppState(state, app.State);
+        var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
+        window.PrepareEnhancedUiForSnapshot();
+        window.Navigate("Settings");
+        window.PrepareDiagnosticsForSnapshot(ThinkControl.Core.Diagnostics.DiagnosticsConsent.Enabled);
+        if (window.Content is FrameworkElement root)
+        {
+            root.Measure(new Size(width, height));
+            root.Arrange(new Rect(0, 0, width, height));
+            root.UpdateLayout();
+        }
+        window.ScrollDiagnosticsIntoViewForSnapshot();
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "Settings · Diagnostics", stateName, width, height));
+        window.ForceClose();
+    }
+
+    private static void RenderSensorDetails(
+        App app,
+        AppState state,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
+    {
+        SyncAppState(state, app.State);
+        var window = new SensorDetailsWindow(app) { Width = width, Height = height };
+        window.PrepareForSnapshot(app.State);
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "System · Sensor details", stateName, width, height));
+        window.Close();
+    }
+
+    private static void RenderGestureOsd(
+        App app,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string label,
+        int value,
+        bool? nextTrack = null)
+    {
+        using var osd = new GestureOsdService(
+            () => app.UserSettings.Current,
+            (_, _) => true,
+            () => true);
+        Window window = osd.PrepareForSnapshot(label, value, nextTrack);
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "Gesture pop-up", label, (int)window.Width, (int)window.Height));
     }
 
     private static void RenderFanCurveEditor(

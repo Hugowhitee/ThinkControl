@@ -47,6 +47,14 @@ public partial class AdvancedWindow
         await RefreshNotificationSheetAsync();
     }
 
+    internal void ToggleNotificationSheet()
+    {
+        if (_notificationOverlay?.Visibility == Visibility.Visible)
+            HideNotificationSheet();
+        else
+            ShowNotificationSheet();
+    }
+
     internal void HideNotificationSheet()
     {
         if (_notificationOverlay is null || _notificationOverlay.Visibility != Visibility.Visible)
@@ -94,7 +102,7 @@ public partial class AdvancedWindow
 
         var title = new TextBlock
         {
-            Text = "Notifications",
+            Text = "Inbox",
             FontSize = 18,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
@@ -106,7 +114,7 @@ public partial class AdvancedWindow
             Height = 30,
             FontSize = 18,
             Padding = new Thickness(0),
-            ToolTip = "Close notifications",
+            ToolTip = "Close Inbox",
             HorizontalAlignment = HorizontalAlignment.Right,
             Style = TryFindResource("TcIconButton") as Style
         };
@@ -231,29 +239,29 @@ public partial class AdvancedWindow
                 messages.Add(new(
                     "Hardware service",
                     setup.ServiceDetail + ". ThinkControl can repair and start its own service after one Windows approval.",
-                    "Fix required components",
-                    SheetAction.HardwareRepair,
+                    "Review repair",
+                    SheetAction.Service,
                     true));
             }
 
             if (setup.LowLevelAccessRelevant && !setup.LowLevelAccessInstalled)
             {
                 messages.Add(new(
-                    "Low-level hardware access",
+                    "PawnIO installation required",
                     verifiedX9
                         ? "PawnIO is required for X9 sensor discovery and the verified EC provider. ThinkControl downloads the pinned package, verifies SHA-256, then asks Windows once before installation."
                         : "An additional low-level provider is required for the detected hardware. ThinkControl verifies the pinned package before Windows is asked to install it.",
-                    "Fix required components",
-                    SheetAction.HardwareRepair,
+                    "Install PawnIO",
+                    SheetAction.PawnIo,
                     true));
             }
             else if (pawnIoRepair)
             {
                 messages.Add(new(
-                    "Low-level hardware access",
+                    "PawnIO needs repair",
                     FriendlyPawnIoDetail(hardwareDetail),
-                    "Repair component",
-                    SheetAction.HardwareRepair,
+                    "Review repair",
+                    SheetAction.PawnIo,
                     true));
             }
 
@@ -263,8 +271,8 @@ public partial class AdvancedWindow
                 messages.Add(new(
                     "Sensors",
                     "The sensor provider has not produced usable telemetry. Retry rebuilds only the sensor stack; fan EC and keyboard providers stay untouched.",
-                    "Retry sensors",
-                    SheetAction.RefreshSensors,
+                    "Review retry",
+                    SheetAction.Sensors,
                     true));
             }
 
@@ -279,8 +287,8 @@ public partial class AdvancedWindow
                 messages.Add(new(
                     "Fans",
                     detail,
-                    ecCompatibilityFailure ? string.Empty : "Retry provider",
-                    ecCompatibilityFailure ? SheetAction.None : SheetAction.RefreshProviders,
+                    ecCompatibilityFailure ? string.Empty : "Review retry",
+                    ecCompatibilityFailure ? SheetAction.None : SheetAction.FanControl,
                     true));
             }
 
@@ -289,15 +297,15 @@ public partial class AdvancedWindow
                 messages.Add(new(
                     "Keyboard",
                     "The Lenovo keyboard provider has not produced a valid readback. Retry probes only keyboard backlight contracts and does not recycle working sensors or fan control.",
-                    "Retry keyboard",
-                    SheetAction.RefreshKeyboard,
+                    "Review retry",
+                    SheetAction.Keyboard,
                     true));
             }
 
             if (DeviceSupportReportService.HasUsefulDiscovery(_app.State))
             {
                 messages.Add(new(
-                    "Useful device support data is ready",
+                    "Device compatibility data is ready",
                     DeviceSupportReportService.DiscoverySummary(_app.State) + ". With compatibility sharing enabled, the redacted hardware-only report is prepared locally and GitHub submission remains explicit.",
                     "Share device report",
                     SheetAction.Diagnostics,
@@ -421,7 +429,7 @@ public partial class AdvancedWindow
         };
     }
 
-    private async void NotificationAction_Click(object sender, RoutedEventArgs e)
+    private void NotificationAction_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not Button { Tag: SheetAction action } button)
             return;
@@ -435,33 +443,20 @@ public partial class AdvancedWindow
                     HideNotificationSheet();
                     Navigate("Updates");
                     break;
-                case SheetAction.HardwareRepair:
-                    button.Content = "Repairing…";
-                    if (_notificationSummary is not null)
-                        _notificationSummary.Text = "Repairing required components and verifying readback…";
-                    await _app.RepairDetectedHardwareAsync();
-                    await RefreshNotificationSheetAsync();
-                    break;
-                case SheetAction.RefreshSensors:
-                    button.Content = "Retrying…";
-                    if (_notificationSummary is not null)
-                        _notificationSummary.Text = "Refreshing sensor telemetry without touching fan or keyboard providers…";
-                    await _app.RefreshSensorProvidersAsync();
-                    await RefreshNotificationSheetAsync();
-                    break;
-                case SheetAction.RefreshKeyboard:
-                    button.Content = "Retrying…";
-                    if (_notificationSummary is not null)
-                        _notificationSummary.Text = "Retrying only the Lenovo keyboard backlight provider…";
-                    await _app.RefreshKeyboardProviderAsync();
-                    await RefreshNotificationSheetAsync();
-                    break;
-                case SheetAction.RefreshProviders:
-                    button.Content = "Retrying…";
-                    if (_notificationSummary is not null)
-                        _notificationSummary.Text = "Refreshing the full hardware provider set after returning fan control safely…";
-                    await _app.RefreshHardwareProvidersAsync();
-                    await RefreshNotificationSheetAsync();
+                case SheetAction.Service:
+                case SheetAction.PawnIo:
+                case SheetAction.Sensors:
+                case SheetAction.FanControl:
+                case SheetAction.Keyboard:
+                    HideNotificationSheet();
+                    _app.OpenHardwareIssue(action switch
+                    {
+                        SheetAction.Service => HardwarePrerequisiteIssue.Service,
+                        SheetAction.PawnIo => HardwarePrerequisiteIssue.PawnIo,
+                        SheetAction.Sensors => HardwarePrerequisiteIssue.Sensors,
+                        SheetAction.FanControl => HardwarePrerequisiteIssue.FanControl,
+                        _ => HardwarePrerequisiteIssue.Keyboard
+                    });
                     break;
                 case SheetAction.Diagnostics:
                     HideNotificationSheet();
@@ -481,10 +476,11 @@ public partial class AdvancedWindow
     {
         None,
         Updates,
-        HardwareRepair,
-        RefreshSensors,
-        RefreshKeyboard,
-        RefreshProviders,
+        Service,
+        PawnIo,
+        Sensors,
+        FanControl,
+        Keyboard,
         Diagnostics
     }
 }

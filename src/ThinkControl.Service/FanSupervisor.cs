@@ -100,7 +100,7 @@ internal sealed class FanSupervisor : IDisposable
                     _characterizationRunning,
                     _characterizationLevel,
                     _calibration.Count,
-                    8,
+                    7,
                     _characterizationStatus,
                     _audibleFromLevel,
                     _calibration.OrderBy(point => point.Level).ToArray()));
@@ -238,7 +238,7 @@ internal sealed class FanSupervisor : IDisposable
             _curveTargetPercent = null;
             _smoothedTemperatureC = preflight.ControlTemperatureC!.Value;
             _safetyOverride = false;
-            _status = $"Manual EC step {level} · ~{estimated}% of calibrated full speed · {preflight.ControlTemperatureC.Value:0.#} °C";
+            _status = $"Manual EC step {level} · ~{estimated}% of verified maximum · {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
         }
         SignalControlWake();
@@ -357,15 +357,15 @@ internal sealed class FanSupervisor : IDisposable
         error = null;
         lock (_gate)
         {
-            if (!_characterizationRunning || !_characterizationLevel.HasValue || _characterizationLevel.Value is < 1 or > 8)
+            if (!_characterizationRunning || !_characterizationLevel.HasValue || _characterizationLevel.Value is < 1 or > 7)
             {
                 error = "Start fan calibration first, then mark the first state you clearly hear.";
                 return false;
             }
 
             _audibleFromLevel = _characterizationLevel.Value;
-            _characterizationStatus = _characterizationLevel.Value == 8
-                ? "Full speed marked as clearly audible"
+            _characterizationStatus = _characterizationLevel.Value == 7
+                ? "Verified maximum marked as clearly audible"
                 : $"EC step {_characterizationLevel.Value} marked as clearly audible";
         }
         SaveCalibration();
@@ -476,7 +476,7 @@ internal sealed class FanSupervisor : IDisposable
                 _smoothedTemperatureC = raw;
                 _status = manualPercent.HasValue
                     ? $"Manual {manualPercent.Value}% target · {_appliedPercent ?? 0}% calibrated output · {raw:0.#} °C"
-                    : $"Manual EC step {manualLevel!.Value} · ~{_appliedPercent ?? 0}% of full speed · {raw:0.#} °C";
+                    : $"Manual EC step {manualLevel!.Value} · ~{_appliedPercent ?? 0}% of verified maximum · {raw:0.#} °C";
             }
             return;
         }
@@ -557,9 +557,7 @@ internal sealed class FanSupervisor : IDisposable
     }
 
     private static string DescribeCurveOutput(string name, int target, FanOutputMapping.State state, double temperature) =>
-        state.FullSpeed
-            ? $"{name} · {target}% target · 100% full speed · {temperature:0.#} °C"
-            : $"{name} · {target}% target · ~{state.EstimatedPercent}% calibrated · EC step {state.HardwareState} · {temperature:0.#} °C";
+        $"{name} · {target}% target · ~{state.EstimatedPercent}% verified output · EC step {state.HardwareState} · {temperature:0.#} °C";
 
     private async Task SafeAutoHandoffAsync(string reason, CancellationToken token, bool preserveCurve = false)
     {
@@ -597,7 +595,7 @@ internal sealed class FanSupervisor : IDisposable
                 throw new InvalidOperationException("EC step 7 safety spin-up could not be verified.");
             await Task.Delay(TimeSpan.FromSeconds(3), token).ConfigureAwait(false);
 
-            for (int state = 1; state <= 8; state++)
+            for (int state = 1; state <= 7; state++)
             {
                 token.ThrowIfCancellationRequested();
                 lock (_gate)
@@ -605,22 +603,15 @@ internal sealed class FanSupervisor : IDisposable
                     if (!_characterizationRunning)
                         return;
                     _characterizationLevel = state;
-                    _characterizationStatus = state == 8
-                        ? "Testing readback-gated full speed · 8/8"
-                        : $"Testing EC step {state} of 7 · {state}/8";
+                    _characterizationStatus = $"Testing EC step {state} of 7 · {state}/7";
                 }
 
                 LenovoHardwareStatus thermal = _hardware.ReadStatus();
                 if (!thermal.ControlTemperatureC.HasValue || FanCurvePolicy.RequiresFirmwareSafetyHandoff(thermal.ControlTemperatureC.Value))
                     throw new InvalidOperationException("Temperature safety check handed control back to Lenovo firmware.");
-                if (state == 8 && thermal.ControlTemperatureC.Value >= 85)
-                    throw new InvalidOperationException("Full-speed calibration was skipped because the system is already hot; Lenovo Auto restored.");
-
-                bool applied = state == 8
-                    ? await SetHardwareFullSpeedSerializedAsync(token).ConfigureAwait(false)
-                    : await SetHardwareLevelSerializedAsync(state, token).ConfigureAwait(false);
+                bool applied = await SetHardwareLevelSerializedAsync(state, token).ConfigureAwait(false);
                 if (!applied)
-                    throw new InvalidOperationException(state == 8 ? "Full-speed state could not be verified." : $"EC step {state} could not be verified.");
+                    throw new InvalidOperationException($"EC step {state} could not be verified.");
 
                 // EC tachometer reads are deliberately sparse. The two samples are
                 // separated enough to detect pulsing/unstable states without turning
@@ -636,17 +627,17 @@ internal sealed class FanSupervisor : IDisposable
                     _calibration.RemoveAll(existing => existing.Level == state);
                     _calibration.Add(point);
                     if (point.Stable) _unstableLevels.Remove(state); else _unstableLevels.Add(state);
-                    string label = state == 8 ? "Full speed" : $"EC step {state}";
+                    string label = $"EC step {state}";
                     _characterizationStatus = point.Stable
-                        ? $"{label}: stable · {_calibration.Count}/8 complete"
-                        : $"{label}: RPM varies noticeably · {_calibration.Count}/8 complete";
+                        ? $"{label}: stable · {_calibration.Count}/7 complete"
+                        : $"{label}: RPM varies noticeably · {_calibration.Count}/7 complete";
                 }
                 SaveCalibration();
             }
 
             lock (_gate)
                 _characterizationStatus = _unstableLevels.Count == 0
-                    ? "Calibration complete · fan percentages now use measured RPM relative to full speed"
+                    ? "Calibration complete · fan percentages now use measured RPM relative to verified EC step 7"
                     : $"Calibration complete · {_unstableLevels.Count} variable state(s) recorded and skipped when a safer higher state is available";
         }
         catch (OperationCanceledException)
@@ -690,15 +681,12 @@ internal sealed class FanSupervisor : IDisposable
         // A variable normal state is avoided by moving upward, never downward. This
         // preserves the requested cooling floor while avoiding fan pulsing where the
         // characterization run proved a step unstable.
-        if (!selected.FullSpeed)
-        {
-            HashSet<int> unstable;
-            lock (_gate) unstable = new HashSet<int>(_unstableLevels);
-            int index = selected.HardwareState - 1;
-            while (index < states.Count - 1 && unstable.Contains(states[index].HardwareState))
-                index++;
-            selected = states[index];
-        }
+        HashSet<int> unstable;
+        lock (_gate) unstable = new HashSet<int>(_unstableLevels);
+        int index = selected.HardwareState - 1;
+        while (index < states.Count - 1 && unstable.Contains(states[index].HardwareState))
+            index++;
+        selected = states[index];
         return selected;
     }
 
@@ -740,13 +728,6 @@ internal sealed class FanSupervisor : IDisposable
 
     private bool ApplyOutputStateUnlocked(FanOutputMapping.State state, out string? detail, out string? error)
     {
-        if (state.FullSpeed)
-        {
-            bool success = _hardware.SetFanPercent(100, out _, out bool fullSpeed, out string? hardwareDetail, out error);
-            detail = success && fullSpeed ? "100% full speed · EC readback verified" : hardwareDetail;
-            return success && fullSpeed;
-        }
-
         bool levelSuccess = _hardware.SetFanLevel(state.HardwareState, out error);
         detail = levelSuccess
             ? $"~{state.EstimatedPercent}% calibrated output · EC step {state.HardwareState}"
@@ -770,16 +751,6 @@ internal sealed class FanSupervisor : IDisposable
     {
         await _writeGate.WaitAsync(token).ConfigureAwait(false);
         try { return _hardware.SetFanLevel(level, out _); }
-        finally { _writeGate.Release(); }
-    }
-
-    private async Task<bool> SetHardwareFullSpeedSerializedAsync(CancellationToken token)
-    {
-        await _writeGate.WaitAsync(token).ConfigureAwait(false);
-        try
-        {
-            return _hardware.SetFanPercent(100, out _, out bool fullSpeed, out _, out _) && fullSpeed;
-        }
         finally { _writeGate.Release(); }
     }
 

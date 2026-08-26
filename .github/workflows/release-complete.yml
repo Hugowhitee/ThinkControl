@@ -74,7 +74,7 @@ jobs:
             'compact-dark.png',
             'advanced-home.png',
             'advanced-touchpad.png',
-            'advanced-sensors.png',
+            'sensor-details.png',
             'advanced-fans.png',
             'advanced-audio.png',
             'advanced-battery.png',
@@ -111,7 +111,7 @@ jobs:
             Draw-Preview 'advanced-home.png' 458 24 1160 760
             $grid = @(
               'advanced-touchpad.png',
-              'advanced-sensors.png',
+              'sensor-details.png',
               'advanced-fans.png',
               'advanced-audio.png',
               'advanced-battery.png',

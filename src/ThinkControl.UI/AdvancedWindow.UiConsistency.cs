@@ -32,7 +32,6 @@ public partial class AdvancedWindow
     private static readonly string[] DynamicPageResourceNames =
     [
         "ThinkControl.Dynamic.PageTouchpad",
-        "ThinkControl.Dynamic.PageSensors",
         "ThinkControl.Dynamic.PageAudio"
     ];
 
@@ -41,7 +40,6 @@ public partial class AdvancedWindow
         "Home",
         "Performance",
         "Fans",
-        "Sensors",
         "Battery",
         "Display",
         "Audio",

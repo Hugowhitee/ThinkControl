@@ -80,6 +80,11 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             "Sensors" => "Tc.Icon.Sensors",
             "Cpu" => "Tc.Icon.Cpu",
             "Brightness" => "Tc.Icon.Brightness",
+            "ViewSidebar" => "Tc.Icon.ViewSidebar",
+            "OpenInFull" => "Tc.Icon.OpenInFull",
+            "Close" => "Tc.Icon.Close",
+            "Check" => "Tc.Icon.Check",
+            "Error" => "Tc.Icon.Error",
             _ => null
         };
         Geometry? source = resourceKey is null ? null : TryFindResource(resourceKey) as Geometry;

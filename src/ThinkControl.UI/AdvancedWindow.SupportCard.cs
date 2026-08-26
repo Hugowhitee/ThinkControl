@@ -150,6 +150,21 @@ public partial class AdvancedWindow
             BorderBrush = new SolidColorBrush(System.Windows.Media.Color.FromRgb(224, 194, 0)),
             ToolTip = "Open Buy Me a Coffee"
         };
+        action.FocusVisualStyle = null;
+        action.RenderTransformOrigin = new System.Windows.Point(0.5, 0.5);
+        var scale = new ScaleTransform(1, 1);
+        action.RenderTransform = scale;
+        action.MouseEnter += (_, _) => { scale.ScaleX = 1.035; scale.ScaleY = 1.035; };
+        action.MouseLeave += (_, _) => { scale.ScaleX = 1; scale.ScaleY = 1; };
+        action.GotKeyboardFocus += (_, _) => { scale.ScaleX = 1.035; scale.ScaleY = 1.035; };
+        action.LostKeyboardFocus += (_, _) =>
+        {
+            if (!action.IsMouseOver)
+            {
+                scale.ScaleX = 1;
+                scale.ScaleY = 1;
+            }
+        };
 
         var content = new StackPanel { Orientation = Orientation.Horizontal };
         content.Children.Add(new Viewbox

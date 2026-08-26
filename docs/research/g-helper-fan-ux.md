@@ -22,21 +22,21 @@ Alpha.16 uses the same *product ideas*, implemented independently for the ThinkP
 2. Named custom profiles clone an existing graph and appear in both the full Fans page and compact/tray controls.
 3. Curves use 8 ordered points with explicit Save and apply.
 4. The final graph point is locked to 100%; the independent 94 °C firmware safety handoff cannot be edited.
-5. Characterization measures the seven verified normal EC steps plus the separately verified full-speed state.
-6. When calibration is complete, normal EC steps are expressed relative to the measured full-speed RPM. If step 7 measures only ~55–60% of full speed, ThinkControl must show that rather than call step 7 100%.
+5. Characterization measures the seven physically verified EC steps.
+6. When calibration is complete, lower EC steps are expressed relative to measured step-7 RPM. The UI's normalized 100% target means this verified maximum, not continuous PWM.
 7. A requested cooling percentage is a floor. ThinkControl chooses the lowest calibrated hardware state that can meet it; it never silently selects a weaker state merely because the EC has gaps between discrete outputs.
 8. Unstable characterized normal states are skipped upward when thermally safe.
 9. Auto mode remains event-driven/idle. Custom curves keep the existing 2-second safety supervisor only while ThinkControl actually owns fan control.
 
-## X9 full-speed distinction
+## X9 maximum-state distinction
 
-ThinkPad EC normal manual states are 1–7. Upstream Linux `thinkpad_acpi` also documents a separate full-speed/disengaged bit (`0x40`) and combines it with level 7 for a full-speed request. ThinkControl therefore treats `0x47` as a separate state, not as “level 8” in user-facing controls.
+ThinkPad EC normal manual states are 1–7. Upstream Linux `thinkpad_acpi` also documents a full-speed/disengaged bit (`0x40`) and can combine it with level 7. On the X9 reference unit, `0x47` echoed in the control register but left the fan at 0 RPM, while level 7 physically ramped to approximately 4400 RPM. ThinkControl therefore blocks `0x47` and maps 100% to verified level 7.
 
 Safety requirements in ThinkControl:
 
 - X9 21Q6/21Q7 model gate must pass.
 - PawnIO/EC transport must already have passed the existing read-only validation.
-- Full speed is written as `0x47` and accepted only if direct EC readback reports the full-speed bit.
+- The unverified `0x47` override is never written; readback echo alone is not treated as proof of physical fan output.
 - A failed write/readback immediately attempts Lenovo Auto (`0x80`).
 - Fan-off/raw `0x00` remains blocked.
 - The 94 °C firmware safety handoff stays independent of every user curve and manual target.

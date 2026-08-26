@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
   pull_request:
@@ -39,20 +40,24 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
 
           $advancedPages = @(
-            'home', 'performance', 'fans', 'sensors', 'display', 'audio',
+            'home', 'performance', 'fans', 'display', 'audio',
             'keyboard', 'battery', 'touchpad', 'system', 'updates', 'settings'
           )
           $expectedPng = @(
+            'startup-loading.png',
             'compact-dark.png',
             'compact-on-battery.png',
             'compact-light.png',
             'advanced-battery-device-temperature.png',
+            'advanced-battery-day-expanded.png',
             'advanced-system-service-offline.png',
             'advanced-keyboard-unavailable.png',
             'advanced-fans-unavailable.png',
             'advanced-home-light.png',
             'advanced-touchpad-light.png',
-            'advanced-sensors-light.png',
+            'sensor-details.png',
+            'sensor-details-min.png',
+            'sensor-details-light.png',
             'notifications-hardware-attention.png',
             'notifications-hardware-attention-light.png',
             'hardware-setup-pawnio-repair.png',
@@ -69,7 +74,10 @@ jobs:
           foreach ($name in $expectedPng) {
             $path = Join-Path $output $name
             if (-not (Test-Path $path)) { throw "Missing UI snapshot: $name" }
-            if ((Get-Item $path).Length -lt 5000) { throw "UI snapshot is unexpectedly small: $name" }
+            # The intentional startup surface is nearly empty by design, so PNG
+            # compression can make it substantially smaller than a full page.
+            $minimumBytes = if ($name -eq 'startup-loading.png') { 2000 } else { 5000 }
+            if ((Get-Item $path).Length -lt $minimumBytes) { throw "UI snapshot is unexpectedly small: $name" }
           }
 
           foreach ($name in @('gallery.html', 'manifest.json', 'README.md')) {

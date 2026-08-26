@@ -31,6 +31,25 @@
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
+                        <TextBlock Text="Microphone input" FontWeight="SemiBold" />
+                        <TextBlock x:Name="MicrophoneDeviceText" Text="Default Windows input" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,90,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <TextBlock x:Name="MicrophoneValueText" Text="—" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <Button x:Name="MicrophoneMuteButton" Content="Mute" Style="{StaticResource TcButton}" Padding="10,4" Click="MicrophoneMute_Click" />
+                    </StackPanel>
+                </Grid>
+                <Slider x:Name="MicrophoneSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="MicrophoneSlider_ValueChanged" PreviewMouseLeftButtonUp="MicrophoneSlider_MouseUp" />
+                <TextBlock Text="Windows endpoint input gain. Some microphone arrays expose additional processing only in Windows Sound settings or the OEM audio app."
+                           Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <StackPanel>
                         <TextBlock Text="Dolby Atmos" FontWeight="SemiBold" />
                         <TextBlock x:Name="BackendStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
                     </StackPanel>
