@@ -102,10 +102,10 @@ public partial class BatteryTelemetryPanel : UserControl
             return;
 
         var copy = new StackPanel();
-        copy.Children.Add(new TextBlock { Text = "App battery usage", FontWeight = FontWeights.SemiBold });
+        copy.Children.Add(new TextBlock { Text = "Windows app battery usage", FontWeight = FontWeights.SemiBold });
         var detail = new TextBlock
         {
-            Text = "See Windows' own per-app battery estimates without running another profiler in ThinkControl. This keeps background overhead near zero and uses the same system energy accounting Windows Settings relies on.",
+            Text = "Per-app energy accounting belongs to Windows. This opens the dedicated Battery usage page in Settings; ThinkControl keeps its own recent charge and discharge history above.",
             FontSize = 10.5,
             Margin = new Thickness(0, 5, 190, 0),
             TextWrapping = TextWrapping.Wrap
@@ -115,7 +115,7 @@ public partial class BatteryTelemetryPanel : UserControl
 
         var button = new Button
         {
-            Content = "Open app battery usage",
+            Content = "Open in Windows",
             Style = TryFindResource("TcButton") as Style,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,

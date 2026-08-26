@@ -108,12 +108,14 @@ public sealed class TouchpadVisualizer : FrameworkElement
         dc.DrawRoundedRectangle(null, new Pen(border, 1), pad, PadCornerRadius, PadCornerRadius);
         DrawEdgeLabels(dc, pad, accent, muted, faint);
 
-        DrawLabel(dc, "TOUCH OR START AT AN EDGE", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 8),
-            10.5, muted, centered: true);
+        TouchpadEdgeBinding selectedBinding = _configuration.BindingFor(_selectedEdge);
+        DrawLabel(dc, $"{EdgeName(_selectedEdge).ToUpperInvariant()} · {ActionLabel(selectedBinding.Action).ToUpperInvariant()}",
+            new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 8),
+            11, muted, centered: true);
         string size = _geometry.PhysicalSizeEstimated
             ? $"~{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm"
             : $"{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm";
-        DrawLabel(dc, size, new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 11),
+        DrawLabel(dc, $"{size} · click an edge to edit", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 11),
             9.5, faint, centered: true);
 
         foreach (TouchContact contact in _contacts.Where(static c => c.IsDown))
@@ -243,9 +245,44 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 TouchpadEdge.Left => new(band.Right + 24, pad.Top + pad.Height / 2),
                 _ => new(band.Left - 24, pad.Top + pad.Height / 2)
             };
-            DrawLabel(dc, label, point, edge is TouchpadEdge.Left or TouchpadEdge.Right ? 9.0 : 9.4, labelBrush, centered: true);
+            if (edge is TouchpadEdge.Left or TouchpadEdge.Right &&
+                binding.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
+            {
+                string iconKey = binding.Action == GestureActionKind.Volume ? "Tc.Icon.Audio" : "Tc.Icon.Brightness";
+                DrawMaterialIcon(dc, iconKey, new Rect(point.X - 8, point.Y - 8, 16, 16), labelBrush);
+                string upper = binding.Inverted ? "−" : "+";
+                string lower = binding.Inverted ? "+" : "−";
+                DrawLabel(dc, upper, new WpfPoint(point.X, pad.Top + 44), 12, labelBrush, centered: true);
+                DrawLabel(dc, lower, new WpfPoint(point.X, pad.Bottom - 44), 12, labelBrush, centered: true);
+            }
+            else
+            {
+                DrawLabel(dc, label, point, edge is TouchpadEdge.Left or TouchpadEdge.Right ? 9.0 : 9.4, labelBrush, centered: true);
+            }
         }
     }
+
+    private void DrawMaterialIcon(DrawingContext dc, string resourceKey, Rect bounds, Brush brush)
+    {
+        if (TryFindResource(resourceKey) is not Geometry source)
+            return;
+
+        Geometry geometry = source.CloneCurrentValue();
+        double scale = Math.Min(bounds.Width, bounds.Height) / 960d;
+        geometry.Transform = new MatrixTransform(
+            scale, 0,
+            0, scale,
+            bounds.Left, bounds.Top + 960d * scale);
+        dc.DrawGeometry(brush, null, geometry);
+    }
+
+    private static string EdgeName(TouchpadEdge edge) => edge switch
+    {
+        TouchpadEdge.Left => "Left edge",
+        TouchpadEdge.Right => "Right edge",
+        TouchpadEdge.Top => "Top edge",
+        _ => "Bottom edge"
+    };
 
     private Rect EdgeBandRect(Rect pad, TouchpadEdge edge)
     {

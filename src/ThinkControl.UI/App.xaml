@@ -61,16 +61,24 @@
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="3"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    CornerRadius="3">
+                                <Grid ClipToBounds="True">
+                                    <Border x:Name="InteractionOverlay" Background="White" Opacity="0" CornerRadius="2" />
+                                    <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="InteractionOverlay" Storyboard.TargetProperty="Opacity" To="0.08" Duration="0:0:0.12" /></Storyboard></BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="InteractionOverlay" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.10" /></Storyboard></BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
                                     <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
+                                    <Setter TargetName="InteractionOverlay" Property="Opacity" Value="0.13" />
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Opacity" Value="0.42" />
@@ -113,15 +121,24 @@
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="3"
-                                    Padding="{TemplateBinding Padding}">
-                                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                                  VerticalAlignment="Center" />
+                                    CornerRadius="3">
+                                <Grid ClipToBounds="True">
+                                    <Border x:Name="InteractionOverlay" Background="White" Opacity="0" CornerRadius="2" />
+                                    <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="Center" />
+                                </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="InteractionOverlay" Storyboard.TargetProperty="Opacity" To="0.07" Duration="0:0:0.12" /></Storyboard></BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetName="InteractionOverlay" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.10" /></Storyboard></BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
+                                <Trigger Property="IsPressed" Value="True"><Setter TargetName="InteractionOverlay" Property="Opacity" Value="0.12" /></Trigger>
                                 <Trigger Property="IsChecked" Value="True">
                                     <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
                                     <Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" />
@@ -246,20 +263,32 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Slider">
-                            <Grid Background="Transparent" ClipToBounds="False">
-                                <Border Height="5" Margin="12,0" VerticalAlignment="Center" CornerRadius="2.5" Background="{DynamicResource Tc.BorderStrong}" />
-                                <Track x:Name="PART_Track" VerticalAlignment="Center">
+                            <Grid Background="Transparent" ClipToBounds="True">
+                                <Border Height="5" VerticalAlignment="Center" CornerRadius="2.5" Background="{DynamicResource Tc.BorderStrong}" />
+                                <Track x:Name="PART_Track" Margin="12,0" VerticalAlignment="Center">
                                     <Track.DecreaseRepeatButton>
-                                        <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource TcSliderDecrease}" />
+                                        <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource TcSliderDecrease}" Margin="-12,0,0,0" />
                                     </Track.DecreaseRepeatButton>
                                     <Track.Thumb>
-                                        <Thumb Width="24" Height="24" Background="Transparent">
+                                        <Thumb Width="26" Height="26" Background="Transparent">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
                                                     <Grid Background="Transparent">
-                                                        <Ellipse Width="13" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                        <Ellipse x:Name="Dot" Width="15" Height="15" HorizontalAlignment="Center" VerticalAlignment="Center"
                                                                  Fill="{DynamicResource Tc.Text}" Stroke="{DynamicResource Tc.BorderStrong}" StrokeThickness="1" />
                                                     </Grid>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Dot" Property="Width" Value="17" />
+                                                            <Setter TargetName="Dot" Property="Height" Value="17" />
+                                                            <Setter TargetName="Dot" Property="Stroke" Value="{DynamicResource Tc.TextMuted}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsDragging" Value="True">
+                                                            <Setter TargetName="Dot" Property="Width" Value="18" />
+                                                            <Setter TargetName="Dot" Property="Height" Value="18" />
+                                                            <Setter TargetName="Dot" Property="Stroke" Value="{DynamicResource Tc.Accent}" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
                                                 </ControlTemplate>
                                             </Thumb.Template>
                                         </Thumb>

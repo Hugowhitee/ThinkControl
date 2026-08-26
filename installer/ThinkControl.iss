@@ -57,7 +57,7 @@ WizardStyle=modern dynamic windows11
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-MinVersion=10.0.22000
+MinVersion=10.0.19041
 UninstallDisplayName=ThinkControl
 UninstallDisplayIcon={app}\ThinkControl.ico
 CloseApplications=yes
@@ -72,6 +72,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional shortcuts:"
+Name: "compatibilitydiagnostics"; Description: "Help ThinkControl support more devices by preparing redacted compatibility reports locally"; GroupDescription: "Compatibility:"
 
 [Files]
 Source: "..\assets\brand\v3\windows\ThinkControl.ico"; DestDir: "{app}"; DestName: "ThinkControl.ico"; Flags: ignoreversion
@@ -79,6 +80,10 @@ Source: "..\assets\brand\v3\windows\ThinkControl.ico"; DestDir: "{app}"; DestNam
 [Icons]
 Name: "{group}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ThinkControl.ico"
 Name: "{autodesktop}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilename: "{app}\ThinkControl.ico"; Tasks: desktopicon
+
+[Registry]
+Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "1"; Tasks: compatibilitydiagnostics; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "0"; Tasks: not compatibilitydiagnostics; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{sys}\sc.exe"; Parameters: "create {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated

@@ -10,7 +10,6 @@ namespace ThinkControl.UI.Controls;
 public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
 {
     private bool _syncing;
-    private string? _reviewedReportFingerprint;
 
     public DiagnosticsPanel()
     {
@@ -43,41 +42,28 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
 
             bool useful = DeviceSupportReportService.HasUsefulDiscovery(app.State);
             DeviceSupportReport? currentReport = null;
-            if (useful)
+            if (consent == DiagnosticsConsent.Enabled && useful)
             {
-                try { currentReport = DeviceSupportReportService.BuildReport(app.State, app.SystemStatusService.Read()); }
+                try { currentReport = DeviceSupportReportService.PrepareReport(app.State, app.SystemStatusService.Read()); }
                 catch { }
             }
 
-            if (_reviewedReportFingerprint is not null &&
-                !string.Equals(_reviewedReportFingerprint, currentReport?.Fingerprint, StringComparison.Ordinal))
-            {
-                _reviewedReportFingerprint = null;
-            }
-
-            bool reviewReady = consent == DiagnosticsConsent.Enabled && currentReport is not null;
-            bool reviewed = reviewReady && string.Equals(
-                _reviewedReportFingerprint,
-                currentReport!.Fingerprint,
-                StringComparison.Ordinal);
-
-            ReviewDeviceButton.IsEnabled = reviewReady;
-            ShareDeviceButton.IsEnabled = reviewed;
-            ShareDeviceButton.ToolTip = reviewed
-                ? "Open the reviewed report as a pre-filled GitHub issue"
-                : "Review the exact device report first";
-            UploadStatusText.Text = reviewed ? "Reviewed · ready for GitHub" : reviewReady ? "Review required" : "Not shareable yet";
+            bool ready = currentReport is not null;
+            ShareDeviceButton.IsEnabled = ready;
+            ShareDeviceButton.ToolTip = ready
+                ? "Open the prepared report as a pre-filled GitHub issue"
+                : "Available after useful hardware discovery";
+            UploadStatusText.Text = ready ? "Ready · GitHub stays explicit" : "Not ready yet";
 
             DiscoveryReadinessText.Text = useful
-                ? DeviceSupportReportService.DiscoverySummary(app.State) + (reviewed ? " · reviewed · ready to share" : " · review required before sharing")
+                ? DeviceSupportReportService.DiscoverySummary(app.State) + (ready ? " · report prepared locally" : " · enable sharing to prepare the report")
                 : "Still learning · wait for hardware discovery to finish or run Hardware setup / Retry detection. Nothing can be shared yet.";
             DiscoveryReadinessText.Foreground = (System.Windows.Media.Brush)FindResource(useful ? "Tc.Success" : "Tc.TextMuted");
 
             StatusText.Text = consent switch
             {
-                DiagnosticsConsent.Enabled when reviewed => "The current redacted device report has been reviewed. Share to GitHub opens that same report as a draft issue; GitHub still requires you to press Submit.",
-                DiagnosticsConsent.Enabled when useful => "Useful stable hardware data is available. Review device report opens the exact Markdown locally; Share to GitHub stays locked until that report has been reviewed.",
-                DiagnosticsConsent.Enabled => "Compatibility learning is on, but ThinkControl has not finished a useful stable discovery yet. Review and sharing stay disabled.",
+                DiagnosticsConsent.Enabled when ready => "The current redacted device report is prepared locally. Share to GitHub opens it as a draft issue; GitHub still requires you to press Submit.",
+                DiagnosticsConsent.Enabled => "Compatibility learning is on, but ThinkControl has not finished useful stable discovery yet. Sharing stays disabled until the report is ready.",
                 DiagnosticsConsent.Disabled => "Compatibility sharing is disabled. Local troubleshooting history is never uploaded automatically and can be deleted here at any time.",
                 _ => "Local compatibility events are not uploaded automatically. Enable compatibility sharing only if you want the review/share workflow available."
             };
@@ -97,7 +83,8 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             ? DiagnosticsConsent.Enabled
             : DiagnosticsConsent.Disabled;
         app.UserSettings.Update(settings => settings with { DiagnosticsConsent = consent });
-        _reviewedReportFingerprint = null;
+        if (consent == DiagnosticsConsent.Disabled)
+            DeviceSupportReportService.DeletePreparedReport();
         app.DiagnosticsRecorder.Record(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "diagnostics.consent_changed",
@@ -105,42 +92,6 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             Success: true,
             Tags: new Dictionary<string, string> { ["state"] = consent.ToString() }));
         Refresh();
-    }
-
-    private void ReviewDeviceReport_Click(object sender, RoutedEventArgs e)
-    {
-        if (System.Windows.Application.Current is not App app)
-            return;
-
-        if (app.UserSettings.Current.DiagnosticsConsent != DiagnosticsConsent.Enabled)
-        {
-            StatusText.Text = "Enable compatibility sharing first. Review does not upload anything.";
-            return;
-        }
-
-        if (!DeviceSupportReportService.HasUsefulDiscovery(app.State))
-        {
-            StatusText.Text = "ThinkControl has not finished useful stable hardware discovery yet. Run Hardware setup / Retry detection and review again after the provider state settles.";
-            Refresh();
-            return;
-        }
-
-        try
-        {
-            DeviceSupportReport report = DeviceSupportReportService.BuildReport(app.State, app.SystemStatusService.Read());
-            string path = Path.Combine(Path.GetTempPath(), "ThinkControl-device-report-review.md");
-            File.WriteAllText(path, report.Body);
-            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = true });
-            _reviewedReportFingerprint = report.Fingerprint;
-            Refresh();
-            StatusText.Text = "Opened the exact redacted device report locally. If it looks correct, Share to GitHub now opens this unchanged report as a draft issue.";
-        }
-        catch
-        {
-            _reviewedReportFingerprint = null;
-            Refresh();
-            StatusText.Text = "Could not open the local device-report review. Nothing was shared.";
-        }
     }
 
     private void ShareDeviceReport_Click(object sender, RoutedEventArgs e)
@@ -156,26 +107,20 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
 
         if (!DeviceSupportReportService.HasUsefulDiscovery(app.State))
         {
-            _reviewedReportFingerprint = null;
             Refresh();
-            StatusText.Text = "The hardware report is no longer ready to share because discovery state changed. Review again after hardware detection settles.";
+            StatusText.Text = "The hardware report is no longer ready to share because discovery state changed. Wait for hardware detection to settle.";
             return;
         }
 
         try
         {
-            DeviceSupportReport report = DeviceSupportReportService.BuildReport(app.State, app.SystemStatusService.Read());
-            if (!string.Equals(_reviewedReportFingerprint, report.Fingerprint, StringComparison.Ordinal))
-            {
-                _reviewedReportFingerprint = null;
-                Refresh();
-                StatusText.Text = "The device report changed since review. Review the updated report before sharing it to GitHub.";
+            DeviceSupportReport? report = DeviceSupportReportService.PrepareReport(app.State, app.SystemStatusService.Read());
+            if (report is null)
                 return;
-            }
 
             string url = DeviceSupportReportService.BuildIssueUrl(report);
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            StatusText.Text = "Opened the reviewed report as a pre-filled GitHub issue. Nothing is submitted until you press Submit new issue on GitHub.";
+            StatusText.Text = "Opened the prepared report as a pre-filled GitHub issue. Nothing is submitted until you press Submit new issue on GitHub.";
         }
         catch
         {
@@ -290,7 +235,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             return;
 
         app.DiagnosticsRecorder.DeleteLocal();
-        _reviewedReportFingerprint = null;
+        DeviceSupportReportService.DeletePreparedReport();
         Refresh();
     }
 

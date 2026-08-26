@@ -27,7 +27,7 @@
             </Grid>
 
             <TextBlock x:Name="ConsentDescription"
-                       Text="ThinkControl can keep a small redacted compatibility history locally. Nothing is uploaded automatically. A device report cannot be shared until useful discovery has finished and you explicitly review the exact report first."
+                       Text="With compatibility sharing enabled, ThinkControl keeps a small redacted history and automatically prepares a hardware-only report when discovery is useful. This helps ThinkControl support more devices. Nothing is uploaded automatically; GitHub submission remains your explicit choice."
                        Foreground="{DynamicResource Tc.TextMuted}"
                        FontSize="10.5"
                        TextWrapping="Wrap"
@@ -39,21 +39,15 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Detect" FontSize="9.5" FontWeight="SemiBold" />
                         <Line Grid.Column="1" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
-                        <TextBlock Grid.Column="2" Text="Compare" FontSize="9.5" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="Useful data" FontSize="9.5" FontWeight="SemiBold" />
                         <Line Grid.Column="3" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
-                        <TextBlock Grid.Column="4" Text="Useful data" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.Accent}" />
-                        <Line Grid.Column="5" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
-                        <TextBlock Grid.Column="6" Text="Review" FontSize="9.5" FontWeight="SemiBold" />
-                        <Line Grid.Column="7" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
-                        <TextBlock Grid.Column="8" Text="Share" FontSize="9.5" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Text="Ready to share" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.Accent}" />
                     </Grid>
-                    <TextBlock x:Name="DiscoveryReadinessText" Text="Still learning · review unlocks after useful provider data is stable"
+                    <TextBlock x:Name="DiscoveryReadinessText" Text="Still learning · the report is prepared when useful provider data is stable"
                                Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" Margin="2,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
@@ -76,15 +70,14 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2" Margin="10,0,0,0">
                     <TextBlock Text="SHARING" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <TextBlock x:Name="UploadStatusText" Text="Review required" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <TextBlock x:Name="UploadStatusText" Text="Not ready yet" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Grid>
 
             <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,13" />
 
             <WrapPanel>
-                <Button x:Name="ReviewDeviceButton" Content="Review device report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ReviewDeviceReport_Click" />
-                <Button x:Name="ShareDeviceButton" Content="Share to GitHub" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ShareDeviceReport_Click" IsEnabled="False" ToolTip="Review the exact device report first" />
+                <Button x:Name="ShareDeviceButton" Content="Share to GitHub" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ShareDeviceReport_Click" IsEnabled="False" ToolTip="Available after useful hardware discovery" />
             </WrapPanel>
 
             <Expander Header="Advanced diagnostics" Margin="0,5,0,0" Foreground="{DynamicResource Tc.TextMuted}">
@@ -101,7 +94,7 @@
             </Expander>
 
             <TextBlock x:Name="StatusText"
-                       Text="Device sharing is a two-step action: first review the exact redacted Markdown report locally, then Share to GitHub becomes available for that unchanged report."
+                       Text="ThinkControl prepares the redacted report locally. Share to GitHub opens a pre-filled draft; nothing is submitted until you press Submit on GitHub."
                        Foreground="{DynamicResource Tc.TextFaint}"
                        FontSize="9.5"
                        TextWrapping="Wrap"

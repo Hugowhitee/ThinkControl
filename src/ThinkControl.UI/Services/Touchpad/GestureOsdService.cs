@@ -67,14 +67,20 @@ internal sealed class GestureOsdService : IDisposable
             _slider.IsEnabled = volume || brightness;
             _iconButton.IsEnabled = volume;
             _iconButton.ToolTip = volume ? "Mute / unmute" : brightness ? "Brightness" : null;
-            _iconPath.Data = Geometry.Parse(volume ? VolumeGeometry : BrightnessGeometry);
+            _iconPath.Data = ResolveIconGeometry(brightness, clamped, label);
         }
         finally
         {
             _syncing = false;
         }
 
-        _shell.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0.65, 1.0);
+        // Opacity is a backdrop preference. Text, icons and the interactive slider
+        // stay fully legible; only the surface behind them becomes translucent.
+        Brush backdrop = WpfApplication.Current?.TryFindResource("Tc.Surface") as Brush ?? Brushes.Black;
+        Brush translucentBackdrop = backdrop.CloneCurrentValue();
+        translucentBackdrop.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0, 1.0);
+        _shell.Background = translucentBackdrop;
+        _shell.Opacity = 1;
         _window.Opacity = 1;
 
         Rect area = SystemParameters.WorkArea;
@@ -127,13 +133,9 @@ internal sealed class GestureOsdService : IDisposable
             Width = 16,
             Height = 16,
             Stretch = Stretch.Uniform,
-            StrokeThickness = 1.65,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            Data = Geometry.Parse(VolumeGeometry)
+            Data = ResolveResourceGeometry("Tc.Icon.Audio")
         };
-        _iconPath.SetResourceReference(Shape.StrokeProperty, "Tc.Text");
+        _iconPath.SetResourceReference(Shape.FillProperty, "Tc.Text");
 
         _iconButton = new Button
         {
@@ -295,6 +297,16 @@ internal sealed class GestureOsdService : IDisposable
         _window = null;
     }
 
-    private const string VolumeGeometry = "M2,7 L5,7 L9,4 L9,14 L5,11 L2,11 Z M12,7 C13.5,8 13.5,10 12,11 M14,5 C17,7 17,11 14,13";
-    private const string BrightnessGeometry = "M9,2 L9,4 M9,14 L9,16 M2,9 L4,9 M14,9 L16,9 M4,4 L5.5,5.5 M12.5,12.5 L14,14 M14,4 L12.5,5.5 M5.5,12.5 L4,14 M9,6 A3,3 0 1 0 9,12 A3,3 0 1 0 9,6";
+    private static Geometry ResolveIconGeometry(bool brightness, int value, string label)
+    {
+        string key = brightness
+            ? "Tc.Icon.Brightness"
+            : label.Contains("Muted", StringComparison.OrdinalIgnoreCase) || value == 0
+                ? "Tc.Icon.AudioMuted"
+                : value < 45 ? "Tc.Icon.AudioLow" : "Tc.Icon.Audio";
+        return ResolveResourceGeometry(key);
+    }
+
+    private static Geometry ResolveResourceGeometry(string key) =>
+        WpfApplication.Current?.TryFindResource(key) as Geometry ?? Geometry.Empty;
 }

@@ -18,16 +18,15 @@ public partial class TouchpadPanel
         // way people expect: Light on the left, Firm on the right.
         ClickForceSlider.IsDirectionReversed = true;
 
-        // Per-slider reset buttons share the value header. Reserve enough room so
-        // labels such as "1.00× · default" never lose their leading digits at the
-        // minimum supported Advanced-window width.
-        EnsureValueColumnWidth(SensitivityValue, 118);
-        EnsureValueColumnWidth(HapticStrengthValue, 108);
-        EnsureValueColumnWidth(ClickForceValue, 108);
-        EnsureValueColumnWidth(OsdOpacityValue, 92);
-        EnsureValueColumnWidth(EdgeWidthValue, 118);
-        EnsureValueColumnWidth(ActivationValue, 118);
-        EnsureValueColumnWidth(ToleranceValue, 118);
+        // Values and their optional inline reset glyph share one compact metadata
+        // column. This keeps the number readable without stealing track width.
+        EnsureValueColumnWidth(SensitivityValue, 88);
+        EnsureValueColumnWidth(HapticStrengthValue, 82);
+        EnsureValueColumnWidth(ClickForceValue, 82);
+        EnsureValueColumnWidth(OsdOpacityValue, 72);
+        EnsureValueColumnWidth(EdgeWidthValue, 92);
+        EnsureValueColumnWidth(ActivationValue, 92);
+        EnsureValueColumnWidth(ToleranceValue, 92);
     }
 
     private static void EnsureValueColumnWidth(TextBlock value, double minimumWidth)

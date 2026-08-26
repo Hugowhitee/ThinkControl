@@ -46,6 +46,7 @@ jobs:
             'compact-dark.png',
             'compact-on-battery.png',
             'compact-light.png',
+            'advanced-battery-device-temperature.png',
             'advanced-system-service-offline.png',
             'advanced-keyboard-unavailable.png',
             'advanced-fans-unavailable.png',

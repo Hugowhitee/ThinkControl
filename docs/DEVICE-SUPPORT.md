@@ -1,8 +1,8 @@
 # Device support
 
-This document describes compatibility for ThinkControl `v0.1.0-alpha.15.1`.
+This document describes compatibility for ThinkControl `v0.1.0-alpha.18`.
 
-ThinkControl is a general Windows laptop-control application. Support is evaluated **per capability and provider**, not by assuming every laptop from one brand or product family uses the same interface.
+ThinkControl's current public focus is Lenovo and ThinkPad laptops. Support is evaluated **per capability and provider**, not by assuming every laptop in the family uses the same interface. Windows-safe features may work elsewhere, but other OEMs are not marketed as supported in this alpha.
 
 The current physically reviewed low-level reference is the Lenovo ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`). That is the first verified model profile, not the long-term product boundary.
 
@@ -57,7 +57,7 @@ See [`devices/README.md`](../devices/README.md).
 | Other Lenovo | Supported | Conservative read-only discovery | Known provider discovery | Disabled without verified provider | No X9 command reuse | Beta |
 | Other Windows laptops | Where Windows supports it | Generic safe sensor providers when available | OEM provider required | OEM/family/model provider required | OEM provider required | Generic / expandable |
 
-The architecture is intended to add ASUS, Dell, HP, Acer, MSI and other OEM profile/provider families without changing the capability-first product shell.
+The capability-first architecture can accommodate other OEM providers later without weakening the current ThinkPad safety boundary.
 
 ## Windows-level baseline
 

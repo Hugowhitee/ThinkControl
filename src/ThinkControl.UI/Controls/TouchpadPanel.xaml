@@ -42,9 +42,6 @@
 
                     <Grid Grid.Row="1" Height="340" Margin="0,8,0,0">
                         <controls:TouchpadVisualizer x:Name="Visualizer" />
-                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14" Padding="9,5" CornerRadius="4" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" IsHitTestVisible="False">
-                            <StackPanel Orientation="Horizontal"><TextBlock Text="Selected" Style="{StaticResource TouchpadLabel}" Margin="0,0,7,0" /><TextBlock x:Name="SelectedZoneText" Text="Top edge" FontWeight="SemiBold" FontSize="10.5" /></StackPanel>
-                        </Border>
                         <Border x:Name="GestureFeedbackOverlay"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
@@ -83,7 +80,7 @@
                             <TextBlock Text="Sensitivity" Style="{StaticResource TouchpadLabel}" />
                             <TextBlock x:Name="SensitivityValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
                         </Grid>
-                        <Slider x:Name="SensitivitySlider" Style="{StaticResource TcSlider}" Minimum="0.5" Maximum="2" Value="1" Margin="0,5,0,10" ValueChanged="GestureSetting_ValueChanged" />
+                        <Slider x:Name="SensitivitySlider" Style="{StaticResource TcSlider}" Minimum="0.5" Maximum="2" Value="1" SmallChange="0.1" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0,5,0,10" ValueChanged="GestureSetting_ValueChanged" />
                         <Grid Margin="0,2,0,0">
                             <TextBlock Text="Invert direction" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
                             <CheckBox x:Name="InvertCheck" HorizontalAlignment="Right" Style="{StaticResource TcSwitch}" Click="InvertCheck_Click" />
@@ -148,7 +145,7 @@
                             <TextBlock Text="Opacity" Style="{StaticResource TouchpadLabel}" />
                             <TextBlock x:Name="OsdOpacityValue" Grid.Column="1" Style="{StaticResource TouchpadLabel}" HorizontalAlignment="Right" />
                         </Grid>
-                        <Slider x:Name="OsdOpacitySlider" Style="{StaticResource TcSlider}" Minimum="65" Maximum="100" TickFrequency="5" Margin="0,5,0,0" ValueChanged="OsdOpacity_ValueChanged" PreviewMouseLeftButtonUp="OsdOpacity_MouseUp" />
+                        <Slider x:Name="OsdOpacitySlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="5" Margin="0,5,0,0" ValueChanged="OsdOpacity_ValueChanged" PreviewMouseLeftButtonUp="OsdOpacity_MouseUp" />
                     </StackPanel>
                 </Border>
             </StackPanel>

@@ -1,6 +1,6 @@
 # Architecture
 
-This document describes the architecture used by ThinkControl `v0.1.0-alpha.15.1` and the compatibility boundaries new provider work must preserve.
+This document describes the architecture used by ThinkControl `v0.1.0-alpha.18` and the compatibility boundaries new provider work must preserve.
 
 ThinkControl is a general Windows laptop-control product. The current low-level reference implementation is Lenovo/ThinkPad/X9, but the core/UI architecture is intentionally vendor-neutral.
 

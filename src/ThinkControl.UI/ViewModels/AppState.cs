@@ -159,7 +159,12 @@ public sealed class AppState : INotifyPropertyChanged
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
     public string BatteryHealthText => BatteryHealthPercent is double health ? $"{health:0.#}% health" : "Health —";
-    public string BatteryTemperatureText => BatteryTemperatureC is double temperature ? $"{temperature:0.#} °C" : "Not exposed";
+    public string BatteryTemperatureLabel => BatteryTemperatureC.HasValue
+        ? "BATTERY TEMP"
+        : ControlTemperatureC.HasValue ? "DEVICE TEMP" : "TEMP";
+    public string BatteryTemperatureText => BatteryTemperatureC is double batteryTemperature
+        ? $"{batteryTemperature:0.#} °C"
+        : ControlTemperatureC is double deviceTemperature ? $"{deviceTemperature:0.#} °C" : "Not exposed";
     public string BatteryCycleCountText => BatteryCycleCount is int cycles ? $"{cycles:N0} cycles" : "Cycles —";
     public string BatteryCapacityText => BatteryRemainingWh is double remaining && BatteryFullWh is double full
         ? $"{remaining:0.#} / {full:0.#} Wh"
@@ -246,7 +251,11 @@ public sealed class AppState : INotifyPropertyChanged
         if (propertyName == nameof(CpuTemperatureC))
             OnPropertyChanged(nameof(CpuTemperatureText));
         else if (propertyName == nameof(ControlTemperatureC))
+        {
             OnPropertyChanged(nameof(ControlTemperatureText));
+            OnPropertyChanged(nameof(BatteryTemperatureLabel));
+            OnPropertyChanged(nameof(BatteryTemperatureText));
+        }
         else if (propertyName == nameof(FanRpm))
             OnPropertyChanged(nameof(FanRpmText));
         else if (propertyName == nameof(SelectedMode))
@@ -266,7 +275,10 @@ public sealed class AppState : INotifyPropertyChanged
         else if (propertyName == nameof(BatteryHealthPercent))
             OnPropertyChanged(nameof(BatteryHealthText));
         else if (propertyName == nameof(BatteryTemperatureC))
+        {
+            OnPropertyChanged(nameof(BatteryTemperatureLabel));
             OnPropertyChanged(nameof(BatteryTemperatureText));
+        }
         else if (propertyName == nameof(BatteryCycleCount))
             OnPropertyChanged(nameof(BatteryCycleCountText));
         else if (propertyName is nameof(BatteryRemainingWh) or nameof(BatteryFullWh))

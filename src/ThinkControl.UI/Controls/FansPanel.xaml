@@ -53,6 +53,7 @@
                         </StackPanel>
                     </Grid>
                     <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
+                    <TextBlock FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="Continuous PWM is not assumed; percentages map only to provider states that have been measured and verified."><Run Text="PWM / EC · " /><Run Text="{Binding HardwareAccess}" /></TextBlock>
                 </StackPanel>
             </Border>
 

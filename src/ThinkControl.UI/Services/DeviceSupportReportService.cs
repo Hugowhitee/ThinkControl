@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.IO;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Services;
@@ -9,6 +10,7 @@ internal sealed record DeviceSupportReport(string Title, string Body, string Fin
 internal static class DeviceSupportReportService
 {
     private const string NewIssueUrl = "https://github.com/Hugowhitee/ThinkControl/issues/new";
+    private const string PreparedReportFileName = "device-support-report.md";
 
     internal static bool HasUsefulDiscovery(AppState state)
     {
@@ -113,6 +115,40 @@ internal static class DeviceSupportReportService
         return new DeviceSupportReport(title, text, fingerprint);
     }
 
+    internal static DeviceSupportReport? PrepareReport(AppState state, SystemStatusSnapshot system)
+    {
+        if (!HasUsefulDiscovery(state))
+            return null;
+
+        DeviceSupportReport report = BuildReport(state, system);
+        try
+        {
+            string folder = PreparedReportFolder();
+            Directory.CreateDirectory(folder);
+            string path = Path.Combine(folder, PreparedReportFileName);
+            string temporary = path + ".tmp";
+            File.WriteAllText(temporary, report.Body, Encoding.UTF8);
+            File.Move(temporary, path, overwrite: true);
+        }
+        catch
+        {
+            // Preparation remains available in memory when the local preview cache
+            // cannot be updated. Nothing is uploaded by this operation.
+        }
+        return report;
+    }
+
+    internal static void DeletePreparedReport()
+    {
+        try
+        {
+            string folder = PreparedReportFolder();
+            File.Delete(Path.Combine(folder, PreparedReportFileName));
+            File.Delete(Path.Combine(folder, PreparedReportFileName + ".tmp"));
+        }
+        catch { }
+    }
+
     internal static string BuildIssueUrl(AppState state, SystemStatusSnapshot system) =>
         BuildIssueUrl(BuildReport(state, system));
 
@@ -129,6 +165,10 @@ internal static class DeviceSupportReportService
         value.Contains("Starting", StringComparison.OrdinalIgnoreCase) ||
         value.Contains("Installing", StringComparison.OrdinalIgnoreCase) ||
         value.Contains("Verifying", StringComparison.OrdinalIgnoreCase);
+
+    private static string PreparedReportFolder() => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "ThinkControl");
 
     private static string YesNo(bool value) => value ? "yes" : "no";
 

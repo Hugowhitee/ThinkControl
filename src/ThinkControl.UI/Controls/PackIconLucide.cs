@@ -64,38 +64,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
-        if (Kind == "Audio")
-        {
-            double sx = width / 16d;
-            double sy = height / 16d;
-            drawingContext.PushTransform(new ScaleTransform(sx, sy));
-            const double audioStroke = 1.45;
-            Geometry speaker = Geometry.Parse("M2,6 L5,6 L9,3 L9,13 L5,10 L2,10 Z");
-            drawingContext.DrawGeometry(null, new Pen(brush, audioStroke) { LineJoin = PenLineJoin.Round }, speaker);
-            drawingContext.DrawGeometry(null, new Pen(brush, audioStroke) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round }, Geometry.Parse("M11,6 C12.5,7 12.5,9 11,10 M13,4 C16,6 16,10 13,12"));
-            drawingContext.Pop();
-            return;
-        }
-
-        if (Kind == "Sensors")
-        {
-            // Use a compact gauge/pulse motif with the same rounded stroke language
-            // as the other navigation glyphs. Selection changes foreground only.
-            double sx = width / 16d;
-            double sy = height / 16d;
-            drawingContext.PushTransform(new ScaleTransform(sx, sy));
-            var sensorPen = new Pen(brush, 1.5)
-            {
-                StartLineCap = PenLineCap.Round,
-                EndLineCap = PenLineCap.Round,
-                LineJoin = PenLineJoin.Round
-            };
-            drawingContext.DrawEllipse(null, sensorPen, new Point(8, 8), 6.1, 6.1);
-            drawingContext.DrawGeometry(null, sensorPen, Geometry.Parse("M3.4,9 L5.8,9 L7.2,5.5 L9.2,11.1 L10.5,8 L12.7,8"));
-            drawingContext.Pop();
-            return;
-        }
-
         string? resourceKey = Kind switch
         {
             "House" => "Tc.Icon.Home",
@@ -107,6 +75,11 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             "Laptop" => "Tc.Icon.System",
             "RefreshCw" => "Tc.Icon.Updates",
             "Settings" => "Tc.Icon.Settings",
+            "Reset" => "Tc.Icon.Reset",
+            "Audio" => "Tc.Icon.Audio",
+            "Sensors" => "Tc.Icon.Sensors",
+            "Cpu" => "Tc.Icon.Cpu",
+            "Brightness" => "Tc.Icon.Brightness",
             _ => null
         };
         Geometry? source = resourceKey is null ? null : TryFindResource(resourceKey) as Geometry;

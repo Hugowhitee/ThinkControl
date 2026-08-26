@@ -5,7 +5,7 @@
     <img alt="ThinkControl" src="assets/brand/v3/wordmark/ThinkControl_wordmark_light.svg" width="430">
   </picture>
 
-  <p><strong>A compact Windows laptop-control app for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry.</strong></p>
+  <p><strong>A compact ThinkPad-first Windows control app for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry.</strong></p>
 
   [![Windows CI](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Hugowhitee/ThinkControl/actions/workflows/ci.yml)
   [![Release](https://img.shields.io/github/v/release/Hugowhitee/ThinkControl?include_prereleases&label=release)](https://github.com/Hugowhitee/ThinkControl/releases)
@@ -23,20 +23,22 @@
   </a>
 </div>
 
-## ThinkControl alpha.15.1
+## ThinkControl alpha.18
 
-ThinkControl is a lightweight Windows 11 companion for laptop controls that are normally spread across Windows Settings, OEM utilities and monitoring tools. It has a small notification-area popup for everyday changes and a resizable Advanced window for deeper controls and telemetry.
+ThinkControl is a lightweight Windows 10/11 companion focused first on Lenovo and ThinkPad laptops. It brings controls normally spread across Windows Settings, Lenovo utilities and monitoring tools into a compact notification-area popup and a resizable Advanced window.
 
-The product is capability-driven rather than tied to one laptop brand. Windows-safe features form the generic baseline; OEM, product-family and exact-model providers can add deeper hardware support without duplicating the main UI. The ThinkPad X9-15 Gen 1 is currently the physically reviewed low-level reference device, not the architectural product boundary.
+This public alpha is ThinkPad-first: Windows-safe controls can still work elsewhere, but Lenovo/ThinkPad provider discovery is the supported product focus. Low-level fan/PWM/EC controls stay visible and unavailable until an exact provider and readback contract passes. The ThinkPad X9-15 Gen 1 is the currently verified low-level reference device.
 
-**Current prerelease:** `v0.1.0-alpha.15.1`  
-**Reviewed low-level reference profile:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
-**Platform:** Windows 11 x64 · .NET 10
+**Current prerelease:** `v0.1.0-alpha.18`
+
+**Reviewed low-level reference profile:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)
+
+**Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
 
 Download the latest setup from **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**. For a normal install, this is the only file to download:
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.15.1.exe
+ThinkControl-Setup-0.1.0-alpha.18.exe
 ```
 
 The release also contains a versioned application payload and `SHA256SUMS.txt`. Those are updater/verification infrastructure used so ThinkControl can download and verify the complete app **before** elevation; users do not need to extract or install them manually.
@@ -62,9 +64,20 @@ Release CI renders the real WPF interface in dark/light themes at minimum, norma
 
 ThinkControl does **not** invent missing RPM values, fake PWM percentages, guessed EC registers or synthetic sensor readings. Low-level controls remain visible but unavailable until their provider is actually detected and validated.
 
-## Alpha.15.1 stabilization changes
+## Alpha.18 stabilization changes
 
-Alpha.15.1 combines the alpha.15 reliability/performance pass with the final deep audit and the X9 EC/keyboard corrections that had not yet reached `main`.
+Alpha.18 focuses the public experience on ThinkPad hardware, adds Windows 10 installer support, makes PWM/EC provider state visible, preserves settings durably across restarts, and completes the UI/runtime polish and hardware-setup flow.
+
+- Hardware attention opens a dedicated setup/repair window, with the same entry explained clearly on System.
+- Battery temperature never borrows another sensor's identity: a genuine reading is labelled **BATTERY TEMP**, while the explicit control-temperature fallback is labelled **DEVICE TEMP**.
+- Fan curves retain a fixed live temperature/target/RPM status and marker without an obstructive graph bubble; PWM/EC availability remains visible and capability-gated.
+- Dolby Access uses Windows packaged-app activation and always reports a completed success/failure state.
+- Compatibility reports are prepared locally after useful discovery when consent is enabled; GitHub submission remains explicit.
+- Settings use durable atomic replacement and recover from the newest valid temporary/backup copy after an interrupted write.
+- Shared button/selector hover uses an overlay, preserving custom and selected fills without size or layout shifts.
+- The notification bell badge is anchored to the bell and the bell toggles the notification sheet open and closed.
+
+### Reliability foundation
 
 - The X9 EC reader keeps stale-output draining and write readback but restores the bounded read-ready behavior used by LibreHardwareMonitor: prefer fresh OBF, then accept the established IBF-clear fallback when firmware completes a valid EC read without reliably asserting OBF. This prevents successful fan writes from being falsely rejected during readback.
 - Manual X9 fan writes remain restricted to `21Q6` / `21Q7`, verified by readback and returned to firmware/OEM Auto on supported failure/disposal paths. Manual/custom ownership is supervised against lost temperature/provider state.
@@ -90,13 +103,13 @@ Alpha.15.1 combines the alpha.15 reliability/performance pass with the final dee
 - `version.json` is the build version source of truth for normal builds as well as packaging, preventing stale hard-coded app versions from appearing in the UI.
 - Windows CI builds with zero compiler warnings, runs the core test suite and renders the complete visual-QA matrix before packaging.
 
-## Multi-device architecture
+## ThinkPad-first capability architecture
 
 ThinkControl grows device support from broad to specific:
 
 `Windows generic → OEM generic → product family → exact model`
 
-Profiles select reasonable providers to probe; provider code owns implementation, readback, lifecycle and write safety. The main UI remains organized around capabilities rather than brands. This allows future OEM families to be added without turning ThinkControl into separate Lenovo/ASUS/Dell/etc. applications.
+Profiles select reasonable providers to probe; provider code owns implementation, readback, lifecycle and write safety. The current publication focus is Lenovo/ThinkPad, while the capability-first internals keep Windows-safe features reusable and avoid hard-wiring the UI to one exact machine.
 
 See [Device support](docs/DEVICE-SUPPORT.md) and the [device-profile hierarchy](devices/README.md).
 
@@ -143,9 +156,9 @@ Individual changed sliders expose a small reset-to-default action. Page-level de
 
 On unverified laptops, ThinkControl can prepare a hardware-only device report using:
 
-`Detect → Compare → New data → Review → Share`
+`Detect → Useful data → Ready to share`
 
-Sharing only becomes useful after new provider/capability information is found. Reports exclude serial numbers, Windows usernames, hostnames, personal paths and raw personal logs; nothing is silently uploaded.
+When consent is enabled, ThinkControl automatically prepares the report locally after stable provider/capability information is found. Reports exclude serial numbers, Windows usernames, hostnames, personal paths and raw personal logs. Nothing is uploaded automatically; **Share to GitHub** only opens a draft and GitHub still requires an explicit submission.
 
 ## Development and safety
 

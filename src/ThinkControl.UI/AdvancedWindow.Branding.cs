@@ -44,8 +44,8 @@ public partial class AdvancedWindow
 
         var wordmark = new BrandWordmark
         {
-            Width = 120,
-            Height = 38,
+            Width = 124,
+            Height = 39,
             Margin = new Thickness(0),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
