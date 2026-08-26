@@ -12,6 +12,11 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class GestureOsdService : IDisposable
 {
+    private static readonly Geometry BrightnessSunGeometry = Geometry.Parse(
+        "M12,2 L12,4 M12,20 L12,22 M4.93,4.93 L6.34,6.34 M17.66,17.66 L19.07,19.07 " +
+        "M2,12 L4,12 M20,12 L22,12 M4.93,19.07 L6.34,17.66 M17.66,6.34 L19.07,4.93 " +
+        "M12,7 A5,5 0 1 0 12,17 A5,5 0 1 0 12,7");
+
     private readonly Func<ThinkControlUserSettings> _settings;
     private readonly Func<string, int, bool> _setValue;
     private readonly Func<bool> _toggleMute;
@@ -72,7 +77,7 @@ internal sealed class GestureOsdService : IDisposable
             _iconButton.IsHitTestVisible = volume;
             _iconButton.Cursor = volume ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.Arrow;
             _iconButton.ToolTip = volume ? "Mute / unmute" : brightness ? "Brightness" : null;
-            _iconPath.Data = ResolveIconGeometry(brightness, clamped, label);
+            ApplyIcon(brightness, clamped, label);
         }
         finally
         {
@@ -147,7 +152,7 @@ internal sealed class GestureOsdService : IDisposable
         _iconButton.IsHitTestVisible = false;
         _iconButton.Cursor = System.Windows.Input.Cursors.Arrow;
         _iconButton.ToolTip = _activeLabel;
-        _iconPath.Data = ResolveResourceGeometry(next ? "Tc.Icon.SkipNext" : "Tc.Icon.SkipPrevious");
+        ApplyFilledIcon(next ? "Tc.Icon.SkipNext" : "Tc.Icon.SkipPrevious");
 
         Brush backdrop = WpfApplication.Current?.TryFindResource("Tc.Surface") as Brush ?? Brushes.Black;
         Brush translucentBackdrop = backdrop.CloneCurrentValue();
@@ -198,7 +203,10 @@ internal sealed class GestureOsdService : IDisposable
             Width = 16,
             Height = 16,
             Stretch = Stretch.Uniform,
-            Data = ResolveResourceGeometry("Tc.Icon.Audio")
+            Data = ResolveResourceGeometry("Tc.Icon.Audio"),
+            StrokeStartLineCap = PenLineCap.Round,
+            StrokeEndLineCap = PenLineCap.Round,
+            StrokeLineJoin = PenLineJoin.Round
         };
         _iconPath.SetResourceReference(Shape.FillProperty, "Tc.Text");
 
@@ -249,7 +257,10 @@ internal sealed class GestureOsdService : IDisposable
         {
             Minimum = 0,
             Maximum = 100,
-            Height = 22,
+            // TcSlider owns a 30 px hit target around a 26 px thumb. The old 22 px
+            // local override clipped that template and made the dot look low against
+            // the rail. Use the shared control height so thumb and track share center.
+            Height = 30,
             IsMoveToPointEnabled = true,
             SmallChange = 1,
             LargeChange = 5,
@@ -362,14 +373,34 @@ internal sealed class GestureOsdService : IDisposable
         _window = null;
     }
 
-    private static Geometry ResolveIconGeometry(bool brightness, int value, string label)
+    private void ApplyIcon(bool brightness, int value, string label)
     {
-        string key = brightness
-            ? value < 34 ? "Tc.Icon.BrightnessLow" : value < 67 ? "Tc.Icon.Brightness" : "Tc.Icon.BrightnessHigh"
-            : label.Contains("Muted", StringComparison.OrdinalIgnoreCase) || value == 0
-                ? "Tc.Icon.AudioMuted"
-                : value < 45 ? "Tc.Icon.AudioLow" : "Tc.Icon.Audio";
-        return ResolveResourceGeometry(key);
+        if (_iconPath is null)
+            return;
+
+        if (brightness)
+        {
+            _iconPath.Data = BrightnessSunGeometry;
+            _iconPath.Fill = Brushes.Transparent;
+            _iconPath.SetResourceReference(Shape.StrokeProperty, "Tc.Text");
+            _iconPath.StrokeThickness = 1.75;
+            return;
+        }
+
+        string key = label.Contains("Muted", StringComparison.OrdinalIgnoreCase) || value == 0
+            ? "Tc.Icon.AudioMuted"
+            : value < 45 ? "Tc.Icon.AudioLow" : "Tc.Icon.Audio";
+        ApplyFilledIcon(key);
+    }
+
+    private void ApplyFilledIcon(string key)
+    {
+        if (_iconPath is null)
+            return;
+        _iconPath.Data = ResolveResourceGeometry(key);
+        _iconPath.Stroke = null;
+        _iconPath.StrokeThickness = 0;
+        _iconPath.SetResourceReference(Shape.FillProperty, "Tc.Text");
     }
 
     private static Geometry ResolveResourceGeometry(string key) =>
