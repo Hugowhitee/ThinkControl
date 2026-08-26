@@ -73,7 +73,10 @@ jobs:
           foreach ($name in $expectedPng) {
             $path = Join-Path $output $name
             if (-not (Test-Path $path)) { throw "Missing UI snapshot: $name" }
-            if ((Get-Item $path).Length -lt 5000) { throw "UI snapshot is unexpectedly small: $name" }
+            # The intentional startup surface is nearly empty by design, so PNG
+            # compression can make it substantially smaller than a full page.
+            $minimumBytes = if ($name -eq 'startup-loading.png') { 2000 } else { 5000 }
+            if ((Get-Item $path).Length -lt $minimumBytes) { throw "UI snapshot is unexpectedly small: $name" }
           }
 
           foreach ($name in @('gallery.html', 'manifest.json', 'README.md')) {
