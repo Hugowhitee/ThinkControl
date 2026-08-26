@@ -6,7 +6,7 @@
             <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
             <Button Content="Defaults" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic using the supported control path for this driver" />
         </Grid>
-        <TextBlock Text="Windows output volume and Lenovo's installed Dolby processing in one place. ThinkControl uses a verified direct DAX path where available and the official Dolby Access controls on Fusion systems."
+        <TextBlock Text="Windows output volume and Lenovo's installed Dolby processing in one place. ThinkControl uses verified direct DAX controls where available and the official Dolby Access controls as an on-demand fallback."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
@@ -71,7 +71,7 @@
                 </Grid>
 
                 <Border x:Name="FusionControlCard" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,11,0,0" Visibility="Collapsed">
-                    <TextBlock Text="Fusion mode · profile buttons use the official Dolby Access controls only when you click them. No private Fusion profile IDs or background UI automation are used."
+                    <TextBlock Text="Dolby Access fallback · profile buttons use the official Dolby app only for the change you request. ThinkControl closes it again only when ThinkControl opened it. No private profile IDs or background automation are used."
                                Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
                 </Border>
                 <TextBlock x:Name="ActionStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,11,0,0" TextWrapping="Wrap" />
@@ -109,8 +109,8 @@
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
-                    <TextBlock Text="Fusion on demand" FontWeight="SemiBold" />
-                    <TextBlock Text="Modern Fusion systems use semantic controls from the installed Dolby Access app only for the profile change you requested; ThinkControl does not poll or automate it in the background." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="Dolby Access on demand" FontWeight="SemiBold" />
+                    <TextBlock Text="When the installed OEM Dolby provider does not expose safe direct controls, ThinkControl uses semantic controls in Dolby Access only for the profile change you requested; it does not poll or automate the app in the background." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>
