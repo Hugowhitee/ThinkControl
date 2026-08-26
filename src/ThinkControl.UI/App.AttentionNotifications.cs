@@ -225,18 +225,28 @@ public partial class App
         if (!CanShowAttentionNow())
             return;
 
+        if (outcome.Completed)
+        {
+            // A completed update is confirmation, not a decision. Keep it passive so
+            // there is no misleading Later/Ignore action and no click path that can
+            // change the current ThinkControl window state.
+            _attentionToast.ShowPassive(
+                "update-complete:" + UpdateService.CurrentVersion,
+                "ThinkControl updated",
+                outcome.Status);
+            return;
+        }
+
         _attentionToast.Show(
-            outcome.Completed ? "update-complete:" + UpdateService.CurrentVersion : "update-handoff-incomplete",
-            outcome.Completed ? "ThinkControl updated" : "Update needs attention",
+            "update-handoff-incomplete",
+            "Update needs attention",
             outcome.Status,
-            outcome.Completed ? "Open Updates" : "Open install log",
-            outcome.Completed
-                ? () => OpenAdvanced("Updates")
-                : () =>
-                {
-                    if (!UpdateHandoffService.TryOpenLog(outcome.LogPath))
-                        OpenAdvanced("Updates");
-                });
+            "Open install log",
+            () =>
+            {
+                if (!UpdateHandoffService.TryOpenLog(outcome.LogPath))
+                    OpenAdvanced("Updates");
+            });
     }
 
     private async Task InstallUpdateFromAttentionAsync(UpdateCheckResult update)
