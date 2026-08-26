@@ -39,7 +39,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
 
           $advancedPages = @(
-            'home', 'performance', 'fans', 'sensors', 'display', 'audio',
+            'home', 'performance', 'fans', 'display', 'audio',
             'keyboard', 'battery', 'touchpad', 'system', 'updates', 'settings'
           )
           $expectedPng = @(
@@ -47,11 +47,14 @@ jobs:
             'compact-on-battery.png',
             'compact-light.png',
             'advanced-battery-device-temperature.png',
+            'advanced-battery-day-expanded.png',
             'advanced-system-service-offline.png',
             'advanced-keyboard-unavailable.png',
             'advanced-fans-unavailable.png',
             'advanced-home-light.png',
             'advanced-touchpad-light.png',
+            'sensor-details.png',
+            'sensor-details-min.png',
             'sensor-details-light.png',
             'notifications-hardware-attention.png',
             'notifications-hardware-attention-light.png',
