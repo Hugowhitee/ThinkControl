@@ -41,7 +41,7 @@ public partial class CompactDashboard
         expand.Height = 34;
         expand.Margin = new Thickness(0);
         expand.Padding = new Thickness(0);
-        expand.ToolTip = "Open full ThinkControl window";
+        expand.ToolTip = "Switch to normal layout";
 
         var icon = new Viewbox
         {
@@ -50,7 +50,9 @@ public partial class CompactDashboard
         };
         var path = new Path
         {
-            Data = Geometry.Parse("M3,8 V3 H8 M13,8 V13 H8"),
+            // Restore the alpha.18 expand arrow: it communicates the transition
+            // from this compact surface to the full window more directly.
+            Data = Geometry.Parse("M13,13 L3,3 M3,9 L3,3 L9,3"),
             StrokeThickness = 1.45,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,

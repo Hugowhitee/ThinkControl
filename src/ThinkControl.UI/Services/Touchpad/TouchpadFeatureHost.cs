@@ -45,7 +45,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
             QueueKeyboardIndex,
             GetPerformanceIndex,
             QueuePerformanceIndex,
-            SetGestureActive);
+            SetGestureActive,
+            next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))));
 
         bool x9 = string.Equals(app.State.MachineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
                   string.Equals(app.State.MachineType, "21Q7", StringComparison.OrdinalIgnoreCase);

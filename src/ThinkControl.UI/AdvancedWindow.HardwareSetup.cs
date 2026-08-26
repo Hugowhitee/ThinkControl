@@ -55,6 +55,38 @@ public partial class AdvancedWindow
         grid.Children.Add(button);
         section.Child = grid;
         systemStack.Children.Insert(Math.Min(1, systemStack.Children.Count), section);
+
+        var sensorSection = new Border
+        {
+            Style = TryFindResource("TcSection") as Style,
+            Margin = new Thickness(0, 14, 0, 0)
+        };
+        var sensorGrid = new Grid();
+        sensorGrid.ColumnDefinitions.Add(new ColumnDefinition());
+        sensorGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        var sensorText = new StackPanel { Margin = new Thickness(0, 0, 18, 0) };
+        sensorText.Children.Add(new TextBlock { Text = "Sensors & telemetry", FontWeight = FontWeights.SemiBold });
+        sensorText.Children.Add(new TextBlock
+        {
+            Text = "Live control temperature, fan tachometers and provider-reported hardware readings. Details stay read-only and missing sensors remain unavailable.",
+            Foreground = (Brush)FindResource("Tc.TextMuted"),
+            FontSize = 10.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 0)
+        });
+        var sensorButton = new WpfButton
+        {
+            Content = "View details",
+            Style = TryFindResource("TcButton") as Style,
+            MinWidth = 96,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        sensorButton.Click += (_, _) => _app.OpenSensorDetails(this);
+        sensorGrid.Children.Add(sensorText);
+        Grid.SetColumn(sensorButton, 1);
+        sensorGrid.Children.Add(sensorButton);
+        sensorSection.Child = sensorGrid;
+        systemStack.Children.Insert(Math.Min(2, systemStack.Children.Count), sensorSection);
         _hardwareSetupEntryConfigured = true;
     }
 }

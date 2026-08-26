@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using NAudio.CoreAudioApi;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
@@ -12,10 +13,12 @@ public partial class AudioPanel : UserControl
     private readonly DolbyAccessProfileBridge _fusionDolby = new();
     private readonly DispatcherTimer _volumeApplyTimer;
     private readonly DispatcherTimer _volumeRefreshTimer;
+    private readonly DispatcherTimer _microphoneApplyTimer;
     private App? _app;
     private DolbyAudioService? _dolby;
     private bool _syncing;
     private bool _volumeDragging;
+    private bool _microphoneDragging;
     private bool _snapshotMode;
     private DolbyAudioStatus? _status;
     private DolbyDirectState? _directState;
@@ -34,13 +37,23 @@ public partial class AudioPanel : UserControl
             ApplyVolumeSlider();
         };
 
+        _microphoneApplyTimer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(45)
+        };
+        _microphoneApplyTimer.Tick += (_, _) =>
+        {
+            _microphoneApplyTimer.Stop();
+            ApplyMicrophoneSlider();
+        };
+
         _volumeRefreshTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
         {
             Interval = TimeSpan.FromSeconds(2)
         };
         _volumeRefreshTimer.Tick += (_, _) =>
         {
-            if (IsVisible && !_volumeDragging && !_snapshotMode)
+            if (IsVisible && !_volumeDragging && !_microphoneDragging && !_snapshotMode)
                 RefreshVolume();
         };
 
@@ -49,6 +62,7 @@ public partial class AudioPanel : UserControl
         Unloaded += (_, _) =>
         {
             _volumeApplyTimer.Stop();
+            _microphoneApplyTimer.Stop();
             _volumeRefreshTimer.Stop();
         };
     }
@@ -83,7 +97,8 @@ public partial class AudioPanel : UserControl
     internal void PrepareForSnapshot(bool providersAvailable)
     {
         _snapshotMode = true;
-        _volumeApplyTimer.Stop();
+            _volumeApplyTimer.Stop();
+            _microphoneApplyTimer.Stop();
         _volumeRefreshTimer.Stop();
         _syncing = true;
         try
@@ -97,6 +112,7 @@ public partial class AudioPanel : UserControl
                 MuteButton.IsEnabled = true;
                 MuteButton.Content = "Mute";
                 MuteButton.Tag = false;
+                PrepareMicrophoneSnapshot(72, available: true);
 
                 BackendStatusText.Text = "Dolby DAX direct control detected · semantic profile and Music IEQ readback available";
                 InstallButton.Visibility = Visibility.Collapsed;
@@ -125,6 +141,7 @@ public partial class AudioPanel : UserControl
                 VolumeDeviceText.Text = "Windows audio endpoint unavailable";
                 MuteButton.IsEnabled = false;
                 MuteButton.Content = "Mute";
+                PrepareMicrophoneSnapshot(0, available: false);
 
                 BackendStatusText.Text = "Dolby direct controls are not exposed by this driver. ThinkControl does not invent profile mappings.";
                 InstallButton.Visibility = Visibility.Visible;
@@ -170,6 +187,7 @@ public partial class AudioPanel : UserControl
             MuteButton.IsEnabled = true;
             MuteButton.Content = "Mute";
             MuteButton.Tag = false;
+            PrepareMicrophoneSnapshot(72, available: true);
 
             BackendStatusText.Text = _status.Detail;
             InstallButton.Visibility = Visibility.Collapsed;
@@ -266,6 +284,7 @@ public partial class AudioPanel : UserControl
             return;
 
         WindowsVolumeStatus status = _volume.Read();
+        WindowsVolumeStatus microphone = _volume.Read(DataFlow.Capture);
         _syncing = true;
         try
         {
@@ -276,13 +295,29 @@ public partial class AudioPanel : UserControl
             {
                 VolumeValueText.Text = "—";
                 MuteButton.Content = "Mute";
-                return;
+            }
+            else
+            {
+                VolumeSlider.Value = status.Percent;
+                VolumeValueText.Text = status.Muted ? $"{status.Percent}% · muted" : $"{status.Percent}%";
+                MuteButton.Content = status.Muted ? "Unmute" : "Mute";
+                MuteButton.Tag = status.Muted;
             }
 
-            VolumeSlider.Value = status.Percent;
-            VolumeValueText.Text = status.Muted ? $"{status.Percent}% · muted" : $"{status.Percent}%";
-            MuteButton.Content = status.Muted ? "Unmute" : "Mute";
-            MuteButton.Tag = status.Muted;
+            MicrophoneSlider.IsEnabled = microphone.Available;
+            MicrophoneMuteButton.IsEnabled = microphone.Available;
+            MicrophoneDeviceText.Text = microphone.Detail;
+            if (microphone.Available)
+            {
+                MicrophoneSlider.Value = microphone.Percent;
+                MicrophoneValueText.Text = microphone.Muted ? $"{microphone.Percent}% · muted" : $"{microphone.Percent}%";
+                MicrophoneMuteButton.Content = microphone.Muted ? "Unmute" : "Mute";
+            }
+            else
+            {
+                MicrophoneValueText.Text = "—";
+                MicrophoneMuteButton.Content = "Mute";
+            }
         }
         finally
         {
@@ -334,6 +369,55 @@ public partial class AudioPanel : UserControl
         }
 
         _volume.SetMuted(!current.Muted);
+        RefreshVolume();
+    }
+
+    private void PrepareMicrophoneSnapshot(int percent, bool available)
+    {
+        MicrophoneSlider.IsEnabled = available;
+        MicrophoneSlider.Value = percent;
+        MicrophoneValueText.Text = available ? $"{percent}%" : "—";
+        MicrophoneDeviceText.Text = available ? "Microphone Array · default Windows input" : "Windows input endpoint unavailable";
+        MicrophoneMuteButton.IsEnabled = available;
+        MicrophoneMuteButton.Content = "Mute";
+    }
+
+    private void MicrophoneSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_snapshotMode || _syncing || !IsLoaded || !IsVisible)
+            return;
+        MicrophoneValueText.Text = $"{(int)Math.Round(e.NewValue)}%";
+        _microphoneDragging = true;
+        _microphoneApplyTimer.Stop();
+        _microphoneApplyTimer.Start();
+    }
+
+    private void MicrophoneSlider_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_snapshotMode)
+            return;
+        _microphoneApplyTimer.Stop();
+        ApplyMicrophoneSlider();
+        _microphoneDragging = false;
+        RefreshVolume();
+    }
+
+    private void ApplyMicrophoneSlider()
+    {
+        if (_snapshotMode || _syncing || !MicrophoneSlider.IsEnabled || !IsVisible)
+            return;
+        int requested = (int)Math.Round(MicrophoneSlider.Value);
+        if (_volume.Set(requested, out int applied, DataFlow.Capture))
+            MicrophoneValueText.Text = $"{applied}%";
+    }
+
+    private void MicrophoneMute_Click(object sender, RoutedEventArgs e)
+    {
+        if (_snapshotMode)
+            return;
+        WindowsVolumeStatus current = _volume.Read(DataFlow.Capture);
+        if (current.Available)
+            _volume.SetMuted(!current.Muted, DataFlow.Capture);
         RefreshVolume();
     }
 

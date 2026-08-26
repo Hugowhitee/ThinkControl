@@ -52,7 +52,7 @@ jobs:
             'advanced-fans-unavailable.png',
             'advanced-home-light.png',
             'advanced-touchpad-light.png',
-            'advanced-sensors-light.png',
+            'sensor-details-light.png',
             'notifications-hardware-attention.png',
             'notifications-hardware-attention-light.png',
             'hardware-setup-pawnio-repair.png',

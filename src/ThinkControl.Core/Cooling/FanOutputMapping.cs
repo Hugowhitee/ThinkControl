@@ -3,14 +3,15 @@ namespace ThinkControl.Core.Cooling;
 /// <summary>
 /// Maps a human 0-100% fan target to the discrete states exposed by the
 /// ThinkPad EC. When characterization data is available, percentages are based
-/// on measured RPM relative to the separately verified full-speed state. This
-/// avoids pretending that EC step 7 is 100% when the hardware proves otherwise.
+/// on measured RPM relative to the verified maximum EC step. The X9 contract
+/// deliberately exposes levels 1-7 only; the echoed 0x40 override is not proof
+/// that the fan actually accepted a separate full-speed state.
 /// </summary>
 public static class FanOutputMapping
 {
-    public sealed record State(int HardwareState, int EstimatedPercent, bool FullSpeed);
+    public sealed record State(int HardwareState, int EstimatedPercent);
 
-    private static readonly int[] FallbackPercents = [0, 16, 32, 48, 64, 80, 99, 100];
+    private static readonly int[] FallbackPercents = [0, 17, 33, 50, 67, 83, 100];
 
     public static State Resolve(
         int targetPercent,
@@ -24,8 +25,6 @@ public static class FanOutputMapping
 
         // Cooling targets are floors rather than cosmetic labels. Pick the lowest
         // available state that can meet or exceed the requested calibrated output.
-        // If step 7 measures only ~55% of full speed, a 60% target therefore moves
-        // to the separate full-speed state instead of silently under-cooling.
         foreach (State state in states)
         {
             if (state.EstimatedPercent >= target)
@@ -41,8 +40,8 @@ public static class FanOutputMapping
         if (TryBuildCalibratedStates(medianRpmByState, out State[] calibrated))
             return calibrated;
 
-        return Enumerable.Range(1, 8)
-            .Select((state, index) => new State(state, FallbackPercents[index], state == 8))
+        return Enumerable.Range(1, 7)
+            .Select((state, index) => new State(state, FallbackPercents[index]))
             .ToArray();
     }
 
@@ -52,13 +51,13 @@ public static class FanOutputMapping
     {
         states = [];
         if (rpmByState is null ||
-            !rpmByState.TryGetValue(8, out int fullSpeedRpm) ||
-            fullSpeedRpm <= 0)
+            !rpmByState.TryGetValue(7, out int maximumRpm) ||
+            maximumRpm <= 0)
         {
             return false;
         }
 
-        var result = new State[8];
+        var result = new State[7];
         int previousPercent = 0;
         int measuredNormalStates = 0;
 
@@ -67,7 +66,9 @@ public static class FanOutputMapping
             int percent;
             if (rpmByState.TryGetValue(state, out int rpm) && rpm >= 0)
             {
-                percent = (int)Math.Round(Math.Clamp(rpm / (double)fullSpeedRpm * 100.0, 0, 99));
+                percent = state == 7
+                    ? 100
+                    : (int)Math.Round(Math.Clamp(rpm / (double)maximumRpm * 100.0, 0, 99));
                 measuredNormalStates++;
             }
             else
@@ -78,15 +79,12 @@ public static class FanOutputMapping
             // EC states should never display a lower calibrated output than the
             // preceding state. Measurement noise is folded into a monotonic scale.
             percent = Math.Max(previousPercent, percent);
-            result[state - 1] = new State(state, percent, false);
+            result[state - 1] = new State(state, percent);
             previousPercent = percent;
         }
 
-        result[7] = new State(8, 100, true);
-
-        // A lone full-speed sample is not enough to redefine all normal steps.
-        // Require several measured normal states before using the calibrated scale.
-        if (measuredNormalStates < 3)
+        // A lone maximum sample is not enough to redefine all lower steps.
+        if (measuredNormalStates < 4)
             return false;
 
         states = result;

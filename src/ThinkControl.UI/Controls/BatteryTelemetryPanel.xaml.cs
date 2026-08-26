@@ -15,7 +15,6 @@ public partial class BatteryTelemetryPanel : UserControl
     private AppState? _subscribedState;
     private bool _historyRefreshQueued;
     private bool _batteryUsageCardAdded;
-    private bool _showAllSessions;
 
     public BatteryTelemetryPanel()
     {
@@ -158,7 +157,7 @@ public partial class BatteryTelemetryPanel : UserControl
         if (WpfApplication.Current is not App app)
             return;
 
-        IReadOnlyList<BatterySessionDetail> sessions = app.BatteryHistoryService.GetRecentSessionDetails(10);
+        IReadOnlyList<BatteryDaySummary> days = app.BatteryHistoryService.GetRecentDays(14);
         IReadOnlyList<TimeSeriesPoint> chargePercent = app.State.BatteryChargePercentTimeline;
         IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
         IReadOnlyList<TimeSeriesPoint> dischargePercent = app.BatteryHistoryService.GetLatestDischargePercentTimeline();
@@ -169,7 +168,7 @@ public partial class BatteryTelemetryPanel : UserControl
         DischargeSummaryText.Text = app.BatteryHistoryService.GetLatestDischargeSummary();
 
         RecentSessionItems.Children.Clear();
-        if (sessions.Count == 0)
+        if (days.Count == 0)
         {
             var empty = new TextBlock
             {
@@ -183,11 +182,47 @@ public partial class BatteryTelemetryPanel : UserControl
             return;
         }
 
-        int visibleCount = _showAllSessions ? sessions.Count : Math.Min(3, sessions.Count);
-        foreach (BatterySessionDetail session in sessions.Take(visibleCount))
-            RecentSessionItems.Children.Add(CreateSessionRow(session));
-        ToggleSessionsButton.Visibility = sessions.Count > 3 ? Visibility.Visible : Visibility.Collapsed;
-        ToggleSessionsButton.Content = _showAllSessions ? "Show less" : $"Show all {sessions.Count}";
+        foreach (BatteryDaySummary day in days)
+            RecentSessionItems.Children.Add(CreateDayRow(day));
+    }
+
+    private Expander CreateDayRow(BatteryDaySummary day)
+    {
+        var header = new Grid { MinHeight = 42 };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(116) });
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.Children.Add(new TextBlock
+        {
+            Text = day.HasActiveSession ? $"{day.Label} · live" : day.Label,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        string charge = day.ChargedPercent > 0 ? $"+{day.ChargedPercent}% · {FormatShortDuration(day.ChargingTime)} charging" : "No charging";
+        string usage = day.DischargedPercent > 0 ? $"−{day.DischargedPercent}% · {FormatShortDuration(day.UsageTime)} usage" : "No battery usage";
+        var summary = new TextBlock
+        {
+            Text = $"{charge}     {usage}",
+            FontSize = 10.5,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        summary.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        Grid.SetColumn(summary, 1);
+        header.Children.Add(summary);
+
+        var sessions = new StackPanel { Margin = new Thickness(20, 0, 0, 7) };
+        foreach (BatterySessionDetail session in day.Sessions)
+            sessions.Children.Add(CreateSessionRow(session));
+
+        return new Expander
+        {
+            Header = header,
+            Content = sessions,
+            BorderBrush = (Brush)FindResource("Tc.Border"),
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(2, 0, 2, 0),
+            IsExpanded = day.HasActiveSession
+        };
     }
 
     internal void PrepareForSnapshot(AppState state)
@@ -213,6 +248,28 @@ public partial class BatteryTelemetryPanel : UserControl
         DischargeChart.Values = dischargePower;
         DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
         DischargeSummaryText.Text = "Latest discharge · 88% → 63% · 3h 45m · 6.9 W avg";
+
+        BatterySessionDetail charge = new(
+            "snapshot-charge", "Charge", end - TimeSpan.FromMinutes(43), end,
+            61, 78, 17.8, 20.4, 12.1, 23.7,
+            chargePower, ChargePercentChart.Values.ToArray(),
+            "61% → 78% · 43 min · 17.8 W avg");
+        BatterySessionDetail discharge = new(
+            "snapshot-discharge", "Discharge", end - TimeSpan.FromHours(4), end - TimeSpan.FromMinutes(15),
+            88, 63, 6.9, 8.2, 25.0, 6.7,
+            dischargePower, DischargePercentChart.Values.ToArray(),
+            "88% → 63% · 3h 45m · 6.9 W avg");
+        var today = new BatteryDaySummary(
+            DateOnly.FromDateTime(DateTime.Today), "Today", 17, 25,
+            charge.Duration, discharge.Duration, [charge, discharge], false);
+        RecentSessionItems.Children.Clear();
+        RecentSessionItems.Children.Add(CreateDayRow(today));
+    }
+
+    internal void ExpandSnapshotHistory()
+    {
+        if (RecentSessionItems.Children.OfType<Expander>().FirstOrDefault() is { } day)
+            day.IsExpanded = true;
     }
 
     private Button CreateSessionRow(BatterySessionDetail session)
@@ -276,6 +333,13 @@ public partial class BatteryTelemetryPanel : UserControl
         row.SetResourceReference(Button.BorderBrushProperty, "Tc.Border");
         row.Click += (_, _) => ShowSession(session);
         return row;
+    }
+
+    private static string FormatShortDuration(TimeSpan duration)
+    {
+        if (duration.TotalHours >= 1)
+            return $"{(int)duration.TotalHours}h {duration.Minutes:00}m";
+        return $"{Math.Max(1, (int)Math.Round(duration.TotalMinutes))}m";
     }
 
     private void ShowSession(BatterySessionDetail session)
@@ -363,12 +427,6 @@ public partial class BatteryTelemetryPanel : UserControl
         BatteryHistoryView view = app.BatteryHistoryService.Clear();
         app.State.ApplyBatteryHistory(view);
         app.BatteryTelemetryService.SetHistoricalChargePower(view.TypicalChargePowerWatts);
-        RefreshHistoryUi();
-    }
-
-    private void ToggleSessions_Click(object sender, RoutedEventArgs e)
-    {
-        _showAllSessions = !_showAllSessions;
         RefreshHistoryUi();
     }
 

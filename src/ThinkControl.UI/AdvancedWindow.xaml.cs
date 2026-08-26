@@ -73,6 +73,7 @@ public partial class AdvancedWindow : Window
         };
         dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
         dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
+        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
 
         var label = new WpfTextBlock
         {
@@ -84,25 +85,35 @@ public partial class AdvancedWindow : Window
         };
         dockRow.Children.Add(label);
 
+        var notificationSlot = new WpfButton
+        {
+            Width = 30,
+            Height = 30,
+            Tag = "ThinkControl.NotificationSlot",
+            Style = (Style)FindResource("TcIconButton")
+        };
+        WpfGrid.SetColumn(notificationSlot, 1);
+        dockRow.Children.Add(notificationSlot);
+
         var path = new Path
         {
             Stroke = (System.Windows.Media.Brush)FindResource("Tc.TextMuted"),
             StrokeThickness = 1.5,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
-            Data = Geometry.Parse("M2,2 L14,14 M8,14 L14,14 L14,8")
+            Data = Geometry.Parse("M2,3 H14 V13 H2 Z M6,3 V13")
         };
         var viewbox = new WpfViewbox { Width = 14, Height = 14, Child = path };
         var button = new WpfButton
         {
             Width = 32,
             Height = 32,
-            ToolTip = "Return to compact popup",
+            ToolTip = "Switch to compact layout",
             Content = viewbox,
             Style = (Style)FindResource("TcIconButton")
         };
         button.Click += Dock_Click;
-        WpfGrid.SetColumn(button, 1);
+        WpfGrid.SetColumn(button, 2);
         dockRow.Children.Add(button);
         navStack.Children.Insert(0, dockRow);
     }

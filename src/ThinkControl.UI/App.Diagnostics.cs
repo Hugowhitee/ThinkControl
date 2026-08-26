@@ -12,6 +12,7 @@ public partial class App
 
     private App(bool enforceSingleInstance)
     {
+        BatteryHistoryService = new BatteryHistoryService(UserSettings.Current.BatteryDetailRetentionDays);
         if (enforceSingleInstance)
             InitializeSingleInstanceGuard();
         UiMotionService.Enable();

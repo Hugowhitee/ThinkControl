@@ -77,7 +77,6 @@
                                     </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
                                     <Setter TargetName="InteractionOverlay" Property="Opacity" Value="0.13" />
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
@@ -233,7 +232,9 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RepeatButton">
-                            <Border x:Name="Line" Height="5" Margin="0,0,-12,0" CornerRadius="2.5,0,0,2.5" Background="{TemplateBinding Background}" />
+                            <!-- The visible fill begins at the same inset as the
+                                 neutral rail and extends only to the thumb centre. -->
+                            <Border x:Name="Line" Height="5" Margin="13,0,-13,0" CornerRadius="2.5,0,0,2.5" Background="{TemplateBinding Background}" />
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Line" Property="Background" Value="{DynamicResource Tc.AccentHover}" /></Trigger>
                             </ControlTemplate.Triggers>
@@ -260,14 +261,17 @@
                 <Setter Property="Maximum" Value="100" />
                 <Setter Property="IsMoveToPointEnabled" Value="True" />
                 <Setter Property="Cursor" Value="Hand" />
+                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Slider">
                             <Grid Background="Transparent" ClipToBounds="True">
-                                <Border Height="5" VerticalAlignment="Center" CornerRadius="2.5" Background="{DynamicResource Tc.BorderStrong}" />
-                                <Track x:Name="PART_Track" Margin="12,0" VerticalAlignment="Center">
+                                <!-- Track accounts for the 26 px thumb itself. Insetting it a
+                                     second time made both endpoints stop one thumb-radius early. -->
+                                <Border Margin="13,0" Height="5" VerticalAlignment="Center" CornerRadius="2.5" Background="{DynamicResource Tc.BorderStrong}" />
+                                <Track x:Name="PART_Track" VerticalAlignment="Center">
                                     <Track.DecreaseRepeatButton>
-                                        <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource TcSliderDecrease}" Margin="-12,0,0,0" />
+                                        <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource TcSliderDecrease}" />
                                     </Track.DecreaseRepeatButton>
                                     <Track.Thumb>
                                         <Thumb Width="26" Height="26" Background="Transparent">
@@ -286,7 +290,7 @@
                                                         <Trigger Property="IsDragging" Value="True">
                                                             <Setter TargetName="Dot" Property="Width" Value="18" />
                                                             <Setter TargetName="Dot" Property="Height" Value="18" />
-                                                            <Setter TargetName="Dot" Property="Stroke" Value="{DynamicResource Tc.Accent}" />
+                                                            <Setter TargetName="Dot" Property="Stroke" Value="{DynamicResource Tc.TextMuted}" />
                                                         </Trigger>
                                                     </ControlTemplate.Triggers>
                                                 </ControlTemplate>

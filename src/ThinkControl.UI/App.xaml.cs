@@ -26,10 +26,10 @@ public partial class App : System.Windows.Application
     public PowerModeService PowerModeService { get; } = new();
     public SystemStatusService SystemStatusService { get; } = new();
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
-    public BatteryHistoryService BatteryHistoryService { get; } = new();
+    public UserSettingsService UserSettings { get; } = new();
+    public BatteryHistoryService BatteryHistoryService { get; }
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
-    public UserSettingsService UserSettings { get; } = new();
     public DiagnosticsRecorder DiagnosticsRecorder { get; } = new();
     public KeyboardEffectService KeyboardEffects { get; private set; } = null!;
     public MainWindow CompactWindow { get; private set; } = null!;
@@ -39,6 +39,7 @@ public partial class App : System.Windows.Application
         base.OnStartup(e);
 
         ThinkControlUserSettings preferences = UserSettings.Current;
+        BatteryHistoryService.ConfigureDetailedRetentionDays(preferences.BatteryDetailRetentionDays);
         ThemeService.Apply(preferences.Theme);
         State.RefreshAutoEnabled = preferences.RefreshAuto;
         State.KeyboardMode = preferences.KeyboardMode;

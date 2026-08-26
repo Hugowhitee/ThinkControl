@@ -51,7 +51,7 @@ internal static class ServiceRepairCommand
             _ = RunSc(
                 "failure", ServiceName,
                 "reset=", "86400",
-                "actions=", "restart/5000");
+                "actions=", "restart/5000/restart/15000/restart/30000");
 
             int start = RunSc("start", ServiceName);
             if (start != 0 && !IsRunning())

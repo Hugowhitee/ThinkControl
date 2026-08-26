@@ -191,7 +191,7 @@ public static class FanCurveGraphPolicy
 
         // Independent thermal floor. The graph remains freely editable at normal
         // temperatures, but above 70 °C cooling can only become more aggressive.
-        // 92 °C forces the full-speed request before the 94 °C firmware handoff.
+        // 92 °C forces the verified maximum request before the 94 °C firmware handoff.
         int thermalFloor = temperatureC <= 70
             ? 0
             : (int)Math.Round(Math.Clamp((temperatureC - 70) / 22.0 * 100.0, 0, 100));

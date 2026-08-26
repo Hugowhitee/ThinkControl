@@ -2,6 +2,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
+using ThinkControl.Core.Battery;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI.Services;
@@ -36,6 +37,16 @@ public sealed record BatterySessionDetail(
     public TimeSpan Duration => (EndedAt ?? DateTimeOffset.UtcNow) - StartedAt;
 }
 
+public sealed record BatteryDaySummary(
+    DateOnly Day,
+    string Label,
+    int ChargedPercent,
+    int DischargedPercent,
+    TimeSpan ChargingTime,
+    TimeSpan UsageTime,
+    IReadOnlyList<BatterySessionDetail> Sessions,
+    bool HasActiveSession);
+
 /// <summary>
 /// Keeps a tiny local-only charge/discharge history. Recent sessions retain sparse
 /// curves; older sessions keep summaries only. No raw system identifiers are stored.
@@ -43,19 +54,19 @@ public sealed record BatterySessionDetail(
 public sealed class BatteryHistoryService
 {
     private const int MaximumSessionSummaries = 240;
-    private const int MaximumDetailedSessions = 20;
     private const int MaximumPointsPerSession = 900;
     private const long MaximumHistoryBytes = 1024 * 1024;
-    private static readonly TimeSpan HistoryRetention = TimeSpan.FromDays(365);
     private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan MinimumSignificantSampleInterval = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan ResumeGap = TimeSpan.FromMinutes(20);
 
     private readonly string _path;
     private HistoryDocument _document;
+    private int _detailedRetentionDays = 7;
 
-    public BatteryHistoryService()
+    public BatteryHistoryService(int detailedRetentionDays = 7)
     {
+        _detailedRetentionDays = BatteryHistoryRetentionPolicy.NormalizeDetailedDays(detailedRetentionDays);
         string root = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ThinkControl");
@@ -126,6 +137,43 @@ public sealed class BatteryHistoryService
     }
 
     public BatteryHistoryView GetView() => BuildView();
+
+    public int DetailedRetentionDays => _detailedRetentionDays;
+
+    public void ConfigureDetailedRetentionDays(int days)
+    {
+        _detailedRetentionDays = BatteryHistoryRetentionPolicy.NormalizeDetailedDays(days);
+        TrimDocument(DateTimeOffset.UtcNow);
+        Save();
+    }
+
+    public IReadOnlyList<BatteryDaySummary> GetRecentDays(int maximum = 14)
+    {
+        maximum = Math.Clamp(maximum, 1, 60);
+        return GetRecentSessionDetails(40)
+            .GroupBy(session => DateOnly.FromDateTime(session.StartedAt.ToLocalTime().DateTime))
+            .OrderByDescending(group => group.Key)
+            .Take(maximum)
+            .Select(group =>
+            {
+                BatterySessionDetail[] sessions = group
+                    .OrderByDescending(session => session.StartedAt)
+                    .ToArray();
+                int charged = sessions.Where(session => session.Kind == "Charge")
+                    .Sum(session => Math.Max(0, session.EndPercent - session.StartPercent));
+                int discharged = sessions.Where(session => session.Kind == "Discharge")
+                    .Sum(session => Math.Max(0, session.StartPercent - session.EndPercent));
+                TimeSpan chargingTime = TimeSpan.FromTicks(sessions.Where(session => session.Kind == "Charge").Sum(session => session.Duration.Ticks));
+                TimeSpan usageTime = TimeSpan.FromTicks(sessions.Where(session => session.Kind == "Discharge").Sum(session => session.Duration.Ticks));
+                DateOnly today = DateOnly.FromDateTime(DateTime.Now);
+                string label = group.Key == today ? "Today" : group.Key == today.AddDays(-1)
+                    ? "Yesterday"
+                    : group.Key.ToString("ddd, d MMM", CultureInfo.CurrentCulture);
+                return new BatteryDaySummary(group.Key, label, charged, discharged, chargingTime, usageTime, sessions,
+                    sessions.Any(session => session.IsActive));
+            })
+            .ToArray();
+    }
 
     public IReadOnlyList<BatterySessionDetail> GetRecentSessionDetails(int maximum = 12)
     {
@@ -366,9 +414,10 @@ public sealed class BatteryHistoryService
 
     private void TrimDocument(DateTimeOffset now)
     {
-        DateTimeOffset oldestAllowed = now - HistoryRetention;
-        _document.Sessions.RemoveAll(session => (session.EndedAt ?? session.StartedAt) < oldestAllowed);
-        _document.DischargeSessions.RemoveAll(session => (session.EndedAt ?? session.StartedAt) < oldestAllowed);
+        _document.Sessions.RemoveAll(session =>
+            !BatteryHistoryRetentionPolicy.KeepSummary(session.EndedAt ?? session.StartedAt, now));
+        _document.DischargeSessions.RemoveAll(session =>
+            !BatteryHistoryRetentionPolicy.KeepSummary(session.EndedAt ?? session.StartedAt, now));
 
         _document.Sessions = _document.Sessions
             .OrderByDescending(session => session.EndedAt ?? session.StartedAt)
@@ -383,13 +432,21 @@ public sealed class BatteryHistoryService
         {
             ChargeSession session = _document.Sessions[i];
             PopulateSummary(session);
-            if (i < MaximumDetailedSessions) TrimPoints(session.Points); else session.Points.Clear();
+            if (BatteryHistoryRetentionPolicy.KeepDetailedSamples(
+                    session.EndedAt ?? session.StartedAt, now, _detailedRetentionDays))
+                TrimPoints(session.Points);
+            else
+                session.Points.Clear();
         }
         for (int i = 0; i < _document.DischargeSessions.Count; i++)
         {
             DischargeSession session = _document.DischargeSessions[i];
             PopulateSummary(session);
-            if (i < MaximumDetailedSessions) TrimPoints(session.Points); else session.Points.Clear();
+            if (BatteryHistoryRetentionPolicy.KeepDetailedSamples(
+                    session.EndedAt ?? session.StartedAt, now, _detailedRetentionDays))
+                TrimPoints(session.Points);
+            else
+                session.Points.Clear();
         }
 
         if (_document.ActiveSession is not null) TrimPoints(_document.ActiveSession.Points);

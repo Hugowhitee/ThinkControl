@@ -1,3 +1,4 @@
+using System.Windows;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
@@ -26,7 +27,16 @@ public partial class App
         try
         {
             await Task.Delay(900).ConfigureAwait(true);
-            await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+            HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+            if (!status.ServiceReachable || State.DriverStatus != "Ready")
+            {
+                // Service/provider startup can trail the desktop after a reboot.
+                // Give the existing installation one bounded warm-up retry before
+                // presenting repair/setup as though the user must initialize again.
+                await Task.Delay(3500).ConfigureAwait(true);
+                await RefreshStatusAsync(forceSystemInfo: false).ConfigureAwait(true);
+                await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+            }
         }
         catch
         {
@@ -251,6 +261,13 @@ public partial class App
     {
         OpenAdvanced("System");
         Dispatcher.BeginInvoke(ShowHardwareSetupWindow);
+    }
+
+    internal void OpenSensorDetails(Window owner)
+    {
+        var window = new SensorDetailsWindow(this) { Owner = owner };
+        window.Show();
+        window.Activate();
     }
 
     private void ShowHardwareSetupWindow()

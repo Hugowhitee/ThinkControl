@@ -18,4 +18,19 @@ public partial class App
             _advancedWindow?.Activate();
         }), DispatcherPriority.Background);
     }
+
+    public void ToggleNotificationCenter()
+    {
+        if (_advancedWindow is null || !_advancedWindow.IsVisible)
+        {
+            OpenNotificationCenter();
+            return;
+        }
+
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _advancedWindow?.ToggleNotificationSheet();
+            _advancedWindow?.Activate();
+        }), DispatcherPriority.Background);
+    }
 }

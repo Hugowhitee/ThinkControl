@@ -1,6 +1,6 @@
 # Device support
 
-This document describes compatibility for ThinkControl `v0.1.0-alpha.18`.
+This document describes compatibility for ThinkControl `v0.1.0-alpha.19`.
 
 ThinkControl's current public focus is Lenovo and ThinkPad laptops. Support is evaluated **per capability and provider**, not by assuming every laptop in the family uses the same interface. Windows-safe features may work elsewhere, but other OEMs are not marketed as supported in this alpha.
 

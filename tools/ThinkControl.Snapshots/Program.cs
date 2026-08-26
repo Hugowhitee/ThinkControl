@@ -9,6 +9,7 @@ using ThinkControl.Core.Ipc;
 using ThinkControl.UI;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.Services.Touchpad;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.Snapshots;
@@ -19,7 +20,7 @@ internal static class Program
 
     private static readonly string[] AdvancedPages =
     [
-        "Home", "Performance", "Fans", "Sensors", "Display", "Audio",
+        "Home", "Performance", "Fans", "Display", "Audio",
         "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings"
     ];
 
@@ -77,6 +78,8 @@ internal static class Program
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
+        RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
+            "advanced-battery-day-expanded.png", "expanded daily session detail", expandBatteryDay: true);
 
         // Every page gets minimum-size coverage so clipping and scrollbar overlap
         // cannot hide on a page that happened not to be in a hand-picked subset.
@@ -106,12 +109,17 @@ internal static class Program
             "hardware-setup-ready.png", "all providers ready");
         RenderFanCurveEditor(app, charging, output, snapshots);
         RenderTelemetryDetail(output, snapshots);
+        RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details.png", "normal");
+        RenderSensorDetails(app, charging, 700, 560, output, snapshots, "sensor-details-min.png", "minimum window");
+        RenderGestureOsd(app, output, snapshots, "gesture-osd-brightness.png", "Brightness", 100);
+        RenderGestureOsd(app, output, snapshots, "gesture-osd-brightness-min.png", "Brightness", 0);
+        RenderGestureOsd(app, output, snapshots, "gesture-osd-next-track.png", "Next track", 0, nextTrack: true);
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
-        RenderAdvanced(app, charging, "Sensors", 1160, 760, output, snapshots, "advanced-sensors-light.png", "normal · light");
+        RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention-light.png", "PawnIO + provider attention · light");
 
@@ -274,7 +282,8 @@ internal static class Program
         ICollection<SnapshotEntry> snapshots,
         string fileName,
         string stateName,
-        bool audioProvidersAvailable = true)
+        bool audioProvidersAvailable = true,
+        bool expandBatteryDay = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -283,8 +292,6 @@ internal static class Program
             app.State.BatteryTemperatureC = null;
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
             window.NavigateTouchpad();
-        else if (string.Equals(page, "Sensors", StringComparison.OrdinalIgnoreCase))
-            window.NavigateSensors();
         else if (string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase))
         {
             window.NavigateAudio();
@@ -292,6 +299,17 @@ internal static class Program
         }
         else
             window.Navigate(page);
+
+        if (expandBatteryDay)
+        {
+            if (window.Content is FrameworkElement root)
+            {
+                root.Measure(new Size(width, height));
+                root.Arrange(new Rect(0, 0, width, height));
+                root.UpdateLayout();
+            }
+            window.ExpandBatteryHistoryForSnapshot();
+        }
 
         if (string.Equals(page, "Updates", StringComparison.OrdinalIgnoreCase))
             window.PrepareUpdateUiForSnapshot(DateTimeOffset.Now.AddMinutes(-4));
@@ -381,6 +399,42 @@ internal static class Program
         RenderWindowContent(window, Path.Combine(output, "telemetry-detail-battery.png"));
         snapshots.Add(new SnapshotEntry("telemetry-detail-battery.png", "Telemetry detail", "battery charge session · % + W", width, height));
         window.Close();
+    }
+
+    private static void RenderSensorDetails(
+        App app,
+        AppState state,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
+    {
+        SyncAppState(state, app.State);
+        var window = new SensorDetailsWindow(app) { Width = width, Height = height };
+        window.PrepareForSnapshot(app.State);
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "System · Sensor details", stateName, width, height));
+        window.Close();
+    }
+
+    private static void RenderGestureOsd(
+        App app,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string label,
+        int value,
+        bool? nextTrack = null)
+    {
+        using var osd = new GestureOsdService(
+            () => app.UserSettings.Current,
+            (_, _) => true,
+            () => true);
+        Window window = osd.PrepareForSnapshot(label, value, nextTrack);
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "Gesture pop-up", label, (int)window.Width, (int)window.Height));
     }
 
     private static void RenderFanCurveEditor(

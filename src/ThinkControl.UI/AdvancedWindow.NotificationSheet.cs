@@ -47,6 +47,14 @@ public partial class AdvancedWindow
         await RefreshNotificationSheetAsync();
     }
 
+    internal void ToggleNotificationSheet()
+    {
+        if (_notificationOverlay?.Visibility == Visibility.Visible)
+            HideNotificationSheet();
+        else
+            ShowNotificationSheet();
+    }
+
     internal void HideNotificationSheet()
     {
         if (_notificationOverlay is null || _notificationOverlay.Visibility != Visibility.Visible)

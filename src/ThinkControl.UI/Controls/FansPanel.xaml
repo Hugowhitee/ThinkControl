@@ -81,7 +81,7 @@
                 <Grid>
                     <StackPanel>
                         <TextBlock Text="Fan calibration" FontWeight="SemiBold" />
-                        <TextBlock Text="Measure EC steps 1–7 and the separate full-speed state. After calibration, percentages are derived from measured RPM relative to full speed instead of pretending step 7 is 100%."
+                        <TextBlock Text="Measure the seven verified EC steps and their real tachometer response. Lower percentages are derived from RPM relative to step 7, the physically verified maximum."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,200,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
@@ -89,7 +89,7 @@
                         <Button x:Name="StopCharacterizationButton" Content="Stop" Style="{StaticResource TcButton}" Click="StopCharacterization_Click" Margin="8,0,0,0" Visibility="Collapsed" />
                     </StackPanel>
                 </Grid>
-                <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="8" Margin="0,14,0,0" Visibility="Collapsed" />
+                <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="7" Margin="0,14,0,0" Visibility="Collapsed" />
                 <Grid Margin="0,10,0,0">
                     <TextBlock x:Name="CharacterizationStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
                     <Button x:Name="MarkAudibleButton" HorizontalAlignment="Right" Content="Clearly audible here" Style="{StaticResource TcButton}" Click="MarkAudible_Click" Visibility="Collapsed" />
@@ -115,7 +115,7 @@
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
-                            <TextBlock Text="0% means the lowest verified running state, not fan-off. 100% requests ThinkPad full speed (0x47) and is accepted only when the X9 EC reads the full-speed bit back. Intermediate targets select the safest calibrated discrete state."
+                            <TextBlock Text="0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state; ThinkControl does not expose the ineffective echoed 0x47 override."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="18" FontWeight="Light" />
@@ -128,7 +128,7 @@
 
                     <Expander Header="Raw verified EC steps" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Text="Use these only for diagnostics. Step 7 is the highest normal closed-loop state; it is not labeled 100%."
+                            <TextBlock Text="Use these only for diagnostics. Step 7 is the physically verified maximum and is the hardware state used for a 100% target."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>

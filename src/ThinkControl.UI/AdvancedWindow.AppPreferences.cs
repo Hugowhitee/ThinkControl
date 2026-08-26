@@ -11,6 +11,7 @@ public partial class AdvancedWindow
 
     private RadioButton? _openingCompact;
     private RadioButton? _openingAdvanced;
+    private ComboBox? _batteryRetention;
 
     private void ConfigureAppPreferencesUi()
     {
@@ -32,6 +33,7 @@ public partial class AdvancedWindow
             ? Math.Min(4, stack.Children.Count)
             : stack.Children.IndexOf(startupCard) + 1;
         stack.Children.Insert(openingIndex, openingCard);
+        stack.Children.Insert(Math.Min(openingIndex + 1, stack.Children.Count), CreateBatteryRetentionCard());
 
         Border githubCard = CreateGitHubCard();
         Border? resetCard = stack.Children
@@ -43,6 +45,57 @@ public partial class AdvancedWindow
         NavSettings.Checked += (_, _) => RefreshOpeningViewSelection();
         Resources[AppPreferencesConfiguredKey] = true;
         RefreshOpeningViewSelection();
+        RefreshBatteryRetentionSelection();
+    }
+
+    private Border CreateBatteryRetentionCard()
+    {
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(132) });
+        var copy = new StackPanel { Margin = new Thickness(0, 0, 22, 0) };
+        copy.Children.Add(new TextBlock { Text = "Battery history detail", FontWeight = FontWeights.SemiBold });
+        var detail = new TextBlock
+        {
+            Text = "Keep session graphs for this long. Older sessions are compacted into daily summaries; health trends and learned estimates are retained.",
+            FontSize = 10.5,
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 5, 0, 0)
+        };
+        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        copy.Children.Add(detail);
+        grid.Children.Add(copy);
+
+        _batteryRetention = new ComboBox
+        {
+            Style = TryFindResource("TcComboBox") as Style,
+            VerticalAlignment = VerticalAlignment.Center,
+            ItemsSource = new[] { "7 days", "14 days", "30 days" }
+        };
+        _batteryRetention.SelectionChanged += BatteryRetention_SelectionChanged;
+        Grid.SetColumn(_batteryRetention, 1);
+        grid.Children.Add(_batteryRetention);
+        return new Border
+        {
+            Style = TryFindResource("TcSection") as Style,
+            Margin = new Thickness(0, 14, 0, 0),
+            Child = grid
+        };
+    }
+
+    private void BatteryRetention_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_batteryRetention?.SelectedItem is not string text || !int.TryParse(text.Split(' ')[0], out int days) ||
+            days == _app.UserSettings.Current.BatteryDetailRetentionDays)
+            return;
+        _app.UserSettings.Update(settings => settings with { BatteryDetailRetentionDays = days });
+        _app.BatteryHistoryService.ConfigureDetailedRetentionDays(days);
+    }
+
+    private void RefreshBatteryRetentionSelection()
+    {
+        if (_batteryRetention is not null)
+            _batteryRetention.SelectedItem = $"{_app.UserSettings.Current.BatteryDetailRetentionDays} days";
     }
 
     private Border CreateOpeningViewCard()

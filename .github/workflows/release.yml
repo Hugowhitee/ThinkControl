@@ -148,7 +148,7 @@ jobs:
             'compact-dark.png',
             'advanced-home.png',
             'advanced-touchpad.png',
-            'advanced-sensors.png',
+            'sensor-details.png',
             'advanced-fans.png',
             'advanced-audio.png',
             'advanced-battery.png',
@@ -188,7 +188,7 @@ jobs:
 
             $grid = @(
               'advanced-touchpad.png',
-              'advanced-sensors.png',
+              'sensor-details.png',
               'advanced-fans.png',
               'advanced-audio.png',
               'advanced-battery.png',

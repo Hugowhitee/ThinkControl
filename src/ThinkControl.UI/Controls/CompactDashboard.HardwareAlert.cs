@@ -39,14 +39,14 @@ public partial class CompactDashboard
         });
         _hardwareAlertDot = new Ellipse
         {
-            Width = 6.5,
-            Height = 6.5,
+            Width = 6,
+            Height = 6,
             Fill = (Brush)FindResource("Tc.Accent"),
             Stroke = (Brush)FindResource("Tc.Window"),
             StrokeThickness = 1,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, -1, -1, 0)
+            Margin = new Thickness(0, 1, 1, 0)
         };
         icon.Children.Add(_hardwareAlertDot);
 
@@ -57,7 +57,7 @@ public partial class CompactDashboard
             Content = icon,
             Visibility = Visibility.Visible
         };
-        _hardwareAlertButton.Click += (_, _) => _app?.OpenNotificationCenter();
+        _hardwareAlertButton.Click += (_, _) => _app?.ToggleNotificationCenter();
         actions.Children.Insert(0, _hardwareAlertButton);
     }
 

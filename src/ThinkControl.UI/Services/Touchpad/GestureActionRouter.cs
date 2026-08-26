@@ -20,6 +20,7 @@ internal sealed class GestureActionRouter
     private readonly Func<int> _getPerformanceIndex;
     private readonly Action<int> _queuePerformanceIndex;
     private readonly Action<GestureActionKind, bool> _setGestureActive;
+    private readonly Action<bool> _showTrackOsd;
 
     private int _volumeAtStart;
     private int _brightnessAtStart;
@@ -43,7 +44,8 @@ internal sealed class GestureActionRouter
         Action<int> queueKeyboardIndex,
         Func<int> getPerformanceIndex,
         Action<int> queuePerformanceIndex,
-        Action<GestureActionKind, bool> setGestureActive)
+        Action<GestureActionKind, bool> setGestureActive,
+        Action<bool> showTrackOsd)
     {
         _nativeInput = nativeInput;
         _media = media;
@@ -56,6 +58,7 @@ internal sealed class GestureActionRouter
         _getPerformanceIndex = getPerformanceIndex;
         _queuePerformanceIndex = queuePerformanceIndex;
         _setGestureActive = setGestureActive;
+        _showTrackOsd = showTrackOsd;
     }
 
     internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
@@ -195,6 +198,7 @@ internal sealed class GestureActionRouter
         bool injected = next ? _nativeInput.NextTrack() : _nativeInput.PreviousTrack();
         if (!injected)
             _ = SkipTrackWithSessionAsync(next);
+        _showTrackOsd(next);
     }
 
     private async Task SkipTrackWithSessionAsync(bool next)
