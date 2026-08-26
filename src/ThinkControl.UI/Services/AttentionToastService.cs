@@ -14,6 +14,8 @@ internal sealed class AttentionToastService : IDisposable
     private TextBlock? _title;
     private TextBlock? _message;
     private Button? _action;
+    private Button? _dismiss;
+    private StackPanel? _actions;
     private Action? _actionCallback;
     private Action? _dismissCallback;
     private readonly DispatcherTimer _hideTimer;
@@ -31,20 +33,53 @@ internal sealed class AttentionToastService : IDisposable
 
     internal void Show(string key, string title, string message, string actionText, Action action, Action? dismissed = null)
     {
-        if (key == _lastKey && DateTimeOffset.UtcNow - _lastShown < TimeSpan.FromMinutes(10))
+        if (!Prepare(key, title, message))
             return;
 
-        EnsureWindow();
-        if (_window is null || _title is null || _message is null || _action is null)
+        _action!.Content = actionText;
+        _action.Visibility = Visibility.Visible;
+        _dismiss!.Visibility = Visibility.Visible;
+        _actions!.Visibility = Visibility.Visible;
+        _actionCallback = action;
+        _dismissCallback = dismissed;
+        _hideTimer.Interval = TimeSpan.FromSeconds(10);
+        Present();
+    }
+
+    internal void ShowPassive(string key, string title, string message, TimeSpan? duration = null)
+    {
+        if (!Prepare(key, title, message))
             return;
+
+        _actionCallback = null;
+        _dismissCallback = null;
+        _action!.Visibility = Visibility.Collapsed;
+        _dismiss!.Visibility = Visibility.Collapsed;
+        _actions!.Visibility = Visibility.Collapsed;
+        _hideTimer.Interval = duration ?? TimeSpan.FromSeconds(4.5);
+        Present();
+    }
+
+    private bool Prepare(string key, string title, string message)
+    {
+        if (key == _lastKey && DateTimeOffset.UtcNow - _lastShown < TimeSpan.FromMinutes(10))
+            return false;
+
+        EnsureWindow();
+        if (_window is null || _title is null || _message is null || _action is null || _dismiss is null || _actions is null)
+            return false;
 
         _lastKey = key;
         _lastShown = DateTimeOffset.UtcNow;
         _title.Text = title;
         _message.Text = message;
-        _action.Content = actionText;
-        _actionCallback = action;
-        _dismissCallback = dismissed;
+        return true;
+    }
+
+    private void Present()
+    {
+        if (_window is null)
+            return;
 
         _window.UpdateLayout();
         Rect area = SystemParameters.WorkArea;
@@ -142,7 +177,7 @@ internal sealed class AttentionToastService : IDisposable
             _actionCallback?.Invoke();
         };
 
-        var dismiss = new Button
+        _dismiss = new Button
         {
             Content = "Later",
             MinHeight = 32,
@@ -151,26 +186,26 @@ internal sealed class AttentionToastService : IDisposable
             Margin = new Thickness(8, 0, 0, 0),
             Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
-        dismiss.Click += (_, _) =>
+        _dismiss.Click += (_, _) =>
         {
             Hide();
             _dismissCallback?.Invoke();
         };
 
-        var actions = new StackPanel
+        _actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
             Margin = new Thickness(0, 13, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Left
         };
-        actions.Children.Add(_action);
-        actions.Children.Add(dismiss);
+        _actions.Children.Add(_action);
+        _actions.Children.Add(_dismiss);
 
         var content = new StackPanel();
         content.Children.Add(brandHeader);
         content.Children.Add(_title);
         content.Children.Add(_message);
-        content.Children.Add(actions);
+        content.Children.Add(_actions);
 
         var shell = new Border
         {
@@ -197,7 +232,7 @@ internal sealed class AttentionToastService : IDisposable
         _window = new Window
         {
             Width = 390,
-            MinHeight = 150,
+            MinHeight = 118,
             MaxHeight = 230,
             SizeToContent = SizeToContent.Height,
             WindowStyle = WindowStyle.None,
