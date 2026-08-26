@@ -38,6 +38,8 @@ internal static class Program
         AppState charging = CreateDemoState(charging: true, hardwareReady: true);
         AppState onBattery = CreateDemoState(charging: false, hardwareReady: true);
         AppState serviceOffline = CreateDemoState(charging: true, hardwareReady: false);
+        AppState batteryDeviceTemperature = CreateDemoState(charging: true, hardwareReady: true);
+        batteryDeviceTemperature.BatteryTemperatureC = null;
         AppState activeFanCurve = CreateDemoState(charging: true, hardwareReady: true);
         activeFanCurve.CoolingProfile = "Balanced";
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
@@ -73,6 +75,8 @@ internal static class Program
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
+        RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
+            "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
 
         // Every page gets minimum-size coverage so clipping and scrollbar overlap
         // cannot hide on a page that happened not to be in a hand-picked subset.
@@ -275,6 +279,8 @@ internal static class Program
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
+        if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)
+            app.State.BatteryTemperatureC = null;
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
             window.NavigateTouchpad();
         else if (string.Equals(page, "Sensors", StringComparison.OrdinalIgnoreCase))

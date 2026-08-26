@@ -298,8 +298,8 @@ public partial class AdvancedWindow
             {
                 messages.Add(new(
                     "Useful device support data is ready",
-                    DeviceSupportReportService.DiscoverySummary(_app.State) + ". Preview the hardware-only report locally before opening the GitHub draft.",
-                    "Review sharing",
+                    DeviceSupportReportService.DiscoverySummary(_app.State) + ". With compatibility sharing enabled, the redacted hardware-only report is prepared locally and GitHub submission remains explicit.",
+                    "Share device report",
                     SheetAction.Diagnostics,
                     false));
             }

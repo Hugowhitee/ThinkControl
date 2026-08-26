@@ -124,7 +124,6 @@ public partial class TouchpadPanel : UserControl
     private void SyncSelectedEdge()
     {
         TouchpadEdgeBinding binding = _configuration.BindingFor(_selectedEdge);
-        SelectedZoneText.Text = EdgeLabel(_selectedEdge);
         SelectedEdgeDescription.Text = _selectedEdge switch
         {
             TouchpadEdge.Top => "Horizontal movement along the top edge.",
@@ -333,7 +332,7 @@ public partial class TouchpadPanel : UserControl
     {
         if (_app is null)
             return;
-        double opacity = Math.Clamp(OsdOpacitySlider.Value / 100d, 0.65, 1.0);
+        double opacity = Math.Clamp(OsdOpacitySlider.Value / 100d, 0, 1.0);
         _app.UserSettings.Update(settings => settings with { TouchpadOsdOpacity = opacity });
     }
 

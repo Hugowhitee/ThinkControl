@@ -51,6 +51,7 @@ internal sealed class FanCurveEditorWindow : Window
         Foreground = Application.Current.TryFindResource("Tc.Text") as Brush ?? SystemColors.WindowTextBrush;
 
         Content = BuildLayout();
+        _graph.ShowLiveLabel = false;
         _builtInProfiles.SelectionChanged += Profiles_SelectionChanged;
         _customProfiles.SelectionChanged += Profiles_SelectionChanged;
         _graph.SelectionChanged += Graph_SelectionChanged;
@@ -129,7 +130,7 @@ internal sealed class FanCurveEditorWindow : Window
         var row2 = new Grid { Margin = new Thickness(0, 6, 0, 0) };
         row2.ColumnDefinitions.Add(new ColumnDefinition());
         row2.ColumnDefinitions.Add(new ColumnDefinition());
-        _reset.Content = "Reset built-in";
+        _reset.Content = "Reset";
         ConfigureSmallButton(_reset);
         _reset.Click += Reset_Click;
         _delete.Content = "Delete";
@@ -169,7 +170,8 @@ internal sealed class FanCurveEditorWindow : Window
         var pointTools = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         pointTools.ColumnDefinitions.Add(new ColumnDefinition());
         pointTools.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _liveValue.FontSize = 10;
+        _liveValue.FontSize = 10.5;
+        _liveValue.FontWeight = FontWeights.SemiBold;
         _liveValue.VerticalAlignment = VerticalAlignment.Center;
         _liveValue.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         pointTools.Children.Add(_liveValue);
@@ -372,7 +374,7 @@ internal sealed class FanCurveEditorWindow : Window
         _delete.IsEnabled = !builtIn;
         _reset.IsEnabled = builtIn;
         _status.Text = builtIn
-            ? "Built-in profile · edits are stored as an override; Reset built-in restores ThinkControl defaults."
+            ? "Built-in profile · edits are stored as an override; Reset restores ThinkControl defaults."
             : "Custom profile · edit the graph, rename it, or delete it without changing the built-in profiles.";
     }
 
@@ -531,7 +533,7 @@ internal sealed class FanCurveEditorWindow : Window
         if (_editing is null || _app.State.ControlTemperatureC is not double temperature)
         {
             _graph.SetLiveState(null, null, null);
-            _liveValue.Text = "Live marker appears when control temperature is available";
+            _liveValue.Text = "LIVE · waiting for control temperature";
             return;
         }
 
@@ -546,7 +548,7 @@ internal sealed class FanCurveEditorWindow : Window
 
         _graph.SetLiveState(temperature, target, _app.State.FanRpm);
         string rpm = _app.State.FanRpm is int actual ? $" · current {actual:N0} RPM" : string.Empty;
-        _liveValue.Text = $"Live {temperature:0.0} °C → {target}% target{rpm}";
+        _liveValue.Text = $"LIVE · {temperature:0.0} °C · {target}% target{rpm}";
     }
 
     internal void PrepareForSnapshot()

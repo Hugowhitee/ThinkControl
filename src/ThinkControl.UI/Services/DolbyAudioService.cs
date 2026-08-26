@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 
 namespace ThinkControl.UI.Services;
 
@@ -17,6 +18,7 @@ public sealed record DolbyAudioStatus(
 }
 
 public sealed record DolbyProfileResult(bool Success, string Detail);
+public sealed record DolbyLaunchResult(bool Success, string Detail);
 
 /// <summary>
 /// Installation/launcher and non-mutating provider detection. Direct DAX state is
@@ -63,20 +65,39 @@ public sealed class DolbyAudioService
     }
 
     public bool OpenDolbyAccess()
+        => OpenDolbyAccessWithResult().Success;
+
+    public DolbyLaunchResult OpenDolbyAccessWithResult()
     {
-        // Do not make activation depend solely on one package-registry view. Lenovo
-        // OEM provisioning and Store updates can leave the AUMID launchable even
-        // when the Repository key is missing/inaccessible. Let Windows resolve the
-        // canonical Dolby Access AUMID and report failure naturally.
+        // Use Windows' documented packaged-app activation contract first. This
+        // gives us a real HRESULT and process id instead of treating an explorer
+        // process launch as proof that Dolby Access opened.
         try
         {
-            string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
-            Process.Start(new ProcessStartInfo(explorer, $"shell:AppsFolder\\{AppUserModelId}") { UseShellExecute = true });
-            return true;
+            var manager = (IApplicationActivationManager)(object)new ApplicationActivationManager();
+            int result = manager.ActivateApplication(AppUserModelId, null, ActivateOptions.None, out uint processId);
+            if (result >= 0)
+                return new(true, processId > 0
+                    ? $"Dolby Access opened (process {processId})."
+                    : "Dolby Access activation completed.");
         }
         catch
         {
-            return false;
+        }
+
+        // Older package registration states can still resolve through AppsFolder.
+        // Report this as a completed shell handoff, never as indefinite progress.
+        try
+        {
+            string explorer = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe");
+            Process? process = Process.Start(new ProcessStartInfo(explorer, $"shell:AppsFolder\\{AppUserModelId}") { UseShellExecute = true });
+            return process is null
+                ? new(false, "Windows could not hand Dolby Access to the packaged-app shell.")
+                : new(true, "Dolby Access launch request was handed to Windows.");
+        }
+        catch
+        {
+            return new(false, "Windows could not activate Dolby Access. Repair or install the app and try again.");
         }
     }
 
@@ -199,4 +220,35 @@ public sealed class DolbyAudioService
         value.Contains("Dolby", StringComparison.OrdinalIgnoreCase) &&
         (value.Contains("Fusion", StringComparison.OrdinalIgnoreCase) ||
          value.Contains("FUSIONAPOSVC", StringComparison.OrdinalIgnoreCase));
+
+    [Flags]
+    private enum ActivateOptions
+    {
+        None = 0
+    }
+
+    [ComImport]
+    [Guid("45BA127D-10A8-46EA-8AB7-56EA9078943C")]
+    private sealed class ApplicationActivationManager
+    {
+    }
+
+    [ComImport]
+    [Guid("2E941141-7F97-4756-BA1D-9DECDE894A3D")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IApplicationActivationManager
+    {
+        [PreserveSig]
+        int ActivateApplication(
+            [MarshalAs(UnmanagedType.LPWStr)] string appUserModelId,
+            [MarshalAs(UnmanagedType.LPWStr)] string? arguments,
+            ActivateOptions options,
+            out uint processId);
+
+        [PreserveSig]
+        int ActivateForFile(IntPtr appUserModelId, IntPtr itemArray, IntPtr verb, out uint processId);
+
+        [PreserveSig]
+        int ActivateForProtocol(IntPtr appUserModelId, IntPtr itemArray, out uint processId);
+    }
 }

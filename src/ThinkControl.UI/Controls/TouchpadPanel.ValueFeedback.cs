@@ -105,19 +105,17 @@ public partial class TouchpadPanel
 
         var button = new Button
         {
-            Content = new TextBlock
+            Content = new PackIconLucide
             {
-                Text = "↺",
-                FontFamily = new System.Windows.Media.FontFamily("Segoe UI Symbol"),
-                FontSize = 14,
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center
+                Kind = "Reset",
+                Width = 12,
+                Height = 12
             },
-            Style = TryFindResource("TcIconButton") as Style,
-            Width = 24,
-            Height = 24,
+            Style = TryFindResource("TcInlineButton") as Style,
+            Width = 20,
+            Height = 20,
             Padding = new Thickness(0),
-            Margin = new Thickness(7, 0, -3, 0),
+            Margin = new Thickness(4, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Cursor = System.Windows.Input.Cursors.Hand,
@@ -251,7 +249,7 @@ public partial class TouchpadPanel
         EdgeWidthValue.Text = FormatSetting(EdgeWidthSlider.Value, 5.0, "mm", 1);
         ActivationValue.Text = FormatSetting(ActivationSlider.Value, 2.0, "mm", 1);
         ToleranceValue.Text = FormatSetting(ToleranceSlider.Value, 12.0, "mm", 1);
-        SensitivityValue.Text = FormatSetting(SensitivitySlider.Value, 1.0, "×", 2, unitBeforeValue: false);
+        SensitivityValue.Text = FormatSetting(SensitivitySlider.Value, 1.0, "×", 1, unitBeforeValue: false);
     }
 
     private void RefreshSliderResetButtons()
@@ -421,7 +419,7 @@ public partial class TouchpadPanel
     private string FormatDefault(double value, Slider slider)
     {
         if (ReferenceEquals(slider, SensitivitySlider))
-            return $"{value:0.00}×";
+            return $"{value:0.0}×";
         if (ReferenceEquals(slider, EdgeWidthSlider) || ReferenceEquals(slider, ActivationSlider) || ReferenceEquals(slider, ToleranceSlider))
             return $"{value:0.0} mm";
         if (ReferenceEquals(slider, OsdOpacitySlider))

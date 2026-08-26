@@ -11,8 +11,8 @@ public partial class AdvancedWindow
 
     private void ConfigureHardwareSetupEntry()
     {
-        if (_hardwareSetupEntryConfigured || FindName("PageSettings") is not ScrollViewer settingsPage ||
-            settingsPage.Content is not StackPanel settingsStack)
+        if (_hardwareSetupEntryConfigured || FindName("PageSystem") is not ScrollViewer systemPage ||
+            systemPage.Content is not StackPanel systemStack)
         {
             return;
         }
@@ -29,12 +29,12 @@ public partial class AdvancedWindow
         var text = new StackPanel { Margin = new Thickness(0, 0, 18, 0) };
         text.Children.Add(new TextBlock
         {
-            Text = "Hardware status",
+            Text = "Hardware setup",
             FontWeight = FontWeights.SemiBold
         });
         text.Children.Add(new TextBlock
         {
-            Text = "See the ThinkControl service, low-level access and detected provider state in one in-app view. Repairs only ask for Windows approval after you choose an action.",
+            Text = "Check the ThinkControl service, optional low-level access and detected providers in one guided window. Retry is read-only; repair asks for Windows approval only after you choose it.",
             Foreground = (Brush)FindResource("Tc.TextMuted"),
             FontSize = 10.5,
             TextWrapping = TextWrapping.Wrap,
@@ -43,18 +43,18 @@ public partial class AdvancedWindow
 
         var button = new WpfButton
         {
-            Content = "View status",
+            Content = "Open setup",
             Style = TryFindResource("TcButton") as Style,
             MinWidth = 96,
             VerticalAlignment = VerticalAlignment.Center
         };
-        button.Click += (_, _) => _app.OpenHardwareAttention();
+        button.Click += (_, _) => _app.OpenHardwareSetup();
 
         grid.Children.Add(text);
         Grid.SetColumn(button, 1);
         grid.Children.Add(button);
         section.Child = grid;
-        settingsStack.Children.Add(section);
+        systemStack.Children.Insert(Math.Min(1, systemStack.Children.Count), section);
         _hardwareSetupEntryConfigured = true;
     }
 }

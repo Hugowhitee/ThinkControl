@@ -7,6 +7,7 @@ public partial class App
 {
     private readonly HardwareSetupService _hardwareSetupService = new();
     private bool _hardwareSetupEvaluated;
+    private HardwareSetupWindow? _hardwareSetupWindow;
     private bool _providerRefreshBusy;
     private bool _sensorRefreshBusy;
     private bool _keyboardRefreshBusy;
@@ -242,14 +243,30 @@ public partial class App
 
     public void OpenHardwareAttention()
     {
-        // Hardware status is a destination, not a second entry point to the
-        // notification drawer. The bell owns Notifications; hardware warnings and
-        // proactive toasts take the user straight to the System/hardware page.
         OpenAdvanced("System");
+        Dispatcher.BeginInvoke(ShowHardwareSetupWindow);
     }
 
     public void OpenHardwareSetup()
     {
         OpenAdvanced("System");
+        Dispatcher.BeginInvoke(ShowHardwareSetupWindow);
+    }
+
+    private void ShowHardwareSetupWindow()
+    {
+        if (_hardwareSetupWindow is { IsVisible: true })
+        {
+            _hardwareSetupWindow.Activate();
+            return;
+        }
+
+        _hardwareSetupWindow = new HardwareSetupWindow(this, _hardwareSetupService)
+        {
+            Owner = _advancedWindow
+        };
+        _hardwareSetupWindow.Closed += (_, _) => _hardwareSetupWindow = null;
+        _hardwareSetupWindow.Show();
+        _hardwareSetupWindow.Activate();
     }
 }

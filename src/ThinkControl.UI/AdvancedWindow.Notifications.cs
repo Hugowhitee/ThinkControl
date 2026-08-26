@@ -67,22 +67,28 @@ public partial class AdvancedWindow
 
         _notificationDot = new Ellipse
         {
-            Width = 6,
-            Height = 6,
+            Width = 5,
+            Height = 5,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 4, 3, 0),
+            Margin = new Thickness(0, -1, -1, 0),
             StrokeThickness = 1,
             IsHitTestVisible = false
         };
         _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
         _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Surface");
 
-        var content = new Grid();
+        var content = new Grid { Width = 20, Height = 20 };
         content.Children.Add(bell);
         content.Children.Add(_notificationDot);
         button.Content = content;
-        button.Click += (_, _) => ShowNotificationSheet();
+        button.Click += (_, _) =>
+        {
+            if (_notificationOverlay?.Visibility == Visibility.Visible)
+                HideNotificationSheet();
+            else
+                ShowNotificationSheet();
+        };
         _notificationIndicator = button;
 
         if (DataContext is AppState state)
@@ -119,11 +125,21 @@ public partial class AdvancedWindow
         if (_notificationDot is null || _notificationIndicator is null || DataContext is not AppState state)
             return;
 
-        bool hardwareAttention = !state.DriverStatus.Equals("Ready", StringComparison.OrdinalIgnoreCase) ||
-                                 !state.CanSensorTelemetry ||
-                                 (DeviceCapabilityExpectations.ExpectsFanTelemetry(state) && !state.CanFanTelemetry) ||
-                                 (DeviceCapabilityExpectations.ExpectsWritableFanControl(state) && !state.CanFanControl) ||
-                                 (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(state) && !state.CanKeyboardBacklight);
+        string status = state.DriverStatus ?? string.Empty;
+        bool stableHardwareProblem = !string.IsNullOrWhiteSpace(status) &&
+                                     !status.Equals("Ready", StringComparison.OrdinalIgnoreCase) &&
+                                     !status.StartsWith("Checking", StringComparison.OrdinalIgnoreCase) &&
+                                     !status.StartsWith("Refreshing", StringComparison.OrdinalIgnoreCase) &&
+                                     !status.StartsWith("Verifying", StringComparison.OrdinalIgnoreCase) &&
+                                     !status.StartsWith("Starting", StringComparison.OrdinalIgnoreCase) &&
+                                     !status.StartsWith("Restarting", StringComparison.OrdinalIgnoreCase) &&
+                                     !status.StartsWith("Installing", StringComparison.OrdinalIgnoreCase) &&
+                                     !status.StartsWith("Repairing", StringComparison.OrdinalIgnoreCase);
+        bool hardwareAttention = stableHardwareProblem &&
+                                 (!state.CanSensorTelemetry ||
+                                  (DeviceCapabilityExpectations.ExpectsFanTelemetry(state) && !state.CanFanTelemetry) ||
+                                  (DeviceCapabilityExpectations.ExpectsWritableFanControl(state) && !state.CanFanControl) ||
+                                  (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(state) && !state.CanKeyboardBacklight));
         bool updateAttention = _app.LatestUpdateResult?.Available == true;
         bool attention = hardwareAttention || updateAttention;
 

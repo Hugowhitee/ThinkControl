@@ -1,12 +1,12 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.6` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
+ThinkControl `v0.1.0-alpha.18` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
 
 ## Release assets
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.6.exe
-ThinkControl-Payload-0.1.0-alpha.6.zip
+ThinkControl-Setup-0.1.0-alpha.18.exe
+ThinkControl-Payload-0.1.0-alpha.18.zip
 SHA256SUMS.txt
 ```
 
@@ -51,7 +51,7 @@ A public release installer therefore downloads only its own matching payload. A 
 
 For CI only, Setup accepts a `/PAYLOAD=<local zip>` override. The local payload must still match the compile-time SHA-256. This lets CI exercise the complete extraction, service and uninstall path before a GitHub release exists without weakening the public installer path.
 
-Windows 11's built-in `tar.exe` performs ZIP extraction. Setup verifies that both `ui/ThinkControl.UI.exe` and `service/ThinkControl.Service.exe` exist before continuing.
+The built-in `tar.exe` on supported Windows 10/11 systems performs ZIP extraction. Setup verifies that both `ui/ThinkControl.UI.exe` and `service/ThinkControl.Service.exe` exist before continuing.
 
 ## Microsoft .NET Desktop Runtime pin
 

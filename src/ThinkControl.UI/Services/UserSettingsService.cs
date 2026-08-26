@@ -1,5 +1,7 @@
 using System.IO;
+using System.Text;
 using System.Text.Json;
+using Microsoft.Win32;
 using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Diagnostics;
 using ThinkControl.Core.Touchpad;
@@ -34,6 +36,8 @@ public sealed record ThinkControlUserSettings(
 
 public sealed class UserSettingsService
 {
+    private const string PreferencesRegistryPath = @"Software\ThinkControl";
+    private const string DiagnosticsConsentValue = "DiagnosticsConsent";
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -49,7 +53,10 @@ public sealed class UserSettingsService
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ThinkControl");
         _path = Path.Combine(folder, "settings.json");
-        _current = LoadInternal();
+        ThinkControlUserSettings loaded = LoadInternal();
+        _current = ApplyInstallerConsent(loaded);
+        if (_current.DiagnosticsConsent != loaded.DiagnosticsConsent)
+            SaveInternal(_current);
     }
 
     public ThinkControlUserSettings Current
@@ -63,24 +70,59 @@ public sealed class UserSettingsService
         {
             _current = Sanitize(update(_current));
             SaveInternal(_current);
+            SaveDiagnosticsConsentPreference(_current.DiagnosticsConsent);
         }
     }
 
     private ThinkControlUserSettings LoadInternal()
     {
+        if (TryLoad(_path, out ThinkControlUserSettings settings))
+            return settings;
+
+        string temporary = _path + ".tmp";
+        if (TryLoad(temporary, out settings))
+        {
+            TryRestoreSettingsFile(temporary);
+            return settings;
+        }
+
+        string backup = _path + ".bak";
+        if (TryLoad(backup, out settings))
+        {
+            TryRestoreSettingsFile(backup);
+            return settings;
+        }
+
+        return Sanitize(new ThinkControlUserSettings());
+    }
+
+    private static bool TryLoad(string path, out ThinkControlUserSettings settings)
+    {
+        settings = new ThinkControlUserSettings();
         try
         {
-            if (!File.Exists(_path))
-                return Sanitize(new ThinkControlUserSettings());
+            if (!File.Exists(path))
+                return false;
+            string json = File.ReadAllText(path);
+            ThinkControlUserSettings? parsed = JsonSerializer.Deserialize<ThinkControlUserSettings>(json, JsonOptions);
+            if (parsed is null)
+                return false;
+            settings = Sanitize(parsed);
+            return true;
+        }
+        catch { return false; }
+    }
 
-            string json = File.ReadAllText(_path);
-            ThinkControlUserSettings? settings = JsonSerializer.Deserialize<ThinkControlUserSettings>(json, JsonOptions);
-            return Sanitize(settings ?? new ThinkControlUserSettings());
-        }
-        catch
+    private void TryRestoreSettingsFile(string source)
+    {
+        try
         {
-            return Sanitize(new ThinkControlUserSettings());
+            string? folder = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrWhiteSpace(folder))
+                Directory.CreateDirectory(folder);
+            File.Copy(source, _path, overwrite: true);
         }
+        catch { }
     }
 
     private void SaveInternal(ThinkControlUserSettings settings)
@@ -92,8 +134,53 @@ public sealed class UserSettingsService
                 Directory.CreateDirectory(folder);
 
             string temporary = _path + ".tmp";
-            File.WriteAllText(temporary, JsonSerializer.Serialize(settings, JsonOptions));
-            File.Move(temporary, _path, overwrite: true);
+            byte[] content = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(settings, JsonOptions));
+            using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                stream.Write(content);
+                stream.Flush(flushToDisk: true);
+            }
+
+            if (File.Exists(_path))
+                File.Replace(temporary, _path, _path + ".bak", ignoreMetadataErrors: true);
+            else
+                File.Move(temporary, _path);
+        }
+        catch
+        {
+        }
+    }
+
+    private static ThinkControlUserSettings ApplyInstallerConsent(ThinkControlUserSettings settings)
+    {
+        try
+        {
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(PreferencesRegistryPath, writable: false);
+            int? value = key?.GetValue(DiagnosticsConsentValue) switch
+            {
+                int number => number,
+                string text when int.TryParse(text, out int number) => number,
+                _ => null
+            };
+            return value switch
+            {
+                0 => settings with { DiagnosticsConsent = DiagnosticsConsent.Disabled },
+                1 => settings with { DiagnosticsConsent = DiagnosticsConsent.Enabled },
+                _ => settings
+            };
+        }
+        catch
+        {
+            return settings;
+        }
+    }
+
+    private static void SaveDiagnosticsConsentPreference(DiagnosticsConsent consent)
+    {
+        try
+        {
+            using RegistryKey key = Registry.CurrentUser.CreateSubKey(PreferencesRegistryPath, writable: true);
+            key.SetValue(DiagnosticsConsentValue, consent == DiagnosticsConsent.Disabled ? 0 : 1, RegistryValueKind.DWord);
         }
         catch
         {
@@ -130,7 +217,7 @@ public sealed class UserSettingsService
         };
         double osdOpacity = Math.Clamp(
             double.IsFinite(settings.TouchpadOsdOpacity) ? settings.TouchpadOsdOpacity : 0.92,
-            0.65,
+            0,
             1.0);
         string hardwarePrompt = settings.HardwareSetupPromptedVersion?.Trim() ?? string.Empty;
         if (hardwarePrompt.Length > 64)

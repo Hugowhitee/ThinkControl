@@ -447,14 +447,10 @@ public partial class AudioPanel : UserControl
         if (_snapshotMode || _dolby is null)
             return;
 
-        if (_dolby.OpenDolbyAccess())
-        {
-            ActionStatusText.Text = "Opening Dolby Access for the OEM Atmos controls…";
-            return;
-        }
-
-        ActionStatusText.Text = "Windows could not open Dolby Access. Use Install Dolby Access to repair/install the profile app.";
-        InstallButton.Visibility = Visibility.Visible;
+        DolbyLaunchResult launch = _dolby.OpenDolbyAccessWithResult();
+        ActionStatusText.Text = launch.Detail;
+        if (!launch.Success)
+            InstallButton.Visibility = Visibility.Visible;
     }
 
     private void SetProfilesEnabled(bool enabled)
