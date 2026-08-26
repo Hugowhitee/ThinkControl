@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using ThinkControl.UI.Controls;
@@ -11,7 +10,6 @@ namespace ThinkControl.UI.Services;
 internal static class AdvancedWindowEnhancer
 {
     private const string EnhancedKey = "ThinkControl.Advanced.Enhanced";
-    private const string HomePolishedKey = "ThinkControl.Advanced.HomePolished";
     private const string TouchpadNavName = "ThinkControl.Dynamic.NavTouchpad";
     private const string TouchpadPageName = "ThinkControl.Dynamic.PageTouchpad";
     private const string SensorsNavName = "ThinkControl.Dynamic.NavSensors";
@@ -25,7 +23,6 @@ internal static class AdvancedWindowEnhancer
         window.Resources[EnhancedKey] = true;
         AddTouchpadPage(window, app);
         AddSensorsPage(window);
-        PolishHome(window);
         AttachPageMotion(window);
     }
 
@@ -165,93 +162,6 @@ internal static class AdvancedWindowEnhancer
             button.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
         if (window.Resources[TouchpadNavName] is RadioButton touchpadNav)
             touchpadNav.Checked += (_, _) => scroll.Visibility = Visibility.Collapsed;
-    }
-
-    private static void PolishHome(AdvancedWindow window)
-    {
-        if (window.Resources.Contains(HomePolishedKey) ||
-            window.FindName("PageHome") is not ScrollViewer { Content: StackPanel stack })
-        {
-            return;
-        }
-
-        window.Resources[HomePolishedKey] = true;
-
-        Grid? oldTelemetry = stack.Children.OfType<Grid>().FirstOrDefault();
-        if (oldTelemetry is not null)
-            stack.Children.Remove(oldTelemetry);
-
-        var row = new Grid { Margin = new Thickness(0, 0, 0, 14) };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.6, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-
-        Border battery = Section(window, new Thickness(0, 0, 7, 0));
-        var batteryGrid = new Grid();
-        batteryGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(155) });
-        batteryGrid.ColumnDefinitions.Add(new ColumnDefinition());
-        var gauge = new BatteryGauge { Width = 142, Height = 52, VerticalAlignment = VerticalAlignment.Center };
-        gauge.SetBinding(BatteryGauge.PercentProperty, new Binding(nameof(AppState.BatteryPercent)));
-        gauge.SetBinding(BatteryGauge.IsChargingProperty, new Binding(nameof(AppState.BatteryCharging)));
-        batteryGrid.Children.Add(gauge);
-        var batteryText = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0) };
-        AddBoundText(batteryText, nameof(AppState.BatteryPercentText), 27, null, FontWeights.Light);
-        AddBoundText(batteryText, nameof(AppState.BatteryStatus), 10.5, "Tc.TextMuted");
-        AddBoundText(batteryText, nameof(AppState.BatteryCompactLine), 9.5, "Tc.TextFaint");
-        Grid.SetColumn(batteryText, 1);
-        batteryGrid.Children.Add(batteryText);
-        battery.Child = batteryGrid;
-        row.Children.Add(battery);
-
-        Border cpu = Section(window, new Thickness(7, 0, 7, 0));
-        var cpuText = new StackPanel();
-        AddText(cpuText, "CPU", 9.5, "Tc.TextMuted", FontWeights.SemiBold);
-        AddBoundText(cpuText, nameof(AppState.CpuTemperatureText), 28, null, FontWeights.Light, new Thickness(0, 7, 0, 0));
-        AddBoundText(cpuText, nameof(AppState.SelectedMode), 10, "Tc.TextMuted", null, new Thickness(0, 4, 0, 0));
-        cpu.Child = cpuText;
-        Grid.SetColumn(cpu, 1);
-        row.Children.Add(cpu);
-
-        Border fan = Section(window, new Thickness(7, 0, 0, 0));
-        var fanText = new StackPanel();
-        AddText(fanText, "FANS", 9.5, "Tc.TextMuted", FontWeights.SemiBold);
-        AddBoundText(fanText, nameof(AppState.FanRpmText), 23, null, FontWeights.Light, new Thickness(0, 8, 0, 0));
-        AddBoundText(fanText, nameof(AppState.FanCountText), 9.5, "Tc.TextFaint", null, new Thickness(0, 3, 0, 0));
-        AddBoundText(fanText, nameof(AppState.FanStateText), 10, "Tc.TextMuted", null, new Thickness(0, 3, 0, 0));
-        fan.Child = fanText;
-        Grid.SetColumn(fan, 2);
-        row.Children.Add(fan);
-
-        stack.Children.Insert(0, row);
-    }
-
-    private static Border Section(FrameworkElement owner, Thickness margin) => new()
-    {
-        Style = owner.TryFindResource("TcSection") as Style,
-        Margin = margin,
-        MinHeight = 120
-    };
-
-    private static void AddText(StackPanel panel, string text, double size, string? brushKey = null, FontWeight? weight = null)
-    {
-        var block = new TextBlock { Text = text, FontSize = size };
-        if (weight.HasValue) block.FontWeight = weight.Value;
-        if (brushKey is not null && panel.TryFindResource(brushKey) is Brush brush) block.Foreground = brush;
-        panel.Children.Add(block);
-    }
-
-    private static void AddBoundText(StackPanel panel, string property, double size, string? brushKey = null, FontWeight? weight = null, Thickness? margin = null)
-    {
-        var block = new TextBlock
-        {
-            FontSize = size,
-            TextTrimming = TextTrimming.CharacterEllipsis,
-            Margin = margin ?? new Thickness(0, 2, 0, 0)
-        };
-        if (weight.HasValue) block.FontWeight = weight.Value;
-        if (brushKey is not null && panel.TryFindResource(brushKey) is Brush brush) block.Foreground = brush;
-        block.SetBinding(TextBlock.TextProperty, new Binding(property));
-        panel.Children.Add(block);
     }
 
     private static void AttachPageMotion(AdvancedWindow window)

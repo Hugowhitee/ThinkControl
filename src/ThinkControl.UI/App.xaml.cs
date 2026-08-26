@@ -230,6 +230,7 @@ public partial class App : System.Windows.Application
                 State.FanRpm = service.Telemetry.FanRpm;
                 State.FanStateText = service.Telemetry.FanState;
                 State.KeyboardStatus = service.Telemetry.KeyboardBacklight;
+                State.KeyboardBackend = service.Telemetry.KeyboardBackend ?? "Not exposed";
                 if (!string.IsNullOrWhiteSpace(service.Telemetry.ThermalSolutionVersion))
                     State.ThermalSolution = service.Telemetry.ThermalSolutionVersion!;
 
@@ -259,6 +260,7 @@ public partial class App : System.Windows.Application
                 State.FanRpm = null;
                 State.FanStateText = "Lenovo managed · telemetry unavailable";
                 State.KeyboardStatus = "Hardware backend unavailable";
+                State.KeyboardBackend = "Not exposed";
                 State.CanFanControl = false;
                 State.CanFanTelemetry = false;
                 State.CanKeyboardBacklight = false;
@@ -507,6 +509,8 @@ public partial class App : System.Windows.Application
         else
         {
             await KeyboardEffects.SetModeAsync(preferences.KeyboardMode);
+            if (State.KeyboardMode == "Static")
+                UserSettings.Update(settings => settings with { KeyboardMode = "Static" });
         }
     }
 

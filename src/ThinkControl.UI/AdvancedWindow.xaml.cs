@@ -202,6 +202,7 @@ public partial class AdvancedWindow : Window
             state.PropertyChanged += State_PropertyChanged;
 
         StartupSwitch.IsChecked = StartupService.IsEnabled();
+        ConfigureHomeQuickControls();
         SyncControls();
         ShowPage(GetSelectedPage());
         ApplyThemeToChrome();
@@ -227,7 +228,8 @@ public partial class AdvancedWindow : Window
             or nameof(AppState.KeyboardStatus)
             or nameof(AppState.KeyboardMode)
             or nameof(AppState.CanKeyboardBacklight)
-            or nameof(AppState.CanFanControl))
+            or nameof(AppState.CanFanControl)
+            or nameof(AppState.CoolingProfile))
         {
             Dispatcher.Invoke(SyncControls);
         }
@@ -271,6 +273,14 @@ public partial class AdvancedWindow : Window
             {
                 if ((button.Tag is string tag && int.TryParse(tag, out _)) || Equals(button.Content, "Lenovo Auto"))
                     button.IsEnabled = state.CanFanControl;
+            }
+
+            if (HomeFanProfileCombo is not null)
+            {
+                HomeFanProfileCombo.IsEnabled = state.CanFanControl;
+                HomeFanProfileCombo.SelectedItem = state.CoolingProfileDisplay;
+                if (HomeFanProfileCombo.SelectedItem is null)
+                    HomeFanProfileCombo.SelectedItem = "Auto";
             }
         }
         finally

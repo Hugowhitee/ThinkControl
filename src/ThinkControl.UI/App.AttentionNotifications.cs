@@ -178,6 +178,30 @@ public partial class App
                 : () => OpenAdvanced("Updates"));
     }
 
+    private void EvaluatePreviousUpdateHandoff()
+    {
+        UpdateHandoffOutcome? outcome = UpdateHandoffService.Evaluate(UpdateService.CurrentVersion);
+        if (outcome is null)
+            return;
+
+        State.UpdateStatus = outcome.Status;
+        if (!CanShowAttentionNow())
+            return;
+
+        _attentionToast.Show(
+            outcome.Completed ? "update-complete:" + UpdateService.CurrentVersion : "update-handoff-incomplete",
+            outcome.Completed ? "ThinkControl updated" : "Update needs attention",
+            outcome.Status,
+            outcome.Completed ? "Open Updates" : "Open install log",
+            outcome.Completed
+                ? () => OpenAdvanced("Updates")
+                : () =>
+                {
+                    if (!UpdateHandoffService.TryOpenLog(outcome.LogPath))
+                        OpenAdvanced("Updates");
+                });
+    }
+
     private async Task InstallUpdateFromAttentionAsync(UpdateCheckResult update)
     {
         if (_attentionUpdateInstallBusy)

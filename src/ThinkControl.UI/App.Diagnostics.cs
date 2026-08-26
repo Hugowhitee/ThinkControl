@@ -50,6 +50,7 @@ public partial class App
                 State.FanStateText = telemetry.FanState;
                 State.CoolingProfile = telemetry.CoolingProfile;
                 State.KeyboardStatus = telemetry.KeyboardBacklight;
+                State.KeyboardBackend = telemetry.KeyboardBackend ?? "Not exposed";
                 if (!string.IsNullOrWhiteSpace(telemetry.ThermalSolutionVersion))
                     State.ThermalSolution = telemetry.ThermalSolutionVersion!;
 

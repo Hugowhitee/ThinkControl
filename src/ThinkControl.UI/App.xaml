@@ -216,7 +216,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RepeatButton">
-                            <Border x:Name="Line" Height="5" CornerRadius="2.5" Background="{TemplateBinding Background}" />
+                            <Border x:Name="Line" Height="5" CornerRadius="2.5,0,0,2.5" Background="{TemplateBinding Background}" />
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Line" Property="Background" Value="{DynamicResource Tc.AccentHover}" /></Trigger>
                             </ControlTemplate.Triggers>
@@ -231,7 +231,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RepeatButton">
-                            <Border x:Name="Line" Height="5" CornerRadius="2.5" Background="{TemplateBinding Background}" />
+                            <Border x:Name="Line" Height="5" CornerRadius="0,2.5,2.5,0" Background="{TemplateBinding Background}" />
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Line" Property="Background" Value="{DynamicResource Tc.TextFaint}" /></Trigger>
                             </ControlTemplate.Triggers>

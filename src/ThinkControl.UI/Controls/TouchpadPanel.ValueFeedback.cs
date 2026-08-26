@@ -105,17 +105,21 @@ public partial class TouchpadPanel
 
         var button = new Button
         {
-            Content = "Reset",
-            Style = TryFindResource("TcButton") as Style,
-            MinWidth = 0,
+            Content = new TextBlock
+            {
+                Text = "↺",
+                FontFamily = new System.Windows.Media.FontFamily("Segoe UI Symbol"),
+                FontSize = 14,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            },
+            Style = TryFindResource("TcIconButton") as Style,
+            Width = 24,
             Height = 24,
-            Padding = new Thickness(8, 0, 0, 0),
-            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(0),
+            Margin = new Thickness(7, 0, -3, 0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            FontSize = 9.5,
             Cursor = System.Windows.Input.Cursors.Hand,
             ToolTip = $"Reset to default ({FormatDefault(defaultValue, slider)})",
             Tag = defaultValue,
@@ -124,24 +128,23 @@ public partial class TouchpadPanel
         button.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         button.Click += (_, _) => reset(slider, defaultValue);
 
-        // Put reset beside the slider instead of in the value header. The flat text
-        // affordance stays out of the way and appears only when the value differs
-        // from the default.
-        if (slider.Parent is StackPanel stack)
+        // Reset is metadata for the value, not part of the slider's scale. Keep the
+        // full track width and reveal one compact header action only after a change.
+        if (valueLabel.Parent is Grid valueHeader)
         {
-            int index = stack.Children.IndexOf(slider);
-            if (index >= 0)
+            int column = Grid.GetColumn(valueLabel);
+            valueHeader.Children.Remove(valueLabel);
+            valueLabel.VerticalAlignment = VerticalAlignment.Center;
+            var actions = new StackPanel
             {
-                stack.Children.RemoveAt(index);
-                var row = new Grid { Margin = slider.Margin };
-                row.ColumnDefinitions.Add(new ColumnDefinition());
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                slider.Margin = new Thickness(0);
-                row.Children.Add(slider);
-                Grid.SetColumn(button, 1);
-                row.Children.Add(button);
-                stack.Children.Insert(index, row);
-            }
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            actions.Children.Add(valueLabel);
+            actions.Children.Add(button);
+            Grid.SetColumn(actions, column);
+            valueHeader.Children.Add(actions);
         }
 
         _sliderResetButtons[slider] = button;
@@ -190,9 +193,12 @@ public partial class TouchpadPanel
 
     private static Grid? FindHeaderBeforeSlider(Slider slider)
     {
-        if (slider.Parent is not StackPanel stack)
+        FrameworkElement anchor = slider;
+        if (slider.Parent is Grid wrapper && wrapper.Parent is StackPanel)
+            anchor = wrapper;
+        if (anchor.Parent is not StackPanel stack)
             return null;
-        int index = stack.Children.IndexOf(slider);
+        int index = stack.Children.IndexOf(anchor);
         for (int i = index - 1; i >= 0; i--)
         {
             if (stack.Children[i] is Grid grid)

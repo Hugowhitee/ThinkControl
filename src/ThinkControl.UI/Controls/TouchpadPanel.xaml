@@ -31,7 +31,7 @@
 
             <Border x:Name="VisualizerCard" Style="{StaticResource TcSection}" Margin="0,0,7,0">
                 <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Live touchpad" FontWeight="SemiBold" />
@@ -42,6 +42,9 @@
 
                     <Grid Grid.Row="1" Height="340" Margin="0,8,0,0">
                         <controls:TouchpadVisualizer x:Name="Visualizer" />
+                        <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="14" Padding="9,5" CornerRadius="4" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" IsHitTestVisible="False">
+                            <StackPanel Orientation="Horizontal"><TextBlock Text="Selected" Style="{StaticResource TouchpadLabel}" Margin="0,0,7,0" /><TextBlock x:Name="SelectedZoneText" Text="Top edge" FontWeight="SemiBold" FontSize="10.5" /></StackPanel>
+                        </Border>
                         <Border x:Name="GestureFeedbackOverlay"
                                 HorizontalAlignment="Center"
                                 VerticalAlignment="Center"
@@ -64,10 +67,6 @@
                         </Border>
                     </Grid>
 
-                    <Grid Grid.Row="2" Margin="2,3,2,0">
-                        <TextBlock Text="Selected edge" Style="{StaticResource TouchpadLabel}" />
-                        <TextBlock x:Name="SelectedZoneText" Text="Top edge" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="10.5" />
-                    </Grid>
                 </Grid>
             </Border>
 
@@ -106,13 +105,27 @@
                             <TextBlock Text="Feedback level" Style="{StaticResource TouchpadLabel}" />
                             <TextBlock x:Name="HapticStrengthValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
                         </Grid>
-                        <Slider x:Name="HapticStrengthSlider" Style="{StaticResource TcSlider}" Margin="0,5,0,8" TickFrequency="25" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                        <Grid Margin="0,5,0,8">
+                            <Slider x:Name="HapticStrengthSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="25" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                            <Grid Panel.ZIndex="0" Margin="12,0" IsHitTestVisible="False">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="1" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
+                                <Border Grid.Column="2" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
+                                <Border Grid.Column="3" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
+                            </Grid>
+                        </Grid>
                         <Grid x:Name="ClickForceHeader" Margin="0,5,0,0">
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Click sensitivity" Style="{StaticResource TouchpadLabel}" />
                             <TextBlock x:Name="ClickForceValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
                         </Grid>
-                        <Slider x:Name="ClickForceSlider" Style="{StaticResource TcSlider}" Margin="0,5,0,0" TickFrequency="50" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                        <Grid Margin="0,5,0,0">
+                            <Slider x:Name="ClickForceSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="50" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                            <Grid Panel.ZIndex="0" Margin="12,0" IsHitTestVisible="False">
+                                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                <Border Grid.Column="1" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
+                            </Grid>
+                        </Grid>
                     </StackPanel>
                 </Border>
 

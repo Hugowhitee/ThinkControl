@@ -37,6 +37,7 @@ public partial class App
         AttachTrayActivationRecovery();
         ApplyTrayIconPolish();
         StartAutomaticUpdateChecks();
+        EvaluatePreviousUpdateHandoff();
 
         // The startup refresh intentionally performs one complete discovery pass.
         // After that, switch to the direct Windows/service runtime scheduler so WMI,

@@ -88,9 +88,12 @@ public partial class BatteryTelemetryPanel : UserControl
         // Never imply that ThinkControl measured continuously while Windows was
         // asleep, hibernated or the app was not scheduled. A real sampling gap is
         // rendered as a gap in the line rather than a fake straight connection.
-        ChargePercentChart.GapThresholdMinutes = 2;
-        DischargePercentChart.GapThresholdMinutes = 2;
-        DischargeChart.GapThresholdMinutes = 2;
+        // Stored battery sessions are intentionally sampled sparsely. They are one
+        // continuous session, so a two-minute live-sensor gap threshold reduced the
+        // history to disconnected dots instead of a useful charge/discharge curve.
+        ChargePercentChart.GapThresholdMinutes = 0;
+        DischargePercentChart.GapThresholdMinutes = 0;
+        DischargeChart.GapThresholdMinutes = 0;
     }
 
     private void EnsureBatteryUsageCard()

@@ -167,6 +167,7 @@ internal static class Program
                 ? "Ready"
                 : "ThinkControl hardware service stopped · repair available",
             KeyboardStatus = hardwareReady ? "High" : "Hardware backend unavailable",
+            KeyboardBackend = hardwareReady ? "Lenovo PM Driver · ThinkPad" : "Not exposed",
             KeyboardMode = hardwareReady ? "Breathing" : "Auto",
             KeyboardBaseLevel = "Low",
             KeyboardEffectSpeed = 1.0,
@@ -250,8 +251,8 @@ internal static class Program
 
     private static void RenderCompact(App app, AppState state, string output, ICollection<SnapshotEntry> snapshots, string fileName, string stateName)
     {
-        const int width = 410;
-        const int height = 640;
+        const int width = 390;
+        const int height = 480;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
         RenderWindowContent(window, Path.Combine(output, fileName));

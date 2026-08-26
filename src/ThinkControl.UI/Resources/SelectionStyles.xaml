@@ -85,7 +85,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="MinHeight" Value="34" />
-        <Setter Property="Padding" Value="10,0,34,0" />
+        <Setter Property="Padding" Value="10,0,30,0" />
         <Setter Property="FontSize" Value="11" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -111,15 +111,15 @@
                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                           IsHitTestVisible="False" />
                         <Path x:Name="Chevron"
-                              Width="9" Height="5"
-                              Margin="0,0,11,0"
+                              Width="7" Height="4"
+                              Margin="0,0,12,0"
                               HorizontalAlignment="Right"
                               VerticalAlignment="Center"
                               Stroke="{DynamicResource Tc.TextMuted}"
-                              StrokeThickness="1.4"
+                              StrokeThickness="1.25"
                               StrokeStartLineCap="Round"
                               StrokeEndLineCap="Round"
-                              Data="M0,0 L4.5,4 L9,0"
+                              Data="M0.5,0.5 L3.5,3.5 L6.5,0.5"
                               IsHitTestVisible="False" />
                         <ToggleButton x:Name="DropDownToggle"
                                       Background="Transparent"
@@ -162,7 +162,7 @@
                         <Trigger Property="IsDropDownOpen" Value="True">
                             <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.TextMuted}" />
                             <Setter TargetName="Chevron" Property="RenderTransform">
-                                <Setter.Value><RotateTransform Angle="180" CenterX="4.5" CenterY="2.5" /></Setter.Value>
+                                <Setter.Value><RotateTransform Angle="180" CenterX="3.5" CenterY="2" /></Setter.Value>
                             </Setter>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">

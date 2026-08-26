@@ -15,8 +15,8 @@ public partial class CompactDashboard : UserControl
         InitializeComponent();
         IsVisibleChanged += (_, e) =>
         {
-            if (e.NewValue is false && _quickPopup is not null)
-                _quickPopup.IsOpen = false;
+            if (e.NewValue is true && _app is not null)
+                RefreshCompactVolume();
         };
     }
 
@@ -36,7 +36,6 @@ public partial class CompactDashboard : UserControl
         }
 
         EnsureShellPolish();
-        EnsureAudioRow();
         EnsureQuickControls();
         EnsureHardwareAlert();
         SyncQuickControls();
@@ -82,7 +81,4 @@ public partial class CompactDashboard : UserControl
 
     private void Battery_Click(object sender, MouseButtonEventArgs e) => _app?.OpenAdvanced("Battery");
 
-    private void Performance_Click(object sender, MouseButtonEventArgs e) => _app?.OpenAdvanced("Performance");
-
-    private void Fans_Click(object sender, MouseButtonEventArgs e) => _app?.OpenAdvanced("Fans");
 }
