@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
@@ -36,6 +37,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var synchronousStartup = Stopwatch.StartNew();
         base.OnStartup(e);
 
         ThinkControlUserSettings preferences = UserSettings.Current;
@@ -92,9 +94,8 @@ public partial class App : System.Windows.Application
 
         _statusTimer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, OnStatusTimer, Dispatcher);
         _statusTimer.Start();
-        _ = RefreshStatusAsync(forceSystemInfo: true);
-
-        CompactWindow.ShowNearTray(animate: true);
+        Task initialRefresh = RefreshStatusAsync(forceSystemInfo: true);
+        PresentInitialShell(initialRefresh, synchronousStartup.Elapsed);
     }
 
     public void ToggleCompact()

@@ -16,7 +16,7 @@ public partial class BootstrapWindow : Window
         if (!SystemParameters.ClientAreaAnimation)
             return;
 
-        double travel = Math.Max(220, ActualWidth - 56 + 92);
+        double travel = Math.Max(190, ProgressTrack.ActualWidth + 92);
         var animation = new DoubleAnimation
         {
             From = -92,

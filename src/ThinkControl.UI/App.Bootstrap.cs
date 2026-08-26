@@ -6,12 +6,24 @@ namespace ThinkControl.UI;
 public partial class App
 {
     private BootstrapWindow? _bootstrapWindow;
+    private bool _postStartupShellPolishQueued;
 
-    private void OnBootstrapStartup(object? sender, StartupEventArgs e)
+    private void PresentInitialShell(Task initialRefresh, TimeSpan synchronousStartupTime)
     {
-        if (e.Args.Any(argument => string.Equals(argument, "--tray", StringComparison.OrdinalIgnoreCase)))
+        if (IsTrayOnlyLaunch())
         {
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
+            CompactWindow.ShowNearTray(animate: false);
+            QueuePostStartupShellPolish();
+            return;
+        }
+
+        // Fast manual starts go directly to the selected surface. A slower
+        // preflight gets a quiet, real loading state while the first hardware
+        // refresh is still in progress.
+        if (synchronousStartupTime < TimeSpan.FromMilliseconds(180))
+        {
+            CompactWindow.ShowNearTray(animate: true);
+            QueuePostStartupShellPolish();
             return;
         }
 
@@ -20,16 +32,34 @@ public partial class App
             _bootstrapWindow = new BootstrapWindow();
             _bootstrapWindow.Show();
             _bootstrapWindow.UpdateLayout();
-
             Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
-            Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(CloseBootstrap));
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
+            CompleteInitialShellPresentationAsync(initialRefresh);
         }
         catch
         {
             _bootstrapWindow = null;
-            Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
+            CompactWindow.ShowNearTray(animate: true);
+            QueuePostStartupShellPolish();
         }
+    }
+
+    private async void CompleteInitialShellPresentationAsync(Task initialRefresh)
+    {
+        await Task.WhenAny(initialRefresh, Task.Delay(300));
+        CloseBootstrap(() =>
+        {
+            CompactWindow.ShowNearTray(animate: true);
+            QueuePostStartupShellPolish();
+        });
+    }
+
+    private void QueuePostStartupShellPolish()
+    {
+        if (_postStartupShellPolishQueued)
+            return;
+
+        _postStartupShellPolishQueued = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(ApplyPostStartupShellPolish));
     }
 
     private void ApplyPostStartupShellPolish()
@@ -58,12 +88,15 @@ public partial class App
         }
     }
 
-    private void CloseBootstrap()
+    private void CloseBootstrap(Action? afterClosed = null)
     {
         BootstrapWindow? window = _bootstrapWindow;
         _bootstrapWindow = null;
         if (window is null)
+        {
+            afterClosed?.Invoke();
             return;
+        }
 
         try
         {
@@ -73,17 +106,23 @@ public partial class App
                     window.Opacity,
                     0,
                     TimeSpan.FromMilliseconds(110));
-                animation.Completed += (_, _) => window.Close();
+                animation.Completed += (_, _) =>
+                {
+                    window.Close();
+                    afterClosed?.Invoke();
+                };
                 window.BeginAnimation(Window.OpacityProperty, animation);
             }
             else
             {
                 window.Close();
+                afterClosed?.Invoke();
             }
         }
         catch
         {
             try { window.Close(); } catch { }
+            afterClosed?.Invoke();
         }
     }
 }

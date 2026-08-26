@@ -23,8 +23,8 @@
             <SolidColorBrush x:Key="Tc.Warning" Color="#E7A640" />
 
             <Style TargetType="TextBlock">
-                <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
                 <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
             </Style>
@@ -35,7 +35,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Padding" Value="8,5" />
-                <Setter Property="FontSize" Value="12" />
+                <Setter Property="FontSize" Value="12.5" />
             </Style>
 
             <Style x:Key="TcSection" TargetType="Border">
@@ -52,7 +52,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Padding" Value="12,7" />
-                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -97,12 +97,23 @@
                 <Setter Property="FontSize" Value="15" />
             </Style>
 
+            <!-- Caption buttons keep a Windows-sized hit target while their glyphs
+                 stay quiet. Keeping this separate from general icon actions makes
+                 the title bars feel aligned without changing page toolbars. -->
+            <Style x:Key="TcCaptionButton" TargetType="Button" BasedOn="{StaticResource TcIconButton}">
+                <Setter Property="Width" Value="36" />
+                <Setter Property="Height" Value="36" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+            </Style>
+
             <Style x:Key="TcInlineButton" TargetType="Button" BasedOn="{StaticResource TcButton}">
                 <Setter Property="Background" Value="Transparent" />
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
                 <Setter Property="Padding" Value="5,3" />
-                <Setter Property="FontSize" Value="10.5" />
+                <Setter Property="FontSize" Value="11.5" />
             </Style>
 
             <Style x:Key="TcSegment" TargetType="RadioButton">
@@ -159,6 +170,7 @@
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="FontSize" Value="13" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">

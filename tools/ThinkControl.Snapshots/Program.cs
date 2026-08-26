@@ -71,6 +71,7 @@ internal static class Program
             ServiceReachable: true);
 
         ThemeService.Apply(ThemeMode.Dark);
+        RenderBootstrap(output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
@@ -398,6 +399,14 @@ internal static class Program
         var window = new TelemetryDetailWindow(model) { Width = width, Height = height };
         RenderWindowContent(window, Path.Combine(output, "telemetry-detail-battery.png"));
         snapshots.Add(new SnapshotEntry("telemetry-detail-battery.png", "Telemetry detail", "battery charge session · % + W", width, height));
+        window.Close();
+    }
+
+    private static void RenderBootstrap(string output, ICollection<SnapshotEntry> snapshots)
+    {
+        var window = new BootstrapWindow();
+        RenderWindowContent(window, Path.Combine(output, "startup-loading.png"));
+        snapshots.Add(new SnapshotEntry("startup-loading.png", "Startup", "manual launch · preparing controls", 450, 250));
         window.Close();
     }
 

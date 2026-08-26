@@ -43,6 +43,7 @@ jobs:
             'keyboard', 'battery', 'touchpad', 'system', 'updates', 'settings'
           )
           $expectedPng = @(
+            'startup-loading.png',
             'compact-dark.png',
             'compact-on-battery.png',
             'compact-light.png',
