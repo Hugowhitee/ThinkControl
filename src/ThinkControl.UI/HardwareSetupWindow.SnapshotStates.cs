@@ -14,23 +14,13 @@ public partial class HardwareSetupWindow
         bool serviceReady = status.ServiceRunning && status.ServiceReachable;
         bool pawnIoRepair = IsPawnIoRepairRecommended(status);
 
-        // The healthy setup image is also used inside the public landscape release
-        // overview. Render that one state in a proportional wide viewport instead of
-        // stretching a nearly-square window in the collage. Repair/minimum snapshots
-        // retain their dedicated 700x720 and 600x580 coverage.
-        if (serviceReady && !pawnIoRepair && _app.State.CanSensorTelemetry)
-        {
-            Width = 1160;
-            Height = 760;
-        }
-
         ServiceStatusText.Text = status.ServiceDetail;
         ServiceStatusText.Foreground = (Brush)FindResource(serviceReady ? "Tc.Success" : "Tc.Warning");
         RepairServiceButton.Visibility = serviceReady ? Visibility.Collapsed : Visibility.Visible;
 
         LowLevelCard.Visibility = status.LowLevelAccessRelevant ? Visibility.Visible : Visibility.Collapsed;
         LowLevelStatusText.Text = pawnIoRepair && status.LowLevelAccessInstalled
-            ? DescribePawnIoFailure(_app.State.HardwareAccess)
+            ? "Installed, but it is not ready for ThinkControl yet."
             : status.LowLevelAccessDetail;
         LowLevelStatusText.Foreground = (Brush)FindResource(status.LowLevelAccessInstalled && !pawnIoRepair ? "Tc.Success" : "Tc.Warning");
         InstallLowLevelButton.Content = status.LowLevelAccessInstalled ? "Repair PawnIO" : "Install PawnIO";
@@ -40,37 +30,43 @@ public partial class HardwareSetupWindow
 
         SensorProviderStatusText.Text = _app.State.CanSensorTelemetry
             ? $"Ready · {_app.State.SensorCountText}"
-            : pawnIoRepair
-                ? "LibreHardwareMonitor is waiting for working PawnIO device/module access. Repair PawnIO first; repeated sensor retries would not fix this state."
-                : status.LowLevelAccessInstalled
-                    ? "PawnIO is present and no device/module repair is indicated, but LHM has not produced useful sensor telemetry yet. Recheck performs one clean provider rebuild."
-                    : "PawnIO is missing. Fix detected issues will install the verified package before rebuilding sensors.";
+            : pawnIoRepair ? "Waiting for hardware access to be repaired."
+            : "No readings yet. Recheck tries one clean provider refresh.";
         SensorProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanSensorTelemetry ? "Tc.Success" : "Tc.Warning");
         RetrySensorsButton.IsEnabled = serviceReady && status.LowLevelAccessInstalled && !pawnIoRepair;
+        RetrySensorsButton.Visibility = _app.State.CanSensorTelemetry ? Visibility.Collapsed : Visibility.Visible;
 
         bool verifiedX9 = _app.State.MachineType is "21Q6" or "21Q7";
         FanProviderStatusText.Text = _app.State.CanFanControl
-            ? $"Ready · verified X9 EC control · {_app.State.FanRpmText} · {_app.State.HardwareAccess}"
+            ? $"Ready · {_app.State.FanRpmText} · verified control"
             : _app.State.CanFanTelemetry
-                ? $"Fan telemetry is available, but the verified X9 EC control/readback gate has not passed. {_app.State.HardwareAccess}"
-                : verifiedX9
-                    ? $"Verified X9 profile detected. Lenovo firmware remains in control until the read-only EC gate succeeds. {_app.State.HardwareAccess}"
-                    : "Read-only fan telemetry can be discovered, but manual fan control is limited to verified device profiles.";
+                ? "Fan readings are ready; manual control has not been verified."
+                : "Firmware stays in control until this check passes.";
         FanProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanFanControl ? "Tc.Success" : "Tc.Warning");
         RetryFanButton.IsEnabled = serviceReady && (!status.LowLevelAccessRelevant || (status.LowLevelAccessInstalled && !pawnIoRepair));
+        RetryFanButton.Visibility = _app.State.CanFanControl ? Visibility.Collapsed : Visibility.Visible;
 
         LenovoDriverStatusText.Text = _app.State.CanKeyboardBacklight
             ? $"Ready · {_app.State.KeyboardStatus}"
-            : "Lenovo keyboard readback has not passed yet. Recheck probes PM/EnergyDrv/Vantage providers once; repeated failed probes are backed off automatically.";
+            : "Keyboard control is not ready yet. Recheck is safe.";
         LenovoDriverStatusText.Foreground = (Brush)FindResource(_app.State.CanKeyboardBacklight ? "Tc.Success" : "Tc.Warning");
         RetryKeyboardButton.IsEnabled = serviceReady;
+        RetryKeyboardButton.Visibility = _app.State.CanKeyboardBacklight ? Visibility.Collapsed : Visibility.Visible;
+        OpenVantageButton.Visibility = _app.State.CanKeyboardBacklight ? Visibility.Collapsed : Visibility.Visible;
 
-        ResultText.Text = serviceReady
-            ? pawnIoRepair
-                ? "PawnIO is registered, but its device/module handshake failed. Repair PawnIO once, then ThinkControl will rebuild providers and verify readback."
-                : "All required components are installed. Individual Recheck actions are available only for targeted provider diagnostics."
-            : status.ServiceRunning
-                ? "The Windows service is running, but the ThinkControl app cannot reach its IPC endpoint. Fix detected issues will restart and re-register the service before hardware providers are touched."
-                : "Fix detected issues will repair the ThinkControl service first, then continue with hardware providers.";
+        var attention = new List<string>();
+        if (!serviceReady) attention.Add("service");
+        if (status.LowLevelAccessRelevant && pawnIoRepair) attention.Add("hardware access");
+        if (!_app.State.CanSensorTelemetry) attention.Add("sensors");
+        if (verifiedX9 && !_app.State.CanFanControl) attention.Add("fan control");
+        if (!_app.State.CanKeyboardBacklight) attention.Add("keyboard controls");
+        OverallStatusText.Foreground = (Brush)FindResource(attention.Count == 0 ? "Tc.Success" : "Tc.Warning");
+        OverallStatusText.Text = attention.Count == 0
+            ? "Ready · all controls detected for this PC passed their safety checks."
+            : "Needs attention · Fix issues uses the recommended safe repair order.";
+        FixDetectedIssuesButton.Content = attention.Count == 0 ? "Check again" : "Fix issues";
+        ResultText.Text = attention.Count == 0
+            ? "Everything expected for this device is ready. You can close this window."
+            : "Fix issues repairs only what needs it, then checks the result once. Individual Recheck buttons are for a targeted retry.";
     }
 }

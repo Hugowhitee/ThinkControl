@@ -26,11 +26,7 @@ public partial class HardwareSetupWindow : Window
         bool lenovoDevice = _app.SystemStatusService.Read().Manufacturer.Contains(
             "Lenovo", StringComparison.OrdinalIgnoreCase);
 
-        SetupIntroText.Text = verifiedX9
-            ? "ThinkControl checks the Windows service, PawnIO device access, sensor providers, X9 EC readback and Lenovo keyboard provider independently. Nothing is installed or elevated until you choose a repair action."
-            : lenovoDevice
-                ? "ThinkControl checks the Windows service, sensor providers and detected Lenovo hardware providers independently. Model-specific controls activate only after their provider passes compatibility and readback checks."
-                : "ThinkControl checks the Windows service, sensor providers and detected device-specific hardware providers independently. OEM-specific controls stay hidden unless the detected machine has a matching provider.";
+        SetupIntroText.Text = "A quick, safe check of the controls available on this PC. Nothing changes until you choose Fix issues.";
 
         FanProviderCard.Visibility = verifiedX9 ? Visibility.Visible : Visibility.Collapsed;
         LenovoDriverCard.Visibility = lenovoDevice ? Visibility.Visible : Visibility.Collapsed;
@@ -52,37 +48,48 @@ public partial class HardwareSetupWindow : Window
         SensorProviderStatusText.Text = _app.State.CanSensorTelemetry
             ? $"Ready · {_app.State.SensorCountText}"
             : pawnIoRepair
-                ? "LibreHardwareMonitor is waiting for working PawnIO device/module access. Repair PawnIO first; repeated sensor retries would not fix this state."
+                ? "Waiting for hardware access to be repaired."
                 : status.LowLevelAccessInstalled
-                    ? "PawnIO is present and no device/module repair is indicated, but LHM has not produced useful sensor telemetry yet. Recheck performs one clean provider rebuild."
-                    : "PawnIO is missing. Fix detected issues will install the verified package before rebuilding sensors.";
+                    ? "No readings yet. Recheck tries one clean provider refresh."
+                    : "Hardware access is needed before sensors can start.";
         SensorProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanSensorTelemetry ? "Tc.Success" : "Tc.Warning");
         RetrySensorsButton.IsEnabled = serviceReady && status.LowLevelAccessInstalled && !pawnIoRepair;
+        RetrySensorsButton.Visibility = _app.State.CanSensorTelemetry ? Visibility.Collapsed : Visibility.Visible;
 
         FanProviderStatusText.Text = _app.State.CanFanControl
-            ? $"Ready · verified X9 EC control · {_app.State.FanRpmText} · {_app.State.HardwareAccess}"
+            ? $"Ready · {_app.State.FanRpmText} · verified control"
             : _app.State.CanFanTelemetry
-                ? $"Fan telemetry is available, but the verified X9 EC control/readback gate has not passed. {_app.State.HardwareAccess}"
-                : $"Verified X9 profile detected. Lenovo firmware remains in control until the read-only EC gate succeeds. {_app.State.HardwareAccess}";
+                ? "Fan readings are ready; manual control has not been verified."
+                : "Firmware stays in control until this check passes.";
         FanProviderStatusText.Foreground = (Brush)FindResource(_app.State.CanFanControl ? "Tc.Success" : "Tc.Warning");
         RetryFanButton.IsEnabled = serviceReady && (!status.LowLevelAccessRelevant || (status.LowLevelAccessInstalled && !pawnIoRepair));
+        RetryFanButton.Visibility = _app.State.CanFanControl ? Visibility.Collapsed : Visibility.Visible;
 
         LenovoDriverStatusText.Text = _app.State.CanKeyboardBacklight
             ? $"Ready · {_app.State.KeyboardStatus}"
-            : "Lenovo keyboard readback has not passed yet. Recheck probes PM/EnergyDrv/Vantage providers once; repeated failed probes are backed off automatically.";
+            : "Keyboard control is not ready yet. Recheck is safe.";
         LenovoDriverStatusText.Foreground = (Brush)FindResource(_app.State.CanKeyboardBacklight ? "Tc.Success" : "Tc.Warning");
         RetryKeyboardButton.IsEnabled = serviceReady;
+        RetryKeyboardButton.Visibility = _app.State.CanKeyboardBacklight ? Visibility.Collapsed : Visibility.Visible;
+        OpenVantageButton.Visibility = _app.State.CanKeyboardBacklight ? Visibility.Collapsed : Visibility.Visible;
+
+        var attention = new List<string>();
+        if (!serviceReady) attention.Add("service");
+        if (status.LowLevelAccessRelevant && pawnIoRepair) attention.Add("hardware access");
+        if (!_app.State.CanSensorTelemetry) attention.Add("sensors");
+        if (verifiedX9 && !_app.State.CanFanControl) attention.Add("fan control");
+        if (lenovoDevice && !_app.State.CanKeyboardBacklight) attention.Add("keyboard controls");
+
+        OverallStatusText.Foreground = (Brush)FindResource(attention.Count == 0 ? "Tc.Success" : "Tc.Warning");
+        OverallStatusText.Text = attention.Count == 0
+            ? "Ready · all controls detected for this PC passed their safety checks."
+            : "Needs attention · Fix issues uses the recommended safe repair order.";
+        FixDetectedIssuesButton.Content = attention.Count == 0 ? "Check again" : "Fix issues";
 
         if (string.IsNullOrWhiteSpace(ResultText.Text))
-        {
-            ResultText.Text = serviceReady
-                ? pawnIoRepair
-                    ? "PawnIO is registered, but its device/module handshake failed or the installed version is incompatible. Repair PawnIO once, then ThinkControl will rebuild providers and verify readback."
-                    : "Use Check / repair for the recommended repair sequence. Individual Recheck buttons are only for targeted testing afterwards."
-                : status.ServiceRunning
-                    ? "The Windows service is running, but the ThinkControl app cannot reach its IPC endpoint. Check / repair will restart and re-register the service before hardware providers are touched."
-                    : "Check / repair will repair the ThinkControl service first, then continue with hardware providers.";
-        }
+            ResultText.Text = attention.Count == 0
+                ? "Everything expected for this device is ready. You can close this window."
+                : "Fix issues repairs only what needs it, then checks the result once. Individual Recheck buttons are for a targeted retry.";
     }
 
     private async void FixDetectedIssues_Click(object sender, RoutedEventArgs e)

@@ -102,11 +102,11 @@ internal static class Program
         // deterministic provider states but the exact production controls/styles.
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention.png", "PawnIO + provider attention");
-        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 700, 720, output, snapshots,
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 700, 620, output, snapshots,
             "hardware-setup-pawnio-repair.png", "PawnIO device repair");
-        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 600, 580, output, snapshots,
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 600, 520, output, snapshots,
             "hardware-setup-pawnio-repair-min.png", "PawnIO device repair · minimum window");
-        RenderHardwareSetup(app, charging, readySetup, 700, 720, output, snapshots,
+        RenderHardwareSetup(app, charging, readySetup, 700, 620, output, snapshots,
             "hardware-setup-ready.png", "all providers ready");
         RenderFanCurveEditor(app, charging, output, snapshots);
         RenderTelemetryDetail(output, snapshots);

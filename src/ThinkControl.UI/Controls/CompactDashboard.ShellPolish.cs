@@ -32,28 +32,30 @@ public partial class CompactDashboard
         captionButtons.ClipToBounds = false;
         header.ColumnDefinitions[1].Width = new GridLength(76);
 
-        // Keep both caption actions icon-only. The previous alpha.17 pass widened
-        // "Full view" inside a column designed for two 36px caption buttons, so its
-        // hover surface could be clipped on the left. One standard caption contract
-        // is both cleaner and impossible to clip here.
+        // The full-window action is a compact layout toggle, not an arrow. Giving
+        // it a small framed application glyph makes that destination obvious and
+        // keeps it visually grounded beside the quiet hide control.
         Button expand = buttons[0];
-        expand.Width = 34;
-        expand.Height = 34;
+        expand.Width = 32;
+        expand.Height = 32;
         expand.Margin = new Thickness(0);
         expand.Padding = new Thickness(0);
-        expand.ToolTip = "Switch to normal layout";
+        expand.BorderThickness = new Thickness(1);
+        expand.SetResourceReference(BackgroundProperty, "Tc.SurfaceAlt");
+        expand.SetResourceReference(BorderBrushProperty, "Tc.BorderStrong");
+        expand.ToolTip = "Open full ThinkControl window";
 
         var icon = new Viewbox
         {
-            Width = 13,
-            Height = 13
+            Width = 15,
+            Height = 15
         };
         var path = new Path
         {
-            // Restore the alpha.18 expand arrow: it communicates the transition
-            // from this compact surface to the full window more directly.
-            Data = Geometry.Parse("M13,13 L3,3 M3,9 L3,3 L9,3"),
-            StrokeThickness = 1.45,
+            // A framed rail and content lines read as the normal ThinkControl
+            // window at a glance, without adding a text label to this dense shell.
+            Data = Geometry.Parse("M2,2 H14 V14 H2 Z M5,2 V14 M7.5,5 H11.5 M7.5,8 H11.5"),
+            StrokeThickness = 1.3,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round
