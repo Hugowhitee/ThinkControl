@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
         Title="ThinkControl Hardware setup"
-        Width="700" Height="620"
-        MinWidth="600" MinHeight="520"
+        Width="620" Height="470"
+        MinWidth="540" MinHeight="420"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
@@ -12,71 +12,29 @@
         Foreground="{DynamicResource Tc.Text}"
         FontFamily="Segoe UI Variable Text, Segoe UI"
         Icon="Assets/ThinkControl.ico">
-    <Grid Margin="24">
+    <Grid Margin="28">
         <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="0,0,8,0">
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /></Grid.ColumnDefinitions>
-                    <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" />
-                        <TextBlock x:Name="SetupIntroText" Text="Check what ThinkControl can use on this PC. Repairs are always explicit."
-                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="11.5" TextWrapping="Wrap" Margin="0,4,0,0" />
-                    </StackPanel>
-                </Grid>
-                <Border Style="{StaticResource TcSection}" Margin="0,18,0,0">
-                    <Grid>
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                        <StackPanel Margin="0,0,16,0">
-                            <TextBlock Text="Hardware readiness" FontWeight="SemiBold" />
-                            <TextBlock x:Name="OverallStatusText" Text="Checking what is ready…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="11.5" Margin="0,5,0,0" />
-                        </StackPanel>
-                        <Button x:Name="FixDetectedIssuesButton" Grid.Column="1" Content="Fix issues" Style="{StaticResource TcButton}" MinWidth="108" VerticalAlignment="Center" Click="FixDetectedIssues_Click" />
-                    </Grid>
-                </Border>
-                <Border Style="{StaticResource TcSection}" Margin="0,12,0,0" Padding="14,4">
-                    <StackPanel>
-                        <Grid x:Name="ServiceCard" MinHeight="48">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center"><TextBlock Text="ThinkControl service" FontWeight="SemiBold" /><TextBlock x:Name="ServiceStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,3,0,0" TextWrapping="Wrap" /></StackPanel>
-                            <Button x:Name="RepairServiceButton" Grid.Column="1" Content="Repair" Style="{StaticResource TcButton}" MinWidth="82" VerticalAlignment="Center" Click="RepairService_Click" />
-                        </Grid>
-                        <Separator Margin="0,3" Background="{DynamicResource Tc.Border}" />
-                        <Grid x:Name="LowLevelCard" MinHeight="48">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center"><TextBlock Text="Hardware access" FontWeight="SemiBold" /><TextBlock x:Name="LowLevelStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,3,0,0" TextWrapping="Wrap" /></StackPanel>
-                            <Button x:Name="InstallLowLevelButton" Grid.Column="1" Content="Repair" Style="{StaticResource TcButton}" MinWidth="82" VerticalAlignment="Center" Click="InstallLowLevel_Click" />
-                        </Grid>
-                        <Separator Margin="0,3" Background="{DynamicResource Tc.Border}" />
-                        <Grid x:Name="SensorProviderCard" MinHeight="48">
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center"><TextBlock Text="Sensors" FontWeight="SemiBold" /><TextBlock x:Name="SensorProviderStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,3,0,0" TextWrapping="Wrap" /></StackPanel>
-                            <Button x:Name="RetrySensorsButton" Grid.Column="1" Content="Recheck" Style="{StaticResource TcButton}" MinWidth="82" VerticalAlignment="Center" Click="RetryProviders_Click" Tag="Sensors" />
-                        </Grid>
-                        <Grid x:Name="FanProviderCard">
-                            <Separator Margin="0,3" Background="{DynamicResource Tc.Border}" />
-                            <Grid MinHeight="48"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center"><TextBlock Text="Fan control" FontWeight="SemiBold" /><TextBlock x:Name="FanProviderStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,3,0,0" TextWrapping="Wrap" /></StackPanel>
-                                <Button x:Name="RetryFanButton" Grid.Column="1" Content="Recheck" Style="{StaticResource TcButton}" MinWidth="82" VerticalAlignment="Center" Click="RetryProviders_Click" Tag="Fans" />
-                            </Grid>
-                        </Grid>
-                        <Grid x:Name="LenovoDriverCard">
-                            <Separator Margin="0,3" Background="{DynamicResource Tc.Border}" />
-                            <Grid MinHeight="48"><Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                <StackPanel VerticalAlignment="Center"><TextBlock Text="Keyboard controls" FontWeight="SemiBold" /><TextBlock x:Name="LenovoDriverStatusText" Text="Checking…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,3,0,0" TextWrapping="Wrap" /></StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"><Button x:Name="RetryKeyboardButton" Content="Recheck" Style="{StaticResource TcButton}" MinWidth="82" Click="RetryProviders_Click" Tag="Keyboard" /><Button x:Name="OpenVantageButton" Content="Lenovo help" Style="{StaticResource TcInlineButton}" Margin="6,0,0,0" Click="OpenVantage_Click" /></StackPanel>
-                            </Grid>
-                        </Grid>
-                    </StackPanel>
-                </Border>
-                <Border Style="{StaticResource TcSection}" Margin="0,12,0,0"><StackPanel><TextBlock Text="Last check" FontWeight="SemiBold" /><TextBlock x:Name="ResultText" TextWrapping="Wrap" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,0,0" /></StackPanel></Border>
-            </StackPanel>
-        </ScrollViewer>
-        <Grid Grid.Row="1" Margin="0,14,0,0">
-            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock Text="Checks are read-only. Windows asks for permission only if you choose a service or hardware-access repair." Foreground="{DynamicResource Tc.TextFaint}" FontSize="10" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,20,0" />
-            <Button Grid.Column="1" Content="Done" HorizontalAlignment="Right" Style="{StaticResource TcButton}" MinWidth="82" Click="Continue_Click" />
-        </Grid>
+        <StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                <controls:BrandMark Width="32" Height="32" Margin="0,0,13,0" />
+                <StackPanel Grid.Column="1"><TextBlock Text="Hardware setup" FontSize="22" FontWeight="SemiBold" /><TextBlock x:Name="SetupIntroText" Text="ThinkControl checks only the controls this PC can use." Foreground="{DynamicResource Tc.TextMuted}" FontSize="11.5" Margin="0,4,0,0" /></StackPanel>
+            </Grid>
+            <Border Style="{StaticResource TcSection}" Margin="0,22,0,0" Padding="22">
+                <StackPanel>
+                    <Border Width="28" Height="28" CornerRadius="14" Background="{DynamicResource Tc.SurfaceAlt}" HorizontalAlignment="Left">
+                        <Ellipse Width="8" Height="8" Fill="{DynamicResource Tc.Warning}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock x:Name="PrimaryTitleText" Text="Checking hardware readiness" FontSize="18" FontWeight="SemiBold" Margin="0,14,0,0" />
+                    <TextBlock x:Name="PrimaryStatusText" Text="One moment while ThinkControl checks this PC." Foreground="{DynamicResource Tc.TextMuted}" FontSize="12" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <Border Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="1" CornerRadius="3" Padding="12,9" Margin="0,18,0,0">
+                        <StackPanel><TextBlock Text="What happens next" FontWeight="SemiBold" FontSize="11.5" /><TextBlock x:Name="ProgressStepsText" Text="Check and verify safely" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,0,0" /></StackPanel>
+                    </Border>
+                    <Button x:Name="FixDetectedIssuesButton" Content="Check again" Style="{StaticResource TcButton}" HorizontalAlignment="Left" MinWidth="156" Margin="0,18,0,0" Click="FixDetectedIssues_Click" />
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="ResultText" Foreground="{DynamicResource Tc.TextFaint}" FontSize="10.5" TextWrapping="Wrap" Margin="2,14,2,0" />
+        </StackPanel>
+        <Grid Grid.Row="1" Margin="0,18,0,0"><TextBlock Text="Windows asks for permission only when a repair requires it." Foreground="{DynamicResource Tc.TextFaint}" FontSize="10" VerticalAlignment="Center" /><Button Content="Done" HorizontalAlignment="Right" Style="{StaticResource TcButton}" MinWidth="82" Click="Continue_Click" /></Grid>
     </Grid>
 </Window>
