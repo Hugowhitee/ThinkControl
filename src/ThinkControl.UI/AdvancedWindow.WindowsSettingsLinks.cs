@@ -9,6 +9,7 @@ public partial class AdvancedWindow
 {
     private const string WindowsLinksKey = "ThinkControl.Advanced.WindowsSettingsLinks";
     private const string DisplayWindowsLinkTag = "ThinkControl.Display.WindowsSettings";
+    private const string NightLightWindowsLinkTag = "ThinkControl.Display.NightLightSettings";
     private const string TouchpadWindowsLinkTag = "ThinkControl.Touchpad.WindowsSettings";
     private const string DisplayHeaderActionsTag = "ThinkControl.Display.HeaderActions";
 
@@ -63,12 +64,22 @@ public partial class AdvancedWindow
             header.Children.Add(actions);
         }
 
+        if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, NightLightWindowsLinkTag)))
+        {
+            // Windows exposes Night light as a supported Settings URI but not as a
+            // stable public toggle API. Open the exact native page instead of writing
+            // undocumented CloudStore/registry state behind Windows' back.
+            Button nightLight = CreateWindowsLink("Night light ↗", "ms-settings:nightlight", NightLightWindowsLinkTag);
+            nightLight.Margin = new Thickness(0, 0, 2, 0);
+            actions.Children.Insert(0, nightLight);
+        }
+
         if (actions.Children.OfType<Button>().Any(button => Equals(button.Tag, DisplayWindowsLinkTag)))
             return;
 
-        Button link = CreateWindowsLink("Windows display settings ↗", "ms-settings:display", DisplayWindowsLinkTag);
+        Button link = CreateWindowsLink("Display settings ↗", "ms-settings:display", DisplayWindowsLinkTag);
         link.Margin = new Thickness(0, 0, 2, 0);
-        actions.Children.Insert(0, link);
+        actions.Children.Insert(Math.Min(1, actions.Children.Count), link);
     }
 
     private void AddTouchpadWindowsSettingsLink()
