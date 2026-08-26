@@ -36,7 +36,7 @@
                                 <Button x:Name="SecondaryChartButton" Content="Battery" Style="{StaticResource TcButton}" Padding="10,4" MinWidth="68" Margin="6,0,0,0" Click="SecondaryChart_Click" />
                             </StackPanel>
                         </Grid>
-                        <controls:TimeSeriesChart x:Name="DetailChart" Grid.Row="1" Margin="0,10,0,0" IncludeZero="True" GapThresholdMinutes="2" />
+                        <controls:TimeSeriesChart x:Name="DetailChart" Grid.Row="1" Margin="0,10,0,0" IncludeZero="True" GapThresholdMinutes="0" />
                     </Grid>
                 </Border>
                 <TextBlock x:Name="FooterText" Margin="2,10,2,0" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" />

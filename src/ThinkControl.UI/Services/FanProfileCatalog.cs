@@ -4,7 +4,7 @@ namespace ThinkControl.UI.Services;
 
 public sealed class FanProfileCatalog
 {
-    private const int MaxCustomProfiles = 12;
+    public const int MaxCustomProfiles = 6;
     private readonly UserSettingsService _settings;
 
     public FanProfileCatalog(UserSettingsService settings) => _settings = settings;

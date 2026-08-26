@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
+using ThinkControl.Core.Power;
 
 namespace ThinkControl.UI;
 
@@ -16,11 +17,11 @@ public partial class App
     private static readonly TimeSpan RuntimeBatteryTrayInterval = TimeSpan.FromMinutes(1);
 
     private readonly WindowsBatteryStateService _runtimeBattery = new();
+    private readonly BatteryEtaEstimator _runtimeBatteryEta = new();
     private DispatcherTimer? _runtimeStatusTimer;
     private bool _runtimeRefreshBusy;
     private bool _runtimeEventsAttached;
     private bool _runtimeSuspended;
-    private double? _runtimeAveragePowerWatts;
 
     internal void StartRuntimeStatusScheduler()
     {
@@ -127,22 +128,20 @@ public partial class App
             State.BatteryPowerWatts = battery.PowerWatts;
             State.BatteryRemainingWh = battery.RemainingWh ?? State.BatteryRemainingWh;
             State.BatteryFullWh = battery.FullWh ?? State.BatteryFullWh;
-            State.BatteryEtaToFull = null;
-            State.BatteryEtaRemaining = battery.Discharging ? battery.EstimatedRemaining : null;
+            BatteryEtaEstimate eta = _runtimeBatteryEta.Update(new BatteryEtaSample(
+                DateTimeOffset.UtcNow,
+                State.BatteryPercent,
+                battery.Charging,
+                battery.Discharging,
+                battery.PowerWatts,
+                State.BatteryRemainingWh,
+                State.BatteryFullWh,
+                battery.EstimatedRemaining));
+            State.BatteryEtaToFull = eta.ToFull;
+            State.BatteryEtaRemaining = eta.Remaining;
             State.BatterySource = battery.Source;
 
-            if (battery.PowerWatts is double watts)
-            {
-                _runtimeAveragePowerWatts = _runtimeAveragePowerWatts.HasValue
-                    ? _runtimeAveragePowerWatts.Value + 0.12 * (watts - _runtimeAveragePowerWatts.Value)
-                    : watts;
-                State.BatterySmoothedPowerWatts = _runtimeAveragePowerWatts;
-            }
-            else if (!battery.Charging && !battery.Discharging)
-            {
-                _runtimeAveragePowerWatts = null;
-                State.BatterySmoothedPowerWatts = null;
-            }
+            State.BatterySmoothedPowerWatts = eta.SmoothedPowerWatts;
 
             BatteryHistoryView history = BatteryHistoryService.Record(
                 battery.Charging,

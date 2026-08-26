@@ -8,34 +8,33 @@
 
         <Border Style="{StaticResource TcSection}">
             <Grid>
+                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="Fan profile" FontWeight="SemiBold" />
                     <TextBlock x:Name="CoolingDetailText" Text="Lenovo firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <TextBlock Text="Quiet, Balanced and Max cooling are editable starting points. Add named profiles in the curve editor; they also appear in compact mode." Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock Text="Built-in and custom curves use the same verified fan-output mapping. Custom profiles can be created and edited in the curve editor." Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,7,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="ProfileMenuButton" Content="Auto  ⌄" Style="{StaticResource TcButton}" MinWidth="145" Padding="11,6" Click="ProfileMenu_Click" />
+                    <ComboBox x:Name="ProfileComboBox"
+                              Style="{StaticResource TcComboBox}"
+                              MinWidth="158"
+                              MaxWidth="210"
+                              Height="36"
+                              DisplayMemberPath="Name"
+                              SelectionChanged="ProfileComboBox_SelectionChanged"
+                              DropDownOpened="ProfileComboBox_DropDownOpened" />
                     <Button Content="Edit curves" Style="{StaticResource TcButton}" Padding="11,6" Margin="8,0,0,0" Click="EditCurves_Click" />
+                </StackPanel>
+                <StackPanel x:Name="ActiveCurvePreview" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,0" Visibility="Collapsed">
+                    <Grid Margin="0,0,0,5">
+                        <TextBlock Text="Active curve" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <TextBlock x:Name="LiveCurveStatus" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
+                    </Grid>
+                    <ContentControl x:Name="ActiveCurvePreviewHost" Height="138" />
                 </StackPanel>
             </Grid>
         </Border>
-
-        <!-- Legacy names remain hidden so older visual-state helpers never need to
-             invent a second profile model while alpha.16 migrates to named curves. -->
-        <StackPanel Visibility="Collapsed">
-            <RadioButton x:Name="AutoProfile" />
-            <RadioButton x:Name="SilentProfile" />
-            <RadioButton x:Name="NormalProfile" />
-            <RadioButton x:Name="CoolProfile" />
-            <RadioButton x:Name="CustomProfile" />
-            <Button x:Name="ApplyCustomCurveButton" />
-            <Border x:Name="CustomCurveCard" />
-            <Slider x:Name="Custom2Slider" /><Slider x:Name="Custom3Slider" /><Slider x:Name="Custom4Slider" />
-            <Slider x:Name="Custom5Slider" /><Slider x:Name="Custom6Slider" /><Slider x:Name="Custom7Slider" />
-            <TextBlock x:Name="Custom2Value" /><TextBlock x:Name="Custom3Value" /><TextBlock x:Name="Custom4Value" />
-            <TextBlock x:Name="Custom5Value" /><TextBlock x:Name="Custom6Value" /><TextBlock x:Name="Custom7Value" />
-        </StackPanel>
 
         <Grid Margin="0,14,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="1.15*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions>

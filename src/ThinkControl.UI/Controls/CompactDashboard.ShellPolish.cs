@@ -28,18 +28,25 @@ public partial class CompactDashboard
             return;
 
         _shellPolished = true;
-        header.ColumnDefinitions[1].Width = new GridLength(120);
+        header.ClipToBounds = false;
+        captionButtons.ClipToBounds = false;
+        header.ColumnDefinitions[1].Width = new GridLength(76);
 
+        // Keep both caption actions icon-only. The previous alpha.17 pass widened
+        // "Full view" inside a column designed for two 36px caption buttons, so its
+        // hover surface could be clipped on the left. One standard caption contract
+        // is both cleaner and impossible to clip here.
         Button expand = buttons[0];
-        expand.Width = 82;
+        expand.Width = 34;
         expand.Height = 34;
+        expand.Margin = new Thickness(0);
+        expand.Padding = new Thickness(0);
         expand.ToolTip = "Open full ThinkControl window";
 
         var icon = new Viewbox
         {
             Width = 13,
-            Height = 13,
-            Margin = new Thickness(0, 0, 7, 0)
+            Height = 13
         };
         var path = new Path
         {
@@ -51,24 +58,12 @@ public partial class CompactDashboard
         };
         path.SetResourceReference(Shape.StrokeProperty, "Tc.TextMuted");
         icon.Child = path;
-
-        var content = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        content.Children.Add(icon);
-        content.Children.Add(new TextBlock
-        {
-            Text = "Full view",
-            FontSize = 10.5,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        expand.Content = content;
+        expand.Content = icon;
 
         Button close = buttons[1];
         close.Width = 34;
+        close.Height = 34;
         close.Margin = new Thickness(4, 0, 0, 0);
+        close.Padding = new Thickness(0);
     }
 }

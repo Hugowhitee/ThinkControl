@@ -68,7 +68,9 @@ public static class FanCurveDefaults
 
 public static class FanCurveGraphPolicy
 {
-    public const int PointCount = 8;
+    public const int MinPointCount = 3;
+    public const int MaxPointCount = 8;
+    public const int PointCount = MaxPointCount;
     public const double MinTemperatureC = 35;
     public const double MaxTemperatureC = 92;
     public const double MinimumTemperatureSpacingC = 2;
@@ -81,13 +83,13 @@ public static class FanCurveGraphPolicy
     {
         normalized = [];
         error = null;
-        if (points is null || points.Count != PointCount)
+        if (points is null || points.Count is < MinPointCount or > MaxPointCount)
         {
-            error = $"A fan curve needs exactly {PointCount} graph points.";
+            error = $"A fan curve needs between {MinPointCount} and {MaxPointCount} graph points.";
             return false;
         }
 
-        var result = new FanCurvePoint[PointCount];
+        var result = new FanCurvePoint[points.Count];
         double previousTemperature = double.NegativeInfinity;
         int previousPercent = 0;
         for (int i = 0; i < points.Count; i++)
@@ -127,6 +129,28 @@ public static class FanCurveGraphPolicy
 
         normalized = result;
         return true;
+    }
+
+    public static FanCurvePoint[] Smooth(IReadOnlyList<FanCurvePoint> points)
+    {
+        if (!TryNormalize(points, out FanCurvePoint[] curve, out string? error))
+            throw new ArgumentException(error ?? "Invalid fan curve.", nameof(points));
+        if (curve.Length <= MinPointCount)
+            return curve;
+
+        var smoothed = curve.Select(point => point with { }).ToArray();
+        for (int i = 1; i < curve.Length - 1; i++)
+        {
+            double weighted = (curve[i - 1].Percent + (2 * curve[i].Percent) + curve[i + 1].Percent) / 4.0;
+            int percent = (int)Math.Round(weighted, MidpointRounding.AwayFromZero);
+            smoothed[i] = smoothed[i] with
+            {
+                Percent = Math.Clamp(percent, smoothed[i - 1].Percent, curve[i + 1].Percent)
+            };
+        }
+
+        smoothed[^1] = smoothed[^1] with { Percent = 100 };
+        return smoothed;
     }
 
     public static int ResolvePercent(

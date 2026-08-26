@@ -75,7 +75,7 @@
         <Border Style="{StaticResource TcSection}" Margin="0,0,0,10">
             <StackPanel>
                 <Grid Margin="0,0,0,8">
-                    <TextBlock Text="All live sensors" FontSize="11" FontWeight="SemiBold" />
+                    <TextBlock Text="Live sensors" FontSize="11" FontWeight="SemiBold" />
                     <TextBlock Text="Control inputs are marked in red" HorizontalAlignment="Right" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" />
                 </Grid>
                 <Grid Height="30" Background="{DynamicResource Tc.SurfaceAlt}">
@@ -85,7 +85,7 @@
                     <TextBlock Grid.Column="2" Text="Value" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
                     <TextBlock Grid.Column="3" Text="Type" Margin="8,0" VerticalAlignment="Center" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" />
                 </Grid>
-                <ItemsControl ItemsSource="{Binding Sensors}">
+                <ItemsControl x:Name="VisibleSensorItems">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Grid MinHeight="34">
@@ -112,6 +112,13 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
+                <Button x:Name="ToggleSensorsButton"
+                        Content="Show more"
+                        Style="{StaticResource TcInlineButton}"
+                        HorizontalAlignment="Left"
+                        Margin="2,7,0,0"
+                        Click="ToggleSensors_Click"
+                        Visibility="Collapsed" />
             </StackPanel>
         </Border>
 

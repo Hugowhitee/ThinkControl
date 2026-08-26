@@ -15,6 +15,7 @@ public partial class BatteryTelemetryPanel : UserControl
     private AppState? _subscribedState;
     private bool _historyRefreshQueued;
     private bool _batteryUsageCardAdded;
+    private bool _showAllSessions;
 
     public BatteryTelemetryPanel()
     {
@@ -87,9 +88,12 @@ public partial class BatteryTelemetryPanel : UserControl
         // Never imply that ThinkControl measured continuously while Windows was
         // asleep, hibernated or the app was not scheduled. A real sampling gap is
         // rendered as a gap in the line rather than a fake straight connection.
-        ChargePercentChart.GapThresholdMinutes = 2;
-        DischargePercentChart.GapThresholdMinutes = 2;
-        DischargeChart.GapThresholdMinutes = 2;
+        // Stored battery sessions are intentionally sampled sparsely. They are one
+        // continuous session, so a two-minute live-sensor gap threshold reduced the
+        // history to disconnected dots instead of a useful charge/discharge curve.
+        ChargePercentChart.GapThresholdMinutes = 0;
+        DischargePercentChart.GapThresholdMinutes = 0;
+        DischargeChart.GapThresholdMinutes = 0;
     }
 
     private void EnsureBatteryUsageCard()
@@ -179,8 +183,11 @@ public partial class BatteryTelemetryPanel : UserControl
             return;
         }
 
-        foreach (BatterySessionDetail session in sessions)
+        int visibleCount = _showAllSessions ? sessions.Count : Math.Min(3, sessions.Count);
+        foreach (BatterySessionDetail session in sessions.Take(visibleCount))
             RecentSessionItems.Children.Add(CreateSessionRow(session));
+        ToggleSessionsButton.Visibility = sessions.Count > 3 ? Visibility.Visible : Visibility.Collapsed;
+        ToggleSessionsButton.Content = _showAllSessions ? "Show less" : $"Show all {sessions.Count}";
     }
 
     internal void PrepareForSnapshot(AppState state)
@@ -356,6 +363,12 @@ public partial class BatteryTelemetryPanel : UserControl
         BatteryHistoryView view = app.BatteryHistoryService.Clear();
         app.State.ApplyBatteryHistory(view);
         app.BatteryTelemetryService.SetHistoricalChargePower(view.TypicalChargePowerWatts);
+        RefreshHistoryUi();
+    }
+
+    private void ToggleSessions_Click(object sender, RoutedEventArgs e)
+    {
+        _showAllSessions = !_showAllSessions;
         RefreshHistoryUi();
     }
 

@@ -2,86 +2,52 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
-             MinWidth="380" MinHeight="500">
+             MinWidth="356" MinHeight="474">
     <UserControl.Resources>
         <Style x:Key="CompactCaptionButton" TargetType="Button">
-            <Setter Property="Width" Value="36" /><Setter Property="Height" Value="34" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" /><Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Width" Value="34" /><Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" /><Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="4"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
         </Style>
-        <Style x:Key="CompactLinkRow" TargetType="Button">
-            <Setter Property="Height" Value="45" /><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /><Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="5" Padding="8,0"><ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+        <Style x:Key="CompactQuickCard" TargetType="Border" BasedOn="{StaticResource TcSection}">
+            <Setter Property="Padding" Value="9,8" />
         </Style>
     </UserControl.Resources>
 
-    <Border Background="{DynamicResource Tc.Window}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="8" Padding="14">
+    <Border Background="{DynamicResource Tc.Window}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="8" Padding="12">
         <Grid>
-            <Grid.RowDefinitions><RowDefinition Height="48" /><RowDefinition Height="112" /><RowDefinition Height="76" /><RowDefinition Height="1" /><RowDefinition Height="*" /><RowDefinition Height="32" /></Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="42" /><RowDefinition Height="108" /><RowDefinition Height="172" /><RowDefinition Height="94" /><RowDefinition Height="32" /></Grid.RowDefinitions>
             <Grid Grid.Row="0">
-                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
-                <StackPanel VerticalAlignment="Center">
-                    <!-- 455:144 is the canonical source aspect. The source canvas has
-                         visible left whitespace, so compensate optically by 6px. -->
-                    <controls:BrandWordmark Width="108" Height="34" Margin="-6,0,0,0" HorizontalAlignment="Left" />
-                    <TextBlock Text="{Binding DeviceName}" Margin="2,-2,0,0" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" />
-                </StackPanel>
+                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center"><controls:BrandWordmark Width="104" Height="31" Margin="-6,0,0,0" HorizontalAlignment="Left" /><TextBlock Text="{Binding DeviceName}" Margin="2,-2,0,0" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" /></StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                    <Button Style="{StaticResource CompactCaptionButton}" Click="Expand_Click" ToolTip="Open full window">
-                        <!-- Popup is bottom-right; opening the full window moves up-left. -->
-                        <Viewbox Width="13" Height="13"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M13,13 L3,3 M3,9 L3,3 L9,3" /></Viewbox>
-                    </Button>
+                    <Button Style="{StaticResource CompactCaptionButton}" Click="Expand_Click" ToolTip="Open full ThinkControl window"><Viewbox Width="13" Height="13"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" Data="M13,13 L3,3 M3,9 L3,3 L9,3" /></Viewbox></Button>
                     <Button Style="{StaticResource CompactCaptionButton}" Click="Hide_Click" ToolTip="Hide to tray"><Viewbox Width="12" Height="12"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,2 L14,14 M14,2 L2,14" /></Viewbox></Button>
                 </StackPanel>
             </Grid>
-
-            <Border Grid.Row="1" Style="{StaticResource TcSection}" Padding="12" Margin="0,4,0,9" Cursor="Hand" MouseLeftButtonUp="Battery_Click">
+            <Border Grid.Row="1" Style="{StaticResource TcSection}" Padding="10" Margin="0,3,0,7" Cursor="Hand" MouseLeftButtonUp="Battery_Click">
                 <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="142" /><ColumnDefinition Width="*" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions>
-                    <controls:BatteryGauge Width="132" Height="48" VerticalAlignment="Center" HorizontalAlignment="Left" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" />
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0"><StackPanel Orientation="Horizontal"><TextBlock Text="{Binding BatteryPercentText}" FontSize="24" FontWeight="Light" /><TextBlock Text="  Battery" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /></StackPanel><TextBlock Text="{Binding BatteryStatus}" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,1,0,0" /><TextBlock Text="{Binding BatteryCompactLine}" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" /></StackPanel>
-                    <TextBlock Grid.Column="2" Text="›" FontSize="20" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="205" /><ColumnDefinition Width="1" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                    <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="96" /><ColumnDefinition /></Grid.ColumnDefinitions><controls:BatteryGauge Width="88" Height="35" VerticalAlignment="Center" HorizontalAlignment="Left" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" /><StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,0,0"><TextBlock Text="{Binding BatteryPercentText}" FontSize="21" FontWeight="Light" /><TextBlock Text="{Binding BatteryStatus}" FontSize="9.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" /><TextBlock Text="{Binding BatteryCompactLine}" FontSize="9" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" /></StackPanel></Grid>
+                    <Border Grid.Column="1" Width="1" Background="{DynamicResource Tc.Border}" Margin="6,1,10,1" />
+                    <Grid Grid.Column="2"><Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions><StackPanel><TextBlock Text="CPU" FontSize="8.5" Foreground="{DynamicResource Tc.TextFaint}" /><TextBlock Text="{Binding CpuTemperatureText}" FontSize="16" FontWeight="Light" Margin="0,2,0,0" /></StackPanel><StackPanel Grid.Row="1"><TextBlock Text="FAN" FontSize="8.5" Foreground="{DynamicResource Tc.TextFaint}" /><TextBlock Text="{Binding FanRpmText}" FontSize="13" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" /></StackPanel></Grid>
                 </Grid>
             </Border>
-
-            <Grid Grid.Row="2" Margin="0,0,0,9">
-                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                <Border Style="{StaticResource TcSection}" Padding="11" Margin="0,0,5,0" Cursor="Hand" MouseLeftButtonUp="Performance_Click">
-                    <StackPanel>
-                        <TextBlock Text="CPU" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
-                        <TextBlock Text="{Binding CpuTemperatureText}" FontSize="20" FontWeight="Light" Margin="0,3,0,0" />
-                        <TextBlock Text="{Binding SelectedModeDisplay}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                </Border>
-                <Border Grid.Column="1" Style="{StaticResource TcSection}" Padding="9" Margin="5,0,0,0" Cursor="Hand" MouseLeftButtonUp="Fans_Click">
-                    <Grid>
-                        <Grid.RowDefinitions><RowDefinition Height="18" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                        <Grid>
-                            <TextBlock Text="FANS" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding FanRpmText}" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                        </Grid>
-                        <Grid Grid.Row="1" Margin="0,6,0,0" VerticalAlignment="Center">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="{Binding CoolingProfile}" FontSize="11" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="Fan profile" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
-                                <TextBlock Text="{Binding ControlTemperatureText}" FontSize="11" HorizontalAlignment="Right" />
-                                <TextBlock Text="control" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" />
-                            </StackPanel>
-                        </Grid>
-                    </Grid>
-                </Border>
+            <Grid Grid.Row="2" Margin="0,0,0,7">
+                <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+                <Border Style="{StaticResource CompactQuickCard}" Margin="0,0,4,4"><StackPanel><StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Gauge" Width="13" Height="13" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Performance" FontSize="10" Margin="7,0,0,0" /></StackPanel><ComboBox x:Name="CompactPerformanceCombo" Style="{StaticResource TcComboBox}" Height="30" Margin="0,7,0,0" SelectionChanged="CompactPerformance_SelectionChanged" /></StackPanel></Border>
+                <Border Grid.Column="1" Style="{StaticResource CompactQuickCard}" Margin="4,0,0,4"><StackPanel><StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Fan" Width="13" Height="13" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Fan acoustics" FontSize="10" Margin="7,0,0,0" /></StackPanel><ComboBox x:Name="CompactFanCombo" Style="{StaticResource TcComboBox}" Height="30" Margin="0,7,0,0" SelectionChanged="CompactFan_SelectionChanged" /></StackPanel></Border>
+                <Border Grid.Row="1" Style="{StaticResource CompactQuickCard}" Margin="0,4,4,0"><StackPanel><StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Monitor" Width="13" Height="13" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Refresh rate" FontSize="10" Margin="7,0,0,0" /></StackPanel><ComboBox x:Name="CompactRefreshCombo" Style="{StaticResource TcComboBox}" Height="30" Margin="0,7,0,0" SelectionChanged="CompactRefresh_SelectionChanged" /></StackPanel></Border>
+                <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource CompactQuickCard}" Margin="4,4,0,0"><StackPanel><StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Keyboard" Width="13" Height="13" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Keyboard" FontSize="10" Margin="7,0,0,0" /></StackPanel><ComboBox x:Name="CompactKeyboardCombo" Style="{StaticResource TcComboBox}" Height="30" Margin="0,7,0,0" SelectionChanged="CompactKeyboard_SelectionChanged" /></StackPanel></Border>
             </Grid>
-
-            <Border Grid.Row="3" Background="{DynamicResource Tc.Border}" />
-            <StackPanel Grid.Row="4" Margin="0,6,0,0">
-                <Button Style="{StaticResource CompactLinkRow}" Tag="Performance" Click="OpenPage_Click"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions><controls:PackIconLucide Kind="Gauge" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="Performance" FontSize="12" VerticalAlignment="Center" /><TextBlock Grid.Column="2" Text="{Binding SelectedModeDisplay}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" /><TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" /></Grid></Button>
-                <Button Style="{StaticResource CompactLinkRow}" Tag="Display" Click="OpenPage_Click"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions><controls:PackIconLucide Kind="Monitor" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="Display" FontSize="12" VerticalAlignment="Center" /><StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center"><TextBlock Text="{Binding CurrentRefreshText}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text=" · " FontSize="11" Foreground="{DynamicResource Tc.TextFaint}" /><TextBlock Text="{Binding BrightnessText}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" /></StackPanel><TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" /></Grid></Button>
-                <Button Style="{StaticResource CompactLinkRow}" Tag="Keyboard" Click="OpenPage_Click"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions><controls:PackIconLucide Kind="Keyboard" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="Keyboard" FontSize="12" VerticalAlignment="Center" /><TextBlock Grid.Column="2" Text="{Binding KeyboardModeText}" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" /><TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" /></Grid></Button>
-                <Button Style="{StaticResource CompactLinkRow}" Tag="System" Click="OpenPage_Click"><Grid><Grid.ColumnDefinitions><ColumnDefinition Width="30" /><ColumnDefinition Width="*" /><ColumnDefinition Width="135" /><ColumnDefinition Width="18" /></Grid.ColumnDefinitions><controls:PackIconLucide Kind="Laptop" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><TextBlock Grid.Column="1" Text="System" FontSize="12" VerticalAlignment="Center" /><TextBlock Grid.Column="2" Text="{Binding HardwareAccess}" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" /><TextBlock Grid.Column="3" Text="›" FontSize="18" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" VerticalAlignment="Center" /></Grid></Button>
-            </StackPanel>
-            <Grid Grid.Row="5" Margin="4,4,4,0"><TextBlock Text="{Binding AppVersion}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" /><Button HorizontalAlignment="Right" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" Cursor="Hand" /></Grid>
+            <Border Grid.Row="3" Style="{StaticResource TcSection}" Padding="10,7">
+                <Grid><Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="72" /><ColumnDefinition /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
+                    <TextBlock Text="Brightness" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><Slider x:Name="CompactBrightnessSlider" Grid.Column="1" Style="{StaticResource TcSlider}" Value="{Binding Brightness}" IsEnabled="{Binding BrightnessAvailable}" PreviewMouseLeftButtonUp="CompactBrightness_Commit" PreviewKeyUp="CompactBrightness_KeyCommit" /><TextBlock Grid.Column="2" Text="{Binding BrightnessText}" FontSize="9.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="1" Text="Volume" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><Slider x:Name="CompactVolumeSlider" Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" PreviewMouseLeftButtonUp="CompactVolume_Commit" PreviewKeyUp="CompactVolume_KeyCommit" /><TextBlock x:Name="CompactVolumeText" Grid.Row="1" Grid.Column="2" Text="—" FontSize="9.5" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+            <Grid Grid.Row="4" Margin="3,4,3,0"><TextBlock Text="{Binding AppVersion}" FontSize="9" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Style="{StaticResource TcInlineButton}" Content="Audio" Tag="Audio" Click="OpenPage_Click" Margin="0,0,12,0" /><Button Style="{StaticResource TcInlineButton}" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" /></StackPanel></Grid>
         </Grid>
     </Border>
 </UserControl>

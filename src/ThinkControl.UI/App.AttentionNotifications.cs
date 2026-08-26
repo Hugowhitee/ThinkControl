@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
+using ThinkControl.Core.Notifications;
 
 namespace ThinkControl.UI;
 
@@ -58,6 +59,26 @@ public partial class App
         if (!NeedsProactiveHardwareAttention(status))
         {
             try { _hardwareAttentionDelay?.Cancel(); } catch { }
+            if (status.Equals("Ready", StringComparison.OrdinalIgnoreCase) &&
+                UserSettings.Current.AttentionAcknowledgedKey.StartsWith("hardware:", StringComparison.Ordinal))
+            {
+                UserSettings.Update(settings => settings with
+                {
+                    AttentionAcknowledgedKey = string.Empty,
+                    AttentionAcknowledgedAtUtc = string.Empty
+                });
+            }
+            return;
+        }
+
+        string key = AttentionCooldownPolicy.HardwareKey(status);
+        ThinkControlUserSettings preferences = UserSettings.Current;
+        if (AttentionCooldownPolicy.IsSuppressed(
+                key,
+                preferences.AttentionAcknowledgedKey,
+                preferences.AttentionAcknowledgedAtUtc,
+                DateTimeOffset.UtcNow))
+        {
             return;
         }
 
@@ -89,12 +110,27 @@ public partial class App
                 }
 
                 (string title, string detail) = HardwareAttentionCopy(status);
+                string key = AttentionCooldownPolicy.HardwareKey(status);
+                ThinkControlUserSettings preferences = UserSettings.Current;
+                if (AttentionCooldownPolicy.IsSuppressed(
+                        key,
+                        preferences.AttentionAcknowledgedKey,
+                        preferences.AttentionAcknowledgedAtUtc,
+                        DateTimeOffset.UtcNow))
+                {
+                    return;
+                }
                 _attentionToast.Show(
-                    "hardware:" + status,
+                    key,
                     title,
                     detail,
                     "Open hardware",
-                    OpenHardwareAttention);
+                    () =>
+                    {
+                        AcknowledgeHardwareAttention(key);
+                        OpenHardwareAttention();
+                    },
+                    () => AcknowledgeHardwareAttention(key));
             });
         }
         catch (OperationCanceledException)
@@ -108,6 +144,15 @@ public partial class App
                 owner.Dispose();
             }
         }
+    }
+
+    private void AcknowledgeHardwareAttention(string key)
+    {
+        UserSettings.Update(settings => settings with
+        {
+            AttentionAcknowledgedKey = key,
+            AttentionAcknowledgedAtUtc = DateTimeOffset.UtcNow.ToString("O")
+        });
     }
 
     private void TryShowPendingUpdateAttention()
@@ -131,6 +176,30 @@ public partial class App
             ready
                 ? () => _ = InstallUpdateFromAttentionAsync(update)
                 : () => OpenAdvanced("Updates"));
+    }
+
+    private void EvaluatePreviousUpdateHandoff()
+    {
+        UpdateHandoffOutcome? outcome = UpdateHandoffService.Evaluate(UpdateService.CurrentVersion);
+        if (outcome is null)
+            return;
+
+        State.UpdateStatus = outcome.Status;
+        if (!CanShowAttentionNow())
+            return;
+
+        _attentionToast.Show(
+            outcome.Completed ? "update-complete:" + UpdateService.CurrentVersion : "update-handoff-incomplete",
+            outcome.Completed ? "ThinkControl updated" : "Update needs attention",
+            outcome.Status,
+            outcome.Completed ? "Open Updates" : "Open install log",
+            outcome.Completed
+                ? () => OpenAdvanced("Updates")
+                : () =>
+                {
+                    if (!UpdateHandoffService.TryOpenLog(outcome.LogPath))
+                        OpenAdvanced("Updates");
+                });
     }
 
     private async Task InstallUpdateFromAttentionAsync(UpdateCheckResult update)

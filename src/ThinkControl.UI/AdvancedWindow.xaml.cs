@@ -202,6 +202,7 @@ public partial class AdvancedWindow : Window
             state.PropertyChanged += State_PropertyChanged;
 
         StartupSwitch.IsChecked = StartupService.IsEnabled();
+        ConfigureHomeQuickControls();
         SyncControls();
         ShowPage(GetSelectedPage());
         ApplyThemeToChrome();
@@ -227,7 +228,8 @@ public partial class AdvancedWindow : Window
             or nameof(AppState.KeyboardStatus)
             or nameof(AppState.KeyboardMode)
             or nameof(AppState.CanKeyboardBacklight)
-            or nameof(AppState.CanFanControl))
+            or nameof(AppState.CanFanControl)
+            or nameof(AppState.CoolingProfile))
         {
             Dispatcher.Invoke(SyncControls);
         }
@@ -259,17 +261,26 @@ public partial class AdvancedWindow : Window
 
             HomeAdaptiveSwitch.IsChecked = DisplayAdaptiveSwitch.IsChecked = state.AdaptiveBrightnessEnabled == true;
 
-            AdvancedKeyboardOff.IsEnabled = AdvancedKeyboardLow.IsEnabled = AdvancedKeyboardHigh.IsEnabled = AdvancedKeyboardAuto.IsEnabled = state.CanKeyboardBacklight;
+            HomeKeyboardOff.IsEnabled = HomeKeyboardLow.IsEnabled = HomeKeyboardHigh.IsEnabled = HomeKeyboardAuto.IsEnabled =
+                AdvancedKeyboardOff.IsEnabled = AdvancedKeyboardLow.IsEnabled = AdvancedKeyboardHigh.IsEnabled = AdvancedKeyboardAuto.IsEnabled = state.CanKeyboardBacklight;
             bool isStatic = state.KeyboardMode == "Static";
-            AdvancedKeyboardOff.IsChecked = isStatic && state.KeyboardStatus.Contains("Off", StringComparison.OrdinalIgnoreCase);
-            AdvancedKeyboardLow.IsChecked = isStatic && state.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase);
-            AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
-            AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
+            HomeKeyboardOff.IsChecked = AdvancedKeyboardOff.IsChecked = isStatic && state.KeyboardStatus.Contains("Off", StringComparison.OrdinalIgnoreCase);
+            HomeKeyboardLow.IsChecked = AdvancedKeyboardLow.IsChecked = isStatic && state.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase);
+            HomeKeyboardHigh.IsChecked = AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
+            HomeKeyboardAuto.IsChecked = AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
 
             foreach (WpfButton button in FindVisualChildren<WpfButton>(PageFans))
             {
                 if ((button.Tag is string tag && int.TryParse(tag, out _)) || Equals(button.Content, "Lenovo Auto"))
                     button.IsEnabled = state.CanFanControl;
+            }
+
+            if (HomeFanProfileCombo is not null)
+            {
+                HomeFanProfileCombo.IsEnabled = state.CanFanControl;
+                HomeFanProfileCombo.SelectedItem = state.CoolingProfileDisplay;
+                if (HomeFanProfileCombo.SelectedItem is null)
+                    HomeFanProfileCombo.SelectedItem = "Auto";
             }
         }
         finally
@@ -453,6 +464,20 @@ public partial class AdvancedWindow : Window
         try
         {
             Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+        }
+        catch
+        {
+        }
+    }
+
+    private void PowerOptions_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("control.exe", "/name Microsoft.PowerOptions /page pageGlobalSettings")
+            {
+                UseShellExecute = true
+            });
         }
         catch
         {

@@ -77,7 +77,8 @@ public sealed record TelemetrySnapshot(
     bool CoolingSafetyOverride = false,
     FanCharacterizationSnapshot? FanCharacterization = null,
     string? CoolingProfileId = null,
-    int? CoolingAppliedPercent = null);
+    int? CoolingAppliedPercent = null,
+    string? KeyboardBackend = null);
 
 public sealed record HardwareCapabilitySnapshot(
     bool FanTelemetry,

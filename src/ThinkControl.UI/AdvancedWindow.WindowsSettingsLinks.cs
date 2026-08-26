@@ -93,10 +93,11 @@ public partial class AdvancedWindow
         {
             Content = text,
             Tag = tag,
+            Style = TryFindResource("TcButton") as Style,
             Background = System.Windows.Media.Brushes.Transparent,
             BorderThickness = new Thickness(0),
-            Padding = new Thickness(5, 3, 5, 3),
-            FontSize = 10,
+            Padding = new Thickness(7, 4, 7, 4),
+            FontSize = 10.5,
             Cursor = System.Windows.Input.Cursors.Hand,
             ToolTip = "Open the matching native Windows Settings page",
             VerticalAlignment = VerticalAlignment.Center

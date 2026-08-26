@@ -76,6 +76,105 @@
         </Setter>
     </Style>
 
+    <!-- One shared drop-down contract for the whole app. Do not add page-local
+         ComboBox templates: every selector should inherit this exact popup,
+         typography, spacing, hover and focus behavior. -->
+    <Style x:Key="TcComboBox" TargetType="{x:Type ComboBox}">
+        <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+        <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="MinHeight" Value="34" />
+        <Setter Property="Padding" Value="10,0,30,0" />
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid SnapsToDevicePixels="True">
+                        <Border x:Name="Root"
+                                MinHeight="{TemplateBinding MinHeight}"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="5" />
+                        <ContentPresenter x:Name="SelectedContent"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center"
+                                          HorizontalAlignment="Left"
+                                          Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                          IsHitTestVisible="False" />
+                        <Path x:Name="Chevron"
+                              Width="7" Height="4"
+                              Margin="0,0,12,0"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Center"
+                              Stroke="{DynamicResource Tc.TextMuted}"
+                              StrokeThickness="1.25"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              Data="M0.5,0.5 L3.5,3.5 L6.5,0.5"
+                              IsHitTestVisible="False" />
+                        <ToggleButton x:Name="DropDownToggle"
+                                      Background="Transparent"
+                                      BorderThickness="0"
+                                      Focusable="False"
+                                      ClickMode="Press"
+                                      IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" />
+                        <Popup x:Name="PART_Popup"
+                               Placement="Bottom"
+                               AllowsTransparency="True"
+                               Focusable="False"
+                               StaysOpen="False"
+                               IsOpen="{TemplateBinding IsDropDownOpen}"
+                               PopupAnimation="Fade">
+                            <Border x:Name="PopupBorder"
+                                    MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                    MaxHeight="320"
+                                    Margin="0,4,0,0"
+                                    Padding="4"
+                                    Background="{DynamicResource Tc.SurfaceAlt}"
+                                    BorderBrush="{DynamicResource Tc.BorderStrong}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    SnapsToDevicePixels="True">
+                                <ScrollViewer CanContentScroll="True"
+                                              VerticalScrollBarVisibility="Auto"
+                                              HorizontalScrollBarVisibility="Disabled">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.TextMuted}" />
+                        </Trigger>
+                        <Trigger Property="IsDropDownOpen" Value="True">
+                            <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.TextMuted}" />
+                            <Setter TargetName="Chevron" Property="RenderTransform">
+                                <Setter.Value><RotateTransform Angle="180" CenterX="3.5" CenterY="2" /></Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <Style TargetType="{x:Type ContextMenu}">
         <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
         <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />

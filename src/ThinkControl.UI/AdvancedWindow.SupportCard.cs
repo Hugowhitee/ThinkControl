@@ -79,50 +79,36 @@ public partial class AdvancedWindow
             return;
         }
 
-        var card = new Border
+        var header = new Grid
         {
             Tag = HomeSupportCardTag,
-            Style = TryFindResource("TcSection") as Style,
-            Margin = new Thickness(0, 14, 0, 0),
-            Padding = new Thickness(12, 9, 12, 9),
-            Cursor = System.Windows.Input.Cursors.Hand,
-            MinHeight = 54
+            Margin = new Thickness(2, 0, 2, 12)
         };
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(42) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        grid.Children.Add(CreateCoffeeMark(32));
-
-        var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        copy.Children.Add(new TextBlock
+        var title = new StackPanel();
+        title.Children.Add(new TextBlock
         {
-            Text = "Support ThinkControl",
+            Text = "Overview",
             FontWeight = FontWeights.SemiBold,
-            FontSize = 11
+            FontSize = 20
         });
         var detail = new TextBlock
         {
-            Text = "Help fund testing on more laptops",
-            FontSize = 9.5,
-            Margin = new Thickness(0, 2, 0, 0)
+            Text = "Live status and the controls you use most",
+            FontSize = 10.5,
+            Margin = new Thickness(0, 3, 0, 0)
         };
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        copy.Children.Add(detail);
-        Grid.SetColumn(copy, 1);
-        grid.Children.Add(copy);
+        title.Children.Add(detail);
+        header.Children.Add(title);
 
         Button action = CreateCoffeeAction(compact: true);
-        Grid.SetColumn(action, 2);
-        grid.Children.Add(action);
-
-        card.Child = grid;
-        AttachCardClick(card);
-
-        int insertAt = Math.Min(2, homeStack.Children.Count);
-        homeStack.Children.Insert(insertAt, card);
+        action.VerticalAlignment = VerticalAlignment.Top;
+        Grid.SetColumn(action, 1);
+        header.Children.Add(action);
+        homeStack.Children.Insert(0, header);
     }
 
     private Border CreateCoffeeMark(double size)

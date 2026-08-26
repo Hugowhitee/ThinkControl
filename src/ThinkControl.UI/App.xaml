@@ -90,6 +90,14 @@
                 <Setter Property="FontSize" Value="15" />
             </Style>
 
+            <Style x:Key="TcInlineButton" TargetType="Button" BasedOn="{StaticResource TcButton}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
+                <Setter Property="Padding" Value="5,3" />
+                <Setter Property="FontSize" Value="10.5" />
+            </Style>
+
             <Style x:Key="TcSegment" TargetType="RadioButton">
                 <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
                 <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
@@ -208,7 +216,7 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RepeatButton">
-                            <Border x:Name="Line" Height="5" CornerRadius="2.5" Background="{TemplateBinding Background}" />
+                            <Border x:Name="Line" Height="5" Margin="0,0,-12,0" CornerRadius="2.5,0,0,2.5" Background="{TemplateBinding Background}" />
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Line" Property="Background" Value="{DynamicResource Tc.AccentHover}" /></Trigger>
                             </ControlTemplate.Triggers>
@@ -219,14 +227,11 @@
             <Style x:Key="TcSliderIncrease" TargetType="RepeatButton">
                 <Setter Property="Focusable" Value="False" />
                 <Setter Property="Height" Value="5" />
-                <Setter Property="Background" Value="{DynamicResource Tc.BorderStrong}" />
+                <Setter Property="Background" Value="Transparent" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RepeatButton">
-                            <Border x:Name="Line" Height="5" CornerRadius="2.5" Background="{TemplateBinding Background}" />
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Line" Property="Background" Value="{DynamicResource Tc.TextFaint}" /></Trigger>
-                            </ControlTemplate.Triggers>
+                            <Border x:Name="Line" Height="5" Background="Transparent" />
                         </ControlTemplate>
                     </Setter.Value>
                 </Setter>
@@ -241,7 +246,8 @@
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="Slider">
-                            <Grid Background="Transparent">
+                            <Grid Background="Transparent" ClipToBounds="False">
+                                <Border Height="5" Margin="12,0" VerticalAlignment="Center" CornerRadius="2.5" Background="{DynamicResource Tc.BorderStrong}" />
                                 <Track x:Name="PART_Track" VerticalAlignment="Center">
                                     <Track.DecreaseRepeatButton>
                                         <RepeatButton Command="Slider.DecreaseLarge" Style="{StaticResource TcSliderDecrease}" />

@@ -202,11 +202,26 @@ end;
 function AcquirePayload(): String;
 var
   LocalPayload: String;
+  SiblingPayload: String;
   ActualHash: String;
 begin
   Result := '';
   PayloadPath := '';
   LocalPayload := ExpandConstant('{param:PAYLOAD|}');
+
+  { Development artifacts contain setup and its payload in the same folder. Prefer
+    that verified sibling automatically, so extracting a CI artifact and launching
+    setup never attempts to download a release asset that does not exist. The
+    explicit /PAYLOAD parameter remains available for package validation. }
+  if LocalPayload = '' then
+  begin
+    SiblingPayload := ExpandConstant('{src}\{#PayloadFile}');
+    if FileExists(SiblingPayload) then
+    begin
+      LocalPayload := SiblingPayload;
+      Log('Found the matching ThinkControl payload next to setup.');
+    end;
+  end;
 
   if LocalPayload <> '' then
   begin
@@ -230,7 +245,7 @@ begin
     end;
 
     PayloadPath := LocalPayload;
-    Log('Using SHA-256 verified local ThinkControl payload for package validation.');
+    Log('Using SHA-256 verified local ThinkControl payload.');
     Exit;
   end;
 

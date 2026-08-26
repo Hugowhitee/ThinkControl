@@ -28,7 +28,9 @@ public sealed record ThinkControlUserSettings(
     string DolbyProfile = "Dynamic",
     string DolbySubProfile = "Balanced",
     bool AutomaticUpdates = true,
-    string DefaultOpeningView = "Compact");
+    string DefaultOpeningView = "Compact",
+    string AttentionAcknowledgedKey = "",
+    string AttentionAcknowledgedAtUtc = "");
 
 public sealed class UserSettingsService
 {
@@ -166,6 +168,12 @@ public sealed class UserSettingsService
             "Advanced" => "Advanced",
             _ => "Compact"
         };
+        string acknowledgedKey = settings.AttentionAcknowledgedKey?.Trim() ?? string.Empty;
+        if (acknowledgedKey.Length > 80)
+            acknowledgedKey = string.Empty;
+        string acknowledgedAt = DateTimeOffset.TryParse(settings.AttentionAcknowledgedAtUtc, out DateTimeOffset parsedAcknowledged)
+            ? parsedAcknowledged.ToUniversalTime().ToString("O")
+            : string.Empty;
 
         return settings with
         {
@@ -186,7 +194,9 @@ public sealed class UserSettingsService
             CustomFanProfiles = customProfiles.ToArray(),
             DolbyProfile = dolby,
             DolbySubProfile = dolbyTone,
-            DefaultOpeningView = defaultOpeningView
+            DefaultOpeningView = defaultOpeningView,
+            AttentionAcknowledgedKey = acknowledgedKey,
+            AttentionAcknowledgedAtUtc = acknowledgedAt
         };
     }
 
@@ -215,10 +225,10 @@ public sealed class UserSettingsService
         if (profiles is null)
             return [];
 
-        var result = new List<FanCurveDefinition>(12);
+        var result = new List<FanCurveDefinition>(FanProfileCatalog.MaxCustomProfiles);
         foreach (FanCurveDefinition profile in profiles)
         {
-            if (result.Count >= 12)
+            if (result.Count >= FanProfileCatalog.MaxCustomProfiles)
                 break;
             string id = profile.Id?.Trim() ?? string.Empty;
             string name = profile.Name?.Trim() ?? string.Empty;

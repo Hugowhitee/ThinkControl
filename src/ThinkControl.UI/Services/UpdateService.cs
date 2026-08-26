@@ -204,9 +204,13 @@ public sealed class UpdateService
             start.ArgumentList.Add($"/LOG={logPath}");
 
             progress?.Report("Ready to install · Windows Setup will request administrator permission");
+            UpdateHandoffService.Record(update.Version ?? "new version", logPath);
             Process? process = Process.Start(start);
             if (process is null)
+            {
+                UpdateHandoffService.Clear();
                 return new(false, "Windows could not start the verified updater.");
+            }
 
             // The non-elevated Inno bootstrapper stays alive while its elevated worker
             // validates/stages/swaps the payload. A valid update cannot finish this
@@ -216,6 +220,7 @@ public sealed class UpdateService
             if (process.HasExited)
             {
                 int code = process.ExitCode;
+                UpdateHandoffService.Clear();
                 return new(false,
                     code == 0
                         ? "The installer exited before the update handoff started. Open Updates and try again; the update log was preserved."
@@ -223,6 +228,19 @@ public sealed class UpdateService
                     installerPath,
                     payloadPath);
             }
+
+            process.EnableRaisingEvents = true;
+            process.Exited += (_, _) =>
+            {
+                try
+                {
+                    if (process.ExitCode != 0)
+                        progress?.Report($"Windows Setup stopped before the update completed (code {process.ExitCode}). Open Updates to view the preserved install log.");
+                }
+                catch
+                {
+                }
+            };
 
             progress?.Report("Installer open · ThinkControl stays open until the verified payload is staged");
             return new(
@@ -237,10 +255,12 @@ public sealed class UpdateService
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
+            UpdateHandoffService.Clear();
             return new(false, "Update installation was cancelled. ThinkControl will not ask again unless you choose Install update.");
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or CryptographicException)
         {
+            UpdateHandoffService.Clear();
             return new(false, $"Update could not be installed automatically: {ex.Message}");
         }
     }

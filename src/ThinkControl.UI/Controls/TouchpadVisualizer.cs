@@ -24,11 +24,10 @@ public sealed class TouchpadVisualizer : FrameworkElement
     private IReadOnlyList<TouchContact> _contacts = Array.Empty<TouchContact>();
     private TouchpadEdge _selectedEdge = TouchpadEdge.Top;
     private TouchpadEdge? _hoverEdge;
-    private GestureSignal? _signal;
 
     public TouchpadVisualizer()
     {
-        MinHeight = 250;
+        MinHeight = 300;
         Cursor = WpfCursors.Arrow;
         _trailTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -68,7 +67,6 @@ public sealed class TouchpadVisualizer : FrameworkElement
     public void SetTestFrame(IReadOnlyList<TouchContact> contacts, GestureSignal? signal)
     {
         _contacts = contacts;
-        _signal = signal;
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
         foreach (TouchContact contact in contacts.Where(static contact => contact.IsDown && contact.Confidence))
@@ -124,12 +122,6 @@ public sealed class TouchpadVisualizer : FrameworkElement
             Brush dot = contact.Confidence ? accent : muted;
             dc.DrawEllipse(TransparentClone(dot, 0.18), null, point, 10, 10);
             dc.DrawEllipse(dot, null, point, 4.8, 4.8);
-        }
-
-        if (_signal is not null && _signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
-        {
-            string status = $"{ActionLabel(_signal.Action)} · {_signal.TotalTravelMm:+0.0;-0.0;0} mm";
-            DrawLabel(dc, status, new WpfPoint(pad.Left, pad.Bottom + 15), 9.5, muted);
         }
     }
 
@@ -292,9 +284,9 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
     private Rect PadRect()
     {
-        const double outerX = 34;
-        const double outerTop = 20;
-        const double bottomReserve = 40;
+        const double outerX = 18;
+        const double outerTop = 12;
+        const double bottomReserve = 18;
         double availableWidth = Math.Max(100, ActualWidth - outerX * 2);
         double availableHeight = Math.Max(80, ActualHeight - outerTop - bottomReserve);
         double aspect = _geometry.EffectiveWidthMm / _geometry.EffectiveHeightMm;

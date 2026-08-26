@@ -50,6 +50,7 @@ public sealed class AppState : INotifyPropertyChanged
     private string _thermalSolution = "—";
     private string _driverStatus = "Checking hardware service…";
     private string _keyboardStatus = "Unavailable";
+    private string _keyboardBackend = "Not exposed";
     private string _keyboardMode = "Auto";
     private string _keyboardBaseLevel = "High";
     private double _keyboardEffectSpeed = 1.0;
@@ -111,6 +112,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string ThermalSolution { get => _thermalSolution; set => Set(ref _thermalSolution, value); }
     public string DriverStatus { get => _driverStatus; set => Set(ref _driverStatus, value); }
     public string KeyboardStatus { get => _keyboardStatus; set => Set(ref _keyboardStatus, value); }
+    public string KeyboardBackend { get => _keyboardBackend; set => Set(ref _keyboardBackend, string.IsNullOrWhiteSpace(value) ? "Not exposed" : value); }
     public string KeyboardMode { get => _keyboardMode; set => Set(ref _keyboardMode, value); }
     public string KeyboardBaseLevel { get => _keyboardBaseLevel; set => Set(ref _keyboardBaseLevel, value); }
     public double KeyboardEffectSpeed { get => _keyboardEffectSpeed; set => Set(ref _keyboardEffectSpeed, Math.Clamp(value, 0.5, 2.0)); }
@@ -121,6 +123,15 @@ public sealed class AppState : INotifyPropertyChanged
     public bool CanKeyboardBacklight { get => _canKeyboardBacklight; set => Set(ref _canKeyboardBacklight, value); }
     public bool CanCpuTemperature { get => _canCpuTemperature; set => Set(ref _canCpuTemperature, value); }
     public bool CanSensorTelemetry { get => _canSensorTelemetry; set => Set(ref _canSensorTelemetry, value); }
+
+    public bool CanKeyboardEffects => CanKeyboardBacklight &&
+        !KeyboardBackend.Contains("Vantage", StringComparison.OrdinalIgnoreCase) &&
+        !KeyboardBackend.Equals("Not exposed", StringComparison.OrdinalIgnoreCase);
+    public string KeyboardEffectsSupportText => CanKeyboardEffects
+        ? "Direct firmware control is active, so effects do not invoke Lenovo's brightness pop-up."
+        : CanKeyboardBacklight
+            ? "Static levels only: the Lenovo Vantage fallback shows its own pop-up on every change, so repeated effects are disabled."
+            : "Keyboard effects need a verified direct Lenovo backlight provider.";
 
     public string AppVersion => $"v{UpdateService.CurrentVersion}";
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
@@ -268,6 +279,11 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(MaxRefreshText));
         else if (propertyName is nameof(KeyboardMode) or nameof(KeyboardBaseLevel) or nameof(KeyboardStatus))
             OnPropertyChanged(nameof(KeyboardModeText));
+        else if (propertyName is nameof(KeyboardBackend) or nameof(CanKeyboardBacklight))
+        {
+            OnPropertyChanged(nameof(CanKeyboardEffects));
+            OnPropertyChanged(nameof(KeyboardEffectsSupportText));
+        }
 
         return true;
     }

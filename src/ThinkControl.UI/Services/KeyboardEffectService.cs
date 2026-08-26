@@ -68,6 +68,16 @@ public sealed class KeyboardEffectService : IDisposable
         _breathingStarted = DateTimeOffset.UtcNow;
         _lastKeyboardActivity = DateTimeOffset.UtcNow;
 
+        // Lenovo's managed Vantage fallback owns a vendor OSD which cannot be
+        // suppressed responsibly from another process. Repeated writes would flash
+        // that OSD on every effect transition, so animated/idle effects are allowed
+        // only through a verified direct driver contract. Static clicks remain safe.
+        if (normalized != "Static" && !_state.CanKeyboardEffects)
+        {
+            _state.KeyboardMode = "Static";
+            return;
+        }
+
         if (normalized == "Static")
         {
             await ApplyLevelAsync(_state.KeyboardBaseLevel, force: true, cancellationToken).ConfigureAwait(false);

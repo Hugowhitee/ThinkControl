@@ -6,6 +6,8 @@ namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
+    private bool _snapshotUiPrepared;
+
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
@@ -22,10 +24,10 @@ public partial class AdvancedWindow
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
-        ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
+        ConfigureHomeQuickControls();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         // Page builders above may replace a ScrollViewer child. Reapply only the
@@ -37,6 +39,7 @@ public partial class AdvancedWindow
 
     public void PrepareEnhancedUiForSnapshot()
     {
+        _snapshotUiPrepared = true;
         ConfigureAdvancedBranding();
         AdvancedWindowEnhancer.Ensure(this, _app);
         AdvancedFeaturePages.Ensure(this, _app);
@@ -50,10 +53,10 @@ public partial class AdvancedWindow
         ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
-        ConfigureHomeFeatureOverview();
         ConfigureNotificationButton();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
+        ConfigureHomeQuickControls();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         ConfigureAdvancedUiConsistency();
@@ -137,6 +140,27 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectTouchpad(this);
+
+        if (_snapshotUiPrepared)
+        {
+            RevealDynamicPageForSnapshot("ThinkControl.Dynamic.PageTouchpad");
+            PrepareTouchpadForSnapshot();
+        }
+    }
+
+    private void PrepareTouchpadForSnapshot()
+    {
+        const string touchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
+        if (!Resources.Contains(touchpadPageKey) ||
+            Resources[touchpadPageKey] is not ScrollViewer { Content: Controls.TouchpadPanel panel })
+        {
+            throw new InvalidOperationException("Touchpad page could not be prepared for visual QA.");
+        }
+
+        // The normal and minimum renders preserve the resting layout; the wide
+        // render exercises the transient contact/trail/value feedback state that
+        // otherwise cannot be caught by a static screenshot gate.
+        panel.PrepareForSnapshot(showActiveGesture: Width >= 1500);
     }
 
     public void NavigateSensors()
@@ -156,6 +180,17 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectSensors(this);
+        if (_snapshotUiPrepared)
+            RevealDynamicPageForSnapshot("ThinkControl.Dynamic.PageSensors");
+    }
+
+    private void RevealDynamicPageForSnapshot(string resourceKey)
+    {
+        if (!Resources.Contains(resourceKey) || Resources[resourceKey] is not FrameworkElement page)
+            throw new InvalidOperationException($"Dynamic page '{resourceKey}' is unavailable for visual QA.");
+        page.BeginAnimation(UIElement.OpacityProperty, null);
+        page.Opacity = 1;
+        page.Visibility = Visibility.Visible;
     }
 
     public void NavigateAudio()

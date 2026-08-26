@@ -82,22 +82,23 @@
 
             <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,13" />
 
-            <Grid>
-                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <StackPanel>
+            <WrapPanel>
+                <Button x:Name="ReviewDeviceButton" Content="Review device report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ReviewDeviceReport_Click" />
+                <Button x:Name="ShareDeviceButton" Content="Share to GitHub" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ShareDeviceReport_Click" IsEnabled="False" ToolTip="Review the exact device report first" />
+            </WrapPanel>
+
+            <Expander Header="Advanced diagnostics" Margin="0,5,0,0" Foreground="{DynamicResource Tc.TextMuted}">
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <WrapPanel>
-                        <Button x:Name="ReviewDeviceButton" Content="Review device report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ReviewDeviceReport_Click" />
-                        <Button x:Name="ShareDeviceButton" Content="Share to GitHub" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="ShareDeviceReport_Click" IsEnabled="False" ToolTip="Review the exact device report first" />
-                    </WrapPanel>
-                    <WrapPanel>
-                        <Button Content="Preview diagnostics" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Preview_Click" />
+                        <Button Content="Preview data" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Preview_Click" />
                         <Button Content="Export bundle" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Export_Click" />
                         <Button Content="Hardware log" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenHardwareLog_Click" ToolTip="Open the local ThinkControl hardware-service log" />
                         <Button Content="Bug report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenBugReport_Click" />
                     </WrapPanel>
-                </StackPanel>
-                <Button Grid.Column="1" Content="Delete local data" Style="{StaticResource TcButton}" Margin="8,0,0,7" VerticalAlignment="Bottom" Click="Delete_Click" />
-            </Grid>
+                    <Button Grid.Column="1" Content="Delete local data" Style="{StaticResource TcButton}" Margin="8,0,0,7" VerticalAlignment="Top" Click="Delete_Click" />
+                </Grid>
+            </Expander>
 
             <TextBlock x:Name="StatusText"
                        Text="Device sharing is a two-step action: first review the exact redacted Markdown report locally, then Share to GitHub becomes available for that unchanged report."

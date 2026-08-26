@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Controls;
@@ -34,10 +35,56 @@ public partial class TouchpadPanel
         ConfigureResetButton(ClickForceSlider, ClickForceValue, App.DefaultHapticClickSensitivity, ResetHapticSlider, "Touchpad");
         ConfigureResetButton(OsdOpacitySlider, OsdOpacityValue, 92.0, ResetOsdOpacity, "Monitor");
 
-        if (_host is not null)
-            _host.GestureChanged += Host_GestureValueFeedback;
-
+        // GestureChanged is owned by TouchpadPanel.xaml.cs. Keeping a second event
+        // handler here used to dispatch hidden-page UI work and race the status text.
+        // Value feedback is now called from that one page-visible gesture path.
         RefreshValueFeedback();
+    }
+
+    internal void PrepareForSnapshot(bool showActiveGesture)
+    {
+        _settingsSaveTimer.Stop();
+        ClearGestureFeedback();
+        InputStatusText.Text = "Precision Touchpad detected";
+
+        if (!showActiveGesture)
+        {
+            Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
+            return;
+        }
+
+        _syncing = true;
+        try
+        {
+            _selectedEdge = TouchpadEdge.Left;
+            GestureEnableSwitch.IsChecked = true;
+            Visualizer.SelectedEdge = _selectedEdge;
+            Visualizer.Configuration = _configuration with { Enabled = true };
+            SyncSelectedEdge();
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        var signal = new GestureSignal(
+            GesturePhase.Active,
+            TouchpadEdge.Left,
+            GestureActionKind.Volume,
+            TotalTravelMm: 24.8,
+            DeltaMm: 3.1,
+            ContactId: 1);
+
+        // Two deterministic frames exercise both the red contact point and trail.
+        // The value card itself is populated directly because snapshot mode must not
+        // write the real Windows volume endpoint merely to create visual QA data.
+        Visualizer.SetTestFrame([new TouchContact(1, 420, 6400, true)], signal);
+        Visualizer.SetTestFrame([new TouchContact(1, 420, 3900, true)], signal);
+        GestureFeedbackIcon.Kind = "Audio";
+        GestureFeedbackTitle.Text = "Left edge · Volume";
+        GestureFeedbackValue.Text = "62% · +25%";
+        GestureFeedbackOverlay.Opacity = 1;
+        GestureStatusText.Text = "Volume · 62% · +25%";
     }
 
     private void ConfigureResetButton(
@@ -58,16 +105,21 @@ public partial class TouchpadPanel
 
         var button = new Button
         {
-            Content = "Reset",
-            MinWidth = 0,
+            Content = new TextBlock
+            {
+                Text = "↺",
+                FontFamily = new System.Windows.Media.FontFamily("Segoe UI Symbol"),
+                FontSize = 14,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                VerticalAlignment = VerticalAlignment.Center
+            },
+            Style = TryFindResource("TcIconButton") as Style,
+            Width = 24,
             Height = 24,
-            Padding = new Thickness(8, 0, 0, 0),
-            Margin = new Thickness(8, 0, 0, 0),
+            Padding = new Thickness(0),
+            Margin = new Thickness(7, 0, -3, 0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Background = Brushes.Transparent,
-            BorderThickness = new Thickness(0),
-            FontSize = 9.5,
             Cursor = System.Windows.Input.Cursors.Hand,
             ToolTip = $"Reset to default ({FormatDefault(defaultValue, slider)})",
             Tag = defaultValue,
@@ -76,25 +128,23 @@ public partial class TouchpadPanel
         button.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         button.Click += (_, _) => reset(slider, defaultValue);
 
-        // Put reset beside the slider instead of in the value header. The previous
-        // boxed/history-looking icon made every row look like an undo control and
-        // stole width from the actual value. This flat text affordance stays out of
-        // the way and appears only when the value differs from default.
-        if (slider.Parent is StackPanel stack)
+        // Reset is metadata for the value, not part of the slider's scale. Keep the
+        // full track width and reveal one compact header action only after a change.
+        if (valueLabel.Parent is Grid valueHeader)
         {
-            int index = stack.Children.IndexOf(slider);
-            if (index >= 0)
+            int column = Grid.GetColumn(valueLabel);
+            valueHeader.Children.Remove(valueLabel);
+            valueLabel.VerticalAlignment = VerticalAlignment.Center;
+            var actions = new StackPanel
             {
-                stack.Children.RemoveAt(index);
-                var row = new Grid { Margin = slider.Margin };
-                row.ColumnDefinitions.Add(new ColumnDefinition());
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                slider.Margin = new Thickness(0);
-                row.Children.Add(slider);
-                Grid.SetColumn(button, 1);
-                row.Children.Add(button);
-                stack.Children.Insert(index, row);
-            }
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            actions.Children.Add(valueLabel);
+            actions.Children.Add(button);
+            Grid.SetColumn(actions, column);
+            valueHeader.Children.Add(actions);
         }
 
         _sliderResetButtons[slider] = button;
@@ -143,9 +193,12 @@ public partial class TouchpadPanel
 
     private static Grid? FindHeaderBeforeSlider(Slider slider)
     {
-        if (slider.Parent is not StackPanel stack)
+        FrameworkElement anchor = slider;
+        if (slider.Parent is Grid wrapper && wrapper.Parent is StackPanel)
+            anchor = wrapper;
+        if (anchor.Parent is not StackPanel stack)
             return null;
-        int index = stack.Children.IndexOf(slider);
+        int index = stack.Children.IndexOf(anchor);
         for (int i = index - 1; i >= 0; i--)
         {
             if (stack.Children[i] is Grid grid)
@@ -212,37 +265,73 @@ public partial class TouchpadPanel
         }
     }
 
-    private void Host_GestureValueFeedback(GestureSignal signal)
+    private void UpdateGestureValueFeedback(GestureSignal signal)
     {
-        Dispatcher.InvokeAsync(() =>
+        if (!IsVisible)
+            return;
+
+        if (signal.Phase == GesturePhase.Claimed)
+            _gestureStartValue = ReadGestureStartValue(signal.Action);
+
+        if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
         {
-            if (signal.Phase == GesturePhase.Claimed)
-                _gestureStartValue = ReadGestureStartValue(signal.Action);
+            StopGestureFeedbackFade();
+            GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
+            GestureFeedbackTitle.Text = $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}";
+            GestureFeedbackValue.Text = FormatGestureValue(signal);
+            GestureFeedbackOverlay.Opacity = 1;
+            return;
+        }
 
-            if (signal.Phase == GesturePhase.Active)
-                GestureStatusText.Text = FormatActiveGestureValue(signal);
+        if (signal.Phase == GesturePhase.Released)
+        {
+            GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
+            GestureFeedbackTitle.Text = ActionLabel(signal.Action);
+            GestureFeedbackValue.Text = FormatGestureValue(signal);
+            StartGestureFeedbackFade();
+            // Keep the captured start value through the release/fade so the final
+            // overlay and status line retain the real delta. The next Claimed event
+            // replaces it, and page hide/unload clears it.
+            return;
+        }
 
-            if (signal.Phase is GesturePhase.Released or GesturePhase.Cancelled)
-                _gestureStartValue = null;
-        });
+        if (signal.Phase == GesturePhase.Cancelled)
+        {
+            GestureFeedbackIcon.Kind = "Touchpad";
+            GestureFeedbackTitle.Text = "Gesture cancelled";
+            GestureFeedbackValue.Text = string.IsNullOrWhiteSpace(signal.Reason) ? "Not claimed" : signal.Reason;
+            StartGestureFeedbackFade(250, 500);
+            _gestureStartValue = null;
+        }
     }
 
-    private string FormatActiveGestureValue(GestureSignal signal)
+    private string FormatGestureStatus(GestureSignal signal) =>
+        $"{ActionLabel(signal.Action)} · {FormatGestureValue(signal)}";
+
+    private string FormatGestureValue(GestureSignal signal)
     {
         if (signal.Action == GestureActionKind.MediaSeek && _host is not null)
         {
             double seconds = _host.CurrentSeekDeltaSeconds;
-            return $"Media seek · {seconds:+0.0;-0.0;0.0} s";
+            return $"{seconds:+0.0;-0.0;0.0} s";
         }
 
         int? current = ReadGestureTargetValue(signal.Action);
         if (current.HasValue)
         {
             int change = _gestureStartValue.HasValue ? current.Value - _gestureStartValue.Value : 0;
-            return $"{ActionLabel(signal.Action)} · {current.Value}% · {change:+0;-0;0}%";
+            return $"{current.Value}% · {change:+0;-0;0}%";
         }
 
-        return $"{ActionLabel(signal.Action)} · {signal.TotalTravelMm:+0.0;-0.0;0.0} mm";
+        if (_gestureStartValue.HasValue && signal.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
+            return $"{_gestureStartValue.Value}%";
+
+        if (signal.Action is GestureActionKind.PreviousNextTrack or GestureActionKind.PlayPause or GestureActionKind.Mute or
+            GestureActionKind.TaskView or GestureActionKind.ShowDesktop or GestureActionKind.KeyboardBacklight or
+            GestureActionKind.PerformanceMode or GestureActionKind.CustomShortcut)
+            return "Triggered";
+
+        return $"{signal.TotalTravelMm:+0.0;-0.0;0.0} mm";
     }
 
     private int? ReadGestureStartValue(GestureActionKind action)
@@ -266,6 +355,49 @@ public partial class TouchpadPanel
 
         return null;
     }
+
+    private void StopGestureFeedbackFade()
+    {
+        GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+    }
+
+    private void StartGestureFeedbackFade(int holdMilliseconds = 450, int fadeMilliseconds = 700)
+    {
+        StopGestureFeedbackFade();
+        GestureFeedbackOverlay.Opacity = 1;
+        var fade = new DoubleAnimation
+        {
+            From = 1,
+            To = 0,
+            BeginTime = TimeSpan.FromMilliseconds(holdMilliseconds),
+            Duration = new Duration(TimeSpan.FromMilliseconds(fadeMilliseconds)),
+            FillBehavior = FillBehavior.Stop
+        };
+        fade.Completed += (_, _) =>
+        {
+            GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, null);
+            GestureFeedbackOverlay.Opacity = 0;
+        };
+        GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
+    }
+
+    private void ClearGestureFeedback()
+    {
+        _gestureStartValue = null;
+        StopGestureFeedbackFade();
+        GestureFeedbackOverlay.Opacity = 0;
+    }
+
+    private static string FeedbackIcon(GestureActionKind action) => action switch
+    {
+        GestureActionKind.Volume or GestureActionKind.MediaSeek or GestureActionKind.PreviousNextTrack or
+            GestureActionKind.PlayPause or GestureActionKind.Mute => "Audio",
+        GestureActionKind.Brightness => "Monitor",
+        GestureActionKind.KeyboardBacklight => "Keyboard",
+        GestureActionKind.PerformanceMode => "Gauge",
+        GestureActionKind.TaskView or GestureActionKind.ShowDesktop => "Laptop",
+        _ => "Touchpad"
+    };
 
     private static string FormatSetting(
         double value,

@@ -276,7 +276,8 @@ internal sealed class ServiceEngine : IDisposable
             CoolingSafetyOverride: cooling.SafetyOverride,
             FanCharacterization: cooling.Characterization,
             CoolingProfileId: cooling.ProfileId,
-            CoolingAppliedPercent: cooling.AppliedPercent);
+            CoolingAppliedPercent: cooling.AppliedPercent,
+            KeyboardBackend: status.KeyboardBackend);
         var capabilities = new HardwareCapabilitySnapshot(
             status.CanFanTelemetry,
             status.CanFanControl,

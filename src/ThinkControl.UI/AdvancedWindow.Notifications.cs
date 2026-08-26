@@ -27,7 +27,27 @@ public partial class AdvancedWindow
         if (NavHome.Parent is not StackPanel navStack)
             return;
 
+        // ConfigureNativeWindow creates one compact-arrow button beside the
+        // ThinkControl wordmark. Branding used to leave that arrow there and this
+        // class inserted a whole new Notifications row below it, which pushed the
+        // logo/navigation down and left two separate view-switch controls. Reuse
+        // that single top-right slot for the bell instead.
+        Grid? brandRow = navStack.Children.OfType<Grid>().FirstOrDefault(grid =>
+            grid.Children.OfType<Button>().Any(button => Grid.GetColumn(button) == 1));
+        Button? button = brandRow?.Children.OfType<Button>()
+            .FirstOrDefault(child => Grid.GetColumn(child) == 1);
+        if (button is null)
+            return;
+
         _notificationButtonConfigured = true;
+        button.Click -= Dock_Click;
+        button.Width = 30;
+        button.Height = 30;
+        button.Padding = new Thickness(0);
+        button.Margin = new Thickness(0);
+        button.BorderThickness = new Thickness(0);
+        button.Background = Brushes.Transparent;
+        button.ToolTip = "Notifications";
 
         var bell = new Path
         {
@@ -47,50 +67,23 @@ public partial class AdvancedWindow
 
         _notificationDot = new Ellipse
         {
-            Width = 7,
-            Height = 7,
+            Width = 6,
+            Height = 6,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            StrokeThickness = 1
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 4, 3, 0),
+            StrokeThickness = 1,
+            IsHitTestVisible = false
         };
         _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
         _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Surface");
 
         var content = new Grid();
-        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(28) });
-        content.ColumnDefinitions.Add(new ColumnDefinition());
-        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(18) });
         content.Children.Add(bell);
-
-        var label = new TextBlock
-        {
-            Text = "Notifications",
-            FontSize = 11,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(2, 0, 0, 0)
-        };
-        Grid.SetColumn(label, 1);
-        content.Children.Add(label);
-
-        Grid.SetColumn(_notificationDot, 2);
         content.Children.Add(_notificationDot);
-
-        var button = new Button
-        {
-            Height = 40,
-            Margin = new Thickness(10, 2, 8, 5),
-            Padding = new Thickness(6, 0, 7, 0),
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-            Content = content,
-            Style = TryFindResource("TcButton") as Style,
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent,
-            ToolTip = "Notifications"
-        };
+        button.Content = content;
         button.Click += (_, _) => ShowNotificationSheet();
-
         _notificationIndicator = button;
-        navStack.Children.Insert(0, button);
 
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;
