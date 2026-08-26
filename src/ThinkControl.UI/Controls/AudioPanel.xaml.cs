@@ -1,3 +1,4 @@
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -10,7 +11,7 @@ public partial class AudioPanel : UserControl
 {
     private readonly WindowsVolumeService _volume = new();
     private readonly DolbyDirectControlService _directDolby = new();
-    private readonly DolbyAccessProfileBridge _fusionDolby = new();
+    private readonly DolbyAccessProfileBridge _accessDolby = new();
     private readonly DispatcherTimer _volumeApplyTimer;
     private readonly DispatcherTimer _volumeRefreshTimer;
     private readonly DispatcherTimer _microphoneApplyTimer;
@@ -20,6 +21,7 @@ public partial class AudioPanel : UserControl
     private bool _volumeDragging;
     private bool _microphoneDragging;
     private bool _snapshotMode;
+    private int _statusProbeGeneration;
     private DolbyAudioStatus? _status;
     private DolbyDirectState? _directState;
 
@@ -61,6 +63,7 @@ public partial class AudioPanel : UserControl
         IsVisibleChanged += (_, e) => UpdateLivePolling(refreshNow: e.NewValue is true);
         Unloaded += (_, _) =>
         {
+            Interlocked.Increment(ref _statusProbeGeneration);
             _volumeApplyTimer.Stop();
             _microphoneApplyTimer.Stop();
             _volumeRefreshTimer.Stop();
@@ -80,6 +83,7 @@ public partial class AudioPanel : UserControl
     {
         if (_snapshotMode || !IsLoaded || !IsVisible)
         {
+            Interlocked.Increment(ref _statusProbeGeneration);
             _volumeApplyTimer.Stop();
             _volumeRefreshTimer.Stop();
             return;
@@ -87,6 +91,9 @@ public partial class AudioPanel : UserControl
 
         if (refreshNow)
         {
+            // Endpoint volume is cheap and paints immediately. Dolby package/COM
+            // discovery is deliberately off the WPF dispatcher so entering Audio
+            // never stalls the sliders while Lenovo/DAX providers are inspected.
             RefreshVolume();
             RefreshStatus();
         }
@@ -97,8 +104,8 @@ public partial class AudioPanel : UserControl
     internal void PrepareForSnapshot(bool providersAvailable)
     {
         _snapshotMode = true;
-            _volumeApplyTimer.Stop();
-            _microphoneApplyTimer.Stop();
+        _volumeApplyTimer.Stop();
+        _microphoneApplyTimer.Stop();
         _volumeRefreshTimer.Stop();
         _syncing = true;
         try
@@ -167,7 +174,7 @@ public partial class AudioPanel : UserControl
         _status = new DolbyAudioStatus(
             DolbyAccessInstalled: true,
             DaxBackendDetected: false,
-            Detail: "Dolby Fusion is active. Profile changes use the installed Dolby Access controls on demand.",
+            Detail: "Dolby Access fallback is active. Profile changes use the installed app controls on demand.",
             FusionBackendDetected: true);
         _directState = new DolbyDirectState(
             Available: false,
@@ -175,7 +182,7 @@ public partial class AudioPanel : UserControl
             CanToneControl: false,
             ActiveProfile: null,
             ActiveTone: null,
-            Detail: "Legacy DAX direct API not exposed on this Fusion generation");
+            Detail: "Direct DAX profile API is not exposed on this Dolby generation");
 
         _syncing = true;
         try
@@ -202,7 +209,7 @@ public partial class AudioPanel : UserControl
             GameProfile.IsChecked = false;
             VoiceProfile.IsChecked = false;
             UpdateToneSection("Dynamic", directToneAvailable: false);
-            ActionStatusText.Text = "Fusion profile controls are ready on demand; no Dolby UI work runs in the background.";
+            ActionStatusText.Text = "Dolby Access profile controls are ready on demand; no Dolby UI work runs in the background.";
         }
         finally
         {
@@ -210,29 +217,79 @@ public partial class AudioPanel : UserControl
         }
     }
 
-    internal void RefreshStatus()
+    internal void RefreshStatus() => _ = RefreshStatusAsync();
+
+    private async Task RefreshStatusAsync()
     {
         if (_snapshotMode || _app is null || _dolby is null || !IsVisible)
             return;
 
-        _status = _dolby.Probe();
-        _directState = _directDolby.Probe();
+        int generation = Interlocked.Increment(ref _statusProbeGeneration);
+        DolbyAudioService dolby = _dolby;
+        try
+        {
+            (DolbyAudioStatus status, DolbyDirectState direct) = await ProbeDolbyAsync(dolby);
+            if (generation != Volatile.Read(ref _statusProbeGeneration) || _snapshotMode || !IsVisible || _app is null)
+                return;
+
+            _status = status;
+            _directState = direct;
+            ApplyDolbyStatus();
+        }
+        catch (Exception ex)
+        {
+            if (generation != Volatile.Read(ref _statusProbeGeneration) || !IsVisible)
+                return;
+
+            BackendStatusText.Text = "Dolby capability check did not complete. Windows volume remains available.";
+            ActionStatusText.Text = ex.Message;
+        }
+    }
+
+    private Task<(DolbyAudioStatus Status, DolbyDirectState Direct)> ProbeDolbyAsync(DolbyAudioService dolby)
+    {
+        var completion = new TaskCompletionSource<(DolbyAudioStatus, DolbyDirectState)>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                completion.TrySetResult((dolby.Probe(), _directDolby.Probe()));
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        })
+        {
+            IsBackground = true,
+            Name = "ThinkControl Dolby probe"
+        };
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        return completion.Task;
+    }
+
+    private void ApplyDolbyStatus()
+    {
+        if (_status is null || _directState is null || _app is null)
+            return;
 
         bool directProfiles = _directState.CanProfileControl;
-        bool fusionBridge = !directProfiles && _status.FusionBackendDetected;
-        bool canSelectProfiles = directProfiles || fusionBridge;
+        bool accessBridge = !directProfiles && CanUseDolbyAccessBridge(_status);
+        bool canSelectProfiles = directProfiles || accessBridge;
 
         BackendStatusText.Text = _directState.Available && (directProfiles || _directState.CanToneControl)
             ? _directState.Detail
             : _status.Detail;
 
-        // OEM Fusion presence proves the Lenovo Dolby stack exists, but not that one
-        // per-user package registry view sees Dolby Access. The bridge therefore
-        // tries the canonical AUMID only after an explicit profile click.
+        // Lenovo ships multiple DAX generations. The semantic Access bridge is safe
+        // for both Fusion and OEM DAX3 because it uses only the official packaged app
+        // on an explicit click; no private profile IDs or persistent automation.
         InstallButton.Visibility = _status.DolbyAccessInstalled ? Visibility.Collapsed : Visibility.Visible;
         OpenButton.IsEnabled = _status.DolbyAccessInstalled || _status.OemBackendDetected;
         ProfileGrid.Visibility = canSelectProfiles ? Visibility.Visible : Visibility.Collapsed;
-        FusionControlCard.Visibility = fusionBridge ? Visibility.Visible : Visibility.Collapsed;
+        FusionControlCard.Visibility = accessBridge ? Visibility.Visible : Visibility.Collapsed;
 
         string profile = NormalizeKnownProfile(_directState.ActiveProfile) ??
                          _app.UserSettings.Current.DolbyProfile;
@@ -262,9 +319,12 @@ public partial class AudioPanel : UserControl
             _syncing = false;
         }
 
-        if (fusionBridge && string.IsNullOrWhiteSpace(ActionStatusText.Text))
-            ActionStatusText.Text = "Fusion profile controls are ready on demand; no Dolby UI work runs in the background.";
+        if (accessBridge && string.IsNullOrWhiteSpace(ActionStatusText.Text))
+            ActionStatusText.Text = "Dolby Access profile controls are ready on demand; no Dolby UI work runs in the background.";
     }
+
+    private static bool CanUseDolbyAccessBridge(DolbyAudioStatus status) =>
+        status.DolbyAccessInstalled || status.OemBackendDetected;
 
     private void UpdateToneSection(string profile, bool directToneAvailable)
     {
@@ -273,8 +333,8 @@ public partial class AudioPanel : UserControl
         SetToneEnabled(music && directToneAvailable);
         SubprofileStatusText.Text = directToneAvailable
             ? "Direct DAX · Music"
-            : _status?.FusionBackendDetected == true
-                ? "Dolby Fusion · Dolby Access"
+            : _status is not null && CanUseDolbyAccessBridge(_status)
+                ? "Dolby Access fallback"
                 : "Not exposed by this Dolby build";
     }
 
@@ -429,6 +489,7 @@ public partial class AudioPanel : UserControl
             return;
         }
 
+        Interlocked.Increment(ref _statusProbeGeneration);
         ActionStatusText.Text = $"Switching to {profile}…";
         SetProfilesEnabled(false);
 
@@ -437,9 +498,9 @@ public partial class AudioPanel : UserControl
         {
             result = await _directDolby.SetProfileAsync(profile);
         }
-        else if (_status?.FusionBackendDetected == true)
+        else if (_status is not null && CanUseDolbyAccessBridge(_status))
         {
-            result = await _fusionDolby.SetProfileAsync(profile, _dolby);
+            result = await _accessDolby.SetProfileAsync(profile, _dolby);
         }
         else
         {
@@ -449,7 +510,7 @@ public partial class AudioPanel : UserControl
         if (result.Success)
             _app.UserSettings.Update(settings => settings with { DolbyProfile = profile });
 
-        RefreshStatus();
+        await RefreshStatusAsync();
         ActionStatusText.Text = result.Success
             ? result.Detail
             : result.Detail + " · Audio was left unchanged.";
@@ -470,7 +531,7 @@ public partial class AudioPanel : UserControl
         if (result.Success)
             _app.UserSettings.Update(settings => settings with { DolbySubProfile = tone });
 
-        RefreshStatus();
+        await RefreshStatusAsync();
         ActionStatusText.Text = result.Success
             ? result.Detail
             : result.Detail + " · Direct tone control was not accepted.";
@@ -481,6 +542,7 @@ public partial class AudioPanel : UserControl
         if (_snapshotMode || _app is null || _dolby is null || sender is not Button button)
             return;
 
+        Interlocked.Increment(ref _statusProbeGeneration);
         button.IsEnabled = false;
         try
         {
@@ -489,13 +551,13 @@ public partial class AudioPanel : UserControl
             {
                 profile = await _directDolby.SetProfileAsync("Dynamic");
             }
-            else if (_status?.FusionBackendDetected == true)
+            else if (_status is not null && CanUseDolbyAccessBridge(_status))
             {
-                profile = await _fusionDolby.SetProfileAsync("Dynamic", _dolby);
+                profile = await _accessDolby.SetProfileAsync("Dynamic", _dolby);
             }
             else
             {
-                profile = new DolbyProfileResult(false, "Direct Dolby reset is unavailable on this driver.");
+                profile = new DolbyProfileResult(false, "Dolby reset is unavailable on this driver.");
             }
 
             if (profile.Success)
@@ -505,12 +567,12 @@ public partial class AudioPanel : UserControl
                     DolbyProfile = "Dynamic",
                     DolbySubProfile = "Balanced"
                 });
-                RefreshStatus();
+                await RefreshStatusAsync();
                 ActionStatusText.Text = "Audio processing reset to Dynamic. Windows output volume was left unchanged.";
             }
             else
             {
-                RefreshStatus();
+                await RefreshStatusAsync();
                 ActionStatusText.Text = profile.Detail + " Windows output volume was left unchanged.";
             }
         }
