@@ -31,9 +31,9 @@ Setup:
 
 The installer itself stays device-neutral. Hardware/provider recovery happens after startup so one setup build can work across supported laptops.
 
-## Hardware setup after installation
+## Required components after installation
 
-ThinkControl's in-app **Hardware Setup** checks providers independently instead of treating the whole laptop as supported/unsupported.
+ThinkControl's in-app **Inbox** checks providers independently and opens one focused prerequisite prompt instead of treating the whole laptop as supported/unsupported.
 
 It can:
 

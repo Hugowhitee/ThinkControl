@@ -4,6 +4,7 @@ using System.IO;
 using System.Windows;
 using ThinkControl.Core.Diagnostics;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
 
@@ -54,10 +55,12 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                 ? "Open the prepared report as a pre-filled GitHub issue"
                 : "Available after useful hardware discovery";
             UploadStatusText.Text = ready ? "Ready · GitHub stays explicit" : "Not ready yet";
+            ShareStepText.Text = ready ? "Ready to share" : "Waiting";
+            ShareStepText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, ready ? "Tc.Accent" : "Tc.TextMuted");
 
             DiscoveryReadinessText.Text = useful
                 ? DeviceSupportReportService.DiscoverySummary(app.State) + (ready ? " · report prepared locally" : " · enable sharing to prepare the report")
-                : "Still learning · wait for hardware discovery to finish or run Hardware setup / Retry detection. Nothing can be shared yet.";
+                : "Still learning · wait for hardware discovery to finish or open the current Inbox item. Nothing can be shared yet.";
             DiscoveryReadinessText.Foreground = (System.Windows.Media.Brush)FindResource(useful ? "Tc.Success" : "Tc.TextMuted");
 
             StatusText.Text = consent switch
@@ -67,6 +70,41 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                 DiagnosticsConsent.Disabled => "Compatibility sharing is disabled. Local troubleshooting history is never uploaded automatically and can be deleted here at any time.",
                 _ => "Local compatibility events are not uploaded automatically. Enable compatibility sharing only if you want the review/share workflow available."
             };
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    internal void PrepareForSnapshot(AppState state, DiagnosticsConsent consent)
+    {
+        _syncing = true;
+        try
+        {
+            DiagnosticsSwitch.IsChecked = consent == DiagnosticsConsent.Enabled;
+            ValidationStateText.Text = GetValidationState(state.MachineType) == DeviceValidationState.Verified
+                ? "Verified device profile"
+                : "Not validated · compatibility checks available";
+            EventCountText.Text = DeviceSupportReportService.HasUsefulDiscovery(state) ? "18" : "4";
+            LastEventText.Text = "Just now";
+
+            bool useful = DeviceSupportReportService.HasUsefulDiscovery(state);
+            bool ready = useful && consent == DiagnosticsConsent.Enabled;
+            ShareDeviceButton.IsEnabled = ready;
+            ShareDeviceButton.ToolTip = ready
+                ? "Open the prepared report as a pre-filled GitHub issue"
+                : "Available after useful hardware discovery";
+            UploadStatusText.Text = ready ? "Ready · GitHub stays explicit" : "Not ready yet";
+            ShareStepText.Text = ready ? "Ready to share" : "Waiting";
+            ShareStepText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, ready ? "Tc.Accent" : "Tc.TextMuted");
+            DiscoveryReadinessText.Text = useful
+                ? DeviceSupportReportService.DiscoverySummary(state) + (ready ? " · report prepared locally" : " · enable sharing to prepare the report")
+                : "Still learning · no stable provider or capability data is ready to share yet.";
+            DiscoveryReadinessText.Foreground = (System.Windows.Media.Brush)FindResource(useful ? "Tc.Success" : "Tc.TextMuted");
+            StatusText.Text = ready
+                ? "The current redacted device report is prepared locally. GitHub submission still requires your explicit confirmation."
+                : "ThinkControl will show the detected capabilities here when stable hardware discovery is ready.";
         }
         finally
         {

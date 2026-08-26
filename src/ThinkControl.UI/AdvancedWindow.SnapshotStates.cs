@@ -23,10 +23,10 @@ public partial class AdvancedWindow
         SheetMessage[] messages =
         [
             new(
-                "Low-level hardware access",
-                "PawnIO is installed, but the ThinkControl hardware service cannot open its device. Repair this prerequisite once; dependent fan, sensor and keyboard providers are checked again only after low-level access is healthy.",
-                "Repair component",
-                SheetAction.HardwareRepair,
+                "PawnIO needs repair",
+                "PawnIO is installed, but ThinkControl cannot open its driver device. Review one focused repair; fan and sensor providers are checked again only after PawnIO is ready.",
+                "Review repair",
+                SheetAction.PawnIo,
                 true),
             new(
                 "ThinkControl is up to date",
@@ -57,5 +57,17 @@ public partial class AdvancedWindow
             panel.PrepareFusionForSnapshot();
         else
             panel.PrepareForSnapshot(providersAvailable);
+    }
+
+    internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent)
+    {
+        DiagnosticsPanelControl?.PrepareForSnapshot(_app.State, consent);
+    }
+
+    internal void ScrollDiagnosticsIntoViewForSnapshot()
+    {
+        PageSettings.UpdateLayout();
+        PageSettings.ScrollToEnd();
+        PageSettings.UpdateLayout();
     }
 }

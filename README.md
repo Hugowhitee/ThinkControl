@@ -54,7 +54,7 @@ Release CI renders the real WPF interface in dark/light themes at minimum, norma
 | **Home** | Battery, CPU and fan overview plus quick access, notifications and support |
 | **Performance** | Quiet, Balanced and Performance preferences with separate battery/AC behavior |
 | **Fans** | Firmware/OEM Auto, verified manual levels and supervised cooling profiles where a writable provider passes validation |
-| **System & sensors** | Hardware setup plus a focused details window for real CPU, GPU, fan and other detected telemetry |
+| **System & sensors** | Issue-specific required-component prompts plus a focused details window for real CPU, GPU, fan and other detected telemetry |
 | **Battery** | Watts, Wh, health, filtered ETA, day-grouped charge/discharge sessions, `% + W` timelines and retained local trends |
 | **Display** | Brightness, adaptive brightness, refresh rate and automatic 60 Hz / maximum switching |
 | **Audio** | Windows output and microphone volume/mute plus direct Dolby profile and Music IEQ controls where DAX exposes semantic readback |
@@ -99,7 +99,7 @@ Alpha.19 completes the ThinkPad-first stabilization pass with physically verifie
 - The always-on runtime scheduler uses the Windows power manager and cheap display APIs instead of repeatedly running battery WMI, `powercfg` and full display discovery.
 - Sensor discovery avoids unnecessary storage, battery, network, controller and PSU providers in the always-on path and uses bounded retry/recycle behavior rather than repeatedly hammering failed providers.
 - On the verified X9 profile, real LibreHardwareMonitor/PawnIO fan telemetry is preferred when available. Direct EC tachometer and read-only thermal access are conservative fallbacks, and periodic EC control-register probing is removed from the normal status loop.
-- Hardware Setup and Notifications surface root causes instead of multiplying one failed dependency into several identical repair actions.
+- Inbox and issue-specific prerequisite prompts surface root causes instead of multiplying one failed dependency into several identical repair actions.
 - Update checking, Home and the Updates page share one release state. A user-triggered update downloads Setup + Payload + checksums, verifies SHA-256, shows the Windows elevation handoff and keeps update controls locked while the installer owns the swap.
 - Automatic update checks never install or open UAC by themselves.
 - A dedicated Windows installer-reliability gate now validates clean install, service start, named-pipe `Ping`, `GetStatus` telemetry, in-place reinstall/update behavior and uninstall cleanup before release work is merged.
@@ -140,7 +140,7 @@ Slow movement stays precise while faster movement accelerates within bounded lim
 
 ## Hardware recovery
 
-ThinkControl separates normal Windows features from privileged/provider-specific hardware access. Hardware Setup distinguishes the layers rather than collapsing everything into one online/offline flag:
+ThinkControl separates normal Windows features from privileged/provider-specific hardware access. Inbox and the focused prerequisite prompt distinguish the layers rather than collapsing everything into one online/offline flag:
 
 1. **ThinkControl hardware service** — Windows service state plus the app-to-service IPC connection.
 2. **Low-level/sensor access** — required driver/device access and sensor-provider readiness, such as PawnIO/LHM where applicable.

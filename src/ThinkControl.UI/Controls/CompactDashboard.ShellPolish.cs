@@ -1,7 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Shapes;
 
 namespace ThinkControl.UI.Controls;
 
@@ -45,23 +43,13 @@ public partial class CompactDashboard
         expand.SetResourceReference(BorderBrushProperty, "Tc.BorderStrong");
         expand.ToolTip = "Open full ThinkControl window";
 
-        var icon = new Viewbox
+        var icon = new PackIconLucide
         {
-            Width = 15,
-            Height = 15
+            Kind = "ViewSidebar",
+            Width = 17,
+            Height = 17
         };
-        var path = new Path
-        {
-            // A framed rail and content lines read as the normal ThinkControl
-            // window at a glance, without adding a text label to this dense shell.
-            Data = Geometry.Parse("M2,2 H14 V14 H2 Z M5,2 V14 M7.5,5 H11.5 M7.5,8 H11.5"),
-            StrokeThickness = 1.3,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round
-        };
-        path.SetResourceReference(Shape.StrokeProperty, "Tc.TextMuted");
-        icon.Child = path;
+        icon.SetResourceReference(ForegroundProperty, "Tc.TextMuted");
         expand.Content = icon;
 
         Button close = buttons[1];

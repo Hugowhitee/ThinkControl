@@ -29,12 +29,12 @@ public partial class AdvancedWindow
         var text = new StackPanel { Margin = new Thickness(0, 0, 18, 0) };
         text.Children.Add(new TextBlock
         {
-            Text = "Hardware setup",
+            Text = "Required components",
             FontWeight = FontWeights.SemiBold
         });
         text.Children.Add(new TextBlock
         {
-            Text = "Check the ThinkControl service, optional low-level access and detected providers in one guided window. Retry is read-only; repair asks for Windows approval only after you choose it.",
+            Text = "Inbox lists only the service or provider that currently needs attention. Open the current item to review its one focused install, repair or retry action.",
             Foreground = (Brush)FindResource("Tc.TextMuted"),
             FontSize = 10.5,
             TextWrapping = TextWrapping.Wrap,
@@ -43,7 +43,7 @@ public partial class AdvancedWindow
 
         var button = new WpfButton
         {
-            Content = "Open setup",
+            Content = "Open current item",
             Style = TryFindResource("TcButton") as Style,
             MinWidth = 96,
             VerticalAlignment = VerticalAlignment.Center

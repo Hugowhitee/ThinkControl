@@ -70,6 +70,16 @@ internal static class Program
             LowLevelAccessDetail: "Installed · device handshake needs repair",
             ServiceReachable: true);
 
+        var serviceRepairSetup = new HardwareSetupStatus(
+            ServiceInstalled: true,
+            ServiceRunning: false,
+            LowLevelAccessRelevant: true,
+            LowLevelAccessInstalled: true,
+            LowLevelAccessRunning: false,
+            ServiceDetail: "Installed · service stopped",
+            LowLevelAccessDetail: "Installed",
+            ServiceReachable: false);
+
         ThemeService.Apply(ThemeMode.Dark);
         RenderBootstrap(output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
@@ -102,12 +112,30 @@ internal static class Program
         // deterministic provider states but the exact production controls/styles.
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention.png", "PawnIO + provider attention");
-        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 620, 470, output, snapshots,
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
             "hardware-setup-pawnio-repair.png", "PawnIO device repair");
-        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 540, 420, output, snapshots,
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
             "hardware-setup-pawnio-repair-min.png", "PawnIO device repair · minimum window");
-        RenderHardwareSetup(app, charging, readySetup, 620, 470, output, snapshots,
+        RenderHardwareSetup(app, charging, readySetup, 560, 360, output, snapshots,
             "hardware-setup-ready.png", "all providers ready");
+        RenderHardwareSetup(app, charging, readySetup, 500, 330, output, snapshots,
+            "hardware-setup-ready-min.png", "all providers ready · minimum window");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "hardware-setup-pawnio-error.png", "PawnIO setup unsuccessful", terminalFailure: true);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
+            "hardware-setup-pawnio-error-min.png", "PawnIO setup unsuccessful · minimum window", terminalFailure: true);
+        RenderHardwareSetup(app, serviceOffline, serviceRepairSetup, 560, 360, output, snapshots,
+            "required-component-service.png", "service repair", issue: HardwarePrerequisiteIssue.Service);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "required-component-sensors.png", "sensor retry", issue: HardwarePrerequisiteIssue.Sensors);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "required-component-fans.png", "fan provider retry", issue: HardwarePrerequisiteIssue.FanControl);
+        RenderHardwareSetup(app, serviceOffline, readySetup, 560, 360, output, snapshots,
+            "required-component-keyboard.png", "keyboard provider retry", issue: HardwarePrerequisiteIssue.Keyboard);
+        RenderDiagnostics(app, charging, 1160, 760, output, snapshots,
+            "diagnostics-ready.png", "capabilities detected · report ready");
+        RenderDiagnostics(app, serviceOffline, 1160, 760, output, snapshots,
+            "diagnostics-discovering.png", "provider data not ready");
         RenderFanCurveEditor(app, charging, output, snapshots);
         RenderTelemetryDetail(output, snapshots);
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details.png", "normal");
@@ -123,6 +151,22 @@ internal static class Program
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention-light.png", "PawnIO + provider attention · light");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "hardware-setup-pawnio-repair-light.png", "PawnIO device repair · light");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
+            "hardware-setup-pawnio-repair-min-light.png", "PawnIO device repair · minimum window · light");
+        RenderHardwareSetup(app, charging, readySetup, 560, 360, output, snapshots,
+            "hardware-setup-ready-light.png", "all providers ready · light");
+        RenderHardwareSetup(app, charging, readySetup, 500, 330, output, snapshots,
+            "hardware-setup-ready-min-light.png", "all providers ready · minimum window · light");
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
+            "hardware-setup-pawnio-error-light.png", "PawnIO setup unsuccessful · light", terminalFailure: true);
+        RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
+            "hardware-setup-pawnio-error-min-light.png", "PawnIO setup unsuccessful · minimum window · light", terminalFailure: true);
+        RenderDiagnostics(app, charging, 1160, 760, output, snapshots,
+            "diagnostics-ready-light.png", "capabilities detected · report ready · light");
+        RenderDiagnostics(app, serviceOffline, 1160, 760, output, snapshots,
+            "diagnostics-discovering-light.png", "provider data not ready · light");
 
         WriteManifest(output, snapshots);
         WriteGallery(output, snapshots);
@@ -349,18 +393,20 @@ internal static class Program
         string output,
         ICollection<SnapshotEntry> snapshots,
         string fileName,
-        string stateName)
+        string stateName,
+        bool terminalFailure = false,
+        HardwarePrerequisiteIssue issue = HardwarePrerequisiteIssue.Auto)
     {
         SyncAppState(state, app.State);
-        var window = new HardwareSetupWindow(app, new HardwareSetupService())
+        var window = new HardwareSetupWindow(app, new HardwareSetupService(), issue)
         {
             Width = width,
             Height = height,
             DataContext = app.State
         };
-        window.PrepareForSnapshot(setup);
+        window.PrepareForSnapshot(setup, terminalFailure);
         RenderWindowContent(window, Path.Combine(output, fileName));
-        snapshots.Add(new SnapshotEntry(fileName, "Hardware setup", stateName, width, height));
+        snapshots.Add(new SnapshotEntry(fileName, "Required component", stateName, width, height));
         window.Close();
     }
 
@@ -408,6 +454,33 @@ internal static class Program
         RenderWindowContent(window, Path.Combine(output, "startup-loading.png"));
         snapshots.Add(new SnapshotEntry("startup-loading.png", "Startup", "manual launch · preparing controls", 450, 250));
         window.Close();
+    }
+
+    private static void RenderDiagnostics(
+        App app,
+        AppState state,
+        int width,
+        int height,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName)
+    {
+        SyncAppState(state, app.State);
+        var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
+        window.PrepareEnhancedUiForSnapshot();
+        window.Navigate("Settings");
+        window.PrepareDiagnosticsForSnapshot(ThinkControl.Core.Diagnostics.DiagnosticsConsent.Enabled);
+        if (window.Content is FrameworkElement root)
+        {
+            root.Measure(new Size(width, height));
+            root.Arrange(new Rect(0, 0, width, height));
+            root.UpdateLayout();
+        }
+        window.ScrollDiagnosticsIntoViewForSnapshot();
+        RenderWindowContent(window, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(fileName, "Settings · Diagnostics", stateName, width, height));
+        window.ForceClose();
     }
 
     private static void RenderSensorDetails(

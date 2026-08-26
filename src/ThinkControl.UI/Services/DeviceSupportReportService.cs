@@ -41,15 +41,26 @@ internal static class DeviceSupportReportService
     internal static string DiscoverySummary(AppState state)
     {
         if (!HasUsefulDiscovery(state))
-            return "Still learning · wait for hardware discovery to finish or run Hardware setup / Retry detection";
+            return "Still learning · wait for hardware discovery to finish or open the current Inbox item";
 
         var parts = new List<string>();
-        if (state.CanSensorTelemetry && state.Sensors.Count > 0) parts.Add($"{state.Sensors.Count} sensors");
-        if (state.CanFanTelemetry && state.Fans.Count > 0) parts.Add($"{state.Fans.Count} fan source{(state.Fans.Count == 1 ? string.Empty : "s")}");
-        if (state.CanKeyboardBacklight) parts.Add("keyboard provider");
-        if (state.CanFanControl) parts.Add("verified fan control");
-        if (state.CanCpuTemperature && state.ControlTemperatureC.HasValue) parts.Add("control temperature");
-        return parts.Count == 0 ? "Useful provider information detected" : string.Join(" · ", parts);
+        string access = state.HardwareAccess ?? string.Empty;
+        if (access.Contains("PawnIO", StringComparison.OrdinalIgnoreCase)) parts.Add("PawnIO detected");
+        else if (access.Contains("LibreHardwareMonitor", StringComparison.OrdinalIgnoreCase)) parts.Add("LibreHardwareMonitor detected");
+        else if (access.Contains("EC", StringComparison.OrdinalIgnoreCase)) parts.Add("EC provider detected");
+
+        parts.Add(state.CanSensorTelemetry && state.Sensors.Count > 0
+            ? $"{state.Sensors.Count} sensor reading{(state.Sensors.Count == 1 ? string.Empty : "s")}"
+            : "sensor telemetry unavailable");
+        parts.Add(state.CanFanTelemetry && state.Fans.Count > 0
+            ? $"{state.Fans.Count} fan source{(state.Fans.Count == 1 ? string.Empty : "s")}"
+            : "fan telemetry unavailable");
+        parts.Add(state.CanFanControl ? "fan control verified" : "fan control unavailable");
+        if (state.CanKeyboardBacklight || access.Contains("keyboard", StringComparison.OrdinalIgnoreCase))
+            parts.Add(state.CanKeyboardBacklight ? "keyboard control verified" : "keyboard control unavailable");
+        if (state.CanCpuTemperature && state.ControlTemperatureC.HasValue)
+            parts.Add($"control temperature via {state.ControlTemperatureSource}");
+        return string.Join(" · ", parts);
     }
 
     internal static DeviceSupportReport BuildReport(AppState state, SystemStatusSnapshot system)

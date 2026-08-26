@@ -46,7 +46,7 @@ public partial class AdvancedWindow
         button.Margin = new Thickness(0);
         button.BorderThickness = new Thickness(0);
         button.Background = Brushes.Transparent;
-        button.ToolTip = "Notifications";
+        button.ToolTip = "Inbox";
 
         var bell = new Path
         {
@@ -138,11 +138,11 @@ public partial class AdvancedWindow
 
         _notificationDot.Visibility = attention ? Visibility.Visible : Visibility.Collapsed;
         _notificationIndicator.ToolTip = updateAttention && hardwareAttention
-            ? "Notifications · update and hardware attention"
+            ? "Inbox · update and hardware attention"
             : updateAttention
-                ? "Notifications · update available"
+                ? "Inbox · update available"
                 : hardwareAttention
-                    ? "Notifications · hardware setup needs attention"
-                    : "Notifications";
+                    ? "Inbox · a required component needs attention"
+                    : "Inbox";
     }
 }

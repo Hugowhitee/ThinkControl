@@ -5,8 +5,8 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Shapes;
 using System.Windows.Shell;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfButton = System.Windows.Controls.Button;
@@ -15,7 +15,6 @@ using WpfGrid = System.Windows.Controls.Grid;
 using WpfSlider = System.Windows.Controls.Slider;
 using WpfStackPanel = System.Windows.Controls.StackPanel;
 using WpfTextBlock = System.Windows.Controls.TextBlock;
-using WpfViewbox = System.Windows.Controls.Viewbox;
 
 namespace ThinkControl.UI;
 
@@ -95,15 +94,13 @@ public partial class AdvancedWindow : Window
         WpfGrid.SetColumn(notificationSlot, 1);
         dockRow.Children.Add(notificationSlot);
 
-        var path = new Path
+        var viewbox = new PackIconLucide
         {
-            Stroke = (System.Windows.Media.Brush)FindResource("Tc.TextMuted"),
-            StrokeThickness = 1.5,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            Data = Geometry.Parse("M2,3 H14 V13 H2 Z M6,3 V13")
+            Kind = "ViewSidebar",
+            Width = 16,
+            Height = 16,
+            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextMuted")
         };
-        var viewbox = new WpfViewbox { Width = 14, Height = 14, Child = path };
         var button = new WpfButton
         {
             Width = 32,

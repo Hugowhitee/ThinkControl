@@ -1,5 +1,6 @@
 using System.Windows;
 using ThinkControl.Core.Ipc;
+using ThinkControl.Core.Notifications;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -12,7 +13,6 @@ public partial class App
     private bool _providerRefreshBusy;
     private bool _sensorRefreshBusy;
     private bool _keyboardRefreshBusy;
-    private bool _hardwareRepairBusy;
 
     private void OnHardwareSetupActivated(object? sender, EventArgs e)
     {
@@ -35,12 +35,13 @@ public partial class App
                 // presenting repair/setup as though the user must initialize again.
                 await Task.Delay(3500).ConfigureAwait(true);
                 await RefreshStatusAsync(forceSystemInfo: false).ConfigureAwait(true);
-                await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+                status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
             }
+            ShowFirstHardwareIssueOnce(status);
         }
         catch
         {
-            State.DriverStatus = "Hardware status unavailable · open Notifications to retry";
+            State.DriverStatus = "Hardware status unavailable · open Inbox to retry";
         }
     }
 
@@ -79,9 +80,9 @@ public partial class App
                 return false;
             }
 
-            // Full provider repair is intentionally reserved for Hardware Setup.
+            // Full provider refresh is reserved for the focused fan-provider retry.
             // It can rebuild PawnIO/LHM, X9 EC and keyboard together after returning
-            // cooling to firmware. Page-level Retry actions use narrower paths below.
+            // cooling to firmware. Sensor and keyboard prompts use narrower paths below.
             await Task.Delay(2300).ConfigureAwait(true);
             await RefreshStatusAsync(forceSystemInfo: false).ConfigureAwait(true);
             await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
@@ -143,92 +144,18 @@ public partial class App
         }
     }
 
-    internal async Task<HardwareSetupResult> RepairDetectedHardwareAsync()
-    {
-        if (_hardwareRepairBusy)
-            return new(false, false, "A hardware repair is already running.");
-
-        _hardwareRepairBusy = true;
-        try
-        {
-            HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
-
-            if (!status.ServiceRunning || !status.ServiceReachable)
-            {
-                State.DriverStatus = status.ServiceRunning
-                    ? "Restarting hardware service…"
-                    : "Starting hardware service…";
-                HardwareSetupResult service = await _hardwareSetupService.RepairServiceAsync().ConfigureAwait(true);
-                if (!service.Success)
-                {
-                    State.DriverStatus = service.Message;
-                    return service;
-                }
-
-                await Task.Delay(650).ConfigureAwait(true);
-                await RefreshStatusAsync(forceSystemInfo: true).ConfigureAwait(true);
-                status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
-                if (!status.ServiceReachable)
-                {
-                    const string connectionMessage = "The hardware service is running, but its local app connection did not become responsive. ThinkControl left the installation untouched. Retry once; if it still fails, review the hardware-service log from Diagnostics instead of reinstalling blindly.";
-                    State.DriverStatus = connectionMessage;
-                    return new(false, false, connectionMessage);
-                }
-            }
-
-            bool pawnIoRepair = status.LowLevelAccessRelevant &&
-                                (!status.LowLevelAccessInstalled || HasConcretePawnIoReadinessFailure(State.HardwareAccess));
-            if (pawnIoRepair)
-            {
-                State.DriverStatus = status.LowLevelAccessInstalled
-                    ? "Repairing low-level hardware access…"
-                    : "Installing low-level hardware access…";
-                HardwareSetupResult pawnIo = await _hardwareSetupService.InstallLowLevelAccessAsync().ConfigureAwait(true);
-                if (!pawnIo.Success || pawnIo.RestartRequired)
-                {
-                    State.DriverStatus = pawnIo.Message;
-                    return pawnIo;
-                }
-            }
-
-            State.DriverStatus = "Verifying hardware providers…";
-            await RefreshHardwareProvidersAsync().ConfigureAwait(true);
-            HardwareSetupStatus finalStatus = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
-
-            bool expectedFanTelemetry = DeviceCapabilityExpectations.ExpectsFanTelemetry(State);
-            bool expectedFanControl = DeviceCapabilityExpectations.ExpectsWritableFanControl(State);
-            bool expectedKeyboard = DeviceCapabilityExpectations.ExpectsKeyboardBacklight(State);
-            bool ready = finalStatus.ServiceRunning && finalStatus.ServiceReachable &&
-                         (!finalStatus.LowLevelAccessRelevant || finalStatus.LowLevelAccessInstalled) &&
-                         State.CanSensorTelemetry &&
-                         (!expectedFanTelemetry || State.CanFanTelemetry) &&
-                         (!expectedFanControl || State.CanFanControl) &&
-                         (!expectedKeyboard || State.CanKeyboardBacklight);
-
-            string message = ready
-                ? "Hardware setup complete. All expected providers passed readback."
-                : "Repair completed, but one or more hardware providers still did not pass readback. ThinkControl left unsupported writes disabled; check the provider details below.";
-            State.DriverStatus = ready ? "Ready" : message;
-            return new(ready, false, message);
-        }
-        finally
-        {
-            _hardwareRepairBusy = false;
-        }
-    }
-
     private string DescribeHardwareSetup(HardwareSetupStatus status)
     {
         if (!status.ServiceInstalled)
             return "ThinkControl hardware service not installed";
         if (!status.ServiceRunning)
-            return "Hardware service stopped · action available in Notifications";
+            return "Hardware service stopped · action available in Inbox";
         if (!status.ServiceReachable)
             return "Hardware service running · app connection needs attention";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
-            return "Low-level hardware access missing · action available in Notifications";
+            return "PawnIO installation required · action available in Inbox";
         if (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess))
-            return "Low-level hardware access needs repair";
+            return "PawnIO needs repair · action available in Inbox";
 
         bool providerAttention =
             !State.CanSensorTelemetry ||
@@ -251,16 +178,62 @@ public partial class App
                value.Contains("PawnIO device could not be opened", StringComparison.OrdinalIgnoreCase);
     }
 
+    internal HardwarePrerequisiteIssue ResolvePrimaryHardwareIssue(HardwareSetupStatus status)
+    {
+        if (!status.ServiceRunning || !status.ServiceReachable)
+            return HardwarePrerequisiteIssue.Service;
+        if (status.LowLevelAccessRelevant &&
+            (!status.LowLevelAccessInstalled || HasConcretePawnIoReadinessFailure(State.HardwareAccess)))
+        {
+            return HardwarePrerequisiteIssue.PawnIo;
+        }
+        if (!State.CanSensorTelemetry)
+            return HardwarePrerequisiteIssue.Sensors;
+        if (DeviceCapabilityExpectations.ExpectsWritableFanControl(State) && !State.CanFanControl)
+            return HardwarePrerequisiteIssue.FanControl;
+        if (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(State) && !State.CanKeyboardBacklight)
+            return HardwarePrerequisiteIssue.Keyboard;
+        return HardwarePrerequisiteIssue.None;
+    }
+
+    private void ShowFirstHardwareIssueOnce(HardwareSetupStatus status)
+    {
+        HardwarePrerequisiteIssue issue = ResolvePrimaryHardwareIssue(status);
+        if (issue == HardwarePrerequisiteIssue.None || !CanShowAttentionNow())
+            return;
+
+        string promptKey = $"{UpdateService.CurrentVersion}:{issue}";
+        string[] prompted = UserSettings.Current.HardwareIssuePromptedKeys
+            .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (prompted.Contains(promptKey, StringComparer.OrdinalIgnoreCase))
+            return;
+
+        string nextKeys = string.Join('|', prompted.Append(promptKey).TakeLast(12));
+        UserSettings.Update(settings => settings with
+        {
+            HardwareIssuePromptedKeys = nextKeys,
+            AttentionAcknowledgedKey = AttentionCooldownPolicy.HardwareKey(State.DriverStatus),
+            AttentionAcknowledgedAtUtc = DateTimeOffset.UtcNow.ToString("O")
+        });
+        ShowHardwareIssueWindow(issue);
+    }
+
     public void OpenHardwareAttention()
     {
-        OpenAdvanced("System");
-        Dispatcher.BeginInvoke(ShowHardwareSetupWindow);
+        _ = OpenCurrentHardwareIssueAsync();
     }
 
     public void OpenHardwareSetup()
     {
-        OpenAdvanced("System");
-        Dispatcher.BeginInvoke(ShowHardwareSetupWindow);
+        _ = OpenCurrentHardwareIssueAsync();
+    }
+
+    internal void OpenHardwareIssue(HardwarePrerequisiteIssue issue) => ShowHardwareIssueWindow(issue);
+
+    private async Task OpenCurrentHardwareIssueAsync()
+    {
+        HardwareSetupStatus status = await RefreshHardwareSetupStatusAsync().ConfigureAwait(true);
+        ShowHardwareIssueWindow(ResolvePrimaryHardwareIssue(status));
     }
 
     internal void OpenSensorDetails(Window owner)
@@ -270,7 +243,7 @@ public partial class App
         window.Activate();
     }
 
-    private void ShowHardwareSetupWindow()
+    private void ShowHardwareIssueWindow(HardwarePrerequisiteIssue issue)
     {
         if (_hardwareSetupWindow is { IsVisible: true })
         {
@@ -278,9 +251,9 @@ public partial class App
             return;
         }
 
-        _hardwareSetupWindow = new HardwareSetupWindow(this, _hardwareSetupService)
+        _hardwareSetupWindow = new HardwareSetupWindow(this, _hardwareSetupService, issue)
         {
-            Owner = _advancedWindow
+            Owner = _advancedWindow?.IsVisible == true ? _advancedWindow : CompactWindow?.IsVisible == true ? CompactWindow : null
         };
         _hardwareSetupWindow.Closed += (_, _) => _hardwareSetupWindow = null;
         _hardwareSetupWindow.Show();

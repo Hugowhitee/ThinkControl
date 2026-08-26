@@ -43,9 +43,9 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock Text="Detect" FontSize="9.5" FontWeight="SemiBold" />
                         <Line Grid.Column="1" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
-                        <TextBlock Grid.Column="2" Text="Useful data" FontSize="9.5" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="Capabilities found" FontSize="9.5" FontWeight="SemiBold" />
                         <Line Grid.Column="3" X1="2" X2="100" Y1="7" Y2="7" Stretch="Fill" Stroke="{DynamicResource Tc.TextFaint}" StrokeThickness="1" StrokeDashArray="2,3" Margin="7,0" />
-                        <TextBlock Grid.Column="4" Text="Ready to share" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.Accent}" />
+                        <TextBlock x:Name="ShareStepText" Grid.Column="4" Text="Waiting" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
                     </Grid>
                     <TextBlock x:Name="DiscoveryReadinessText" Text="Still learning · the report is prepared when useful provider data is stable"
                                Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" Margin="2,8,0,0" TextWrapping="Wrap" />

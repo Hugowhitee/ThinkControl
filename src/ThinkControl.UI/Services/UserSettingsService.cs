@@ -33,7 +33,9 @@ public sealed record ThinkControlUserSettings(
     int BatteryDetailRetentionDays = 7,
     string DefaultOpeningView = "Compact",
     string AttentionAcknowledgedKey = "",
-    string AttentionAcknowledgedAtUtc = "");
+    string AttentionAcknowledgedAtUtc = "",
+    bool DiagnosticsSharingPrompted = false,
+    string HardwareIssuePromptedKeys = "");
 
 public sealed class UserSettingsService
 {
@@ -263,6 +265,9 @@ public sealed class UserSettingsService
         string acknowledgedAt = DateTimeOffset.TryParse(settings.AttentionAcknowledgedAtUtc, out DateTimeOffset parsedAcknowledged)
             ? parsedAcknowledged.ToUniversalTime().ToString("O")
             : string.Empty;
+        string hardwareIssueKeys = settings.HardwareIssuePromptedKeys?.Trim() ?? string.Empty;
+        if (hardwareIssueKeys.Length > 512)
+            hardwareIssueKeys = string.Empty;
 
         return settings with
         {
@@ -286,7 +291,9 @@ public sealed class UserSettingsService
             BatteryDetailRetentionDays = settings.BatteryDetailRetentionDays switch { <= 7 => 7, <= 14 => 14, _ => 30 },
             DefaultOpeningView = defaultOpeningView,
             AttentionAcknowledgedKey = acknowledgedKey,
-            AttentionAcknowledgedAtUtc = acknowledgedAt
+            AttentionAcknowledgedAtUtc = acknowledgedAt,
+            DiagnosticsSharingPrompted = settings.DiagnosticsSharingPrompted,
+            HardwareIssuePromptedKeys = hardwareIssueKeys
         };
     }
 
