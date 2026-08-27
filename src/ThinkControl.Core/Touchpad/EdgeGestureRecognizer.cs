@@ -69,6 +69,25 @@ public sealed class EdgeGestureRecognizer
                 return released;
             }
 
+            // Previous/Next optionally owns a deliberate hold-and-release action.
+            // Before alpha.26 a stationary contact never left Candidate, so lifting
+            // simply reset the recognizer and Play/Pause could never fire reliably.
+            // Emit a release for an unambiguous candidate; the action router owns the
+            // hold duration and travel threshold, so ordinary taps remain no-ops.
+            if (_phase == GesturePhase.Candidate && _candidateEdges.Length == 1)
+            {
+                TouchpadEdge edge = _candidateEdges[0];
+                GestureActionKind action = _configuration.BindingFor(edge).Action;
+                GestureSignal released = new(
+                    GesturePhase.Released,
+                    edge,
+                    action,
+                    TotalTravelMm: _lastTotalTravelMm,
+                    ContactId: _contactId);
+                Reset();
+                return released;
+            }
+
             Reset();
             return null;
         }
@@ -143,10 +162,13 @@ public sealed class EdgeGestureRecognizer
         _phase = GesturePhase.Candidate;
         _lastTotalTravelMm = 0;
 
+        GestureActionKind candidateAction = candidates.Count == 1
+            ? _configuration.BindingFor(candidates[0]).Action
+            : GestureActionKind.Disabled;
         return new GestureSignal(
             GesturePhase.Candidate,
             candidates.Count == 1 ? candidates[0] : null,
-            GestureActionKind.Disabled,
+            candidateAction,
             Reason: candidates.Count > 1 ? "Corner candidate" : null,
             ContactId: contact.ContactId);
     }
