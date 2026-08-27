@@ -285,6 +285,12 @@ internal static class FanCurveEditorHistory
 
     private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
     {
+        // An unshown Window has no visual child yet, but its Content tree is already
+        // complete. Visual QA intentionally renders that Content directly. Unwrap a
+        // Window here so runtime and headless snapshot discovery share one traversal.
+        if (root is Window { Content: DependencyObject content })
+            root = content;
+
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {
             DependencyObject child = VisualTreeHelper.GetChild(root, i);
@@ -299,6 +305,9 @@ internal static class FanCurveEditorHistory
 
     private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
     {
+        if (root is Window { Content: DependencyObject content })
+            root = content;
+
         for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
         {
             DependencyObject child = VisualTreeHelper.GetChild(root, i);
