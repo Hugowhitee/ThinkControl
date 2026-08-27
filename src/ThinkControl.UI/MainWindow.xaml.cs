@@ -16,6 +16,9 @@ public partial class MainWindow : Window
     private bool _forceClose;
     private long _hideGeneration;
 
+    internal bool SuppressExternalAutoHideForShellSmoke { get; set; }
+    internal System.Windows.Controls.Button ExpandButtonForShellSmoke => Dashboard.ExpandButtonForShellSmoke;
+
     public MainWindow(App app)
     {
         _app = app;
@@ -26,8 +29,6 @@ public partial class MainWindow : Window
         SourceInitialized += (_, _) => ApplyNativeCornerClip();
         Dispatcher.UnhandledException += Dispatcher_UnhandledException;
     }
-
-    internal System.Windows.Controls.Button ExpandButtonForShellSmoke => Dashboard.ExpandButtonForShellSmoke;
 
     public void ShowNearTray(bool animate)
     {
@@ -145,8 +146,16 @@ public partial class MainWindow : Window
         HideAnimated();
     }
 
-    private void Window_Deactivated(object sender, EventArgs e) =>
+    private void Window_Deactivated(object sender, EventArgs e)
+    {
+        if (SuppressExternalAutoHideForShellSmoke)
+            return;
+
+        if (_app.KeepCompactVisibleForInternalWindow())
+            return;
+
         _app.OnCompactDeactivated();
+    }
 
     private void Dispatcher_UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
