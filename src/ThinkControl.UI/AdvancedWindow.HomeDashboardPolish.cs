@@ -19,6 +19,7 @@ public partial class AdvancedWindow
         }
 
         Resources[HomeDashboardPolishKey] = true;
+        NormalizeHomePowerTerminology();
 
         FrameworkElement? oldHeader = homeStack.Children
             .OfType<FrameworkElement>()
@@ -47,6 +48,35 @@ public partial class AdvancedWindow
             NormalizeHomeControlGrid(controls);
     }
 
+    private void NormalizeHomePowerTerminology()
+    {
+        HomeQuiet.Content = "Efficiency";
+        HomePerformance.Content = "Performance";
+
+        if (HomeQuiet.Parent is Grid segmentGrid && segmentGrid.Parent is StackPanel performanceCard)
+        {
+            Grid? heading = performanceCard.Children.OfType<Grid>().FirstOrDefault();
+            TextBlock? duplicateMode = heading?.Children.OfType<TextBlock>().FirstOrDefault(text =>
+                BindingOperations.GetBinding(text, TextBlock.TextProperty)?.Path.Path == "SelectedModeDisplay");
+            if (duplicateMode is not null)
+                duplicateMode.Visibility = Visibility.Collapsed;
+
+            TextBlock? description = performanceCard.Children.OfType<TextBlock>().FirstOrDefault(text =>
+                text.Text.Contains("responsive or efficient", StringComparison.OrdinalIgnoreCase));
+            if (description is not null)
+                description.Text = "Choose the Windows power behavior for this power source.";
+        }
+
+        // Keep the older fallback Performance page coherent too. The enhanced
+        // PerformancePanel already uses Efficiency / Balanced / Performance.
+        if (PerfQuiet.Content is StackPanel quietCopy)
+        {
+            TextBlock? title = quietCopy.Children.OfType<TextBlock>().FirstOrDefault();
+            if (title is not null)
+                title.Text = "Efficiency";
+        }
+    }
+
     private Grid BuildHomeHeader()
     {
         var header = new Grid
@@ -67,82 +97,55 @@ public partial class AdvancedWindow
         TextBlock subtitle = new()
         {
             Text = "Live machine state and the controls you use most",
-            FontSize = 10.5,
+            FontSize = 11,
             Margin = new Thickness(0, 3, 0, 0)
         };
         subtitle.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         title.Children.Add(subtitle);
         header.Children.Add(title);
 
-        var live = new StackPanel
+        var eta = new StackPanel
         {
-            Orientation = Orientation.Horizontal,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(24, 0, 6, 0)
         };
-        live.Children.Add(CreateHeaderReadout("MODE", "SelectedModeDisplay", "Performance"));
-        live.Children.Add(CreateHeaderDivider());
-        live.Children.Add(CreateHeaderReadout("DISPLAY", "CurrentRefreshText", "Display"));
-        live.Children.Add(CreateHeaderDivider());
-        live.Children.Add(CreateHeaderReadout("KEYBOARD", "KeyboardStatus", "Keyboard", 112));
-        Grid.SetColumn(live, 1);
-        header.Children.Add(live);
+        TextBlock etaLabel = new()
+        {
+            Text = "BATTERY",
+            FontSize = 10.5,
+            FontWeight = FontWeights.SemiBold,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        etaLabel.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
+        eta.Children.Add(etaLabel);
+
+        TextBlock etaValue = new()
+        {
+            FontSize = 12.5,
+            FontWeight = FontWeights.Medium,
+            Margin = new Thickness(0, 3, 0, 0),
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        etaValue.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        etaValue.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
+        {
+            Converter = ReadableTypography.BatteryTimeConverter
+        });
+        eta.Children.Add(etaValue);
+        Grid.SetColumn(eta, 1);
+        header.Children.Add(eta);
         return header;
-    }
-
-    private Border CreateHeaderReadout(string label, string path, string page, double width = 92)
-    {
-        var cell = new Border
-        {
-            Width = width,
-            Padding = new Thickness(10, 2, 10, 2),
-            Cursor = Cursors.Hand,
-            ToolTip = $"Open {page.ToLowerInvariant()} controls"
-        };
-        var stack = new StackPanel();
-        TextBlock caption = new()
-        {
-            Text = label,
-            FontSize = 8.5,
-            FontWeight = FontWeights.SemiBold
-        };
-        caption.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
-        stack.Children.Add(caption);
-
-        TextBlock value = new()
-        {
-            FontSize = 11,
-            Margin = new Thickness(0, 2, 0, 0),
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        value.SetBinding(TextBlock.TextProperty, new Binding(path));
-        stack.Children.Add(value);
-        cell.Child = stack;
-        cell.MouseLeftButtonUp += (_, _) => Navigate(page);
-        return cell;
-    }
-
-    private Border CreateHeaderDivider()
-    {
-        var divider = new Border
-        {
-            Width = 1,
-            Height = 30,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        divider.SetResourceReference(Border.BackgroundProperty, "Tc.Border");
-        return divider;
     }
 
     private Grid BuildHomeTelemetryStrip()
     {
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.8, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.75, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.1, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.15, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
@@ -154,7 +157,7 @@ public partial class AdvancedWindow
         AddTelemetryDivider(grid, 1);
         AddTelemetryMetric(grid, 2, "CPU", "CpuTemperatureText", "Live temperature", "System");
         AddTelemetryDivider(grid, 3);
-        AddTelemetryMetric(grid, 4, "FANS", "FanRpmText", "CoolingProfileDisplay", "Fans", accentDetail: true);
+        AddTelemetryMetric(grid, 4, "FANS", "CoolingProfileDisplay", "FanRpmText", "Fans", accentValue: true);
         AddTelemetryDivider(grid, 5);
         AddTelemetryMetric(grid, 6, "POWER", "BatteryPowerText", "BatteryAveragePowerText", "Battery");
         AddTelemetryDivider(grid, 7);
@@ -192,7 +195,7 @@ public partial class AdvancedWindow
         TextBlock value = CreateMetricValue("BatteryPercentText", 23);
         value.Margin = new Thickness(0, 2, 0, 0);
         copy.Children.Add(value);
-        TextBlock detail = CreateMetricDetail("BatteryCompactLine");
+        TextBlock detail = CreateMetricDetail("BatteryPowerText");
         detail.Margin = new Thickness(0, 1, 0, 0);
         copy.Children.Add(detail);
         Grid.SetColumn(copy, 1);
@@ -208,7 +211,7 @@ public partial class AdvancedWindow
         string valuePath,
         string detailPathOrText,
         string page,
-        bool accentDetail = false,
+        bool accentValue = false,
         bool compactValue = false)
     {
         var hit = new Grid
@@ -221,15 +224,17 @@ public partial class AdvancedWindow
         stack.Children.Add(CreateMetricLabel(label));
         TextBlock value = CreateMetricValue(valuePath, compactValue ? 15.5 : 20);
         value.Margin = new Thickness(0, 6, 0, 0);
+        if (accentValue)
+            value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
         stack.Children.Add(value);
 
         TextBlock detail = detailPathOrText.Contains(' ')
             ? new TextBlock { Text = detailPathOrText }
             : CreateMetricDetail(detailPathOrText);
-        detail.FontSize = 9.2;
+        detail.FontSize = 10.5;
         detail.Margin = new Thickness(0, 2, 0, 0);
         detail.TextTrimming = TextTrimming.CharacterEllipsis;
-        detail.SetResourceReference(TextBlock.ForegroundProperty, accentDetail ? "Tc.Accent" : "Tc.TextMuted");
+        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         stack.Children.Add(detail);
         hit.Children.Add(stack);
         hit.MouseLeftButtonUp += (_, _) => Navigate(page);
@@ -242,7 +247,7 @@ public partial class AdvancedWindow
         var label = new TextBlock
         {
             Text = text,
-            FontSize = 8.8,
+            FontSize = 10.5,
             FontWeight = FontWeights.SemiBold
         };
         label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
@@ -265,7 +270,7 @@ public partial class AdvancedWindow
     {
         var detail = new TextBlock
         {
-            FontSize = 9.2,
+            FontSize = 10.5,
             TextTrimming = TextTrimming.CharacterEllipsis
         };
         detail.SetBinding(TextBlock.TextProperty, new Binding(path));
