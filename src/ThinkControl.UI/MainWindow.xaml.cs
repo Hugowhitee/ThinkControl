@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
 
 namespace ThinkControl.UI;
 
@@ -27,7 +26,7 @@ public partial class MainWindow : Window
         Closing += OnClosing;
         Activated += (_, _) => _app.OnCompactActivated();
         SourceInitialized += (_, _) => ApplyNativeCornerClip();
-        Dispatcher.UnhandledException += Dispatcher_UnhandledException;
+        _app.InitializeDiagnosticsLifecycle();
     }
 
     public void ShowNearTray(bool animate)
@@ -111,7 +110,6 @@ public partial class MainWindow : Window
     public void ForceClose()
     {
         _forceClose = true;
-        Dispatcher.UnhandledException -= Dispatcher_UnhandledException;
         Close();
     }
 
@@ -156,14 +154,6 @@ public partial class MainWindow : Window
         // to another process while a toast is still visible, Compact must still
         // auto-hide. Genuine ThinkControl focus is detected from the foreground HWND.
         _app.OnCompactDeactivated();
-    }
-
-    private void Dispatcher_UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-    {
-        // Persist the exception before WPF follows its normal unhandled-exception
-        // behavior. Do not mark it handled: hiding a real crash behind a catch would
-        // recreate the diagnostic ambiguity that made alpha.23 difficult to trust.
-        _app.RecordShellException("dispatcher", e.Exception);
     }
 
     [DllImport("dwmapi.dll")]
