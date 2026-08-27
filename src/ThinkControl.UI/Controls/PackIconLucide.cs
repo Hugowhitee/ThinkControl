@@ -6,9 +6,9 @@ namespace ThinkControl.UI.Controls;
 
 /// <summary>
 /// Small dependency-free icon renderer. The historical PackIconLucide type name is
-/// retained for XAML compatibility. All icons use the control Foreground so the
-/// navigation style can brighten them automatically when selected or hovered.
-/// Selection changes color only; icon geometry/weight stays constant across pages.
+/// retained for XAML compatibility; ThinkControl's actual icon language is the
+/// curated Google Material Symbols Outlined set in Resources/MaterialSymbols.xaml.
+/// All icons use the control Foreground so navigation can brighten them automatically.
 /// </summary>
 public sealed class PackIconLucide : System.Windows.Controls.Control
 {
@@ -17,6 +17,12 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         typeof(string),
         typeof(PackIconLucide),
         new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    // Official Google Material Symbols Outlined `tune` 20 px geometry.
+    // Source: google/material-design-icons, Apache-2.0. Kept inline here so the
+    // sensitivity affordance stays in the same icon family without adding a pack.
+    private static readonly Geometry TuneGeometry = Geometry.Parse(
+        "M456-144v-240h72v84h288v72H528v84h-72Zm-312-84v-72h240v72H144Zm144-132v-84H144v-72h144v-84h72v240h-72Zm144-84v-72h384v72H432Zm144-132v-240h72v84h168v72H648v84h-72Zm-432-84v-72h384v72H144Z");
 
     public string Kind
     {
@@ -69,29 +75,38 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
-        string? resourceKey = Kind switch
+        Geometry? source;
+        if (Kind == "Tune")
         {
-            "House" => "Tc.Icon.Home",
-            "Gauge" => "Tc.Icon.Performance",
-            "Fan" => "Tc.Icon.Fan",
-            "Monitor" => "Tc.Icon.Display",
-            "Keyboard" => "Tc.Icon.Keyboard",
-            "Battery" => "Tc.Icon.Battery",
-            "Laptop" => "Tc.Icon.System",
-            "RefreshCw" => "Tc.Icon.Updates",
-            "Settings" => "Tc.Icon.Settings",
-            "Reset" => "Tc.Icon.Reset",
-            "Audio" => "Tc.Icon.Audio",
-            "Sensors" => "Tc.Icon.Sensors",
-            "Cpu" => "Tc.Icon.Cpu",
-            "Brightness" => "Tc.Icon.Brightness",
-            "OpenInFull" => "Tc.Icon.OpenInFull",
-            "Close" => "Tc.Icon.Close",
-            "Check" => "Tc.Icon.Check",
-            "Error" => "Tc.Icon.Error",
-            _ => null
-        };
-        Geometry? source = resourceKey is null ? null : TryFindResource(resourceKey) as Geometry;
+            source = TuneGeometry;
+        }
+        else
+        {
+            string? resourceKey = Kind switch
+            {
+                "House" => "Tc.Icon.Home",
+                "Gauge" => "Tc.Icon.Performance",
+                "Fan" => "Tc.Icon.Fan",
+                "Monitor" => "Tc.Icon.Display",
+                "Keyboard" => "Tc.Icon.Keyboard",
+                "Battery" => "Tc.Icon.Battery",
+                "Laptop" => "Tc.Icon.System",
+                "RefreshCw" => "Tc.Icon.Updates",
+                "Settings" => "Tc.Icon.Settings",
+                "Reset" => "Tc.Icon.Reset",
+                "Audio" => "Tc.Icon.Audio",
+                "Sensors" => "Tc.Icon.Sensors",
+                "Cpu" => "Tc.Icon.Cpu",
+                "Brightness" => "Tc.Icon.Brightness",
+                "OpenInFull" => "Tc.Icon.OpenInFull",
+                "Close" => "Tc.Icon.Close",
+                "Check" => "Tc.Icon.Check",
+                "Error" => "Tc.Icon.Error",
+                _ => null
+            };
+            source = resourceKey is null ? null : TryFindResource(resourceKey) as Geometry;
+        }
+
         if (source is null)
             return;
 
