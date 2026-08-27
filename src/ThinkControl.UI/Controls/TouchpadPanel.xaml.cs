@@ -45,17 +45,13 @@ public partial class TouchpadPanel : UserControl
 
         ActionCombo.ItemsSource = new[]
         {
-            new ActionOption(GestureActionKind.Disabled, "Off", "No action is assigned to this edge."),
-            new ActionOption(GestureActionKind.Volume, "Volume", "Continuous control. Slow movement makes fine adjustments; a longer movement changes more."),
-            new ActionOption(GestureActionKind.Brightness, "Brightness", "Continuous display brightness control using the Windows brightness provider."),
-            new ActionOption(GestureActionKind.MediaSeek, "Media seek", "Speed-sensitive scrubbing. Slow glides seek precisely; fast swipes move farther. Requests are coalesced so Spotify is not flooded."),
-            new ActionOption(GestureActionKind.PreviousNextTrack, "Previous / next track", "Triggers once when the gesture is claimed: one direction goes to the next track, the other to the previous track."),
-            new ActionOption(GestureActionKind.PlayPause, "Play / pause", "Toggles the active media session once per gesture."),
-            new ActionOption(GestureActionKind.Mute, "Mute / unmute", "Toggles the default Windows audio output mute state once per gesture."),
-            new ActionOption(GestureActionKind.TaskView, "Task view", "Opens Windows Task View once per gesture."),
-            new ActionOption(GestureActionKind.ShowDesktop, "Show desktop", "Toggles the Windows desktop once per gesture."),
-            new ActionOption(GestureActionKind.KeyboardBacklight, "Keyboard backlight", "Steps through the supported keyboard backlight levels."),
-            new ActionOption(GestureActionKind.PerformanceMode, "Performance mode", "Steps through Quiet, Balanced and Performance modes.")
+            new ActionOption(GestureActionKind.Disabled, "Off", "Leave this edge unassigned."),
+            new ActionOption(GestureActionKind.Volume, "Volume", "Slide continuously to change volume. The speaker button in the pop-up handles mute and unmute."),
+            new ActionOption(GestureActionKind.Brightness, "Brightness", "Slide continuously to change Windows display brightness."),
+            new ActionOption(GestureActionKind.MediaSeek, "Media scrub", "Scrub through the active media session. Slow movement is precise; faster movement seeks farther."),
+            new ActionOption(GestureActionKind.PreviousNextTrack, "Track control", "Swipe one way for previous and the other for next. Optional center hold can play or pause without triggering while you swipe through it."),
+            new ActionOption(GestureActionKind.PlayPause, "Play / pause", "Toggle the active media session once when the edge gesture is claimed."),
+            new ActionOption(GestureActionKind.OpenThinkControl, "Open ThinkControl", "Open the Compact ThinkControl surface from this edge gesture.")
         };
 
         Visualizer.EdgeSelected += OnEdgeSelected;
@@ -132,7 +128,8 @@ public partial class TouchpadPanel : UserControl
             _ => "Vertical movement along the right edge."
         };
         ActionOption selected = ActionCombo.Items.Cast<ActionOption>()
-            .First(option => option.Action == binding.Action);
+            .FirstOrDefault(option => option.Action == binding.Action)
+            ?? ActionCombo.Items.Cast<ActionOption>().First(option => option.Action == GestureActionKind.Disabled);
         ActionCombo.SelectedItem = selected;
         ActionHelpText.Text = selected.Description;
         SensitivitySlider.Value = binding.Sensitivity;
@@ -260,14 +257,31 @@ public partial class TouchpadPanel : UserControl
     {
         if (_host is null)
             return;
-        _configuration = _configuration with
+
+        TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
+        TouchpadEdge? movedFrom = null;
+        if (binding.Action != GestureActionKind.Disabled)
         {
-            Bindings = WithBinding(_configuration.Bindings ?? TouchpadGestureBindings.AsusStyle, _selectedEdge, binding)
-        };
-        _configuration = _configuration.Sanitize();
+            foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
+            {
+                if (edge == _selectedEdge)
+                    continue;
+                TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
+                if (existing.Action != binding.Action)
+                    continue;
+                movedFrom = edge;
+                bindings = WithBinding(bindings, edge, existing with { Action = GestureActionKind.Disabled });
+            }
+        }
+
+        bindings = WithBinding(bindings, _selectedEdge, binding);
+        _configuration = (_configuration with { Bindings = bindings }).Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
         SensitivityValue.Text = FormatSensitivity(binding.Sensitivity);
+
+        if (movedFrom is TouchpadEdge previous)
+            GestureStatusText.Text = $"{ActionLabel(binding.Action)} moved from {EdgeLabel(previous)} to {EdgeLabel(_selectedEdge)}.";
     }
 
     private void HapticSwitch_Click(object sender, RoutedEventArgs e)
@@ -348,6 +362,8 @@ public partial class TouchpadPanel : UserControl
             Visualizer.SetTestFrame(_contacts, _signal);
             GestureStatusText.Text = signal.Phase switch
             {
+                GesturePhase.Candidate when signal.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled =>
+                    "Track control · hold for Play / Pause, or swipe for Previous / Next",
                 GesturePhase.Candidate => signal.Reason ?? "Gesture candidate",
                 GesturePhase.Claimed => $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}",
                 GesturePhase.Active => FormatGestureStatus(signal),
@@ -536,14 +552,10 @@ public partial class TouchpadPanel : UserControl
     {
         GestureActionKind.Volume => "Volume",
         GestureActionKind.Brightness => "Brightness",
-        GestureActionKind.MediaSeek => "Media seek",
-        GestureActionKind.PreviousNextTrack => "Previous / next track",
+        GestureActionKind.MediaSeek => "Media scrub",
+        GestureActionKind.PreviousNextTrack => "Track control",
         GestureActionKind.PlayPause => "Play / pause",
-        GestureActionKind.Mute => "Mute / unmute",
-        GestureActionKind.TaskView => "Task view",
-        GestureActionKind.ShowDesktop => "Show desktop",
-        GestureActionKind.KeyboardBacklight => "Keyboard backlight",
-        GestureActionKind.PerformanceMode => "Performance mode",
+        GestureActionKind.OpenThinkControl => "Open ThinkControl",
         _ => "Off"
     };
 }
