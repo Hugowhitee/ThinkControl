@@ -76,7 +76,6 @@ internal sealed class CrashReportService
         string source,
         Exception exception,
         AppState state,
-        SystemStatusSnapshot system,
         DiagnosticsRecorder recorder)
     {
         if (Interlocked.Exchange(ref _capturing, 1) != 0)
@@ -88,12 +87,13 @@ internal sealed class CrashReportService
             string message = Safe(exception.Message, 700);
             string stack = SanitizeStack(exception.ToString());
             string[] events = ReadEventSummary(recorder);
-            string signature = string.Join("|",
+            string[] signatureParts = [
                 UpdateService.CurrentVersion,
-                source,
+                Safe(source, 80),
                 type,
-                stack.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(8));
-            string fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(signature)));
+                .. stack.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(8)
+            ];
+            string fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", signatureParts))));
 
             var report = new CrashReport(
                 fingerprint,
@@ -103,9 +103,9 @@ internal sealed class CrashReportService
                 type,
                 message,
                 stack,
-                Safe(system.DeviceName, 120),
-                Safe(system.MachineType, 40),
-                Safe(system.BiosVersion, 80),
+                Safe(state.DeviceName, 120),
+                Safe(state.MachineType, 40),
+                Safe(state.BiosVersion, 80),
                 Safe(Environment.OSVersion.VersionString, 120),
                 events);
 
