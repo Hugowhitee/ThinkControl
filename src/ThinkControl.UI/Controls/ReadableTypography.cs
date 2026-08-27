@@ -91,7 +91,7 @@ internal static class ReadableTypography
         bool headingWeight = text.FontWeight.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight();
         bool explanatoryCopy = text.TextWrapping != TextWrapping.NoWrap ||
                                literal.Length >= 34 ||
-                               literal.Contains('.', StringComparison.Ordinal);
+                               literal.Contains('.');
         bool numericValue = LooksLikeDataValue(literal, path);
 
         if (versionMetadata || terseMetadata || allCapsMetric)
