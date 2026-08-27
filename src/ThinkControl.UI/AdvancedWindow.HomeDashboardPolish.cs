@@ -92,13 +92,13 @@ public partial class AdvancedWindow
         {
             Text = "Overview",
             FontWeight = FontWeights.SemiBold,
-            FontSize = 20
+            FontSize = TypographyScale.PageTitle
         });
         TextBlock subtitle = new()
         {
             Text = "Live machine state and the controls you use most",
-            FontSize = 11,
-            Margin = new Thickness(0, 3, 0, 0)
+            FontSize = TypographyScale.Body,
+            Margin = new Thickness(0, 4, 0, 0)
         };
         subtitle.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         title.Children.Add(subtitle);
@@ -113,7 +113,7 @@ public partial class AdvancedWindow
         TextBlock etaLabel = new()
         {
             Text = "BATTERY",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Right
         };
@@ -122,7 +122,7 @@ public partial class AdvancedWindow
 
         TextBlock etaValue = new()
         {
-            FontSize = 12.5,
+            FontSize = TypographyScale.Secondary,
             FontWeight = FontWeights.Medium,
             Margin = new Thickness(0, 3, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Right
@@ -170,36 +170,38 @@ public partial class AdvancedWindow
         var root = new Grid
         {
             Cursor = Cursors.Hand,
+            Margin = new Thickness(12, 0, 10, 0),
             ToolTip = "Open battery details"
         };
-        root.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(105) });
         root.ColumnDefinitions.Add(new ColumnDefinition());
+        root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        // Battery copy follows exactly the same left-aligned hierarchy as CPU,
+        // Fans, Power and Sensors. The graphic is contextual information, so it
+        // sits at the far right instead of pushing the text out of alignment.
+        var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        copy.Children.Add(CreateMetricLabel("BATTERY"));
+        TextBlock value = CreateMetricValue("BatteryPercentText", 20);
+        value.Margin = new Thickness(0, 6, 0, 0);
+        copy.Children.Add(value);
+        TextBlock detail = CreateMetricDetail("BatteryPowerText");
+        detail.Margin = new Thickness(0, 2, 0, 0);
+        copy.Children.Add(detail);
+        root.Children.Add(copy);
 
         var gauge = new BatteryGauge
         {
-            Width = 96,
-            Height = 37,
+            Width = 106,
+            Height = 41,
+            Margin = new Thickness(16, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Left
+            HorizontalAlignment = HorizontalAlignment.Right
         };
         gauge.SetBinding(BatteryGauge.PercentProperty, new Binding("BatteryPercent"));
         gauge.SetBinding(BatteryGauge.IsChargingProperty, new Binding("BatteryCharging"));
+        Grid.SetColumn(gauge, 1);
         root.Children.Add(gauge);
 
-        var copy = new StackPanel
-        {
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0, 8, 0)
-        };
-        copy.Children.Add(CreateMetricLabel("BATTERY"));
-        TextBlock value = CreateMetricValue("BatteryPercentText", 23);
-        value.Margin = new Thickness(0, 2, 0, 0);
-        copy.Children.Add(value);
-        TextBlock detail = CreateMetricDetail("BatteryPowerText");
-        detail.Margin = new Thickness(0, 1, 0, 0);
-        copy.Children.Add(detail);
-        Grid.SetColumn(copy, 1);
-        root.Children.Add(copy);
         root.MouseLeftButtonUp += (_, _) => Navigate("Battery");
         return root;
     }
@@ -222,7 +224,7 @@ public partial class AdvancedWindow
         };
         var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         stack.Children.Add(CreateMetricLabel(label));
-        TextBlock value = CreateMetricValue(valuePath, compactValue ? 15.5 : 20);
+        TextBlock value = CreateMetricValue(valuePath, compactValue ? 16 : 20);
         value.Margin = new Thickness(0, 6, 0, 0);
         if (accentValue)
             value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
@@ -231,7 +233,7 @@ public partial class AdvancedWindow
         TextBlock detail = detailPathOrText.Contains(' ')
             ? new TextBlock { Text = detailPathOrText }
             : CreateMetricDetail(detailPathOrText);
-        detail.FontSize = 10.5;
+        detail.FontSize = TypographyScale.Secondary;
         detail.Margin = new Thickness(0, 2, 0, 0);
         detail.TextTrimming = TextTrimming.CharacterEllipsis;
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
@@ -247,7 +249,7 @@ public partial class AdvancedWindow
         var label = new TextBlock
         {
             Text = text,
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
         label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
@@ -270,7 +272,7 @@ public partial class AdvancedWindow
     {
         var detail = new TextBlock
         {
-            FontSize = 10.5,
+            FontSize = TypographyScale.Secondary,
             TextTrimming = TextTrimming.CharacterEllipsis
         };
         detail.SetBinding(TextBlock.TextProperty, new Binding(path));
