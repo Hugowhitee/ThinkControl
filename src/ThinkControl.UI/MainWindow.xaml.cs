@@ -1,11 +1,16 @@
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Interop;
 using System.Windows.Media.Animation;
 
 namespace ThinkControl.UI;
 
 public partial class MainWindow : Window
 {
+    private const int DwmwaWindowCornerPreference = 33;
+    private const int DwmWindowCornerRound = 2;
+
     private readonly App _app;
     private bool _forceClose;
     private bool _explicitViewSwitch;
@@ -16,6 +21,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         Dashboard.Initialize(app);
         Closing += OnClosing;
+        SourceInitialized += (_, _) => ApplyNativeCornerClip();
     }
 
     /// <summary>
@@ -107,6 +113,28 @@ public partial class MainWindow : Window
         Close();
     }
 
+    private void ApplyNativeCornerClip()
+    {
+        // WindowChrome's WPF corner radius only affects the drawn frame. On a
+        // custom-chrome window the HWND itself can still expose a square background
+        // pixel outside that curve. Ask DWM to round the actual native surface as
+        // well so fill, border and hit-test shape end on the same corner.
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+            return;
+
+        try
+        {
+            IntPtr hwnd = new WindowInteropHelper(this).Handle;
+            int preference = DwmWindowCornerRound;
+            _ = DwmSetWindowAttribute(hwnd, DwmwaWindowCornerPreference, ref preference, sizeof(int));
+        }
+        catch
+        {
+            // Windows 10 and unsupported DWM configurations keep the existing
+            // WindowChrome fallback; corner polish must never affect startup.
+        }
+    }
+
     private void OnClosing(object? sender, CancelEventArgs e)
     {
         if (_forceClose)
@@ -127,4 +155,11 @@ public partial class MainWindow : Window
         if (IsVisible)
             HideAnimated();
     }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(
+        IntPtr hwnd,
+        int attribute,
+        ref int attributeValue,
+        int attributeSize);
 }
