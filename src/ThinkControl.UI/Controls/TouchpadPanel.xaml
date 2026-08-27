@@ -6,11 +6,11 @@
     <UserControl.Resources>
         <Style x:Key="TouchpadLabel" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
-            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontSize" Value="11" />
         </Style>
         <Style x:Key="TouchpadValue" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontSize" Value="13" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
@@ -23,7 +23,7 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,16,0">
                 <TextBlock Text="Touchpad" FontSize="24" FontWeight="SemiBold" />
-                <TextBlock Text="Live touch visualization, edge shortcuts, haptics and the gesture pop-up." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="Live touch visualization, edge shortcuts, haptics and gesture feedback." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap" />
             </StackPanel>
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Edge gestures" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" Margin="0,0,10,0" />
@@ -43,33 +43,12 @@
                             <TextBlock Text="Live touchpad" FontWeight="SemiBold" />
                             <TextBlock Text="Touch input and edge actions are rendered only while this page is open." Style="{StaticResource TouchpadLabel}" Margin="0,4,170,0" TextWrapping="Wrap" />
                         </StackPanel>
-                        <TextBlock x:Name="InputStatusText" Text="Touchpad not detected yet" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" />
+                        <TextBlock x:Name="InputStatusText" Text="Touchpad not detected yet" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextMuted}" FontSize="11" />
                     </Grid>
 
                     <Grid Grid.Row="1" Height="340" Margin="0,8,0,0">
                         <controls:TouchpadVisualizer x:Name="Visualizer" />
-                        <Border x:Name="GestureFeedbackOverlay"
-                                HorizontalAlignment="Center"
-                                VerticalAlignment="Center"
-                                MinWidth="172"
-                                MaxWidth="260"
-                                Padding="12,9"
-                                CornerRadius="5"
-                                Background="{DynamicResource Tc.SurfaceAlt}"
-                                BorderBrush="{DynamicResource Tc.BorderStrong}"
-                                BorderThickness="1"
-                                Opacity="0"
-                                IsHitTestVisible="False">
-                            <StackPanel Orientation="Horizontal">
-                                <controls:PackIconLucide x:Name="GestureFeedbackIcon" Kind="Touchpad" Width="18" Height="18" Margin="0,0,10,0" VerticalAlignment="Center" Foreground="{DynamicResource Tc.Text}" />
-                                <StackPanel VerticalAlignment="Center">
-                                    <TextBlock x:Name="GestureFeedbackTitle" Text="Gesture" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock x:Name="GestureFeedbackValue" Text="Ready" FontSize="14" FontWeight="SemiBold" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </StackPanel>
-                        </Border>
                     </Grid>
-
                 </Grid>
             </Border>
 
@@ -181,7 +160,7 @@
         </Grid>
 
         <Border Grid.Row="2" Margin="0,12,0,0" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="1" CornerRadius="4" Padding="10,7">
-            <TextBlock x:Name="GestureStatusText" Text="Edge gestures are off." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
+            <TextBlock x:Name="GestureStatusText" Text="Edge gestures are off." Foreground="{DynamicResource Tc.TextMuted}" FontSize="11" TextWrapping="Wrap" />
         </Border>
     </Grid>
 </UserControl>
