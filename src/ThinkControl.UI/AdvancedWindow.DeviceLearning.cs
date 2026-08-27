@@ -33,7 +33,7 @@ public partial class AdvancedWindow
                 VerticalAlignment = VerticalAlignment.Center,
                 Padding = new Thickness(4, 3, 4, 3),
                 Margin = new Thickness(0),
-                FontSize = 9.5,
+                FontSize = TypographyScale.Caption,
                 MaxWidth = 108,
                 Visibility = Visibility.Collapsed,
                 ToolTip = "Compatibility learning runs quietly in the background while you use ThinkControl. Nothing is uploaded automatically."

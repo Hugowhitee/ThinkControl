@@ -6,6 +6,8 @@ namespace ThinkControl.UI.Controls;
 
 public partial class DiagnosticsPanel
 {
+    private bool _crashQueueSnapshotRequested;
+
     /// <summary>
     /// Dedicated deterministic state for diagnostics visual QA. These captures
     /// intentionally exercise the unknown-device lifecycle even though the general
@@ -67,5 +69,55 @@ public partial class DiagnosticsPanel
         {
             _syncing = false;
         }
+    }
+
+    internal void PrepareCrashQueueForSnapshot()
+    {
+        _crashQueueSnapshotRequested = true;
+        ApplyCrashQueueSnapshotState();
+    }
+
+    private void ApplyCrashQueueSnapshotState()
+    {
+        bool previousSyncing = _syncing;
+        _syncing = true;
+        try
+        {
+            const string latestId = "snapshot-latest";
+            _selectedCrashId = latestId;
+            CrashCard.Visibility = Visibility.Visible;
+            CrashSeparator.Visibility = Visibility.Visible;
+            CrashTitleText.Text = "Crashes preserved · 3";
+            CrashSummaryText.Text = "NotSupportedException · ToolTip property contract · today 14:32 · repeated 2 times · 2 previous unresolved";
+            CrashHistoryCombo.ItemsSource = new[]
+            {
+                new CrashHistoryOption(latestId, "NotSupportedException · ×2 · today 14:32"),
+                new CrashHistoryOption("snapshot-previous", "InvalidOperationException · today 13:58"),
+                new CrashHistoryOption("snapshot-oldest", "COMException · yesterday 22:11")
+            };
+            CrashHistoryCombo.SelectedValue = latestId;
+            CrashHistoryCombo.Visibility = Visibility.Visible;
+            MarkCrashReportedButton.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _syncing = previousSyncing;
+        }
+    }
+
+    internal bool BringCrashQueueIntoViewForSnapshot()
+    {
+        // This hook runs after the snapshot window completed Measure / Arrange.
+        // Re-materialize the requested synthetic state here so later layout work can
+        // never erase the evidence before capture.
+        if (_crashQueueSnapshotRequested)
+            ApplyCrashQueueSnapshotState();
+
+        if (CrashCard.Visibility != Visibility.Visible)
+            return false;
+
+        CrashCard.UpdateLayout();
+        CrashCard.BringIntoView();
+        return true;
     }
 }

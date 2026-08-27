@@ -35,51 +35,38 @@ public partial class TouchpadPanel
         RefreshValueFeedback();
     }
 
-    internal void PrepareForSnapshot(bool showActiveGesture)
+    internal void PrepareForSnapshot(bool showActiveGesture, bool showInwardGesture = false)
     {
         _settingsSaveTimer.Stop();
         ClearGestureFeedback();
         InputStatusText.Text = "Precision Touchpad detected";
 
-        if (!showActiveGesture)
+        if (!showActiveGesture && !showInwardGesture)
         {
+            PrepareSnapshotBinding(TouchpadEdge.Top, GestureActionKind.MediaSeek, trackCenter: false);
             Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
             return;
         }
 
-        _syncing = true;
-        try
+        if (showInwardGesture)
         {
-            // Wide QA explicitly covers Track control plus its optional center action.
-            _selectedEdge = TouchpadEdge.Bottom;
-            GestureEnableSwitch.IsChecked = true;
-            TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
-            // Move any existing Track control assignment before selecting Bottom so
-            // the uniqueness rule is represented in the deterministic snapshot too.
-            foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
-            {
-                if (edge == TouchpadEdge.Bottom)
-                    continue;
-                TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
-                if (existing.Action == GestureActionKind.PreviousNextTrack)
-                    bindings = WithBinding(bindings, edge, existing with { Action = GestureActionKind.Disabled });
-            }
-            _configuration = (_configuration with
-            {
-                Enabled = true,
-                TrackCenterPlayPauseEnabled = true,
-                Bindings = WithBinding(bindings, TouchpadEdge.Bottom,
-                    new TouchpadEdgeBinding(GestureActionKind.PreviousNextTrack))
-            }).Sanitize();
-            Visualizer.SelectedEdge = _selectedEdge;
-            Visualizer.Configuration = _configuration;
-            SyncSelectedEdge();
-            SyncTrackCenterOption();
+            PrepareSnapshotBinding(TouchpadEdge.Right, GestureActionKind.OpenThinkControl, trackCenter: false);
+            var inward = new GestureSignal(
+                GesturePhase.Active,
+                TouchpadEdge.Right,
+                GestureActionKind.OpenThinkControl,
+                TotalTravelMm: 8.4,
+                DeltaMm: 2.2,
+                ContactId: 1);
+            Visualizer.SetTestFrame([new TouchContact(1, 9600, 1200, true)], inward);
+            Visualizer.SetTestFrame([new TouchContact(1, 7800, 3100, true)], inward);
+            Visualizer.ShowActiveGestureValue(TouchpadEdge.Right, "Compact view");
+            GestureStatusText.Text = "Open Compact · inward";
+            return;
         }
-        finally
-        {
-            _syncing = false;
-        }
+
+        // Wide QA explicitly covers Track control plus its optional center action.
+        PrepareSnapshotBinding(TouchpadEdge.Bottom, GestureActionKind.PreviousNextTrack, trackCenter: true);
 
         var signal = new GestureSignal(
             GesturePhase.Active,
@@ -93,6 +80,40 @@ public partial class TouchpadPanel
         Visualizer.SetTestFrame([new TouchContact(1, 8500, 7700, true)], signal);
         Visualizer.ShowActiveGestureValue(TouchpadEdge.Bottom, "Next");
         GestureStatusText.Text = "Track control · Next";
+    }
+
+    private void PrepareSnapshotBinding(TouchpadEdge selectedEdge, GestureActionKind action, bool trackCenter)
+    {
+        _syncing = true;
+        try
+        {
+            _selectedEdge = selectedEdge;
+            GestureEnableSwitch.IsChecked = true;
+            TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
+            foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
+            {
+                if (edge == selectedEdge)
+                    continue;
+                TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
+                if (existing.Action == action)
+                    bindings = WithBinding(bindings, edge, existing with { Action = GestureActionKind.Disabled });
+            }
+
+            _configuration = (_configuration with
+            {
+                Enabled = true,
+                TrackCenterPlayPauseEnabled = trackCenter,
+                Bindings = WithBinding(bindings, selectedEdge, new TouchpadEdgeBinding(action))
+            }).Sanitize();
+            Visualizer.SelectedEdge = _selectedEdge;
+            Visualizer.Configuration = _configuration;
+            SyncSelectedEdge();
+            SyncTrackCenterOption();
+        }
+        finally
+        {
+            _syncing = false;
+        }
     }
 
     private void ConfigureResetButton(

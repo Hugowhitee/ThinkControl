@@ -53,7 +53,7 @@ public partial class AdvancedWindow
 
         _updateLastCheckedText = new TextBlock
         {
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 7, 0, 0)
         };
         _updateLastCheckedText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
@@ -186,7 +186,7 @@ public partial class AdvancedWindow
         {
             Text = "✓",
             FontFamily = new System.Windows.Media.FontFamily("Segoe UI Symbol"),
-            FontSize = 11,
+            FontSize = TypographyScale.Secondary,
             FontWeight = FontWeights.SemiBold,
             Foreground = System.Windows.Media.Brushes.White,
             HorizontalAlignment = HorizontalAlignment.Center,

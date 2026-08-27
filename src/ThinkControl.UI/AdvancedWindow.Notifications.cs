@@ -31,28 +31,23 @@ public partial class AdvancedWindow
         Grid? utilityRow = navStack.Children.OfType<Grid>().FirstOrDefault(grid =>
             grid.Tag as string == "ThinkControl.UtilityRow");
         Button? notificationButton = utilityRow?.Children.OfType<Button>()
-            .FirstOrDefault(child => child.Tag as string == "ThinkControl.NotificationSlot");
+            .FirstOrDefault(child => Equals(child.Tag, ShellUtilityOrder.NotificationTag));
         Button? compactButton = utilityRow?.Children.OfType<Button>()
-            .FirstOrDefault(child => !ReferenceEquals(child, notificationButton));
+            .FirstOrDefault(child => Equals(child.Tag, ShellUtilityOrder.ViewModeTag));
         if (utilityRow is null || notificationButton is null || compactButton is null)
             return;
 
         _notificationButtonConfigured = true;
 
-        compactButton.Width = 34;
-        compactButton.Height = 34;
-        compactButton.Padding = new Thickness(0);
         compactButton.Margin = new Thickness(0, 0, 4, 0);
         compactButton.Background = Brushes.Transparent;
         compactButton.BorderBrush = Brushes.Transparent;
         compactButton.BorderThickness = new Thickness(0);
-        compactButton.Content = new PackIconLucide
-        {
-            Kind = "CompactView",
-            Width = 18,
-            Height = 18,
-            Foreground = (Brush)FindResource("Tc.TextMuted")
-        };
+        ShellUtilityOrder.ConfigureModeButton(
+            compactButton,
+            "Compact",
+            "CompactView",
+            (Brush)FindResource("Tc.TextMuted"));
         TcToolTip.Apply(compactButton, "Compact view");
 
         notificationButton.Width = 34;
@@ -96,8 +91,10 @@ public partial class AdvancedWindow
         content.Children.Add(bell);
         content.Children.Add(_notificationDot);
         notificationButton.Content = content;
+        notificationButton.Tag = ShellUtilityOrder.NotificationTag;
         notificationButton.Click += (_, _) => ToggleNotificationSheet();
         _notificationIndicator = notificationButton;
+        ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
 
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;

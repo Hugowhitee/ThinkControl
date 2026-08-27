@@ -1,6 +1,7 @@
 <Application x:Class="ThinkControl.UI.App"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:ThinkControl.UI"
              ShutdownMode="OnExplicitShutdown">
     <Application.Resources>
         <ResourceDictionary>
@@ -22,11 +23,47 @@
             <SolidColorBrush x:Key="Tc.Success" Color="#4CCB7A" />
             <SolidColorBrush x:Key="Tc.Warning" Color="#E7A640" />
 
-            <Style TargetType="TextBlock">
+            <Style x:Key="TcText.Body" TargetType="TextBlock">
                 <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Body}" />
                 <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
                 <Setter Property="TextOptions.TextFormattingMode" Value="Display" />
+            </Style>
+
+            <Style TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}" />
+            <Style x:Key="TcText.PageTitle" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.PageTitle}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style x:Key="TcText.PageSubtitle" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Body}" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
+            </Style>
+            <Style x:Key="TcText.SectionTitle" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.SectionTitle}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style x:Key="TcText.Secondary" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Secondary}" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
+            </Style>
+            <Style x:Key="TcText.Caption" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Caption}" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.TextFaint}" />
+            </Style>
+            <Style x:Key="TcText.ControlLabel" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ControlLabel}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style x:Key="TcText.Value" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Value}" />
+                <Setter Property="FontWeight" Value="Light" />
+            </Style>
+            <Style x:Key="TcText.ValueLarge" TargetType="TextBlock" BasedOn="{StaticResource TcText.Value}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ValueLarge}" />
+            </Style>
+            <Style x:Key="TcText.ValueHero" TargetType="TextBlock" BasedOn="{StaticResource TcText.Value}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ValueHero}" />
             </Style>
 
             <Style TargetType="ToolTip">
@@ -35,7 +72,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Padding" Value="8,5" />
-                <Setter Property="FontSize" Value="12.5" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Caption}" />
             </Style>
 
             <Style x:Key="TcSection" TargetType="Border">
@@ -52,7 +89,7 @@
                 <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="Padding" Value="12,7" />
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ControlText}" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -94,7 +131,7 @@
                 <Setter Property="Height" Value="34" />
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
-                <Setter Property="FontSize" Value="15" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.BodyLarge}" />
             </Style>
 
             <!-- Caption buttons keep a Windows-sized hit target while their glyphs
@@ -113,7 +150,15 @@
                 <Setter Property="BorderBrush" Value="Transparent" />
                 <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
                 <Setter Property="Padding" Value="5,3" />
-                <Setter Property="FontSize" Value="11.5" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ControlText}" />
+            </Style>
+
+            <Style x:Key="TcExternalSettingsLink" TargetType="Button" BasedOn="{StaticResource TcInlineButton}">
+                <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
+                <Setter Property="Padding" Value="7,4" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Secondary}" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+                <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
 
             <Style x:Key="TcSegment" TargetType="RadioButton">
@@ -125,6 +170,8 @@
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Center" />
                 <Setter Property="FontWeight" Value="Normal" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ControlText}" />
+                <Setter Property="MinHeight" Value="38" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
@@ -181,7 +228,7 @@
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                 <Setter Property="FontWeight" Value="Normal" />
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Navigation}" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">

@@ -3,9 +3,8 @@ namespace ThinkControl.UI;
 /// <summary>
 /// The one typography ramp used by every ThinkControl surface.
 ///
-/// Do not introduce one-off UI font sizes. Pick the semantic role instead. The
-/// runtime typography pass and visual-QA validation both use this class, so code-
-/// built WPF surfaces and XAML surfaces stay on the same hierarchy.
+/// Do not introduce one-off UI font sizes. Pick the semantic role instead.
+/// Visual QA validates this contract but never mutates a rendered control.
 /// </summary>
 public static class TypographyScale
 {
@@ -16,6 +15,9 @@ public static class TypographyScale
     public const double Body = 14;
     public const double Secondary = 13;
     public const double Caption = 12;
+    public const double ControlLabel = 14;
+    public const double Navigation = 14;
+    public const double ControlText = 14;
     public const double Value = 18;
     public const double ValueLarge = 24;
     public const double ValueHero = 32;

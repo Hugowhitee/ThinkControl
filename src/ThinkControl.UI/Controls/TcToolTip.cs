@@ -31,7 +31,7 @@ public static class TcToolTip
         var label = new TextBlock
         {
             Text = text,
-            FontSize = 11.5,
+            FontSize = TypographyScale.Secondary,
             TextWrapping = TextWrapping.NoWrap,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -57,8 +57,7 @@ public static class TcToolTip
             HasDropShadow = false,
             Placement = placement,
             PlacementTarget = owner,
-            HorizontalOffset = placement == PlacementMode.Right ? 8 : 0,
-            StaysOpen = false
+            HorizontalOffset = placement == PlacementMode.Right ? 8 : 0
         };
         tip.Opened += (_, _) =>
         {

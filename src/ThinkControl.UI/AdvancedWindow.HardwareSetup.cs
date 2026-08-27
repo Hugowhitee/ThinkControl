@@ -36,7 +36,7 @@ public partial class AdvancedWindow
         {
             Text = "Inbox lists only the service or provider that currently needs attention. Open the current item to review its one focused install, repair or retry action.",
             Foreground = (Brush)FindResource("Tc.TextMuted"),
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         });
@@ -70,7 +70,7 @@ public partial class AdvancedWindow
         {
             Text = "Live control temperature, fan tachometers and provider-reported hardware readings. Details stay read-only and missing sensors remain unavailable.",
             Foreground = (Brush)FindResource("Tc.TextMuted"),
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         });

@@ -1,4 +1,5 @@
 <UserControl x:Class="ThinkControl.UI.Controls.FansPanel"
+             xmlns:ui="clr-namespace:ThinkControl.UI"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <UserControl.Resources>
@@ -62,7 +63,7 @@
     </UserControl.Resources>
 
     <StackPanel>
-        <TextBlock Text="Fans" FontSize="24" FontWeight="SemiBold" />
+        <TextBlock Text="Fans" Style="{StaticResource TcText.PageTitle}" />
         <TextBlock Text="Fan behavior is independent from Windows performance mode. ThinkControl keeps Lenovo Auto as the fail-safe and maps custom curves only to verified X9 EC states."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
@@ -72,8 +73,8 @@
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="Fan profile" FontWeight="SemiBold" />
-                    <TextBlock x:Name="CoolingDetailText" Text="Lenovo firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <TextBlock Text="Built-in and custom curves use the same verified fan-output mapping. Custom profiles can be created and edited in the curve editor." Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock x:Name="CoolingDetailText" Text="Lenovo firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <TextBlock Text="Built-in and custom curves use the same verified fan-output mapping. Custom profiles can be created and edited in the curve editor." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <ComboBox x:Name="ProfileComboBox"
@@ -88,8 +89,8 @@
                 </StackPanel>
                 <StackPanel x:Name="ActiveCurvePreview" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,0" Visibility="Collapsed">
                     <Grid Margin="0,0,0,5">
-                        <TextBlock Text="Active curve" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
-                        <TextBlock x:Name="LiveCurveStatus" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <TextBlock Text="Active curve" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <TextBlock x:Name="LiveCurveStatus" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                     </Grid>
                     <ContentControl x:Name="ActiveCurvePreviewHost" Height="138" />
                 </StackPanel>
@@ -104,34 +105,34 @@
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="Control temperature" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" />
-                            <TextBlock Text="{Binding ControlTemperatureText}" FontSize="28" FontWeight="Light" Margin="0,4,0,0" />
+                            <TextBlock Text="Control temperature" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
+                            <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="Light" Margin="0,4,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                            <TextBlock Text="Applied fan output" FontSize="10" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" />
-                            <TextBlock x:Name="AppliedLevelText" Text="Auto" FontSize="19" FontWeight="Light" Margin="0,7,0,0" HorizontalAlignment="Right" />
+                            <TextBlock Text="Applied fan output" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" />
+                            <TextBlock x:Name="AppliedLevelText" Text="Auto" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,7,0,0" HorizontalAlignment="Right" />
                         </StackPanel>
                     </Grid>
-                    <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
-                    <TextBlock FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="Continuous PWM is not assumed; percentages map only to provider states that have been measured and verified."><Run Text="PWM / EC · " /><Run Text="{Binding HardwareAccess}" /></TextBlock>
+                    <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
+                    <TextBlock FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="Continuous PWM is not assumed; percentages map only to provider states that have been measured and verified."><Run Text="PWM / EC · " /><Run Text="{Binding HardwareAccess}" /></TextBlock>
                 </StackPanel>
             </Border>
 
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
-                    <Grid><TextBlock Text="Fan telemetry" FontWeight="SemiBold" /><TextBlock Text="{Binding FanCountText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" /></Grid>
+                    <Grid><TextBlock Text="Fan telemetry" FontWeight="SemiBold" /><TextBlock Text="{Binding FanCountText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /></Grid>
                     <ItemsControl ItemsSource="{Binding Fans}" Margin="0,9,0,0">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Grid Margin="0,3,0,3">
                                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Label}" FontSize="10.5" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" HorizontalAlignment="Right" FontSize="10.5" />
+                                    <TextBlock Text="{Binding Label}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" />
                                 </Grid>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
-                    <TextBlock Text="ThinkControl shows only tachometers exposed by a real provider; missing fan channels are never invented." FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                    <TextBlock Text="ThinkControl shows only tachometers exposed by a real provider; missing fan channels are never invented." FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -142,7 +143,7 @@
                     <StackPanel>
                         <TextBlock Text="Fan calibration" FontWeight="SemiBold" />
                         <TextBlock Text="Measure the seven verified EC steps and their real tachometer response. Lower percentages are derived from RPM relative to step 7, the physically verified maximum."
-                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,200,0" TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,200,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                         <Button x:Name="CharacterizeButton" Content="Calibrate fan" Style="{StaticResource TcButton}" Click="Characterize_Click" />
@@ -151,7 +152,7 @@
                 </Grid>
                 <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="7" Margin="0,14,0,0" Visibility="Collapsed" />
                 <Grid Margin="0,10,0,0">
-                    <TextBlock x:Name="CharacterizationStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
+                    <TextBlock x:Name="CharacterizationStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" />
                     <Button x:Name="MarkAudibleButton" HorizontalAlignment="Right" Content="Clearly audible here" Style="{StaticResource TcButton}" Click="MarkAudible_Click" Visibility="Collapsed" />
                 </Grid>
                 <ItemsControl x:Name="CalibrationResults" Margin="0,10,0,0">
@@ -159,9 +160,9 @@
                         <DataTemplate>
                             <Grid Margin="0,3,0,3">
                                 <Grid.ColumnDefinitions><ColumnDefinition Width="105" /><ColumnDefinition /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10" />
-                                <TextBlock Grid.Column="1" Text="{Binding RpmText}" FontSize="10" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="2" Text="{Binding StabilityText}" HorizontalAlignment="Right" FontSize="10" />
+                                <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                                <TextBlock Grid.Column="1" Text="{Binding RpmText}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="{Binding StabilityText}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" />
                             </Grid>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -176,9 +177,9 @@
                         <StackPanel>
                             <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
                             <TextBlock Text="0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state; ThinkControl does not expose the ineffective echoed 0x47 override."
-                                       Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" Margin="0,5,170,0" />
+                                       Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
-                        <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="18" FontWeight="Light" />
+                        <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
                     </Grid>
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -189,7 +190,7 @@
                     <Expander Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
                             <TextBlock Text="Use these only for diagnostics. Step 7 is the physically verified maximum and is the hardware state used for a 100% target."
-                                       Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                       Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                 <Button Content="1" Style="{StaticResource TcButton}" Tag="1" Click="ManualLevel_Click" Margin="0,0,4,0" />

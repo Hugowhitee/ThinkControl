@@ -352,7 +352,7 @@ public partial class FansPanel : UserControl
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(10, 4, 10, 4),
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             ToolTip = "Return fan ownership to Lenovo Auto"
         };
         reset.Click += Reset_Click;

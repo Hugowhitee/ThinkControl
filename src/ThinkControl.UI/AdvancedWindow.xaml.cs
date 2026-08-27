@@ -77,7 +77,7 @@ public partial class AdvancedWindow : Window
         var label = new WpfTextBlock
         {
             Text = "Advanced",
-            FontSize = 10,
+            FontSize = TypographyScale.Caption,
             Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextFaint"),
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(4, 0, 0, 0)

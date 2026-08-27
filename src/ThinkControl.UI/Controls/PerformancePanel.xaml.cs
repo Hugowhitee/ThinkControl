@@ -52,9 +52,11 @@ public partial class PerformancePanel : UserControl
         _subscribedState = null;
     }
 
-    private void Sync()
+    internal void PrepareForSnapshot() => Sync(force: true);
+
+    private void Sync(bool force = false)
     {
-        if (_app is null || !IsVisible)
+        if (_app is null || (!force && !IsVisible))
             return;
 
         _syncing = true;

@@ -91,7 +91,7 @@ public partial class TelemetryDetailWindow : Window
         var label = new TextBlock
         {
             Text = metric.Label.ToUpperInvariant(),
-            FontSize = 8.8,
+            FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
         label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
@@ -99,7 +99,7 @@ public partial class TelemetryDetailWindow : Window
         stack.Children.Add(new TextBlock
         {
             Text = metric.Value,
-            FontSize = 16,
+            FontSize = TypographyScale.SectionTitle,
             Margin = new Thickness(0, 4, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
         });
@@ -108,7 +108,7 @@ public partial class TelemetryDetailWindow : Window
             var detail = new TextBlock
             {
                 Text = metric.Detail,
-                FontSize = 9.2,
+                FontSize = TypographyScale.Caption,
                 Margin = new Thickness(0, 2, 0, 0),
                 TextWrapping = TextWrapping.Wrap
             };

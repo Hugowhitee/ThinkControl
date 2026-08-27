@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.Core.Touchpad;
 using ThinkControl.UI.Services.Touchpad;
@@ -8,7 +9,7 @@ namespace ThinkControl.UI.Controls;
 
 public partial class TouchpadPanel : UserControl
 {
-    private sealed record ActionOption(GestureActionKind Action, string Label, string Description)
+    private sealed record ActionOption(GestureActionKind Action, string Label, string Description, Geometry Icon)
     {
         public override string ToString() => Label;
     }
@@ -45,13 +46,13 @@ public partial class TouchpadPanel : UserControl
 
         ActionCombo.ItemsSource = new[]
         {
-            new ActionOption(GestureActionKind.Disabled, "Off", "Leave this edge unassigned."),
-            new ActionOption(GestureActionKind.Volume, "Volume", "Slide continuously to change volume. The speaker button in the pop-up handles mute and unmute."),
-            new ActionOption(GestureActionKind.Brightness, "Brightness", "Slide continuously to change Windows display brightness."),
-            new ActionOption(GestureActionKind.MediaSeek, "Media scrub", "Scrub through the active media session. Slow movement is precise; faster movement seeks farther."),
-            new ActionOption(GestureActionKind.PreviousNextTrack, "Track control", "Swipe one way for previous and the other for next. Optional center hold can play or pause without triggering while you swipe through it."),
-            new ActionOption(GestureActionKind.PlayPause, "Play / pause", "Toggle the active media session once when the edge gesture is claimed."),
-            new ActionOption(GestureActionKind.OpenThinkControl, "Open ThinkControl", "Open the Compact ThinkControl surface from this edge gesture.")
+            new ActionOption(GestureActionKind.Disabled, "Off", "Leave this edge unassigned.", ResolveIcon("Tc.Icon.Close")),
+            new ActionOption(GestureActionKind.Volume, "Volume", "Slide continuously to change volume. The speaker button in the pop-up handles mute and unmute.", ResolveIcon(SemanticIconKeys.Volume)),
+            new ActionOption(GestureActionKind.Brightness, "Brightness", "Slide continuously to change Windows display brightness.", ResolveIcon(SemanticIconKeys.Brightness)),
+            new ActionOption(GestureActionKind.MediaSeek, "Media scrub", "Scrub through the active media session. Slow movement is precise; faster movement seeks farther.", ResolveIcon(SemanticIconKeys.MediaScrub)),
+            new ActionOption(GestureActionKind.PreviousNextTrack, "Track control", "Swipe one way for previous and the other for next. Optional center hold can play or pause without triggering while you swipe through it.", ResolveIcon(SemanticIconKeys.Next)),
+            new ActionOption(GestureActionKind.PlayPause, "Play / pause", "Toggle the active media session once when the edge gesture is claimed.", ResolveIcon(SemanticIconKeys.PlayPause)),
+            new ActionOption(GestureActionKind.OpenThinkControl, "Open Compact", "Swipe inward from this edge to open ThinkControl Compact.", ResolveIcon(SemanticIconKeys.CompactView))
         };
 
         Visualizer.EdgeSelected += OnEdgeSelected;
@@ -59,6 +60,13 @@ public partial class TouchpadPanel : UserControl
         IsVisibleChanged += (_, e) => OnVisibilityChanged(e.NewValue is true);
         Loaded += (_, _) => SyncHostUiSubscriptions(IsVisible);
         Unloaded += OnUnloaded;
+    }
+
+    private Geometry ResolveIcon(string resourceKey)
+    {
+        if (TryFindResource(resourceKey) is Geometry geometry)
+            return geometry;
+        throw new InvalidOperationException($"Gesture action icon '{resourceKey}' is not registered.");
     }
 
     internal void Initialize(App app)
@@ -107,7 +115,7 @@ public partial class TouchpadPanel : UserControl
                 ? (_host.IsInputRunning ? "Waiting for touchpad input" : "Input inactive")
                 : (_host.Geometry.PhysicalSizeEstimated ? "Precision Touchpad · size estimated" : "Precision Touchpad detected");
             GestureStatusText.Text = _configuration.Enabled
-                ? "Edge gestures are active. Start inside a highlighted edge band and move along that edge."
+                ? "Edge gestures are active. Start inside a highlighted edge band and follow the assigned along-edge or inward motion."
                 : "Edge gestures are off. Live touch visualization runs only while this page is open.";
         }
         finally
@@ -120,13 +128,22 @@ public partial class TouchpadPanel : UserControl
     private void SyncSelectedEdge()
     {
         TouchpadEdgeBinding binding = _configuration.BindingFor(_selectedEdge);
-        SelectedEdgeDescription.Text = _selectedEdge switch
-        {
-            TouchpadEdge.Top => "Horizontal movement along the top edge.",
-            TouchpadEdge.Bottom => "Horizontal movement along the bottom edge.",
-            TouchpadEdge.Left => "Vertical movement along the left edge.",
-            _ => "Vertical movement along the right edge."
-        };
+        TouchpadActionVisualSpec visual = TouchpadActionVisualCatalog.Get(binding.Action);
+        SelectedEdgeDescription.Text = visual.Motion == TouchpadGestureMotionKind.Inward
+            ? _selectedEdge switch
+            {
+                TouchpadEdge.Top => "Swipe inward from the top edge.",
+                TouchpadEdge.Bottom => "Swipe inward from the bottom edge.",
+                TouchpadEdge.Left => "Swipe inward from the left edge.",
+                _ => "Swipe inward from the right edge."
+            }
+            : _selectedEdge switch
+            {
+                TouchpadEdge.Top => "Horizontal movement along the top edge.",
+                TouchpadEdge.Bottom => "Horizontal movement along the bottom edge.",
+                TouchpadEdge.Left => "Vertical movement along the left edge.",
+                _ => "Vertical movement along the right edge."
+            };
         ActionOption selected = ActionCombo.Items.Cast<ActionOption>()
             .FirstOrDefault(option => option.Action == binding.Action)
             ?? ActionCombo.Items.Cast<ActionOption>().First(option => option.Action == GestureActionKind.Disabled);

@@ -183,7 +183,7 @@ internal sealed class AttentionToastService : IDisposable
         var appName = new TextBlock
         {
             Text = "ThinkControl",
-            FontSize = 10,
+            FontSize = TypographyScale.Caption,
             VerticalAlignment = VerticalAlignment.Center
         };
         appName.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
@@ -198,7 +198,7 @@ internal sealed class AttentionToastService : IDisposable
 
         _title = new TextBlock
         {
-            FontSize = 14,
+            FontSize = TypographyScale.Body,
             FontWeight = FontWeights.SemiBold,
             TextWrapping = TextWrapping.Wrap
         };
@@ -206,7 +206,7 @@ internal sealed class AttentionToastService : IDisposable
 
         _message = new TextBlock
         {
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 5, 0, 0),
             TextWrapping = TextWrapping.Wrap,
             MaxHeight = 68

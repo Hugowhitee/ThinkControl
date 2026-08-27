@@ -49,13 +49,13 @@ public partial class AdvancedWindow
         {
             Text = "Support ThinkControl",
             FontWeight = FontWeights.SemiBold,
-            FontSize = 12.5
+            FontSize = TypographyScale.ControlLabel
         });
         copy.Children.Add(new TextBlock
         {
             Text = "Like the project? Buy me a coffee and help fund testing on more laptops.",
             Foreground = TryFindResource("Tc.TextMuted") as Brush,
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0)
         });
@@ -90,12 +90,12 @@ public partial class AdvancedWindow
         {
             Text = "Overview",
             FontWeight = FontWeights.SemiBold,
-            FontSize = 20
+            FontSize = TypographyScale.PageTitle
         });
         var detail = new TextBlock
         {
             Text = "Live status and the controls you use most",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 3, 0, 0)
         };
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");

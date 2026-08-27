@@ -12,6 +12,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
 {
     private bool _syncing;
     private App? _subscribedApp;
+    private string? _selectedCrashId;
 
     public DiagnosticsPanel()
     {
@@ -119,12 +120,33 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                 }
             }
 
-            CrashReport? crash = app.PendingCrashReport;
+            IReadOnlyList<CrashReport> crashes = app.PendingCrashReports;
+            int crashCount = crashes.Count;
+            CrashReport? crash = crashes.FirstOrDefault(item =>
+                    string.Equals(item.Id, _selectedCrashId, StringComparison.OrdinalIgnoreCase))
+                ?? crashes.FirstOrDefault();
             bool hasCrash = crash is not null;
             CrashCard.Visibility = hasCrash ? Visibility.Visible : Visibility.Collapsed;
             CrashSeparator.Visibility = hasCrash ? Visibility.Visible : Visibility.Collapsed;
+            CrashHistoryCombo.Visibility = crashCount > 1 ? Visibility.Visible : Visibility.Collapsed;
             if (crash is not null)
-                CrashSummaryText.Text = FormatCrashSummary(crash);
+            {
+                _selectedCrashId = crash.Id;
+                CrashTitleText.Text = crashCount == 1 ? "Previous crash" : $"Crashes preserved · {crashCount}";
+                CrashSummaryText.Text = FormatCrashSummary(crash, crashCount);
+                CrashHistoryCombo.ItemsSource = crashes.Select(item => new CrashHistoryOption(
+                    item.Id,
+                    FormatCrashPickerLabel(item))).ToArray();
+                CrashHistoryCombo.SelectedValue = crash.Id;
+                MarkCrashReportedButton.Visibility = crash.State == CrashReportState.Opened
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
+            }
+            else
+            {
+                _selectedCrashId = null;
+                CrashHistoryCombo.ItemsSource = null;
+            }
 
             LastEventText.Text = app.DiagnosticsRecorder.LastEventAtUtc is DateTimeOffset last
                 ? $"Last local activity · {last.ToLocalTime():g}"
@@ -235,22 +257,31 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
     {
         if (System.Windows.Application.Current is not App app)
             return;
-        if (!app.OpenPendingCrashReportOnGitHub())
+        if (!app.OpenCrashReportOnGitHub(_selectedCrashId))
         {
             Refresh();
             return;
         }
         Refresh();
-        StatusText.Text = "Opened the redacted crash draft on GitHub. Nothing is submitted until you submit the issue yourself.";
+        StatusText.Text = "Opened the redacted crash draft on GitHub. The local report remains until you explicitly dismiss it or mark it reported.";
     }
 
     private void DismissCrash_Click(object sender, RoutedEventArgs e)
     {
         if (System.Windows.Application.Current is not App app)
             return;
-        app.DismissPendingCrashReport();
+        app.DismissCrashReport(_selectedCrashId);
         Refresh();
-        StatusText.Text = "Crash report dismissed and removed from this PC.";
+        StatusText.Text = "Crash report dismissed. Any other unresolved crashes remain available.";
+    }
+
+    private void MarkCrashReported_Click(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.Application.Current is not App app)
+            return;
+        app.MarkCrashReported(_selectedCrashId);
+        Refresh();
+        StatusText.Text = "Crash marked reported locally. Any other unresolved crash remains available.";
     }
 
     private void Preview_Click(object sender, RoutedEventArgs e)
@@ -335,9 +366,34 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         StatusText.Text = "Local diagnostics and report state deleted.";
     }
 
-    private static string FormatCrashSummary(CrashReport crash)
+
+    private void CrashHistoryCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        string when = DateTimeOffset.TryParse(crash.TimestampUtc, out DateTimeOffset timestamp)
+        if (_syncing || CrashHistoryCombo.SelectedValue is not string id ||
+            string.Equals(id, _selectedCrashId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _selectedCrashId = id;
+        Refresh();
+    }
+
+    private static string FormatCrashPickerLabel(CrashReport crash)
+    {
+        string type = crash.ExceptionType?.Split('.').LastOrDefault() ?? "Unexpected error";
+        string when = DateTimeOffset.TryParse(crash.LastSeenUtc, out DateTimeOffset timestamp)
+            ? timestamp.ToLocalTime().ToString("g")
+            : "previous run";
+        string repeats = crash.OccurrenceCount > 1 ? $" · ×{crash.OccurrenceCount}" : string.Empty;
+        return $"{type}{repeats} · {when}";
+    }
+
+    private sealed record CrashHistoryOption(string Id, string Label);
+
+    private static string FormatCrashSummary(CrashReport crash, int unresolvedCount)
+    {
+        string when = DateTimeOffset.TryParse(crash.LastSeenUtc, out DateTimeOffset timestamp)
             ? timestamp.ToLocalTime().ToString("g")
             : "previous run";
         string type = crash.ExceptionType?.Split('.').LastOrDefault() ?? "Unexpected error";
@@ -345,9 +401,11 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         if (message.Length > 150)
             message = message[..147] + "…";
-        return string.IsNullOrWhiteSpace(message)
+        string repeats = crash.OccurrenceCount > 1 ? $" · repeated {crash.OccurrenceCount} times" : string.Empty;
+        string previous = unresolvedCount > 1 ? $" · {unresolvedCount - 1} previous unresolved" : string.Empty;
+        return (string.IsNullOrWhiteSpace(message)
             ? $"{type} · {when}"
-            : $"{type} · {message} · {when}";
+            : $"{type} · {message} · {when}") + repeats + previous;
     }
 
     private static void WriteBundle(App app, string path)

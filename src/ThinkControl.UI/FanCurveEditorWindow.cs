@@ -75,11 +75,11 @@ internal sealed class FanCurveEditorWindow : Window
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 16) };
-        heading.Children.Add(new TextBlock { Text = "Fan curves", FontSize = 24, FontWeight = FontWeights.SemiBold });
+        heading.Children.Add(new TextBlock { Text = "Fan curves", FontSize = TypographyScale.PageTitle, FontWeight = FontWeights.SemiBold });
         var subtitle = new TextBlock
         {
             Text = "Tune temperature against a real 0–100% target. ThinkControl maps the graph to measured X9 EC states after calibration; 100% uses the physically verified maximum, EC step 7.",
-            FontSize = 11,
+            FontSize = TypographyScale.Secondary,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         };
@@ -105,7 +105,7 @@ internal sealed class FanCurveEditorWindow : Window
         _customHeading.Margin = new Thickness(0, 13, 0, 7);
         profileStack.Children.Add(_customHeading);
         _customEmpty.Text = "No custom curves yet";
-        _customEmpty.FontSize = 10;
+        _customEmpty.FontSize = TypographyScale.Caption;
         _customEmpty.Margin = new Thickness(5, 6, 0, 7);
         _customEmpty.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
         profileStack.Children.Add(_customEmpty);
@@ -156,7 +156,7 @@ internal sealed class FanCurveEditorWindow : Window
         editorHeader.ColumnDefinitions.Add(new ColumnDefinition());
         editorHeader.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         editorHeader.Children.Add(new TextBlock { Text = "Temperature / fan target", FontWeight = FontWeights.SemiBold });
-        var safety = new TextBlock { Text = "94 °C → Lenovo firmware", FontSize = 10, VerticalAlignment = VerticalAlignment.Center };
+        var safety = new TextBlock { Text = "94 °C → Lenovo firmware", FontSize = TypographyScale.Caption, VerticalAlignment = VerticalAlignment.Center };
         safety.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         Grid.SetColumn(safety, 1);
         editorHeader.Children.Add(safety);
@@ -170,7 +170,7 @@ internal sealed class FanCurveEditorWindow : Window
         var pointTools = new Grid { Margin = new Thickness(0, 10, 0, 0) };
         pointTools.ColumnDefinitions.Add(new ColumnDefinition());
         pointTools.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        _liveValue.FontSize = 10.5;
+        _liveValue.FontSize = TypographyScale.Caption;
         _liveValue.FontWeight = FontWeights.SemiBold;
         _liveValue.VerticalAlignment = VerticalAlignment.Center;
         _liveValue.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
@@ -205,7 +205,7 @@ internal sealed class FanCurveEditorWindow : Window
         var outputPanel = PrecisionPanel("Fan target", _output, "%");
         Grid.SetColumn(outputPanel, 2);
         precision.Children.Add(outputPanel);
-        _pointValue.FontSize = 10;
+        _pointValue.FontSize = TypographyScale.Caption;
         _pointValue.Margin = new Thickness(0, 7, 0, 0);
         _pointValue.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         Grid.SetRow(_pointValue, 1);
@@ -220,7 +220,7 @@ internal sealed class FanCurveEditorWindow : Window
         footer.ColumnDefinitions.Add(new ColumnDefinition());
         footer.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         _status.VerticalAlignment = VerticalAlignment.Center;
-        _status.FontSize = 10.5;
+        _status.FontSize = TypographyScale.Caption;
         _status.TextWrapping = TextWrapping.Wrap;
         _status.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         footer.Children.Add(_status);
@@ -254,7 +254,7 @@ internal sealed class FanCurveEditorWindow : Window
     private StackPanel PrecisionPanel(string title, TextBox input, string suffix)
     {
         var panel = new StackPanel();
-        panel.Children.Add(new TextBlock { Text = title, FontSize = 10, Margin = new Thickness(0, 0, 0, 4) });
+        panel.Children.Add(new TextBlock { Text = title, FontSize = TypographyScale.Caption, Margin = new Thickness(0, 0, 0, 4) });
         var field = new Grid();
         field.ColumnDefinitions.Add(new ColumnDefinition());
         field.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -265,7 +265,7 @@ internal sealed class FanCurveEditorWindow : Window
         input.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
         input.SetResourceReference(Control.BorderBrushProperty, "Tc.BorderStrong");
         field.Children.Add(input);
-        var unit = new TextBlock { Text = suffix, FontSize = 10.5, Margin = new Thickness(7, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        var unit = new TextBlock { Text = suffix, FontSize = TypographyScale.Caption, Margin = new Thickness(7, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
         unit.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         Grid.SetColumn(unit, 1);
         field.Children.Add(unit);
@@ -316,7 +316,7 @@ internal sealed class FanCurveEditorWindow : Window
     private void ConfigureSmallButton(Button button)
     {
         button.Padding = new Thickness(9, 5, 9, 5);
-        button.FontSize = 10;
+        button.FontSize = TypographyScale.Caption;
         button.SetResourceReference(Button.StyleProperty, "TcButton");
     }
 

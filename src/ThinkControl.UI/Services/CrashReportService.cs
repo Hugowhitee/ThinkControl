@@ -8,10 +8,22 @@ using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Services;
 
+internal enum CrashReportState
+{
+    Pending,
+    Opened,
+    Reported,
+    Dismissed
+}
+
 internal sealed record CrashReport(
+    string Id,
     string Fingerprint,
     string Version,
-    string TimestampUtc,
+    string FirstSeenUtc,
+    string LastSeenUtc,
+    int OccurrenceCount,
+    CrashReportState State,
     string Source,
     string ExceptionType,
     string Message,
@@ -28,6 +40,7 @@ internal sealed record CrashReport(
 /// </summary>
 internal sealed class CrashReportService
 {
+    private const int ResolvedRetentionLimit = 16;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         WriteIndented = true
@@ -35,13 +48,20 @@ internal sealed class CrashReportService
     private static readonly Regex WindowsPath = new(@"(?i)(?:[a-z]:\\|\\\\)[^\r\n\t]*", RegexOptions.Compiled);
 
     private readonly object _gate = new();
-    private readonly string _folder = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "ThinkControl",
-        "Crashes");
+    private readonly string _folder;
     private int _capturing;
+    private string? _lastCapturedFingerprint;
+    private DateTimeOffset _lastCapturedAtUtc;
 
-    private string PendingPath => Path.Combine(_folder, "pending-crash.json");
+    internal CrashReportService(string? folder = null)
+    {
+        _folder = folder ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "ThinkControl",
+            "Crashes");
+    }
+
+    private string LegacyPendingPath => Path.Combine(_folder, "pending-crash.json");
     private string RunMarkerPath => Path.Combine(_folder, "active-run.json");
 
     internal bool BeginRun()
@@ -86,19 +106,39 @@ internal sealed class CrashReportService
             string type = Safe(exception.GetType().FullName ?? exception.GetType().Name, 160);
             string message = Safe(exception.Message, 700);
             string stack = SanitizeStack(exception.ToString());
+            string signatureStack = SanitizeStack(exception.StackTrace ?? string.Empty);
             string[] events = ReadEventSummary(recorder);
             string[] signatureParts = [
-                UpdateService.CurrentVersion,
-                Safe(source, 80),
                 type,
-                .. stack.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(8)
+                .. signatureStack.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(8)
             ];
             string fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("|", signatureParts))));
 
+            DateTimeOffset capturedAt = DateTimeOffset.UtcNow;
+            if (string.Equals(_lastCapturedFingerprint, fingerprint, StringComparison.OrdinalIgnoreCase) &&
+                capturedAt - _lastCapturedAtUtc < TimeSpan.FromSeconds(5))
+            {
+                // WPF can surface one fatal exception through both Dispatcher and
+                // AppDomain hooks while the same process unwinds. Count that once;
+                // the next process has a fresh service instance and increments the
+                // persisted occurrence as a genuinely repeated crash.
+                return;
+            }
+            _lastCapturedFingerprint = fingerprint;
+            _lastCapturedAtUtc = capturedAt;
+
+            string now = capturedAt.ToString("O");
+            CrashReport? existing = ReadAllUnsafe()
+                .Where(item => IsUnresolved(item.State))
+                .FirstOrDefault(item => string.Equals(item.Fingerprint, fingerprint, StringComparison.OrdinalIgnoreCase));
             var report = new CrashReport(
+                existing?.Id ?? Guid.NewGuid().ToString("N"),
                 fingerprint,
                 UpdateService.CurrentVersion,
-                DateTimeOffset.UtcNow.ToString("O"),
+                existing?.FirstSeenUtc ?? now,
+                now,
+                Math.Max(1, (existing?.OccurrenceCount ?? 0) + 1),
+                CrashReportState.Pending,
                 Safe(source, 80),
                 type,
                 message,
@@ -110,14 +150,8 @@ internal sealed class CrashReportService
                 events);
 
             Directory.CreateDirectory(_folder);
-            string temporary = PendingPath + ".tmp";
-            byte[] payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report, JsonOptions));
-            using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.Read, 4096, FileOptions.WriteThrough))
-            {
-                stream.Write(payload);
-                stream.Flush(flushToDisk: true);
-            }
-            File.Move(temporary, PendingPath, overwrite: true);
+            WriteReportUnsafe(report);
+            PruneResolvedUnsafe();
         }
         catch
         {
@@ -133,25 +167,47 @@ internal sealed class CrashReportService
     {
         lock (_gate)
         {
-            try
-            {
-                if (!File.Exists(PendingPath))
-                    return null;
-                return JsonSerializer.Deserialize<CrashReport>(File.ReadAllText(PendingPath), JsonOptions);
-            }
-            catch
-            {
-                return null;
-            }
+            MigrateLegacyUnsafe();
+            return ReadAllUnsafe()
+                .Where(item => IsUnresolved(item.State))
+                .OrderByDescending(item => ParseTimestamp(item.LastSeenUtc))
+                .FirstOrDefault();
         }
     }
 
-    internal void ClearPending()
+    internal IReadOnlyList<CrashReport> GetUnresolved()
     {
         lock (_gate)
         {
-            try { File.Delete(PendingPath); } catch { }
-            try { File.Delete(PendingPath + ".tmp"); } catch { }
+            MigrateLegacyUnsafe();
+            return ReadAllUnsafe()
+                .Where(item => IsUnresolved(item.State))
+                .OrderByDescending(item => ParseTimestamp(item.LastSeenUtc))
+                .ToArray();
+        }
+    }
+
+    internal void MarkOpened(string id) => SetState(id, CrashReportState.Opened);
+
+    internal void MarkReported(string id) => SetState(id, CrashReportState.Reported);
+
+    internal void Dismiss(string id) => SetState(id, CrashReportState.Dismissed);
+
+    internal void ClearAll()
+    {
+        lock (_gate)
+        {
+            try
+            {
+                if (Directory.Exists(_folder))
+                {
+                    foreach (string path in Directory.EnumerateFiles(_folder, "crash-*.json"))
+                        File.Delete(path);
+                }
+            }
+            catch { }
+            try { File.Delete(LegacyPendingPath); } catch { }
+            try { File.Delete(LegacyPendingPath + ".tmp"); } catch { }
         }
     }
 
@@ -170,6 +226,7 @@ internal sealed class CrashReportService
         body.AppendLine($"- BIOS: `{report.BiosVersion}`");
         body.AppendLine($"- Crash source: `{report.Source}`");
         body.AppendLine($"- Signature: `{report.Fingerprint[..Math.Min(16, report.Fingerprint.Length)]}`");
+        body.AppendLine($"- Occurrences preserved locally: `{report.OccurrenceCount}`");
         body.AppendLine();
         body.AppendLine("### Exception");
         body.AppendLine($"`{report.ExceptionType}`: {report.Message}");
@@ -250,4 +307,114 @@ internal sealed class CrashReportService
         text = new string(text.Where(ch => !char.IsControl(ch) || ch is '\r' or '\n' or '\t').ToArray()).Trim();
         return text.Length <= maxLength ? text : text[..maxLength];
     }
+
+    private void SetState(string id, CrashReportState state)
+    {
+        lock (_gate)
+        {
+            CrashReport? report = ReadAllUnsafe().FirstOrDefault(item =>
+                string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase));
+            if (report is null)
+                return;
+            WriteReportUnsafe(report with { State = state });
+            PruneResolvedUnsafe();
+        }
+    }
+
+    private IReadOnlyList<CrashReport> ReadAllUnsafe()
+    {
+        var reports = new List<CrashReport>();
+        try
+        {
+            if (!Directory.Exists(_folder))
+                return reports;
+            foreach (string path in Directory.EnumerateFiles(_folder, "crash-*.json"))
+            {
+                try
+                {
+                    CrashReport? report = JsonSerializer.Deserialize<CrashReport>(File.ReadAllText(path), JsonOptions);
+                    if (report is not null && !string.IsNullOrWhiteSpace(report.Id))
+                        reports.Add(report);
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return reports;
+    }
+
+    private void WriteReportUnsafe(CrashReport report)
+    {
+        Directory.CreateDirectory(_folder);
+        string path = Path.Combine(_folder, $"crash-{report.Id}.json");
+        string temporary = path + ".tmp";
+        byte[] payload = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(report, JsonOptions));
+        using (var stream = new FileStream(temporary, FileMode.Create, FileAccess.Write, FileShare.Read, 4096, FileOptions.WriteThrough))
+        {
+            stream.Write(payload);
+            stream.Flush(flushToDisk: true);
+        }
+        File.Move(temporary, path, overwrite: true);
+    }
+
+    private void PruneResolvedUnsafe()
+    {
+        CrashReport[] resolved = ReadAllUnsafe()
+            .Where(item => !IsUnresolved(item.State))
+            .OrderByDescending(item => ParseTimestamp(item.LastSeenUtc))
+            .Skip(ResolvedRetentionLimit)
+            .ToArray();
+        foreach (CrashReport report in resolved)
+        {
+            try { File.Delete(Path.Combine(_folder, $"crash-{report.Id}.json")); } catch { }
+        }
+    }
+
+    private void MigrateLegacyUnsafe()
+    {
+        if (!File.Exists(LegacyPendingPath))
+            return;
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(LegacyPendingPath));
+            JsonElement root = document.RootElement;
+            string timestamp = ReadLegacyString(root, "timestampUtc", DateTimeOffset.UtcNow.ToString("O"));
+            var migrated = new CrashReport(
+                Guid.NewGuid().ToString("N"),
+                ReadLegacyString(root, "fingerprint", Guid.NewGuid().ToString("N")),
+                ReadLegacyString(root, "version", "unknown"),
+                timestamp,
+                timestamp,
+                1,
+                CrashReportState.Pending,
+                ReadLegacyString(root, "source", "legacy"),
+                ReadLegacyString(root, "exceptionType", "System.Exception"),
+                ReadLegacyString(root, "message", string.Empty),
+                ReadLegacyString(root, "stackTrace", string.Empty),
+                ReadLegacyString(root, "product", string.Empty),
+                ReadLegacyString(root, "machineType", string.Empty),
+                ReadLegacyString(root, "biosVersion", string.Empty),
+                ReadLegacyString(root, "windowsVersion", string.Empty),
+                root.TryGetProperty("recentEvents", out JsonElement recent) && recent.ValueKind == JsonValueKind.Array
+                    ? recent.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToArray()
+                    : []);
+            WriteReportUnsafe(migrated);
+            File.Delete(LegacyPendingPath);
+        }
+        catch
+        {
+            // Preserve an unreadable legacy record for manual recovery.
+        }
+    }
+
+    private static string ReadLegacyString(JsonElement root, string name, string fallback) =>
+        root.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? fallback
+            : fallback;
+
+    private static bool IsUnresolved(CrashReportState state) =>
+        state is CrashReportState.Pending or CrashReportState.Opened;
+
+    private static DateTimeOffset ParseTimestamp(string value) =>
+        DateTimeOffset.TryParse(value, out DateTimeOffset parsed) ? parsed : DateTimeOffset.MinValue;
 }
