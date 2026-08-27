@@ -151,9 +151,10 @@ public partial class MainWindow : Window
         if (SuppressExternalAutoHideForShellSmoke)
             return;
 
-        if (_app.KeepCompactVisibleForInternalWindow())
-            return;
-
+        // App-level focus classification owns the decision. A visible owned toast
+        // by itself is not enough reason to keep Compact pinned: if the user moves
+        // to another process while a toast is still visible, Compact must still
+        // auto-hide. Genuine ThinkControl focus is detected from the foreground HWND.
         _app.OnCompactDeactivated();
     }
 
