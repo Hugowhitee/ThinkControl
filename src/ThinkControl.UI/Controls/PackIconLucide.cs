@@ -64,6 +64,12 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
+        if (Kind is "CompactView" or "FullView")
+        {
+            DrawViewModeGlyph(drawingContext, pen, width, height, Kind == "CompactView");
+            return;
+        }
+
         string? resourceKey = Kind switch
         {
             "House" => "Tc.Icon.Home",
@@ -105,5 +111,38 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             left, top + contentHeight);
 
         drawingContext.DrawGeometry(brush, null, geometry);
+    }
+
+    private static void DrawViewModeGlyph(DrawingContext dc, Pen pen, double width, double height, bool compact)
+    {
+        double size = Math.Min(width, height);
+        double left = (width - size) / 2d;
+        double top = (height - size) / 2d;
+        double inset = size * 0.13;
+        Rect outer = new(left + inset, top + inset, size - inset * 2, size - inset * 2);
+        double radius = Math.Max(1.7, size * 0.13);
+        dc.DrawRoundedRectangle(null, pen, outer, radius, radius);
+
+        if (compact)
+        {
+            // A small panel nested in the window communicates the destination much
+            // more directly than the old diagonal arrow did.
+            Rect inner = new(
+                outer.Left + outer.Width * 0.23,
+                outer.Top + outer.Height * 0.56,
+                outer.Width * 0.54,
+                outer.Height * 0.22);
+            dc.DrawRoundedRectangle(null, pen, inner, radius * 0.58, radius * 0.58);
+        }
+        else
+        {
+            // Full view uses a large inset pane: same icon family, opposite state.
+            Rect inner = new(
+                outer.Left + outer.Width * 0.18,
+                outer.Top + outer.Height * 0.20,
+                outer.Width * 0.64,
+                outer.Height * 0.60);
+            dc.DrawRoundedRectangle(null, pen, inner, radius * 0.65, radius * 0.65);
+        }
     }
 }
