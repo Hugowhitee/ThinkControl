@@ -67,23 +67,23 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
 
             DiagnosticsSwitch.IsChecked = sharingEnabled;
             DiagnosticsSwitch.IsEnabled = !verified;
-            DiagnosticsSwitch.ToolTip = verified
-                ? "This device already has a verified ThinkControl profile; compatibility learning is not needed."
-                : "Allow ThinkControl to prepare a redacted compatibility report locally. Nothing is uploaded automatically.";
+            DiagnosticsSwitch.Visibility = verified ? Visibility.Collapsed : Visibility.Visible;
+            DiagnosticsSwitch.ToolTip = "Prepare a compact compatibility report locally for this new device. Nothing is uploaded automatically.";
 
             CompatibilityStateText.Text = status.Label;
             CompatibilityDetailText.Text = status.Detail;
 
             if (verified)
             {
-                CompatibilityStateText.Text = "Supported device · no compatibility learning required";
+                CompatibilityStateText.Text = "Supported device";
+                CompatibilityDetailText.Text = "Verified ThinkControl profile · compatibility learning and compatibility reports are not needed.";
                 LearningCard.Visibility = Visibility.Collapsed;
-                SharingStateText.Text = "Known profile · no compatibility report is needed";
-                ShareDeviceButton.Visibility = Visibility.Collapsed;
+                SharingRow.Visibility = Visibility.Collapsed;
             }
             else
             {
                 LearningCard.Visibility = Visibility.Visible;
+                SharingRow.Visibility = Visibility.Visible;
                 ShareDeviceButton.Visibility = Visibility.Visible;
                 LearningProgress.Maximum = Math.Max(1, status.TotalChecks);
                 LearningProgress.Value = Math.Clamp(status.CompletedChecks, 0, Math.Max(1, status.TotalChecks));
@@ -92,23 +92,23 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                 switch (status.Phase)
                 {
                     case DeviceSupportPhase.Learning:
-                        LearningTitleText.Text = "Background learning";
+                        LearningTitleText.Text = "Learning compatibility";
                         SharingStateText.Text = sharingEnabled
-                            ? "No report yet · keep using ThinkControl normally"
-                            : "Learning locally · sharing is disabled";
+                            ? "Keep using ThinkControl normally · no report is ready yet"
+                            : "Learning stays local · report review is disabled";
                         ShareDeviceButton.Content = "Review report";
                         ShareDeviceButton.IsEnabled = false;
                         break;
                     case DeviceSupportPhase.ReadyToShare:
-                        LearningTitleText.Text = "Background learning complete";
+                        LearningTitleText.Text = "Compatibility evidence complete";
                         SharingStateText.Text = sharingEnabled
                             ? "New compatibility findings are ready to review"
-                            : "Report is ready locally · enable sharing to review it on GitHub";
+                            : "Report is ready locally · enable review to open the GitHub draft";
                         ShareDeviceButton.Content = "Review report";
                         ShareDeviceButton.IsEnabled = sharingEnabled;
                         break;
                     case DeviceSupportPhase.Shared:
-                        LearningTitleText.Text = "Compatibility profile learned";
+                        LearningTitleText.Text = "Compatibility learned";
                         SharingStateText.Text = "Shared · no new compatibility findings";
                         ShareDeviceButton.Content = "No new report";
                         ShareDeviceButton.IsEnabled = false;
@@ -120,27 +120,21 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             }
 
             CrashReport? crash = app.PendingCrashReport;
-            CrashCard.Visibility = crash is null ? Visibility.Collapsed : Visibility.Visible;
+            bool hasCrash = crash is not null;
+            CrashCard.Visibility = hasCrash ? Visibility.Visible : Visibility.Collapsed;
+            CrashSeparator.Visibility = hasCrash ? Visibility.Visible : Visibility.Collapsed;
             if (crash is not null)
-            {
-                string when = DateTimeOffset.TryParse(crash.TimestampUtc, out DateTimeOffset timestamp)
-                    ? timestamp.ToLocalTime().ToString("g")
-                    : "previous run";
-                CrashSummaryText.Text = string.IsNullOrWhiteSpace(crash.Message)
-                    ? $"{crash.ExceptionType} · {when}"
-                    : $"{crash.ExceptionType}: {crash.Message} · {when}";
-            }
+                CrashSummaryText.Text = FormatCrashSummary(crash);
 
-            EventCountText.Text = app.DiagnosticsRecorder.LocalEventCount.ToString();
             LastEventText.Text = app.DiagnosticsRecorder.LastEventAtUtc is DateTimeOffset last
-                ? last.ToLocalTime().ToString("g")
-                : "—";
+                ? $"Last local activity · {last.ToLocalTime():g}"
+                : "No local troubleshooting activity yet";
 
             StatusText.Text = verified
-                ? "Routine troubleshooting data stays bounded on this PC. Crash and support reports are never uploaded automatically."
+                ? "Routine troubleshooting history is local and separate from compatibility reporting."
                 : status.Phase == DeviceSupportPhase.Shared
-                    ? "That compatibility fingerprint has already been handled. ThinkControl will only surface another report after materially new evidence appears."
-                    : "Compatibility learning runs quietly in the background. Reports stay local until you explicitly open a reviewed draft on GitHub.";
+                    ? "This compatibility fingerprint is already handled. Another report appears only after materially new evidence."
+                    : "Compatibility learning is local. Nothing is uploaded unless you explicitly review and submit a GitHub draft.";
         }
         finally
         {
@@ -156,33 +150,33 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             bool verified = GetValidationState(state.MachineType) == DeviceValidationState.Verified;
             DiagnosticsSwitch.IsChecked = consent == DiagnosticsConsent.Enabled;
             DiagnosticsSwitch.IsEnabled = !verified;
-            CompatibilityStateText.Text = verified
-                ? "Supported device · no compatibility learning required"
-                : "New device · learning";
-            EventCountText.Text = verified ? "12" : "18";
-            LastEventText.Text = "Just now";
+            DiagnosticsSwitch.Visibility = verified ? Visibility.Collapsed : Visibility.Visible;
+            CompatibilityStateText.Text = verified ? "Supported device" : "New device · learning";
+            LastEventText.Text = "Last local activity · just now";
             CrashCard.Visibility = Visibility.Collapsed;
+            CrashSeparator.Visibility = Visibility.Collapsed;
 
             if (verified)
             {
+                CompatibilityDetailText.Text = "Verified ThinkControl profile · compatibility learning and reports are not needed.";
                 LearningCard.Visibility = Visibility.Collapsed;
-                SharingStateText.Text = "Known profile · no compatibility report is needed";
-                ShareDeviceButton.Visibility = Visibility.Collapsed;
-                StatusText.Text = "Routine troubleshooting data stays bounded on this PC. Nothing is uploaded automatically.";
+                SharingRow.Visibility = Visibility.Collapsed;
+                StatusText.Text = "Routine troubleshooting history stays local on this PC.";
             }
             else
             {
+                SharingRow.Visibility = Visibility.Visible;
                 LearningCard.Visibility = Visibility.Visible;
-                LearningTitleText.Text = "Background learning";
+                LearningTitleText.Text = "Learning compatibility";
                 LearningProgress.Maximum = 5;
                 LearningProgress.Value = 3;
                 LearningProgressText.Text = "3/5";
                 CompatibilityDetailText.Text = "3/5 checks · learning continues quietly while you use ThinkControl";
-                SharingStateText.Text = "No report yet · keep using ThinkControl normally";
+                SharingStateText.Text = "Keep using ThinkControl normally · no report is ready yet";
                 ShareDeviceButton.Visibility = Visibility.Visible;
                 ShareDeviceButton.IsEnabled = false;
                 ShareDeviceButton.Content = "Review report";
-                StatusText.Text = "Compatibility learning runs quietly in the background. Nothing is uploaded automatically.";
+                StatusText.Text = "Compatibility learning stays local. Nothing is uploaded automatically.";
             }
         }
         finally
@@ -222,7 +216,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             return;
         if (app.UserSettings.Current.DiagnosticsConsent != DiagnosticsConsent.Enabled)
         {
-            StatusText.Text = "Enable compatibility sharing first. Nothing is submitted automatically.";
+            StatusText.Text = "Enable compatibility report review first. Nothing is submitted automatically.";
             return;
         }
 
@@ -234,7 +228,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         }
 
         Refresh();
-        StatusText.Text = "Opened a pre-filled GitHub draft and marked this compatibility fingerprint handled locally. It will not be offered again unless new evidence appears.";
+        StatusText.Text = "Opened a pre-filled GitHub draft and marked this compatibility fingerprint handled locally.";
     }
 
     private void ReportCrash_Click(object sender, RoutedEventArgs e)
@@ -247,7 +241,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             return;
         }
         Refresh();
-        StatusText.Text = "Opened the redacted crash draft on GitHub. Nothing is submitted until you press Submit new issue.";
+        StatusText.Text = "Opened the redacted crash draft on GitHub. Nothing is submitted until you submit the issue yourself.";
     }
 
     private void DismissCrash_Click(object sender, RoutedEventArgs e)
@@ -339,6 +333,21 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         app.ResetDiagnosticLifecycleData();
         Refresh();
         StatusText.Text = "Local diagnostics and report state deleted.";
+    }
+
+    private static string FormatCrashSummary(CrashReport crash)
+    {
+        string when = DateTimeOffset.TryParse(crash.TimestampUtc, out DateTimeOffset timestamp)
+            ? timestamp.ToLocalTime().ToString("g")
+            : "previous run";
+        string type = crash.ExceptionType?.Split('.').LastOrDefault() ?? "Unexpected error";
+        string message = string.Join(' ', (crash.Message ?? string.Empty)
+            .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (message.Length > 150)
+            message = message[..147] + "…";
+        return string.IsNullOrWhiteSpace(message)
+            ? $"{type} · {when}"
+            : $"{type} · {message} · {when}";
     }
 
     private static void WriteBundle(App app, string path)
