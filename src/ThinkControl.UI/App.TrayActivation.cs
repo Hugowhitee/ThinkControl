@@ -21,7 +21,7 @@ public partial class App
         Forms.NotifyIcon old = _trayIcon;
         var menu = new Forms.ContextMenuStrip();
         menu.Items.Add("Open compact view", null, (_, _) => Dispatcher.Invoke(ShowThinkControlFromTray));
-        menu.Items.Add("Open full view", null, (_, _) => Dispatcher.Invoke(() => OpenAdvanced("Home")));
+        menu.Items.Add("Open full view", null, (_, _) => Dispatcher.Invoke(() => OpenAdvancedSafely("Home")));
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Quit", null, (_, _) => Dispatcher.Invoke(ExitApplication));
 
