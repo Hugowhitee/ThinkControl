@@ -1,4 +1,7 @@
+using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Media;
+using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
 
@@ -13,6 +16,7 @@ public partial class App
 internal static class FanCurveEditorSizingPolicy
 {
     private static int _registered;
+    private static readonly ConditionalWeakTable<FanCurveEditorWindow, object> EnhancedEditors = new();
 
     internal static bool Register()
     {
@@ -23,6 +27,15 @@ internal static class FanCurveEditorSizingPolicy
             typeof(FanCurveEditorWindow),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(OnEditorLoaded));
+
+        // Snapshot windows deliberately never enter the normal WPF Loaded lifecycle.
+        // Their graph is still measured/arranged, though, so the direct SizeChanged
+        // event gives visual QA the exact same Undo/Redo and typography enhancements
+        // without inventing a separate snapshot-only toolbar.
+        EventManager.RegisterClassHandler(
+            typeof(FanCurveGraph),
+            FrameworkElement.SizeChangedEvent,
+            new SizeChangedEventHandler(OnGraphSizeChanged));
         return true;
     }
 
@@ -57,6 +70,48 @@ internal static class FanCurveEditorSizingPolicy
                 Math.Max(workArea.Top, workArea.Bottom - window.Height));
         }
 
+        EnsureEditorEnhancements(window);
+    }
+
+    private static void OnGraphSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (sender is FanCurveGraph graph && FindEditor(graph) is { } window)
+            EnsureEditorEnhancements(window);
+    }
+
+    private static void EnsureEditorEnhancements(FanCurveEditorWindow window)
+    {
+        if (EnhancedEditors.TryGetValue(window, out _))
+            return;
+
         FanCurveEditorHistory.Attach(window);
+        ReadableTypography.Apply(window);
+        EnhancedEditors.Add(window, new object());
+    }
+
+    private static FanCurveEditorWindow? FindEditor(DependencyObject node)
+    {
+        if (Window.GetWindow(node) is FanCurveEditorWindow direct)
+            return direct;
+
+        DependencyObject? current = node;
+        while (current is not null)
+        {
+            if (current is FanCurveEditorWindow editor)
+                return editor;
+
+            DependencyObject? parent = null;
+            try
+            {
+                parent = VisualTreeHelper.GetParent(current);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+
+            parent ??= LogicalTreeHelper.GetParent(current);
+            current = parent;
+        }
+        return null;
     }
 }
