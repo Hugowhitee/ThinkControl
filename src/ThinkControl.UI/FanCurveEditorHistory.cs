@@ -1,7 +1,9 @@
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 using ThinkControl.Core.Cooling;
 
 namespace ThinkControl.UI;
@@ -31,6 +33,7 @@ internal static class FanCurveEditorHistory
         private readonly FanCurveGraph _graph;
         private readonly Stack<CurveState> _undo = new();
         private readonly Stack<CurveState> _redo = new();
+        private readonly List<ListBox> _profileLists = [];
         private Button? _undoButton;
         private Button? _redoButton;
         private CurveState _last;
@@ -38,6 +41,7 @@ internal static class FanCurveEditorHistory
         private bool _pointerEditing;
         private bool _pointerChanged;
         private bool _restoring;
+        private long _profileResetGeneration;
 
         internal Session(FanCurveEditorWindow window, FanCurveGraph graph)
         {
@@ -53,8 +57,15 @@ internal static class FanCurveEditorHistory
             _graph.PreviewMouseLeftButtonDown += Graph_PreviewMouseLeftButtonDown;
             _graph.PreviewMouseLeftButtonUp += Graph_PreviewMouseLeftButtonUp;
             _window.PreviewKeyDown += Window_PreviewKeyDown;
+
+            foreach (ListBox list in FindDescendants<ListBox>(_window))
+            {
+                _profileLists.Add(list);
+                list.SelectionChanged += ProfileList_SelectionChanged;
+            }
+
             _window.Closed += Window_Closed;
-            UpdateButtons();
+            ResetForCurrentProfile();
         }
 
         private void InstallButtons()
@@ -76,19 +87,43 @@ internal static class FanCurveEditorHistory
             tools.Children.Insert(index + 1, _redoButton);
         }
 
-        private Button CreateHistoryButton(string text, string tooltip)
+        private Button CreateHistoryButton(string text, string tooltip) => new()
         {
-            var button = new Button
+            Content = text,
+            Padding = new Thickness(7, 4, 7, 4),
+            FontSize = TypographyScale.Caption,
+            ToolTip = tooltip,
+            Cursor = Cursors.Hand,
+            VerticalAlignment = VerticalAlignment.Center,
+            Style = _window.TryFindResource("TcInlineButton") as Style
+        };
+
+        private void ProfileList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_restoring)
+                return;
+
+            long generation = Interlocked.Increment(ref _profileResetGeneration);
+            // FanCurveEditorWindow handles the same SelectionChanged first/alongside
+            // this observer and calls BeginEditing/SetCurve. Defer one dispatcher turn
+            // so history starts from the newly selected profile, never the old one.
+            _window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
             {
-                Content = text,
-                Padding = new Thickness(7, 4, 7, 4),
-                FontSize = TypographyScale.Caption,
-                ToolTip = tooltip,
-                Cursor = Cursors.Hand,
-                VerticalAlignment = VerticalAlignment.Center,
-                Style = _window.TryFindResource("TcInlineButton") as Style
-            };
-            return button;
+                if (generation != Volatile.Read(ref _profileResetGeneration) || _restoring)
+                    return;
+                ResetForCurrentProfile();
+            }));
+        }
+
+        private void ResetForCurrentProfile()
+        {
+            _undo.Clear();
+            _redo.Clear();
+            _pointerStart = null;
+            _pointerEditing = false;
+            _pointerChanged = false;
+            _last = Capture();
+            UpdateButtons();
         }
 
         private void Graph_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -223,8 +258,7 @@ internal static class FanCurveEditorHistory
 
         private CurveState Capture() => new(_graph.GetCurve(), _graph.SelectedIndex);
 
-        private static bool Equivalent(CurveState a, CurveState b) =>
-            a.Points.SequenceEqual(b.Points);
+        private static bool Equivalent(CurveState a, CurveState b) => a.Points.SequenceEqual(b.Points);
 
         private void UpdateButtons()
         {
@@ -240,6 +274,8 @@ internal static class FanCurveEditorHistory
             _graph.PreviewMouseLeftButtonDown -= Graph_PreviewMouseLeftButtonDown;
             _graph.PreviewMouseLeftButtonUp -= Graph_PreviewMouseLeftButtonUp;
             _window.PreviewKeyDown -= Window_PreviewKeyDown;
+            foreach (ListBox list in _profileLists)
+                list.SelectionChanged -= ProfileList_SelectionChanged;
             _window.Closed -= Window_Closed;
         }
     }
