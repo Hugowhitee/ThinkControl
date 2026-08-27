@@ -85,4 +85,13 @@ public partial class DiagnosticsPanel
         CrashHistoryCombo.Visibility = Visibility.Visible;
         MarkCrashReportedButton.Visibility = Visibility.Visible;
     }
+
+    internal bool BringCrashQueueIntoViewForSnapshot()
+    {
+        if (CrashCard.Visibility != Visibility.Visible)
+            return false;
+
+        CrashCard.BringIntoView();
+        return true;
+    }
 }
