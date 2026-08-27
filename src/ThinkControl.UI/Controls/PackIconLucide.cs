@@ -34,9 +34,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
 
         Brush brush = Foreground ?? Brushes.Gray;
-        // Do not derive stroke weight from inherited FontWeight. TcNav makes the
-        // selected label SemiBold; Audio/Sensors/Touchpad are stroked custom glyphs,
-        // so using FontWeight here made only those icons become visibly bolder.
         double stroke = Math.Max(1.2, Math.Min(width, height) / 10.5d);
         var pen = new Pen(brush, stroke)
         {
@@ -47,8 +44,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
 
         if (Kind == "Touchpad")
         {
-            // A touchpad is optically wider and flatter than a generic rounded
-            // rectangle. Keep the silhouette broad even inside the nav's 15×15 box.
             double shellWidth = width * 0.94;
             double shellHeight = height * 0.67;
             double touchLeft = (width - shellWidth) / 2d;
@@ -61,6 +56,16 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
                 pen,
                 new Point(shell.Left + shell.Width * 0.12, seamY),
                 new Point(shell.Right - shell.Width * 0.12, seamY));
+            return;
+        }
+
+        // Compact/full view is deliberately represented by inward/outward diagonal
+        // arrows. ViewSidebar remains only as a compatibility alias so older XAML
+        // can never render the misleading sidebar-layout glyph again.
+        if (Kind is "CompactView" or "FullView" or "ViewSidebar")
+        {
+            bool compact = Kind is "CompactView" or "ViewSidebar";
+            DrawViewModeGlyph(drawingContext, pen, width, height, compact);
             return;
         }
 
@@ -80,7 +85,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             "Sensors" => "Tc.Icon.Sensors",
             "Cpu" => "Tc.Icon.Cpu",
             "Brightness" => "Tc.Icon.Brightness",
-            "ViewSidebar" => "Tc.Icon.ViewSidebar",
             "OpenInFull" => "Tc.Icon.OpenInFull",
             "Close" => "Tc.Icon.Close",
             "Check" => "Tc.Icon.Check",
@@ -105,5 +109,45 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             left, top + contentHeight);
 
         drawingContext.DrawGeometry(brush, null, geometry);
+    }
+
+    private static void DrawViewModeGlyph(DrawingContext dc, Pen pen, double width, double height, bool compact)
+    {
+        double size = Math.Min(width, height);
+        double left = (width - size) / 2d;
+        double top = (height - size) / 2d;
+
+        Point P(double x, double y) => new(left + size * x, top + size * y);
+
+        if (compact)
+        {
+            // Two diagonal arrows pointing toward the centre: "make this window compact".
+            Point trStart = P(0.80, 0.20);
+            Point trEnd = P(0.55, 0.45);
+            dc.DrawLine(pen, trStart, trEnd);
+            dc.DrawLine(pen, trEnd, P(0.55, 0.29));
+            dc.DrawLine(pen, trEnd, P(0.71, 0.45));
+
+            Point blStart = P(0.20, 0.80);
+            Point blEnd = P(0.45, 0.55);
+            dc.DrawLine(pen, blStart, blEnd);
+            dc.DrawLine(pen, blEnd, P(0.29, 0.55));
+            dc.DrawLine(pen, blEnd, P(0.45, 0.71));
+        }
+        else
+        {
+            // Same visual language in reverse: outward arrows mean "expand to full view".
+            Point trStart = P(0.55, 0.45);
+            Point trEnd = P(0.80, 0.20);
+            dc.DrawLine(pen, trStart, trEnd);
+            dc.DrawLine(pen, trEnd, P(0.64, 0.20));
+            dc.DrawLine(pen, trEnd, P(0.80, 0.36));
+
+            Point blStart = P(0.45, 0.55);
+            Point blEnd = P(0.20, 0.80);
+            dc.DrawLine(pen, blStart, blEnd);
+            dc.DrawLine(pen, blEnd, P(0.20, 0.64));
+            dc.DrawLine(pen, blEnd, P(0.36, 0.80));
+        }
     }
 }

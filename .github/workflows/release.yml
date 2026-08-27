@@ -457,6 +457,7 @@ jobs:
             artifacts/installer/ThinkControl-Setup-*.exe
             artifacts/installer/ThinkControl-Payload-*.zip
             artifacts/installer/SHA256SUMS.txt
+            artifacts/release-previews/ui-overview.png
           if-no-files-found: error
 
       - name: Publish tagged GitHub release
@@ -467,12 +468,17 @@ jobs:
         run: |
           $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
           $payload = Get-Item $env:PAYLOAD_PATH
+          $overview = Get-Item "artifacts/release-previews/ui-overview.png"
+          $overviewUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/ui-overview.png"
+          $galleryNotes = "## Interface preview`n`n[![ThinkControl interface overview]($overviewUrl)]($overviewUrl)"
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,
             $payload.FullName,
             'artifacts/installer/SHA256SUMS.txt',
+            $overview.FullName,
             '--title', "ThinkControl v$env:APP_VERSION",
+            '--notes', $galleryNotes,
             '--generate-notes'
           )
           if ($env:APP_VERSION -match '-') {

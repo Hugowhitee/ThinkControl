@@ -48,7 +48,8 @@ jobs:
           tag="v$version"
           setup="ThinkControl-Setup-$version.exe"
           payload="ThinkControl-Payload-$version.zip"
-          expected=("$setup" "$payload" "SHA256SUMS.txt")
+          overview="ui-overview.png"
+          expected=("$setup" "$payload" "SHA256SUMS.txt" "$overview")
 
           release_exists=false
           if gh api "repos/$repo/releases/tags/$tag" >/tmp/release.json 2>/dev/null; then
@@ -99,11 +100,11 @@ jobs:
                 fi
               done
 
-              unexpected=$(jq -r --arg setup "$setup" --arg payload "$payload" '
-                [.assets[].name | select(. != $setup and . != $payload and . != "SHA256SUMS.txt")] | length
+              unexpected=$(jq -r --arg setup "$setup" --arg payload "$payload" --arg overview "$overview" '
+                [.assets[].name | select(. != $setup and . != $payload and . != "SHA256SUMS.txt" and . != $overview)] | length
               ' /tmp/release.json)
               if [[ "$unexpected" != "0" ]]; then
-                echo "$tag contains unmanaged public release assets; expected only Setup, Payload and SHA256SUMS.txt."
+                echo "$tag contains unmanaged public release assets; expected only Setup, Payload, SHA256SUMS.txt and the UI overview."
                 jq -r '.assets[].name' /tmp/release.json
                 exit 1
               fi
@@ -115,9 +116,14 @@ jobs:
                 gh release download "$tag" --repo "$repo" \
                   --pattern "$setup" \
                   --pattern "$payload" \
-                  --pattern "SHA256SUMS.txt"
+                  --pattern "SHA256SUMS.txt" \
+                  --pattern "$overview"
                 sha256sum --check SHA256SUMS.txt
-                echo "Verified $tag prerelease, checksums and exactly three managed public assets."
+                if [[ ! -s "$overview" ]]; then
+                  echo "Release UI overview is missing or empty."
+                  exit 1
+                fi
+                echo "Verified $tag prerelease, checksums and exactly four managed public assets including the UI overview."
                 exit 0
               fi
             fi

@@ -29,7 +29,7 @@ public partial class AdvancedWindow
             return;
 
         Grid? utilityRow = navStack.Children.OfType<Grid>().FirstOrDefault(grid =>
-            grid.Children.OfType<Button>().Any(button => button.Tag as string == "ThinkControl.NotificationSlot"));
+            grid.Tag as string == "ThinkControl.UtilityRow");
         Button? notificationButton = utilityRow?.Children.OfType<Button>()
             .FirstOrDefault(child => child.Tag as string == "ThinkControl.NotificationSlot");
         Button? compactButton = utilityRow?.Children.OfType<Button>()
@@ -37,49 +37,24 @@ public partial class AdvancedWindow
         if (utilityRow is null || notificationButton is null || compactButton is null)
             return;
 
-        // Keep the native Windows caption for Snap Layouts/system-menu behavior, but
-        // remove the extra in-client Advanced/branding row. App-level utilities live
-        // in the sidebar footer, visually separated from navigation by the flexible
-        // rail body. The old duplicate ThinkControl/version footer is replaced by
-        // these two icon-only actions rather than adding another toolbar.
-        if (navStack.Parent is Grid sideGrid)
-        {
-            StackPanel? footer = sideGrid.Children
-                .OfType<StackPanel>()
-                .FirstOrDefault(panel => Grid.GetRow(panel) == 1);
-            if (footer is not null)
-            {
-                utilityRow.Children.Remove(notificationButton);
-                utilityRow.Children.Remove(compactButton);
-                navStack.Children.Remove(utilityRow);
-
-                footer.Children.Clear();
-                footer.Orientation = Orientation.Horizontal;
-                footer.HorizontalAlignment = HorizontalAlignment.Left;
-                footer.VerticalAlignment = VerticalAlignment.Center;
-                footer.Margin = new Thickness(12, 4, 10, 4);
-
-                compactButton.Width = 34;
-                compactButton.Height = 34;
-                compactButton.Padding = new Thickness(0);
-                compactButton.Margin = new Thickness(0, 0, 4, 0);
-                compactButton.Background = Brushes.Transparent;
-                compactButton.BorderBrush = Brushes.Transparent;
-                compactButton.BorderThickness = new Thickness(0);
-                compactButton.ToolTip = "Switch to compact view";
-                if (compactButton.Content is PackIconLucide compactIcon)
-                {
-                    compactIcon.Width = 18;
-                    compactIcon.Height = 18;
-                    compactIcon.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
-                }
-
-                footer.Children.Add(compactButton);
-                footer.Children.Add(notificationButton);
-            }
-        }
-
         _notificationButtonConfigured = true;
+
+        compactButton.Width = 34;
+        compactButton.Height = 34;
+        compactButton.Padding = new Thickness(0);
+        compactButton.Margin = new Thickness(0, 0, 4, 0);
+        compactButton.Background = Brushes.Transparent;
+        compactButton.BorderBrush = Brushes.Transparent;
+        compactButton.BorderThickness = new Thickness(0);
+        compactButton.Content = new PackIconLucide
+        {
+            Kind = "CompactView",
+            Width = 18,
+            Height = 18,
+            Foreground = (Brush)FindResource("Tc.TextMuted")
+        };
+        TcToolTip.Apply(compactButton, "Compact view");
+
         notificationButton.Width = 34;
         notificationButton.Height = 34;
         notificationButton.Padding = new Thickness(0);
@@ -87,7 +62,6 @@ public partial class AdvancedWindow
         notificationButton.BorderThickness = new Thickness(0);
         notificationButton.BorderBrush = Brushes.Transparent;
         notificationButton.Background = Brushes.Transparent;
-        notificationButton.ToolTip = "Inbox";
 
         var bell = new Path
         {
@@ -178,12 +152,13 @@ public partial class AdvancedWindow
         bool attention = hardwareAttention || updateAttention;
 
         _notificationDot.Visibility = attention ? Visibility.Visible : Visibility.Collapsed;
-        _notificationIndicator.ToolTip = updateAttention && hardwareAttention
-            ? "Inbox · update and hardware attention"
+        string label = updateAttention && hardwareAttention
+            ? "Notifications · update + hardware"
             : updateAttention
-                ? "Inbox · update available"
+                ? "Notifications · update available"
                 : hardwareAttention
-                    ? "Inbox · a required component needs attention"
-                    : "Inbox";
+                    ? "Notifications · hardware attention"
+                    : "Notifications";
+        TcToolTip.Apply(_notificationIndicator, label);
     }
 }

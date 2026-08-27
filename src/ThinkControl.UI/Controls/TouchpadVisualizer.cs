@@ -24,6 +24,8 @@ public sealed class TouchpadVisualizer : FrameworkElement
     private IReadOnlyList<TouchContact> _contacts = Array.Empty<TouchContact>();
     private TouchpadEdge _selectedEdge = TouchpadEdge.Top;
     private TouchpadEdge? _hoverEdge;
+    private GestureSignal? _signal;
+    private string? _activeValueText;
 
     public TouchpadVisualizer()
     {
@@ -67,6 +69,9 @@ public sealed class TouchpadVisualizer : FrameworkElement
     public void SetTestFrame(IReadOnlyList<TouchContact> contacts, GestureSignal? signal)
     {
         _contacts = contacts;
+        _signal = signal;
+        if (signal is null || signal.Phase is GesturePhase.Cancelled or GesturePhase.Released)
+            _activeValueText = null;
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
         foreach (TouchContact contact in contacts.Where(static contact => contact.IsDown && contact.Confidence))
@@ -82,6 +87,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
         if ((_trail.Count > 0 || contacts.Any(static contact => contact.IsDown)) && !_trailTimer.IsEnabled)
             _trailTimer.Start();
+        InvalidateVisual();
+    }
+
+    public void SetActiveGestureValue(string? value)
+    {
+        _activeValueText = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         InvalidateVisual();
     }
 
@@ -116,7 +127,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             ? $"~{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm"
             : $"{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm";
         DrawLabel(dc, $"{size} · click an edge to edit", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 11),
-            9.5, faint, centered: true);
+            10.5, faint, centered: true);
 
         foreach (TouchContact contact in _contacts.Where(static c => c.IsDown))
         {
@@ -194,21 +205,25 @@ public sealed class TouchpadVisualizer : FrameworkElement
         }
     }
 
+    private bool IsActiveEdge(TouchpadEdge edge) =>
+        _signal is { Edge: not null, Phase: GesturePhase.Claimed or GesturePhase.Active } && _signal.Edge == edge;
+
     private void DrawEdgeBand(DrawingContext dc, Rect pad, TouchpadEdge edge, Brush accent, Brush muted, Brush faint)
     {
         TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
+        bool active = IsActiveEdge(edge);
         bool selected = edge == _selectedEdge;
         bool hovered = edge == _hoverEdge;
         bool enabled = binding.Action != GestureActionKind.Disabled;
         Rect zone = EdgeBandRect(pad, edge);
 
-        Brush source = selected || hovered ? accent : enabled ? muted : faint;
-        double opacity = selected ? 0.48 : hovered ? 0.30 : enabled ? 0.13 : 0.045;
+        Brush source = active || selected || hovered ? accent : enabled ? muted : faint;
+        double opacity = active ? 0.62 : selected ? 0.48 : hovered ? 0.30 : enabled ? 0.13 : 0.045;
         dc.DrawRectangle(TransparentClone(source, opacity), null, zone);
 
         Pen threshold = new(
-            TransparentClone(source, selected ? 0.92 : hovered ? 0.72 : enabled ? 0.34 : 0.18),
-            selected ? 1.5 : hovered ? 1.35 : 1.0);
+            TransparentClone(source, active ? 1.0 : selected ? 0.92 : hovered ? 0.72 : enabled ? 0.34 : 0.18),
+            active ? 2.0 : selected ? 1.5 : hovered ? 1.35 : 1.0);
         switch (edge)
         {
             case TouchpadEdge.Left:
@@ -231,10 +246,11 @@ public sealed class TouchpadVisualizer : FrameworkElement
         foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
         {
             TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
+            bool active = IsActiveEdge(edge);
             bool selected = edge == _selectedEdge;
             bool hovered = edge == _hoverEdge;
             bool enabled = binding.Action != GestureActionKind.Disabled;
-            Brush labelBrush = selected || hovered ? accent : enabled ? muted : faint;
+            Brush labelBrush = active || selected || hovered ? accent : enabled ? muted : faint;
             string label = ActionLabel(binding.Action);
             Rect band = EdgeBandRect(pad, edge);
 
@@ -250,16 +266,56 @@ public sealed class TouchpadVisualizer : FrameworkElement
             {
                 string iconKey = binding.Action == GestureActionKind.Volume ? "Tc.Icon.Audio" : "Tc.Icon.Brightness";
                 DrawMaterialIcon(dc, iconKey, new Rect(point.X - 8, point.Y - 8, 16, 16), labelBrush);
+
+                bool plusActive = active && (_signal?.DeltaMm ?? 0) < -0.01;
+                bool minusActive = active && (_signal?.DeltaMm ?? 0) > 0.01;
                 string upper = binding.Inverted ? "−" : "+";
                 string lower = binding.Inverted ? "+" : "−";
-                DrawLabel(dc, upper, new WpfPoint(point.X, pad.Top + 44), 12, labelBrush, centered: true);
-                DrawLabel(dc, lower, new WpfPoint(point.X, pad.Bottom - 44), 12, labelBrush, centered: true);
+                bool upperActive = upper == "+" ? plusActive : minusActive;
+                bool lowerActive = lower == "+" ? plusActive : minusActive;
+                DrawLabel(dc, upper, new WpfPoint(point.X, point.Y - 31), upperActive ? 14 : 12, upperActive ? accent : labelBrush, centered: true);
+                DrawLabel(dc, lower, new WpfPoint(point.X, point.Y + 31), lowerActive ? 14 : 12, lowerActive ? accent : labelBrush, centered: true);
+
+                if (active && !string.IsNullOrWhiteSpace(_activeValueText))
+                    DrawActiveValueBadge(dc, pad, edge, point, _activeValueText!, accent);
             }
             else
             {
-                DrawLabel(dc, label, point, edge is TouchpadEdge.Left or TouchpadEdge.Right ? 9.0 : 9.4, labelBrush, centered: true);
+                DrawLabel(dc, label, point, 10.5, labelBrush, centered: true);
+                if (active && !string.IsNullOrWhiteSpace(_activeValueText))
+                    DrawActiveValueBadge(dc, pad, edge, point, _activeValueText!, accent);
             }
         }
+    }
+
+    private void DrawActiveValueBadge(DrawingContext dc, Rect pad, TouchpadEdge edge, WpfPoint anchor, string value, Brush accent)
+    {
+        double pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        var text = new FormattedText(
+            value,
+            CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI Semibold"),
+            11.5,
+            ResourceBrush("Tc.Text", Brushes.White),
+            pixelsPerDip);
+        double width = text.Width + 14;
+        double height = text.Height + 8;
+        double x = edge switch
+        {
+            TouchpadEdge.Left => Math.Min(pad.Right - width - 8, anchor.X + 18),
+            TouchpadEdge.Right => Math.Max(pad.Left + 8, anchor.X - width - 18),
+            _ => anchor.X - width / 2
+        };
+        double y = edge switch
+        {
+            TouchpadEdge.Top => Math.Min(pad.Bottom - height - 8, anchor.Y + 18),
+            TouchpadEdge.Bottom => Math.Max(pad.Top + 8, anchor.Y - height - 18),
+            _ => anchor.Y - height / 2
+        };
+        var badge = new Rect(x, y, width, height);
+        dc.DrawRoundedRectangle(TransparentClone(accent, 0.22), new Pen(TransparentClone(accent, 0.9), 1), badge, 5, 5);
+        dc.DrawText(text, new WpfPoint(badge.Left + 7, badge.Top + 4));
     }
 
     private void DrawMaterialIcon(DrawingContext dc, string resourceKey, Rect bounds, Brush brush)
@@ -347,7 +403,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         var formatted = new FormattedText(
             value,
             CultureInfo.CurrentUICulture,
-            System.Windows.FlowDirection.LeftToRight,
+            FlowDirection.LeftToRight,
             new Typeface("Segoe UI"),
             size,
             brush,

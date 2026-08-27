@@ -35,6 +35,7 @@ public partial class AdvancedWindow
         // bounded page-rail contract after final composition so every page ends on
         // the same sidebar-adjacent left anchor.
         ConfigureAdvancedUiConsistency();
+        Controls.ReadableTypography.Apply(this);
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -62,6 +63,7 @@ public partial class AdvancedWindow
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         ConfigureAdvancedUiConsistency();
+        Controls.ReadableTypography.Apply(this);
         DiagnosticsPanelControl?.Refresh();
 
         if (DataContext is ViewModels.AppState snapshotState)
