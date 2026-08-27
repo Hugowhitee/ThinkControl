@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="ThinkControl.Snapshots" />
+    <InternalsVisibleTo Include="ThinkControl.ShellSmoke" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ThinkControl.Core\ThinkControl.Core.csproj" />
