@@ -25,18 +25,30 @@ internal static class ReadableTypography
     {
         Binding? binding = BindingOperations.GetBinding(text, TextBlock.TextProperty);
         string path = binding?.Path?.Path ?? string.Empty;
+        string literal = text.Text?.Trim() ?? string.Empty;
 
         // Build/version metadata can remain deliberately small. Everything else is
-        // part of the operating UI and should not depend on 9 px copy to fit.
+        // operating UI: 9-10 px helper copy was visually weaker than the controls it
+        // explained and became hard to scan at normal laptop viewing distance.
         bool metadata = path.Equals("AppVersion", StringComparison.Ordinal) ||
-                        (!string.IsNullOrWhiteSpace(text.Text) && text.Text.StartsWith("v0.", StringComparison.OrdinalIgnoreCase));
-        if (!metadata && text.FontSize < 10.5)
-            text.FontSize = 10.5;
+                        (!string.IsNullOrWhiteSpace(literal) && literal.StartsWith("v0.", StringComparison.OrdinalIgnoreCase));
+        if (!metadata && text.FontSize < 11)
+            text.FontSize = 11;
+
+        // Strengthen real section headings without inflating compact instrument
+        // labels such as CPU / POWER / RPM. This keeps ThinkControl technical while
+        // making hierarchy as obvious as the larger, bolder reference interfaces.
+        bool allCapsMetric = literal.Length is > 0 and <= 18 &&
+                             literal.Any(char.IsLetter) &&
+                             string.Equals(literal, literal.ToUpperInvariant(), StringComparison.Ordinal);
+        bool headingWeight = text.FontWeight.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight();
+        if (!metadata && !allCapsMetric && headingWeight && text.FontSize is >= 10 and < 13.5)
+            text.FontSize = 13.5;
 
         if (path.Equals("BatteryEtaText", StringComparison.Ordinal))
         {
-            text.FontSize = Math.Max(text.FontSize, 12);
-            text.FontWeight = FontWeights.Medium;
+            text.FontSize = Math.Max(text.FontSize, 12.5);
+            text.FontWeight = FontWeights.SemiBold;
             text.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
             text.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
             {
@@ -45,7 +57,7 @@ internal static class ReadableTypography
         }
         else if (path.Equals("BatteryCompactLine", StringComparison.Ordinal))
         {
-            text.FontSize = Math.Max(text.FontSize, 11);
+            text.FontSize = Math.Max(text.FontSize, 11.5);
             text.SetBinding(TextBlock.TextProperty, new Binding("BatteryCompactLine")
             {
                 Converter = BatteryTimeConverter
