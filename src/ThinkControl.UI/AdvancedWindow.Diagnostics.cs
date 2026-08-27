@@ -28,6 +28,7 @@ public partial class AdvancedWindow
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
+        ConfigureHomeDashboardPolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         // Page builders above may replace a ScrollViewer child. Reapply only the
@@ -57,6 +58,7 @@ public partial class AdvancedWindow
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
+        ConfigureHomeDashboardPolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         ConfigureAdvancedUiConsistency();
