@@ -1,7 +1,9 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Threading;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
@@ -9,6 +11,7 @@ namespace ThinkControl.UI.Controls;
 public partial class CompactDashboard : UserControl
 {
     private App? _app;
+    private bool _viewSwitchPending;
 
     public CompactDashboard()
     {
@@ -71,7 +74,36 @@ public partial class CompactDashboard : UserControl
         }
     }
 
-    private void Expand_Click(object sender, RoutedEventArgs e) => _app?.OpenAdvanced("Home");
+    private void Expand_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || _viewSwitchPending)
+            return;
+
+        _viewSwitchPending = true;
+        _app.CompactWindow.BeginExplicitViewSwitch();
+
+        // Leave the current button event/layout pass before constructing Advanced.
+        // This avoids re-entering the Compact visual tree while the click itself is
+        // still being routed and gives one owner to the hide/show transition.
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            try
+            {
+                _app.OpenAdvanced("Home");
+            }
+            catch (Exception ex)
+            {
+                // A view-toggle failure must never terminate ThinkControl. Restore
+                // Compact and leave a trace for diagnosis instead of disappearing.
+                Trace.WriteLine($"ThinkControl view switch failed: {ex}");
+                try { _app.CompactWindow.ShowNearTray(animate: false); } catch { }
+            }
+            finally
+            {
+                _viewSwitchPending = false;
+            }
+        }));
+    }
 
     private void Hide_Click(object sender, RoutedEventArgs e) => _app?.CompactWindow.HideAnimated();
 
