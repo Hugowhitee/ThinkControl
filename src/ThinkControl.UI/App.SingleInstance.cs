@@ -71,17 +71,10 @@ public partial class App
 
     private void ShowThinkControlFromDesktopLaunch()
     {
-        // The desktop/start/taskbar app entry represents the full application. The
-        // tray icon represents the quick compact surface. Route through the same
-        // transition owner if Compact is currently visible.
-        OpenAdvancedSafely("Home");
-        if (_advancedWindow is { } advanced)
-        {
-            if (advanced.WindowState == System.Windows.WindowState.Minimized)
-                advanced.WindowState = System.Windows.WindowState.Normal;
-            advanced.ShowInTaskbar = true;
-            advanced.Activate();
-        }
+        // Start, desktop shortcuts and the taskbar app icon are all the same
+        // activation surface. The Settings preference must therefore own this
+        // path too; alpha.24 hard-coded Full here and made Compact look broken.
+        ShowPreferredDesktopLaunchView();
     }
 
     private void DisposeSingleInstanceGuard()
