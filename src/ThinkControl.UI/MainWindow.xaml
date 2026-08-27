@@ -13,6 +13,8 @@
         Background="{DynamicResource Tc.Window}"
         Foreground="{DynamicResource Tc.Text}"
         FontFamily="Segoe UI"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
         Deactivated="Window_Deactivated">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
