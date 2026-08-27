@@ -23,14 +23,14 @@ public partial class App
         if (IsTrayOnlyLaunch() || !IsAdvancedOpeningPreferred())
             return;
 
-        OpenAdvanced("Home");
+        OpenAdvancedSafely("Home");
     }
 
     internal void ShowPreferredDesktopLaunchView()
     {
         if (IsAdvancedOpeningPreferred())
         {
-            OpenAdvanced("Home");
+            OpenAdvancedSafely("Home");
             if (_advancedWindow is { } advanced)
             {
                 if (advanced.WindowState == System.Windows.WindowState.Minimized)

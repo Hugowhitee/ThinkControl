@@ -86,7 +86,7 @@ public partial class App
             "Device compatibility data is ready",
             DeviceSupportReportService.DiscoverySummary(State) + ". Sharing the redacted report can help ThinkControl support more devices. Nothing is submitted automatically.",
             "Review report",
-            () => OpenAdvanced("Settings"));
+            () => OpenAdvancedSafely("Settings"));
     }
 
     private void QueueHardwareAttention(string? rawStatus)
@@ -212,7 +212,7 @@ public partial class App
             ready ? "Install update" : "Open Updates",
             ready
                 ? () => _ = InstallUpdateFromAttentionAsync(update)
-                : () => OpenAdvanced("Updates"));
+                : () => OpenAdvancedSafely("Updates"));
     }
 
     private void EvaluatePreviousUpdateHandoff()
@@ -245,7 +245,7 @@ public partial class App
             () =>
             {
                 if (!UpdateHandoffService.TryOpenLog(outcome.LogPath))
-                    OpenAdvanced("Updates");
+                    OpenAdvancedSafely("Updates");
             });
     }
 
@@ -274,7 +274,7 @@ public partial class App
                     "Update was not started",
                     result.Status,
                     "Open Updates",
-                    () => OpenAdvanced("Updates"));
+                    () => OpenAdvancedSafely("Updates"));
             }
         }
         finally

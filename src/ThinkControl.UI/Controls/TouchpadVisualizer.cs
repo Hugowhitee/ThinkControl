@@ -14,10 +14,15 @@ public sealed class TouchpadVisualizer : FrameworkElement
 {
     private const double PadCornerRadius = 4;
     private static readonly TimeSpan TrailLifetime = TimeSpan.FromMilliseconds(720);
+    private static readonly TimeSpan ReleasedValueHold = TimeSpan.FromMilliseconds(700);
+    private static readonly TimeSpan ReleasedValueFade = TimeSpan.FromMilliseconds(420);
     private const int MaxTrailPoints = 34;
+    private const double MaxConnectedJumpMm = 18.0;
 
     private readonly List<TrailPoint> _trail = [];
+    private readonly HashSet<int> _previousActiveContactIds = [];
     private readonly DispatcherTimer _trailTimer;
+    private readonly DispatcherTimer _feedbackTimer;
     private TouchpadGestureConfiguration _configuration =
         TouchpadGestureConfiguration.Default with { Enabled = false };
     private TouchpadGeometry _geometry = new(0, 13500, 0, 8000, 135, 80, true);
@@ -25,7 +30,9 @@ public sealed class TouchpadVisualizer : FrameworkElement
     private TouchpadEdge _selectedEdge = TouchpadEdge.Top;
     private TouchpadEdge? _hoverEdge;
     private GestureSignal? _signal;
-    private string? _activeValueText;
+    private TouchpadEdge? _releasedFeedbackEdge;
+    private string? _releasedFeedbackText;
+    private DateTimeOffset _releasedFeedbackStarted;
 
     public TouchpadVisualizer()
     {
@@ -43,7 +50,26 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 _trailTimer.Stop();
             InvalidateVisual();
         };
-        Unloaded += (_, _) => _trailTimer.Stop();
+
+        _feedbackTimer = new DispatcherTimer(DispatcherPriority.Render)
+        {
+            Interval = TimeSpan.FromMilliseconds(32)
+        };
+        _feedbackTimer.Tick += (_, _) =>
+        {
+            if (ReleasedFeedbackOpacity() <= 0)
+            {
+                ClearReleasedGestureFeedback();
+                return;
+            }
+            InvalidateVisual();
+        };
+
+        Unloaded += (_, _) =>
+        {
+            _trailTimer.Stop();
+            _feedbackTimer.Stop();
+        };
     }
 
     public event Action<TouchpadEdge>? EdgeSelected;
@@ -70,18 +96,34 @@ public sealed class TouchpadVisualizer : FrameworkElement
     {
         _contacts = contacts;
         _signal = signal;
-        if (signal is null || signal.Phase is GesturePhase.Cancelled or GesturePhase.Released)
-            _activeValueText = null;
+
+        if (signal is { Phase: GesturePhase.Claimed or GesturePhase.Active })
+            ClearReleasedGestureFeedback();
 
         DateTimeOffset now = DateTimeOffset.UtcNow;
+        var currentIds = contacts
+            .Where(static contact => contact.IsDown && contact.Confidence)
+            .Select(static contact => contact.ContactId)
+            .ToHashSet();
+
         foreach (TouchContact contact in contacts.Where(static contact => contact.IsDown && contact.Confidence))
         {
-            if (_trail.Count == 0 || _trail[^1].ContactId != contact.ContactId ||
-                Math.Abs(_trail[^1].X - contact.X) + Math.Abs(_trail[^1].Y - contact.Y) >= 8)
-            {
-                _trail.Add(new TrailPoint(contact.ContactId, contact.X, contact.Y, now));
-            }
+            TrailPoint? previous = FindLastTrailPoint(contact.ContactId);
+            bool startsSegment = !_previousActiveContactIds.Contains(contact.ContactId) || previous is null;
+
+            if (!startsSegment && previous is TrailPoint last && PhysicalJumpMm(last, contact) > MaxConnectedJumpMm)
+                startsSegment = true;
+
+            bool movedEnough = previous is null ||
+                Math.Abs(previous.Value.X - contact.X) + Math.Abs(previous.Value.Y - contact.Y) >= 8;
+            if (startsSegment || movedEnough)
+                _trail.Add(new TrailPoint(contact.ContactId, contact.X, contact.Y, now, startsSegment));
         }
+
+        _previousActiveContactIds.Clear();
+        foreach (int id in currentIds)
+            _previousActiveContactIds.Add(id);
+
         while (_trail.Count > MaxTrailPoints)
             _trail.RemoveAt(0);
 
@@ -90,9 +132,38 @@ public sealed class TouchpadVisualizer : FrameworkElement
         InvalidateVisual();
     }
 
-    public void SetActiveGestureValue(string? value)
+    public void ShowReleasedGestureValue(TouchpadEdge? edge, string? value)
     {
-        _activeValueText = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        if (edge is not TouchpadEdge resolved)
+        {
+            ClearReleasedGestureFeedback();
+            return;
+        }
+        ShowReleasedGestureValue(resolved, value);
+    }
+
+    public void ShowReleasedGestureValue(TouchpadEdge edge, string? value)
+    {
+        string text = value?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            ClearReleasedGestureFeedback();
+            return;
+        }
+
+        _releasedFeedbackEdge = edge;
+        _releasedFeedbackText = text;
+        _releasedFeedbackStarted = DateTimeOffset.UtcNow;
+        if (!_feedbackTimer.IsEnabled)
+            _feedbackTimer.Start();
+        InvalidateVisual();
+    }
+
+    public void ClearReleasedGestureFeedback()
+    {
+        _releasedFeedbackEdge = null;
+        _releasedFeedbackText = null;
+        _feedbackTimer.Stop();
         InvalidateVisual();
     }
 
@@ -177,6 +248,23 @@ public sealed class TouchpadVisualizer : FrameworkElement
         e.Handled = true;
     }
 
+    private TrailPoint? FindLastTrailPoint(int contactId)
+    {
+        for (int i = _trail.Count - 1; i >= 0; i--)
+        {
+            if (_trail[i].ContactId == contactId)
+                return _trail[i];
+        }
+        return null;
+    }
+
+    private double PhysicalJumpMm(TrailPoint previous, TouchContact current)
+    {
+        double dx = Math.Abs(current.X - previous.X) / (double)Math.Max(1, _geometry.XRange) * _geometry.EffectiveWidthMm;
+        double dy = Math.Abs(current.Y - previous.Y) / (double)Math.Max(1, _geometry.YRange) * _geometry.EffectiveHeightMm;
+        return Math.Sqrt(dx * dx + dy * dy);
+    }
+
     private void DrawTrail(DrawingContext dc, Rect pad, Brush accent)
     {
         if (_trail.Count == 0)
@@ -187,7 +275,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
         {
             TrailPoint previous = _trail[i - 1];
             TrailPoint current = _trail[i];
-            if (previous.ContactId != current.ContactId)
+            if (current.StartsSegment || previous.ContactId != current.ContactId)
+                continue;
+
+            double dxMm = Math.Abs(current.X - previous.X) / (double)Math.Max(1, _geometry.XRange) * _geometry.EffectiveWidthMm;
+            double dyMm = Math.Abs(current.Y - previous.Y) / (double)Math.Max(1, _geometry.YRange) * _geometry.EffectiveHeightMm;
+            if (Math.Sqrt(dxMm * dxMm + dyMm * dyMm) > MaxConnectedJumpMm)
                 continue;
 
             double age = Math.Clamp((now - current.Timestamp).TotalMilliseconds / TrailLifetime.TotalMilliseconds, 0, 1);
@@ -243,6 +336,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
     private void DrawEdgeLabels(DrawingContext dc, Rect pad, Brush accent, Brush muted, Brush faint)
     {
+        double releasedOpacity = ReleasedFeedbackOpacity();
         foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
         {
             TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
@@ -261,6 +355,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 TouchpadEdge.Left => new(band.Right + 24, pad.Top + pad.Height / 2),
                 _ => new(band.Left - 24, pad.Top + pad.Height / 2)
             };
+
             if (edge is TouchpadEdge.Left or TouchpadEdge.Right &&
                 binding.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
             {
@@ -275,29 +370,42 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 bool lowerActive = lower == "+" ? plusActive : minusActive;
                 DrawLabel(dc, upper, new WpfPoint(point.X, point.Y - 31), upperActive ? 14 : 12, upperActive ? accent : labelBrush, centered: true);
                 DrawLabel(dc, lower, new WpfPoint(point.X, point.Y + 31), lowerActive ? 14 : 12, lowerActive ? accent : labelBrush, centered: true);
-
-                if (active && !string.IsNullOrWhiteSpace(_activeValueText))
-                    DrawActiveValueBadge(dc, pad, edge, point, _activeValueText!, accent);
             }
             else
             {
                 DrawLabel(dc, label, point, 10.5, labelBrush, centered: true);
-                if (active && !string.IsNullOrWhiteSpace(_activeValueText))
-                    DrawActiveValueBadge(dc, pad, edge, point, _activeValueText!, accent);
             }
+
+            if (!active && releasedOpacity > 0 && _releasedFeedbackEdge == edge && !string.IsNullOrWhiteSpace(_releasedFeedbackText))
+                DrawValueBadge(dc, pad, edge, point, _releasedFeedbackText!, accent, releasedOpacity);
         }
     }
 
-    private void DrawActiveValueBadge(DrawingContext dc, Rect pad, TouchpadEdge edge, WpfPoint anchor, string value, Brush accent)
+    private double ReleasedFeedbackOpacity()
+    {
+        if (_releasedFeedbackEdge is null || string.IsNullOrWhiteSpace(_releasedFeedbackText))
+            return 0;
+
+        TimeSpan age = DateTimeOffset.UtcNow - _releasedFeedbackStarted;
+        if (age <= ReleasedValueHold)
+            return 1;
+        TimeSpan fadeAge = age - ReleasedValueHold;
+        if (fadeAge >= ReleasedValueFade)
+            return 0;
+        return 1 - fadeAge.TotalMilliseconds / ReleasedValueFade.TotalMilliseconds;
+    }
+
+    private void DrawValueBadge(DrawingContext dc, Rect pad, TouchpadEdge edge, WpfPoint anchor, string value, Brush accent, double opacity)
     {
         double pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
+        Brush textBrush = TransparentClone(ResourceBrush("Tc.Text", Brushes.White), opacity);
         var text = new FormattedText(
             value,
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI Semibold"),
             11.5,
-            ResourceBrush("Tc.Text", Brushes.White),
+            textBrush,
             pixelsPerDip);
         double width = text.Width + 14;
         double height = text.Height + 8;
@@ -314,7 +422,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             _ => anchor.Y - height / 2
         };
         var badge = new Rect(x, y, width, height);
-        dc.DrawRoundedRectangle(TransparentClone(accent, 0.22), new Pen(TransparentClone(accent, 0.9), 1), badge, 5, 5);
+        dc.DrawRoundedRectangle(TransparentClone(accent, 0.22 * opacity), new Pen(TransparentClone(accent, 0.9 * opacity), 1), badge, 5, 5);
         dc.DrawText(text, new WpfPoint(badge.Left + 7, badge.Top + 4));
     }
 
@@ -439,5 +547,5 @@ public sealed class TouchpadVisualizer : FrameworkElement
         _ => "Off"
     };
 
-    private readonly record struct TrailPoint(int ContactId, int X, int Y, DateTimeOffset Timestamp);
+    private readonly record struct TrailPoint(int ContactId, int X, int Y, DateTimeOffset Timestamp, bool StartsSegment);
 }

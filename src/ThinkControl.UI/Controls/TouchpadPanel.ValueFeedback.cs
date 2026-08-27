@@ -1,7 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Controls;
@@ -29,8 +27,8 @@ public partial class TouchpadPanel
 
         ConfigureResetButton(EdgeWidthSlider, EdgeWidthValue, 5.0, ResetGestureSlider, "Touchpad");
         ConfigureResetButton(ActivationSlider, ActivationValue, 2.0, ResetGestureSlider, "Gauge");
-        ConfigureResetButton(ToleranceSlider, ToleranceValue, 12.0, ResetGestureSlider, "Gauge");
-        ConfigureResetButton(SensitivitySlider, SensitivityValue, 1.0, ResetGestureSlider, "Gauge");
+        ConfigureResetButton(ToleranceSlider, ToleranceValue, 12.0, ResetGestureSlider, "Tune");
+        ConfigureResetButton(SensitivitySlider, SensitivityValue, 1.0, ResetGestureSlider, "Tune");
         ConfigureResetButton(HapticStrengthSlider, HapticStrengthValue, App.DefaultHapticFeedbackIntensity, ResetHapticSlider, "Touchpad");
         ConfigureResetButton(ClickForceSlider, ClickForceValue, App.DefaultHapticClickSensitivity, ResetHapticSlider, "Touchpad");
         ConfigureResetButton(OsdOpacitySlider, OsdOpacityValue, 92.0, ResetOsdOpacity, "Monitor");
@@ -73,12 +71,7 @@ public partial class TouchpadPanel
 
         Visualizer.SetTestFrame([new TouchContact(1, 420, 6400, true)], signal);
         Visualizer.SetTestFrame([new TouchContact(1, 420, 3900, true)], signal);
-        Visualizer.SetActiveGestureValue("62%");
-        GestureFeedbackIcon.Kind = "Audio";
-        GestureFeedbackTitle.Text = "Left edge · Volume";
-        GestureFeedbackValue.Text = "62%";
-        GestureFeedbackOverlay.Opacity = 1;
-        GestureStatusText.Text = "Volume · 62%";
+        GestureStatusText.Text = "Volume · +";
     }
 
     private void ConfigureResetButton(
@@ -99,17 +92,12 @@ public partial class TouchpadPanel
 
         var button = new Button
         {
-            Content = new PackIconLucide
-            {
-                Kind = "Reset",
-                Width = 14,
-                Height = 14
-            },
+            Content = new PackIconLucide { Kind = "Reset", Width = 14, Height = 14 },
             Style = TryFindResource("TcIconButton") as Style,
-            Width = 26,
-            Height = 26,
+            Width = 24,
+            Height = 24,
             Padding = new Thickness(0),
-            Margin = new Thickness(6, 0, 0, 0),
+            Margin = new Thickness(5, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Cursor = System.Windows.Input.Cursors.Hand,
@@ -120,21 +108,31 @@ public partial class TouchpadPanel
         button.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         button.Click += (_, _) => reset(slider, defaultValue);
 
-        FrameworkElement trackHost = slider.Parent is Grid sliderOverlay ? sliderOverlay : slider;
-        if (trackHost.Parent is StackPanel stack)
+        if (valueLabel.Parent is Grid valueHeader)
         {
-            int index = stack.Children.IndexOf(trackHost);
-            Thickness margin = trackHost.Margin;
-            trackHost.Margin = new Thickness(0);
-            stack.Children.RemoveAt(index);
-
-            var row = new Grid { Margin = margin };
-            row.ColumnDefinitions.Add(new ColumnDefinition());
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(32) });
-            row.Children.Add(trackHost);
-            Grid.SetColumn(button, 1);
-            row.Children.Add(button);
-            stack.Children.Insert(index, row);
+            int column = Grid.GetColumn(valueLabel);
+            int row = Grid.GetRow(valueLabel);
+            int columnSpan = Grid.GetColumnSpan(valueLabel);
+            int rowSpan = Grid.GetRowSpan(valueLabel);
+            valueHeader.Children.Remove(valueLabel);
+            valueLabel.Margin = new Thickness(0);
+            var trailing = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            trailing.Children.Add(valueLabel);
+            trailing.Children.Add(button);
+            Grid.SetColumn(trailing, column);
+            Grid.SetRow(trailing, row);
+            Grid.SetColumnSpan(trailing, columnSpan);
+            Grid.SetRowSpan(trailing, rowSpan);
+            valueHeader.Children.Add(trailing);
+        }
+        else
+        {
+            header.Children.Add(button);
         }
 
         _sliderResetButtons[slider] = button;
@@ -142,9 +140,7 @@ public partial class TouchpadPanel
 
     private void AddSettingIcon(Grid header, TextBlock valueLabel, string iconKind)
     {
-        TextBlock? label = header.Children
-            .OfType<TextBlock>()
-            .FirstOrDefault(text => !ReferenceEquals(text, valueLabel));
+        TextBlock? label = header.Children.OfType<TextBlock>().FirstOrDefault(text => !ReferenceEquals(text, valueLabel));
         if (label is null || label.Tag as string == "ThinkControl.IconizedSettingLabel")
             return;
 
@@ -210,15 +206,11 @@ public partial class TouchpadPanel
     {
         if (_host is null)
             return;
-
         int integer = (int)Math.Round(value);
         bool changed = ReferenceEquals(slider, HapticStrengthSlider)
             ? _host.SetHapticIntensity(integer)
             : _host.SetClickForceSensitivity(integer);
-        if (changed)
-            slider.Value = integer;
-        else
-            SyncHaptics();
+        if (changed) slider.Value = integer; else SyncHaptics();
         RefreshSliderResetButtons();
     }
 
@@ -249,9 +241,7 @@ public partial class TouchpadPanel
         foreach ((Slider slider, Button button) in _sliderResetButtons)
         {
             double defaultValue = button.Tag is double value ? value : Convert.ToDouble(button.Tag);
-            button.Visibility = Math.Abs(slider.Value - defaultValue) >= 0.001
-                ? Visibility.Visible
-                : Visibility.Hidden;
+            button.Visibility = Math.Abs(slider.Value - defaultValue) >= 0.001 ? Visibility.Visible : Visibility.Hidden;
         }
     }
 
@@ -259,77 +249,74 @@ public partial class TouchpadPanel
     {
         if (!IsVisible)
             return;
-
         if (signal.Phase == GesturePhase.Claimed)
             _gestureStartValue = ReadGestureStartValue(signal.Action);
-
         if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
         {
-            StopGestureFeedbackFade();
-            GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
-            GestureFeedbackTitle.Text = $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}";
-            string value = FormatGestureValue(signal);
-            GestureFeedbackValue.Text = value;
-            Visualizer.SetActiveGestureValue(value);
-            GestureFeedbackOverlay.Opacity = 1;
+            Visualizer.ClearReleasedGestureFeedback();
             return;
         }
-
         if (signal.Phase == GesturePhase.Released)
         {
-            GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
-            GestureFeedbackTitle.Text = ActionLabel(signal.Action);
-            GestureFeedbackValue.Text = FormatGestureValue(signal);
-            Visualizer.SetActiveGestureValue(null);
-            StartGestureFeedbackFade();
+            Visualizer.ShowReleasedGestureValue(signal.Edge, FormatGestureValue(signal));
+            _gestureStartValue = null;
             return;
         }
-
         if (signal.Phase == GesturePhase.Cancelled)
         {
-            GestureFeedbackIcon.Kind = "Touchpad";
-            GestureFeedbackTitle.Text = "Gesture cancelled";
-            GestureFeedbackValue.Text = string.IsNullOrWhiteSpace(signal.Reason) ? "Not claimed" : signal.Reason;
-            Visualizer.SetActiveGestureValue(null);
-            StartGestureFeedbackFade(250, 500);
+            Visualizer.ClearReleasedGestureFeedback();
             _gestureStartValue = null;
         }
     }
 
-    private string FormatGestureStatus(GestureSignal signal) =>
-        $"{ActionLabel(signal.Action)} · {FormatGestureValue(signal)}";
+    private string FormatGestureStatus(GestureSignal signal)
+    {
+        if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
+            return $"{ActionLabel(signal.Action)} · {FormatGestureDirection(signal)}";
+        return $"{ActionLabel(signal.Action)} · {FormatGestureValue(signal)}";
+    }
+
+    private string FormatGestureDirection(GestureSignal signal)
+    {
+        double signed = signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -signal.DeltaMm : signal.DeltaMm;
+        if (Math.Abs(signed) < 0.01)
+            signed = signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -signal.TotalTravelMm : signal.TotalTravelMm;
+        if (signal.Action == GestureActionKind.PreviousNextTrack)
+            return signed >= 0 ? "Next" : "Previous";
+        return signed >= 0 ? "+" : "−";
+    }
 
     private string FormatGestureValue(GestureSignal signal)
     {
         if (signal.Action == GestureActionKind.MediaSeek && _host is not null)
-        {
-            double seconds = _host.CurrentSeekDeltaSeconds;
-            return $"{seconds:+0.0;-0.0;0.0} s";
-        }
+            return $"{_host.CurrentSeekDeltaSeconds:+0.0;-0.0;0.0} s";
 
         int? current = ReadGestureTargetValue(signal.Action);
         if (current.HasValue)
             return $"{current.Value}%";
-
         if (_gestureStartValue.HasValue && signal.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
             return $"{_gestureStartValue.Value}%";
 
-        if (signal.Action is GestureActionKind.PreviousNextTrack or GestureActionKind.PlayPause or GestureActionKind.Mute or
-            GestureActionKind.TaskView or GestureActionKind.ShowDesktop or GestureActionKind.KeyboardBacklight or
-            GestureActionKind.PerformanceMode or GestureActionKind.CustomShortcut)
-            return "Triggered";
-
-        return $"{signal.TotalTravelMm:+0.0;-0.0;0.0} mm";
+        return signal.Action switch
+        {
+            GestureActionKind.PreviousNextTrack => FormatGestureDirection(signal) == "Next" ? "Next track" : "Previous track",
+            GestureActionKind.PlayPause => "Play / pause",
+            GestureActionKind.Mute => "Mute toggled",
+            GestureActionKind.TaskView => "Task view",
+            GestureActionKind.ShowDesktop => "Desktop toggled",
+            GestureActionKind.KeyboardBacklight => "Keyboard level changed",
+            GestureActionKind.PerformanceMode => "Performance mode changed",
+            GestureActionKind.CustomShortcut => "Shortcut sent",
+            _ => $"{signal.TotalTravelMm:+0.0;-0.0;0.0} mm"
+        };
     }
 
     private int? ReadGestureStartValue(GestureActionKind action)
     {
         if (action == GestureActionKind.Volume && _host is not null)
             return Math.Clamp(_host.ReadVolumePercent(), 0, 100);
-
         if (action == GestureActionKind.Brightness && _app is not null)
             return Math.Clamp(_app.State.Brightness, 0, 100);
-
         return null;
     }
 
@@ -337,56 +324,16 @@ public partial class TouchpadPanel
     {
         if (action == GestureActionKind.Volume && _host is not null)
             return _host.CurrentVolumeTarget;
-
         if (action == GestureActionKind.Brightness && _host is not null)
             return _host.CurrentBrightnessTarget;
-
         return null;
-    }
-
-    private void StopGestureFeedbackFade()
-    {
-        GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, null);
-    }
-
-    private void StartGestureFeedbackFade(int holdMilliseconds = 450, int fadeMilliseconds = 700)
-    {
-        StopGestureFeedbackFade();
-        GestureFeedbackOverlay.Opacity = 1;
-        var fade = new DoubleAnimation
-        {
-            From = 1,
-            To = 0,
-            BeginTime = TimeSpan.FromMilliseconds(holdMilliseconds),
-            Duration = new Duration(TimeSpan.FromMilliseconds(fadeMilliseconds)),
-            FillBehavior = FillBehavior.Stop
-        };
-        fade.Completed += (_, _) =>
-        {
-            GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, null);
-            GestureFeedbackOverlay.Opacity = 0;
-        };
-        GestureFeedbackOverlay.BeginAnimation(UIElement.OpacityProperty, fade, HandoffBehavior.SnapshotAndReplace);
     }
 
     private void ClearGestureFeedback()
     {
         _gestureStartValue = null;
-        Visualizer.SetActiveGestureValue(null);
-        StopGestureFeedbackFade();
-        GestureFeedbackOverlay.Opacity = 0;
+        Visualizer.ClearReleasedGestureFeedback();
     }
-
-    private static string FeedbackIcon(GestureActionKind action) => action switch
-    {
-        GestureActionKind.Volume or GestureActionKind.MediaSeek or GestureActionKind.PreviousNextTrack or
-            GestureActionKind.PlayPause or GestureActionKind.Mute => "Audio",
-        GestureActionKind.Brightness => "Monitor",
-        GestureActionKind.KeyboardBacklight => "Keyboard",
-        GestureActionKind.PerformanceMode => "Gauge",
-        GestureActionKind.TaskView or GestureActionKind.ShowDesktop => "Laptop",
-        _ => "Touchpad"
-    };
 
     private static string FormatSetting(double value, string unit, int decimals)
     {
@@ -398,12 +345,9 @@ public partial class TouchpadPanel
 
     private string FormatDefault(double value, Slider slider)
     {
-        if (ReferenceEquals(slider, SensitivitySlider))
-            return $"{value:0.0}x";
-        if (ReferenceEquals(slider, EdgeWidthSlider) || ReferenceEquals(slider, ActivationSlider) || ReferenceEquals(slider, ToleranceSlider))
-            return $"{value:0.0} mm";
-        if (ReferenceEquals(slider, OsdOpacitySlider))
-            return $"{value:0}%";
+        if (ReferenceEquals(slider, SensitivitySlider)) return $"{value:0.0}x";
+        if (ReferenceEquals(slider, EdgeWidthSlider) || ReferenceEquals(slider, ActivationSlider) || ReferenceEquals(slider, ToleranceSlider)) return $"{value:0.0} mm";
+        if (ReferenceEquals(slider, OsdOpacitySlider)) return $"{value:0}%";
         return $"{value:0}";
     }
 }

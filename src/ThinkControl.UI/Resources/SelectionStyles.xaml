@@ -45,6 +45,7 @@
     <Style TargetType="{x:Type ComboBoxItem}">
         <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
         <Setter Property="Background" Value="Transparent" />
+        <Setter Property="FontSize" Value="12" />
         <Setter Property="Padding" Value="10,7" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -86,7 +87,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="MinHeight" Value="34" />
         <Setter Property="Padding" Value="10,0,30,0" />
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="12" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />

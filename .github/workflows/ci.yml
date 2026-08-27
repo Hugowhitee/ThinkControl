@@ -29,6 +29,9 @@ jobs:
       - name: Test
         run: dotnet test tests/ThinkControl.Core.Tests/ThinkControl.Core.Tests.csproj --configuration Release --no-build --no-restore
 
+      - name: Compact/full view transition smoke
+        run: dotnet run --project tools/ThinkControl.ShellSmoke/ThinkControl.ShellSmoke.csproj --configuration Release
+
       - name: Render WPF visual QA
         shell: pwsh
         run: |

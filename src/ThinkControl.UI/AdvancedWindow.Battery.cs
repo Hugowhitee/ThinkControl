@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.UI.Controls;
@@ -15,20 +16,53 @@ public partial class AdvancedWindow
 
         _batteryPageConfigured = true;
         var content = new StackPanel();
-        content.Children.Add(new TextBlock
+
+        var header = new Grid();
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.Children.Add(new TextBlock
         {
             Text = "Battery",
             FontSize = 24,
-            FontWeight = FontWeights.SemiBold
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
         });
+
+        var windowsPower = new Button
+        {
+            Content = "Screen & sleep  ↗",
+            Style = (Style)FindResource("TcButton"),
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            Padding = new Thickness(11, 5, 11, 5),
+            ToolTip = "Open Windows Power & battery settings"
+        };
+        windowsPower.Click += (_, _) => OpenPowerAndSleepSettings();
+        Grid.SetColumn(windowsPower, 1);
+        header.Children.Add(windowsPower);
+        content.Children.Add(header);
+
         content.Children.Add(new TextBlock
         {
-            Text = "Live Windows/ACPI battery data plus a small local charging history. ThinkControl learns from prior sessions without inventing unsupported firmware controls.",
+            Text = "Live Windows/ACPI battery data plus local charging history and Windows-owned power controls.",
             Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextMuted"),
             Margin = new Thickness(0, 6, 0, 18),
             TextWrapping = TextWrapping.Wrap
         });
         content.Children.Add(new BatteryTelemetryPanel());
         PageBattery.Content = content;
+    }
+
+    private static void OpenPowerAndSleepSettings()
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("ms-settings:powersleep") { UseShellExecute = true });
+        }
+        catch
+        {
+            try { Process.Start(new ProcessStartInfo("ms-settings:batterysaver") { UseShellExecute = true }); }
+            catch { }
+        }
     }
 }

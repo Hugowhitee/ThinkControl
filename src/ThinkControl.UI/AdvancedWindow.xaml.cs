@@ -142,6 +142,13 @@ public partial class AdvancedWindow : Window
             _positioned = true;
         }
 
+        // Never fade a top-level native WPF window from opacity 0. On slower first
+        // composition passes that exposed a large black client area before the real
+        // visual tree painted. Keep the window fully opaque and let the dedicated
+        // startup loader / existing Compact surface provide transition continuity.
+        BeginAnimation(OpacityProperty, null);
+        Opacity = 1;
+
         if (!IsVisible)
             Show();
 
@@ -149,20 +156,9 @@ public partial class AdvancedWindow : Window
             WindowState = WindowState.Normal;
 
         ApplyThemeToChrome();
+        UpdateLayout();
+        Dispatcher.Invoke(System.Windows.Threading.DispatcherPriority.Render, new Action(static () => { }));
         Activate();
-
-        if (animate)
-        {
-            Opacity = 0;
-            BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150))
-            {
-                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
-            });
-        }
-        else
-        {
-            Opacity = 1;
-        }
     }
 
     public void HideAnimated()
@@ -170,14 +166,11 @@ public partial class AdvancedWindow : Window
         if (!IsVisible)
             return;
 
-        var animation = new DoubleAnimation(Opacity, 0, TimeSpan.FromMilliseconds(105));
-        animation.Completed += (_, _) =>
-        {
-            Hide();
-            BeginAnimation(OpacityProperty, null);
-            Opacity = 1;
-        };
-        BeginAnimation(OpacityProperty, animation);
+        // Layout switching must be deterministic. A whole-window fade can overlap
+        // with activation/deactivation and leave a hidden/transparent native window.
+        BeginAnimation(OpacityProperty, null);
+        Opacity = 1;
+        Hide();
     }
 
     public void ForceClose()
