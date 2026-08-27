@@ -34,9 +34,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
 
         Brush brush = Foreground ?? Brushes.Gray;
-        // Do not derive stroke weight from inherited FontWeight. TcNav makes the
-        // selected label SemiBold; Audio/Sensors/Touchpad are stroked custom glyphs,
-        // so using FontWeight here made only those icons become visibly bolder.
         double stroke = Math.Max(1.2, Math.Min(width, height) / 10.5d);
         var pen = new Pen(brush, stroke)
         {
@@ -47,8 +44,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
 
         if (Kind == "Touchpad")
         {
-            // A touchpad is optically wider and flatter than a generic rounded
-            // rectangle. Keep the silhouette broad even inside the nav's 15×15 box.
             double shellWidth = width * 0.94;
             double shellHeight = height * 0.67;
             double touchLeft = (width - shellWidth) / 2d;
@@ -64,9 +59,12 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
-        if (Kind is "CompactView" or "FullView")
+        // ViewSidebar used to be the compact/full icon. Keep the legacy kind as an
+        // alias so old XAML can never show the incorrect sidebar metaphor again.
+        if (Kind is "CompactView" or "FullView" or "ViewSidebar")
         {
-            DrawViewModeGlyph(drawingContext, pen, width, height, Kind == "CompactView");
+            bool compact = Kind is "CompactView" or "ViewSidebar";
+            DrawViewModeGlyph(drawingContext, pen, width, height, compact);
             return;
         }
 
@@ -86,7 +84,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             "Sensors" => "Tc.Icon.Sensors",
             "Cpu" => "Tc.Icon.Cpu",
             "Brightness" => "Tc.Icon.Brightness",
-            "ViewSidebar" => "Tc.Icon.ViewSidebar",
             "OpenInFull" => "Tc.Icon.OpenInFull",
             "Close" => "Tc.Icon.Close",
             "Check" => "Tc.Icon.Check",
@@ -125,8 +122,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
 
         if (compact)
         {
-            // A small panel nested in the window communicates the destination much
-            // more directly than the old diagonal arrow did.
             Rect inner = new(
                 outer.Left + outer.Width * 0.23,
                 outer.Top + outer.Height * 0.56,
@@ -136,7 +131,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         }
         else
         {
-            // Full view uses a large inset pane: same icon family, opposite state.
             Rect inner = new(
                 outer.Left + outer.Width * 0.18,
                 outer.Top + outer.Height * 0.20,
