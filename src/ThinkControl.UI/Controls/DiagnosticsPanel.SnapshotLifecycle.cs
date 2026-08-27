@@ -6,6 +6,8 @@ namespace ThinkControl.UI.Controls;
 
 public partial class DiagnosticsPanel
 {
+    private bool _crashQueueSnapshotRequested;
+
     /// <summary>
     /// Dedicated deterministic state for diagnostics visual QA. These captures
     /// intentionally exercise the unknown-device lifecycle even though the general
@@ -71,23 +73,8 @@ public partial class DiagnosticsPanel
 
     internal void PrepareCrashQueueForSnapshot()
     {
+        _crashQueueSnapshotRequested = true;
         ApplyCrashQueueSnapshotState();
-
-        // The snapshot harness prepares state before the window is first laid out.
-        // DiagnosticsPanel_Loaded performs a normal runtime Refresh(), which would
-        // replace this intentionally synthetic queue with the real (empty) crash
-        // journal. Re-apply once after Loaded so the captured frame proves the
-        // crash-history UI itself instead of accidentally photographing runtime data.
-        if (!IsLoaded)
-        {
-            RoutedEventHandler? reapplyAfterLoaded = null;
-            reapplyAfterLoaded = (_, _) =>
-            {
-                Loaded -= reapplyAfterLoaded;
-                ApplyCrashQueueSnapshotState();
-            };
-            Loaded += reapplyAfterLoaded;
-        }
     }
 
     private void ApplyCrashQueueSnapshotState()
@@ -109,9 +96,16 @@ public partial class DiagnosticsPanel
 
     internal bool BringCrashQueueIntoViewForSnapshot()
     {
+        // This hook is called after the snapshot window has completed Measure /
+        // Arrange / Loaded. Re-materialize the requested synthetic state here so
+        // normal runtime Refresh() calls can never erase the evidence before capture.
+        if (_crashQueueSnapshotRequested)
+            ApplyCrashQueueSnapshotState();
+
         if (CrashCard.Visibility != Visibility.Visible)
             return false;
 
+        CrashCard.UpdateLayout();
         CrashCard.BringIntoView();
         return true;
     }
