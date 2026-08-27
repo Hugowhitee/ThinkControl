@@ -20,6 +20,7 @@ internal sealed class GestureOsdService : IDisposable
         "M4,3 L13,12 L4,21 Z M15,4 L18,4 L18,20 L15,20 Z M20,4 L23,4 L23,20 L20,20 Z");
     private const double HorizontalScreenInset = 22;
     private const double TaskbarRevealOverlap = 1;
+    private const double RestingOffset = -8;
     private const double HiddenOffset = 76;
 
     private readonly Func<ThinkControlUserSettings> _settings;
@@ -141,7 +142,7 @@ internal sealed class GestureOsdService : IDisposable
         if (_shellTransform is not null)
         {
             _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
-            _shellTransform.Y = 0;
+            _shellTransform.Y = RestingOffset;
         }
         return _window ?? throw new InvalidOperationException("Gesture OSD window was not created.");
     }
@@ -171,9 +172,10 @@ internal sealed class GestureOsdService : IDisposable
             _ => area.Left + (area.Width - _window.Width) / 2d
         };
 
-        // Flush the clipping host to the taskbar/work-area boundary. The card starts
-        // below its clipped host and reveals upward, so it appears to emerge from
-        // behind the taskbar instead of floating 14 px above it.
+        // Keep the transparent clipping host flush with the taskbar boundary so the
+        // card still emerges from behind it. The visible shell then settles a few
+        // pixels above the boundary; this preserves the Windows-like reveal without
+        // leaving the card visually glued to the taskbar.
         _window.Top = area.Bottom - _window.Height + TaskbarRevealOverlap;
 
         bool alreadyVisible = _window.IsVisible;
@@ -185,7 +187,7 @@ internal sealed class GestureOsdService : IDisposable
             _window.Show();
             if (SystemParameters.ClientAreaAnimation)
             {
-                var reveal = new DoubleAnimation(HiddenOffset, 0, TimeSpan.FromMilliseconds(122))
+                var reveal = new DoubleAnimation(HiddenOffset, RestingOffset, TimeSpan.FromMilliseconds(122))
                 {
                     EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
                 };
@@ -194,18 +196,18 @@ internal sealed class GestureOsdService : IDisposable
                     if (_shellTransform is null || generation != _revealGeneration)
                         return;
                     _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
-                    _shellTransform.Y = 0;
+                    _shellTransform.Y = RestingOffset;
                 };
                 _shellTransform.BeginAnimation(TranslateTransform.YProperty, reveal);
             }
             else
             {
-                _shellTransform.Y = 0;
+                _shellTransform.Y = RestingOffset;
             }
         }
         else
         {
-            _shellTransform.Y = 0;
+            _shellTransform.Y = RestingOffset;
         }
     }
 
@@ -247,7 +249,7 @@ internal sealed class GestureOsdService : IDisposable
         _label = new TextBlock
         {
             FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
-            FontSize = 11.5,
+            FontSize = 12,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -256,7 +258,7 @@ internal sealed class GestureOsdService : IDisposable
         _value = new TextBlock
         {
             FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
-            FontSize = 10.5,
+            FontSize = 12,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -357,7 +359,7 @@ internal sealed class GestureOsdService : IDisposable
         if (!SystemParameters.ClientAreaAnimation)
         {
             _window.Hide();
-            _shellTransform.Y = 0;
+            _shellTransform.Y = RestingOffset;
             return;
         }
 
@@ -375,7 +377,7 @@ internal sealed class GestureOsdService : IDisposable
                 return;
             _window.Hide();
             _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
-            _shellTransform.Y = 0;
+            _shellTransform.Y = RestingOffset;
         };
         _shellTransform.BeginAnimation(TranslateTransform.YProperty, animation);
     }
