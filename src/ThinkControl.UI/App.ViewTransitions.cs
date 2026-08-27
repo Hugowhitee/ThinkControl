@@ -7,6 +7,19 @@ public partial class App
 {
     private bool _viewTransitionBusy;
 
+    /// <summary>
+    /// Single entry point for commands that want the full surface. If Compact is
+    /// visible, use the paint-before-hide transition. Otherwise the normal full
+    /// window path is safe because there is no visible Compact surface to replace.
+    /// </summary>
+    internal void OpenAdvancedSafely(string page = "Home")
+    {
+        if (CompactWindow is { IsVisible: true })
+            SwitchCompactToAdvanced(page);
+        else
+            OpenAdvanced(page);
+    }
+
     internal void SwitchCompactToAdvanced(string page = "Home")
     {
         if (_viewTransitionBusy)
@@ -38,6 +51,7 @@ public partial class App
         catch (Exception ex)
         {
             Trace.WriteLine($"ThinkControl Compact -> Advanced transition failed: {ex}");
+            try { _advancedWindow?.HideAnimated(); } catch { }
             try { CompactWindow.ShowNearTray(animate: false); } catch { }
         }
         finally
@@ -66,6 +80,7 @@ public partial class App
         catch (Exception ex)
         {
             Trace.WriteLine($"ThinkControl Advanced -> Compact transition failed: {ex}");
+            try { CompactWindow.HideAnimated(); } catch { }
             try { _advancedWindow?.ShowAdvanced(animate: false); } catch { }
         }
         finally
