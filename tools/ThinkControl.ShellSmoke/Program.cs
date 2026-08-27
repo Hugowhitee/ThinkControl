@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Threading;
 using ThinkControl.UI;
 using ThinkControl.UI.Services;
+using TcThemeMode = ThinkControl.UI.Services.ThemeMode;
 
 namespace ThinkControl.ShellSmoke;
 
@@ -18,7 +19,7 @@ internal static class Program
         {
             app = App.CreateForVisualQa();
             app.InitializeComponent();
-            ThemeService.Apply(ThemeMode.Dark);
+            ThemeService.Apply(TcThemeMode.Dark);
             app.State.DeviceName = "ThinkPad X9-15 Gen 1";
             app.State.SelectedMode = "Balanced";
             app.State.BatteryPercent = 72;
