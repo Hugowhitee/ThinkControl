@@ -25,6 +25,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
@@ -54,6 +55,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
@@ -133,6 +135,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectTouchpad(this);
@@ -191,6 +194,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedFeaturePages.SelectAudio(this);
