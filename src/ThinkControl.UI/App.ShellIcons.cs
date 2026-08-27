@@ -8,9 +8,14 @@ public partial class App
 {
     private void OnShellIconStartup(object? sender, StartupEventArgs e)
     {
-        // Application.Startup is raised from base.OnStartup before the tray icon is
-        // created by App.OnStartup. Queue this so it runs just after startup and
-        // replaces the old tray-only artwork with the canonical app icon.
+        // Application.Startup is raised from base.OnStartup before App.OnStartup
+        // continues into the synchronous device preflight. Paint the dedicated
+        // loading surface now, so a slow WMI/SMBIOS read can never leave an empty
+        // black application window on screen.
+        ShowStartupBootstrapEarly();
+
+        // The tray icon itself is created later by App.OnStartup. Queue canonical
+        // artwork replacement until that shell object exists.
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyCanonicalTrayIcon));
     }
 
