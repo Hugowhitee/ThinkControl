@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 
 namespace ThinkControl.UI;
 
@@ -13,7 +14,7 @@ public partial class MainWindow : Window
 
     private readonly App _app;
     private bool _forceClose;
-    private bool _explicitViewSwitch;
+    private long _hideGeneration;
 
     public MainWindow(App app)
     {
@@ -21,25 +22,19 @@ public partial class MainWindow : Window
         InitializeComponent();
         Dashboard.Initialize(app);
         Closing += OnClosing;
+        Activated += (_, _) => _app.OnCompactActivated();
         SourceInitialized += (_, _) => ApplyNativeCornerClip();
+        Dispatcher.UnhandledException += Dispatcher_UnhandledException;
     }
 
-    /// <summary>
-    /// Marks the next hide as an intentional Compact -> Advanced transition. This
-    /// prevents Window.Deactivated from starting a second overlapping hide animation.
-    /// </summary>
-    public void BeginExplicitViewSwitch()
-    {
-        _explicitViewSwitch = true;
-        BeginAnimation(OpacityProperty, null);
-        Opacity = 1;
-    }
+    internal System.Windows.Controls.Button ExpandButtonForShellSmoke => Dashboard.ExpandButtonForShellSmoke;
 
     public void ShowNearTray(bool animate)
     {
-        // Startup decides whether Compact should be shown at all. Once this method
-        // is called it represents a real show request and must never silently reject
-        // the user because Advanced happened to be the configured startup view.
+        // Every show invalidates a previously queued/animated hide. Without this,
+        // a completed Deactivated fade can hide a flyout that has already been
+        // re-opened by the tray or an internal view transition.
+        Interlocked.Increment(ref _hideGeneration);
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
 
@@ -66,25 +61,25 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// Immediate hide used only while App.ViewTransitions owns both primary
+    /// surfaces. There is deliberately no fade and no local transition flag: the
+    /// App coordinator is the single authority for that lifecycle operation.
+    /// </summary>
+    internal void HideForViewTransition()
+    {
+        Interlocked.Increment(ref _hideGeneration);
+        BeginAnimation(OpacityProperty, null);
+        Opacity = 1;
+        if (IsVisible)
+            Hide();
+    }
+
     public void HideAnimated()
     {
+        long generation = Interlocked.Increment(ref _hideGeneration);
         if (!IsVisible)
-        {
-            _explicitViewSwitch = false;
             return;
-        }
-
-        // Explicit layout switching should be deterministic and never race the
-        // Deactivated event. Hide immediately; the destination surface supplies
-        // the visual continuity instead of cross-fading two top-level windows.
-        if (_explicitViewSwitch)
-        {
-            _explicitViewSwitch = false;
-            BeginAnimation(OpacityProperty, null);
-            Opacity = 1;
-            Hide();
-            return;
-        }
 
         if (!SystemParameters.ClientAreaAnimation)
         {
@@ -99,6 +94,11 @@ public partial class MainWindow : Window
         };
         animation.Completed += (_, _) =>
         {
+            // A newer show/hide request owns the window now. Never let an old
+            // animation completion hide the newly active Compact surface.
+            if (generation != Volatile.Read(ref _hideGeneration))
+                return;
+
             if (IsVisible)
                 Hide();
             BeginAnimation(OpacityProperty, null);
@@ -110,6 +110,7 @@ public partial class MainWindow : Window
     public void ForceClose()
     {
         _forceClose = true;
+        Dispatcher.UnhandledException -= Dispatcher_UnhandledException;
         Close();
     }
 
@@ -144,16 +145,15 @@ public partial class MainWindow : Window
         HideAnimated();
     }
 
-    private void Window_Deactivated(object sender, EventArgs e)
-    {
-        // During an explicit Compact -> Advanced transition OpenAdvanced owns the
-        // hide. Letting Deactivated start a second animation was a race that could
-        // leave the shell hidden or visually corrupted.
-        if (_explicitViewSwitch)
-            return;
+    private void Window_Deactivated(object sender, EventArgs e) =>
+        _app.OnCompactDeactivated();
 
-        if (IsVisible)
-            HideAnimated();
+    private void Dispatcher_UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        // Persist the exception before WPF follows its normal unhandled-exception
+        // behavior. Do not mark it handled: hiding a real crash behind a catch would
+        // recreate the diagnostic ambiguity that made alpha.23 difficult to trust.
+        _app.RecordShellException("dispatcher", e.Exception);
     }
 
     [DllImport("dwmapi.dll")]
