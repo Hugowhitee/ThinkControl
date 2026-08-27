@@ -38,7 +38,9 @@ public partial class App
     {
         if (IsTrayOnlyLaunch())
         {
-            CompactWindow.ShowNearTray(animate: false);
+            // Windows-startup mode is intentionally silent. Do not call the same
+            // Compact show method used by an explicit user request and then ask the
+            // window itself to guess whether it should suppress that call.
             QueuePostStartupShellPolish();
             return;
         }
@@ -52,12 +54,11 @@ public partial class App
             return;
         }
 
-        // Fast manual starts can still go directly to Compact. The fallback loader
-        // below is retained for environments where the early surface could not be
-        // created for a cosmetic/platform reason.
+        // Fallback only: normally the early loader already owns this path. If its
+        // creation failed, show the configured destination directly.
         if (synchronousStartupTime < TimeSpan.FromMilliseconds(180))
         {
-            CompactWindow.ShowNearTray(animate: true);
+            ShowConfiguredInitialView();
             QueuePostStartupShellPolish();
             return;
         }
@@ -73,7 +74,7 @@ public partial class App
         catch
         {
             _bootstrapWindow = null;
-            CompactWindow.ShowNearTray(animate: true);
+            ShowConfiguredInitialView();
             QueuePostStartupShellPolish();
         }
     }
@@ -83,9 +84,17 @@ public partial class App
         await Task.WhenAny(initialRefresh, Task.Delay(300));
         CloseBootstrap(() =>
         {
-            CompactWindow.ShowNearTray(animate: true);
+            ShowConfiguredInitialView();
             QueuePostStartupShellPolish();
         });
+    }
+
+    private void ShowConfiguredInitialView()
+    {
+        if (IsAdvancedOpeningPreferred())
+            OpenAdvanced("Home");
+        else
+            CompactWindow.ShowNearTray(animate: true);
     }
 
     private void QueuePostStartupShellPolish()
