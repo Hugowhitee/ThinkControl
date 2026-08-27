@@ -20,7 +20,7 @@ public partial class CompactDashboard
     [
         new("Battery", "BATTERY", "BatteryPercentText", "BatteryEtaText", "Battery"),
         new("CPU", "CPU", "CpuTemperatureText", "Live temperature", "System"),
-        new("Fans", "FANS", "CoolingProfileDisplay", "FanRpmText", "Fans", true),
+        new("Fans", "FANS", "CoolingProfileDisplay", "FanRpmText", "Fans"),
         new("Power", "POWER", "BatteryPowerText", "BatteryAveragePowerText", "Battery"),
         new("Sensors", "SENSORS", "SensorCountText", "Hardware telemetry", "System"),
         new("Display", "DISPLAY", "CurrentRefreshText", "Refresh rate", "Display"),
