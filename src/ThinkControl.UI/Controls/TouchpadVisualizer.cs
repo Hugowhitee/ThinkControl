@@ -269,8 +269,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
                 bool plusActive = active && (_signal?.DeltaMm ?? 0) < -0.01;
                 bool minusActive = active && (_signal?.DeltaMm ?? 0) > 0.01;
-                DrawLabel(dc, "+", new WpfPoint(point.X, point.Y - 31), plusActive ? 14 : 12, plusActive ? accent : labelBrush, centered: true);
-                DrawLabel(dc, "−", new WpfPoint(point.X, point.Y + 31), minusActive ? 14 : 12, minusActive ? accent : labelBrush, centered: true);
+                string upper = binding.Inverted ? "−" : "+";
+                string lower = binding.Inverted ? "+" : "−";
+                bool upperActive = upper == "+" ? plusActive : minusActive;
+                bool lowerActive = lower == "+" ? plusActive : minusActive;
+                DrawLabel(dc, upper, new WpfPoint(point.X, point.Y - 31), upperActive ? 14 : 12, upperActive ? accent : labelBrush, centered: true);
+                DrawLabel(dc, lower, new WpfPoint(point.X, point.Y + 31), lowerActive ? 14 : 12, lowerActive ? accent : labelBrush, centered: true);
 
                 if (active && !string.IsNullOrWhiteSpace(_activeValueText))
                     DrawActiveValueBadge(dc, pad, edge, point, _activeValueText!, accent);
