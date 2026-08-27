@@ -37,9 +37,11 @@ public partial class CompactDashboard : UserControl
 
         EnsureShellPolish();
         EnsureQuickControls();
+        EnsureCompactMetrics();
         EnsureHardwareAlert();
         SyncQuickControls();
         SyncHardwareAlert();
+        ReadableTypography.Apply(this);
     }
 
     private void App_UpdateAvailabilityChanged(object? sender, EventArgs e) =>
@@ -80,5 +82,4 @@ public partial class CompactDashboard : UserControl
     }
 
     private void Battery_Click(object sender, MouseButtonEventArgs e) => _app?.OpenAdvanced("Battery");
-
 }
