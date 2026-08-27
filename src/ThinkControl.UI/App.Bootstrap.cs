@@ -22,7 +22,13 @@ public partial class App
 
         try
         {
-            _bootstrapWindow = new BootstrapWindow();
+            _bootstrapWindow = new BootstrapWindow
+            {
+                // Keep the small painted loading surface above a destination window
+                // until that destination has completed at least one WPF render pass.
+                // This is preferable to ever exposing an empty native window frame.
+                Topmost = true
+            };
             _bootstrapWindow.Show();
             _bootstrapWindow.UpdateLayout();
             Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
@@ -38,16 +44,10 @@ public partial class App
     {
         if (IsTrayOnlyLaunch())
         {
-            // Windows-startup mode is intentionally silent. Do not call the same
-            // Compact show method used by an explicit user request and then ask the
-            // window itself to guess whether it should suppress that call.
             QueuePostStartupShellPolish();
             return;
         }
 
-        // When the early loader is already visible, keep that exact window alive
-        // until the first refresh has had a short chance to settle. Never tear it
-        // down and create a second splash surface.
         if (_bootstrapWindow is not null)
         {
             CompleteInitialShellPresentationAsync(initialRefresh);
@@ -65,7 +65,7 @@ public partial class App
 
         try
         {
-            _bootstrapWindow = new BootstrapWindow();
+            _bootstrapWindow = new BootstrapWindow { Topmost = true };
             _bootstrapWindow.Show();
             _bootstrapWindow.UpdateLayout();
             Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
@@ -82,11 +82,16 @@ public partial class App
     private async void CompleteInitialShellPresentationAsync(Task initialRefresh)
     {
         await Task.WhenAny(initialRefresh, Task.Delay(300));
-        CloseBootstrap(() =>
-        {
-            ShowConfiguredInitialView();
-            QueuePostStartupShellPolish();
-        });
+
+        // Paint the real destination while the bootstrap is still above it. The
+        // two dispatcher yields let layout/render and OnContentRendered work finish
+        // before the loader fades, eliminating the black-frame gap seen in alpha.22.
+        ShowConfiguredInitialView();
+        await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.Render);
+        await Dispatcher.InvokeAsync(static () => { }, DispatcherPriority.ContextIdle);
+
+        CloseBootstrap();
+        QueuePostStartupShellPolish();
     }
 
     private void ShowConfiguredInitialView()
@@ -120,13 +125,8 @@ public partial class App
         // sessions instead of merely moving the hitch to a longer interval.
         StartRuntimeStatusScheduler();
 
-        // A Windows-startup launch is intentionally silent: no compact popup,
-        // advanced window, splash screen or hardware onboarding prompt.
         if (!IsTrayOnlyLaunch())
         {
-            // Do not depend solely on a later Application.Activated event for hardware
-            // onboarding. The first real window can already be active by the time the
-            // bootstrap closes, which previously left the System page on "Checking…".
             OnHardwareSetupActivated(this, EventArgs.Empty);
             ApplyPreferredLaunchViewAfterStartup();
         }
@@ -152,6 +152,7 @@ public partial class App
                     TimeSpan.FromMilliseconds(110));
                 animation.Completed += (_, _) =>
                 {
+                    window.Topmost = false;
                     window.Close();
                     afterClosed?.Invoke();
                 };
@@ -159,13 +160,19 @@ public partial class App
             }
             else
             {
+                window.Topmost = false;
                 window.Close();
                 afterClosed?.Invoke();
             }
         }
         catch
         {
-            try { window.Close(); } catch { }
+            try
+            {
+                window.Topmost = false;
+                window.Close();
+            }
+            catch { }
             afterClosed?.Invoke();
         }
     }
