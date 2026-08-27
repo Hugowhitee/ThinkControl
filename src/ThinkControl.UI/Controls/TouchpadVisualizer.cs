@@ -103,13 +103,13 @@ public sealed class TouchpadVisualizer : FrameworkElement
         DateTimeOffset now = DateTimeOffset.UtcNow;
         var currentIds = contacts
             .Where(static contact => contact.IsDown && contact.Confidence)
-            .Select(static contact => contact.Id)
+            .Select(static contact => contact.ContactId)
             .ToHashSet();
 
         foreach (TouchContact contact in contacts.Where(static contact => contact.IsDown && contact.Confidence))
         {
-            TrailPoint? previous = FindLastTrailPoint(contact.Id);
-            bool startsSegment = !_previousActiveContactIds.Contains(contact.Id) || previous is null;
+            TrailPoint? previous = FindLastTrailPoint(contact.ContactId);
+            bool startsSegment = !_previousActiveContactIds.Contains(contact.ContactId) || previous is null;
 
             if (!startsSegment && previous is TrailPoint last && PhysicalJumpMm(last, contact) > MaxConnectedJumpMm)
                 startsSegment = true;
@@ -117,7 +117,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             bool movedEnough = previous is null ||
                 Math.Abs(previous.Value.X - contact.X) + Math.Abs(previous.Value.Y - contact.Y) >= 8;
             if (startsSegment || movedEnough)
-                _trail.Add(new TrailPoint(contact.Id, contact.X, contact.Y, now, startsSegment));
+                _trail.Add(new TrailPoint(contact.ContactId, contact.X, contact.Y, now, startsSegment));
         }
 
         _previousActiveContactIds.Clear();
@@ -130,6 +130,16 @@ public sealed class TouchpadVisualizer : FrameworkElement
         if ((_trail.Count > 0 || contacts.Any(static contact => contact.IsDown)) && !_trailTimer.IsEnabled)
             _trailTimer.Start();
         InvalidateVisual();
+    }
+
+    public void ShowReleasedGestureValue(TouchpadEdge? edge, string? value)
+    {
+        if (edge is not TouchpadEdge resolved)
+        {
+            ClearReleasedGestureFeedback();
+            return;
+        }
+        ShowReleasedGestureValue(resolved, value);
     }
 
     public void ShowReleasedGestureValue(TouchpadEdge edge, string? value)
