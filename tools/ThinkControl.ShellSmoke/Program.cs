@@ -50,6 +50,9 @@ internal static class Program
             // Reproduce the other missing alpha.23 sequence: Compact is active,
             // ThinkControl shows another top-level window, the user activates and
             // clicks that notification, and Compact must remain the primary surface.
+            // Turn the hosted-runner suppression OFF here: this sequence must pass
+            // because the toast is recognized as a ThinkControl-owned window.
+            app.SetExternalAutoHideSuppressedForShellSmoke(false);
             bool attentionActionInvoked = false;
             app.ShowAttentionForShellSmoke(() => attentionActionInvoked = true);
             Pump(app.Dispatcher);
@@ -76,6 +79,10 @@ internal static class Program
             AssertPrimarySurface(app, compact: true, full: false, "after ThinkControl toast action");
             AssertAlive(app, "after ThinkControl toast action");
 
+            // Return to hosted-runner isolation only after the real notification
+            // deactivation/action path has completed successfully.
+            app.SetExternalAutoHideSuppressedForShellSmoke(true);
+
             // Finish with one more real click so notification focus cannot leave a
             // latent state that only breaks the next Compact -> Full interaction.
             InvokeButton(app.CompactWindow.ExpandButtonForShellSmoke);
@@ -83,7 +90,7 @@ internal static class Program
             AssertPrimarySurface(app, compact: false, full: true, "post-notification real expand click");
             AssertAlive(app, "post-notification Full");
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: 6 real Compact expand clicks, 5 return transitions, notification activation/action, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: 6 real Compact expand clicks, 5 return transitions, notification activation/action with Compact deactivation enabled, sole-primary-surface and dispatcher-alive assertions.");
             return 0;
         }
         catch (Exception ex)
