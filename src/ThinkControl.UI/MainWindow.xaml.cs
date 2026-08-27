@@ -9,7 +9,6 @@ public partial class MainWindow : Window
     private readonly App _app;
     private bool _forceClose;
     private bool _initialShowHandled;
-    private bool _explicitShowRequested;
     private bool _explicitViewSwitch;
 
     public MainWindow(App app)
@@ -19,13 +18,6 @@ public partial class MainWindow : Window
         Dashboard.Initialize(app);
         Closing += OnClosing;
     }
-
-    /// <summary>
-    /// Startup suppression is only for the automatic first shell presentation.
-    /// A user explicitly requesting Compact must always be allowed to see it,
-    /// even when Advanced is configured as the default opening view.
-    /// </summary>
-    public void AllowExplicitShow() => _explicitShowRequested = true;
 
     /// <summary>
     /// Marks the next hide as an intentional Compact -> Advanced transition. This
@@ -40,18 +32,10 @@ public partial class MainWindow : Window
 
     public void ShowNearTray(bool animate)
     {
-        if (!_initialShowHandled)
-        {
-            _initialShowHandled = true;
-            bool explicitRequest = _explicitShowRequested;
-            _explicitShowRequested = false;
-            if (!explicitRequest && _app.ShouldSuppressInitialCompactLaunch)
-                return;
-        }
-        else
-        {
-            _explicitShowRequested = false;
-        }
+        // Startup decides whether Compact should be shown at all. Once this method
+        // is called it represents a real show request and must never silently reject
+        // the user because Advanced happened to be the configured startup view.
+        _initialShowHandled = true;
 
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
