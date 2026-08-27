@@ -26,7 +26,7 @@ internal static class TypographyBootstrap
             new RoutedEventHandler(OnSurfaceLoaded));
 
         EventManager.RegisterClassHandler(
-            typeof(ToolTip),
+            typeof(System.Windows.Controls.ToolTip),
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(OnSurfaceLoaded));
     }
