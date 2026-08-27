@@ -18,9 +18,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         typeof(PackIconLucide),
         new FrameworkPropertyMetadata(string.Empty, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    // Official Google Material Symbols Outlined `tune` 20 px geometry.
-    // Source: google/material-design-icons, Apache-2.0. Kept inline here so the
-    // sensitivity affordance stays in the same icon family without adding a pack.
     private static readonly Geometry TuneGeometry = Geometry.Parse(
         "M456-144v-240h72v84h288v72H528v84h-72Zm-312-84v-72h240v72H144Zm144-132v-84H144v-72h144v-84h72v240h-72Zm144-84v-72h384v72H432Zm144-132v-240h72v84h168v72H648v84h-72Zm-432-84v-72h384v72H144Z");
 
@@ -65,9 +62,12 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
-        // Compact/full view is deliberately represented by inward/outward diagonal
-        // arrows. ViewSidebar remains only as a compatibility alias so older XAML
-        // can never render the misleading sidebar-layout glyph again.
+        if (Kind is "BatteryHorizontal" or "BatteryChargingHorizontal")
+        {
+            DrawHorizontalBattery(drawingContext, pen, brush, width, height, charging: Kind == "BatteryChargingHorizontal");
+            return;
+        }
+
         if (Kind is "CompactView" or "FullView" or "ViewSidebar")
         {
             bool compact = Kind is "CompactView" or "ViewSidebar";
@@ -126,6 +126,39 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         drawingContext.DrawGeometry(brush, null, geometry);
     }
 
+    private static void DrawHorizontalBattery(DrawingContext dc, Pen pen, Brush brush, double width, double height, bool charging)
+    {
+        double bodyWidth = width * 0.78;
+        double bodyHeight = height * 0.62;
+        double left = (width - bodyWidth) / 2d - width * 0.035;
+        double top = (height - bodyHeight) / 2d;
+        Rect body = new(left, top, bodyWidth, bodyHeight);
+        dc.DrawRoundedRectangle(null, pen, body, Math.Min(2.4, bodyHeight * 0.18), Math.Min(2.4, bodyHeight * 0.18));
+
+        double terminalWidth = Math.Max(pen.Thickness * 1.45, width * 0.07);
+        double terminalHeight = bodyHeight * 0.38;
+        dc.DrawRoundedRectangle(
+            brush,
+            null,
+            new Rect(body.Right + pen.Thickness * 0.8, body.Top + (body.Height - terminalHeight) / 2d, terminalWidth, terminalHeight),
+            terminalWidth * 0.35,
+            terminalWidth * 0.35);
+
+        if (!charging)
+            return;
+
+        var bolt = new StreamGeometry();
+        using StreamGeometryContext context = bolt.Open();
+        context.BeginFigure(new Point(body.Left + body.Width * 0.54, body.Top + body.Height * 0.12), true, true);
+        context.LineTo(new Point(body.Left + body.Width * 0.36, body.Top + body.Height * 0.55), true, false);
+        context.LineTo(new Point(body.Left + body.Width * 0.50, body.Top + body.Height * 0.55), true, false);
+        context.LineTo(new Point(body.Left + body.Width * 0.42, body.Top + body.Height * 0.90), true, false);
+        context.LineTo(new Point(body.Left + body.Width * 0.68, body.Top + body.Height * 0.43), true, false);
+        context.LineTo(new Point(body.Left + body.Width * 0.53, body.Top + body.Height * 0.43), true, false);
+        bolt.Freeze();
+        dc.DrawGeometry(brush, null, bolt);
+    }
+
     private static void DrawViewModeGlyph(DrawingContext dc, Pen pen, double width, double height, bool compact)
     {
         double size = Math.Min(width, height);
@@ -136,7 +169,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
 
         if (compact)
         {
-            // Two diagonal arrows pointing toward the centre: "make this window compact".
             Point trStart = P(0.80, 0.20);
             Point trEnd = P(0.55, 0.45);
             dc.DrawLine(pen, trStart, trEnd);
@@ -151,7 +183,6 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         }
         else
         {
-            // Same visual language in reverse: outward arrows mean "expand to full view".
             Point trStart = P(0.55, 0.45);
             Point trEnd = P(0.80, 0.20);
             dc.DrawLine(pen, trStart, trEnd);
