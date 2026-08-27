@@ -73,4 +73,41 @@ public partial class App
             _viewTransitionBusy = false;
         }
     }
+
+    /// <summary>
+    /// Release-CI regression gate for the exact shell path that failed in alpha.22.
+    /// Unlike screenshot-only coverage this really shows both WPF windows and runs
+    /// Compact -> Full -> Compact repeatedly, so a constructor, activation or hide
+    /// regression fails the visual-QA executable before packaging can pass.
+    /// </summary>
+    internal void RunViewTransitionSmokeForVisualQa(int cycles = 3)
+    {
+        if (cycles < 1)
+            throw new ArgumentOutOfRangeException(nameof(cycles));
+
+        if (CompactWindow is null)
+            CompactWindow = new MainWindow(this) { DataContext = State };
+
+        try
+        {
+            CompactWindow.ShowNearTray(animate: false);
+            Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+
+            for (int i = 0; i < cycles; i++)
+            {
+                SwitchCompactToAdvanced("Home");
+                if (_advancedWindow?.IsVisible != true || CompactWindow.IsVisible)
+                    throw new InvalidOperationException($"View transition cycle {i + 1}: Full view did not become the sole visible surface.");
+
+                SwitchAdvancedToCompact();
+                if (!CompactWindow.IsVisible || _advancedWindow?.IsVisible == true)
+                    throw new InvalidOperationException($"View transition cycle {i + 1}: Compact view did not become the sole visible surface.");
+            }
+        }
+        finally
+        {
+            try { _advancedWindow?.ForceClose(); } catch { }
+            try { CompactWindow.ForceClose(); } catch { }
+        }
+    }
 }
