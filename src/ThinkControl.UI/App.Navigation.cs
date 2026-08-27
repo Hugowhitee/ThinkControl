@@ -4,7 +4,7 @@ public partial class App
 {
     public void OpenAudio()
     {
-        OpenAdvanced("Home");
+        OpenAdvancedSafely("Home");
         _advancedWindow?.NavigateAudio();
     }
 }
