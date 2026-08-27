@@ -23,6 +23,12 @@ internal static class ReadableTypography
             frameworkRoot.Resources[AppliedMarker] = true;
 
         ApplyNode(root);
+
+        // The snapshot executable is part of the release gate. In that host we turn
+        // the shared scale into an assertion after normalization, so a rendered
+        // control can never quietly escape the semantic ramp without failing CI.
+        if (Environment.ProcessPath?.Contains("ThinkControl.Snapshots", StringComparison.OrdinalIgnoreCase) == true)
+            Validate(root);
     }
 
     internal static void Validate(DependencyObject root)
