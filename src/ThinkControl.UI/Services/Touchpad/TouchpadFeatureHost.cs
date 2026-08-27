@@ -14,8 +14,6 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private int _volumeWorkerRunning;
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
-    private int _lastQueuedKeyboardIndex = -1;
-    private int _lastQueuedPerformanceIndex = -1;
     private bool _disposed;
 
     internal TouchpadFeatureHost(App app)
@@ -42,13 +40,10 @@ internal sealed class TouchpadFeatureHost : IDisposable
             QueueVolume,
             () => app.State.Brightness,
             QueueBrightness,
-            GetKeyboardIndex,
-            QueueKeyboardIndex,
-            GetPerformanceIndex,
-            QueuePerformanceIndex,
             SetGestureActive,
             next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
-            () => app.Dispatcher.BeginInvoke(new Action(_osd.ShowTrackCenter)));
+            () => app.Dispatcher.BeginInvoke(new Action(_osd.ShowTrackCenter)),
+            () => app.Dispatcher.BeginInvoke(new Action(app.ShowThinkControlFromTray)));
 
         bool x9 = string.Equals(app.State.MachineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
                   string.Equals(app.State.MachineType, "21Q7", StringComparison.OrdinalIgnoreCase);
@@ -133,16 +128,11 @@ internal sealed class TouchpadFeatureHost : IDisposable
         return false;
     }
 
-    private void SetGestureActive(GestureActionKind action, bool active)
+    private static void SetGestureActive(GestureActionKind action, bool active)
     {
-        if (active)
-        {
-            if (action == GestureActionKind.KeyboardBacklight)
-                Interlocked.Exchange(ref _lastQueuedKeyboardIndex, -1);
-            else if (action == GestureActionKind.PerformanceMode)
-                Interlocked.Exchange(ref _lastQueuedPerformanceIndex, -1);
-            return;
-        }
+        // Kept as the router's lifecycle hook so future bounded per-action state can
+        // be reset in one place. The removed keyboard/performance gesture workers no
+        // longer need hidden mutable state here.
     }
 
     private void QueueVolume(int value)
@@ -242,76 +232,6 @@ internal sealed class TouchpadFeatureHost : IDisposable
                 _ = Task.Run(ProcessBrightnessQueueAsync);
             }
         }
-    }
-
-    private int GetKeyboardIndex()
-    {
-        string status = _app.State.KeyboardStatus;
-        return status.Contains("Off", StringComparison.OrdinalIgnoreCase) ? 0 :
-            status.Contains("Low", StringComparison.OrdinalIgnoreCase) ? 1 : 2;
-    }
-
-    private void QueueKeyboardIndex(int index)
-    {
-        if (!_app.State.CanKeyboardBacklight || _disposed)
-            return;
-
-        int target = Math.Clamp(index, 0, 2);
-        if (Interlocked.Exchange(ref _lastQueuedKeyboardIndex, target) == target)
-            return;
-
-        _ = ApplyKeyboardIndexAsync(target);
-    }
-
-    private async Task ApplyKeyboardIndexAsync(int index)
-    {
-        string level = index switch { 0 => "Off", 1 => "Low", _ => "High" };
-        try
-        {
-            await _app.Dispatcher.InvokeAsync(() => _app.SetKeyboardStaticLevelAsync(level)).Task.Unwrap();
-            bool verified = await _app.Dispatcher.InvokeAsync(() =>
-                _app.State.KeyboardStatus.Contains(level, StringComparison.OrdinalIgnoreCase));
-            if (!verified)
-            {
-                Interlocked.Exchange(ref _lastQueuedKeyboardIndex, -1);
-                return;
-            }
-
-            await _app.Dispatcher.InvokeAsync(() => _osd.Show("Keyboard light", index * 50));
-        }
-        catch
-        {
-            Interlocked.Exchange(ref _lastQueuedKeyboardIndex, -1);
-        }
-    }
-
-    private int GetPerformanceIndex()
-    {
-        ThinkControlPowerMode[] modes =
-        [ThinkControlPowerMode.Quiet, ThinkControlPowerMode.Balanced, ThinkControlPowerMode.Performance];
-        int current = Array.FindIndex(modes,
-            mode => string.Equals(mode.ToString(), _app.State.SelectedMode, StringComparison.OrdinalIgnoreCase));
-        return current < 0 ? 1 : current;
-    }
-
-    private void QueuePerformanceIndex(int index)
-    {
-        if (_disposed)
-            return;
-
-        ThinkControlPowerMode[] modes =
-        [ThinkControlPowerMode.Quiet, ThinkControlPowerMode.Balanced, ThinkControlPowerMode.Performance];
-        int target = Math.Clamp(index, 0, modes.Length - 1);
-        if (Interlocked.Exchange(ref _lastQueuedPerformanceIndex, target) == target)
-            return;
-
-        _app.Dispatcher.BeginInvoke(new Action(() =>
-        {
-            if (_app.SetPowerMode(modes[target]))
-                _osd.Show(modes[target].ToString(), target * 50);
-            else
-                Interlocked.Exchange(ref _lastQueuedPerformanceIndex, -1);
-        }));
     }
 
     public void Dispose()
