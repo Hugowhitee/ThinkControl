@@ -1,19 +1,23 @@
 <UserControl x:Class="ThinkControl.UI.Controls.PerformancePanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:ThinkControl.UI.Controls">
+             xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
+             xmlns:ui="clr-namespace:ThinkControl.UI">
     <StackPanel>
         <Grid>
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock Text="Performance" FontSize="24" FontWeight="SemiBold" VerticalAlignment="Center" />
+            <TextBlock Text="Performance"
+                       FontSize="{x:Static ui:TypographyScale.PageTitle}"
+                       FontWeight="SemiBold"
+                       VerticalAlignment="Center" />
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Border x:Name="PowerSourceBar"
-                        Height="34"
-                        MinWidth="132"
-                        Padding="10,0,8,0"
+                        Height="38"
+                        MinWidth="150"
+                        Padding="12,0,10,0"
                         Background="{DynamicResource Tc.SurfaceAlt}"
                         BorderBrush="{DynamicResource Tc.BorderStrong}"
                         BorderThickness="1"
@@ -26,15 +30,15 @@
                         </Grid.ColumnDefinitions>
                         <TextBlock x:Name="CurrentSourceText"
                                    Text="Checking…"
-                                   FontSize="12"
+                                   FontSize="{x:Static ui:TypographyScale.Body}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                         <controls:PackIconLucide x:Name="CurrentSourceIcon"
                                                  Grid.Column="1"
                                                  Kind="Battery"
-                                                 Width="17"
-                                                 Height="17"
-                                                 Margin="12,0,0,0"
+                                                 Width="20"
+                                                 Height="20"
+                                                 Margin="14,0,0,0"
                                                  Foreground="{DynamicResource Tc.Accent}"
                                                  VerticalAlignment="Center" />
                     </Grid>
@@ -48,17 +52,21 @@
             </StackPanel>
         </Grid>
         <TextBlock Text="Choose a power preference for battery and plugged-in use. Cooling stays independent on the Fans page."
+                   FontSize="{x:Static ui:TypographyScale.Body}"
                    Foreground="{DynamicResource Tc.TextMuted}"
-                   Margin="0,6,0,18"
+                   Margin="0,7,0,18"
                    TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
             <StackPanel>
-                <TextBlock Text="Battery profile" FontWeight="SemiBold" />
+                <TextBlock Text="Battery profile"
+                           FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                           FontWeight="SemiBold" />
                 <TextBlock Text="Used automatically while the laptop runs on battery."
+                           FontSize="{x:Static ui:TypographyScale.Body}"
                            Foreground="{DynamicResource Tc.TextMuted}"
-                           Margin="0,4,0,0" />
-                <Grid Margin="0,13,0,0">
+                           Margin="0,5,0,0" />
+                <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                     <RadioButton x:Name="BatteryEfficiency" GroupName="BatteryPower" Style="{StaticResource TcSegment}" Content="Efficiency" Tag="Battery:Quiet" Click="PowerPreference_Click" Margin="0,0,5,0" />
                     <RadioButton x:Name="BatteryBalanced" Grid.Column="1" GroupName="BatteryPower" Style="{StaticResource TcSegment}" Content="Balanced" Tag="Battery:Balanced" Click="PowerPreference_Click" Margin="2,0" />
@@ -69,11 +77,14 @@
 
         <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
             <StackPanel>
-                <TextBlock Text="Plugged-in profile" FontWeight="SemiBold" />
+                <TextBlock Text="Plugged-in profile"
+                           FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                           FontWeight="SemiBold" />
                 <TextBlock Text="Used automatically while AC power is connected."
+                           FontSize="{x:Static ui:TypographyScale.Body}"
                            Foreground="{DynamicResource Tc.TextMuted}"
-                           Margin="0,4,0,0" />
-                <Grid Margin="0,13,0,0">
+                           Margin="0,5,0,0" />
+                <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                     <RadioButton x:Name="AcEfficiency" GroupName="AcPower" Style="{StaticResource TcSegment}" Content="Efficiency" Tag="Ac:Quiet" Click="PowerPreference_Click" Margin="0,0,5,0" />
                     <RadioButton x:Name="AcBalanced" Grid.Column="1" GroupName="AcPower" Style="{StaticResource TcSegment}" Content="Balanced" Tag="Ac:Balanced" Click="PowerPreference_Click" Margin="2,0" />
@@ -82,19 +93,20 @@
             </StackPanel>
         </Border>
 
-        <Grid Margin="2,14,2,0">
+        <Grid Margin="2,15,2,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition />
             </Grid.ColumnDefinitions>
             <controls:PackIconLucide Kind="Fan"
-                                     Width="15"
-                                     Height="15"
-                                     Margin="0,1,8,0"
+                                     Width="16"
+                                     Height="16"
+                                     Margin="0,2,8,0"
                                      Foreground="{DynamicResource Tc.TextMuted}"
                                      VerticalAlignment="Top" />
             <TextBlock Grid.Column="1"
                        Text="Quiet / Balanced / Max cooling remains a separate fan setting and is not changed when the charger is connected or removed."
+                       FontSize="{x:Static ui:TypographyScale.Secondary}"
                        Foreground="{DynamicResource Tc.TextMuted}"
                        TextWrapping="Wrap" />
         </Grid>
