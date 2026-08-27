@@ -34,10 +34,6 @@ public partial class TouchpadPanel
         ConfigureResetButton(HapticStrengthSlider, HapticStrengthValue, App.DefaultHapticFeedbackIntensity, ResetHapticSlider, "Touchpad");
         ConfigureResetButton(ClickForceSlider, ClickForceValue, App.DefaultHapticClickSensitivity, ResetHapticSlider, "Touchpad");
         ConfigureResetButton(OsdOpacitySlider, OsdOpacityValue, 92.0, ResetOsdOpacity, "Monitor");
-
-        // GestureChanged is owned by TouchpadPanel.xaml.cs. Keeping a second event
-        // handler here used to dispatch hidden-page UI work and race the status text.
-        // Value feedback is now called from that one page-visible gesture path.
         RefreshValueFeedback();
     }
 
@@ -71,20 +67,18 @@ public partial class TouchpadPanel
             GesturePhase.Active,
             TouchpadEdge.Left,
             GestureActionKind.Volume,
-            TotalTravelMm: 24.8,
-            DeltaMm: 3.1,
+            TotalTravelMm: -24.8,
+            DeltaMm: -3.1,
             ContactId: 1);
 
-        // Two deterministic frames exercise both the red contact point and trail.
-        // The value card itself is populated directly because snapshot mode must not
-        // write the real Windows volume endpoint merely to create visual QA data.
         Visualizer.SetTestFrame([new TouchContact(1, 420, 6400, true)], signal);
         Visualizer.SetTestFrame([new TouchContact(1, 420, 3900, true)], signal);
+        Visualizer.SetActiveGestureValue("62%");
         GestureFeedbackIcon.Kind = "Audio";
         GestureFeedbackTitle.Text = "Left edge · Volume";
-        GestureFeedbackValue.Text = "62% · +25%";
+        GestureFeedbackValue.Text = "62%";
         GestureFeedbackOverlay.Opacity = 1;
-        GestureStatusText.Text = "Volume · 62% · +25%";
+        GestureStatusText.Text = "Volume · 62%";
     }
 
     private void ConfigureResetButton(
@@ -126,9 +120,6 @@ public partial class TouchpadPanel
         button.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
         button.Click += (_, _) => reset(slider, defaultValue);
 
-        // Reserve a dedicated right-hand slot beside the entire track. Hidden reset
-        // buttons retain that space, so appearing/disappearing never crowds the
-        // value label or changes the slider width.
         FrameworkElement trackHost = slider.Parent is Grid sliderOverlay ? sliderOverlay : slider;
         if (trackHost.Parent is StackPanel stack)
         {
@@ -277,7 +268,9 @@ public partial class TouchpadPanel
             StopGestureFeedbackFade();
             GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
             GestureFeedbackTitle.Text = $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}";
-            GestureFeedbackValue.Text = FormatGestureValue(signal);
+            string value = FormatGestureValue(signal);
+            GestureFeedbackValue.Text = value;
+            Visualizer.SetActiveGestureValue(value);
             GestureFeedbackOverlay.Opacity = 1;
             return;
         }
@@ -287,10 +280,8 @@ public partial class TouchpadPanel
             GestureFeedbackIcon.Kind = FeedbackIcon(signal.Action);
             GestureFeedbackTitle.Text = ActionLabel(signal.Action);
             GestureFeedbackValue.Text = FormatGestureValue(signal);
+            Visualizer.SetActiveGestureValue(null);
             StartGestureFeedbackFade();
-            // Keep the captured start value through the release/fade so the final
-            // overlay and status line retain the real delta. The next Claimed event
-            // replaces it, and page hide/unload clears it.
             return;
         }
 
@@ -299,6 +290,7 @@ public partial class TouchpadPanel
             GestureFeedbackIcon.Kind = "Touchpad";
             GestureFeedbackTitle.Text = "Gesture cancelled";
             GestureFeedbackValue.Text = string.IsNullOrWhiteSpace(signal.Reason) ? "Not claimed" : signal.Reason;
+            Visualizer.SetActiveGestureValue(null);
             StartGestureFeedbackFade(250, 500);
             _gestureStartValue = null;
         }
@@ -317,10 +309,7 @@ public partial class TouchpadPanel
 
         int? current = ReadGestureTargetValue(signal.Action);
         if (current.HasValue)
-        {
-            int change = _gestureStartValue.HasValue ? current.Value - _gestureStartValue.Value : 0;
-            return $"{current.Value}% · {change:+0;-0;0}%";
-        }
+            return $"{current.Value}%";
 
         if (_gestureStartValue.HasValue && signal.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
             return $"{_gestureStartValue.Value}%";
@@ -383,6 +372,7 @@ public partial class TouchpadPanel
     private void ClearGestureFeedback()
     {
         _gestureStartValue = null;
+        Visualizer.SetActiveGestureValue(null);
         StopGestureFeedbackFade();
         GestureFeedbackOverlay.Opacity = 0;
     }
