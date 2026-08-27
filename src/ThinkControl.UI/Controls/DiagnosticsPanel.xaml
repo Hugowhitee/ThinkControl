@@ -3,157 +3,152 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="clr-namespace:ThinkControl.UI"
              mc:Ignorable="d"
              d:DesignWidth="760"
-             d:DesignHeight="560">
-    <StackPanel Margin="0,14,0,0">
-        <Border Style="{StaticResource TcSection}">
-            <StackPanel>
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="56" /></Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="Device compatibility" FontWeight="SemiBold" />
-                        <TextBlock x:Name="CompatibilityStateText"
-                                   Text="Checking device profile…"
-                                   Foreground="{DynamicResource Tc.TextMuted}"
-                                   FontSize="11"
-                                   Margin="0,4,0,0" />
-                    </StackPanel>
-                    <CheckBox x:Name="DiagnosticsSwitch"
-                              Grid.Column="1"
-                              HorizontalAlignment="Right"
-                              VerticalAlignment="Center"
-                              Style="{StaticResource TcSwitch}"
-                              Click="DiagnosticsSwitch_Click"
-                              ToolTip="Allow ThinkControl to prepare compatibility reports locally. Nothing is uploaded automatically." />
-                </Grid>
-
-                <TextBlock Text="Known devices load normally. On a new device, ThinkControl quietly learns provider and control compatibility while you use the app. It prepares one compact redacted report only when the evidence is stable."
-                           Foreground="{DynamicResource Tc.TextMuted}"
-                           FontSize="10.5"
-                           TextWrapping="Wrap"
-                           Margin="0,9,0,0" />
-
-                <Border x:Name="LearningCard"
-                        Background="{DynamicResource Tc.SurfaceAlt}"
-                        BorderBrush="{DynamicResource Tc.Border}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        Padding="11,10"
-                        Margin="0,13,0,0">
-                    <StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                            <TextBlock x:Name="LearningTitleText" Text="Background learning" FontWeight="SemiBold" FontSize="11" />
-                            <TextBlock x:Name="LearningProgressText" Grid.Column="1" Text="0/5" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" />
-                        </Grid>
-                        <ProgressBar x:Name="LearningProgress"
-                                     Minimum="0" Maximum="5" Value="0" Height="4" Margin="0,9,0,0"
-                                     Background="{DynamicResource Tc.Border}" Foreground="{DynamicResource Tc.Accent}">
-                            <ProgressBar.Template>
-                                <ControlTemplate TargetType="ProgressBar">
-                                    <Grid x:Name="PART_Track" Background="{TemplateBinding Background}" Height="4" ClipToBounds="True">
-                                        <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" />
-                                    </Grid>
-                                </ControlTemplate>
-                            </ProgressBar.Template>
-                        </ProgressBar>
-                        <TextBlock x:Name="CompatibilityDetailText"
-                                   Text="Learning starts after hardware discovery settles."
-                                   Foreground="{DynamicResource Tc.TextMuted}"
-                                   FontSize="10"
-                                   Margin="0,8,0,0"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
-
-                <Grid Margin="0,13,0,0">
-                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <TextBlock x:Name="SharingStateText"
-                               Text="No report needed yet"
-                               VerticalAlignment="Center"
-                               FontSize="10.5"
-                               Foreground="{DynamicResource Tc.TextMuted}"
-                               TextWrapping="Wrap" />
-                    <Button x:Name="ShareDeviceButton"
-                            Grid.Column="1"
-                            Content="Review report"
-                            Style="{StaticResource TcButton}"
-                            Margin="14,0,0,0"
-                            Click="ShareDeviceReport_Click"
-                            IsEnabled="False" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <Border x:Name="CrashCard" Style="{StaticResource TcSection}" Margin="0,10,0,0" Visibility="Collapsed">
+             d:DesignHeight="520">
+    <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+        <StackPanel>
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="Device support"
+                               FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="CompatibilityStateText"
+                               Text="Checking device profile…"
+                               FontSize="{x:Static ui:TypographyScale.Body}"
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               Margin="0,5,0,0"
+                               TextWrapping="Wrap" />
+                </StackPanel>
+                <CheckBox x:Name="DiagnosticsSwitch"
+                          Grid.Column="1"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Style="{StaticResource TcSwitch}"
+                          Click="DiagnosticsSwitch_Click"
+                          ToolTip="Prepare a compact compatibility report locally for this new device. Nothing is uploaded automatically." />
+            </Grid>
+
+            <TextBlock x:Name="CompatibilityDetailText"
+                       Text="Known devices start normally. New devices learn compatibility quietly while you use ThinkControl."
+                       FontSize="{x:Static ui:TypographyScale.Secondary}"
+                       Foreground="{DynamicResource Tc.TextMuted}"
+                       TextWrapping="Wrap"
+                       Margin="0,8,0,0" />
+
+            <StackPanel x:Name="LearningCard" Margin="0,14,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="LearningTitleText"
+                               Text="Learning compatibility"
+                               FontSize="{x:Static ui:TypographyScale.Body}"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="LearningProgressText"
+                               Grid.Column="1"
+                               Text="0/5"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               Foreground="{DynamicResource Tc.TextMuted}" />
+                </Grid>
+                <ProgressBar x:Name="LearningProgress"
+                             Minimum="0" Maximum="5" Value="0" Height="4" Margin="0,9,0,0"
+                             Background="{DynamicResource Tc.Border}" Foreground="{DynamicResource Tc.Accent}">
+                    <ProgressBar.Template>
+                        <ControlTemplate TargetType="ProgressBar">
+                            <Grid x:Name="PART_Track" Background="{TemplateBinding Background}" Height="4" ClipToBounds="True">
+                                <Border x:Name="PART_Indicator" Background="{TemplateBinding Foreground}" HorizontalAlignment="Left" />
+                            </Grid>
+                        </ControlTemplate>
+                    </ProgressBar.Template>
+                </ProgressBar>
+            </StackPanel>
+
+            <Grid x:Name="SharingRow" Margin="0,14,0,0">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <StackPanel Margin="0,0,18,0">
-                    <TextBlock Text="Previous crash" FontWeight="SemiBold" />
+                <TextBlock x:Name="SharingStateText"
+                           Text="No compatibility report needed"
+                           FontSize="{x:Static ui:TypographyScale.Secondary}"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource Tc.TextMuted}"
+                           TextWrapping="Wrap" />
+                <Button x:Name="ShareDeviceButton"
+                        Grid.Column="1"
+                        Content="Review report"
+                        Style="{StaticResource TcButton}"
+                        Margin="14,0,0,0"
+                        Click="ShareDeviceReport_Click"
+                        IsEnabled="False" />
+            </Grid>
+
+            <Border x:Name="CrashSeparator"
+                    Height="1"
+                    Background="{DynamicResource Tc.Border}"
+                    Margin="0,18,0,16"
+                    Visibility="Collapsed" />
+
+            <Grid x:Name="CrashCard" Visibility="Collapsed">
+                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,20,0">
+                    <TextBlock Text="Previous crash"
+                               FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                               FontWeight="SemiBold" />
                     <TextBlock x:Name="CrashSummaryText"
-                               Text="ThinkControl saved a redacted crash envelope locally."
-                               FontSize="10.5"
+                               Text="ThinkControl closed unexpectedly."
+                               FontSize="{x:Static ui:TypographyScale.Body}"
                                Foreground="{DynamicResource Tc.TextMuted}"
                                TextWrapping="Wrap"
                                Margin="0,6,0,0" />
-                    <TextBlock Text="Nothing is uploaded automatically. Review the pre-filled GitHub issue before submitting it."
-                               FontSize="9.5"
+                    <TextBlock Text="A small redacted crash envelope is stored on this PC. Review it before opening a GitHub draft; nothing is uploaded automatically."
+                               FontSize="{x:Static ui:TypographyScale.Secondary}"
                                Foreground="{DynamicResource Tc.TextFaint}"
                                TextWrapping="Wrap"
                                Margin="0,5,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Dismiss" Style="{StaticResource TcInlineButton}" Margin="0,0,6,0" Click="DismissCrash_Click" />
-                    <Button Content="Report crash" Style="{StaticResource TcButton}" Click="ReportCrash_Click" />
+                    <Button Content="Review crash" Style="{StaticResource TcButton}" Click="ReportCrash_Click" />
                 </StackPanel>
             </Grid>
-        </Border>
 
-        <Border Style="{StaticResource TcSection}" Margin="0,10,0,0">
-            <StackPanel>
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                    <StackPanel Margin="0,0,12,0">
-                        <TextBlock Text="LOCAL EVENTS" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                        <TextBlock x:Name="EventCountText" Text="0" FontSize="17" Margin="0,4,0,0" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Margin="10,0,12,0">
-                        <TextBlock Text="LAST EVENT" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                        <TextBlock x:Name="LastEventText" Text="—" FontSize="11" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="2" Margin="10,0,0,0">
-                        <TextBlock Text="RETENTION" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                        <TextBlock Text="Local · up to 7 days" FontSize="11" Margin="0,6,0,0" />
-                    </StackPanel>
-                </Grid>
+            <Border Height="1"
+                    Background="{DynamicResource Tc.Border}"
+                    Margin="0,18,0,8" />
 
-                <TextBlock Text="Routine troubleshooting history stays bounded on this PC. It is separate from the compact compatibility report and is never uploaded automatically."
-                           FontSize="10"
-                           Foreground="{DynamicResource Tc.TextMuted}"
-                           TextWrapping="Wrap"
-                           Margin="0,12,0,0" />
+            <Expander x:Name="TroubleshootingExpander"
+                      Header="Troubleshooting data"
+                      FontSize="{x:Static ui:TypographyScale.Body}"
+                      Foreground="{DynamicResource Tc.TextMuted}">
+                <StackPanel Margin="0,11,0,0">
+                    <TextBlock Text="Routine support history stays on this PC for up to 7 days in three rotating files. Shared bundles collapse repetitive bursts and are capped at 240 focused events."
+                               FontSize="{x:Static ui:TypographyScale.Secondary}"
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="LastEventText"
+                               Text="No local troubleshooting activity yet"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               Margin="0,6,0,0" />
 
-                <Expander Header="Advanced diagnostics" Margin="0,10,0,0" Foreground="{DynamicResource Tc.TextMuted}">
-                    <Grid Margin="0,10,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                        <WrapPanel>
-                            <Button Content="Preview data" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Preview_Click" />
-                            <Button Content="Export bundle" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Export_Click" />
-                            <Button Content="Hardware log" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenHardwareLog_Click" ToolTip="Open the local ThinkControl hardware-service log" />
-                            <Button Content="Bug report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenBugReport_Click" />
-                        </WrapPanel>
-                        <Button Grid.Column="1" Content="Delete local data" Style="{StaticResource TcButton}" Margin="8,0,0,7" VerticalAlignment="Top" Click="Delete_Click" />
-                    </Grid>
-                </Expander>
+                    <WrapPanel Margin="0,12,0,0">
+                        <Button Content="Preview data" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Preview_Click" />
+                        <Button Content="Export support bundle" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="Export_Click" />
+                        <Button Content="Hardware log" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenHardwareLog_Click" ToolTip="Open the local ThinkControl hardware-service log" />
+                        <Button Content="New bug report" Style="{StaticResource TcButton}" Margin="0,0,7,7" Click="OpenBugReport_Click" />
+                        <Button Content="Delete local data" Style="{StaticResource TcInlineButton}" Margin="2,0,0,7" Click="Delete_Click" />
+                    </WrapPanel>
 
-                <TextBlock x:Name="StatusText"
-                           Text="Diagnostics are local unless you explicitly open a reviewed report on GitHub."
-                           Foreground="{DynamicResource Tc.TextFaint}"
-                           FontSize="9.5"
-                           TextWrapping="Wrap"
-                           Margin="0,3,0,0" />
-            </StackPanel>
-        </Border>
-    </StackPanel>
+                    <TextBlock x:Name="StatusText"
+                               Text="Diagnostics stay local unless you explicitly open a reviewed GitHub draft."
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Expander>
+        </StackPanel>
+    </Border>
 </UserControl>

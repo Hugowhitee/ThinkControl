@@ -22,6 +22,10 @@ public partial class AudioPanel : UserControl
     private bool _microphoneDragging;
     private bool _snapshotMode;
     private int _statusProbeGeneration;
+    private int _volumeProbeGeneration;
+    private int _volumeProbeRunning;
+    private WindowsVolumeStatus? _cachedOutput;
+    private WindowsVolumeStatus? _cachedInput;
     private DolbyAudioStatus? _status;
     private DolbyDirectState? _directState;
 
@@ -56,7 +60,7 @@ public partial class AudioPanel : UserControl
         _volumeRefreshTimer.Tick += (_, _) =>
         {
             if (IsVisible && !_volumeDragging && !_microphoneDragging && !_snapshotMode)
-                RefreshVolume();
+                QueueVolumeRefresh(applyCacheFirst: false);
         };
 
         Loaded += (_, _) => UpdateLivePolling(refreshNow: true);
@@ -64,6 +68,7 @@ public partial class AudioPanel : UserControl
         Unloaded += (_, _) =>
         {
             Interlocked.Increment(ref _statusProbeGeneration);
+            Interlocked.Increment(ref _volumeProbeGeneration);
             _volumeApplyTimer.Stop();
             _microphoneApplyTimer.Stop();
             _volumeRefreshTimer.Stop();
@@ -84,6 +89,7 @@ public partial class AudioPanel : UserControl
         if (_snapshotMode || !IsLoaded || !IsVisible)
         {
             Interlocked.Increment(ref _statusProbeGeneration);
+            Interlocked.Increment(ref _volumeProbeGeneration);
             _volumeApplyTimer.Stop();
             _volumeRefreshTimer.Stop();
             return;
@@ -91,10 +97,12 @@ public partial class AudioPanel : UserControl
 
         if (refreshNow)
         {
-            // Endpoint volume is cheap and paints immediately. Dolby package/COM
-            // discovery is deliberately off the WPF dispatcher so entering Audio
-            // never stalls the sliders while Lenovo/DAX providers are inspected.
-            RefreshVolume();
+            // CoreAudio endpoint activation can block for seconds on some OEM audio
+            // stacks. Never enumerate endpoints on the WPF dispatcher. Reopening the
+            // page paints the last known state immediately, then one coalesced worker
+            // refreshes output + input together. Dolby probing is independently
+            // backgrounded below for the same reason.
+            QueueVolumeRefresh(applyCacheFirst: true);
             RefreshStatus();
         }
         if (!_volumeRefreshTimer.IsEnabled)
@@ -338,13 +346,51 @@ public partial class AudioPanel : UserControl
                 : "Not exposed by this Dolby build";
     }
 
-    private void RefreshVolume()
+    private void QueueVolumeRefresh(bool applyCacheFirst)
     {
         if (_snapshotMode || !IsVisible)
             return;
 
-        WindowsVolumeStatus status = _volume.Read();
-        WindowsVolumeStatus microphone = _volume.Read(DataFlow.Capture);
+        if (applyCacheFirst && _cachedOutput is not null && _cachedInput is not null)
+            ApplyVolumeStatus(_cachedOutput, _cachedInput);
+
+        if (Interlocked.CompareExchange(ref _volumeProbeRunning, 1, 0) != 0)
+            return;
+
+        int generation = Volatile.Read(ref _volumeProbeGeneration);
+        _ = RefreshVolumeAsync(generation);
+    }
+
+    private async Task RefreshVolumeAsync(int generation)
+    {
+        try
+        {
+            (WindowsVolumeStatus output, WindowsVolumeStatus input) = await Task.Run(() =>
+                (_volume.Read(), _volume.Read(DataFlow.Capture)));
+
+            if (generation != Volatile.Read(ref _volumeProbeGeneration) || _snapshotMode || !IsVisible)
+                return;
+
+            _cachedOutput = output;
+            _cachedInput = input;
+            ApplyVolumeStatus(output, input);
+        }
+        catch
+        {
+            // WindowsVolumeService already turns endpoint failures into status values;
+            // this catch is only a final guard against a worker/runtime failure.
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _volumeProbeRunning, 0);
+        }
+    }
+
+    private void ApplyVolumeStatus(WindowsVolumeStatus status, WindowsVolumeStatus microphone)
+    {
+        if (_snapshotMode || !IsVisible)
+            return;
+
         _syncing = true;
         try
         {
@@ -404,7 +450,7 @@ public partial class AudioPanel : UserControl
         _volumeApplyTimer.Stop();
         ApplyVolumeSlider();
         _volumeDragging = false;
-        RefreshVolume();
+        QueueVolumeRefresh(applyCacheFirst: false);
     }
 
     private void ApplyVolumeSlider()
@@ -414,22 +460,46 @@ public partial class AudioPanel : UserControl
 
         int requested = (int)Math.Round(VolumeSlider.Value);
         if (_volume.Set(requested, out int applied))
+        {
             VolumeValueText.Text = $"{applied}%";
+            if (_cachedOutput is WindowsVolumeStatus cached)
+                _cachedOutput = cached with { Percent = applied, Muted = false };
+        }
     }
 
-    private void Mute_Click(object sender, RoutedEventArgs e)
+    private async void Mute_Click(object sender, RoutedEventArgs e)
     {
         if (_snapshotMode)
             return;
-        WindowsVolumeStatus current = _volume.Read();
-        if (!current.Available)
-        {
-            RefreshVolume();
-            return;
-        }
 
-        _volume.SetMuted(!current.Muted);
-        RefreshVolume();
+        bool? cachedMuted = _cachedOutput?.Available == true ? _cachedOutput.Muted : null;
+        MuteButton.IsEnabled = false;
+        try
+        {
+            bool changed = await Task.Run(() =>
+            {
+                bool muted;
+                if (cachedMuted is bool known)
+                {
+                    muted = known;
+                }
+                else
+                {
+                    WindowsVolumeStatus current = _volume.Read();
+                    if (!current.Available)
+                        return false;
+                    muted = current.Muted;
+                }
+                return _volume.SetMuted(!muted);
+            });
+            if (changed && _cachedOutput is WindowsVolumeStatus cached)
+                _cachedOutput = cached with { Muted = !cached.Muted };
+        }
+        finally
+        {
+            MuteButton.IsEnabled = true;
+            QueueVolumeRefresh(applyCacheFirst: true);
+        }
     }
 
     private void PrepareMicrophoneSnapshot(int percent, bool available)
@@ -459,7 +529,7 @@ public partial class AudioPanel : UserControl
         _microphoneApplyTimer.Stop();
         ApplyMicrophoneSlider();
         _microphoneDragging = false;
-        RefreshVolume();
+        QueueVolumeRefresh(applyCacheFirst: false);
     }
 
     private void ApplyMicrophoneSlider()
@@ -468,17 +538,46 @@ public partial class AudioPanel : UserControl
             return;
         int requested = (int)Math.Round(MicrophoneSlider.Value);
         if (_volume.Set(requested, out int applied, DataFlow.Capture))
+        {
             MicrophoneValueText.Text = $"{applied}%";
+            if (_cachedInput is WindowsVolumeStatus cached)
+                _cachedInput = cached with { Percent = applied, Muted = false };
+        }
     }
 
-    private void MicrophoneMute_Click(object sender, RoutedEventArgs e)
+    private async void MicrophoneMute_Click(object sender, RoutedEventArgs e)
     {
         if (_snapshotMode)
             return;
-        WindowsVolumeStatus current = _volume.Read(DataFlow.Capture);
-        if (current.Available)
-            _volume.SetMuted(!current.Muted, DataFlow.Capture);
-        RefreshVolume();
+
+        bool? cachedMuted = _cachedInput?.Available == true ? _cachedInput.Muted : null;
+        MicrophoneMuteButton.IsEnabled = false;
+        try
+        {
+            bool changed = await Task.Run(() =>
+            {
+                bool muted;
+                if (cachedMuted is bool known)
+                {
+                    muted = known;
+                }
+                else
+                {
+                    WindowsVolumeStatus current = _volume.Read(DataFlow.Capture);
+                    if (!current.Available)
+                        return false;
+                    muted = current.Muted;
+                }
+                return _volume.SetMuted(!muted, DataFlow.Capture);
+            });
+            if (changed && _cachedInput is WindowsVolumeStatus cached)
+                _cachedInput = cached with { Muted = !cached.Muted };
+        }
+        finally
+        {
+            MicrophoneMuteButton.IsEnabled = true;
+            QueueVolumeRefresh(applyCacheFirst: true);
+        }
     }
 
     private async void Profile_Click(object sender, RoutedEventArgs e)

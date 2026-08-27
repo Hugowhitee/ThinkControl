@@ -8,8 +8,7 @@ internal sealed class GestureActionRouter
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
     private const double TrackSwipeThresholdMm = 5.5;
-    private const double TrackCenterTravelSlackMm = 1.6;
-    private const double TrackCenterMinimumHoldMs = 360;
+    private const double TrackCenterMinimumHoldMs = 300;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -18,18 +17,13 @@ internal sealed class GestureActionRouter
     private readonly Action<int> _queueVolume;
     private readonly Func<int> _getBrightness;
     private readonly Action<int> _queueBrightness;
-    private readonly Func<int> _getKeyboardIndex;
-    private readonly Action<int> _queueKeyboardIndex;
-    private readonly Func<int> _getPerformanceIndex;
-    private readonly Action<int> _queuePerformanceIndex;
     private readonly Action<GestureActionKind, bool> _setGestureActive;
     private readonly Action<bool> _showTrackOsd;
     private readonly Action _showTrackCenterOsd;
+    private readonly Action _openThinkControl;
 
     private int _volumeAtStart;
     private int _brightnessAtStart;
-    private int _keyboardAtStart;
-    private int _performanceAtStart;
     private double _continuousDeltaPercent;
     private long _lastContinuousTimestamp;
     private double _seekCumulativeSeconds;
@@ -38,6 +32,7 @@ internal sealed class GestureActionRouter
     private bool _trackSwipeFired;
     private long _trackGestureStarted;
     private double _trackMaxTravelMm;
+    private bool _trackStayedCandidate;
 
     internal GestureActionRouter(
         NativeInputService nativeInput,
@@ -47,13 +42,10 @@ internal sealed class GestureActionRouter
         Action<int> queueVolume,
         Func<int> getBrightness,
         Action<int> queueBrightness,
-        Func<int> getKeyboardIndex,
-        Action<int> queueKeyboardIndex,
-        Func<int> getPerformanceIndex,
-        Action<int> queuePerformanceIndex,
         Action<GestureActionKind, bool> setGestureActive,
         Action<bool> showTrackOsd,
-        Action showTrackCenterOsd)
+        Action showTrackCenterOsd,
+        Action openThinkControl)
     {
         _nativeInput = nativeInput;
         _media = media;
@@ -62,13 +54,10 @@ internal sealed class GestureActionRouter
         _queueVolume = queueVolume;
         _getBrightness = getBrightness;
         _queueBrightness = queueBrightness;
-        _getKeyboardIndex = getKeyboardIndex;
-        _queueKeyboardIndex = queueKeyboardIndex;
-        _getPerformanceIndex = getPerformanceIndex;
-        _queuePerformanceIndex = queuePerformanceIndex;
         _setGestureActive = setGestureActive;
         _showTrackOsd = showTrackOsd;
         _showTrackCenterOsd = showTrackCenterOsd;
+        _openThinkControl = openThinkControl;
     }
 
     internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
@@ -77,6 +66,9 @@ internal sealed class GestureActionRouter
     {
         switch (signal.Phase)
         {
+            case GesturePhase.Candidate:
+                ObserveCandidate(signal);
+                break;
             case GesturePhase.Claimed:
                 Begin(signal);
                 break;
@@ -92,6 +84,18 @@ internal sealed class GestureActionRouter
                 End(signal.Action);
                 break;
         }
+    }
+
+    private void ObserveCandidate(GestureSignal signal)
+    {
+        if (signal.Action != GestureActionKind.PreviousNextTrack)
+            return;
+
+        _setGestureActive(signal.Action, true);
+        _trackSwipeFired = false;
+        _trackGestureStarted = Stopwatch.GetTimestamp();
+        _trackMaxTravelMm = 0;
+        _trackStayedCandidate = true;
     }
 
     private void Begin(GestureSignal signal)
@@ -116,34 +120,20 @@ internal sealed class GestureActionRouter
                 _lastMediaTimestamp = Stopwatch.GetTimestamp();
                 _mediaBeginTask = _media.BeginSeekAsync();
                 break;
-            case GestureActionKind.KeyboardBacklight:
-                _setGestureActive(signal.Action, true);
-                _keyboardAtStart = _getKeyboardIndex();
-                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _keyboardAtStart, _queueKeyboardIndex);
-                break;
-            case GestureActionKind.PerformanceMode:
-                _setGestureActive(signal.Action, true);
-                _performanceAtStart = _getPerformanceIndex();
-                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _performanceAtStart, _queuePerformanceIndex);
-                break;
             case GestureActionKind.PreviousNextTrack:
                 _setGestureActive(signal.Action, true);
                 _trackSwipeFired = false;
-                _trackGestureStarted = Stopwatch.GetTimestamp();
-                _trackMaxTravelMm = Math.Abs(signal.TotalTravelMm);
+                if (_trackGestureStarted == 0)
+                    _trackGestureStarted = Stopwatch.GetTimestamp();
+                _trackStayedCandidate = false;
+                _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
                 TryFireTrackSwipe(signal);
                 break;
             case GestureActionKind.PlayPause:
                 _nativeInput.TogglePlayPause();
                 break;
-            case GestureActionKind.Mute:
-                _nativeInput.ToggleMute();
-                break;
-            case GestureActionKind.TaskView:
-                _nativeInput.ShowTaskView();
-                break;
-            case GestureActionKind.ShowDesktop:
-                _nativeInput.ShowDesktop();
+            case GestureActionKind.OpenThinkControl:
+                _openThinkControl();
                 break;
         }
     }
@@ -163,13 +153,8 @@ internal sealed class GestureActionRouter
             case GestureActionKind.MediaSeek:
                 QueueMediaSeek(signal);
                 break;
-            case GestureActionKind.KeyboardBacklight:
-                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _keyboardAtStart, _queueKeyboardIndex);
-                break;
-            case GestureActionKind.PerformanceMode:
-                ApplyDiscreteTarget(signal, signal.TotalTravelMm, _performanceAtStart, _queuePerformanceIndex);
-                break;
             case GestureActionKind.PreviousNextTrack:
+                _trackStayedCandidate = false;
                 _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
                 TryFireTrackSwipe(signal);
                 break;
@@ -181,9 +166,10 @@ internal sealed class GestureActionRouter
         if (signal.Action == GestureActionKind.PreviousNextTrack)
         {
             _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
-            TryFireTrackSwipe(signal, allowReleaseFallback: true);
-            if (!_trackSwipeFired)
-                TryFireTrackCenter(signal);
+            if (!_trackStayedCandidate)
+                TryFireTrackSwipe(signal, allowReleaseFallback: true);
+            if (!_trackSwipeFired && _trackStayedCandidate)
+                TryFireTrackCenter();
         }
         End(signal.Action);
     }
@@ -206,20 +192,14 @@ internal sealed class GestureActionRouter
         _showTrackOsd(next);
     }
 
-    private void TryFireTrackCenter(GestureSignal signal)
+    private void TryFireTrackCenter()
     {
         TouchpadGestureConfiguration configuration = _getConfiguration().Sanitize();
         if (!configuration.TrackCenterPlayPauseEnabled || _trackGestureStarted == 0)
             return;
 
         double elapsedMs = (Stopwatch.GetTimestamp() - _trackGestureStarted) * 1000d / Stopwatch.Frequency;
-        double travelLimit = Math.Min(8.0, Math.Max(3.5, configuration.ActivationDistanceMm + TrackCenterTravelSlackMm));
-
-        // The center action is intentionally a hold-and-release gesture, not a
-        // threshold the finger crosses while swiping. A normal previous/next swipe
-        // therefore cannot accidentally resume paused media while passing through
-        // the neutral center region.
-        if (elapsedMs < TrackCenterMinimumHoldMs || _trackMaxTravelMm > travelLimit || Math.Abs(signal.TotalTravelMm) > travelLimit)
+        if (elapsedMs < TrackCenterMinimumHoldMs || _trackMaxTravelMm > configuration.ActivationDistanceMm)
             return;
 
         _trackSwipeFired = true;
@@ -265,17 +245,6 @@ internal sealed class GestureActionRouter
     {
         int target = Math.Clamp(startValue + (int)Math.Round(_continuousDeltaPercent), 0, 100);
         queueTarget(target);
-    }
-
-    private static void ApplyDiscreteTarget(
-        GestureSignal signal,
-        double travelMm,
-        int startIndex,
-        Action<int> queueTarget)
-    {
-        double signedTravel = ToPositiveControlDelta(signal, travelMm);
-        int steps = (int)Math.Truncate(signedTravel / 8.0);
-        queueTarget(Math.Clamp(startIndex + steps, 0, 2));
     }
 
     private void QueueMediaSeek(GestureSignal signal)
@@ -324,6 +293,7 @@ internal sealed class GestureActionRouter
             _trackSwipeFired = false;
             _trackGestureStarted = 0;
             _trackMaxTravelMm = 0;
+            _trackStayedCandidate = false;
         }
 
         if (action == GestureActionKind.MediaSeek)

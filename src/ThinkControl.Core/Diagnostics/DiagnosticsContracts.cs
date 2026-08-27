@@ -48,7 +48,11 @@ public sealed record DiagnosticBundle(
 public static class DiagnosticsPolicy
 {
     public const int SchemaVersion = 1;
-    public const int MaximumEventsPerBundle = 500;
+
+    // A support bundle is a focused troubleshooting artifact, not a telemetry dump.
+    // The recorder may retain more local history, but export is bounded after burst
+    // de-duplication so GitHub reports stay reviewable by both users and maintainers.
+    public const int MaximumEventsPerBundle = 240;
 
     public static readonly IReadOnlySet<string> AllowedTags = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {

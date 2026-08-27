@@ -50,12 +50,20 @@ public partial class TouchpadPanel
         _syncing = true;
         try
         {
-            // The wide snapshot is the interaction-state gate for the media gesture:
-            // one horizontal edge owns Previous/Next and explicitly exposes the
-            // optional hold-and-release center Play/Pause control.
+            // Wide QA explicitly covers Track control plus its optional center action.
             _selectedEdge = TouchpadEdge.Bottom;
             GestureEnableSwitch.IsChecked = true;
             TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
+            // Move any existing Track control assignment before selecting Bottom so
+            // the uniqueness rule is represented in the deterministic snapshot too.
+            foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
+            {
+                if (edge == TouchpadEdge.Bottom)
+                    continue;
+                TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
+                if (existing.Action == GestureActionKind.PreviousNextTrack)
+                    bindings = WithBinding(bindings, edge, existing with { Action = GestureActionKind.Disabled });
+            }
             _configuration = (_configuration with
             {
                 Enabled = true,
@@ -83,7 +91,8 @@ public partial class TouchpadPanel
 
         Visualizer.SetTestFrame([new TouchContact(1, 5300, 7700, true)], signal);
         Visualizer.SetTestFrame([new TouchContact(1, 8500, 7700, true)], signal);
-        GestureStatusText.Text = "Previous / next track · Next";
+        Visualizer.ShowActiveGestureValue(TouchpadEdge.Bottom, "Next");
+        GestureStatusText.Text = "Track control · Next";
     }
 
     private void ConfigureResetButton(
@@ -261,21 +270,37 @@ public partial class TouchpadPanel
     {
         if (!IsVisible)
             return;
+
+        if (signal.Phase == GesturePhase.Candidate)
+        {
+            if (signal.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled)
+                Visualizer.ShowActiveGestureValue(signal.Edge, "Hold · Play / Pause");
+            return;
+        }
+
         if (signal.Phase == GesturePhase.Claimed)
             _gestureStartValue = ReadGestureStartValue(signal.Action);
+
         if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
         {
             Visualizer.ClearReleasedGestureFeedback();
+            Visualizer.ShowActiveGestureValue(signal.Edge, FormatGestureValue(signal));
             return;
         }
+
         if (signal.Phase == GesturePhase.Released)
         {
-            Visualizer.ShowReleasedGestureValue(signal.Edge, FormatGestureValue(signal));
+            Visualizer.ClearActiveGestureFeedback();
+            string value = FormatGestureValue(signal);
+            if (!(signal.Action == GestureActionKind.PreviousNextTrack && Math.Abs(signal.TotalTravelMm) < 0.5))
+                Visualizer.ShowReleasedGestureValue(signal.Edge, value);
             _gestureStartValue = null;
             return;
         }
+
         if (signal.Phase == GesturePhase.Cancelled)
         {
+            Visualizer.ClearActiveGestureFeedback();
             Visualizer.ClearReleasedGestureFeedback();
             _gestureStartValue = null;
         }
@@ -303,10 +328,12 @@ public partial class TouchpadPanel
         {
             GestureActionKind.Volume => $"{ResolveCurrentPercent(_host.CurrentVolumeTarget, _host.ReadVolumePercent())}%",
             GestureActionKind.Brightness => $"{ResolveCurrentPercent(_host.CurrentBrightnessTarget, _app?.State.Brightness ?? 0)}%",
-            GestureActionKind.KeyboardBacklight => _app?.State.KeyboardStatus ?? "Complete",
-            GestureActionKind.PerformanceMode => _app?.State.SelectedMode ?? "Complete",
             GestureActionKind.MediaSeek => FormatSeekDelta(_host.CurrentSeekDeltaSeconds),
-            GestureActionKind.PreviousNextTrack => signal.TotalTravelMm >= 0 ? "Next track" : "Previous track",
+            GestureActionKind.PreviousNextTrack => Math.Abs(signal.TotalTravelMm) < 0.5
+                ? "Play / Pause"
+                : signal.TotalTravelMm >= 0 ? "Next" : "Previous",
+            GestureActionKind.PlayPause => "Play / Pause",
+            GestureActionKind.OpenThinkControl => "Compact view",
             _ => "Complete"
         };
     }
@@ -340,6 +367,7 @@ public partial class TouchpadPanel
     private void ClearGestureFeedback()
     {
         _gestureStartValue = null;
+        Visualizer.ClearActiveGestureFeedback();
         Visualizer.ClearReleasedGestureFeedback();
     }
 

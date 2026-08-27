@@ -69,6 +69,25 @@ public sealed class EdgeGestureRecognizer
                 return released;
             }
 
+            // Previous/Next optionally owns a deliberate hold-and-release action.
+            // Before alpha.26 a stationary contact never left Candidate, so lifting
+            // simply reset the recognizer and Play/Pause could never fire reliably.
+            // Emit a release for an unambiguous candidate; the action router owns the
+            // hold duration and travel threshold, so ordinary taps remain no-ops.
+            if (_phase == GesturePhase.Candidate && _candidateEdges.Length == 1)
+            {
+                TouchpadEdge edge = _candidateEdges[0];
+                GestureActionKind action = _configuration.BindingFor(edge).Action;
+                GestureSignal released = new(
+                    GesturePhase.Released,
+                    edge,
+                    action,
+                    TotalTravelMm: _lastTotalTravelMm,
+                    ContactId: _contactId);
+                Reset();
+                return released;
+            }
+
             Reset();
             return null;
         }
@@ -143,10 +162,13 @@ public sealed class EdgeGestureRecognizer
         _phase = GesturePhase.Candidate;
         _lastTotalTravelMm = 0;
 
+        GestureActionKind candidateAction = candidates.Count == 1
+            ? _configuration.BindingFor(candidates[0]).Action
+            : GestureActionKind.Disabled;
         return new GestureSignal(
             GesturePhase.Candidate,
             candidates.Count == 1 ? candidates[0] : null,
-            GestureActionKind.Disabled,
+            candidateAction,
             Reason: candidates.Count > 1 ? "Corner candidate" : null,
             ContactId: contact.ContactId);
     }
@@ -164,8 +186,26 @@ public sealed class EdgeGestureRecognizer
         if (Math.Max(absX, absY) < activation)
             return null;
 
-        TouchpadEdge? chosen = null;
+        // Open ThinkControl follows the ASUS-style mental model: start at an edge
+        // and move into the touchpad, perpendicular to that edge. It intentionally
+        // differs from continuous controls, which travel along the edge. Give an
+        // assigned inward action first refusal at a corner so a diagonal inward
+        // swipe is deterministic instead of depending on enum order.
+        TouchpadEdge? inward = null;
+        foreach (TouchpadEdge edge in _candidateEdges)
+        {
+            if (_configuration.BindingFor(edge).Action != GestureActionKind.OpenThinkControl ||
+                !IsInwardIntent(edge, dx, dy, activation, dominance))
+            {
+                continue;
+            }
+            inward = edge;
+            break;
+        }
+        if (inward is TouchpadEdge inwardEdge)
+            return Claim(inwardEdge, contact, InwardTravelMm(inwardEdge, dx, dy));
 
+        TouchpadEdge? chosen = null;
         bool horizontalIntent = absX >= activation && absX >= absY * dominance;
         bool verticalIntent = absY >= activation && absY >= absX * dominance;
 
@@ -184,21 +224,31 @@ public sealed class EdgeGestureRecognizer
         if (verticalIntent && !_candidateEdges.Any(IsVerticalEdge))
             return Cancel("Wrong direction");
 
-        _claimedEdge = chosen.Value;
-        _claimedAction = _configuration.BindingFor(chosen.Value).Action;
+        // OpenThinkControl is perpendicular-only. If its edge was selected by the
+        // normal along-edge resolver, do not accidentally treat that as an opener.
+        if (_configuration.BindingFor(chosen.Value).Action == GestureActionKind.OpenThinkControl)
+            return Cancel("Swipe inward to open ThinkControl");
+
+        double total = AxisTravelMm(chosen.Value, contact.X, contact.Y);
+        TouchpadEdgeBinding binding = _configuration.BindingFor(chosen.Value);
+        if (binding.Inverted)
+            total = -total;
+        total *= binding.Sensitivity;
+        return Claim(chosen.Value, contact, total);
+    }
+
+    private GestureSignal Claim(TouchpadEdge edge, TouchContact contact, double total)
+    {
+        _claimedEdge = edge;
+        _claimedAction = _configuration.BindingFor(edge).Action;
         _phase = GesturePhase.Claimed;
         _lastX = contact.X;
         _lastY = contact.Y;
-
-        double total = AxisTravelMm(chosen.Value, contact.X, contact.Y);
-        if (_configuration.BindingFor(chosen.Value).Inverted)
-            total = -total;
-        total *= _configuration.BindingFor(chosen.Value).Sensitivity;
         _lastTotalTravelMm = total;
 
         return new GestureSignal(
             GesturePhase.Claimed,
-            chosen,
+            edge,
             _claimedAction,
             total,
             total,
@@ -209,24 +259,44 @@ public sealed class EdgeGestureRecognizer
     {
         TouchpadEdge edge = _claimedEdge!.Value;
         TouchpadGeometry geometry = _geometry!;
+        TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
+
+        if (_claimedAction == GestureActionKind.OpenThinkControl)
+        {
+            double dx = geometry.DeltaXToMm(contact.X - _startX);
+            double dy = geometry.DeltaYToMm(contact.Y - _startY);
+            double total = InwardTravelMm(edge, dx, dy) * binding.Sensitivity;
+            double previous = _lastTotalTravelMm;
+            _lastTotalTravelMm = total;
+            _lastX = contact.X;
+            _lastY = contact.Y;
+            _phase = GesturePhase.Active;
+            return new GestureSignal(
+                GesturePhase.Active,
+                edge,
+                _claimedAction,
+                total,
+                total - previous,
+                ContactId: contact.ContactId);
+        }
+
         if (geometry.DistanceToEdgeMm(edge, contact.X, contact.Y) > _configuration.ContinuationToleranceMm)
             return Cancel("Gesture left edge tolerance");
 
-        double total = AxisTravelMm(edge, contact.X, contact.Y);
+        double axisTotal = AxisTravelMm(edge, contact.X, contact.Y);
         double delta = edge is TouchpadEdge.Left or TouchpadEdge.Right
             ? geometry.DeltaYToMm(contact.Y - _lastY)
             : geometry.DeltaXToMm(contact.X - _lastX);
 
-        TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
         if (binding.Inverted)
         {
-            total = -total;
+            axisTotal = -axisTotal;
             delta = -delta;
         }
 
-        total *= binding.Sensitivity;
+        axisTotal *= binding.Sensitivity;
         delta *= binding.Sensitivity;
-        _lastTotalTravelMm = total;
+        _lastTotalTravelMm = axisTotal;
         _lastX = contact.X;
         _lastY = contact.Y;
         _phase = GesturePhase.Active;
@@ -235,7 +305,7 @@ public sealed class EdgeGestureRecognizer
             GesturePhase.Active,
             edge,
             _claimedAction,
-            total,
+            axisTotal,
             delta,
             ContactId: contact.ContactId);
     }
@@ -247,6 +317,27 @@ public sealed class EdgeGestureRecognizer
             ? geometry.DeltaYToMm(y - _startY)
             : geometry.DeltaXToMm(x - _startX);
     }
+
+    private static bool IsInwardIntent(
+        TouchpadEdge edge,
+        double dx,
+        double dy,
+        double activation,
+        double dominance)
+    {
+        double inward = InwardTravelMm(edge, dx, dy);
+        double parallel = edge is TouchpadEdge.Left or TouchpadEdge.Right ? Math.Abs(dy) : Math.Abs(dx);
+        return inward >= activation && inward >= parallel * Math.Min(dominance, 1.35);
+    }
+
+    private static double InwardTravelMm(TouchpadEdge edge, double dx, double dy) => edge switch
+    {
+        TouchpadEdge.Left => dx,
+        TouchpadEdge.Right => -dx,
+        TouchpadEdge.Top => dy,
+        TouchpadEdge.Bottom => -dy,
+        _ => 0
+    };
 
     private GestureSignal Cancel(string reason, bool preserveLockout = false)
     {

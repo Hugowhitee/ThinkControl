@@ -25,15 +25,14 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
         ConfigureHomeDashboardPolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
-        // Page builders above may replace a ScrollViewer child. Reapply only the
-        // bounded page-rail contract after final composition so every page ends on
-        // the same sidebar-adjacent left anchor.
+        ConfigureSettingsHierarchy();
         ConfigureAdvancedUiConsistency();
         Controls.ReadableTypography.Apply(this);
         DiagnosticsPanelControl?.Refresh();
@@ -56,27 +55,22 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
         ConfigureHomeDashboardPolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
+        ConfigureSettingsHierarchy();
         ConfigureAdvancedUiConsistency();
         Controls.ReadableTypography.Apply(this);
         DiagnosticsPanelControl?.Refresh();
 
-        // Snapshot windows are intentionally never shown, so WPF Loaded does not
-        // run and the normal runtime SyncControls path would otherwise be skipped.
-        // Apply the same checked/enabled state explicitly so visual QA actually
-        // exercises persistent selection surfaces instead of rendering every
-        // segmented control as unselected.
         SyncControls();
 
         if (DataContext is ViewModels.AppState snapshotState)
         {
-            // Healthy visual-QA states should exercise both sides of optional battery
-            // temperature formatting. Provider-unavailable states keep null/Not exposed.
             if (snapshotState.CanSensorTelemetry && snapshotState.BatteryTemperatureC is null)
                 snapshotState.BatteryTemperatureC = 34.8;
 
@@ -141,6 +135,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedWindowEnhancer.SelectTouchpad(this);
@@ -161,9 +156,6 @@ public partial class AdvancedWindow
             throw new InvalidOperationException("Touchpad page could not be prepared for visual QA.");
         }
 
-        // The normal and minimum renders preserve the resting layout; the wide
-        // render exercises the transient contact/trail/value feedback state that
-        // otherwise cannot be caught by a static screenshot gate.
         panel.PrepareForSnapshot(showActiveGesture: Width >= 1500);
     }
 
@@ -202,6 +194,7 @@ public partial class AdvancedWindow
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
+        ConfigureShellUtilitySizing();
         ConfigureSupportCard();
         ConfigureAdvancedUiConsistency();
         AdvancedFeaturePages.SelectAudio(this);
