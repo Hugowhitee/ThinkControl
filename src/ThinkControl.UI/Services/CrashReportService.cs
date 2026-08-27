@@ -213,7 +213,7 @@ internal sealed class CrashReportService
                         if (item is null)
                             continue;
                         string summary = item.Name +
-                                         (item.Success ? ":ok" : ":failed") +
+                                         (item.Success == true ? ":ok" : ":failed") +
                                          (string.IsNullOrWhiteSpace(item.ErrorCode) ? string.Empty : ":" + item.ErrorCode);
                         result.Add(Safe(summary, 180));
                     }
