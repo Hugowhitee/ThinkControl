@@ -23,8 +23,13 @@ internal sealed record CoolingSupervisorSnapshot(
 /// </summary>
 internal sealed class FanSupervisor : IDisposable
 {
-    private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(2);
-    private static readonly TimeSpan MinimumDownshiftDwell = TimeSpan.FromSeconds(8);
+    // Managed curves intentionally run at a low cadence. EC/telemetry access is not
+    // a real-time servo API; polling it aggressively only adds low-level I/O and can
+    // make adjacent graph states hunt audibly. Safety still evaluates raw temperature
+    // on every tick and immediately hands cooling back to Lenovo at the safety limit.
+    private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan MinimumUpshiftDwell = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan MinimumDownshiftDwell = TimeSpan.FromSeconds(14);
     private static readonly TimeSpan SyncWriteTimeout = TimeSpan.FromSeconds(3);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
@@ -50,6 +55,8 @@ internal sealed class FanSupervisor : IDisposable
     private bool _safetyOverride;
     private string _status = "Lenovo firmware owns fan control";
     private DateTimeOffset _lastOutputChange = DateTimeOffset.MinValue;
+    private int? _pendingLevel;
+    private DateTimeOffset _pendingLevelSince = DateTimeOffset.MinValue;
 
     private bool _characterizationRunning;
     private int? _characterizationLevel;
@@ -162,6 +169,7 @@ internal sealed class FanSupervisor : IDisposable
             _safetyOverride = false;
             _status = $"{name} fan curve active · targets map to verified X9 fan states";
             _lastOutputChange = DateTimeOffset.MinValue;
+            ClearPendingTransitionLocked();
         }
         SignalControlWake();
         return true;
@@ -240,6 +248,7 @@ internal sealed class FanSupervisor : IDisposable
             _safetyOverride = false;
             _status = $"Manual EC step {level} · ~{estimated}% of verified maximum · {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
+            ClearPendingTransitionLocked();
         }
         SignalControlWake();
         return true;
@@ -272,6 +281,7 @@ internal sealed class FanSupervisor : IDisposable
             _safetyOverride = false;
             _status = $"Manual {percent}% target · {hardwareDetail} · {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
+            ClearPendingTransitionLocked();
         }
         SignalControlWake();
         return true;
@@ -299,6 +309,7 @@ internal sealed class FanSupervisor : IDisposable
                 _smoothedTemperatureC = null;
                 _safetyOverride = false;
                 _status = "Lenovo firmware owns fan control";
+                ClearPendingTransitionLocked();
             }
         }
         return success;
@@ -340,6 +351,7 @@ internal sealed class FanSupervisor : IDisposable
             _curveTargetPercent = null;
             _smoothedTemperatureC = null;
             _safetyOverride = false;
+            ClearPendingTransitionLocked();
             _characterizationRunning = true;
             _characterizationLevel = 7;
             _characterizationStatus = "Safety spin-up · EC step 7";
@@ -397,6 +409,7 @@ internal sealed class FanSupervisor : IDisposable
                 _curveTargetPercent = null;
                 _smoothedTemperatureC = null;
                 _safetyOverride = false;
+                ClearPendingTransitionLocked();
             }
         }
         return success;
@@ -497,6 +510,7 @@ internal sealed class FanSupervisor : IDisposable
                 _appliedPercent = null;
                 _curveTargetPercent = null;
                 _smoothedTemperatureC = raw;
+                ClearPendingTransitionLocked();
                 _status = $"{curve!.Name} resumed after safety handoff";
             }
         }
@@ -505,8 +519,10 @@ internal sealed class FanSupervisor : IDisposable
         double smooth;
         lock (_gate)
         {
+            // Preserve approximately the same thermal time constant as alpha.19's
+            // 0.18/2s EMA while sampling only every four seconds.
             _smoothedTemperatureC = _smoothedTemperatureC.HasValue
-                ? _smoothedTemperatureC.Value + 0.18 * (raw - _smoothedTemperatureC.Value)
+                ? _smoothedTemperatureC.Value + 0.30 * (raw - _smoothedTemperatureC.Value)
                 : raw;
             smooth = _smoothedTemperatureC.Value;
             currentTarget = _curveTargetPercent;
@@ -521,6 +537,7 @@ internal sealed class FanSupervisor : IDisposable
         {
             lock (_gate)
             {
+                ClearPendingTransitionLocked();
                 _curveTargetPercent = requestedPercent;
                 _appliedPercent = desired.EstimatedPercent;
                 _status = DescribeCurveOutput(curve.Name, requestedPercent, desired, smooth);
@@ -528,8 +545,16 @@ internal sealed class FanSupervisor : IDisposable
             return;
         }
 
-        bool shouldWrite = !currentState.HasValue || desired.HardwareState > currentState.Value ||
-            (desired.HardwareState < currentState.Value && DateTimeOffset.UtcNow - _lastOutputChange >= MinimumDownshiftDwell);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool shouldWrite;
+        lock (_gate)
+        {
+            shouldWrite = ShouldCommitTransitionLocked(currentState, desired.HardwareState, raw, now);
+            if (!shouldWrite)
+            {
+                _status = $"{DescribeCurveOutput(curve.Name, requestedPercent, desired, smooth)} · stabilizing";
+            }
+        }
         if (!shouldWrite)
             return;
 
@@ -551,9 +576,45 @@ internal sealed class FanSupervisor : IDisposable
             _appliedLevel = desired.HardwareState;
             _appliedPercent = desired.EstimatedPercent;
             _curveTargetPercent = requestedPercent;
-            _lastOutputChange = DateTimeOffset.UtcNow;
+            _lastOutputChange = now;
+            ClearPendingTransitionLocked();
             _status = DescribeCurveOutput(curve.Name, requestedPercent, desired, smooth);
         }
+    }
+
+    private bool ShouldCommitTransitionLocked(int? currentState, int desiredState, double rawTemperatureC, DateTimeOffset now)
+    {
+        if (!currentState.HasValue)
+            return true;
+
+        int delta = desiredState - currentState.Value;
+        if (delta > 0 && (delta >= 2 || rawTemperatureC >= 82))
+        {
+            // Never make a meaningful cooling increase wait behind comfort-oriented
+            // anti-hunting logic. Raw temperature, not the EMA, controls this escape.
+            return true;
+        }
+
+        if (_pendingLevel != desiredState)
+        {
+            _pendingLevel = desiredState;
+            _pendingLevelSince = now;
+            return false;
+        }
+
+        TimeSpan dwell = delta > 0 ? MinimumUpshiftDwell : MinimumDownshiftDwell;
+        if (now - _pendingLevelSince < dwell)
+            return false;
+
+        // The transition target survived the full dwell. _lastOutputChange is still
+        // checked for downshifts so two cooling reductions cannot occur back-to-back.
+        return delta > 0 || now - _lastOutputChange >= MinimumDownshiftDwell;
+    }
+
+    private void ClearPendingTransitionLocked()
+    {
+        _pendingLevel = null;
+        _pendingLevelSince = DateTimeOffset.MinValue;
     }
 
     private static string DescribeCurveOutput(string name, int target, FanOutputMapping.State state, double temperature) =>
@@ -572,6 +633,7 @@ internal sealed class FanSupervisor : IDisposable
             _appliedLevel = null;
             _appliedPercent = null;
             _curveTargetPercent = null;
+            ClearPendingTransitionLocked();
             if (preserveCurve && _activeCurve is not null)
             {
                 _safetyOverride = true;
@@ -667,6 +729,7 @@ internal sealed class FanSupervisor : IDisposable
                 _curveTargetPercent = null;
                 _smoothedTemperatureC = null;
                 _safetyOverride = false;
+                ClearPendingTransitionLocked();
             }
             SaveCalibration();
         }

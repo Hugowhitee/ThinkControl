@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Shapes;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 
@@ -27,37 +28,77 @@ public partial class AdvancedWindow
         if (NavHome.Parent is not StackPanel navStack)
             return;
 
-        // ConfigureNativeWindow creates one compact-arrow button beside the
-        // ThinkControl wordmark. Branding used to leave that arrow there and this
-        // class inserted a whole new Notifications row below it, which pushed the
-        // logo/navigation down and left two separate view-switch controls. Reuse
-        // that single top-right slot for the bell instead.
-        Grid? brandRow = navStack.Children.OfType<Grid>().FirstOrDefault(grid =>
+        Grid? utilityRow = navStack.Children.OfType<Grid>().FirstOrDefault(grid =>
             grid.Children.OfType<Button>().Any(button => button.Tag as string == "ThinkControl.NotificationSlot"));
-        Button? button = brandRow?.Children.OfType<Button>()
+        Button? notificationButton = utilityRow?.Children.OfType<Button>()
             .FirstOrDefault(child => child.Tag as string == "ThinkControl.NotificationSlot");
-        if (button is null)
+        Button? compactButton = utilityRow?.Children.OfType<Button>()
+            .FirstOrDefault(child => !ReferenceEquals(child, notificationButton));
+        if (utilityRow is null || notificationButton is null || compactButton is null)
             return;
 
+        // Keep the native Windows caption for Snap Layouts/system-menu behavior, but
+        // remove the extra in-client Advanced/branding row. App-level utilities live
+        // in the sidebar footer, visually separated from navigation by the flexible
+        // rail body. The old duplicate ThinkControl/version footer is replaced by
+        // these two icon-only actions rather than adding another toolbar.
+        if (navStack.Parent is Grid sideGrid)
+        {
+            StackPanel? footer = sideGrid.Children
+                .OfType<StackPanel>()
+                .FirstOrDefault(panel => Grid.GetRow(panel) == 1);
+            if (footer is not null)
+            {
+                utilityRow.Children.Remove(notificationButton);
+                utilityRow.Children.Remove(compactButton);
+                navStack.Children.Remove(utilityRow);
+
+                footer.Children.Clear();
+                footer.Orientation = Orientation.Horizontal;
+                footer.HorizontalAlignment = HorizontalAlignment.Left;
+                footer.VerticalAlignment = VerticalAlignment.Center;
+                footer.Margin = new Thickness(12, 4, 10, 4);
+
+                compactButton.Width = 34;
+                compactButton.Height = 34;
+                compactButton.Padding = new Thickness(0);
+                compactButton.Margin = new Thickness(0, 0, 4, 0);
+                compactButton.Background = Brushes.Transparent;
+                compactButton.BorderBrush = Brushes.Transparent;
+                compactButton.BorderThickness = new Thickness(0);
+                compactButton.ToolTip = "Switch to compact view";
+                if (compactButton.Content is PackIconLucide compactIcon)
+                {
+                    compactIcon.Width = 18;
+                    compactIcon.Height = 18;
+                    compactIcon.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
+                }
+
+                footer.Children.Add(compactButton);
+                footer.Children.Add(notificationButton);
+            }
+        }
+
         _notificationButtonConfigured = true;
-        button.Width = 30;
-        button.Height = 30;
-        button.Padding = new Thickness(0);
-        button.Margin = new Thickness(0);
-        button.BorderThickness = new Thickness(0);
-        button.Background = Brushes.Transparent;
-        button.ToolTip = "Inbox";
+        notificationButton.Width = 34;
+        notificationButton.Height = 34;
+        notificationButton.Padding = new Thickness(0);
+        notificationButton.Margin = new Thickness(0);
+        notificationButton.BorderThickness = new Thickness(0);
+        notificationButton.BorderBrush = Brushes.Transparent;
+        notificationButton.Background = Brushes.Transparent;
+        notificationButton.ToolTip = "Inbox";
 
         var bell = new Path
         {
             Data = Geometry.Parse("M10,2.1 C6.5,2.1 5,4.7 5,7.7 V10.6 L3.3,13.2 H16.7 L15,10.6 V7.7 C15,4.7 13.5,2.1 10,2.1 Z M7.7,15 C8.1,16.1 8.9,16.6 10,16.6 C11.1,16.6 11.9,16.1 12.3,15"),
-            StrokeThickness = 1.45,
+            StrokeThickness = 1.55,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
             Fill = Brushes.Transparent,
-            Width = 17,
-            Height = 17,
+            Width = 18,
+            Height = 18,
             Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
@@ -77,12 +118,12 @@ public partial class AdvancedWindow
         _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
         _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Surface");
 
-        var content = new Grid { Width = 21, Height = 21 };
+        var content = new Grid { Width = 22, Height = 22 };
         content.Children.Add(bell);
         content.Children.Add(_notificationDot);
-        button.Content = content;
-        button.Click += (_, _) => ToggleNotificationSheet();
-        _notificationIndicator = button;
+        notificationButton.Content = content;
+        notificationButton.Click += (_, _) => ToggleNotificationSheet();
+        _notificationIndicator = notificationButton;
 
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;

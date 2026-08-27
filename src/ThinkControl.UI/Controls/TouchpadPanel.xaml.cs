@@ -136,7 +136,7 @@ public partial class TouchpadPanel : UserControl
         ActionCombo.SelectedItem = selected;
         ActionHelpText.Text = selected.Description;
         SensitivitySlider.Value = binding.Sensitivity;
-        SensitivityValue.Text = $"{binding.Sensitivity:0.00}×";
+        SensitivityValue.Text = FormatSensitivity(binding.Sensitivity);
         InvertCheck.IsChecked = binding.Inverted;
     }
 
@@ -253,7 +253,7 @@ public partial class TouchpadPanel : UserControl
         _configuration = _configuration.Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
-        SensitivityValue.Text = $"{selected.Sensitivity:0.00}×";
+        SensitivityValue.Text = FormatSensitivity(selected.Sensitivity);
     }
 
     private void SetSelectedBinding(TouchpadEdgeBinding binding)
@@ -267,7 +267,7 @@ public partial class TouchpadPanel : UserControl
         _configuration = _configuration.Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
-        SensitivityValue.Text = $"{binding.Sensitivity:0.00}×";
+        SensitivityValue.Text = FormatSensitivity(binding.Sensitivity);
     }
 
     private void HapticSwitch_Click(object sender, RoutedEventArgs e)
@@ -390,7 +390,7 @@ public partial class TouchpadPanel : UserControl
         EdgeWidthValue.Text = $"{EdgeWidthSlider.Value:0.0} mm";
         ActivationValue.Text = $"{ActivationSlider.Value:0.0} mm";
         ToleranceValue.Text = $"{ToleranceSlider.Value:0.0} mm";
-        SensitivityValue.Text = $"{SensitivitySlider.Value:0.00}×";
+        SensitivityValue.Text = FormatSensitivity(SensitivitySlider.Value);
     }
 
     private void ApplyResponsiveLayout()
@@ -491,6 +491,8 @@ public partial class TouchpadPanel : UserControl
         SyncHostUiSubscriptions(false);
         _host = null;
     }
+
+    private static string FormatSensitivity(double value) => $"{value:0.0}x";
 
     private static double Quantize(double value, int step) => Math.Clamp(Math.Round(value / step) * step, 0, 100);
 

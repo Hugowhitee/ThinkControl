@@ -20,14 +20,14 @@ public partial class AdvancedWindow
 
         Resources[TouchpadPolishKey] = true;
 
-        // Windows reports click-force sensitivity numerically in the opposite
-        // direction users describe it. Keep the native values untouched but render
-        // the control intuitively: Light on the left, Medium in the middle, Firm on
-        // the right.
+        // Keep click sensitivity in the same visual direction as every other slider.
+        // The Windows value already maps naturally from low sensitivity / Firm to
+        // high sensitivity / Light; an older RTL presentation inverted only the
+        // accent fill and made the control look broken.
         if (panel.FindName("ClickForceSlider") is Slider clickForce)
         {
-            clickForce.FlowDirection = System.Windows.FlowDirection.RightToLeft;
-            clickForce.ToolTip = "Light  ←  click sensitivity  →  Firm";
+            clickForce.FlowDirection = FlowDirection.LeftToRight;
+            clickForce.ToolTip = "Firm  ←  click sensitivity  →  Light";
         }
 
         panel.ConfigureValueFeedback();

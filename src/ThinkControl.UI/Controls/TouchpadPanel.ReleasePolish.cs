@@ -13,10 +13,11 @@ public partial class TouchpadPanel
 
     private void ApplyReleaseTouchpadPolish()
     {
-        // Windows exposes clickForceSensitivity (higher = easier/lighter click).
-        // Keep that native value untouched but present the physical force scale the
-        // way people expect: Light on the left, Firm on the right.
-        ClickForceSlider.IsDirectionReversed = true;
+        // Windows exposes clickForceSensitivity as a 0..100 sensitivity value.
+        // Present it in the same direction as every other ThinkControl slider:
+        // Firm (low sensitivity) -> Medium -> Light (high sensitivity). Reversing
+        // only this track made its accent fill run from the opposite side.
+        ClickForceSlider.IsDirectionReversed = false;
 
         // Values and their optional inline reset glyph share one compact metadata
         // column. This keeps the number readable without stealing track width.

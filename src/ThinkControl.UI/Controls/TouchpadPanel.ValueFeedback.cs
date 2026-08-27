@@ -247,10 +247,10 @@ public partial class TouchpadPanel
 
     private void RefreshSettingLabels()
     {
-        EdgeWidthValue.Text = FormatSetting(EdgeWidthSlider.Value, 5.0, "mm", 1);
-        ActivationValue.Text = FormatSetting(ActivationSlider.Value, 2.0, "mm", 1);
-        ToleranceValue.Text = FormatSetting(ToleranceSlider.Value, 12.0, "mm", 1);
-        SensitivityValue.Text = FormatSetting(SensitivitySlider.Value, 1.0, "×", 1, unitBeforeValue: false);
+        EdgeWidthValue.Text = FormatSetting(EdgeWidthSlider.Value, "mm", 1);
+        ActivationValue.Text = FormatSetting(ActivationSlider.Value, "mm", 1);
+        ToleranceValue.Text = FormatSetting(ToleranceSlider.Value, "mm", 1);
+        SensitivityValue.Text = FormatSetting(SensitivitySlider.Value, "x", 1);
     }
 
     private void RefreshSliderResetButtons()
@@ -398,29 +398,18 @@ public partial class TouchpadPanel
         _ => "Touchpad"
     };
 
-    private static string FormatSetting(
-        double value,
-        double defaultValue,
-        string unit,
-        int decimals,
-        bool unitBeforeValue = false)
+    private static string FormatSetting(double value, string unit, int decimals)
     {
         string format = decimals == 2 ? "0.00" : "0.0";
-        string current = unitBeforeValue
-            ? $"{unit}{value.ToString(format)}"
-            : $"{value.ToString(format)}{(unit == "×" ? string.Empty : " ")}{unit}";
-
-        // Tuning controls show the actual setting only. Delta text such as +0.2 is
-        // useful during a live gesture, not while configuring a persistent slider.
-        return Math.Abs(value - defaultValue) < Math.Pow(10, -decimals) / 2d
-            ? $"{current} · default"
-            : current;
+        return unit.Equals("x", StringComparison.OrdinalIgnoreCase)
+            ? $"{value.ToString(format)}x"
+            : $"{value.ToString(format)} {unit}";
     }
 
     private string FormatDefault(double value, Slider slider)
     {
         if (ReferenceEquals(slider, SensitivitySlider))
-            return $"{value:0.0}×";
+            return $"{value:0.0}x";
         if (ReferenceEquals(slider, EdgeWidthSlider) || ReferenceEquals(slider, ActivationSlider) || ReferenceEquals(slider, ToleranceSlider))
             return $"{value:0.0} mm";
         if (ReferenceEquals(slider, OsdOpacitySlider))

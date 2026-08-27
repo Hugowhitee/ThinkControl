@@ -8,6 +8,12 @@
             <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
             <Setter Property="FontSize" Value="10.5" />
         </Style>
+        <Style x:Key="TouchpadValue" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="FontSize" Value="12.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
     </UserControl.Resources>
 
     <Grid x:Name="RootGrid">
@@ -76,9 +82,9 @@
                         <ComboBox x:Name="ActionCombo" Style="{StaticResource TcComboBox}" Margin="0,5,0,7" SelectionChanged="ActionCombo_SelectionChanged" />
                         <TextBlock x:Name="ActionHelpText" Style="{StaticResource TouchpadLabel}" TextWrapping="Wrap" Margin="1,0,1,12" />
                         <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="48" /></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="76" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Sensitivity" Style="{StaticResource TouchpadLabel}" />
-                            <TextBlock x:Name="SensitivityValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
+                            <TextBlock x:Name="SensitivityValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadValue}" />
                         </Grid>
                         <Slider x:Name="SensitivitySlider" Style="{StaticResource TcSlider}" Minimum="0.5" Maximum="2" Value="1" SmallChange="0.1" TickFrequency="0.1" IsSnapToTickEnabled="True" Margin="0,5,0,10" ValueChanged="GestureSetting_ValueChanged" />
                         <Grid Margin="0,2,0,0">
@@ -98,13 +104,13 @@
                             <CheckBox x:Name="HapticSwitch" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource TcSwitch}" Click="HapticSwitch_Click" />
                         </Grid>
                         <Grid x:Name="HapticStrengthHeader" Margin="0,14,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="88" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Feedback level" Style="{StaticResource TouchpadLabel}" />
-                            <TextBlock x:Name="HapticStrengthValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
+                            <TextBlock x:Name="HapticStrengthValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadValue}" />
                         </Grid>
                         <Grid Margin="0,5,0,8">
-                            <Slider x:Name="HapticStrengthSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="25" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
-                            <Grid Panel.ZIndex="0" Margin="12,0" IsHitTestVisible="False">
+                            <Slider x:Name="HapticStrengthSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="25" SmallChange="25" LargeChange="25" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                            <Grid Panel.ZIndex="0" Margin="13,0" IsHitTestVisible="False">
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                 <Border Grid.Column="1" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
                                 <Border Grid.Column="2" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
@@ -112,13 +118,13 @@
                             </Grid>
                         </Grid>
                         <Grid x:Name="ClickForceHeader" Margin="0,5,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="88" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Click sensitivity" Style="{StaticResource TouchpadLabel}" />
-                            <TextBlock x:Name="ClickForceValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadLabel}" />
+                            <TextBlock x:Name="ClickForceValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadValue}" />
                         </Grid>
                         <Grid Margin="0,5,0,0">
-                            <Slider x:Name="ClickForceSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="50" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
-                            <Grid Panel.ZIndex="0" Margin="12,0" IsHitTestVisible="False">
+                            <Slider x:Name="ClickForceSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="50" SmallChange="50" LargeChange="50" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                            <Grid Panel.ZIndex="0" Margin="13,0" IsHitTestVisible="False">
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                 <Border Grid.Column="1" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
                             </Grid>
@@ -141,9 +147,9 @@
                             <ComboBox x:Name="OsdPositionCombo" Grid.Column="1" Style="{StaticResource TcComboBox}" SelectionChanged="OsdPosition_SelectionChanged" />
                         </Grid>
                         <Grid Margin="0,13,0,0">
-                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="48" /></Grid.ColumnDefinitions>
+                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="76" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Opacity" Style="{StaticResource TouchpadLabel}" />
-                            <TextBlock x:Name="OsdOpacityValue" Grid.Column="1" Style="{StaticResource TouchpadLabel}" HorizontalAlignment="Right" />
+                            <TextBlock x:Name="OsdOpacityValue" Grid.Column="1" Style="{StaticResource TouchpadValue}" HorizontalAlignment="Right" />
                         </Grid>
                         <Slider x:Name="OsdOpacitySlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="5" Margin="0,5,0,0" ValueChanged="OsdOpacity_ValueChanged" PreviewMouseLeftButtonUp="OsdOpacity_MouseUp" />
                     </StackPanel>
@@ -155,17 +161,17 @@
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="22" /><ColumnDefinition /><ColumnDefinition Width="22" /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <StackPanel>
-                            <Grid><TextBlock Text="Edge width" FontWeight="SemiBold" /><TextBlock x:Name="EdgeWidthValue" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" /></Grid>
+                            <Grid><TextBlock Text="Edge width" FontWeight="SemiBold" /><TextBlock x:Name="EdgeWidthValue" HorizontalAlignment="Right" Style="{StaticResource TouchpadValue}" /></Grid>
                             <TextBlock Text="How close to the physical edge a gesture must start." Style="{StaticResource TouchpadLabel}" TextWrapping="Wrap" Margin="0,4,0,8" />
                             <Slider x:Name="EdgeWidthSlider" Style="{StaticResource TcSlider}" Minimum="2" Maximum="15" ValueChanged="GestureSetting_ValueChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
-                            <Grid><TextBlock Text="Activation" FontWeight="SemiBold" /><TextBlock x:Name="ActivationValue" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" /></Grid>
+                            <Grid><TextBlock Text="Activation" FontWeight="SemiBold" /><TextBlock x:Name="ActivationValue" HorizontalAlignment="Right" Style="{StaticResource TouchpadValue}" /></Grid>
                             <TextBlock Text="Movement required before ThinkControl claims the gesture." Style="{StaticResource TouchpadLabel}" TextWrapping="Wrap" Margin="0,4,0,8" />
                             <Slider x:Name="ActivationSlider" Style="{StaticResource TcSlider}" Minimum="0.5" Maximum="8" ValueChanged="GestureSetting_ValueChanged" />
                         </StackPanel>
                         <StackPanel Grid.Column="4">
-                            <Grid><TextBlock Text="Tolerance" FontWeight="SemiBold" /><TextBlock x:Name="ToleranceValue" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" /></Grid>
+                            <Grid><TextBlock Text="Tolerance" FontWeight="SemiBold" /><TextBlock x:Name="ToleranceValue" HorizontalAlignment="Right" Style="{StaticResource TouchpadValue}" /></Grid>
                             <TextBlock Text="How far inward an already claimed gesture may move." Style="{StaticResource TouchpadLabel}" TextWrapping="Wrap" Margin="0,4,0,8" />
                             <Slider x:Name="ToleranceSlider" Style="{StaticResource TcSlider}" Minimum="4" Maximum="30" ValueChanged="GestureSetting_ValueChanged" />
                         </StackPanel>
