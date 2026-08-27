@@ -4,9 +4,9 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
-    // Register once per process. Keeping the sizing policy at the Window class-event
-    // boundary means the editor itself remains the owner of its layout while every
-    // entry point (runtime and visual QA) receives the same screen-aware geometry.
+    // Register once per process. Keeping the sizing/history policy at the Window
+    // class-event boundary means every fan-curve entry point receives the same
+    // screen-aware geometry and edit-history behavior.
     private readonly bool _fanCurveEditorSizingRegistered = FanCurveEditorSizingPolicy.Register();
 }
 
@@ -45,8 +45,6 @@ internal static class FanCurveEditorSizingPolicy
         window.Width = Math.Max(window.MinWidth, targetWidth);
         window.Height = Math.Max(window.MinHeight, targetHeight);
 
-        // WindowStartupLocation used the old fixed dimensions before Loaded. Recenter
-        // after applying the real work-area size so the larger graph stays balanced.
         if (window.Owner is { IsVisible: true } owner)
         {
             window.Left = Math.Clamp(
@@ -58,5 +56,7 @@ internal static class FanCurveEditorSizingPolicy
                 workArea.Top,
                 Math.Max(workArea.Top, workArea.Bottom - window.Height));
         }
+
+        FanCurveEditorHistory.Attach(window);
     }
 }
