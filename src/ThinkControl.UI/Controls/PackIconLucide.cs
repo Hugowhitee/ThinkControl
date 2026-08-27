@@ -59,8 +59,9 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
-        // ViewSidebar used to be the compact/full icon. Keep the legacy kind as an
-        // alias so old XAML can never show the incorrect sidebar metaphor again.
+        // Compact/full view is deliberately represented by inward/outward diagonal
+        // arrows. ViewSidebar remains only as a compatibility alias so older XAML
+        // can never render the misleading sidebar-layout glyph again.
         if (Kind is "CompactView" or "FullView" or "ViewSidebar")
         {
             bool compact = Kind is "CompactView" or "ViewSidebar";
@@ -115,28 +116,38 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         double size = Math.Min(width, height);
         double left = (width - size) / 2d;
         double top = (height - size) / 2d;
-        double inset = size * 0.13;
-        Rect outer = new(left + inset, top + inset, size - inset * 2, size - inset * 2);
-        double radius = Math.Max(1.7, size * 0.13);
-        dc.DrawRoundedRectangle(null, pen, outer, radius, radius);
+
+        Point P(double x, double y) => new(left + size * x, top + size * y);
 
         if (compact)
         {
-            Rect inner = new(
-                outer.Left + outer.Width * 0.23,
-                outer.Top + outer.Height * 0.56,
-                outer.Width * 0.54,
-                outer.Height * 0.22);
-            dc.DrawRoundedRectangle(null, pen, inner, radius * 0.58, radius * 0.58);
+            // Two diagonal arrows pointing toward the centre: "make this window compact".
+            Point trStart = P(0.80, 0.20);
+            Point trEnd = P(0.55, 0.45);
+            dc.DrawLine(pen, trStart, trEnd);
+            dc.DrawLine(pen, trEnd, P(0.55, 0.29));
+            dc.DrawLine(pen, trEnd, P(0.71, 0.45));
+
+            Point blStart = P(0.20, 0.80);
+            Point blEnd = P(0.45, 0.55);
+            dc.DrawLine(pen, blStart, blEnd);
+            dc.DrawLine(pen, blEnd, P(0.29, 0.55));
+            dc.DrawLine(pen, blEnd, P(0.45, 0.71));
         }
         else
         {
-            Rect inner = new(
-                outer.Left + outer.Width * 0.18,
-                outer.Top + outer.Height * 0.20,
-                outer.Width * 0.64,
-                outer.Height * 0.60);
-            dc.DrawRoundedRectangle(null, pen, inner, radius * 0.65, radius * 0.65);
+            // Same visual language in reverse: outward arrows mean "expand to full view".
+            Point trStart = P(0.55, 0.45);
+            Point trEnd = P(0.80, 0.20);
+            dc.DrawLine(pen, trStart, trEnd);
+            dc.DrawLine(pen, trEnd, P(0.64, 0.20));
+            dc.DrawLine(pen, trEnd, P(0.80, 0.36));
+
+            Point blStart = P(0.45, 0.55);
+            Point blEnd = P(0.20, 0.80);
+            dc.DrawLine(pen, blStart, blEnd);
+            dc.DrawLine(pen, blEnd, P(0.20, 0.64));
+            dc.DrawLine(pen, blEnd, P(0.36, 0.80));
         }
     }
 }
