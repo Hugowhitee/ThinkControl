@@ -6,11 +6,11 @@ public partial class App
 {
     public void OpenNotificationCenter()
     {
-        // Notifications live inside the normal undocked ThinkControl window. This
-        // avoids a second task/window lifecycle from tray and makes dismissing the
-        // sheet return users to exactly the page they were already using.
+        // Notifications live inside the normal full ThinkControl window. If Compact
+        // is visible, route through the same paint-before-hide transition used by
+        // the explicit expand control rather than maintaining a second shell path.
         if (_advancedWindow is null || !_advancedWindow.IsVisible)
-            OpenAdvanced("Home");
+            OpenAdvancedSafely("Home");
 
         Dispatcher.BeginInvoke(new Action(() =>
         {
