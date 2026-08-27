@@ -27,9 +27,6 @@ public partial class AdvancedWindow
         if (PageDisplay.Content is not StackPanel stack || stack.Children.Count == 0 || stack.Children[0] is not Grid header)
             return;
 
-        // ResetDefaults builds the page header first. Keep every right-side action in
-        // one explicit Auto column instead of relying on magic right margins; the old
-        // 38px offset let "Windows display settings" collide with "Defaults".
         StackPanel? actions = header.Children
             .OfType<StackPanel>()
             .FirstOrDefault(panel => Equals(panel.Tag, DisplayHeaderActionsTag));
@@ -66,9 +63,6 @@ public partial class AdvancedWindow
 
         if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, NightLightWindowsLinkTag)))
         {
-            // Windows exposes Night light as a supported Settings URI but not as a
-            // stable public toggle API. Open the exact native page instead of writing
-            // undocumented CloudStore/registry state behind Windows' back.
             Button nightLight = CreateWindowsLink("Night light ↗", "ms-settings:nightlight", NightLightWindowsLinkTag);
             nightLight.Margin = new Thickness(0, 0, 2, 0);
             actions.Children.Insert(0, nightLight);
@@ -106,9 +100,10 @@ public partial class AdvancedWindow
             Tag = tag,
             Style = TryFindResource("TcButton") as Style,
             Background = System.Windows.Media.Brushes.Transparent,
+            BorderBrush = System.Windows.Media.Brushes.Transparent,
             BorderThickness = new Thickness(0),
             Padding = new Thickness(7, 4, 7, 4),
-            FontSize = 10.5,
+            FontSize = TypographyScale.Secondary,
             Cursor = System.Windows.Input.Cursors.Hand,
             ToolTip = "Open the matching native Windows Settings page",
             VerticalAlignment = VerticalAlignment.Center
