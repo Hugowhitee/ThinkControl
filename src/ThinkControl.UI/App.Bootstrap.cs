@@ -8,6 +8,32 @@ public partial class App
     private BootstrapWindow? _bootstrapWindow;
     private bool _postStartupShellPolishQueued;
 
+    /// <summary>
+    /// Show the real ThinkControl loading surface before App.OnStartup performs its
+    /// synchronous device/WMI preflight. Application.Startup is raised from
+    /// base.OnStartup, so this runs early enough that Windows never has to display
+    /// an unpainted/black application surface while the preflight is busy.
+    /// Tray-only Windows startup intentionally remains silent.
+    /// </summary>
+    internal void ShowStartupBootstrapEarly()
+    {
+        if (IsTrayOnlyLaunch() || _bootstrapWindow is not null)
+            return;
+
+        try
+        {
+            _bootstrapWindow = new BootstrapWindow();
+            _bootstrapWindow.Show();
+            _bootstrapWindow.UpdateLayout();
+            Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+        }
+        catch
+        {
+            try { _bootstrapWindow?.Close(); } catch { }
+            _bootstrapWindow = null;
+        }
+    }
+
     private void PresentInitialShell(Task initialRefresh, TimeSpan synchronousStartupTime)
     {
         if (IsTrayOnlyLaunch())
@@ -17,9 +43,18 @@ public partial class App
             return;
         }
 
-        // Fast manual starts go directly to the selected surface. A slower
-        // preflight gets a quiet, real loading state while the first hardware
-        // refresh is still in progress.
+        // When the early loader is already visible, keep that exact window alive
+        // until the first refresh has had a short chance to settle. Never tear it
+        // down and create a second splash surface.
+        if (_bootstrapWindow is not null)
+        {
+            CompleteInitialShellPresentationAsync(initialRefresh);
+            return;
+        }
+
+        // Fast manual starts can still go directly to Compact. The fallback loader
+        // below is retained for environments where the early surface could not be
+        // created for a cosmetic/platform reason.
         if (synchronousStartupTime < TimeSpan.FromMilliseconds(180))
         {
             CompactWindow.ShowNearTray(animate: true);
