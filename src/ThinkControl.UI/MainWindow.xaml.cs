@@ -8,7 +8,6 @@ public partial class MainWindow : Window
 {
     private readonly App _app;
     private bool _forceClose;
-    private bool _initialShowHandled;
     private bool _explicitViewSwitch;
 
     public MainWindow(App app)
@@ -35,8 +34,6 @@ public partial class MainWindow : Window
         // Startup decides whether Compact should be shown at all. Once this method
         // is called it represents a real show request and must never silently reject
         // the user because Advanced happened to be the configured startup view.
-        _initialShowHandled = true;
-
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
 
