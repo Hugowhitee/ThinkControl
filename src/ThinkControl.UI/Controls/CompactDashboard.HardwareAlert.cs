@@ -24,7 +24,7 @@ public partial class CompactDashboard
             return;
 
         if (header.ColumnDefinitions.Count > 1)
-            header.ColumnDefinitions[1].Width = new GridLength(108);
+            header.ColumnDefinitions[1].Width = new GridLength(114);
 
         var icon = new Grid { Width = 19, Height = 19 };
         icon.Children.Add(new Path
@@ -58,7 +58,16 @@ public partial class CompactDashboard
             Visibility = Visibility.Visible
         };
         _hardwareAlertButton.Click += (_, _) => _app?.ToggleNotificationCenter();
-        actions.Children.Insert(0, _hardwareAlertButton);
+
+        // Both shells use the same utility grammar: view-mode action first,
+        // notifications second, then the surface-specific hide/close action.
+        // Anchoring to the named view button keeps future additions from silently
+        // reversing the order again.
+        int viewModeIndex = actions.Children.IndexOf(CompactExpandButton);
+        int notificationIndex = viewModeIndex >= 0
+            ? Math.Min(actions.Children.Count, viewModeIndex + 1)
+            : 0;
+        actions.Children.Insert(notificationIndex, _hardwareAlertButton);
     }
 
     private void SyncHardwareAlert()

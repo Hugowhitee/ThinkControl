@@ -8,17 +8,80 @@ namespace ThinkControl.UI.Controls;
 
 internal static class ReadableTypography
 {
+    private const string AppliedMarker = "ThinkControl.Typography.Applied";
+
     internal static IValueConverter BatteryTimeConverter { get; } = new BatteryTimeTextConverter();
 
+    /// <summary>
+    /// Applies the shared ThinkControl type hierarchy to an already-created visual
+    /// tree. XAML and code-built surfaces therefore resolve to the same semantic
+    /// sizes even when an older control still contains a legacy numeric FontSize.
+    /// </summary>
     internal static void Apply(DependencyObject root)
     {
-        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        if (root is FrameworkElement frameworkRoot)
+            frameworkRoot.Resources[AppliedMarker] = true;
+
+        ApplyNode(root);
+
+        // The snapshot executable is part of the release gate. In that host we turn
+        // the shared scale into an assertion after normalization, so a rendered
+        // control can never quietly escape the semantic ramp without failing CI.
+        if (Environment.ProcessPath?.Contains("ThinkControl.Snapshots", StringComparison.OrdinalIgnoreCase) == true)
+            Validate(root);
+    }
+
+    internal static void Validate(DependencyObject root)
+    {
+        var invalid = new List<string>();
+        ValidateNode(root, invalid);
+        if (invalid.Count > 0)
         {
-            DependencyObject child = VisualTreeHelper.GetChild(root, i);
-            if (child is TextBlock text)
-                PolishTextBlock(text);
-            Apply(child);
+            throw new InvalidOperationException(
+                "Typography contract violation. Rendered UI must use TypographyScale roles only: " +
+                string.Join("; ", invalid.Take(12)));
         }
+    }
+
+    private static void ApplyNode(DependencyObject node)
+    {
+        switch (node)
+        {
+            case TextBlock text:
+                PolishTextBlock(text);
+                break;
+            case AccessText access:
+                access.FontSize = NormalizeControlSize(access.FontSize);
+                break;
+            case Control control:
+                control.FontSize = NormalizeControlSize(control.FontSize);
+                break;
+        }
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+            ApplyNode(VisualTreeHelper.GetChild(node, i));
+    }
+
+    private static void ValidateNode(DependencyObject node, ICollection<string> invalid)
+    {
+        switch (node)
+        {
+            case TextBlock text when !TypographyScale.IsAllowed(text.FontSize):
+                invalid.Add($"TextBlock '{Preview(text.Text)}' = {text.FontSize:0.##}");
+                break;
+            case AccessText access when !TypographyScale.IsAllowed(access.FontSize):
+                invalid.Add($"AccessText '{Preview(access.Text)}' = {access.FontSize:0.##}");
+                break;
+            case Control control when !TypographyScale.IsAllowed(control.FontSize):
+                // Font-only glyph controls are allowed to size their vector-like
+                // symbol font independently. Ordinary textual controls are not.
+                if (!IsGlyphControl(control))
+                    invalid.Add($"{control.GetType().Name} = {control.FontSize:0.##}");
+                break;
+        }
+
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(node); i++)
+            ValidateNode(VisualTreeHelper.GetChild(node, i), invalid);
     }
 
     private static void PolishTextBlock(TextBlock text)
@@ -27,33 +90,54 @@ internal static class ReadableTypography
         string path = binding?.Path?.Path ?? string.Empty;
         string literal = text.Text?.Trim() ?? string.Empty;
 
-        // ThinkControl follows one desktop type ramp instead of allowing every page
-        // to invent 9.5/10.5/11px helper text. Fluent Windows uses 14px body and 12px
-        // captions; captions are reserved here for terse build/metric metadata only.
-        bool metadata = path.Equals("AppVersion", StringComparison.Ordinal) ||
-                        (!string.IsNullOrWhiteSpace(literal) && literal.StartsWith("v0.", StringComparison.OrdinalIgnoreCase));
-        double minimum = metadata ? TypographyScale.Caption : TypographyScale.Secondary;
-        if (text.FontSize < minimum)
-            text.FontSize = minimum;
-
-        // Preserve compact technical metric labels (CPU / POWER / RPM), but give
-        // semantic headings a predictable hierarchy. Existing 20-24px page titles
-        // become the shared 28px title; normal semibold section labels become 16px.
-        bool allCapsMetric = literal.Length is > 0 and <= 18 &&
-                             literal.Any(char.IsLetter) &&
-                             string.Equals(literal, literal.ToUpperInvariant(), StringComparison.Ordinal);
+        bool versionMetadata = path.Equals("AppVersion", StringComparison.Ordinal) ||
+                               (!string.IsNullOrWhiteSpace(literal) && literal.StartsWith("v0.", StringComparison.OrdinalIgnoreCase));
+        bool terseMetadata = versionMetadata || IsTerseMetadata(text, literal, path);
+        bool allCapsMetric = IsAllCapsMetric(literal);
         bool headingWeight = text.FontWeight.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight();
-        if (!metadata && !allCapsMetric && headingWeight)
+        bool explanatoryCopy = text.TextWrapping != TextWrapping.NoWrap ||
+                               literal.Length >= 34 ||
+                               literal.Contains('.');
+        bool numericValue = LooksLikeDataValue(literal, path);
+
+        if (versionMetadata || terseMetadata || allCapsMetric)
         {
-            if (text.FontSize >= 20 && text.FontSize < TypographyScale.PageTitle)
-                text.FontSize = TypographyScale.PageTitle;
-            else if (text.FontSize >= TypographyScale.Caption && text.FontSize < TypographyScale.SectionTitle)
-                text.FontSize = TypographyScale.SectionTitle;
+            text.FontSize = TypographyScale.Caption;
+        }
+        else if (headingWeight)
+        {
+            text.FontSize = text.FontSize >= TypographyScale.Subtitle
+                ? TypographyScale.PageTitle
+                : text.FontSize >= TypographyScale.SectionTitle
+                    ? TypographyScale.Subtitle
+                    : TypographyScale.SectionTitle;
+        }
+        else if (numericValue && text.FontSize >= TypographyScale.Value)
+        {
+            text.FontSize = text.FontSize >= 29
+                ? TypographyScale.ValueHero
+                : text.FontSize >= 22
+                    ? TypographyScale.ValueLarge
+                    : TypographyScale.Value;
+        }
+        else if (explanatoryCopy)
+        {
+            text.FontSize = TypographyScale.Body;
+        }
+        else
+        {
+            // Short labels/status text can use Secondary, but arbitrary legacy
+            // values such as 10.5/11/12.5/13.5 are never preserved.
+            text.FontSize = text.FontSize >= TypographyScale.BodyLarge
+                ? TypographyScale.BodyLarge
+                : text.FontSize >= TypographyScale.Body
+                    ? TypographyScale.Body
+                    : TypographyScale.Secondary;
         }
 
         if (path.Equals("BatteryEtaText", StringComparison.Ordinal))
         {
-            text.FontSize = Math.Max(text.FontSize, TypographyScale.Body);
+            text.FontSize = TypographyScale.Body;
             text.FontWeight = FontWeights.SemiBold;
             text.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
             text.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
@@ -63,12 +147,69 @@ internal static class ReadableTypography
         }
         else if (path.Equals("BatteryCompactLine", StringComparison.Ordinal))
         {
-            text.FontSize = Math.Max(text.FontSize, TypographyScale.Secondary);
+            text.FontSize = TypographyScale.Secondary;
             text.SetBinding(TextBlock.TextProperty, new Binding("BatteryCompactLine")
             {
                 Converter = BatteryTimeConverter
             });
         }
+    }
+
+    private static double NormalizeControlSize(double size)
+    {
+        if (!double.IsFinite(size) || size <= 0)
+            return TypographyScale.Body;
+        if (size < TypographyScale.Secondary)
+            return TypographyScale.Secondary;
+        return TypographyScale.Closest(size);
+    }
+
+    private static bool IsTerseMetadata(TextBlock text, string literal, string path)
+    {
+        if (path.Contains("Version", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("Build", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (literal.Length == 0 || literal.Length > 22)
+            return false;
+
+        return literal.Contains("RPM", StringComparison.OrdinalIgnoreCase) ||
+               literal.Contains("Hz", StringComparison.OrdinalIgnoreCase) ||
+               literal.Contains("W avg", StringComparison.OrdinalIgnoreCase) ||
+               literal.Contains("sensor", StringComparison.OrdinalIgnoreCase) && text.FontSize <= 12.5;
+    }
+
+    private static bool IsAllCapsMetric(string literal) =>
+        literal.Length is > 0 and <= 18 &&
+        literal.Any(char.IsLetter) &&
+        string.Equals(literal, literal.ToUpperInvariant(), StringComparison.Ordinal);
+
+    private static bool LooksLikeDataValue(string literal, string path)
+    {
+        if (path.Contains("Percent", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("Temperature", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("Power", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("Rpm", StringComparison.OrdinalIgnoreCase) ||
+            path.Contains("Value", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        if (literal.Length == 0 || literal.Length > 18)
+            return false;
+
+        return literal.Any(char.IsDigit) &&
+               (literal.Contains('%') || literal.Contains('°') || literal.Contains(" W", StringComparison.OrdinalIgnoreCase) ||
+                literal.Contains("RPM", StringComparison.OrdinalIgnoreCase) || literal.Contains("Hz", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool IsGlyphControl(Control control) =>
+        control.FontFamily?.Source.Equals("Segoe UI Symbol", StringComparison.OrdinalIgnoreCase) == true ||
+        control.FontFamily?.Source.Equals("Segoe Fluent Icons", StringComparison.OrdinalIgnoreCase) == true ||
+        control.FontFamily?.Source.Equals("Segoe MDL2 Assets", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static string Preview(string? value)
+    {
+        string text = value?.Trim().Replace('\n', ' ') ?? string.Empty;
+        return text.Length <= 28 ? text : text[..28] + "…";
     }
 
     private sealed class BatteryTimeTextConverter : IValueConverter
