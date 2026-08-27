@@ -9,6 +9,7 @@ public sealed class DiagnosticsRecorder
     private const long MaxFileBytes = 1 * 1024 * 1024;
     private const int MaxFiles = 3;
     private static readonly TimeSpan MaxAge = TimeSpan.FromDays(7);
+    private static readonly TimeSpan ExportBurstWindow = TimeSpan.FromSeconds(20);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly object _gate = new();
@@ -98,8 +99,11 @@ public sealed class DiagnosticsRecorder
                 }
             }
 
-            IReadOnlyList<DiagnosticEvent> bounded = events
-                .OrderBy(item => item.TimestampUtc)
+            // Local history is intentionally richer than a shared report. Collapse
+            // repetitive bursts (poll/readback loops) to the newest representative
+            // event in a short window, then take only the newest bounded set. This
+            // keeps exported GitHub/support data useful without becoming a raw dump.
+            IReadOnlyList<DiagnosticEvent> bounded = CompactBurstEvents(events)
                 .TakeLast(DiagnosticsPolicy.MaximumEventsPerBundle)
                 .ToArray();
 
@@ -155,6 +159,46 @@ public sealed class DiagnosticsRecorder
                 }
             }
         }
+    }
+
+    private static IReadOnlyList<DiagnosticEvent> CompactBurstEvents(IEnumerable<DiagnosticEvent> source)
+    {
+        var compact = new List<DiagnosticEvent>();
+        var lastIndexBySignature = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        foreach (DiagnosticEvent item in source.OrderBy(item => item.TimestampUtc))
+        {
+            string signature = EventSignature(item);
+            if (lastIndexBySignature.TryGetValue(signature, out int index) &&
+                index >= 0 && index < compact.Count &&
+                item.TimestampUtc - compact[index].TimestampUtc <= ExportBurstWindow)
+            {
+                compact[index] = item;
+                continue;
+            }
+
+            lastIndexBySignature[signature] = compact.Count;
+            compact.Add(item);
+        }
+
+        return compact;
+    }
+
+    private static string EventSignature(DiagnosticEvent item)
+    {
+        string tags = item.Tags is null
+            ? string.Empty
+            : string.Join(';', item.Tags.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(pair => pair.Key + '=' + pair.Value));
+        return string.Join('|',
+            item.Name,
+            item.Capability ?? string.Empty,
+            item.Provider ?? string.Empty,
+            item.ValidationState,
+            item.Success?.ToString() ?? string.Empty,
+            item.ErrorCode ?? string.Empty,
+            item.ReadBackVerified?.ToString() ?? string.Empty,
+            tags);
     }
 
     private string GetWritableFileLocked()
