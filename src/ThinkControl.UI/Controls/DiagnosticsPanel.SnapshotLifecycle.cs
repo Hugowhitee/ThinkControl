@@ -79,26 +79,37 @@ public partial class DiagnosticsPanel
 
     private void ApplyCrashQueueSnapshotState()
     {
-        CrashCard.Visibility = Visibility.Visible;
-        CrashSeparator.Visibility = Visibility.Visible;
-        CrashTitleText.Text = "Crashes preserved · 3";
-        CrashSummaryText.Text = "NotSupportedException · ToolTip property contract · today 14:32 · repeated 2 times · 2 previous unresolved";
-        CrashHistoryCombo.ItemsSource = new[]
+        bool previousSyncing = _syncing;
+        _syncing = true;
+        try
         {
-            new CrashHistoryOption("snapshot-latest", "NotSupportedException · ×2 · today 14:32"),
-            new CrashHistoryOption("snapshot-previous", "InvalidOperationException · today 13:58"),
-            new CrashHistoryOption("snapshot-oldest", "COMException · yesterday 22:11")
-        };
-        CrashHistoryCombo.SelectedValue = "snapshot-latest";
-        CrashHistoryCombo.Visibility = Visibility.Visible;
-        MarkCrashReportedButton.Visibility = Visibility.Visible;
+            const string latestId = "snapshot-latest";
+            _selectedCrashId = latestId;
+            CrashCard.Visibility = Visibility.Visible;
+            CrashSeparator.Visibility = Visibility.Visible;
+            CrashTitleText.Text = "Crashes preserved · 3";
+            CrashSummaryText.Text = "NotSupportedException · ToolTip property contract · today 14:32 · repeated 2 times · 2 previous unresolved";
+            CrashHistoryCombo.ItemsSource = new[]
+            {
+                new CrashHistoryOption(latestId, "NotSupportedException · ×2 · today 14:32"),
+                new CrashHistoryOption("snapshot-previous", "InvalidOperationException · today 13:58"),
+                new CrashHistoryOption("snapshot-oldest", "COMException · yesterday 22:11")
+            };
+            CrashHistoryCombo.SelectedValue = latestId;
+            CrashHistoryCombo.Visibility = Visibility.Visible;
+            MarkCrashReportedButton.Visibility = Visibility.Visible;
+        }
+        finally
+        {
+            _syncing = previousSyncing;
+        }
     }
 
     internal bool BringCrashQueueIntoViewForSnapshot()
     {
-        // This hook is called after the snapshot window has completed Measure /
-        // Arrange / Loaded. Re-materialize the requested synthetic state here so
-        // normal runtime Refresh() calls can never erase the evidence before capture.
+        // This hook runs after the snapshot window completed Measure / Arrange.
+        // Re-materialize the requested synthetic state here so later layout work can
+        // never erase the evidence before capture.
         if (_crashQueueSnapshotRequested)
             ApplyCrashQueueSnapshotState();
 
