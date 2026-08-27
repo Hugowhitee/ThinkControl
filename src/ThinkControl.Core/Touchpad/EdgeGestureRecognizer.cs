@@ -191,15 +191,19 @@ public sealed class EdgeGestureRecognizer
         // differs from continuous controls, which travel along the edge. Give an
         // assigned inward action first refusal at a corner so a diagonal inward
         // swipe is deterministic instead of depending on enum order.
-        TouchpadEdge? inward = _candidateEdges
-            .Where(edge => _configuration.BindingFor(edge).Action == GestureActionKind.OpenThinkControl)
-            .FirstOrDefault(edge => IsInwardIntent(edge, dx, dy, activation, dominance));
-        if (inward is TouchpadEdge inwardEdge &&
-            _configuration.BindingFor(inwardEdge).Action == GestureActionKind.OpenThinkControl &&
-            IsInwardIntent(inwardEdge, dx, dy, activation, dominance))
+        TouchpadEdge? inward = null;
+        foreach (TouchpadEdge edge in _candidateEdges)
         {
-            return Claim(inwardEdge, contact, InwardTravelMm(inwardEdge, dx, dy));
+            if (_configuration.BindingFor(edge).Action != GestureActionKind.OpenThinkControl ||
+                !IsInwardIntent(edge, dx, dy, activation, dominance))
+            {
+                continue;
+            }
+            inward = edge;
+            break;
         }
+        if (inward is TouchpadEdge inwardEdge)
+            return Claim(inwardEdge, contact, InwardTravelMm(inwardEdge, dx, dy));
 
         TouchpadEdge? chosen = null;
         bool horizontalIntent = absX >= activation && absX >= absY * dominance;
