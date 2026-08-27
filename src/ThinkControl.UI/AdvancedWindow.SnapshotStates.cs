@@ -61,7 +61,11 @@ public partial class AdvancedWindow
 
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent)
     {
-        DiagnosticsPanelControl?.PrepareForSnapshot(_app.State, consent);
+        // The dedicated diagnostics renders intentionally cover the unknown-device
+        // lifecycle rather than inheriting the verified-X9 identity from the general
+        // visual-QA fixture. Healthy capabilities show 5/5 + report ready; the
+        // provider-offline fixture stays in the 3/5 learning state.
+        DiagnosticsPanelControl?.PrepareLifecycleForSnapshot(_app.State, consent);
     }
 
     internal void ScrollDiagnosticsIntoViewForSnapshot()
