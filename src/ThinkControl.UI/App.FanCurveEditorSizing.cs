@@ -1,6 +1,5 @@
 using System.Runtime.CompilerServices;
 using System.Windows;
-using System.Windows.Media;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -8,8 +7,8 @@ namespace ThinkControl.UI;
 public partial class App
 {
     // Register once per process. Keeping the sizing/history policy at the Window
-    // class-event boundary means every fan-curve entry point receives the same
-    // screen-aware geometry and edit-history behavior.
+    // class boundary means every fan-curve entry point receives the same geometry,
+    // edit history and typography behavior.
     private readonly bool _fanCurveEditorSizingRegistered = FanCurveEditorSizingPolicy.Register();
 }
 
@@ -28,15 +27,22 @@ internal static class FanCurveEditorSizingPolicy
             FrameworkElement.LoadedEvent,
             new RoutedEventHandler(OnEditorLoaded));
 
-        // Snapshot windows deliberately never enter the normal WPF Loaded lifecycle.
-        // Their graph is still measured/arranged, though, so the direct SizeChanged
-        // event gives visual QA the exact same Undo/Redo and typography enhancements
-        // without inventing a separate snapshot-only toolbar.
-        EventManager.RegisterClassHandler(
-            typeof(FanCurveGraph),
-            FrameworkElement.SizeChangedEvent,
-            new SizeChangedEventHandler(OnGraphSizeChanged));
+        // The visual-QA renderer constructs the real FanCurveEditorWindow but does
+        // not Show() it, so Loaded never fires. It does set the requested snapshot
+        // Width after construction. Hook that dependency-property change on this
+        // window type so QA receives the same production enhancements without a
+        // separate fake toolbar. Constructor-time Width=900 is ignored because the
+        // content has not been built yet; the post-construction snapshot Width is not.
+        FrameworkElement.WidthProperty.OverrideMetadata(
+            typeof(FanCurveEditorWindow),
+            new FrameworkPropertyMetadata(double.NaN, OnEditorWidthChanged));
         return true;
+    }
+
+    private static void OnEditorWidthChanged(DependencyObject sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (sender is FanCurveEditorWindow { Content: not null } window)
+            EnsureEditorEnhancements(window);
     }
 
     private static void OnEditorLoaded(object sender, RoutedEventArgs e)
@@ -73,12 +79,6 @@ internal static class FanCurveEditorSizingPolicy
         EnsureEditorEnhancements(window);
     }
 
-    private static void OnGraphSizeChanged(object sender, SizeChangedEventArgs e)
-    {
-        if (sender is FanCurveGraph graph && FindEditor(graph) is { } window)
-            EnsureEditorEnhancements(window);
-    }
-
     private static void EnsureEditorEnhancements(FanCurveEditorWindow window)
     {
         if (EnhancedEditors.TryGetValue(window, out _))
@@ -87,31 +87,5 @@ internal static class FanCurveEditorSizingPolicy
         FanCurveEditorHistory.Attach(window);
         ReadableTypography.Apply(window);
         EnhancedEditors.Add(window, new object());
-    }
-
-    private static FanCurveEditorWindow? FindEditor(DependencyObject node)
-    {
-        if (Window.GetWindow(node) is FanCurveEditorWindow direct)
-            return direct;
-
-        DependencyObject? current = node;
-        while (current is not null)
-        {
-            if (current is FanCurveEditorWindow editor)
-                return editor;
-
-            DependencyObject? parent = null;
-            try
-            {
-                parent = VisualTreeHelper.GetParent(current);
-            }
-            catch (InvalidOperationException)
-            {
-            }
-
-            parent ??= LogicalTreeHelper.GetParent(current);
-            current = parent;
-        }
-        return null;
     }
 }
