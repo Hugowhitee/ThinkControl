@@ -37,8 +37,6 @@ public partial class PerformancePanel : UserControl
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        // This panel has no independent polling loop. The app's single telemetry
-        // owner updates cached state; only relevant state changes repaint this page.
         if (e.PropertyName is nameof(AppState.SelectedMode) or
             nameof(AppState.BatteryStatus) or
             nameof(AppState.BatteryCharging))
@@ -73,7 +71,7 @@ public partial class PerformancePanel : UserControl
 
             bool onBattery = _app.IsCurrentlyOnBattery();
             CurrentSourceText.Text = onBattery ? "On battery" : "Plugged in";
-            CurrentSourceIcon.Kind = "Battery";
+            CurrentSourceIcon.Kind = onBattery ? "BatteryHorizontal" : "BatteryChargingHorizontal";
             CurrentSourceIcon.ToolTip = onBattery ? "Running on battery" : "AC power connected";
         }
         finally
