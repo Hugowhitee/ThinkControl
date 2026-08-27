@@ -50,14 +50,14 @@ internal static class DeviceSupportReportService
 
     internal static DeviceSupportStatus Evaluate(
         AppState state,
-        SystemStatusSnapshot system,
+        string? manufacturer,
         DiagnosticsRecorder recorder,
         DiagnosticLifecycleStore lifecycle)
     {
         DeviceValidationState validation = App.GetDeviceValidationState(
-            system.MachineType,
-            system.Manufacturer,
-            system.DeviceName);
+            state.MachineType,
+            manufacturer,
+            state.DeviceName);
 
         if (validation == DeviceValidationState.Verified)
         {
@@ -73,7 +73,7 @@ internal static class DeviceSupportReportService
         }
 
         IReadOnlyList<DiagnosticEvent> events = ReadRecentEvents(recorder);
-        bool identityReady = !IsPlaceholder(system.DeviceName) && !IsPlaceholder(system.MachineType);
+        bool identityReady = !IsPlaceholder(state.DeviceName) && !IsPlaceholder(state.MachineType);
         bool discoverySettled = !IsTransient(state.DriverStatus ?? string.Empty) &&
                                 !IsTransient(state.HardwareAccess ?? string.Empty);
         bool sensorObserved = discoverySettled && (!state.CanSensorTelemetry || state.Sensors.Count > 0);
@@ -84,7 +84,7 @@ internal static class DeviceSupportReportService
         int completed = checks.Count(value => value);
         const int total = 5;
 
-        DeviceSupportReport report = BuildReport(state, system, events);
+        DeviceSupportReport report = BuildReport(state, manufacturer, events);
         DeviceSupportPhase phase = completed < total
             ? DeviceSupportPhase.Learning
             : lifecycle.IsHandled(report.Fingerprint)
@@ -113,12 +113,38 @@ internal static class DeviceSupportReportService
 
     internal static DeviceSupportReport BuildReport(
         AppState state,
+        string? manufacturer,
+        IReadOnlyList<DiagnosticEvent>? recentEvents = null) =>
+        BuildReportCore(
+            state,
+            manufacturer,
+            state.DeviceName,
+            state.MachineType,
+            state.BiosVersion,
+            recentEvents ?? Array.Empty<DiagnosticEvent>());
+
+    internal static DeviceSupportReport BuildReport(
+        AppState state,
         SystemStatusSnapshot system,
-        IReadOnlyList<DiagnosticEvent>? recentEvents = null)
+        IReadOnlyList<DiagnosticEvent>? recentEvents = null) =>
+        BuildReportCore(
+            state,
+            system.Manufacturer,
+            system.DeviceName,
+            system.MachineType,
+            system.BiosVersion,
+            recentEvents ?? Array.Empty<DiagnosticEvent>());
+
+    private static DeviceSupportReport BuildReportCore(
+        AppState state,
+        string? manufacturer,
+        string? deviceName,
+        string? machineType,
+        string? biosVersion,
+        IReadOnlyList<DiagnosticEvent> recentEvents)
     {
-        recentEvents ??= Array.Empty<DiagnosticEvent>();
-        string machine = Safe(system.MachineType, "unknown");
-        string product = Safe(system.DeviceName, "Unknown device");
+        string machine = Safe(machineType, "unknown");
+        string product = Safe(deviceName, "Unknown device");
         string title = $"Device support: {product} ({machine})";
 
         string[] sensorTypes = state.Sensors
@@ -132,6 +158,7 @@ internal static class DeviceSupportReportService
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         string[] exercised = ExercisedCapabilities(recentEvents)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         string[] failures = recentEvents
@@ -149,10 +176,10 @@ internal static class DeviceSupportReportService
         body.AppendLine("### Device");
         body.AppendLine($"- ThinkControl: `{Safe(UpdateService.CurrentVersion, "unknown")}`");
         body.AppendLine($"- Windows: `{Safe(Environment.OSVersion.VersionString, "unknown")}`");
-        body.AppendLine($"- Manufacturer: `{Safe(system.Manufacturer, "unknown")}`");
+        body.AppendLine($"- Manufacturer: `{Safe(manufacturer, "unknown")}`");
         body.AppendLine($"- Product: `{product}`");
         body.AppendLine($"- Machine type: `{machine}`");
-        body.AppendLine($"- BIOS: `{Safe(system.BiosVersion, "unknown")}`");
+        body.AppendLine($"- BIOS: `{Safe(biosVersion, "unknown")}`");
         body.AppendLine();
         body.AppendLine("### Compatibility evidence");
         body.AppendLine($"- Sensor telemetry: `{YesNo(state.CanSensorTelemetry)}` · types: `{Join(sensorTypes)}`");
@@ -168,10 +195,10 @@ internal static class DeviceSupportReportService
         body.AppendLine("Add only anything you personally noticed that the automatic evidence cannot prove (for example whether an RPM change matched audible fan speed). Do not paste serial numbers or unrelated logs.");
 
         string semantic = string.Join("|",
-            Safe(system.Manufacturer, "unknown"),
+            Safe(manufacturer, "unknown"),
             product,
             machine,
-            Safe(system.BiosVersion, "unknown"),
+            Safe(biosVersion, "unknown"),
             state.CanSensorTelemetry,
             state.CanCpuTemperature,
             state.CanFanTelemetry,
