@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
 using WpfToolTip = System.Windows.Controls.ToolTip;
 using WpfToolTipService = System.Windows.Controls.ToolTipService;
 
@@ -57,8 +58,18 @@ public static class TcToolTip
             Placement = placement,
             PlacementTarget = owner,
             HorizontalOffset = placement == PlacementMode.Right ? 8 : 0,
-            PopupAnimation = PopupAnimation.Fade,
             StaysOpen = false
+        };
+        tip.Opened += (_, _) =>
+        {
+            surface.BeginAnimation(UIElement.OpacityProperty, null);
+            surface.Opacity = 0;
+            surface.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(90))
+            {
+                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut },
+                FillBehavior = FillBehavior.Stop
+            });
+            surface.Opacity = 1;
         };
 
         owner.ToolTip = tip;
