@@ -162,7 +162,7 @@ internal static class DeviceSupportReportService
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         string[] failures = recentEvents
-            .Where(item => !item.Success)
+            .Where(item => item.Success != true)
             .Select(item => $"{Safe(item.Name, "operation")}:{Safe(item.ErrorCode, "failed")}")
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .TakeLast(8)
@@ -285,12 +285,12 @@ internal static class DeviceSupportReportService
     }
 
     private static bool HasExercise(IEnumerable<DiagnosticEvent> events, string capability) =>
-        events.Any(item => item.Success && item.ReadBackVerified != false &&
+        events.Any(item => item.Success == true && item.ReadBackVerified != false &&
                            string.Equals(item.Capability, capability, StringComparison.OrdinalIgnoreCase));
 
     private static IEnumerable<string> ExercisedCapabilities(IEnumerable<DiagnosticEvent> events)
     {
-        foreach (DiagnosticEvent item in events.Where(item => item.Success))
+        foreach (DiagnosticEvent item in events.Where(item => item.Success == true))
         {
             if (string.Equals(item.Capability, "FanControl", StringComparison.OrdinalIgnoreCase)) yield return "fan";
             else if (string.Equals(item.Capability, "KeyboardBacklight", StringComparison.OrdinalIgnoreCase)) yield return "keyboard";
