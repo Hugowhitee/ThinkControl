@@ -19,5 +19,10 @@ public partial class AdvancedWindow
         {
             // The executable ApplicationIcon remains a fallback.
         }
+
+        // The real Advanced window uses Windows' native caption. Keep that contract
+        // intact and place new-device learning in the existing utility row below it
+        // instead of replacing native Snap/caption behavior with custom chrome.
+        Loaded += (_, _) => ConfigureDeviceLearningIndicator();
     }
 }

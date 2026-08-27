@@ -3,7 +3,6 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
 
 namespace ThinkControl.UI;
 
@@ -27,14 +26,10 @@ public partial class MainWindow : Window
         Closing += OnClosing;
         Activated += (_, _) => _app.OnCompactActivated();
         SourceInitialized += (_, _) => ApplyNativeCornerClip();
-        Dispatcher.UnhandledException += Dispatcher_UnhandledException;
     }
 
     public void ShowNearTray(bool animate)
     {
-        // Every show invalidates a previously queued/animated hide. Without this,
-        // a completed Deactivated fade can hide a flyout that has already been
-        // re-opened by the tray or an internal view transition.
         Interlocked.Increment(ref _hideGeneration);
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
@@ -62,11 +57,6 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>
-    /// Immediate hide used only while App.ViewTransitions owns both primary
-    /// surfaces. There is deliberately no fade and no local transition flag: the
-    /// App coordinator is the single authority for that lifecycle operation.
-    /// </summary>
     internal void HideForViewTransition()
     {
         Interlocked.Increment(ref _hideGeneration);
@@ -95,8 +85,6 @@ public partial class MainWindow : Window
         };
         animation.Completed += (_, _) =>
         {
-            // A newer show/hide request owns the window now. Never let an old
-            // animation completion hide the newly active Compact surface.
             if (generation != Volatile.Read(ref _hideGeneration))
                 return;
 
@@ -111,16 +99,11 @@ public partial class MainWindow : Window
     public void ForceClose()
     {
         _forceClose = true;
-        Dispatcher.UnhandledException -= Dispatcher_UnhandledException;
         Close();
     }
 
     private void ApplyNativeCornerClip()
     {
-        // WindowChrome's WPF corner radius only affects the drawn frame. On a
-        // custom-chrome window the HWND itself can still expose a square background
-        // pixel outside that curve. Ask DWM to round the actual native surface as
-        // well so fill, border and hit-test shape end on the same corner.
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
             return;
 
@@ -132,8 +115,6 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // Windows 10 and unsupported DWM configurations keep the existing
-            // WindowChrome fallback; corner polish must never affect startup.
         }
     }
 
@@ -150,20 +131,7 @@ public partial class MainWindow : Window
     {
         if (SuppressExternalAutoHideForShellSmoke)
             return;
-
-        // App-level focus classification owns the decision. A visible owned toast
-        // by itself is not enough reason to keep Compact pinned: if the user moves
-        // to another process while a toast is still visible, Compact must still
-        // auto-hide. Genuine ThinkControl focus is detected from the foreground HWND.
         _app.OnCompactDeactivated();
-    }
-
-    private void Dispatcher_UnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-    {
-        // Persist the exception before WPF follows its normal unhandled-exception
-        // behavior. Do not mark it handled: hiding a real crash behind a catch would
-        // recreate the diagnostic ambiguity that made alpha.23 difficult to trust.
-        _app.RecordShellException("dispatcher", e.Exception);
     }
 
     [DllImport("dwmapi.dll")]

@@ -8,9 +8,12 @@ internal sealed class GestureActionRouter
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
     private const double TrackSwipeThresholdMm = 5.5;
+    private const double TrackCenterTravelSlackMm = 1.6;
+    private const double TrackCenterMinimumHoldMs = 360;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
+    private readonly Func<TouchpadGestureConfiguration> _getConfiguration;
     private readonly Func<int> _getVolume;
     private readonly Action<int> _queueVolume;
     private readonly Func<int> _getBrightness;
@@ -21,6 +24,7 @@ internal sealed class GestureActionRouter
     private readonly Action<int> _queuePerformanceIndex;
     private readonly Action<GestureActionKind, bool> _setGestureActive;
     private readonly Action<bool> _showTrackOsd;
+    private readonly Action _showTrackCenterOsd;
 
     private int _volumeAtStart;
     private int _brightnessAtStart;
@@ -32,10 +36,13 @@ internal sealed class GestureActionRouter
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
     private bool _trackSwipeFired;
+    private long _trackGestureStarted;
+    private double _trackMaxTravelMm;
 
     internal GestureActionRouter(
         NativeInputService nativeInput,
         MediaSessionService media,
+        Func<TouchpadGestureConfiguration> getConfiguration,
         Func<int> getVolume,
         Action<int> queueVolume,
         Func<int> getBrightness,
@@ -45,10 +52,12 @@ internal sealed class GestureActionRouter
         Func<int> getPerformanceIndex,
         Action<int> queuePerformanceIndex,
         Action<GestureActionKind, bool> setGestureActive,
-        Action<bool> showTrackOsd)
+        Action<bool> showTrackOsd,
+        Action showTrackCenterOsd)
     {
         _nativeInput = nativeInput;
         _media = media;
+        _getConfiguration = getConfiguration;
         _getVolume = getVolume;
         _queueVolume = queueVolume;
         _getBrightness = getBrightness;
@@ -59,6 +68,7 @@ internal sealed class GestureActionRouter
         _queuePerformanceIndex = queuePerformanceIndex;
         _setGestureActive = setGestureActive;
         _showTrackOsd = showTrackOsd;
+        _showTrackCenterOsd = showTrackCenterOsd;
     }
 
     internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
@@ -77,10 +87,6 @@ internal sealed class GestureActionRouter
                 Release(signal);
                 break;
             case GesturePhase.Cancelled:
-                // A fast finger can leave the continuation strip on its final frame.
-                // For a discrete track swipe, preserve an already deliberate along-
-                // edge motion instead of throwing it away just because that final
-                // contact was outside tolerance. Other gesture kinds still cancel.
                 if (signal.Action == GestureActionKind.PreviousNextTrack)
                     TryFireTrackSwipe(signal, allowReleaseFallback: true);
                 End(signal.Action);
@@ -123,8 +129,8 @@ internal sealed class GestureActionRouter
             case GestureActionKind.PreviousNextTrack:
                 _setGestureActive(signal.Action, true);
                 _trackSwipeFired = false;
-                // Claiming starts around the configurable activation distance. Never
-                // skip there: this action requires a deliberate directional swipe.
+                _trackGestureStarted = Stopwatch.GetTimestamp();
+                _trackMaxTravelMm = Math.Abs(signal.TotalTravelMm);
                 TryFireTrackSwipe(signal);
                 break;
             case GestureActionKind.PlayPause:
@@ -164,6 +170,7 @@ internal sealed class GestureActionRouter
                 ApplyDiscreteTarget(signal, signal.TotalTravelMm, _performanceAtStart, _queuePerformanceIndex);
                 break;
             case GestureActionKind.PreviousNextTrack:
+                _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
                 TryFireTrackSwipe(signal);
                 break;
         }
@@ -172,7 +179,12 @@ internal sealed class GestureActionRouter
     private void Release(GestureSignal signal)
     {
         if (signal.Action == GestureActionKind.PreviousNextTrack)
+        {
+            _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
             TryFireTrackSwipe(signal, allowReleaseFallback: true);
+            if (!_trackSwipeFired)
+                TryFireTrackCenter(signal);
+        }
         End(signal.Action);
     }
 
@@ -188,17 +200,31 @@ internal sealed class GestureActionRouter
 
         _trackSwipeFired = true;
         bool next = signed > 0;
-
-        // MEDIA_NEXT/PREV are Windows' broad compatibility surface and work for
-        // Spotify, browsers and legacy players even when a GSMTC session is stale.
-        // Alpha.16 tried GSMTC first; some sessions can acknowledge the command while
-        // not visibly advancing, which suppressed the fallback and looked like a
-        // dead gesture. Inject the system media key first and use GSMTC only if
-        // Windows rejects the input injection itself.
         bool injected = next ? _nativeInput.NextTrack() : _nativeInput.PreviousTrack();
         if (!injected)
             _ = SkipTrackWithSessionAsync(next);
         _showTrackOsd(next);
+    }
+
+    private void TryFireTrackCenter(GestureSignal signal)
+    {
+        TouchpadGestureConfiguration configuration = _getConfiguration().Sanitize();
+        if (!configuration.TrackCenterPlayPauseEnabled || _trackGestureStarted == 0)
+            return;
+
+        double elapsedMs = (Stopwatch.GetTimestamp() - _trackGestureStarted) * 1000d / Stopwatch.Frequency;
+        double travelLimit = Math.Min(8.0, Math.Max(3.5, configuration.ActivationDistanceMm + TrackCenterTravelSlackMm));
+
+        // The center action is intentionally a hold-and-release gesture, not a
+        // threshold the finger crosses while swiping. A normal previous/next swipe
+        // therefore cannot accidentally resume paused media while passing through
+        // the neutral center region.
+        if (elapsedMs < TrackCenterMinimumHoldMs || _trackMaxTravelMm > travelLimit || Math.Abs(signal.TotalTravelMm) > travelLimit)
+            return;
+
+        _trackSwipeFired = true;
+        if (_nativeInput.TogglePlayPause())
+            _showTrackCenterOsd();
     }
 
     private async Task SkipTrackWithSessionAsync(bool next)
@@ -294,7 +320,11 @@ internal sealed class GestureActionRouter
         _lastContinuousTimestamp = 0;
 
         if (action == GestureActionKind.PreviousNextTrack)
+        {
             _trackSwipeFired = false;
+            _trackGestureStarted = 0;
+            _trackMaxTravelMm = 0;
+        }
 
         if (action == GestureActionKind.MediaSeek)
         {

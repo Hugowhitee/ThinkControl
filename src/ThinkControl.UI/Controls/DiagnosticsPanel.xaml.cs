@@ -11,11 +11,45 @@ namespace ThinkControl.UI.Controls;
 public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
 {
     private bool _syncing;
+    private App? _subscribedApp;
 
     public DiagnosticsPanel()
     {
         InitializeComponent();
-        Loaded += (_, _) => Refresh();
+        Loaded += DiagnosticsPanel_Loaded;
+        Unloaded += DiagnosticsPanel_Unloaded;
+    }
+
+    private void DiagnosticsPanel_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.Application.Current is App app)
+        {
+            if (!ReferenceEquals(_subscribedApp, app))
+            {
+                if (_subscribedApp is not null)
+                    _subscribedApp.DeviceSupportStatusChanged -= App_DeviceSupportStatusChanged;
+                _subscribedApp = app;
+                app.DeviceSupportStatusChanged += App_DeviceSupportStatusChanged;
+            }
+        }
+        Refresh();
+    }
+
+    private void DiagnosticsPanel_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (_subscribedApp is not null)
+            _subscribedApp.DeviceSupportStatusChanged -= App_DeviceSupportStatusChanged;
+        _subscribedApp = null;
+    }
+
+    private void App_DeviceSupportStatusChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(Refresh);
+            return;
+        }
+        Refresh();
     }
 
     public void Refresh()
@@ -27,49 +61,86 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         try
         {
             DiagnosticsConsent consent = app.UserSettings.Current.DiagnosticsConsent;
-            DiagnosticsSwitch.IsChecked = consent == DiagnosticsConsent.Enabled;
-            DeviceValidationState validation = GetValidationState(app.State.MachineType);
-            ValidationStateText.Text = validation switch
+            DeviceSupportStatus status = app.DeviceSupportStatus;
+            bool verified = status.Phase == DeviceSupportPhase.Verified;
+            bool sharingEnabled = consent == DiagnosticsConsent.Enabled;
+
+            DiagnosticsSwitch.IsChecked = sharingEnabled;
+            DiagnosticsSwitch.IsEnabled = !verified;
+            DiagnosticsSwitch.ToolTip = verified
+                ? "This device already has a verified ThinkControl profile; compatibility learning is not needed."
+                : "Allow ThinkControl to prepare a redacted compatibility report locally. Nothing is uploaded automatically.";
+
+            CompatibilityStateText.Text = status.Label;
+            CompatibilityDetailText.Text = status.Detail;
+
+            if (verified)
             {
-                DeviceValidationState.Verified => "Verified device profile",
-                DeviceValidationState.Experimental => "Experimental compatibility",
-                _ => "Not validated · compatibility checks available"
-            };
+                CompatibilityStateText.Text = "Supported device · no compatibility learning required";
+                LearningCard.Visibility = Visibility.Collapsed;
+                SharingStateText.Text = "Known profile · no compatibility report is needed";
+                ShareDeviceButton.Visibility = Visibility.Collapsed;
+            }
+            else
+            {
+                LearningCard.Visibility = Visibility.Visible;
+                ShareDeviceButton.Visibility = Visibility.Visible;
+                LearningProgress.Maximum = Math.Max(1, status.TotalChecks);
+                LearningProgress.Value = Math.Clamp(status.CompletedChecks, 0, Math.Max(1, status.TotalChecks));
+                LearningProgressText.Text = $"{Math.Max(0, status.CompletedChecks)}/{Math.Max(0, status.TotalChecks)}";
+
+                switch (status.Phase)
+                {
+                    case DeviceSupportPhase.Learning:
+                        LearningTitleText.Text = "Background learning";
+                        SharingStateText.Text = sharingEnabled
+                            ? "No report yet · keep using ThinkControl normally"
+                            : "Learning locally · sharing is disabled";
+                        ShareDeviceButton.Content = "Review report";
+                        ShareDeviceButton.IsEnabled = false;
+                        break;
+                    case DeviceSupportPhase.ReadyToShare:
+                        LearningTitleText.Text = "Background learning complete";
+                        SharingStateText.Text = sharingEnabled
+                            ? "New compatibility findings are ready to review"
+                            : "Report is ready locally · enable sharing to review it on GitHub";
+                        ShareDeviceButton.Content = "Review report";
+                        ShareDeviceButton.IsEnabled = sharingEnabled;
+                        break;
+                    case DeviceSupportPhase.Shared:
+                        LearningTitleText.Text = "Compatibility profile learned";
+                        SharingStateText.Text = "Shared · no new compatibility findings";
+                        ShareDeviceButton.Content = "No new report";
+                        ShareDeviceButton.IsEnabled = false;
+                        break;
+                    default:
+                        ShareDeviceButton.IsEnabled = false;
+                        break;
+                }
+            }
+
+            CrashReport? crash = app.PendingCrashReport;
+            CrashCard.Visibility = crash is null ? Visibility.Collapsed : Visibility.Visible;
+            if (crash is not null)
+            {
+                string when = DateTimeOffset.TryParse(crash.TimestampUtc, out DateTimeOffset timestamp)
+                    ? timestamp.ToLocalTime().ToString("g")
+                    : "previous run";
+                CrashSummaryText.Text = string.IsNullOrWhiteSpace(crash.Message)
+                    ? $"{crash.ExceptionType} · {when}"
+                    : $"{crash.ExceptionType}: {crash.Message} · {when}";
+            }
 
             EventCountText.Text = app.DiagnosticsRecorder.LocalEventCount.ToString();
             LastEventText.Text = app.DiagnosticsRecorder.LastEventAtUtc is DateTimeOffset last
                 ? last.ToLocalTime().ToString("g")
                 : "—";
 
-            bool useful = DeviceSupportReportService.HasUsefulDiscovery(app.State);
-            DeviceSupportReport? currentReport = null;
-            if (consent == DiagnosticsConsent.Enabled && useful)
-            {
-                try { currentReport = DeviceSupportReportService.PrepareReport(app.State, app.SystemStatusService.Read()); }
-                catch { }
-            }
-
-            bool ready = currentReport is not null;
-            ShareDeviceButton.IsEnabled = ready;
-            ShareDeviceButton.ToolTip = ready
-                ? "Open the prepared report as a pre-filled GitHub issue"
-                : "Available after useful hardware discovery";
-            UploadStatusText.Text = ready ? "Ready · GitHub stays explicit" : "Not ready yet";
-            ShareStepText.Text = ready ? "Ready to share" : "Waiting";
-            ShareStepText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, ready ? "Tc.Accent" : "Tc.TextMuted");
-
-            DiscoveryReadinessText.Text = useful
-                ? DeviceSupportReportService.DiscoverySummary(app.State) + (ready ? " · report prepared locally" : " · enable sharing to prepare the report")
-                : "Still learning · wait for hardware discovery to finish or open the current Inbox item. Nothing can be shared yet.";
-            DiscoveryReadinessText.Foreground = (System.Windows.Media.Brush)FindResource(useful ? "Tc.Success" : "Tc.TextMuted");
-
-            StatusText.Text = consent switch
-            {
-                DiagnosticsConsent.Enabled when ready => "The current redacted device report is prepared locally. Share to GitHub opens it as a draft issue; GitHub still requires you to press Submit.",
-                DiagnosticsConsent.Enabled => "Compatibility learning is on, but ThinkControl has not finished useful stable discovery yet. Sharing stays disabled until the report is ready.",
-                DiagnosticsConsent.Disabled => "Compatibility sharing is disabled. Local troubleshooting history is never uploaded automatically and can be deleted here at any time.",
-                _ => "Local compatibility events are not uploaded automatically. Enable compatibility sharing only if you want the review/share workflow available."
-            };
+            StatusText.Text = verified
+                ? "Routine troubleshooting data stays bounded on this PC. Crash and support reports are never uploaded automatically."
+                : status.Phase == DeviceSupportPhase.Shared
+                    ? "That compatibility fingerprint has already been handled. ThinkControl will only surface another report after materially new evidence appears."
+                    : "Compatibility learning runs quietly in the background. Reports stay local until you explicitly open a reviewed draft on GitHub.";
         }
         finally
         {
@@ -82,29 +153,37 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         _syncing = true;
         try
         {
+            bool verified = GetValidationState(state.MachineType) == DeviceValidationState.Verified;
             DiagnosticsSwitch.IsChecked = consent == DiagnosticsConsent.Enabled;
-            ValidationStateText.Text = GetValidationState(state.MachineType) == DeviceValidationState.Verified
-                ? "Verified device profile"
-                : "Not validated · compatibility checks available";
-            EventCountText.Text = DeviceSupportReportService.HasUsefulDiscovery(state) ? "18" : "4";
+            DiagnosticsSwitch.IsEnabled = !verified;
+            CompatibilityStateText.Text = verified
+                ? "Supported device · no compatibility learning required"
+                : "New device · learning";
+            EventCountText.Text = verified ? "12" : "18";
             LastEventText.Text = "Just now";
+            CrashCard.Visibility = Visibility.Collapsed;
 
-            bool useful = DeviceSupportReportService.HasUsefulDiscovery(state);
-            bool ready = useful && consent == DiagnosticsConsent.Enabled;
-            ShareDeviceButton.IsEnabled = ready;
-            ShareDeviceButton.ToolTip = ready
-                ? "Open the prepared report as a pre-filled GitHub issue"
-                : "Available after useful hardware discovery";
-            UploadStatusText.Text = ready ? "Ready · GitHub stays explicit" : "Not ready yet";
-            ShareStepText.Text = ready ? "Ready to share" : "Waiting";
-            ShareStepText.SetResourceReference(System.Windows.Controls.TextBlock.ForegroundProperty, ready ? "Tc.Accent" : "Tc.TextMuted");
-            DiscoveryReadinessText.Text = useful
-                ? DeviceSupportReportService.DiscoverySummary(state) + (ready ? " · report prepared locally" : " · enable sharing to prepare the report")
-                : "Still learning · no stable provider or capability data is ready to share yet.";
-            DiscoveryReadinessText.Foreground = (System.Windows.Media.Brush)FindResource(useful ? "Tc.Success" : "Tc.TextMuted");
-            StatusText.Text = ready
-                ? "The current redacted device report is prepared locally. GitHub submission still requires your explicit confirmation."
-                : "ThinkControl will show the detected capabilities here when stable hardware discovery is ready.";
+            if (verified)
+            {
+                LearningCard.Visibility = Visibility.Collapsed;
+                SharingStateText.Text = "Known profile · no compatibility report is needed";
+                ShareDeviceButton.Visibility = Visibility.Collapsed;
+                StatusText.Text = "Routine troubleshooting data stays bounded on this PC. Nothing is uploaded automatically.";
+            }
+            else
+            {
+                LearningCard.Visibility = Visibility.Visible;
+                LearningTitleText.Text = "Background learning";
+                LearningProgress.Maximum = 5;
+                LearningProgress.Value = 3;
+                LearningProgressText.Text = "3/5";
+                CompatibilityDetailText.Text = "3/5 checks · learning continues quietly while you use ThinkControl";
+                SharingStateText.Text = "No report yet · keep using ThinkControl normally";
+                ShareDeviceButton.Visibility = Visibility.Visible;
+                ShareDeviceButton.IsEnabled = false;
+                ShareDeviceButton.Content = "Review report";
+                StatusText.Text = "Compatibility learning runs quietly in the background. Nothing is uploaded automatically.";
+            }
         }
         finally
         {
@@ -116,6 +195,11 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
     {
         if (_syncing || System.Windows.Application.Current is not App app)
             return;
+        if (app.DeviceSupportStatus.Phase == DeviceSupportPhase.Verified)
+        {
+            Refresh();
+            return;
+        }
 
         DiagnosticsConsent consent = DiagnosticsSwitch.IsChecked == true
             ? DiagnosticsConsent.Enabled
@@ -123,7 +207,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         app.UserSettings.Update(settings => settings with { DiagnosticsConsent = consent });
         if (consent == DiagnosticsConsent.Disabled)
             DeviceSupportReportService.DeletePreparedReport();
-        app.DiagnosticsRecorder.Record(new DiagnosticEvent(
+        app.RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "diagnostics.consent_changed",
             ValidationState: GetValidationState(app.State.MachineType),
@@ -136,47 +220,55 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
     {
         if (System.Windows.Application.Current is not App app)
             return;
-
         if (app.UserSettings.Current.DiagnosticsConsent != DiagnosticsConsent.Enabled)
         {
             StatusText.Text = "Enable compatibility sharing first. Nothing is submitted automatically.";
             return;
         }
 
-        if (!DeviceSupportReportService.HasUsefulDiscovery(app.State))
+        if (!app.OpenCurrentDeviceReportOnGitHub())
         {
             Refresh();
-            StatusText.Text = "The hardware report is no longer ready to share because discovery state changed. Wait for hardware detection to settle.";
+            StatusText.Text = "There is no new stable compatibility report to review.";
             return;
         }
 
-        try
-        {
-            DeviceSupportReport? report = DeviceSupportReportService.PrepareReport(app.State, app.SystemStatusService.Read());
-            if (report is null)
-                return;
+        Refresh();
+        StatusText.Text = "Opened a pre-filled GitHub draft and marked this compatibility fingerprint handled locally. It will not be offered again unless new evidence appears.";
+    }
 
-            string url = DeviceSupportReportService.BuildIssueUrl(report);
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-            StatusText.Text = "Opened the prepared report as a pre-filled GitHub issue. Nothing is submitted until you press Submit new issue on GitHub.";
-        }
-        catch
+    private void ReportCrash_Click(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.Application.Current is not App app)
+            return;
+        if (!app.OpenPendingCrashReportOnGitHub())
         {
-            StatusText.Text = "Could not open the reviewed device support report in your browser. Nothing was shared.";
+            Refresh();
+            return;
         }
+        Refresh();
+        StatusText.Text = "Opened the redacted crash draft on GitHub. Nothing is submitted until you press Submit new issue.";
+    }
+
+    private void DismissCrash_Click(object sender, RoutedEventArgs e)
+    {
+        if (System.Windows.Application.Current is not App app)
+            return;
+        app.DismissPendingCrashReport();
+        Refresh();
+        StatusText.Text = "Crash report dismissed and removed from this PC.";
     }
 
     private void Preview_Click(object sender, RoutedEventArgs e)
     {
         if (System.Windows.Application.Current is not App app)
             return;
-
         string path = Path.Combine(Path.GetTempPath(), "ThinkControl-diagnostics-preview.json");
         WriteBundle(app, path);
         try
         {
             Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = true });
-            StatusText.Text = "Opened a redacted diagnostics preview in Notepad. This is separate from the GitHub device report.";
+            StatusText.Text = "Opened a redacted diagnostics preview in Notepad.";
         }
         catch
         {
@@ -188,7 +280,6 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
     {
         if (System.Windows.Application.Current is not App app)
             return;
-
         var dialog = new SaveFileDialog
         {
             Title = "Export ThinkControl support bundle",
@@ -197,49 +288,28 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             AddExtension = true,
             DefaultExt = ".json"
         };
-
         if (dialog.ShowDialog(Window.GetWindow(this)) != true)
             return;
-
         WriteBundle(app, dialog.FileName);
         StatusText.Text = "Redacted support bundle exported.";
     }
 
     private void OpenHardwareLog_Click(object sender, RoutedEventArgs e)
     {
-        string path = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "ThinkControl",
-            "hardware-service.log");
-
+        string path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ThinkControl", "hardware-service.log");
         if (!File.Exists(path))
         {
-            StatusText.Text = "No hardware-service log exists yet. The service creates it after startup or a hardware-provider event.";
+            StatusText.Text = "No hardware-service log exists yet.";
             return;
         }
-
         try
         {
-            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"")
-            {
-                UseShellExecute = true
-            });
+            Process.Start(new ProcessStartInfo("notepad.exe", $"\"{path}\"") { UseShellExecute = true });
             StatusText.Text = "Opened the local hardware-service log in Notepad.";
         }
         catch
         {
-            try
-            {
-                Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"")
-                {
-                    UseShellExecute = true
-                });
-                StatusText.Text = "Opened the hardware-service log location in File Explorer.";
-            }
-            catch
-            {
-                StatusText.Text = $"Hardware-service log: {path}";
-            }
+            StatusText.Text = $"Hardware-service log: {path}";
         }
     }
 
@@ -247,25 +317,18 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
     {
         try
         {
-            Process.Start(new ProcessStartInfo(
-                "https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml")
-            {
-                UseShellExecute = true
-            });
+            Process.Start(new ProcessStartInfo("https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml") { UseShellExecute = true });
         }
-        catch
-        {
-        }
+        catch { }
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
         if (System.Windows.Application.Current is not App app)
             return;
-
         MessageBoxResult result = MessageBox.Show(
             Window.GetWindow(this),
-            "Delete all local ThinkControl diagnostic events?",
+            "Delete local ThinkControl diagnostics, compatibility lifecycle state and any pending crash report?",
             "Delete diagnostics",
             MessageBoxButton.YesNo,
             MessageBoxImage.Question);
@@ -273,8 +336,9 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             return;
 
         app.DiagnosticsRecorder.DeleteLocal();
-        DeviceSupportReportService.DeletePreparedReport();
+        app.ResetDiagnosticLifecycleData();
         Refresh();
+        StatusText.Text = "Local diagnostics and report state deleted.";
     }
 
     private static void WriteBundle(App app, string path)
@@ -287,25 +351,16 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             system.MachineType == "—" ? null : system.MachineType,
             system.BiosVersion == "—" ? null : system.BiosVersion,
             validation);
-
         string version = UpdateService.CurrentVersion;
         string channel = version.Contains('-', StringComparison.Ordinal) ? "alpha" : "stable";
-        app.DiagnosticsRecorder.ExportBundle(
-            path,
-            device,
-            version,
-            channel,
-            Environment.OSVersion.VersionString);
+        app.DiagnosticsRecorder.ExportBundle(path, device, version, channel, Environment.OSVersion.VersionString);
     }
 
-    private static DeviceValidationState GetValidationState(string? machineType)
-    {
-        if (string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase))
-            return DeviceValidationState.Verified;
-
-        return DeviceValidationState.NotValidated;
-    }
+    private static DeviceValidationState GetValidationState(string? machineType) =>
+        string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase)
+            ? DeviceValidationState.Verified
+            : DeviceValidationState.NotValidated;
 
     private static string SafeFileToken(string? value)
     {

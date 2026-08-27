@@ -8,7 +8,12 @@ public partial class TouchpadPanel
     protected override void OnInitialized(EventArgs e)
     {
         base.OnInitialized(e);
-        Loaded += (_, _) => ApplyReleaseTouchpadPolish();
+        ActionCombo.SelectionChanged += (_, _) => SyncTrackCenterOption();
+        Loaded += (_, _) =>
+        {
+            ApplyReleaseTouchpadPolish();
+            SyncTrackCenterOption();
+        };
     }
 
     private void ApplyReleaseTouchpadPolish()
@@ -28,6 +33,28 @@ public partial class TouchpadPanel
         EnsureValueColumnWidth(EdgeWidthValue, 92);
         EnsureValueColumnWidth(ActivationValue, 92);
         EnsureValueColumnWidth(ToleranceValue, 92);
+    }
+
+    private void SyncTrackCenterOption()
+    {
+        bool tracks = ActionCombo.SelectedItem is ActionOption option &&
+                      option.Action == ThinkControl.Core.Touchpad.GestureActionKind.PreviousNextTrack;
+        TrackCenterRow.Visibility = tracks ? Visibility.Visible : Visibility.Collapsed;
+        TrackCenterPlayPauseSwitch.IsChecked = _configuration.TrackCenterPlayPauseEnabled;
+    }
+
+    private void TrackCenterPlayPause_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || _host is null)
+            return;
+
+        _configuration = (_configuration with
+        {
+            TrackCenterPlayPauseEnabled = TrackCenterPlayPauseSwitch.IsChecked == true
+        }).Sanitize();
+        _host.UpdateConfiguration(_configuration);
+        Visualizer.Configuration = _configuration;
+        SyncTrackCenterOption();
     }
 
     private static void EnsureValueColumnWidth(TextBlock value, double minimumWidth)

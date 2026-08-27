@@ -19,6 +19,33 @@ public partial class App
         Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
     }
 
+    internal void ApplyPreferredDesktopLaunchForShellSmoke(string view)
+    {
+        UserSettings.Update(settings => settings with { DefaultOpeningView = view });
+        ShowPreferredDesktopLaunchView();
+    }
+
+    internal (string Phase, int Completed, int Total) EvaluateDeviceSupportForShellSmoke()
+    {
+        var status = EvaluateDeviceSupportLifecycle(showAttention: false);
+        return (status.Phase.ToString(), status.CompletedChecks, status.TotalChecks);
+    }
+
+    internal void MarkCurrentDeviceSupportHandledForShellSmoke()
+    {
+        var status = EvaluateDeviceSupportLifecycle(showAttention: false);
+        if (status.Report is null)
+            throw new InvalidOperationException("Shell smoke device-support state has no report fingerprint to handle.");
+        _diagnosticLifecycleStore.MarkHandled(status.Report.Fingerprint);
+        _ = EvaluateDeviceSupportLifecycle(showAttention: false);
+    }
+
+    internal void ResetDeviceSupportLifecycleForShellSmoke()
+    {
+        _diagnosticLifecycleStore.Clear();
+        _deviceSupportStatus = null;
+    }
+
     internal void SetExternalAutoHideSuppressedForShellSmoke(bool suppressed)
     {
         if (CompactWindow is not null)

@@ -81,6 +81,7 @@ public sealed record TouchpadGestureConfiguration(
     double DirectionDominance = 1.15,
     bool LockCursor = true,
     bool HideCursorWhenActive = true,
+    bool TrackCenterPlayPauseEnabled = false,
     TouchpadGestureBindings? Bindings = null)
 {
     public static TouchpadGestureConfiguration Default { get; } = new(

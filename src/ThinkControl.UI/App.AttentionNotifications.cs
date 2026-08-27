@@ -45,48 +45,12 @@ public partial class App
     {
         TryShowPendingUpdateAttention();
         QueueHardwareAttention(State.DriverStatus);
-        TryShowDiagnosticsSharingAttention();
     }
 
     private void AttentionState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(AppState.DriverStatus))
             QueueHardwareAttention(State.DriverStatus);
-
-        if (e.PropertyName is nameof(AppState.HardwareAccess)
-            or nameof(AppState.CanSensorTelemetry)
-            or nameof(AppState.CanFanTelemetry)
-            or nameof(AppState.CanFanControl)
-            or nameof(AppState.CanKeyboardBacklight))
-        {
-            TryShowDiagnosticsSharingAttention();
-        }
-    }
-
-    private void TryShowDiagnosticsSharingAttention()
-    {
-        ThinkControlUserSettings preferences = UserSettings.Current;
-        if (preferences.DiagnosticsSharingPrompted ||
-            preferences.DiagnosticsConsent != ThinkControl.Core.Diagnostics.DiagnosticsConsent.Enabled ||
-            !CanShowAttentionNow() ||
-            !DeviceSupportReportService.HasUsefulDiscovery(State))
-        {
-            return;
-        }
-
-        DeviceSupportReport? report;
-        try { report = DeviceSupportReportService.PrepareReport(State, SystemStatusService.Read()); }
-        catch { return; }
-        if (report is null)
-            return;
-
-        UserSettings.Update(settings => settings with { DiagnosticsSharingPrompted = true });
-        _attentionToast.Show(
-            "diagnostics-sharing-ready",
-            "Device compatibility data is ready",
-            DeviceSupportReportService.DiscoverySummary(State) + ". Sharing the redacted report can help ThinkControl support more devices. Nothing is submitted automatically.",
-            "Review report",
-            () => OpenAdvancedSafely("Settings"));
     }
 
     private void QueueHardwareAttention(string? rawStatus)

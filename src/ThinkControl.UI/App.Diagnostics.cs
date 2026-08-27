@@ -22,6 +22,8 @@ public partial class App
         InitializePowerProfileCoordinator();
         InitializeCoolingCoordinator();
         InitializeAttentionNotifications();
+        if (enforceSingleInstance)
+            InitializeDiagnosticsLifecycle();
         Startup += OnShellIconStartup;
         Activated += OnTouchpadApplicationActivated;
         Activated += OnHardwareSetupActivated;
@@ -104,9 +106,6 @@ public partial class App
 
     private static double? ResolveCredibleBatteryTemperature(IEnumerable<HardwareSensorSnapshot> sensors)
     {
-        // Never infer a battery temperature from an arbitrary motherboard/ACPI
-        // thermal zone. Accept only a plausible temperature whose hardware, sensor
-        // name or provider source explicitly identifies the battery.
         HardwareSensorSnapshot? reading = sensors
             .Where(sensor => sensor.SensorType.Equals("Temperature", StringComparison.OrdinalIgnoreCase))
             .Where(sensor => sensor.Value is >= 0 and <= 70)

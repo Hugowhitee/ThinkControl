@@ -70,6 +70,13 @@
                             <TextBlock Text="Invert direction" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
                             <CheckBox x:Name="InvertCheck" HorizontalAlignment="Right" Style="{StaticResource TcSwitch}" Click="InvertCheck_Click" />
                         </Grid>
+                        <Grid x:Name="TrackCenterRow" Margin="0,11,0,0" Visibility="Collapsed">
+                            <StackPanel Margin="0,0,76,0">
+                                <TextBlock Text="Center play / pause" Foreground="{DynamicResource Tc.TextMuted}" />
+                                <TextBlock Text="Hold near the middle, then release. Passing through the center while swiping never triggers it." Style="{StaticResource TouchpadLabel}" FontSize="9.5" TextWrapping="Wrap" Margin="0,3,0,0" />
+                            </StackPanel>
+                            <CheckBox x:Name="TrackCenterPlayPauseSwitch" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource TcSwitch}" Click="TrackCenterPlayPause_Click" />
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -116,7 +123,7 @@
                         <Grid>
                             <StackPanel>
                                 <TextBlock Text="Gesture pop-up" FontWeight="SemiBold" />
-                                <TextBlock Text="Windows-style feedback for volume and brightness gestures." Style="{StaticResource TouchpadLabel}" Margin="0,4,70,0" TextWrapping="Wrap" />
+                                <TextBlock Text="Taskbar-origin feedback for volume, brightness and media gestures." Style="{StaticResource TouchpadLabel}" Margin="0,4,70,0" TextWrapping="Wrap" />
                             </StackPanel>
                             <CheckBox x:Name="OsdSwitch" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource TcSwitch}" Click="OsdSwitch_Click" />
                         </Grid>

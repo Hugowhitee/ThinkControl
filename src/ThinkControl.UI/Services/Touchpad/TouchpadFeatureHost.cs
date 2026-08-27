@@ -37,6 +37,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
         _actions = new GestureActionRouter(
             _nativeInput,
             new MediaSessionService(),
+            () => app.UserSettings.Current.TouchpadGestures ?? configuration,
             _nativeInput.GetVolumePercent,
             QueueVolume,
             () => app.State.Brightness,
@@ -46,7 +47,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
             GetPerformanceIndex,
             QueuePerformanceIndex,
             SetGestureActive,
-            next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))));
+            next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
+            () => app.Dispatcher.BeginInvoke(new Action(_osd.ShowTrackCenter)));
 
         bool x9 = string.Equals(app.State.MachineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
                   string.Equals(app.State.MachineType, "21Q7", StringComparison.OrdinalIgnoreCase);
