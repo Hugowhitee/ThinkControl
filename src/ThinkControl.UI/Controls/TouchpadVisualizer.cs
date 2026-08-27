@@ -356,20 +356,35 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 _ => new(band.Left - 24, pad.Top + pad.Height / 2)
             };
 
-            if (edge is TouchpadEdge.Left or TouchpadEdge.Right &&
-                binding.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
+            if (binding.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
             {
                 string iconKey = binding.Action == GestureActionKind.Volume ? "Tc.Icon.Audio" : "Tc.Icon.Brightness";
                 DrawMaterialIcon(dc, iconKey, new Rect(point.X - 8, point.Y - 8, 16, 16), labelBrush);
 
-                bool plusActive = active && (_signal?.DeltaMm ?? 0) < -0.01;
-                bool minusActive = active && (_signal?.DeltaMm ?? 0) > 0.01;
-                string upper = binding.Inverted ? "−" : "+";
-                string lower = binding.Inverted ? "+" : "−";
-                bool upperActive = upper == "+" ? plusActive : minusActive;
-                bool lowerActive = lower == "+" ? plusActive : minusActive;
-                DrawLabel(dc, upper, new WpfPoint(point.X, point.Y - 31), upperActive ? 14 : 12, upperActive ? accent : labelBrush, centered: true);
-                DrawLabel(dc, lower, new WpfPoint(point.X, point.Y + 31), lowerActive ? 14 : 12, lowerActive ? accent : labelBrush, centered: true);
+                double effectiveDelta = edge is TouchpadEdge.Left or TouchpadEdge.Right
+                    ? -(_signal?.DeltaMm ?? 0)
+                    : (_signal?.DeltaMm ?? 0);
+                bool plusActive = active && effectiveDelta > 0.01;
+                bool minusActive = active && effectiveDelta < -0.01;
+
+                if (edge is TouchpadEdge.Left or TouchpadEdge.Right)
+                {
+                    string upper = binding.Inverted ? "−" : "+";
+                    string lower = binding.Inverted ? "+" : "−";
+                    bool upperActive = upper == "+" ? plusActive : minusActive;
+                    bool lowerActive = lower == "+" ? plusActive : minusActive;
+                    DrawLabel(dc, upper, new WpfPoint(point.X, point.Y - 31), upperActive ? 14 : 12, upperActive ? accent : labelBrush, centered: true);
+                    DrawLabel(dc, lower, new WpfPoint(point.X, point.Y + 31), lowerActive ? 14 : 12, lowerActive ? accent : labelBrush, centered: true);
+                }
+                else
+                {
+                    string left = binding.Inverted ? "+" : "−";
+                    string right = binding.Inverted ? "−" : "+";
+                    bool leftActive = left == "+" ? plusActive : minusActive;
+                    bool rightActive = right == "+" ? plusActive : minusActive;
+                    DrawLabel(dc, left, new WpfPoint(point.X - 34, point.Y), leftActive ? 14 : 12, leftActive ? accent : labelBrush, centered: true);
+                    DrawLabel(dc, right, new WpfPoint(point.X + 34, point.Y), rightActive ? 14 : 12, rightActive ? accent : labelBrush, centered: true);
+                }
             }
             else
             {
