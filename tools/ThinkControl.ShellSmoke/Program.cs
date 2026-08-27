@@ -55,7 +55,7 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss with Compact deactivation enabled, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: preferred app-icon Full/Compact routing, diagnostics Ready/Shared/Verified lifecycle, 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
         catch (Exception ex)
@@ -72,6 +72,9 @@ internal static class Program
     private static void SeedState(App app)
     {
         app.State.DeviceName = "ThinkPad X9-15 Gen 1";
+        app.State.MachineType = "21Q6";
+        app.State.DriverStatus = "Ready";
+        app.State.HardwareAccess = "Ready";
         app.State.SelectedMode = "Balanced";
         app.State.BatteryPercent = 72;
         app.State.BatteryStatus = "On battery";
@@ -85,6 +88,41 @@ internal static class Program
         app.PrepareInteractiveShellSmoke();
         Pump(app.Dispatcher);
         AssertPrimarySurface(app, compact: true, full: false, "initial Compact");
+
+        // Regression for alpha.24's hard-coded second-launch behavior. The saved
+        // preference must own Start/desktop/taskbar re-activation in both directions.
+        app.ApplyPreferredDesktopLaunchForShellSmoke("Advanced");
+        Pump(app.Dispatcher);
+        AssertPrimarySurface(app, compact: false, full: true, "preferred app-icon Full");
+        AssertAlive(app, "preferred app-icon Full");
+
+        app.ApplyPreferredDesktopLaunchForShellSmoke("Compact");
+        Pump(app.Dispatcher);
+        AssertPrimarySurface(app, compact: true, full: false, "preferred app-icon Compact");
+        AssertAlive(app, "preferred app-icon Compact");
+
+        // Lifecycle regression for the old forever-ready diagnostics flag. An
+        // unknown but fully settled device becomes Ready once, the same semantic
+        // fingerprint becomes Shared after handling, while the verified X9 skips
+        // compatibility learning entirely.
+        app.ResetDeviceSupportLifecycleForShellSmoke();
+        app.State.DeviceName = "Shell smoke laptop";
+        app.State.MachineType = "SMOKE-UNKNOWN";
+        app.State.DriverStatus = "Ready";
+        app.State.HardwareAccess = "Provider ready";
+        app.State.CanSensorTelemetry = false;
+        app.State.CanCpuTemperature = false;
+        app.State.CanFanTelemetry = false;
+        app.State.CanFanControl = false;
+        app.State.CanKeyboardBacklight = false;
+        AssertDeviceSupport(app.EvaluateDeviceSupportForShellSmoke(), "ReadyToShare", 5, 5, "unknown device ready");
+
+        app.MarkCurrentDeviceSupportHandledForShellSmoke();
+        AssertDeviceSupport(app.EvaluateDeviceSupportForShellSmoke(), "Shared", 5, 5, "same report handled");
+
+        app.State.DeviceName = "ThinkPad X9-15 Gen 1";
+        app.State.MachineType = "21Q6";
+        AssertDeviceSupport(app.EvaluateDeviceSupportForShellSmoke(), "Verified", 0, 0, "verified X9");
 
         // The alpha.23 gate called App.SwitchCompactToAdvanced directly. That
         // skipped the routed Button.Click + Dispatcher.BeginInvoke path used by
@@ -219,6 +257,21 @@ internal static class Program
         {
             throw new InvalidOperationException(
                 $"{stage}: unexpected shell state (Compact={actualCompact}, Full={actualFull}, primaryCount={visiblePrimarySurfaces}).");
+        }
+    }
+
+    private static void AssertDeviceSupport(
+        (string Phase, int Completed, int Total) actual,
+        string phase,
+        int completed,
+        int total,
+        string stage)
+    {
+        if (!string.Equals(actual.Phase, phase, StringComparison.Ordinal) ||
+            actual.Completed != completed || actual.Total != total)
+        {
+            throw new InvalidOperationException(
+                $"{stage}: diagnostics state was {actual.Phase} {actual.Completed}/{actual.Total}, expected {phase} {completed}/{total}.");
         }
     }
 
