@@ -27,27 +27,33 @@ internal static class ReadableTypography
         string path = binding?.Path?.Path ?? string.Empty;
         string literal = text.Text?.Trim() ?? string.Empty;
 
-        // Build/version metadata can remain deliberately small. Everything else is
-        // operating UI: 9-10 px helper copy was visually weaker than the controls it
-        // explained and became hard to scan at normal laptop viewing distance.
+        // ThinkControl follows one desktop type ramp instead of allowing every page
+        // to invent 9.5/10.5/11px helper text. Fluent Windows uses 14px body and 12px
+        // captions; captions are reserved here for terse build/metric metadata only.
         bool metadata = path.Equals("AppVersion", StringComparison.Ordinal) ||
                         (!string.IsNullOrWhiteSpace(literal) && literal.StartsWith("v0.", StringComparison.OrdinalIgnoreCase));
-        if (!metadata && text.FontSize < 11)
-            text.FontSize = 11;
+        double minimum = metadata ? TypographyScale.Caption : TypographyScale.Secondary;
+        if (text.FontSize < minimum)
+            text.FontSize = minimum;
 
-        // Strengthen real section headings without inflating compact instrument
-        // labels such as CPU / POWER / RPM. This keeps ThinkControl technical while
-        // making hierarchy as obvious as the larger, bolder reference interfaces.
+        // Preserve compact technical metric labels (CPU / POWER / RPM), but give
+        // semantic headings a predictable hierarchy. Existing 20-24px page titles
+        // become the shared 28px title; normal semibold section labels become 16px.
         bool allCapsMetric = literal.Length is > 0 and <= 18 &&
                              literal.Any(char.IsLetter) &&
                              string.Equals(literal, literal.ToUpperInvariant(), StringComparison.Ordinal);
         bool headingWeight = text.FontWeight.ToOpenTypeWeight() >= FontWeights.SemiBold.ToOpenTypeWeight();
-        if (!metadata && !allCapsMetric && headingWeight && text.FontSize is >= 10 and < 13.5)
-            text.FontSize = 13.5;
+        if (!metadata && !allCapsMetric && headingWeight)
+        {
+            if (text.FontSize >= 20 && text.FontSize < TypographyScale.PageTitle)
+                text.FontSize = TypographyScale.PageTitle;
+            else if (text.FontSize >= TypographyScale.Caption && text.FontSize < TypographyScale.SectionTitle)
+                text.FontSize = TypographyScale.SectionTitle;
+        }
 
         if (path.Equals("BatteryEtaText", StringComparison.Ordinal))
         {
-            text.FontSize = Math.Max(text.FontSize, 12.5);
+            text.FontSize = Math.Max(text.FontSize, TypographyScale.Body);
             text.FontWeight = FontWeights.SemiBold;
             text.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
             text.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
@@ -57,7 +63,7 @@ internal static class ReadableTypography
         }
         else if (path.Equals("BatteryCompactLine", StringComparison.Ordinal))
         {
-            text.FontSize = Math.Max(text.FontSize, 11.5);
+            text.FontSize = Math.Max(text.FontSize, TypographyScale.Secondary);
             text.SetBinding(TextBlock.TextProperty, new Binding("BatteryCompactLine")
             {
                 Converter = BatteryTimeConverter
