@@ -71,6 +71,27 @@ public partial class DiagnosticsPanel
 
     internal void PrepareCrashQueueForSnapshot()
     {
+        ApplyCrashQueueSnapshotState();
+
+        // The snapshot harness prepares state before the window is first laid out.
+        // DiagnosticsPanel_Loaded performs a normal runtime Refresh(), which would
+        // replace this intentionally synthetic queue with the real (empty) crash
+        // journal. Re-apply once after Loaded so the captured frame proves the
+        // crash-history UI itself instead of accidentally photographing runtime data.
+        if (!IsLoaded)
+        {
+            RoutedEventHandler? reapplyAfterLoaded = null;
+            reapplyAfterLoaded = (_, _) =>
+            {
+                Loaded -= reapplyAfterLoaded;
+                ApplyCrashQueueSnapshotState();
+            };
+            Loaded += reapplyAfterLoaded;
+        }
+    }
+
+    private void ApplyCrashQueueSnapshotState()
+    {
         CrashCard.Visibility = Visibility.Visible;
         CrashSeparator.Visibility = Visibility.Visible;
         CrashTitleText.Text = "Crashes preserved · 3";
