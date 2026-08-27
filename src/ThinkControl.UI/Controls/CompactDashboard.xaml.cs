@@ -74,27 +74,26 @@ public partial class CompactDashboard : UserControl
         }
     }
 
-    private void Expand_Click(object sender, RoutedEventArgs e)
+    private void Expand_Click(object sender, RoutedEventArgs e) => SwitchToAdvanced("Home");
+
+    private void SwitchToAdvanced(string page)
     {
         if (_app is null || _viewSwitchPending)
             return;
 
         _viewSwitchPending = true;
-        _app.CompactWindow.BeginExplicitViewSwitch();
 
-        // Leave the current button event/layout pass before constructing Advanced.
-        // This avoids re-entering the Compact visual tree while the click itself is
-        // still being routed and gives one owner to the hide/show transition.
+        // Leave the current button event/layout pass before constructing or showing
+        // Advanced. App.SwitchCompactToAdvanced owns the complete transition and
+        // keeps Compact painted until the destination has rendered.
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
             try
             {
-                _app.OpenAdvanced("Home");
+                _app.SwitchCompactToAdvanced(page);
             }
             catch (Exception ex)
             {
-                // A view-toggle failure must never terminate ThinkControl. Restore
-                // Compact and leave a trace for diagnosis instead of disappearing.
                 Trace.WriteLine($"ThinkControl view switch failed: {ex}");
                 try { _app.CompactWindow.ShowNearTray(animate: false); } catch { }
             }
@@ -109,9 +108,9 @@ public partial class CompactDashboard : UserControl
 
     private void OpenPage_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is not null && sender is FrameworkElement { Tag: string page })
-            _app.OpenAdvanced(page);
+        if (sender is FrameworkElement { Tag: string page })
+            SwitchToAdvanced(page);
     }
 
-    private void Battery_Click(object sender, MouseButtonEventArgs e) => _app?.OpenAdvanced("Battery");
+    private void Battery_Click(object sender, MouseButtonEventArgs e) => SwitchToAdvanced("Battery");
 }
