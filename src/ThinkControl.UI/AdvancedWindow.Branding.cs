@@ -20,10 +20,7 @@ public partial class AdvancedWindow
         {
             Icon = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/ThinkControl.ico", UriKind.Absolute));
         }
-        catch
-        {
-            // The executable icon remains the fallback if WPF cannot decode it.
-        }
+        catch { }
 
         if (NavHome.Parent is not StackPanel navStack ||
             navStack.Children.OfType<Grid>().FirstOrDefault() is not Grid dockRow)
@@ -73,7 +70,7 @@ public partial class AdvancedWindow
         var utilityRow = new Grid
         {
             Tag = "ThinkControl.UtilityRow",
-            Height = 44,
+            Height = 46,
             Margin = new Thickness(13, 3, 10, 3),
             HorizontalAlignment = HorizontalAlignment.Left
         };
@@ -82,8 +79,8 @@ public partial class AdvancedWindow
 
         if (compactButton is not null)
         {
-            compactButton.Width = 34;
-            compactButton.Height = 34;
+            compactButton.Width = 38;
+            compactButton.Height = 38;
             compactButton.Padding = new Thickness(0);
             compactButton.Margin = new Thickness(0, 0, 4, 0);
             compactButton.BorderThickness = new Thickness(0);
@@ -92,24 +89,21 @@ public partial class AdvancedWindow
             compactButton.Content = new PackIconLucide
             {
                 Kind = "CompactView",
-                Width = 18,
-                Height = 18,
+                Width = 19,
+                Height = 19,
                 Foreground = (Brush)FindResource("Tc.TextMuted")
             };
             TcToolTip.Apply(compactButton, "Compact view");
-
-            // The legacy dock handler hid Advanced before Compact was painted. Use
-            // the single app-level transition owner instead, so one surface is always
-            // visible and a failed switch cannot leave ThinkControl apparently gone.
             compactButton.Click -= Dock_Click;
             compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
-
             Grid.SetColumn(compactButton, 0);
             utilityRow.Children.Add(compactButton);
         }
 
         if (notificationButton is not null)
         {
+            notificationButton.Width = 38;
+            notificationButton.Height = 38;
             Grid.SetColumn(notificationButton, 1);
             utilityRow.Children.Add(notificationButton);
         }
