@@ -24,7 +24,7 @@ public partial class CompactDashboard
         new("Power", "POWER", "BatteryPowerText", "BatteryAveragePowerText", "Battery"),
         new("Sensors", "SENSORS", "SensorCountText", "Hardware telemetry", "System"),
         new("Display", "DISPLAY", "CurrentRefreshText", "Refresh rate", "Display"),
-        new("Keyboard", "KEYBOARD", "KeyboardStatus", "Backlight", "Keyboard"),
+        new("Keyboard", "KEYBOARD", "KeyboardStatus", "Keyboard light", "Keyboard"),
         new("Performance", "PERFORMANCE", "SelectedModeDisplay", "Power mode", "Performance")
     ];
 
@@ -140,13 +140,6 @@ public partial class CompactDashboard
         CompactMetricPicker.IsOpen = false;
         _editingCompactMetricSlot = -1;
         RefreshCompactMetrics();
-    }
-
-    private void OpenCompactMetricPage(int slot)
-    {
-        if (_app is null || slot is < 0 or > 2)
-            return;
-        _app.OpenAdvanced(DefinitionFor(_compactMetricSlots[slot]).Page);
     }
 
     private static CompactMetricDefinition DefinitionFor(string id) =>
