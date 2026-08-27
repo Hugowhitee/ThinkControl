@@ -185,12 +185,10 @@ public partial class AdvancedWindow
 
         var copy = new StackPanel
         {
-            GridColumn = 1,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(4, 0, 8, 0)
         };
-        TextBlock label = CreateMetricLabel("BATTERY");
-        copy.Children.Add(label);
+        copy.Children.Add(CreateMetricLabel("BATTERY"));
         TextBlock value = CreateMetricValue("BatteryPercentText", 23);
         value.Margin = new Thickness(0, 2, 0, 0);
         copy.Children.Add(value);
