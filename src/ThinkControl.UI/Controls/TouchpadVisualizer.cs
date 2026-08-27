@@ -40,6 +40,8 @@ public sealed class TouchpadVisualizer : FrameworkElement
     {
         MinHeight = 300;
         Cursor = WpfCursors.Arrow;
+        TouchpadActionVisualCatalog.ValidateCurrentActionSet();
+
         _trailTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromMilliseconds(45)
@@ -213,12 +215,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
         DrawLabel(dc, EdgeName(_selectedEdge).ToUpperInvariant(),
             new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 8),
-            12, muted, centered: true);
+            TypographyScale.Caption, muted, centered: true);
         string size = _geometry.PhysicalSizeEstimated
             ? $"~{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm"
             : $"{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm";
         DrawLabel(dc, $"{size} · click an edge to edit", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 12),
-            12, faint, centered: true);
+            TypographyScale.Caption, faint, centered: true);
 
         foreach (TouchContact contact in _contacts.Where(static c => c.IsDown))
         {
@@ -403,109 +405,94 @@ public sealed class TouchpadVisualizer : FrameworkElement
         bool active,
         bool candidate)
     {
-        switch (binding.Action)
+        TouchpadActionVisualSpec spec = TouchpadActionVisualCatalog.Get(binding.Action);
+        bool vertical = edge is TouchpadEdge.Left or TouchpadEdge.Right;
+
+        if (spec.Directional)
         {
-            case GestureActionKind.Volume:
-            case GestureActionKind.Brightness:
-                DrawContinuousGlyph(dc, edge, point, binding, brush, accent, active);
+            TouchpadVisualCue firstCue;
+            TouchpadVisualCue lastCue;
+            if (vertical)
+            {
+                // Vertical edge gestures use up as positive and down as negative.
+                firstCue = binding.Inverted ? spec.Negative : spec.Positive;
+                lastCue = binding.Inverted ? spec.Positive : spec.Negative;
+            }
+            else
+            {
+                // Horizontal edge gestures use left as negative and right as positive.
+                firstCue = binding.Inverted ? spec.Positive : spec.Negative;
+                lastCue = binding.Inverted ? spec.Negative : spec.Positive;
+            }
+
+            double physicalDelta = vertical
+                ? -(_signal?.DeltaMm ?? 0)
+                : (_signal?.DeltaMm ?? 0);
+            bool firstActive = active && (vertical ? physicalDelta > 0.01 : physicalDelta < -0.01);
+            bool lastActive = active && (vertical ? physicalDelta < -0.01 : physicalDelta > 0.01);
+
+            WpfPoint firstPoint = vertical
+                ? new(point.X, point.Y - spec.Spread)
+                : new(point.X - spec.Spread, point.Y);
+            WpfPoint lastPoint = vertical
+                ? new(point.X, point.Y + spec.Spread)
+                : new(point.X + spec.Spread, point.Y);
+
+            DrawCue(dc, firstCue, firstPoint, firstActive ? accent : brush, vertical);
+            DrawCue(dc, lastCue, lastPoint, lastActive ? accent : brush, vertical);
+        }
+
+        bool showCenter = !spec.CenterRequiresTrackOption || _configuration.TrackCenterPlayPauseEnabled;
+        if (showCenter)
+        {
+            bool centerActive = spec.Action == GestureActionKind.PreviousNextTrack
+                ? candidate
+                : active || candidate;
+            DrawCue(dc, spec.Center, point, centerActive ? accent : brush, vertical);
+        }
+        else
+        {
+            DrawSmallDot(dc, point, brush);
+        }
+    }
+
+    private void DrawCue(
+        DrawingContext dc,
+        TouchpadVisualCue cue,
+        WpfPoint point,
+        Brush brush,
+        bool vertical)
+    {
+        switch (cue.Kind)
+        {
+            case TouchpadVisualCueKind.None:
                 return;
-            case GestureActionKind.MediaSeek:
-                DrawScrubGlyph(dc, point, brush, edge is TouchpadEdge.Left or TouchpadEdge.Right);
+            case TouchpadVisualCueKind.ResourceIcon:
+                if (!string.IsNullOrWhiteSpace(cue.Value))
+                    DrawMaterialIcon(dc, cue.Value, new Rect(point.X - 8, point.Y - 8, 16, 16), brush);
                 return;
-            case GestureActionKind.PreviousNextTrack:
-                DrawTrackGlyph(dc, edge, point, binding, brush, accent, active, candidate);
+            case TouchpadVisualCueKind.Text:
+                DrawLabel(dc, cue.Value ?? string.Empty, point, TypographyScale.Body, brush, centered: true);
                 return;
-            case GestureActionKind.PlayPause:
+            case TouchpadVisualCueKind.PlayPause:
                 DrawPlayPauseGlyph(dc, point, brush);
                 return;
-            case GestureActionKind.OpenThinkControl:
+            case TouchpadVisualCueKind.Scrub:
+                DrawScrubCenterGlyph(dc, point, brush, vertical);
+                return;
+            case TouchpadVisualCueKind.Backward:
+                DrawSeekDirectionGlyph(dc, point, brush, forward: false, vertical);
+                return;
+            case TouchpadVisualCueKind.Forward:
+                DrawSeekDirectionGlyph(dc, point, brush, forward: true, vertical);
+                return;
+            case TouchpadVisualCueKind.Compact:
                 DrawCompactGlyph(dc, point, brush);
                 return;
-            default:
+            case TouchpadVisualCueKind.Disabled:
                 DrawDisabledGlyph(dc, point, brush);
                 return;
         }
-    }
-
-    private void DrawContinuousGlyph(
-        DrawingContext dc,
-        TouchpadEdge edge,
-        WpfPoint point,
-        TouchpadEdgeBinding binding,
-        Brush brush,
-        Brush accent,
-        bool active)
-    {
-        string iconKey = binding.Action == GestureActionKind.Volume ? "Tc.Icon.Audio" : "Tc.Icon.Brightness";
-        DrawMaterialIcon(dc, iconKey, new Rect(point.X - 8, point.Y - 8, 16, 16), brush);
-
-        double effectiveDelta = edge is TouchpadEdge.Left or TouchpadEdge.Right
-            ? -(_signal?.DeltaMm ?? 0)
-            : (_signal?.DeltaMm ?? 0);
-        bool plusActive = active && effectiveDelta > 0.01;
-        bool minusActive = active && effectiveDelta < -0.01;
-
-        if (edge is TouchpadEdge.Left or TouchpadEdge.Right)
-        {
-            string upper = binding.Inverted ? "−" : "+";
-            string lower = binding.Inverted ? "+" : "−";
-            bool upperActive = upper == "+" ? plusActive : minusActive;
-            bool lowerActive = lower == "+" ? plusActive : minusActive;
-            DrawLabel(dc, upper, new WpfPoint(point.X, point.Y - 31), upperActive ? 14 : 12, upperActive ? accent : brush, centered: true);
-            DrawLabel(dc, lower, new WpfPoint(point.X, point.Y + 31), lowerActive ? 14 : 12, lowerActive ? accent : brush, centered: true);
-        }
-        else
-        {
-            string left = binding.Inverted ? "+" : "−";
-            string right = binding.Inverted ? "−" : "+";
-            bool leftActive = left == "+" ? plusActive : minusActive;
-            bool rightActive = right == "+" ? plusActive : minusActive;
-            DrawLabel(dc, left, new WpfPoint(point.X - 34, point.Y), leftActive ? 14 : 12, leftActive ? accent : brush, centered: true);
-            DrawLabel(dc, right, new WpfPoint(point.X + 34, point.Y), rightActive ? 14 : 12, rightActive ? accent : brush, centered: true);
-        }
-    }
-
-    private void DrawTrackGlyph(
-        DrawingContext dc,
-        TouchpadEdge edge,
-        WpfPoint point,
-        TouchpadEdgeBinding binding,
-        Brush brush,
-        Brush accent,
-        bool active,
-        bool candidate)
-    {
-        bool vertical = edge is TouchpadEdge.Left or TouchpadEdge.Right;
-        bool firstIsNext = vertical ? !binding.Inverted : binding.Inverted;
-        string firstKey = firstIsNext ? "Tc.Icon.SkipNext" : "Tc.Icon.SkipPrevious";
-        string lastKey = firstIsNext ? "Tc.Icon.SkipPrevious" : "Tc.Icon.SkipNext";
-
-        double controlDelta = edge is TouchpadEdge.Left or TouchpadEdge.Right
-            ? -(_signal?.DeltaMm ?? 0)
-            : (_signal?.DeltaMm ?? 0);
-        bool nextActive = active && controlDelta > 0.01;
-        bool previousActive = active && controlDelta < -0.01;
-
-        Brush firstBrush = firstIsNext ? (nextActive ? accent : brush) : (previousActive ? accent : brush);
-        Brush lastBrush = firstIsNext ? (previousActive ? accent : brush) : (nextActive ? accent : brush);
-        const double icon = 15;
-        const double spread = 27;
-
-        if (vertical)
-        {
-            DrawMaterialIcon(dc, firstKey, new Rect(point.X - icon / 2, point.Y - spread - icon / 2, icon, icon), firstBrush);
-            DrawMaterialIcon(dc, lastKey, new Rect(point.X - icon / 2, point.Y + spread - icon / 2, icon, icon), lastBrush);
-        }
-        else
-        {
-            DrawMaterialIcon(dc, firstKey, new Rect(point.X - spread - icon / 2, point.Y - icon / 2, icon, icon), firstBrush);
-            DrawMaterialIcon(dc, lastKey, new Rect(point.X + spread - icon / 2, point.Y - icon / 2, icon, icon), lastBrush);
-        }
-
-        if (_configuration.TrackCenterPlayPauseEnabled)
-            DrawPlayPauseGlyph(dc, point, candidate ? accent : brush);
-        else
-            DrawSmallDot(dc, point, brush);
     }
 
     private static void DrawPlayPauseGlyph(DrawingContext dc, WpfPoint point, Brush brush)
@@ -523,26 +510,52 @@ public sealed class TouchpadVisualizer : FrameworkElement
         dc.DrawRoundedRectangle(brush, null, new Rect(point.X + 9, point.Y - 7, 2.8, 14), 1, 1);
     }
 
-    private static void DrawScrubGlyph(DrawingContext dc, WpfPoint point, Brush brush, bool vertical)
+    private static void DrawScrubCenterGlyph(DrawingContext dc, WpfPoint point, Brush brush, bool vertical)
     {
         var pen = new Pen(brush, 1.7) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
         if (vertical)
+            dc.DrawLine(pen, new WpfPoint(point.X, point.Y - 9), new WpfPoint(point.X, point.Y + 9));
+        else
+            dc.DrawLine(pen, new WpfPoint(point.X - 9, point.Y), new WpfPoint(point.X + 9, point.Y));
+        dc.DrawEllipse(brush, null, point, 3.4, 3.4);
+    }
+
+    private static void DrawSeekDirectionGlyph(
+        DrawingContext dc,
+        WpfPoint point,
+        Brush brush,
+        bool forward,
+        bool vertical)
+    {
+        var pen = new Pen(brush, 1.65)
         {
-            dc.DrawLine(pen, new WpfPoint(point.X, point.Y - 12), new WpfPoint(point.X, point.Y + 12));
-            dc.DrawEllipse(brush, null, point, 3.6, 3.6);
-            dc.DrawLine(pen, new WpfPoint(point.X - 4, point.Y - 8), new WpfPoint(point.X, point.Y - 12));
-            dc.DrawLine(pen, new WpfPoint(point.X + 4, point.Y - 8), new WpfPoint(point.X, point.Y - 12));
-            dc.DrawLine(pen, new WpfPoint(point.X - 4, point.Y + 8), new WpfPoint(point.X, point.Y + 12));
-            dc.DrawLine(pen, new WpfPoint(point.X + 4, point.Y + 8), new WpfPoint(point.X, point.Y + 12));
+            StartLineCap = PenLineCap.Round,
+            EndLineCap = PenLineCap.Round,
+            LineJoin = PenLineJoin.Round
+        };
+
+        double direction = forward ? 1 : -1;
+        if (vertical)
+        {
+            // On a vertical edge the same semantic cue rotates with the gesture axis.
+            direction *= -1;
+            for (int i = -1; i <= 1; i += 2)
+            {
+                double offset = i * 3.2;
+                WpfPoint tip = new(point.X + offset, point.Y + direction * 7);
+                dc.DrawLine(pen, new WpfPoint(point.X + offset - 4, point.Y - direction * 1), tip);
+                dc.DrawLine(pen, new WpfPoint(point.X + offset + 4, point.Y - direction * 1), tip);
+            }
         }
         else
         {
-            dc.DrawLine(pen, new WpfPoint(point.X - 12, point.Y), new WpfPoint(point.X + 12, point.Y));
-            dc.DrawEllipse(brush, null, point, 3.6, 3.6);
-            dc.DrawLine(pen, new WpfPoint(point.X - 8, point.Y - 4), new WpfPoint(point.X - 12, point.Y));
-            dc.DrawLine(pen, new WpfPoint(point.X - 8, point.Y + 4), new WpfPoint(point.X - 12, point.Y));
-            dc.DrawLine(pen, new WpfPoint(point.X + 8, point.Y - 4), new WpfPoint(point.X + 12, point.Y));
-            dc.DrawLine(pen, new WpfPoint(point.X + 8, point.Y + 4), new WpfPoint(point.X + 12, point.Y));
+            for (int i = -1; i <= 1; i += 2)
+            {
+                double offset = i * 3.2;
+                WpfPoint tip = new(point.X + direction * 7, point.Y + offset);
+                dc.DrawLine(pen, new WpfPoint(point.X - direction * 1, point.Y + offset - 4), tip);
+                dc.DrawLine(pen, new WpfPoint(point.X - direction * 1, point.Y + offset + 4), tip);
+            }
         }
     }
 
@@ -594,7 +607,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
             new Typeface("Segoe UI Variable Text, Segoe UI"),
-            live ? 12.5 : 12,
+            live ? TypographyScale.Secondary : TypographyScale.Caption,
             textBrush,
             pixelsPerDip);
         double width = text.Width + (live ? 18 : 14);
