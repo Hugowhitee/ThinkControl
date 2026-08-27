@@ -72,11 +72,9 @@ public partial class PerformancePanel : UserControl
             AcPerformance.IsChecked = ac == ThinkControlPowerMode.Performance;
 
             bool onBattery = _app.IsCurrentlyOnBattery();
-            BatteryActiveBadge.Visibility = onBattery ? Visibility.Visible : Visibility.Collapsed;
-            AcActiveBadge.Visibility = onBattery ? Visibility.Collapsed : Visibility.Visible;
             CurrentSourceText.Text = onBattery ? "On battery" : "Plugged in";
-            ThinkControlPowerMode current = onBattery ? battery : ac;
-            CurrentPowerText.Text = $"{PowerModeService.DisplayName(current)} power preference";
+            CurrentSourceIcon.Kind = "Battery";
+            CurrentSourceIcon.ToolTip = onBattery ? "Running on battery" : "AC power connected";
         }
         finally
         {
@@ -88,7 +86,6 @@ public partial class PerformancePanel : UserControl
     {
         if (_syncing || _app is null || sender is not FrameworkElement { Tag: string tag })
             return;
-
         string[] parts = tag.Split(':', 2);
         if (parts.Length != 2 || !Enum.TryParse(parts[1], true, out ThinkControlPowerMode mode))
             return;
