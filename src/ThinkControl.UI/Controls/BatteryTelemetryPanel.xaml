@@ -14,32 +14,31 @@
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="245" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,24,0">
-                    <TextBlock Text="CHARGE" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                    <TextBlock Text="CHARGE" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
                     <controls:BatteryGauge Width="205" Height="60" HorizontalAlignment="Left" Margin="0,11,0,0" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" />
                     <Grid Margin="0,10,0,0">
                         <TextBlock Text="{Binding BatteryPercentText}" FontSize="30" FontWeight="Light" />
                         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding BatteryStatus}" HorizontalAlignment="Right" FontSize="11" Foreground="{DynamicResource Tc.TextMuted}" />
-                            <TextBlock Text="{Binding BatteryEtaText}" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" />
+                            <TextBlock Text="{Binding BatteryStatus}" HorizontalAlignment="Right" FontSize="11.5" Foreground="{DynamicResource Tc.TextMuted}" />
+                            <TextBlock Text="{Binding BatteryEtaText}" HorizontalAlignment="Right" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,2,0,0" />
                         </StackPanel>
                     </Grid>
                 </StackPanel>
                 <Grid Grid.Column="1">
                     <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                    <StackPanel Margin="0,0,14,12"><TextBlock Text="POWER" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryPowerText}" FontSize="18" Margin="0,5,0,0" /><TextBlock Text="{Binding BatteryAveragePowerText}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" /></StackPanel>
-                    <StackPanel Grid.Column="1" Margin="0,0,14,12"><TextBlock Text="HEALTH" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryHealthText}" FontSize="18" Margin="0,5,0,0" /></StackPanel>
-                    <StackPanel Grid.Column="2" Margin="0,0,0,12"><TextBlock Text="CYCLES" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryCycleCountText}" FontSize="18" Margin="0,5,0,0" /></StackPanel>
-                    <StackPanel Grid.Row="1" Margin="0,3,14,0"><TextBlock Text="ENERGY" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryCapacityText}" FontSize="18" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
-                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,3,14,0"><TextBlock Text="{Binding BatteryTemperatureLabel}" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryTemperatureText}" FontSize="18" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
-                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,3,0,0"><TextBlock Text="LEARNED" FontSize="9.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryTypicalChargeText}" FontSize="18" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
+                    <Border Grid.Column="0" Grid.RowSpan="2" Width="1" HorizontalAlignment="Right" Background="{DynamicResource Tc.Border}" Margin="0,3,8,3" />
+                    <Border Grid.Column="1" Grid.RowSpan="2" Width="1" HorizontalAlignment="Right" Background="{DynamicResource Tc.Border}" Margin="0,3,8,3" />
+                    <StackPanel Margin="0,0,16,12"><TextBlock Text="POWER" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryPowerText}" FontSize="18" Margin="0,5,0,0" /><TextBlock Text="{Binding BatteryAveragePowerText}" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" /></StackPanel>
+                    <StackPanel Grid.Column="1" Margin="8,0,16,12"><TextBlock Text="HEALTH" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryHealthText}" FontSize="18" Margin="0,5,0,0" /></StackPanel>
+                    <StackPanel Grid.Column="2" Margin="8,0,0,12"><TextBlock Text="CYCLES" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryCycleCountText}" FontSize="18" Margin="0,5,0,0" /></StackPanel>
+                    <StackPanel Grid.Row="1" Margin="0,3,16,0"><TextBlock Text="ENERGY" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryCapacityText}" FontSize="18" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,3,16,0"><TextBlock Text="{Binding BatteryTemperatureLabel}" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryTemperatureText}" FontSize="18" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
+                    <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,3,0,0"><TextBlock Text="LEARNED" FontSize="10.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryTypicalChargeText}" FontSize="18" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
                 </Grid>
             </Grid>
         </Border>
 
-        <!-- Keep the main Battery page calm: one battery-level chart per mode.
-             Detailed power + percentage timelines remain available when a session
-             is opened, instead of stacking four graphs on the overview. -->
         <Grid Margin="0,14,0,0">
             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
@@ -51,7 +50,7 @@
                     </Grid.RowDefinitions>
                     <Grid>
                         <TextBlock Text="Charge history" FontWeight="SemiBold" />
-                        <TextBlock Text="Battery level" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
+                        <TextBlock Text="Battery level" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="10.5" />
                     </Grid>
                     <controls:TimeSeriesChart x:Name="ChargePercentChart" Grid.Row="1" Margin="0,9,0,0" Unit="%" ValueFormat="0" IncludeZero="False" IsLive="{Binding BatteryCharging}" LiveWindowMinutes="60" />
                     <TextBlock Grid.Row="2" Text="{Binding BatteryCurrentSessionText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,9,0,0" TextWrapping="Wrap" />
@@ -66,11 +65,9 @@
                     </Grid.RowDefinitions>
                     <Grid>
                         <TextBlock Text="Discharge history" FontWeight="SemiBold" />
-                        <TextBlock Text="Battery level" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
+                        <TextBlock Text="Battery level" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="10.5" />
                     </Grid>
                     <controls:TimeSeriesChart x:Name="DischargePercentChart" Grid.Row="1" Margin="0,9,0,0" Unit="%" ValueFormat="0" IncludeZero="False" LiveWindowMinutes="90" />
-                    <!-- Kept as a non-rendered backing chart for existing detail/snapshot
-                         plumbing; power is no longer another overview graph. -->
                     <controls:TimeSeriesChart x:Name="DischargeChart" Visibility="Collapsed" Height="0" Unit="W" ValueFormat="0.0" IncludeZero="True" />
                     <TextBlock x:Name="DischargeSummaryText" Grid.Row="2" Text="Learning from battery use" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,9,0,0" TextWrapping="Wrap" />
                 </Grid>
@@ -100,7 +97,7 @@
                 <Grid>
                     <StackPanel>
                         <TextBlock Text="Battery history" FontWeight="SemiBold" />
-                        <TextBlock Text="Days stay compact. Open a day to see its charge and usage sessions, then open a session for graphs and essential statistics." Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="0,3,150,0" TextWrapping="Wrap" />
+                        <TextBlock Text="Days stay compact. Open a day to see its charge and usage sessions, then open a session for graphs and essential statistics." Foreground="{DynamicResource Tc.TextFaint}" FontSize="10.5" Margin="0,3,150,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <Button Content="Clear history" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Top" Click="ClearHistory_Click" />
                 </Grid>
@@ -110,8 +107,8 @@
 
         <Grid Margin="2,10,2,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock Text="History: local only · recent session graphs · one year of compact summaries" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" />
-            <TextBlock Grid.Column="1" Text="{Binding BatterySource}" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" Margin="18,0,0,0" TextTrimming="CharacterEllipsis" />
+            <TextBlock Text="History: local only · recent session graphs · one year of compact summaries" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" />
+            <TextBlock Grid.Column="1" Text="{Binding BatterySource}" FontSize="10.5" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" Margin="18,0,0,0" TextTrimming="CharacterEllipsis" />
         </Grid>
     </StackPanel>
 </UserControl>
