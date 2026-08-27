@@ -51,11 +51,11 @@ public partial class App
     private void ToggleThinkControlFromTray()
     {
         // The tray icon represents the quick/compact surface. If the full window is
-        // open, one tray click should switch to compact rather than merely hiding the
-        // full window and leaving the user with no visible ThinkControl surface.
+        // open, one tray click switches safely to Compact rather than hiding one
+        // surface before the other one has painted.
         if (_advancedWindow is { IsVisible: true })
         {
-            ReturnToCompact();
+            SwitchAdvancedToCompact();
             return;
         }
 
@@ -76,8 +76,11 @@ public partial class App
         if (CompactWindow is null)
             return;
 
-        if (_advancedWindow is { IsVisible: true } advanced)
-            advanced.HideAnimated();
+        if (_advancedWindow is { IsVisible: true })
+        {
+            SwitchAdvancedToCompact();
+            return;
+        }
 
         CompactWindow.BeginAnimation(UIElement.OpacityProperty, null);
         CompactWindow.Opacity = 1;
