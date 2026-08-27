@@ -1,6 +1,66 @@
 <UserControl x:Class="ThinkControl.UI.Controls.FansPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style x:Key="FanExpander" TargetType="Expander">
+            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <StackPanel>
+                            <ToggleButton x:Name="HeaderToggle"
+                                          Content="{TemplateBinding Header}"
+                                          ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Padding="0"
+                                          Focusable="False"
+                                          HorizontalContentAlignment="Left">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Grid Background="Transparent">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path x:Name="Chevron"
+                                                      Width="10" Height="10"
+                                                      Margin="1,0,8,0"
+                                                      VerticalAlignment="Center"
+                                                      Stretch="Uniform"
+                                                      Stroke="{DynamicResource Tc.TextMuted}"
+                                                      StrokeThickness="1.6"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M2,4 L5,7 L8,4" />
+                                                <ContentPresenter ContentSource="Content" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Chevron" Property="Stroke" Value="{DynamicResource Tc.Text}" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Chevron" Property="Data" Value="M2,7 L5,4 L8,7" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ExpandSite"
+                                              ContentSource="Content"
+                                              Visibility="Collapsed" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <StackPanel>
         <TextBlock Text="Fans" FontSize="24" FontWeight="SemiBold" />
         <TextBlock Text="Fan behavior is independent from Windows performance mode. ThinkControl keeps Lenovo Auto as the fail-safe and maps custom curves only to verified X9 EC states."
@@ -109,7 +169,7 @@
             </StackPanel>
         </Border>
 
-        <Expander Header="Advanced manual control" Margin="0,14,0,0">
+        <Expander Header="Advanced manual control" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
             <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
                 <StackPanel>
                     <Grid>
@@ -126,7 +186,7 @@
                         <Button Grid.Column="1" Content="Apply" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
                     </Grid>
 
-                    <Expander Header="Raw verified EC steps" Margin="0,13,0,0">
+                    <Expander Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
                             <TextBlock Text="Use these only for diagnostics. Step 7 is the physically verified maximum and is the hardware state used for a 100% target."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" TextWrapping="Wrap" Margin="0,0,0,8" />
