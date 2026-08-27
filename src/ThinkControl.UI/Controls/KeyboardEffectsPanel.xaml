@@ -1,4 +1,5 @@
 <UserControl x:Class="ThinkControl.UI.Controls.KeyboardEffectsPanel"
+             xmlns:ui="clr-namespace:ThinkControl.UI"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -20,7 +21,7 @@
             <TextBlock Margin="0,7,0,12"
                        Text="{Binding KeyboardEffectsSupportText}"
                        Foreground="{DynamicResource Tc.TextMuted}"
-                       FontSize="10.5"
+                       FontSize="{x:Static ui:TypographyScale.Caption}"
                        TextWrapping="Wrap" />
 
             <Grid>
@@ -74,7 +75,7 @@
             <TextBlock Margin="0,10,0,0"
                        Text="Reactive responds to keyboard activity only. Audio mode reads a local loopback RMS level and stores no audio. Hardware writes are deduplicated and rate-limited."
                        Foreground="{DynamicResource Tc.TextFaint}"
-                       FontSize="9.5"
+                       FontSize="{x:Static ui:TypographyScale.Caption}"
                        TextWrapping="Wrap" />
         </StackPanel>
     </Border>

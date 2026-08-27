@@ -184,7 +184,10 @@ public sealed class EdgeGestureRecognizer
         double dominance = _configuration.DirectionDominance;
 
         if (Math.Max(absX, absY) < activation)
+        {
+            _lastTotalTravelMm = Math.Sqrt(dx * dx + dy * dy);
             return null;
+        }
 
         // Open ThinkControl follows the ASUS-style mental model: start at an edge
         // and move into the touchpad, perpendicular to that edge. It intentionally
@@ -327,7 +330,15 @@ public sealed class EdgeGestureRecognizer
     {
         double inward = InwardTravelMm(edge, dx, dy);
         double parallel = edge is TouchpadEdge.Left or TouchpadEdge.Right ? Math.Abs(dy) : Math.Abs(dx);
-        return inward >= activation && inward >= parallel * Math.Min(dominance, 1.35);
+        double combined = Math.Sqrt(inward * inward + parallel * parallel);
+
+        // ASUS documents its ScreenXpert shortcut as a diagonal move from the
+        // top-right corner toward the touchpad centre. Accept both that diagonal
+        // physical intent and a straight perpendicular edge swipe, while rejecting
+        // movement that is overwhelmingly along the edge.
+        return inward >= activation * 0.70 &&
+               combined >= activation &&
+               inward >= parallel * 0.55;
     }
 
     private static double InwardTravelMm(TouchpadEdge edge, double dx, double dy) => edge switch

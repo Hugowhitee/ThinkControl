@@ -105,7 +105,7 @@ public partial class BatteryTelemetryPanel : UserControl
         var detail = new TextBlock
         {
             Text = "Per-app energy accounting belongs to Windows. This opens the dedicated Battery usage page in Settings; ThinkControl keeps its own recent charge and discharge history above.",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 5, 190, 0),
             TextWrapping = TextWrapping.Wrap
         };
@@ -114,11 +114,10 @@ public partial class BatteryTelemetryPanel : UserControl
 
         var button = new Button
         {
-            Content = "Open in Windows",
-            Style = TryFindResource("TcButton") as Style,
+            Content = "Windows battery usage ↗",
+            Style = TryFindResource("TcExternalSettingsLink") as Style,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(12, 6, 12, 6)
+            VerticalAlignment = VerticalAlignment.Center
         };
         button.Click += OpenBatteryUsage_Click;
 
@@ -173,7 +172,7 @@ public partial class BatteryTelemetryPanel : UserControl
             var empty = new TextBlock
             {
                 Text = "No completed battery sessions yet. ThinkControl starts learning automatically while you use and charge the laptop.",
-                FontSize = 10.5,
+                FontSize = TypographyScale.Caption,
                 TextWrapping = TextWrapping.Wrap,
                 Margin = new Thickness(1, 5, 1, 2)
             };
@@ -202,7 +201,7 @@ public partial class BatteryTelemetryPanel : UserControl
         var summary = new TextBlock
         {
             Text = $"{charge}     {usage}",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -290,7 +289,7 @@ public partial class BatteryTelemetryPanel : UserControl
         var kindText = new TextBlock
         {
             Text = session.IsActive ? $"{session.Kind} · live" : session.Kind,
-            FontSize = 9.5,
+            FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
         kindText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Accent" : "Tc.TextMuted");
@@ -300,7 +299,7 @@ public partial class BatteryTelemetryPanel : UserControl
         var summary = new TextBlock
         {
             Text = session.Summary,
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -311,7 +310,7 @@ public partial class BatteryTelemetryPanel : UserControl
         var arrow = new TextBlock
         {
             Text = "›",
-            FontSize = 18,
+            FontSize = TypographyScale.Value,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };

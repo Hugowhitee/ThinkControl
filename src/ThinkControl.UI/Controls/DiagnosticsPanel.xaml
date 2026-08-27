@@ -93,7 +93,7 @@
             <Grid x:Name="CrashCard" Visibility="Collapsed">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,20,0">
-                    <TextBlock Text="Previous crash"
+                    <TextBlock x:Name="CrashTitleText" Text="Previous crash"
                                FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="CrashSummaryText"
@@ -107,10 +107,20 @@
                                Foreground="{DynamicResource Tc.TextFaint}"
                                TextWrapping="Wrap"
                                Margin="0,5,0,0" />
+                    <ComboBox x:Name="CrashHistoryCombo"
+                              Style="{StaticResource TcComboBox}"
+                              Margin="0,10,0,0"
+                              MaxWidth="430"
+                              HorizontalAlignment="Left"
+                              DisplayMemberPath="Label"
+                              SelectedValuePath="Id"
+                              SelectionChanged="CrashHistoryCombo_SelectionChanged"
+                              Visibility="Collapsed" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="Dismiss" Style="{StaticResource TcInlineButton}" Margin="0,0,6,0" Click="DismissCrash_Click" />
-                    <Button Content="Review crash" Style="{StaticResource TcButton}" Click="ReportCrash_Click" />
+                    <Button x:Name="MarkCrashReportedButton" Content="Mark reported" Style="{StaticResource TcInlineButton}" Margin="0,0,6,0" Click="MarkCrashReported_Click" Visibility="Collapsed" />
+                    <Button Content="Open GitHub draft" Style="{StaticResource TcButton}" Click="ReportCrash_Click" />
                 </StackPanel>
             </Grid>
 

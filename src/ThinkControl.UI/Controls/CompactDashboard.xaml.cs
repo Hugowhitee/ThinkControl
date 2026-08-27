@@ -45,7 +45,6 @@ public partial class CompactDashboard : UserControl
         EnsureHardwareAlert();
         SyncQuickControls();
         SyncHardwareAlert();
-        ReadableTypography.Apply(this);
     }
 
     private void App_UpdateAvailabilityChanged(object? sender, EventArgs e) =>

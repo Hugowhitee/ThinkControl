@@ -7,11 +7,6 @@ internal enum TouchpadVisualCueKind
     None,
     ResourceIcon,
     Text,
-    PlayPause,
-    Scrub,
-    Backward,
-    Forward,
-    Compact,
     Disabled
 }
 
@@ -22,12 +17,21 @@ internal readonly record struct TouchpadVisualCue(
     internal static TouchpadVisualCue None => new(TouchpadVisualCueKind.None);
     internal static TouchpadVisualCue Icon(string resourceKey) => new(TouchpadVisualCueKind.ResourceIcon, resourceKey);
     internal static TouchpadVisualCue Text(string text) => new(TouchpadVisualCueKind.Text, text);
-    internal static TouchpadVisualCue PlayPause => new(TouchpadVisualCueKind.PlayPause);
-    internal static TouchpadVisualCue Scrub => new(TouchpadVisualCueKind.Scrub);
-    internal static TouchpadVisualCue Backward => new(TouchpadVisualCueKind.Backward);
-    internal static TouchpadVisualCue Forward => new(TouchpadVisualCueKind.Forward);
-    internal static TouchpadVisualCue Compact => new(TouchpadVisualCueKind.Compact);
     internal static TouchpadVisualCue Disabled => new(TouchpadVisualCueKind.Disabled);
+}
+
+internal enum TouchpadGestureMotionKind
+{
+    AlongEdge,
+    Inward
+}
+
+internal enum TouchpadGestureBehavior
+{
+    Disabled,
+    Continuous,
+    Discrete,
+    Inward
 }
 
 internal sealed record TouchpadActionVisualSpec(
@@ -36,8 +40,10 @@ internal sealed record TouchpadActionVisualSpec(
     TouchpadVisualCue Negative,
     TouchpadVisualCue Positive,
     bool Directional,
+    TouchpadGestureMotionKind Motion,
+    TouchpadGestureBehavior Behavior,
     bool CenterRequiresTrackOption = false,
-    double Spread = 34);
+    double Spread = 38);
 
 /// <summary>
 /// Single visual contract for every gesture action shown around the touchpad.
@@ -57,50 +63,64 @@ internal static class TouchpadActionVisualCatalog
                 TouchpadVisualCue.Disabled,
                 TouchpadVisualCue.None,
                 TouchpadVisualCue.None,
-                Directional: false),
+                Directional: false,
+                Motion: TouchpadGestureMotionKind.AlongEdge,
+                Behavior: TouchpadGestureBehavior.Disabled),
 
             [GestureActionKind.Volume] = new(
                 GestureActionKind.Volume,
-                TouchpadVisualCue.Icon("Tc.Icon.Audio"),
+                TouchpadVisualCue.Icon(SemanticIconKeys.Volume),
                 TouchpadVisualCue.Text("−"),
                 TouchpadVisualCue.Text("+"),
-                Directional: true),
+                Directional: true,
+                Motion: TouchpadGestureMotionKind.AlongEdge,
+                Behavior: TouchpadGestureBehavior.Continuous),
 
             [GestureActionKind.Brightness] = new(
                 GestureActionKind.Brightness,
-                TouchpadVisualCue.Icon("Tc.Icon.Brightness"),
+                TouchpadVisualCue.Icon(SemanticIconKeys.Brightness),
                 TouchpadVisualCue.Text("−"),
                 TouchpadVisualCue.Text("+"),
-                Directional: true),
+                Directional: true,
+                Motion: TouchpadGestureMotionKind.AlongEdge,
+                Behavior: TouchpadGestureBehavior.Continuous),
 
             [GestureActionKind.MediaSeek] = new(
                 GestureActionKind.MediaSeek,
-                TouchpadVisualCue.Scrub,
-                TouchpadVisualCue.Backward,
-                TouchpadVisualCue.Forward,
-                Directional: true),
+                TouchpadVisualCue.Icon(SemanticIconKeys.MediaScrub),
+                TouchpadVisualCue.Icon(SemanticIconKeys.SeekBackward),
+                TouchpadVisualCue.Icon(SemanticIconKeys.SeekForward),
+                Directional: true,
+                Motion: TouchpadGestureMotionKind.AlongEdge,
+                Behavior: TouchpadGestureBehavior.Continuous),
 
             [GestureActionKind.PreviousNextTrack] = new(
                 GestureActionKind.PreviousNextTrack,
-                TouchpadVisualCue.Text("⏯"),
-                TouchpadVisualCue.Icon("Tc.Icon.SkipPrevious"),
-                TouchpadVisualCue.Icon("Tc.Icon.SkipNext"),
+                TouchpadVisualCue.Icon(SemanticIconKeys.PlayPause),
+                TouchpadVisualCue.Icon(SemanticIconKeys.Previous),
+                TouchpadVisualCue.Icon(SemanticIconKeys.Next),
                 Directional: true,
+                Motion: TouchpadGestureMotionKind.AlongEdge,
+                Behavior: TouchpadGestureBehavior.Discrete,
                 CenterRequiresTrackOption: true),
 
             [GestureActionKind.PlayPause] = new(
                 GestureActionKind.PlayPause,
-                TouchpadVisualCue.Text("⏯"),
+                TouchpadVisualCue.Icon(SemanticIconKeys.PlayPause),
                 TouchpadVisualCue.None,
                 TouchpadVisualCue.None,
-                Directional: false),
+                Directional: false,
+                Motion: TouchpadGestureMotionKind.AlongEdge,
+                Behavior: TouchpadGestureBehavior.Discrete),
 
             [GestureActionKind.OpenThinkControl] = new(
                 GestureActionKind.OpenThinkControl,
-                TouchpadVisualCue.Compact,
+                TouchpadVisualCue.Icon(SemanticIconKeys.CompactView),
                 TouchpadVisualCue.None,
                 TouchpadVisualCue.None,
-                Directional: false)
+                Directional: false,
+                Motion: TouchpadGestureMotionKind.Inward,
+                Behavior: TouchpadGestureBehavior.Inward)
         };
 
     internal static TouchpadActionVisualSpec Get(GestureActionKind action)

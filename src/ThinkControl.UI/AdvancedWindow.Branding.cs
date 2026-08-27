@@ -79,24 +79,18 @@ public partial class AdvancedWindow
 
         if (compactButton is not null)
         {
-            compactButton.Width = 38;
-            compactButton.Height = 38;
-            compactButton.Padding = new Thickness(0);
             compactButton.Margin = new Thickness(0, 0, 4, 0);
             compactButton.BorderThickness = new Thickness(0);
             compactButton.Background = Brushes.Transparent;
             compactButton.BorderBrush = Brushes.Transparent;
-            compactButton.Content = new PackIconLucide
-            {
-                Kind = "CompactView",
-                Width = 19,
-                Height = 19,
-                Foreground = (Brush)FindResource("Tc.TextMuted")
-            };
+            ShellUtilityOrder.ConfigureModeButton(
+                compactButton,
+                "Compact",
+                "CompactView",
+                (Brush)FindResource("Tc.TextMuted"));
             TcToolTip.Apply(compactButton, "Compact view");
             compactButton.Click -= Dock_Click;
             compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
-            Grid.SetColumn(compactButton, 0);
             utilityRow.Children.Add(compactButton);
         }
 
@@ -104,8 +98,13 @@ public partial class AdvancedWindow
         {
             notificationButton.Width = 38;
             notificationButton.Height = 38;
-            Grid.SetColumn(notificationButton, 1);
             utilityRow.Children.Add(notificationButton);
+        }
+
+        if (notificationButton is not null && compactButton is not null)
+        {
+            notificationButton.Tag = ShellUtilityOrder.NotificationTag;
+            ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
         }
 
         navStack.Children.Insert(2, utilityRow);

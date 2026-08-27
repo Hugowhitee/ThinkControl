@@ -1,7 +1,9 @@
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -141,7 +143,7 @@ public partial class AdvancedWindow
     private Grid BuildHomeTelemetryStrip()
     {
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.75, GridUnitType.Star) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.55, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
@@ -191,9 +193,9 @@ public partial class AdvancedWindow
 
         var gauge = new BatteryGauge
         {
-            Width = 106,
-            Height = 41,
-            Margin = new Thickness(16, 0, 0, 0),
+            Width = 118,
+            Height = 46,
+            Margin = new Thickness(12, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right
         };
@@ -292,7 +294,7 @@ public partial class AdvancedWindow
         grid.Children.Add(divider);
     }
 
-    private static void NormalizeHomeControlGrid(Grid grid)
+    private void NormalizeHomeControlGrid(Grid grid)
     {
         grid.Margin = new Thickness(0, 12, 0, 0);
         foreach (Border card in grid.Children.OfType<Border>())
@@ -305,6 +307,72 @@ public partial class AdvancedWindow
                 row == 0 ? 0 : 6,
                 column == 0 ? 6 : 0,
                 row == 0 ? 6 : 0);
+
+            string page = (row, column) switch
+            {
+                (0, 0) => "Performance",
+                (0, 1) => "Fans",
+                (1, 0) => "Display",
+                (1, 1) => "Keyboard",
+                _ => string.Empty
+            };
+            if (page.Length > 0)
+                ConfigureInternalNavigationCard(card, page);
         }
+    }
+
+    private void ConfigureInternalNavigationCard(Border card, string page)
+    {
+        card.Tag = "ThinkControl.Home.InternalNavigation." + page;
+        card.Cursor = Cursors.Hand;
+        card.ToolTip = $"Open {page}";
+
+        if (card.Child is StackPanel stack)
+        {
+            Button[] oldLinks = stack.Children.OfType<Button>()
+                .Where(button => button.Tag as string == page)
+                .ToArray();
+            foreach (Button oldLink in oldLinks)
+                stack.Children.Remove(oldLink);
+
+            Grid? heading = stack.Children.OfType<Grid>().FirstOrDefault();
+            StackPanel? title = heading?.Children.OfType<StackPanel>()
+                .FirstOrDefault(panel => panel.Orientation == Orientation.Horizontal);
+            if (title is not null && !title.Children.OfType<TextBlock>().Any(text => Equals(text.Tag, "ThinkControl.InternalChevron")))
+            {
+                var chevron = new TextBlock
+                {
+                    Tag = "ThinkControl.InternalChevron",
+                    Text = "›",
+                    FontSize = TypographyScale.SectionTitle,
+                    FontWeight = FontWeights.SemiBold,
+                    Margin = new Thickness(7, -1, 0, 0),
+                    VerticalAlignment = VerticalAlignment.Center,
+                    IsHitTestVisible = false
+                };
+                chevron.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+                title.Children.Add(chevron);
+            }
+        }
+
+        card.PreviewMouseLeftButtonUp += (_, e) =>
+        {
+            if (FindInteractiveAncestor(e.OriginalSource as DependencyObject, card) is not null)
+                return;
+            Navigate(page);
+            e.Handled = true;
+        };
+    }
+
+    private static DependencyObject? FindInteractiveAncestor(DependencyObject? source, DependencyObject stop)
+    {
+        DependencyObject? current = source;
+        while (current is not null && !ReferenceEquals(current, stop))
+        {
+            if (current is ButtonBase or ComboBox or Slider or CheckBox)
+                return current;
+            current = VisualTreeHelper.GetParent(current);
+        }
+        return null;
     }
 }

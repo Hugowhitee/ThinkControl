@@ -1,4 +1,5 @@
 <Window x:Class="ThinkControl.UI.TelemetryDetailWindow"
+             xmlns:ui="clr-namespace:ThinkControl.UI"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
@@ -13,8 +14,8 @@
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <Grid>
             <StackPanel>
-                <TextBlock x:Name="TitleText" FontSize="22" FontWeight="SemiBold" />
-                <TextBlock x:Name="SubtitleText" Margin="0,5,0,0" FontSize="10.5" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" />
+                <TextBlock x:Name="TitleText" FontSize="{x:Static ui:TypographyScale.ValueLarge}" FontWeight="SemiBold" />
+                <TextBlock x:Name="SubtitleText" Margin="0,5,0,0" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" />
             </StackPanel>
         </Grid>
 
@@ -29,7 +30,7 @@
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                             <StackPanel VerticalAlignment="Center">
                                 <TextBlock x:Name="ChartTitleText" FontWeight="SemiBold" />
-                                <TextBlock x:Name="ChartHintText" Margin="0,3,0,0" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" Text="Hover for exact values" />
+                                <TextBlock x:Name="ChartHintText" Margin="0,3,0,0" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Text="Hover for exact values" />
                             </StackPanel>
                             <StackPanel x:Name="ChartModePanel" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Visibility="Collapsed">
                                 <Button x:Name="PrimaryChartButton" Content="Power" Style="{StaticResource TcButton}" Padding="10,4" MinWidth="68" Click="PrimaryChart_Click" />
@@ -39,7 +40,7 @@
                         <controls:TimeSeriesChart x:Name="DetailChart" Grid.Row="1" Margin="0,10,0,0" IncludeZero="True" GapThresholdMinutes="0" />
                     </Grid>
                 </Border>
-                <TextBlock x:Name="FooterText" Margin="2,10,2,0" FontSize="9.5" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" />
+                <TextBlock x:Name="FooterText" Margin="2,10,2,0" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" />
             </StackPanel>
         </ScrollViewer>
 

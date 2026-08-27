@@ -58,7 +58,7 @@ public partial class AdvancedWindow
         var detail = new TextBlock
         {
             Text = "Keep session graphs for this long. Older sessions are compacted into daily summaries; health trends and learned estimates are retained.",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         };
@@ -110,7 +110,7 @@ public partial class AdvancedWindow
         var detail = new TextBlock
         {
             Text = "Choose what opens from Start, a desktop shortcut, the taskbar app icon or a second launch. The tray icon always remains the Compact quick view; Start with Windows stays tray-only.",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         };
@@ -170,7 +170,7 @@ public partial class AdvancedWindow
         var detail = new TextBlock
         {
             Text = "Source code, releases, changelog and issue tracker.",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         };

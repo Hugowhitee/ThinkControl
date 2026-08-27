@@ -103,7 +103,7 @@ public partial class AdvancedWindow
         var title = new TextBlock
         {
             Text = "Inbox",
-            FontSize = 18,
+            FontSize = TypographyScale.Value,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -112,7 +112,7 @@ public partial class AdvancedWindow
             Content = "×",
             Width = 30,
             Height = 30,
-            FontSize = 18,
+            FontSize = TypographyScale.Value,
             Padding = new Thickness(0),
             ToolTip = "Close Inbox",
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -129,7 +129,7 @@ public partial class AdvancedWindow
 
         _notificationSummary = new TextBlock
         {
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 5, 0, 12),
             TextWrapping = TextWrapping.Wrap
         };
@@ -384,7 +384,7 @@ public partial class AdvancedWindow
         var detail = new TextBlock
         {
             Text = message.Detail,
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 0)
         };

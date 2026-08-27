@@ -85,7 +85,6 @@ internal static class FanCurveEditorSizingPolicy
             return;
 
         FanCurveEditorHistory.Attach(window);
-        ReadableTypography.Apply(window);
         EnhancedEditors.Add(window, new object());
     }
 }

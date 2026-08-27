@@ -22,6 +22,7 @@ public partial class App
         _deviceSupportStatus ?? EvaluateDeviceSupportLifecycle(showAttention: false);
 
     internal CrashReport? PendingCrashReport => _crashReports.TryGetPending();
+    internal IReadOnlyList<CrashReport> PendingCrashReports => _crashReports.GetUnresolved();
 
     /// <summary>
     /// Starts lifecycle-aware diagnostics once the real desktop shell exists. This
@@ -89,15 +90,17 @@ public partial class App
         }
     }
 
-    internal bool OpenPendingCrashReportOnGitHub()
+    internal bool OpenPendingCrashReportOnGitHub() => OpenCrashReportOnGitHub(null);
+
+    internal bool OpenCrashReportOnGitHub(string? id)
     {
-        CrashReport? report = _crashReports.TryGetPending();
+        CrashReport? report = ResolveCrashReport(id);
         if (report is null)
             return false;
         try
         {
             Process.Start(new ProcessStartInfo(_crashReports.BuildIssueUrl(report)) { UseShellExecute = true });
-            _crashReports.ClearPending();
+            _crashReports.MarkOpened(report.Id);
             return true;
         }
         catch
@@ -106,12 +109,36 @@ public partial class App
         }
     }
 
-    internal void DismissPendingCrashReport() => _crashReports.ClearPending();
+    internal void DismissPendingCrashReport() => DismissCrashReport(null);
+
+    internal void DismissCrashReport(string? id)
+    {
+        CrashReport? report = ResolveCrashReport(id);
+        if (report is not null)
+            _crashReports.Dismiss(report.Id);
+    }
+
+    internal void MarkPendingCrashReported() => MarkCrashReported(null);
+
+    internal void MarkCrashReported(string? id)
+    {
+        CrashReport? report = ResolveCrashReport(id);
+        if (report is not null)
+            _crashReports.MarkReported(report.Id);
+    }
+
+    private CrashReport? ResolveCrashReport(string? id)
+    {
+        IReadOnlyList<CrashReport> reports = _crashReports.GetUnresolved();
+        return string.IsNullOrWhiteSpace(id)
+            ? reports.FirstOrDefault()
+            : reports.FirstOrDefault(item => string.Equals(item.Id, id, StringComparison.OrdinalIgnoreCase));
+    }
 
     internal void ResetDiagnosticLifecycleData()
     {
         _diagnosticLifecycleStore.Clear();
-        _crashReports.ClearPending();
+        _crashReports.ClearAll();
         DeviceSupportReportService.DeletePreparedReport();
         _deviceSupportStatus = null;
         EvaluateDeviceSupportLifecycle(showAttention: false);

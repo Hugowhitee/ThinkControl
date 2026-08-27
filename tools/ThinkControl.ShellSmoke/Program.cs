@@ -1,3 +1,5 @@
+using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
@@ -21,6 +23,7 @@ internal static class Program
 
         try
         {
+            ValidateCrashJournal();
             app = App.CreateForVisualQa();
             app.InitializeComponent();
             ThemeService.Apply(TcThemeMode.Dark);
@@ -55,7 +58,7 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: preferred app-icon Full/Compact routing, diagnostics Ready/Shared/Verified lifecycle, 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, preferred app-icon Full/Compact routing, diagnostics Ready/Shared/Verified lifecycle, 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
         catch (Exception ex)
@@ -66,6 +69,43 @@ internal static class Program
         finally
         {
             try { app?.CleanupInteractiveShellSmoke(); } catch { }
+        }
+    }
+
+    private static void ValidateCrashJournal()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "ThinkControl-crash-smoke-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var service = new CrashReportService(folder);
+            var state = new ThinkControl.UI.ViewModels.AppState { MachineType = "SMOKE", DeviceName = "Smoke laptop" };
+            var recorder = new DiagnosticsRecorder();
+
+            service.CaptureFatal("smoke", new InvalidOperationException("first"), state, recorder);
+            service.CaptureFatal("app-domain", new InvalidOperationException("same fatal surfaced twice"), state, recorder);
+            if (service.TryGetPending()?.OccurrenceCount != 1)
+                throw new InvalidOperationException("One fatal exception was counted twice by multiple process hooks.");
+            // A repeated crash occurs in a new process/service instance. Two fatal
+            // hooks inside one process are deliberately coalesced by the journal.
+            service = new CrashReportService(folder);
+            service.CaptureFatal("smoke", new InvalidOperationException("first repeat"), state, recorder);
+            CrashReport first = service.TryGetPending() ?? throw new InvalidOperationException("Crash journal did not persist the first crash.");
+            if (first.OccurrenceCount != 2)
+                throw new InvalidOperationException($"Repeated crash count was {first.OccurrenceCount}, expected 2.");
+
+            service.MarkOpened(first.Id);
+            service.CaptureFatal("smoke", new NotSupportedException("second signature"), state, recorder);
+            IReadOnlyList<CrashReport> unresolved = service.GetUnresolved();
+            if (unresolved.Count != 2 || unresolved.All(item => item.Id != first.Id))
+                throw new InvalidOperationException("A newer crash replaced an older unresolved crash.");
+
+            service.Dismiss(unresolved[0].Id);
+            if (service.GetUnresolved().Count != 1)
+                throw new InvalidOperationException("Dismissing one crash removed more than its selected journal entry.");
+        }
+        finally
+        {
+            try { if (Directory.Exists(folder)) Directory.Delete(folder, recursive: true); } catch { }
         }
     }
 
@@ -205,6 +245,30 @@ internal static class Program
         Pump(app.Dispatcher);
         AssertPrimarySurface(app, compact: false, full: true, "post-notification real expand click");
         AssertAlive(app, "post-notification Full");
+
+        ValidateAudioNavigation(app);
+    }
+
+    private static void ValidateAudioNavigation(App app)
+    {
+        AdvancedWindow window = app.AdvancedWindowForShellSmoke
+            ?? throw new InvalidOperationException("Audio smoke: Advanced window was not available.");
+
+        for (int attempt = 1; attempt <= 3; attempt++)
+        {
+            window.Navigate("Home");
+            Pump(app.Dispatcher);
+            var elapsed = Stopwatch.StartNew();
+            window.NavigateAudio();
+            elapsed.Stop();
+            if (elapsed.Elapsed > TimeSpan.FromMilliseconds(750))
+            {
+                throw new InvalidOperationException(
+                    $"Audio smoke: navigation attempt {attempt} blocked the WPF dispatcher for {elapsed.ElapsedMilliseconds} ms.");
+            }
+            Pump(app.Dispatcher);
+            AssertAlive(app, $"audio navigation {attempt}");
+        }
     }
 
     private static void InvokeButton(Button button)

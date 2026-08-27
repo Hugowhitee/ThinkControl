@@ -34,7 +34,6 @@ public partial class AdvancedWindow
         ConfigureAppPreferencesUi();
         ConfigureSettingsHierarchy();
         ConfigureAdvancedUiConsistency();
-        Controls.ReadableTypography.Apply(this);
         DiagnosticsPanelControl?.Refresh();
     }
 
@@ -64,7 +63,6 @@ public partial class AdvancedWindow
         ConfigureAppPreferencesUi();
         ConfigureSettingsHierarchy();
         ConfigureAdvancedUiConsistency();
-        Controls.ReadableTypography.Apply(this);
         DiagnosticsPanelControl?.Refresh();
 
         SyncControls();
@@ -157,6 +155,25 @@ public partial class AdvancedWindow
         }
 
         panel.PrepareForSnapshot(showActiveGesture: Width >= 1500);
+    }
+
+    public void PrepareTouchpadInwardForSnapshot()
+    {
+        const string touchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
+        if (!Resources.Contains(touchpadPageKey) ||
+            Resources[touchpadPageKey] is not ScrollViewer { Content: Controls.TouchpadPanel panel })
+        {
+            throw new InvalidOperationException("Touchpad inward gesture could not be prepared for visual QA.");
+        }
+
+        panel.PrepareForSnapshot(showActiveGesture: false, showInwardGesture: true);
+    }
+
+    public void PreparePerformanceForSnapshot()
+    {
+        if (PagePerformance?.Content is not Controls.PerformancePanel panel)
+            throw new InvalidOperationException("Performance page could not be prepared for visual QA.");
+        panel.PrepareForSnapshot();
     }
 
     public void ExpandBatteryHistoryForSnapshot()

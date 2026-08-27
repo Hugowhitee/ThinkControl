@@ -1,10 +1,11 @@
 <UserControl x:Class="ThinkControl.UI.Controls.AudioPanel"
+             xmlns:ui="clr-namespace:ThinkControl.UI"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
         <Grid>
-            <TextBlock Text="Audio" FontSize="24" FontWeight="SemiBold" />
-            <Button Content="Defaults" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="10.5" Click="Reset_Click" ToolTip="Restore Dolby Dynamic using the supported control path for this driver" />
+            <TextBlock Text="Audio" Style="{StaticResource TcText.PageTitle}" />
+            <Button Content="Defaults" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="{x:Static ui:TypographyScale.Caption}" Click="Reset_Click" ToolTip="Restore Dolby Dynamic using the supported control path for this driver" />
         </Grid>
         <TextBlock Text="Windows output volume and Lenovo's installed Dolby processing in one place. ThinkControl uses verified direct DAX controls where available and the official Dolby Access controls as an on-demand fallback."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
@@ -15,10 +16,10 @@
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="System volume" FontWeight="SemiBold" />
-                        <TextBlock x:Name="VolumeDeviceText" Text="Default Windows output" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,90,0" TextWrapping="Wrap" />
+                        <TextBlock x:Name="VolumeDeviceText" Text="Default Windows output" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,90,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                        <TextBlock x:Name="VolumeValueText" Text="—" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock x:Name="VolumeValueText" Text="—" FontSize="{x:Static ui:TypographyScale.Caption}" VerticalAlignment="Center" Margin="0,0,10,0" />
                         <Button x:Name="MuteButton" Content="Mute" Style="{StaticResource TcButton}" Padding="10,4" Click="Mute_Click" />
                     </StackPanel>
                 </Grid>
@@ -32,16 +33,16 @@
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="Microphone input" FontWeight="SemiBold" />
-                        <TextBlock x:Name="MicrophoneDeviceText" Text="Default Windows input" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,4,90,0" TextWrapping="Wrap" />
+                        <TextBlock x:Name="MicrophoneDeviceText" Text="Default Windows input" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,90,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
-                        <TextBlock x:Name="MicrophoneValueText" Text="—" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0" />
+                        <TextBlock x:Name="MicrophoneValueText" Text="—" FontSize="{x:Static ui:TypographyScale.Caption}" VerticalAlignment="Center" Margin="0,0,10,0" />
                         <Button x:Name="MicrophoneMuteButton" Content="Mute" Style="{StaticResource TcButton}" Padding="10,4" Click="MicrophoneMute_Click" />
                     </StackPanel>
                 </Grid>
                 <Slider x:Name="MicrophoneSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="MicrophoneSlider_ValueChanged" PreviewMouseLeftButtonUp="MicrophoneSlider_MouseUp" />
                 <TextBlock Text="Windows endpoint input gain. Some microphone arrays expose additional processing only in Windows Sound settings or the OEM audio app."
-                           Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                           Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 
@@ -51,7 +52,7 @@
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
                         <TextBlock Text="Dolby Atmos" FontWeight="SemiBold" />
-                        <TextBlock x:Name="BackendStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,190,0" TextWrapping="Wrap" />
+                        <TextBlock x:Name="BackendStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,190,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel Grid.Column="1" HorizontalAlignment="Right" Orientation="Horizontal">
                         <Button x:Name="InstallButton" Content="Install Dolby Access" Style="{StaticResource TcButton}" Click="Install_Click" Visibility="Collapsed" />
@@ -72,9 +73,9 @@
 
                 <Border x:Name="FusionControlCard" Background="{DynamicResource Tc.SurfaceAlt}" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="1" CornerRadius="4" Padding="10,8" Margin="0,11,0,0" Visibility="Collapsed">
                     <TextBlock Text="Dolby Access fallback · profile buttons use the official Dolby app only for the change you request. ThinkControl closes it again only when ThinkControl opened it. No private profile IDs or background automation are used."
-                               Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" TextWrapping="Wrap" />
+                               Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" />
                 </Border>
-                <TextBlock x:Name="ActionStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,11,0,0" TextWrapping="Wrap" />
+                <TextBlock x:Name="ActionStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,11,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </Border>
 
@@ -85,9 +86,9 @@
                     <StackPanel>
                         <TextBlock Text="Music · Intelligent Equalizer" FontWeight="SemiBold" />
                         <TextBlock Text="These tone choices are shown only for Music when the installed DAX API exposes direct readback."
-                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,5,30,0" TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,30,0" TextWrapping="Wrap" />
                     </StackPanel>
-                    <TextBlock x:Name="SubprofileStatusText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" />
+                    <TextBlock x:Name="SubprofileStatusText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                 </Grid>
                 <Grid Margin="0,14,0,0">
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
@@ -104,18 +105,18 @@
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
                 <StackPanel>
                     <TextBlock Text="Direct when verified" FontWeight="SemiBold" />
-                    <TextBlock Text="Legacy DAX systems stay controllable inside ThinkControl when a semantic setter/readback contract is available." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="Legacy DAX systems stay controllable inside ThinkControl when a semantic setter/readback contract is available." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
                     <TextBlock Text="Dolby Access on demand" FontWeight="SemiBold" />
-                    <TextBlock Text="When the installed OEM Dolby provider does not expose safe direct controls, ThinkControl uses semantic controls in Dolby Access only for the profile change you requested; it does not poll or automate the app in the background." Foreground="{DynamicResource Tc.TextMuted}" FontSize="10.5" Margin="0,7,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="When the installed OEM Dolby provider does not expose safe direct controls, ThinkControl uses semantic controls in Dolby Access only for the profile change you requested; it does not poll or automate the app in the background." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>
 
         <TextBlock Text="Dolby availability is discovered at runtime because Lenovo ships different DAX/Fusion generations. Unsupported private APIs are never guessed."
-                   Foreground="{DynamicResource Tc.TextFaint}" FontSize="9.5" Margin="2,12,2,0" TextWrapping="Wrap" />
+                   Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="2,12,2,0" TextWrapping="Wrap" />
     </StackPanel>
 </UserControl>

@@ -149,7 +149,7 @@ public partial class AdvancedWindow
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(8, 4, 8, 4),
-            FontSize = 10,
+            FontSize = TypographyScale.Caption,
             Cursor = System.Windows.Input.Cursors.Hand,
             Style = TryFindResource("TcButton") as Style
         };
@@ -170,12 +170,12 @@ public partial class AdvancedWindow
         {
             Text = "Reset ThinkControl",
             FontWeight = FontWeights.SemiBold,
-            FontSize = 12
+            FontSize = TypographyScale.ControlLabel
         });
         var detail = new WpfTextBlock
         {
             Text = "Restore app preferences and supported controls to their defaults. Battery history, diagnostics consent and Windows-owned brightness settings are kept.",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
         };

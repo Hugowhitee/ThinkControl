@@ -1,5 +1,7 @@
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
@@ -12,12 +14,9 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class GestureOsdService : IDisposable
 {
-    private static readonly Geometry BrightnessSunGeometry = Geometry.Parse(
-        "M12,2 L12,4 M12,20 L12,22 M4.93,4.93 L6.34,6.34 M17.66,17.66 L19.07,19.07 " +
-        "M2,12 L4,12 M20,12 L22,12 M4.93,19.07 L6.34,17.66 M17.66,6.34 L19.07,4.93 " +
-        "M12,7 A5,5 0 1 0 12,17 A5,5 0 1 0 12,7");
-    private static readonly Geometry PlayPauseGeometry = Geometry.Parse(
-        "M4,3 L13,12 L4,21 Z M15,4 L18,4 L18,20 L15,20 Z M20,4 L23,4 L23,20 L20,20 Z");
+    private const int GwlExStyle = -20;
+    private const long WsExToolWindow = 0x00000080L;
+    private const long WsExNoActivate = 0x08000000L;
     private const double HorizontalScreenInset = 22;
     private const double TaskbarRevealOverlap = 1;
     private const double RestingOffset = -8;
@@ -98,10 +97,10 @@ internal sealed class GestureOsdService : IDisposable
     {
         ShowMediaCommand(
             next ? "Next track" : "Previous track",
-            next ? ResolveResourceGeometry("Tc.Icon.SkipNext") : ResolveResourceGeometry("Tc.Icon.SkipPrevious"));
+            next ? ResolveResourceGeometry(SemanticIconKeys.Next) : ResolveResourceGeometry(SemanticIconKeys.Previous));
     }
 
-    internal void ShowTrackCenter() => ShowMediaCommand("Play / pause", PlayPauseGeometry);
+    internal void ShowTrackCenter() => ShowMediaCommand("Play / pause", ResolveResourceGeometry(SemanticIconKeys.PlayPause));
 
     private void ShowMediaCommand(string label, Geometry geometry)
     {
@@ -221,7 +220,7 @@ internal sealed class GestureOsdService : IDisposable
             Width = 16,
             Height = 16,
             Stretch = Stretch.Uniform,
-            Data = ResolveResourceGeometry("Tc.Icon.Audio"),
+            Data = ResolveResourceGeometry(SemanticIconKeys.Volume),
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round
@@ -249,7 +248,7 @@ internal sealed class GestureOsdService : IDisposable
         _label = new TextBlock
         {
             FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
-            FontSize = 12,
+            FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -258,7 +257,7 @@ internal sealed class GestureOsdService : IDisposable
         _value = new TextBlock
         {
             FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
-            FontSize = 12,
+            FontSize = TypographyScale.Caption,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -336,12 +335,35 @@ internal sealed class GestureOsdService : IDisposable
             ResizeMode = ResizeMode.NoResize,
             ShowInTaskbar = false,
             ShowActivated = false,
+            Focusable = false,
             Topmost = true,
             AllowsTransparency = true,
             Background = Brushes.Transparent,
             Content = clippingHost
         };
+        _window.SourceInitialized += (_, _) => ApplyNoActivateStyle(_window);
     }
+
+    private static void ApplyNoActivateStyle(Window window)
+    {
+        try
+        {
+            IntPtr hwnd = new WindowInteropHelper(window).Handle;
+            IntPtr current = GetWindowLongPtr(hwnd, GwlExStyle);
+            long next = current.ToInt64() | WsExNoActivate | WsExToolWindow;
+            _ = SetWindowLongPtr(hwnd, GwlExStyle, new IntPtr(next));
+        }
+        catch
+        {
+            // ShowActivated=false remains the managed fallback.
+        }
+    }
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hwnd, int index);
+
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hwnd, int index, IntPtr value);
 
     private void RestartHideTimer()
     {
@@ -396,16 +418,13 @@ internal sealed class GestureOsdService : IDisposable
 
         if (brightness)
         {
-            _iconPath.Data = BrightnessSunGeometry;
-            _iconPath.Fill = Brushes.Transparent;
-            _iconPath.SetResourceReference(Shape.StrokeProperty, "Tc.Text");
-            _iconPath.StrokeThickness = 1.75;
+            ApplyFilledIcon(SemanticIconKeys.Brightness);
             return;
         }
 
         string key = label.Contains("Muted", StringComparison.OrdinalIgnoreCase) || value == 0
-            ? "Tc.Icon.AudioMuted"
-            : value < 45 ? "Tc.Icon.AudioLow" : "Tc.Icon.Audio";
+            ? SemanticIconKeys.VolumeMuted
+            : value < 45 ? "Tc.Icon.AudioLow" : SemanticIconKeys.Volume;
         ApplyFilledIcon(key);
     }
 

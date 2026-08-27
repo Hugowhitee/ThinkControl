@@ -23,9 +23,6 @@ public partial class CompactDashboard
         if (header is null || actions is null)
             return;
 
-        if (header.ColumnDefinitions.Count > 1)
-            header.ColumnDefinitions[1].Width = new GridLength(114);
-
         var icon = new Grid { Width = 19, Height = 19 };
         icon.Children.Add(new Path
         {
@@ -53,21 +50,25 @@ public partial class CompactDashboard
         _hardwareAlertButton = new WpfButton
         {
             Style = TryFindResource("CompactCaptionButton") as Style,
+            Tag = ShellUtilityOrder.NotificationTag,
             ToolTip = "Notifications",
             Content = icon,
             Visibility = Visibility.Visible
         };
         _hardwareAlertButton.Click += (_, _) => _app?.ToggleNotificationCenter();
 
-        // Both shells use the same utility grammar: view-mode action first,
-        // notifications second, then the surface-specific hide/close action.
-        // Anchoring to the named view button keeps future additions from silently
-        // reversing the order again.
-        int viewModeIndex = actions.Children.IndexOf(CompactExpandButton);
-        int notificationIndex = viewModeIndex >= 0
-            ? Math.Min(actions.Children.Count, viewModeIndex + 1)
-            : 0;
-        actions.Children.Insert(notificationIndex, _hardwareAlertButton);
+        WpfButton? hideButton = actions.Children.OfType<WpfButton>()
+            .FirstOrDefault(button => !ReferenceEquals(button, CompactExpandButton));
+        ShellUtilityOrder.ConfigureModeButton(
+            CompactExpandButton,
+            "Advanced",
+            "FullView",
+            (Brush)FindResource("Tc.TextMuted"));
+        ShellUtilityOrder.Apply(
+            actions,
+            _hardwareAlertButton,
+            CompactExpandButton,
+            hideButton is null ? [] : [hideButton]);
     }
 
     private void SyncHardwareAlert()

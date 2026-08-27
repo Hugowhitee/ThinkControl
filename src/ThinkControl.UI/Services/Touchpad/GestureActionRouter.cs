@@ -9,6 +9,7 @@ internal sealed class GestureActionRouter
     private const double BrightnessBaseGain = 1.15;
     private const double TrackSwipeThresholdMm = 5.5;
     private const double TrackCenterMinimumHoldMs = 300;
+    private const double TrackCenterMovementToleranceMm = 1.4;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -79,8 +80,9 @@ internal sealed class GestureActionRouter
                 Release(signal);
                 break;
             case GesturePhase.Cancelled:
-                if (signal.Action == GestureActionKind.PreviousNextTrack)
-                    TryFireTrackSwipe(signal, allowReleaseFallback: true);
+                // Cancellation (second finger, lost confidence, leaving the edge
+                // corridor) is never an action commit. A valid lift arrives as
+                // Released and owns the discrete fallback path.
                 End(signal.Action);
                 break;
         }
@@ -199,7 +201,7 @@ internal sealed class GestureActionRouter
             return;
 
         double elapsedMs = (Stopwatch.GetTimestamp() - _trackGestureStarted) * 1000d / Stopwatch.Frequency;
-        if (elapsedMs < TrackCenterMinimumHoldMs || _trackMaxTravelMm > configuration.ActivationDistanceMm)
+        if (elapsedMs < TrackCenterMinimumHoldMs || _trackMaxTravelMm > TrackCenterMovementToleranceMm)
             return;
 
         _trackSwipeFired = true;

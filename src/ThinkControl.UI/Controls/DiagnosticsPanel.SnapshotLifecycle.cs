@@ -68,4 +68,21 @@ public partial class DiagnosticsPanel
             _syncing = false;
         }
     }
+
+    internal void PrepareCrashQueueForSnapshot()
+    {
+        CrashCard.Visibility = Visibility.Visible;
+        CrashSeparator.Visibility = Visibility.Visible;
+        CrashTitleText.Text = "Crashes preserved · 3";
+        CrashSummaryText.Text = "NotSupportedException · ToolTip property contract · today 14:32 · repeated 2 times · 2 previous unresolved";
+        CrashHistoryCombo.ItemsSource = new[]
+        {
+            new CrashHistoryOption("snapshot-latest", "NotSupportedException · ×2 · today 14:32"),
+            new CrashHistoryOption("snapshot-previous", "InvalidOperationException · today 13:58"),
+            new CrashHistoryOption("snapshot-oldest", "COMException · yesterday 22:11")
+        };
+        CrashHistoryCombo.SelectedValue = "snapshot-latest";
+        CrashHistoryCombo.Visibility = Visibility.Visible;
+        MarkCrashReportedButton.Visibility = Visibility.Visible;
+    }
 }

@@ -62,7 +62,7 @@ public partial class CompactDashboard
         TextBlock label = new()
         {
             Text = definition.Label,
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
         label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
@@ -70,7 +70,7 @@ public partial class CompactDashboard
 
         TextBlock value = new()
         {
-            FontSize = definition.Id == "Sensors" ? 14.5 : 17,
+            FontSize = TypographyScale.Value,
             FontWeight = FontWeights.Light,
             Margin = new Thickness(0, 5, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
@@ -82,7 +82,7 @@ public partial class CompactDashboard
 
         TextBlock detail = new()
         {
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 2, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
         };

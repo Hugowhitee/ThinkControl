@@ -57,6 +57,29 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
+    public void MovingTrackCandidate_PreservesPreClaimTravelForCenterHoldGuard()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            TrackCenterPlayPauseEnabled = true,
+            ActivationDistanceMm = 4,
+            Bindings = new TouchpadGestureBindings(
+                new(GestureActionKind.Volume),
+                new(GestureActionKind.Brightness),
+                new(GestureActionKind.PreviousNextTrack),
+                new(GestureActionKind.Disabled))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        recognizer.ProcessFrame([new TouchContact(1, 6200, 120, true)], Geometry);
+        recognizer.ProcessFrame([new TouchContact(1, 6450, 120, true)]);
+        GestureSignal? released = recognizer.ProcessFrame([]);
+
+        Assert.Equal(GesturePhase.Released, released?.Phase);
+        Assert.InRange(released?.TotalTravelMm ?? 0, 2.4, 2.6);
+    }
+
+    [Fact]
     public void OpenThinkControl_ClaimsOnlyOnInwardMotion()
     {
         var config = TouchpadGestureConfiguration.Default with
@@ -76,6 +99,27 @@ public sealed class EdgeGestureReleaseTests
         Assert.Equal(TouchpadEdge.Right, claimed?.Edge);
         Assert.Equal(GestureActionKind.OpenThinkControl, claimed?.Action);
         Assert.True(claimed?.TotalTravelMm > 4);
+    }
+
+    [Fact]
+    public void OpenThinkControl_AcceptsCornerToCenterDiagonal()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            Bindings = new TouchpadGestureBindings(
+                new(GestureActionKind.Volume),
+                new(GestureActionKind.OpenThinkControl),
+                new(GestureActionKind.MediaSeek),
+                new(GestureActionKind.Disabled))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        recognizer.ProcessFrame([new TouchContact(1, 13380, 120, true)], Geometry);
+        GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 13020, 480, true)]);
+
+        Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
+        Assert.Equal(TouchpadEdge.Right, claimed?.Edge);
+        Assert.Equal(GestureActionKind.OpenThinkControl, claimed?.Action);
     }
 
     [Fact]

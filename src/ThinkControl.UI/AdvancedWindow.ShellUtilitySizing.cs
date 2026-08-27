@@ -18,21 +18,16 @@ public partial class AdvancedWindow
 
         utilityRow.Height = 46;
         Button[] buttons = utilityRow.Children.OfType<Button>().ToArray();
-        foreach (Button button in buttons)
+        foreach (Button button in buttons.Where(button => !Equals(button.Tag, ShellUtilityOrder.ViewModeTag)))
         {
             button.Width = 38;
             button.Height = 38;
             button.Padding = new Thickness(0);
         }
 
-        Button? compact = buttons.FirstOrDefault(button =>
-            button.Content is PackIconLucide icon && icon.Kind == "CompactView");
-        if (compact?.Content is PackIconLucide compactIcon)
-        {
-            compactIcon.Width = 19;
-            compactIcon.Height = 19;
+        Button? compact = buttons.FirstOrDefault(button => Equals(button.Tag, ShellUtilityOrder.ViewModeTag));
+        if (compact is not null)
             compact.Margin = new Thickness(0, 0, 4, 0);
-        }
 
         Button? notification = buttons.FirstOrDefault(button => !ReferenceEquals(button, compact));
         if (notification?.Content is Grid notificationContent)

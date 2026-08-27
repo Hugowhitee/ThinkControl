@@ -39,6 +39,12 @@ internal static class Program
         AppState charging = CreateDemoState(charging: true, hardwareReady: true);
         AppState onBattery = CreateDemoState(charging: false, hardwareReady: true);
         AppState serviceOffline = CreateDemoState(charging: true, hardwareReady: false);
+        AppState unknownReady = CreateDemoState(charging: true, hardwareReady: true);
+        unknownReady.DeviceName = "Visual QA laptop";
+        unknownReady.MachineType = "QA-UNKNOWN";
+        AppState unknownOffline = CreateDemoState(charging: true, hardwareReady: false);
+        unknownOffline.DeviceName = "Visual QA laptop";
+        unknownOffline.MachineType = "QA-UNKNOWN";
         AppState batteryDeviceTemperature = CreateDemoState(charging: true, hardwareReady: true);
         batteryDeviceTemperature.BatteryTemperatureC = null;
         AppState activeFanCurve = CreateDemoState(charging: true, hardwareReady: true);
@@ -107,6 +113,8 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker");
         RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
+        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots,
+            "advanced-touchpad-inward-active.png", "right edge · inward · active", touchpadInward: true);
 
         // High-value overlays/windows are part of the release gate too. They use
         // deterministic provider states but the exact production controls/styles.
@@ -133,8 +141,12 @@ internal static class Program
         RenderHardwareSetup(app, serviceOffline, readySetup, 560, 360, output, snapshots,
             "required-component-keyboard.png", "keyboard provider retry", issue: HardwarePrerequisiteIssue.Keyboard);
         RenderDiagnostics(app, charging, 1160, 760, output, snapshots,
+            "diagnostics-verified.png", "verified X9 · routine troubleshooting", verifiedDevice: true);
+        RenderDiagnostics(app, charging, 1160, 760, output, snapshots,
+            "diagnostics-crash-queue.png", "verified X9 · three unresolved crashes", verifiedDevice: true, crashQueue: true);
+        RenderDiagnostics(app, unknownReady, 1160, 760, output, snapshots,
             "diagnostics-ready.png", "capabilities detected · report ready");
-        RenderDiagnostics(app, serviceOffline, 1160, 760, output, snapshots,
+        RenderDiagnostics(app, unknownOffline, 1160, 760, output, snapshots,
             "diagnostics-discovering.png", "provider data not ready");
         RenderFanCurveEditor(app, charging, output, snapshots);
         RenderTelemetryDetail(output, snapshots);
@@ -163,9 +175,9 @@ internal static class Program
             "hardware-setup-pawnio-error-light.png", "PawnIO setup unsuccessful · light", terminalFailure: true);
         RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
             "hardware-setup-pawnio-error-min-light.png", "PawnIO setup unsuccessful · minimum window · light", terminalFailure: true);
-        RenderDiagnostics(app, charging, 1160, 760, output, snapshots,
+        RenderDiagnostics(app, unknownReady, 1160, 760, output, snapshots,
             "diagnostics-ready-light.png", "capabilities detected · report ready · light");
-        RenderDiagnostics(app, serviceOffline, 1160, 760, output, snapshots,
+        RenderDiagnostics(app, unknownOffline, 1160, 760, output, snapshots,
             "diagnostics-discovering-light.png", "provider data not ready · light");
 
         WriteManifest(output, snapshots);
@@ -328,7 +340,8 @@ internal static class Program
         string fileName,
         string stateName,
         bool audioProvidersAvailable = true,
-        bool expandBatteryDay = false)
+        bool expandBatteryDay = false,
+        bool touchpadInward = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -336,7 +349,11 @@ internal static class Program
         if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)
             app.State.BatteryTemperatureC = null;
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
+        {
             window.NavigateTouchpad();
+            if (touchpadInward)
+                window.PrepareTouchpadInwardForSnapshot();
+        }
         else if (string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase))
         {
             window.NavigateAudio();
@@ -344,6 +361,9 @@ internal static class Program
         }
         else
             window.Navigate(page);
+
+        if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
+            window.PreparePerformanceForSnapshot();
 
         if (expandBatteryDay)
         {
@@ -464,13 +484,17 @@ internal static class Program
         string output,
         ICollection<SnapshotEntry> snapshots,
         string fileName,
-        string stateName)
+        string stateName,
+        bool verifiedDevice = false,
+        bool crashQueue = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
         window.Navigate("Settings");
-        window.PrepareDiagnosticsForSnapshot(ThinkControl.Core.Diagnostics.DiagnosticsConsent.Enabled);
+        window.PrepareDiagnosticsForSnapshot(ThinkControl.Core.Diagnostics.DiagnosticsConsent.Enabled, verifiedDevice);
+        if (crashQueue)
+            window.PrepareCrashQueueForSnapshot();
         if (window.Content is FrameworkElement root)
         {
             root.Measure(new Size(width, height));
@@ -544,6 +568,8 @@ internal static class Program
         root.Measure(new Size(width, height));
         root.Arrange(new Rect(0, 0, width, height));
         root.UpdateLayout();
+        TypographyContract.Validate(root);
+        UiLayoutContract.Validate(root);
 
         int pixelWidth = Math.Max(1, (int)Math.Ceiling(width));
         int pixelHeight = Math.Max(1, (int)Math.Ceiling(height));

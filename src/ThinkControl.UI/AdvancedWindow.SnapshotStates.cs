@@ -59,14 +59,16 @@ public partial class AdvancedWindow
             panel.PrepareForSnapshot(providersAvailable);
     }
 
-    internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent)
+    internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
     {
-        // The dedicated diagnostics renders intentionally cover the unknown-device
-        // lifecycle rather than inheriting the verified-X9 identity from the general
-        // visual-QA fixture. Healthy capabilities show 5/5 + report ready; the
-        // provider-offline fixture stays in the 3/5 learning state.
-        DiagnosticsPanelControl?.PrepareLifecycleForSnapshot(_app.State, consent);
+        if (verifiedDevice)
+            DiagnosticsPanelControl?.PrepareForSnapshot(_app.State, consent);
+        else
+            DiagnosticsPanelControl?.PrepareLifecycleForSnapshot(_app.State, consent);
     }
+
+    internal void PrepareCrashQueueForSnapshot() =>
+        DiagnosticsPanelControl?.PrepareCrashQueueForSnapshot();
 
     internal void ScrollDiagnosticsIntoViewForSnapshot()
     {

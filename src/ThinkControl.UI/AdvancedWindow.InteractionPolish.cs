@@ -134,7 +134,7 @@ public partial class AdvancedWindow
         var detail = new TextBlock
         {
             Text = "Check shortly after startup and every six hours. A found update immediately appears here and in Notifications. ThinkControl never opens an administrator prompt or installs in the background; installation starts only when you click Install update.",
-            FontSize = 10.5,
+            FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 4, 80, 0),
             TextWrapping = TextWrapping.Wrap
         };
