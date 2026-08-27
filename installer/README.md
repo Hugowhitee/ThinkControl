@@ -1,16 +1,17 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.19` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
+ThinkControl `v0.1.0-alpha.23` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
 
 ## Release assets
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.19.exe
-ThinkControl-Payload-0.1.0-alpha.19.zip
+ThinkControl-Setup-0.1.0-alpha.23.exe
+ThinkControl-Payload-0.1.0-alpha.23.zip
 SHA256SUMS.txt
+ui-overview.png
 ```
 
-Release CI also renders selected WPF Compact/Home/Touchpad/System/Sensor-detail previews as validation evidence. Public GitHub Releases intentionally contain only Setup, Payload and `SHA256SUMS.txt`.
+Release CI renders the real WPF interface as validation evidence. The complete screenshot matrix stays in the short-lived CI visual-QA artifact; the public GitHub Release contains one composed `ui-overview.png` so users can see the current interface without a long list of screenshots.
 
 The Setup executable does not embed the ThinkControl UI/service payload or a duplicate .NET runtime. The matching payload is downloaded from the same GitHub release and verified before extraction.
 
@@ -82,11 +83,11 @@ Running a newer ThinkControl Setup over an existing installation is a first-clas
 
 Before replacing files, Setup closes a running ThinkControl tray/UI instance, stops `ThinkControlService`, replaces the verified payload and updates/restarts the service registration. Normal controller disposal attempts to hand an active verified fan override back to Lenovo Auto before low-level access closes.
 
-The in-app updater downloads the matching installer plus `SHA256SUMS.txt`, verifies the installer and starts Setup with update/relaunch parameters. A silent in-app update can relaunch ThinkControl automatically afterward.
+The in-app updater downloads Setup + Payload + `SHA256SUMS.txt`, verifies the assets and starts Setup with update/relaunch parameters. Background update checks never elevate or install by themselves.
 
 ## Icons and shortcuts
 
-The canonical v3 multi-resolution application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs and the Advanced window. The notification-area icon uses the same bold T/C design language with a runtime-optimized small-size mark and no stray status dot.
+The canonical v3 multi-resolution application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs and the full window. The notification-area icon uses the same bold T/C design language with a runtime-optimized small-size mark.
 
 ## Size budgets
 
@@ -104,7 +105,7 @@ The practical installed-payload target remains much smaller than the hard ceilin
 
 Pull requests that change application, installer, branding or version code run the package workflow. It verifies branding, restores/builds the solution, publishes framework-dependent UI and service files, creates and hashes the external payload, builds the bootstrapper, installs it with the verified local payload override, waits for `ThinkControlService` to reach Running, uninstalls it and verifies cleanup.
 
-Tagged release packaging repeats the validated path and publishes Setup, payload, `SHA256SUMS.txt` and the selected WPF previews in one immutable GitHub Release creation.
+Release CI also runs the WPF visual matrix and the real Compact ↔ Full transition smoke. Tagged release packaging repeats the validated path and publishes Setup, Payload, `SHA256SUMS.txt` and one composed `ui-overview.png` in the same immutable GitHub Release.
 
 ## Uninstall
 
