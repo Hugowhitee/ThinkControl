@@ -82,7 +82,7 @@ internal static class TouchpadActionVisualCatalog
 
             [GestureActionKind.PreviousNextTrack] = new(
                 GestureActionKind.PreviousNextTrack,
-                TouchpadVisualCue.PlayPause,
+                TouchpadVisualCue.Text("⏯"),
                 TouchpadVisualCue.Icon("Tc.Icon.SkipPrevious"),
                 TouchpadVisualCue.Icon("Tc.Icon.SkipNext"),
                 Directional: true,
@@ -90,7 +90,7 @@ internal static class TouchpadActionVisualCatalog
 
             [GestureActionKind.PlayPause] = new(
                 GestureActionKind.PlayPause,
-                TouchpadVisualCue.PlayPause,
+                TouchpadVisualCue.Text("⏯"),
                 TouchpadVisualCue.None,
                 TouchpadVisualCue.None,
                 Directional: false),
