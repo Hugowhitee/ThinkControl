@@ -5,6 +5,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.Core.Cooling;
+using WpfKeyEventArgs = System.Windows.Input.KeyEventArgs;
+using WpfListBox = System.Windows.Controls.ListBox;
 
 namespace ThinkControl.UI;
 
@@ -33,7 +35,7 @@ internal static class FanCurveEditorHistory
         private readonly FanCurveGraph _graph;
         private readonly Stack<CurveState> _undo = new();
         private readonly Stack<CurveState> _redo = new();
-        private readonly List<ListBox> _profileLists = [];
+        private readonly List<WpfListBox> _profileLists = [];
         private Button? _undoButton;
         private Button? _redoButton;
         private CurveState _last;
@@ -58,7 +60,7 @@ internal static class FanCurveEditorHistory
             _graph.PreviewMouseLeftButtonUp += Graph_PreviewMouseLeftButtonUp;
             _window.PreviewKeyDown += Window_PreviewKeyDown;
 
-            foreach (ListBox list in FindDescendants<ListBox>(_window))
+            foreach (WpfListBox list in FindDescendants<WpfListBox>(_window))
             {
                 _profileLists.Add(list);
                 list.SelectionChanged += ProfileList_SelectionChanged;
@@ -104,9 +106,6 @@ internal static class FanCurveEditorHistory
                 return;
 
             long generation = Interlocked.Increment(ref _profileResetGeneration);
-            // FanCurveEditorWindow handles the same SelectionChanged first/alongside
-            // this observer and calls BeginEditing/SetCurve. Defer one dispatcher turn
-            // so history starts from the newly selected profile, never the old one.
             _window.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
             {
                 if (generation != Volatile.Read(ref _profileResetGeneration) || _restoring)
@@ -176,7 +175,7 @@ internal static class FanCurveEditorHistory
             }
         }
 
-        private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void Window_PreviewKeyDown(object sender, WpfKeyEventArgs e)
         {
             if (!Keyboard.Modifiers.HasFlag(ModifierKeys.Control) || Keyboard.FocusedElement is TextBox)
                 return;
@@ -234,7 +233,7 @@ internal static class FanCurveEditorHistory
         {
             if (_undo.Count > 0 && Equivalent(_undo.Peek(), state))
                 return;
-            _undo.Push(state.Clone());
+            _undo.Push(state.SnapshotCopy());
             TrimStack(_undo);
         }
 
@@ -242,7 +241,7 @@ internal static class FanCurveEditorHistory
         {
             if (_redo.Count > 0 && Equivalent(_redo.Peek(), state))
                 return;
-            _redo.Push(state.Clone());
+            _redo.Push(state.SnapshotCopy());
             TrimStack(_redo);
         }
 
@@ -257,7 +256,6 @@ internal static class FanCurveEditorHistory
         }
 
         private CurveState Capture() => new(_graph.GetCurve(), _graph.SelectedIndex);
-
         private static bool Equivalent(CurveState a, CurveState b) => a.Points.SequenceEqual(b.Points);
 
         private void UpdateButtons()
@@ -274,7 +272,7 @@ internal static class FanCurveEditorHistory
             _graph.PreviewMouseLeftButtonDown -= Graph_PreviewMouseLeftButtonDown;
             _graph.PreviewMouseLeftButtonUp -= Graph_PreviewMouseLeftButtonUp;
             _window.PreviewKeyDown -= Window_PreviewKeyDown;
-            foreach (ListBox list in _profileLists)
+            foreach (WpfListBox list in _profileLists)
                 list.SelectionChanged -= ProfileList_SelectionChanged;
             _window.Closed -= Window_Closed;
         }
@@ -282,7 +280,7 @@ internal static class FanCurveEditorHistory
 
     private sealed record CurveState(FanCurvePoint[] Points, int SelectedIndex)
     {
-        internal CurveState Clone() => new(Points.Select(point => point with { }).ToArray(), SelectedIndex);
+        internal CurveState SnapshotCopy() => new(Points.Select(point => point with { }).ToArray(), SelectedIndex);
     }
 
     private static T? FindDescendant<T>(DependencyObject root) where T : DependencyObject
