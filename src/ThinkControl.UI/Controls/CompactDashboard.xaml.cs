@@ -13,6 +13,8 @@ public partial class CompactDashboard : UserControl
     private App? _app;
     private bool _viewSwitchPending;
 
+    internal Button ExpandButtonForShellSmoke => CompactExpandButton;
+
     public CompactDashboard()
     {
         InitializeComponent();
@@ -38,7 +40,6 @@ public partial class CompactDashboard : UserControl
             app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
         }
 
-        EnsureShellPolish();
         EnsureQuickControls();
         EnsureCompactMetrics();
         EnsureHardwareAlert();
@@ -83,9 +84,9 @@ public partial class CompactDashboard : UserControl
 
         _viewSwitchPending = true;
 
-        // Leave the current button event/layout pass before constructing or showing
-        // Advanced. App.SwitchCompactToAdvanced owns the complete transition and
-        // keeps Compact painted until the destination has rendered.
+        // Exercise exactly one shell owner after the routed button event completes.
+        // Deferring past the current input pass avoids constructing another native
+        // top-level window while WPF is still unwinding the Compact button click.
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
             try
@@ -94,7 +95,7 @@ public partial class CompactDashboard : UserControl
             }
             catch (Exception ex)
             {
-                Trace.WriteLine($"ThinkControl view switch failed: {ex}");
+                _app.RecordShellException("compact-expand", ex);
                 try { _app.CompactWindow.ShowNearTray(animate: false); } catch { }
             }
             finally
