@@ -79,16 +79,14 @@ public partial class AdvancedWindow
             return;
         }
 
-        var header = new Grid
+        // Home is an instrument panel, not a promotion surface. Keep the support
+        // action in Settings and leave the primary dashboard header visually quiet.
+        var header = new StackPanel
         {
             Tag = HomeSupportCardTag,
             Margin = new Thickness(2, 0, 2, 12)
         };
-        header.ColumnDefinitions.Add(new ColumnDefinition());
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var title = new StackPanel();
-        title.Children.Add(new TextBlock
+        header.Children.Add(new TextBlock
         {
             Text = "Overview",
             FontWeight = FontWeights.SemiBold,
@@ -101,13 +99,7 @@ public partial class AdvancedWindow
             Margin = new Thickness(0, 3, 0, 0)
         };
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        title.Children.Add(detail);
-        header.Children.Add(title);
-
-        Button action = CreateCoffeeAction(compact: true);
-        action.VerticalAlignment = VerticalAlignment.Top;
-        Grid.SetColumn(action, 1);
-        header.Children.Add(action);
+        header.Children.Add(detail);
         homeStack.Children.Insert(0, header);
     }
 
