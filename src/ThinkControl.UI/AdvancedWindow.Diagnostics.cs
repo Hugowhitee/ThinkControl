@@ -66,6 +66,13 @@ public partial class AdvancedWindow
         Controls.ReadableTypography.Apply(this);
         DiagnosticsPanelControl?.Refresh();
 
+        // Snapshot windows are intentionally never shown, so WPF Loaded does not
+        // run and the normal runtime SyncControls path would otherwise be skipped.
+        // Apply the same checked/enabled state explicitly so visual QA actually
+        // exercises persistent selection surfaces instead of rendering every
+        // segmented control as unselected.
+        SyncControls();
+
         if (DataContext is ViewModels.AppState snapshotState)
         {
             // Healthy visual-QA states should exercise both sides of optional battery

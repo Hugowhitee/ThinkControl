@@ -22,6 +22,9 @@ internal sealed class AttentionToastService : IDisposable
     private string _lastKey = string.Empty;
     private DateTimeOffset _lastShown = DateTimeOffset.MinValue;
 
+    internal Window? WindowForShellSmoke => _window;
+    internal Button? ActionButtonForShellSmoke => _action;
+
     internal AttentionToastService()
     {
         _hideTimer = new DispatcherTimer(DispatcherPriority.Background)
@@ -81,12 +84,22 @@ internal sealed class AttentionToastService : IDisposable
         if (_window is null)
             return;
 
+        Window? anchor = ResolveOwner();
+        if (anchor is not null && !ReferenceEquals(_window.Owner, anchor))
+        {
+            try { _window.Owner = anchor; }
+            catch
+            {
+                // Ownership is lifecycle polish, not a reason to lose a notification.
+                // App-level focus classification still treats our HWND as internal.
+            }
+        }
+
         _window.UpdateLayout();
         Rect area = SystemParameters.WorkArea;
         double width = Math.Max(_window.ActualWidth, _window.Width);
         double height = Math.Max(_window.ActualHeight, _window.MinHeight);
-        _window.Left = area.Right - width - 18;
-        _window.Top = area.Bottom - height - 18;
+        PositionWindow(anchor, area, width, height);
 
         if (!_window.IsVisible)
         {
@@ -94,7 +107,7 @@ internal sealed class AttentionToastService : IDisposable
             _window.Show();
             _window.UpdateLayout();
             height = Math.Max(_window.ActualHeight, _window.MinHeight);
-            _window.Top = area.Bottom - height - 18;
+            PositionWindow(anchor, area, width, height);
             if (SystemParameters.ClientAreaAnimation)
             {
                 _window.BeginAnimation(Window.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(150))
@@ -115,6 +128,43 @@ internal sealed class AttentionToastService : IDisposable
 
         _hideTimer.Stop();
         _hideTimer.Start();
+    }
+
+    private Window? ResolveOwner()
+    {
+        if (System.Windows.Application.Current is not Application app)
+            return null;
+
+        Window[] windows = app.Windows.OfType<Window>()
+            .Where(window => window.IsVisible && !ReferenceEquals(window, _window))
+            .ToArray();
+
+        return windows.FirstOrDefault(window => window.IsActive)
+            ?? windows.OfType<MainWindow>().FirstOrDefault()
+            ?? windows.OfType<AdvancedWindow>().FirstOrDefault()
+            ?? windows.FirstOrDefault(window => window.ShowInTaskbar);
+    }
+
+    private void PositionWindow(Window? anchor, Rect area, double width, double height)
+    {
+        if (_window is null)
+            return;
+
+        if (anchor is MainWindow compact && compact.IsVisible)
+        {
+            // Do not cover the controls that caused the notification to become a
+            // destructive focus interaction in previous releases. Keep the toast
+            // aligned with Compact, but place it above the flyout when space allows.
+            _window.Left = Math.Clamp(compact.Left, area.Left + 8, Math.Max(area.Left + 8, area.Right - width - 8));
+            double above = compact.Top - height - 10;
+            _window.Top = above >= area.Top + 8
+                ? above
+                : Math.Clamp(compact.Top + compact.ActualHeight + 10, area.Top + 8, Math.Max(area.Top + 8, area.Bottom - height - 8));
+            return;
+        }
+
+        _window.Left = area.Right - width - 18;
+        _window.Top = area.Bottom - height - 18;
     }
 
     private void EnsureWindow()
@@ -171,11 +221,7 @@ internal sealed class AttentionToastService : IDisposable
             HorizontalAlignment = HorizontalAlignment.Left,
             Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
-        _action.Click += (_, _) =>
-        {
-            Hide();
-            _actionCallback?.Invoke();
-        };
+        _action.Click += (_, _) => InvokeAndRestoreOwner(_actionCallback);
 
         _dismiss = new Button
         {
@@ -186,11 +232,7 @@ internal sealed class AttentionToastService : IDisposable
             Margin = new Thickness(8, 0, 0, 0),
             Style = System.Windows.Application.Current?.TryFindResource("TcButton") as Style
         };
-        _dismiss.Click += (_, _) =>
-        {
-            Hide();
-            _dismissCallback?.Invoke();
-        };
+        _dismiss.Click += (_, _) => InvokeAndRestoreOwner(_dismissCallback);
 
         _actions = new StackPanel
         {
@@ -244,6 +286,23 @@ internal sealed class AttentionToastService : IDisposable
             Background = Brushes.Transparent,
             Content = shell
         };
+    }
+
+    private void InvokeAndRestoreOwner(Action? callback)
+    {
+        Window? owner = _window?.Owner;
+        Hide();
+
+        // Clicking an owned ThinkControl notification may activate the toast HWND.
+        // Restore the underlying app surface before running the command. For an
+        // update/navigation action the callback can then deliberately transition it.
+        if (owner?.IsVisible == true)
+        {
+            try { owner.Activate(); }
+            catch { }
+        }
+
+        callback?.Invoke();
     }
 
     internal void Hide()

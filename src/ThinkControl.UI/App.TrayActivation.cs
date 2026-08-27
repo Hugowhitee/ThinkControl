@@ -43,9 +43,18 @@ public partial class App
         if (e.Button != Forms.MouseButtons.Left)
             return;
 
+        // Clicking a WinForms NotifyIcon momentarily moves foreground ownership to
+        // Explorer before the WPF dispatcher receives our queued toggle. Claim the
+        // interaction immediately so Compact's flyout deactivation does not race
+        // ahead and turn an intended hide into a hide-then-show (or vice versa).
+        NotifyTrayInteractionStarted();
         Dispatcher.BeginInvoke(
             DispatcherPriority.ApplicationIdle,
-            new Action(ToggleThinkControlFromTray));
+            new Action(() =>
+            {
+                try { ToggleThinkControlFromTray(); }
+                finally { NotifyTrayInteractionCompleted(); }
+            }));
     }
 
     private void ToggleThinkControlFromTray()

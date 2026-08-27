@@ -97,9 +97,16 @@ public partial class App
     private void ShowConfiguredInitialView()
     {
         if (IsAdvancedOpeningPreferred())
-            OpenAdvanced("Home");
+        {
+            // Startup is a shell transition too. Route it through the same App-level
+            // owner as tray/navigation/Compact commands instead of keeping the old
+            // direct Advanced show/hide path alive as a special case.
+            OpenAdvancedSafely("Home");
+        }
         else
+        {
             CompactWindow.ShowNearTray(animate: true);
+        }
     }
 
     private void QueuePostStartupShellPolish()

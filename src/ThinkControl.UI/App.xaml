@@ -124,6 +124,7 @@
                 <Setter Property="Padding" Value="12,9" />
                 <Setter Property="Cursor" Value="Hand" />
                 <Setter Property="HorizontalContentAlignment" Value="Center" />
+                <Setter Property="FontWeight" Value="Normal" />
                 <Setter Property="Template">
                     <Setter.Value>
                         <ControlTemplate TargetType="RadioButton">
@@ -137,6 +138,13 @@
                                     <ContentPresenter Margin="{TemplateBinding Padding}"
                                                       HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
                                                       VerticalAlignment="Center" />
+                                    <Border x:Name="SelectionMarker"
+                                            Height="2"
+                                            Margin="6,0,6,3"
+                                            HorizontalAlignment="Stretch"
+                                            VerticalAlignment="Bottom"
+                                            Background="Transparent"
+                                            CornerRadius="1" />
                                 </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
@@ -150,8 +158,11 @@
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True"><Setter TargetName="InteractionOverlay" Property="Opacity" Value="0.12" /></Trigger>
                                 <Trigger Property="IsChecked" Value="True">
-                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
-                                    <Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" />
+                                    <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
+                                    <Setter TargetName="SelectionMarker" Property="Background" Value="{DynamicResource Tc.Accent}" />
+                                    <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                                    <Setter Property="FontWeight" Value="SemiBold" />
                                 </Trigger>
                                 <Trigger Property="IsEnabled" Value="False">
                                     <Setter Property="Opacity" Value="0.42" />

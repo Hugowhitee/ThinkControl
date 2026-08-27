@@ -7,11 +7,49 @@
              SnapsToDevicePixels="True">
     <UserControl.Resources>
         <Style x:Key="CompactCaptionButton" TargetType="Button">
-            <Setter Property="Width" Value="34" /><Setter Property="Height" Value="34" />
-            <Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" /><Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Focusable" Value="False" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
-            <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Button"><Border Background="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" /></Border><ControlTemplate.Triggers><Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource Tc.Text}" /></Trigger><Trigger Property="IsPressed" Value="True"><Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" /></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
+            <Setter Property="Width" Value="34" />
+            <Setter Property="Height" Value="34" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                                <Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="CompactInlineButton" TargetType="Button" BasedOn="{StaticResource TcInlineButton}">
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
+                    <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                    <Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" />
+                </Trigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="CompactQuickCard" TargetType="Border" BasedOn="{StaticResource TcSection}">
             <Setter Property="Padding" Value="10,8" />
@@ -33,7 +71,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="MetricRoot" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" /></Trigger>
-                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="MetricRoot" Property="Opacity" Value="0.8" /></Trigger>
+                            <Trigger Property="IsPressed" Value="True"><Setter TargetName="MetricRoot" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" /></Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -48,8 +86,8 @@
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="72" /></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center"><controls:BrandWordmark Width="118" Height="36" Margin="-7,-2,0,0" HorizontalAlignment="Left" /><TextBlock Text="{Binding DeviceName}" Margin="2,-4,0,0" FontSize="11" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" /></StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Button Style="{StaticResource CompactCaptionButton}" Click="Expand_Click"><controls:PackIconLucide Kind="FullView" Width="18" Height="18" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" /></Button>
-                    <Button Style="{StaticResource CompactCaptionButton}" Click="Hide_Click"><Viewbox Width="12" Height="12"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,2 L14,14 M14,2 L2,14" /></Viewbox></Button>
+                    <Button x:Name="CompactExpandButton" Style="{StaticResource CompactCaptionButton}" Click="Expand_Click" ToolTip="Full view" AutomationProperties.AutomationId="CompactExpand"><controls:PackIconLucide Kind="FullView" Width="18" Height="18" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" /></Button>
+                    <Button Style="{StaticResource CompactCaptionButton}" Click="Hide_Click" ToolTip="Hide to tray"><Viewbox Width="12" Height="12"><Path Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}" StrokeThickness="1.4" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M2,2 L14,14 M14,2 L2,14" /></Viewbox></Button>
                 </StackPanel>
             </Grid>
 
@@ -86,7 +124,7 @@
                     <TextBlock Grid.Row="1" Text="Volume" FontSize="11.5" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><Slider x:Name="CompactVolumeSlider" Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" PreviewMouseLeftButtonUp="CompactVolume_Commit" PreviewKeyUp="CompactVolume_KeyCommit" /><TextBlock x:Name="CompactVolumeText" Grid.Row="1" Grid.Column="2" Text="—" FontSize="11" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
             </Border>
-            <Grid Grid.Row="4" Margin="3,4,3,0"><TextBlock Text="{Binding AppVersion}" FontSize="9" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Style="{StaticResource TcInlineButton}" Content="Audio" Tag="Audio" Click="OpenPage_Click" Margin="0,0,12,0" /><Button Style="{StaticResource TcInlineButton}" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" /></StackPanel></Grid>
+            <Grid Grid.Row="4" Margin="3,4,3,0"><TextBlock Text="{Binding AppVersion}" FontSize="9" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button Style="{StaticResource CompactInlineButton}" Content="Audio" Tag="Audio" Click="OpenPage_Click" Margin="0,0,12,0" /><Button Style="{StaticResource CompactInlineButton}" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" /></StackPanel></Grid>
         </Grid>
     </Border>
 </UserControl>
