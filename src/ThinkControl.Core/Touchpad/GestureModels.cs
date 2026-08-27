@@ -16,12 +16,15 @@ public enum GestureActionKind
     MediaSeek,
     PreviousNextTrack,
     PlayPause,
+    // Legacy values are kept so existing numeric JSON settings remain readable.
+    // Sanitize() migrates them to the current action model.
     Mute,
     TaskView,
     ShowDesktop,
     KeyboardBacklight,
     PerformanceMode,
-    CustomShortcut
+    CustomShortcut,
+    OpenThinkControl
 }
 
 public enum GesturePhase
@@ -40,8 +43,20 @@ public sealed record TouchpadEdgeBinding(
 {
     public TouchpadEdgeBinding Sanitize() => this with
     {
-        Action = Enum.IsDefined(Action) ? Action : GestureActionKind.Disabled,
+        Action = SanitizeAction(Action),
         Sensitivity = Math.Clamp(double.IsFinite(Sensitivity) ? Sensitivity : 1.0, 0.25, 4.0)
+    };
+
+    private static GestureActionKind SanitizeAction(GestureActionKind action) => action switch
+    {
+        GestureActionKind.Mute => GestureActionKind.Volume,
+        GestureActionKind.TaskView or
+        GestureActionKind.ShowDesktop or
+        GestureActionKind.KeyboardBacklight or
+        GestureActionKind.PerformanceMode or
+        GestureActionKind.CustomShortcut => GestureActionKind.Disabled,
+        _ when Enum.IsDefined(action) => action,
+        _ => GestureActionKind.Disabled
     };
 }
 
@@ -66,11 +81,35 @@ public sealed record TouchpadGestureBindings(
         _ => new(GestureActionKind.Disabled)
     };
 
-    public TouchpadGestureBindings Sanitize() => new(
-        (Left ?? AsusStyle.Left)!.Sanitize(),
-        (Right ?? AsusStyle.Right)!.Sanitize(),
-        (Top ?? AsusStyle.Top)!.Sanitize(),
-        (Bottom ?? AsusStyle.Bottom)!.Sanitize());
+    public TouchpadGestureBindings Sanitize()
+    {
+        TouchpadEdgeBinding left = (Left ?? AsusStyle.Left)!.Sanitize();
+        TouchpadEdgeBinding right = (Right ?? AsusStyle.Right)!.Sanitize();
+        TouchpadEdgeBinding top = (Top ?? AsusStyle.Top)!.Sanitize();
+        TouchpadEdgeBinding bottom = (Bottom ?? AsusStyle.Bottom)!.Sanitize();
+
+        // A gesture action represents one physical affordance. Keeping the same
+        // non-Off action on multiple edges makes the visualizer ambiguous and is
+        // almost always accidental. Preserve the first occurrence when loading old
+        // settings; the UI actively moves an action when the user reassigns it.
+        var used = new HashSet<GestureActionKind>();
+        left = KeepUnique(left, used);
+        right = KeepUnique(right, used);
+        top = KeepUnique(top, used);
+        bottom = KeepUnique(bottom, used);
+        return new(left, right, top, bottom);
+    }
+
+    private static TouchpadEdgeBinding KeepUnique(
+        TouchpadEdgeBinding binding,
+        HashSet<GestureActionKind> used)
+    {
+        if (binding.Action == GestureActionKind.Disabled)
+            return binding;
+        return used.Add(binding.Action)
+            ? binding
+            : binding with { Action = GestureActionKind.Disabled };
+    }
 }
 
 public sealed record TouchpadGestureConfiguration(
