@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.UI;
 using ThinkControl.UI.Services;
@@ -54,7 +55,7 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: 6 real Compact expand clicks, 5 return transitions, notification activation/action with Compact deactivation enabled, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss with Compact deactivation enabled, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
         catch (Exception ex)
@@ -133,8 +134,31 @@ internal static class Program
         AssertPrimarySurface(app, compact: true, full: false, "after ThinkControl toast action");
         AssertAlive(app, "after ThinkControl toast action");
 
-        // Return to hosted-runner isolation only after the real notification
-        // deactivation/action path has completed successfully.
+        // Exercise the other user path that alpha.23 missed: show the same real
+        // attention window again, activate it, then click its real Later/dismiss
+        // button. Dismissal must restore Compact just like the primary action does.
+        app.ShowAttentionForShellSmoke(static () => { });
+        Pump(app.Dispatcher);
+        if (!toast.IsVisible)
+            throw new InvalidOperationException("Dismiss smoke: toast window is not visible.");
+
+        _ = toast.Activate();
+        Pump(app.Dispatcher);
+        AssertPrimarySurface(app, compact: true, full: false, "after dismiss-toast activation");
+
+        Button dismiss = FindVisualChild<Button>(toast, button =>
+                string.Equals(button.Content?.ToString(), "Later", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("Dismiss smoke: Later button was not found in the real toast visual tree.");
+        InvokeButton(dismiss);
+        Pump(app.Dispatcher);
+
+        if (toast.IsVisible)
+            throw new InvalidOperationException("Dismiss smoke: toast remained visible after Later click.");
+        AssertPrimarySurface(app, compact: true, full: false, "after ThinkControl toast dismiss");
+        AssertAlive(app, "after ThinkControl toast dismiss");
+
+        // Return to hosted-runner isolation only after both real notification
+        // deactivation paths have completed successfully.
         app.SetExternalAutoHideSuppressedForShellSmoke(true);
 
         // Finish with one more real click so notification focus cannot leave a
@@ -155,6 +179,24 @@ internal static class Program
             throw new InvalidOperationException($"Button '{button.Name}' does not expose Invoke automation.");
 
         invoke.Invoke();
+    }
+
+    private static T? FindVisualChild<T>(DependencyObject parent, Func<T, bool> predicate)
+        where T : DependencyObject
+    {
+        int count = VisualTreeHelper.GetChildrenCount(parent);
+        for (int i = 0; i < count; i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T typed && predicate(typed))
+                return typed;
+
+            T? descendant = FindVisualChild(child, predicate);
+            if (descendant is not null)
+                return descendant;
+        }
+
+        return null;
     }
 
     private static void Pump(Dispatcher dispatcher)
