@@ -16,8 +16,8 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Border x:Name="PowerSourceBar"
                         Height="38"
-                        MinWidth="150"
-                        Padding="12,0,10,0"
+                        MinWidth="160"
+                        Padding="12,0,11,0"
                         Background="{DynamicResource Tc.SurfaceAlt}"
                         BorderBrush="{DynamicResource Tc.BorderStrong}"
                         BorderThickness="1"
@@ -35,11 +35,11 @@
                                    VerticalAlignment="Center" />
                         <controls:PackIconLucide x:Name="CurrentSourceIcon"
                                                  Grid.Column="1"
-                                                 Kind="Battery"
-                                                 Width="20"
-                                                 Height="20"
-                                                 Margin="14,0,0,0"
-                                                 Foreground="{DynamicResource Tc.Accent}"
+                                                 Kind="BatteryHorizontal"
+                                                 Width="24"
+                                                 Height="18"
+                                                 Margin="15,0,0,0"
+                                                 Foreground="{DynamicResource Tc.TextMuted}"
                                                  VerticalAlignment="Center" />
                     </Grid>
                 </Border>
