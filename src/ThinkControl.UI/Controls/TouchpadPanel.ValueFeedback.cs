@@ -50,11 +50,23 @@ public partial class TouchpadPanel
         _syncing = true;
         try
         {
-            _selectedEdge = TouchpadEdge.Left;
+            // The wide snapshot is the interaction-state gate for the media gesture:
+            // one horizontal edge owns Previous/Next and explicitly exposes the
+            // optional hold-and-release center Play/Pause control.
+            _selectedEdge = TouchpadEdge.Bottom;
             GestureEnableSwitch.IsChecked = true;
+            TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
+            _configuration = (_configuration with
+            {
+                Enabled = true,
+                TrackCenterPlayPauseEnabled = true,
+                Bindings = WithBinding(bindings, TouchpadEdge.Bottom,
+                    new TouchpadEdgeBinding(GestureActionKind.PreviousNextTrack))
+            }).Sanitize();
             Visualizer.SelectedEdge = _selectedEdge;
-            Visualizer.Configuration = _configuration with { Enabled = true };
+            Visualizer.Configuration = _configuration;
             SyncSelectedEdge();
+            SyncTrackCenterOption();
         }
         finally
         {
@@ -63,15 +75,15 @@ public partial class TouchpadPanel
 
         var signal = new GestureSignal(
             GesturePhase.Active,
-            TouchpadEdge.Left,
-            GestureActionKind.Volume,
-            TotalTravelMm: -24.8,
-            DeltaMm: -3.1,
+            TouchpadEdge.Bottom,
+            GestureActionKind.PreviousNextTrack,
+            TotalTravelMm: 7.2,
+            DeltaMm: 1.4,
             ContactId: 1);
 
-        Visualizer.SetTestFrame([new TouchContact(1, 420, 6400, true)], signal);
-        Visualizer.SetTestFrame([new TouchContact(1, 420, 3900, true)], signal);
-        GestureStatusText.Text = "Volume · +";
+        Visualizer.SetTestFrame([new TouchContact(1, 5300, 7700, true)], signal);
+        Visualizer.SetTestFrame([new TouchContact(1, 8500, 7700, true)], signal);
+        GestureStatusText.Text = "Previous / next track · Next";
     }
 
     private void ConfigureResetButton(
@@ -278,55 +290,51 @@ public partial class TouchpadPanel
 
     private string FormatGestureDirection(GestureSignal signal)
     {
-        double signed = signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -signal.DeltaMm : signal.DeltaMm;
-        if (Math.Abs(signed) < 0.01)
-            signed = signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right ? -signal.TotalTravelMm : signal.TotalTravelMm;
-        if (signal.Action == GestureActionKind.PreviousNextTrack)
-            return signed >= 0 ? "Next" : "Previous";
-        return signed >= 0 ? "+" : "−";
+        bool vertical = signal.Edge is TouchpadEdge.Left or TouchpadEdge.Right;
+        bool positive = vertical ? signal.DeltaMm < 0 : signal.DeltaMm > 0;
+        return positive ? "+" : "−";
     }
 
     private string FormatGestureValue(GestureSignal signal)
     {
-        if (signal.Action == GestureActionKind.MediaSeek && _host is not null)
-            return $"{_host.CurrentSeekDeltaSeconds:+0.0;-0.0;0.0} s";
-
-        int? current = ReadGestureTargetValue(signal.Action);
-        if (current.HasValue)
-            return $"{current.Value}%";
-        if (_gestureStartValue.HasValue && signal.Action is GestureActionKind.Volume or GestureActionKind.Brightness)
-            return $"{_gestureStartValue.Value}%";
-
+        if (_host is null)
+            return "Complete";
         return signal.Action switch
         {
-            GestureActionKind.PreviousNextTrack => FormatGestureDirection(signal) == "Next" ? "Next track" : "Previous track",
-            GestureActionKind.PlayPause => "Play / pause",
-            GestureActionKind.Mute => "Mute toggled",
-            GestureActionKind.TaskView => "Task view",
-            GestureActionKind.ShowDesktop => "Desktop toggled",
-            GestureActionKind.KeyboardBacklight => "Keyboard level changed",
-            GestureActionKind.PerformanceMode => "Performance mode changed",
-            GestureActionKind.CustomShortcut => "Shortcut sent",
-            _ => $"{signal.TotalTravelMm:+0.0;-0.0;0.0} mm"
+            GestureActionKind.Volume => $"{ResolveCurrentPercent(_host.CurrentVolumeTarget, _host.ReadVolumePercent())}%",
+            GestureActionKind.Brightness => $"{ResolveCurrentPercent(_host.CurrentBrightnessTarget, _app?.State.Brightness ?? 0)}%",
+            GestureActionKind.KeyboardBacklight => _app?.State.KeyboardStatus ?? "Complete",
+            GestureActionKind.PerformanceMode => _app?.State.SelectedMode ?? "Complete",
+            GestureActionKind.MediaSeek => FormatSeekDelta(_host.CurrentSeekDeltaSeconds),
+            GestureActionKind.PreviousNextTrack => signal.TotalTravelMm >= 0 ? "Next track" : "Previous track",
+            _ => "Complete"
         };
     }
 
     private int? ReadGestureStartValue(GestureActionKind action)
     {
-        if (action == GestureActionKind.Volume && _host is not null)
-            return Math.Clamp(_host.ReadVolumePercent(), 0, 100);
-        if (action == GestureActionKind.Brightness && _app is not null)
-            return Math.Clamp(_app.State.Brightness, 0, 100);
-        return null;
+        if (_host is null)
+            return null;
+        return action switch
+        {
+            GestureActionKind.Volume => _host.ReadVolumePercent(),
+            GestureActionKind.Brightness => _app?.State.Brightness,
+            _ => null
+        };
     }
 
-    private int? ReadGestureTargetValue(GestureActionKind action)
+    private int ResolveCurrentPercent(int? queuedTarget, int fallback)
     {
-        if (action == GestureActionKind.Volume && _host is not null)
-            return _host.CurrentVolumeTarget;
-        if (action == GestureActionKind.Brightness && _host is not null)
-            return _host.CurrentBrightnessTarget;
-        return null;
+        int value = queuedTarget ?? fallback;
+        return Math.Clamp(value, 0, 100);
+    }
+
+    private static string FormatSeekDelta(double seconds)
+    {
+        if (Math.Abs(seconds) < 0.5)
+            return "0 s";
+        string sign = seconds > 0 ? "+" : "−";
+        return $"{sign}{Math.Abs(seconds):0.#} s";
     }
 
     private void ClearGestureFeedback()
@@ -335,19 +343,21 @@ public partial class TouchpadPanel
         Visualizer.ClearReleasedGestureFeedback();
     }
 
-    private static string FormatSetting(double value, string unit, int decimals)
+    private static string FormatSetting(double value, string suffix, int decimals)
     {
-        string format = decimals == 2 ? "0.00" : "0.0";
-        return unit.Equals("x", StringComparison.OrdinalIgnoreCase)
-            ? $"{value.ToString(format)}x"
-            : $"{value.ToString(format)} {unit}";
+        string format = decimals <= 0 ? "0" : "0." + new string('0', decimals);
+        return $"{value.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}{suffix}";
     }
 
-    private string FormatDefault(double value, Slider slider)
+    private static string FormatDefault(double value, Slider slider)
     {
-        if (ReferenceEquals(slider, SensitivitySlider)) return $"{value:0.0}x";
-        if (ReferenceEquals(slider, EdgeWidthSlider) || ReferenceEquals(slider, ActivationSlider) || ReferenceEquals(slider, ToleranceSlider)) return $"{value:0.0} mm";
-        if (ReferenceEquals(slider, OsdOpacitySlider)) return $"{value:0}%";
-        return $"{value:0}";
+        if (ReferenceEquals(slider, HapticStrengthSliderPlaceholder) || ReferenceEquals(slider, ClickForceSliderPlaceholder))
+            return $"{value:0}%";
+        return value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
     }
+
+    // These placeholders are never instantiated. They keep FormatDefault free of
+    // instance state while preserving a concise tooltip format for the simple sliders.
+    private static readonly Slider HapticStrengthSliderPlaceholder = new();
+    private static readonly Slider ClickForceSliderPlaceholder = new();
 }
