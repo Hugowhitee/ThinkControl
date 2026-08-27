@@ -103,13 +103,13 @@ public partial class AdvancedWindow
         var content = new StackPanel();
         content.Children.Add(new TextBlock
         {
-            Text = "Open ThinkControl as",
+            Text = "App icon opens",
             FontWeight = FontWeights.SemiBold
         });
 
         var detail = new TextBlock
         {
-            Text = "Choose which interface opens from Start, a desktop shortcut or a second app launch. Start with Windows stays tray-only.",
+            Text = "Choose what opens from Start, a desktop shortcut, the taskbar app icon or a second launch. The tray icon always remains the Compact quick view; Start with Windows stays tray-only.",
             FontSize = 10.5,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
@@ -135,7 +135,7 @@ public partial class AdvancedWindow
         _openingAdvanced = new RadioButton
         {
             GroupName = "DefaultOpeningView",
-            Content = "Advanced",
+            Content = "Full",
             Tag = "Advanced",
             Style = TryFindResource("TcSegment") as Style,
             Margin = new Thickness(4, 0, 0, 0)
