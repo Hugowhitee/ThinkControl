@@ -30,32 +30,33 @@ public partial class CompactDashboard
         captionButtons.ClipToBounds = false;
         header.ColumnDefinitions[1].Width = new GridLength(76);
 
-        // The full-window action is a compact layout toggle, not an arrow. Giving
-        // it a small framed application glyph makes that destination obvious and
-        // keeps it visually grounded beside the quiet hide control.
         Button expand = buttons[0];
-        expand.Width = 32;
-        expand.Height = 32;
+        expand.Width = 34;
+        expand.Height = 34;
         expand.Margin = new Thickness(0);
         expand.Padding = new Thickness(0);
-        expand.BorderThickness = new Thickness(1);
-        expand.SetResourceReference(BackgroundProperty, "Tc.SurfaceAlt");
-        expand.SetResourceReference(BorderBrushProperty, "Tc.BorderStrong");
-        expand.ToolTip = "Open full ThinkControl window";
+        expand.BorderThickness = new Thickness(0);
+        expand.Background = System.Windows.Media.Brushes.Transparent;
+        expand.BorderBrush = System.Windows.Media.Brushes.Transparent;
 
         var icon = new PackIconLucide
         {
-            Kind = "ViewSidebar",
-            Width = 17,
-            Height = 17
+            Kind = "FullView",
+            Width = 18,
+            Height = 18
         };
         icon.SetResourceReference(ForegroundProperty, "Tc.TextMuted");
         expand.Content = icon;
+        TcToolTip.Apply(expand, "Full view");
 
         Button close = buttons[1];
         close.Width = 34;
         close.Height = 34;
         close.Margin = new Thickness(4, 0, 0, 0);
         close.Padding = new Thickness(0);
+        close.BorderThickness = new Thickness(0);
+        close.Background = System.Windows.Media.Brushes.Transparent;
+        close.BorderBrush = System.Windows.Media.Brushes.Transparent;
+        TcToolTip.Apply(close, "Hide to tray");
     }
 }
