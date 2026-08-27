@@ -97,6 +97,13 @@ public partial class AdvancedWindow
                 Foreground = (Brush)FindResource("Tc.TextMuted")
             };
             TcToolTip.Apply(compactButton, "Compact view");
+
+            // The legacy dock handler hid Advanced before Compact was painted. Use
+            // the single app-level transition owner instead, so one surface is always
+            // visible and a failed switch cannot leave ThinkControl apparently gone.
+            compactButton.Click -= Dock_Click;
+            compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
+
             Grid.SetColumn(compactButton, 0);
             utilityRow.Children.Add(compactButton);
         }
