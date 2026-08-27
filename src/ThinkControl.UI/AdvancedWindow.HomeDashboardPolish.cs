@@ -157,7 +157,7 @@ public partial class AdvancedWindow
         AddTelemetryDivider(grid, 1);
         AddTelemetryMetric(grid, 2, "CPU", "CpuTemperatureText", "Live temperature", "System");
         AddTelemetryDivider(grid, 3);
-        AddTelemetryMetric(grid, 4, "FANS", "CoolingProfileDisplay", "FanRpmText", "Fans", accentValue: true);
+        AddTelemetryMetric(grid, 4, "FANS", "CoolingProfileDisplay", "FanRpmText", "Fans");
         AddTelemetryDivider(grid, 5);
         AddTelemetryMetric(grid, 6, "POWER", "BatteryPowerText", "BatteryAveragePowerText", "Battery");
         AddTelemetryDivider(grid, 7);
