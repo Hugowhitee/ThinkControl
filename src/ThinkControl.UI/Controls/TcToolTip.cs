@@ -2,6 +2,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Media;
+using WpfToolTip = System.Windows.Controls.ToolTip;
+using WpfToolTipService = System.Windows.Controls.ToolTipService;
 
 namespace ThinkControl.UI.Controls;
 
@@ -14,7 +16,7 @@ public static class TcToolTip
 {
     public static void Apply(FrameworkElement owner, string text, PlacementMode placement = PlacementMode.Mouse)
     {
-        if (owner.ToolTip is ToolTip existing &&
+        if (owner.ToolTip is WpfToolTip existing &&
             existing.Tag as string == "ThinkControl.CompactToolTip" &&
             existing.Content is Border { Child: TextBlock copy })
         {
@@ -44,7 +46,7 @@ public static class TcToolTip
         surface.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
         surface.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
 
-        var tip = new ToolTip
+        var tip = new WpfToolTip
         {
             Tag = "ThinkControl.CompactToolTip",
             Content = surface,
@@ -60,8 +62,8 @@ public static class TcToolTip
         };
 
         owner.ToolTip = tip;
-        ToolTipService.SetInitialShowDelay(owner, 360);
-        ToolTipService.SetBetweenShowDelay(owner, 70);
-        ToolTipService.SetShowDuration(owner, 4000);
+        WpfToolTipService.SetInitialShowDelay(owner, 360);
+        WpfToolTipService.SetBetweenShowDelay(owner, 70);
+        WpfToolTipService.SetShowDuration(owner, 4000);
     }
 }
