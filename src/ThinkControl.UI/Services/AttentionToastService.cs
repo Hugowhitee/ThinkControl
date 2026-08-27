@@ -130,16 +130,16 @@ internal sealed class AttentionToastService : IDisposable
         _hideTimer.Start();
     }
 
-    private static Window? ResolveOwner()
+    private Window? ResolveOwner()
     {
         if (System.Windows.Application.Current is not Application app)
             return null;
 
         Window[] windows = app.Windows.OfType<Window>()
-            .Where(window => window.IsVisible && window is not null)
+            .Where(window => window.IsVisible && !ReferenceEquals(window, _window))
             .ToArray();
 
-        return windows.FirstOrDefault(window => window.IsActive && window is not null && window.GetType().Name != nameof(AttentionToastService))
+        return windows.FirstOrDefault(window => window.IsActive)
             ?? windows.OfType<MainWindow>().FirstOrDefault()
             ?? windows.OfType<AdvancedWindow>().FirstOrDefault()
             ?? windows.FirstOrDefault(window => window.ShowInTaskbar);
