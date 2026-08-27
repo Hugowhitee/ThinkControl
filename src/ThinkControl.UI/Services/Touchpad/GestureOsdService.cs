@@ -16,6 +16,11 @@ internal sealed class GestureOsdService : IDisposable
         "M12,2 L12,4 M12,20 L12,22 M4.93,4.93 L6.34,6.34 M17.66,17.66 L19.07,19.07 " +
         "M2,12 L4,12 M20,12 L22,12 M4.93,19.07 L6.34,17.66 M17.66,6.34 L19.07,4.93 " +
         "M12,7 A5,5 0 1 0 12,17 A5,5 0 1 0 12,7");
+    private static readonly Geometry PlayPauseGeometry = Geometry.Parse(
+        "M4,3 L13,12 L4,21 Z M15,4 L18,4 L18,20 L15,20 Z M20,4 L23,4 L23,20 L20,20 Z");
+    private const double HorizontalScreenInset = 22;
+    private const double TaskbarRevealOverlap = 1;
+    private const double HiddenOffset = 76;
 
     private readonly Func<ThinkControlUserSettings> _settings;
     private readonly Func<string, int, bool> _setValue;
@@ -31,6 +36,7 @@ internal sealed class GestureOsdService : IDisposable
     private Slider? _slider;
     private bool _syncing;
     private string _activeLabel = string.Empty;
+    private int _revealGeneration;
 
     internal GestureOsdService(
         Func<ThinkControlUserSettings> settings,
@@ -42,7 +48,7 @@ internal sealed class GestureOsdService : IDisposable
         _toggleMute = toggleMute;
         _hideTimer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(1180)
+            Interval = TimeSpan.FromMilliseconds(1080)
         };
         _hideTimer.Tick += (_, _) => Hide();
     }
@@ -71,8 +77,6 @@ internal sealed class GestureOsdService : IDisposable
             _slider.Visibility = Visibility.Visible;
             _slider.Value = clamped;
             _slider.IsEnabled = volume || brightness;
-            // Keep brightness at the same full-contrast visual weight as volume;
-            // only volume is interactive (mute/unmute).
             _iconButton.IsEnabled = true;
             _iconButton.IsHitTestVisible = volume;
             _iconButton.Cursor = volume ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.Arrow;
@@ -84,56 +88,21 @@ internal sealed class GestureOsdService : IDisposable
             _syncing = false;
         }
 
-        // Opacity is a backdrop preference. Text, icons and the interactive slider
-        // stay fully legible; only the surface behind them becomes translucent.
-        Brush backdrop = WpfApplication.Current?.TryFindResource("Tc.Surface") as Brush ?? Brushes.Black;
-        Brush translucentBackdrop = backdrop.CloneCurrentValue();
-        translucentBackdrop.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0, 1.0);
-        _shell.Background = translucentBackdrop;
-        _shell.Opacity = 1;
-        _window.Opacity = 1;
-
-        Rect area = SystemParameters.WorkArea;
-        double targetLeft = settings.TouchpadOsdPosition switch
-        {
-            "Left" => area.Left + 24,
-            "Right" => area.Right - _window.Width - 24,
-            _ => area.Left + (area.Width - _window.Width) / 2d
-        };
-        double targetTop = area.Bottom - _window.Height - 14;
-        _window.Left = targetLeft;
-        _window.Top = targetTop;
-
-        if (!_window.IsVisible)
-        {
-            _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
-            _shellTransform.Y = _window.Height + 10;
-            _window.Show();
-            if (SystemParameters.ClientAreaAnimation)
-            {
-                _shellTransform.BeginAnimation(TranslateTransform.YProperty, new DoubleAnimation(
-                    _window.Height + 10,
-                    0,
-                    TimeSpan.FromMilliseconds(180))
-                {
-                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
-                });
-            }
-            else
-            {
-                _shellTransform.Y = 0;
-            }
-        }
-        else
-        {
-            _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
-            _shellTransform.Y = 0;
-        }
-
+        ApplyBackdrop(settings);
+        PositionAndReveal(settings);
         RestartHideTimer();
     }
 
     internal void ShowTrack(bool next)
+    {
+        ShowMediaCommand(
+            next ? "Next track" : "Previous track",
+            next ? ResolveResourceGeometry("Tc.Icon.SkipNext") : ResolveResourceGeometry("Tc.Icon.SkipPrevious"));
+    }
+
+    internal void ShowTrackCenter() => ShowMediaCommand("Play / pause", PlayPauseGeometry);
+
+    private void ShowMediaCommand(string label, Geometry geometry)
     {
         ThinkControlUserSettings settings = _settings();
         if (!settings.TouchpadOsdEnabled)
@@ -144,35 +113,21 @@ internal sealed class GestureOsdService : IDisposable
             _shellTransform is null || _iconPath is null || _iconButton is null)
             return;
 
-        _activeLabel = next ? "Next track" : "Previous track";
-        _label.Text = _activeLabel;
+        _activeLabel = label;
+        _label.Text = label;
         _value.Text = string.Empty;
         _slider.Visibility = Visibility.Collapsed;
         _iconButton.IsEnabled = true;
         _iconButton.IsHitTestVisible = false;
         _iconButton.Cursor = System.Windows.Input.Cursors.Arrow;
-        _iconButton.ToolTip = _activeLabel;
-        ApplyFilledIcon(next ? "Tc.Icon.SkipNext" : "Tc.Icon.SkipPrevious");
+        _iconButton.ToolTip = label;
+        _iconPath.Data = geometry;
+        _iconPath.Stroke = null;
+        _iconPath.StrokeThickness = 0;
+        _iconPath.SetResourceReference(Shape.FillProperty, "Tc.Text");
 
-        Brush backdrop = WpfApplication.Current?.TryFindResource("Tc.Surface") as Brush ?? Brushes.Black;
-        Brush translucentBackdrop = backdrop.CloneCurrentValue();
-        translucentBackdrop.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0, 1.0);
-        _shell.Background = translucentBackdrop;
-        _shell.Opacity = 1;
-        _window.Opacity = 1;
-
-        Rect area = SystemParameters.WorkArea;
-        _window.Left = settings.TouchpadOsdPosition switch
-        {
-            "Left" => area.Left + 24,
-            "Right" => area.Right - _window.Width - 24,
-            _ => area.Left + (area.Width - _window.Width) / 2d
-        };
-        _window.Top = area.Bottom - _window.Height - 14;
-        _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
-        _shellTransform.Y = 0;
-        if (!_window.IsVisible)
-            _window.Show();
+        ApplyBackdrop(settings);
+        PositionAndReveal(settings);
         RestartHideTimer();
     }
 
@@ -183,14 +138,75 @@ internal sealed class GestureOsdService : IDisposable
         else
             Show(label, value);
         _hideTimer.Stop();
-        // Snapshot rendering is synchronous; cancel the live slide-in animation so
-        // the captured frame represents the settled pop-up and endpoint geometry.
         if (_shellTransform is not null)
         {
             _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
             _shellTransform.Y = 0;
         }
         return _window ?? throw new InvalidOperationException("Gesture OSD window was not created.");
+    }
+
+    private void ApplyBackdrop(ThinkControlUserSettings settings)
+    {
+        if (_window is null || _shell is null)
+            return;
+        Brush backdrop = WpfApplication.Current?.TryFindResource("Tc.Surface") as Brush ?? Brushes.Black;
+        Brush translucentBackdrop = backdrop.CloneCurrentValue();
+        translucentBackdrop.Opacity = Math.Clamp(settings.TouchpadOsdOpacity, 0, 1.0);
+        _shell.Background = translucentBackdrop;
+        _shell.Opacity = 1;
+        _window.Opacity = 1;
+    }
+
+    private void PositionAndReveal(ThinkControlUserSettings settings)
+    {
+        if (_window is null || _shellTransform is null)
+            return;
+
+        Rect area = SystemParameters.WorkArea;
+        _window.Left = settings.TouchpadOsdPosition switch
+        {
+            "Left" => area.Left + HorizontalScreenInset,
+            "Right" => area.Right - _window.Width - HorizontalScreenInset,
+            _ => area.Left + (area.Width - _window.Width) / 2d
+        };
+
+        // Flush the clipping host to the taskbar/work-area boundary. The card starts
+        // below its clipped host and reveals upward, so it appears to emerge from
+        // behind the taskbar instead of floating 14 px above it.
+        _window.Top = area.Bottom - _window.Height + TaskbarRevealOverlap;
+
+        bool alreadyVisible = _window.IsVisible;
+        int generation = ++_revealGeneration;
+        _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        if (!alreadyVisible)
+        {
+            _shellTransform.Y = HiddenOffset;
+            _window.Show();
+            if (SystemParameters.ClientAreaAnimation)
+            {
+                var reveal = new DoubleAnimation(HiddenOffset, 0, TimeSpan.FromMilliseconds(122))
+                {
+                    EasingFunction = new CubicEase { EasingMode = EasingMode.EaseOut }
+                };
+                reveal.Completed += (_, _) =>
+                {
+                    if (_shellTransform is null || generation != _revealGeneration)
+                        return;
+                    _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
+                    _shellTransform.Y = 0;
+                };
+                _shellTransform.BeginAnimation(TranslateTransform.YProperty, reveal);
+            }
+            else
+            {
+                _shellTransform.Y = 0;
+            }
+        }
+        else
+        {
+            _shellTransform.Y = 0;
+        }
     }
 
     private void EnsureWindow()
@@ -257,9 +273,6 @@ internal sealed class GestureOsdService : IDisposable
         {
             Minimum = 0,
             Maximum = 100,
-            // TcSlider owns a 30 px hit target around a 26 px thumb. The old 22 px
-            // local override clipped that template and made the dot look low against
-            // the rail. Use the shared control height so thumb and track share center.
             Height = 30,
             IsMoveToPointEnabled = true,
             SmallChange = 1,
@@ -340,6 +353,7 @@ internal sealed class GestureOsdService : IDisposable
         if (_window is null || !_window.IsVisible || _shellTransform is null)
             return;
 
+        int generation = ++_revealGeneration;
         if (!SystemParameters.ClientAreaAnimation)
         {
             _window.Hide();
@@ -350,14 +364,14 @@ internal sealed class GestureOsdService : IDisposable
         _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
         var animation = new DoubleAnimation(
             _shellTransform.Y,
-            _window.Height + 10,
-            TimeSpan.FromMilliseconds(210))
+            HiddenOffset,
+            TimeSpan.FromMilliseconds(148))
         {
-            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseInOut }
+            EasingFunction = new CubicEase { EasingMode = EasingMode.EaseIn }
         };
         animation.Completed += (_, _) =>
         {
-            if (_window is null || _shellTransform is null)
+            if (_window is null || _shellTransform is null || generation != _revealGeneration)
                 return;
             _window.Hide();
             _shellTransform.BeginAnimation(TranslateTransform.YProperty, null);
