@@ -6,7 +6,9 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 `v0.1.0-alpha.32` is the immutable production baseline. The active single release PR is #63 and targets **`v0.1.0-alpha.33`**.
 
-The pre-readiness product-code head `7d54051c2447b298c09d05da574b551e9093c3f0` passed CI, Package ThinkControl and Installer reliability on the same SHA after the recurring WPF dispatcher crash root cause was fixed and a source regression guard was added. Earlier alpha.33 candidate galleries were manually inspected at minimum/normal/wide Touchpad sizes; the live surface was stable and the idle corner guides rendered as mirrored peers. README/Product/readiness/version changes after that point are release-only metadata and must be followed by one final exact-head gate before merge.
+The product-code head `7d54051c2447b298c09d05da574b551e9093c3f0` passed CI, Package ThinkControl and Installer reliability after the recurring WPF dispatcher crash root cause was fixed and a source regression guard was added. Release metadata was then frozen to alpha.33. The release-ready head `a8340287bd821c020a348aed6ec6cf3b1aa9c9db` subsequently passed CI, Package ThinkControl and Installer reliability on the same SHA, including repository hygiene, Core tests, the real WPF shell smoke, installer/service lifecycle and updater compatibility. Its generated alpha.33 visual-QA artifact was manually inspected: minimum/normal/wide Touchpad layouts are stable, idle corner guides are mirrored, the live-corner fixture keeps the settings geometry in place, and the corrected QA fixture shows both idle corner selectors as `Off` rather than blank.
+
+This handoff update itself changes only documentation. No more branch content changes are planned. Before squash merge, CI + Package + Installer reliability must also be green on the exact PR head that contains this handoff commit; GitHub workflow/release history is the immutable record of that final gate and promotion.
 
 ### Implemented in alpha.33
 
@@ -28,15 +30,16 @@ The pre-readiness product-code head `7d54051c2447b298c09d05da574b551e9093c3f0` p
 - [x] Core CI includes a source regression test that rejects the dangerous method/delegate-first `Dispatcher.BeginInvoke(..., DispatcherPriority...)` pattern across `ThinkControl.UI`.
 - [x] No fan/PawnIO/Lenovo-Auto safety contract from alpha.32 is weakened by this regression release.
 
-### Pre-readiness gate
+### Automated release evidence
 
-Passed on product-code head `7d54051c2447b298c09d05da574b551e9093c3f0`:
+Passed before this final handoff-only commit:
 
-- [x] Repository hygiene.
+- [x] Repository hygiene and alpha.33 version/document consistency.
 - [x] Release restore/build and Core tests, including the dispatcher scheduling source guard.
 - [x] Real Compact ↔ Advanced WPF shell smoke with the new update-toast/minimized-Touchpad regression paths.
 - [x] WPF visual-QA matrix render.
-- [x] Representative Touchpad minimum/normal/wide screenshots manually inspected after the layout/geometry changes.
+- [x] Final alpha.33 Touchpad minimum/normal/wide and live-corner screenshots manually inspected.
+- [x] Snapshot-only corner selector synchronization fixed so visual QA reflects the real runtime `Off` state.
 - [x] Package ThinkControl workflow.
 - [x] Installer reliability workflow, including deep install/service/IPC and legacy updater compatibility smoke.
 - [x] Package workflow bootstrap installer/service lifecycle smoke.
@@ -45,10 +48,11 @@ Passed on product-code head `7d54051c2447b298c09d05da574b551e9093c3f0`:
 ### Promotion gate
 
 - [x] Freeze README/Product/release-readiness documentation to alpha.33.
-- [ ] Set `version.json` to `0.1.0-alpha.33` with `releaseReady=true`.
-- [ ] Re-run CI + Package + Installer reliability on the exact final release-ready head.
-- [ ] Inspect the final-head generated UI artifact for release-version/header drift and representative Touchpad stability.
-- [ ] Squash-merge PR #63 to `main` using the expected final head SHA.
+- [x] Set `version.json` to `0.1.0-alpha.33` with `releaseReady=true`.
+- [x] Run CI + Package + Installer reliability on the release-ready alpha.33 candidate.
+- [x] Inspect the generated alpha.33 UI artifact for version/header drift and representative Touchpad stability.
+- [ ] Require CI + Package + Installer reliability green on the exact PR head containing this final handoff commit; make no further branch changes afterward.
+- [ ] Squash-merge PR #63 to `main` using that exact expected head SHA.
 - [ ] Verify `main` points to the returned squash SHA.
 - [ ] Verify the `Promote release-ready main` workflow succeeds for the squash SHA.
 - [ ] Verify tag `v0.1.0-alpha.33` points to that exact `main` SHA.
