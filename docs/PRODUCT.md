@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.32`.
+Current prerelease candidate: `v0.1.0-alpha.33`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -19,6 +19,7 @@ The reference device is **not** the product boundary. Windows-safe features shou
 7. Keep model-specific writes behind explicit identity gates, provider-owned allowlists and readback/safety rules.
 8. Never expose an empty/black application surface while expensive startup discovery or view construction is in progress.
 9. Keep setup state truthful: registration metadata, kernel/service readiness and actual provider/device access are distinct facts.
+10. Keep high-rate device input away from the WPF layout/render critical path; live visualization may coalesce frames while recognition retains the full input stream.
 
 Implementation boundaries are defined in [Architecture](ARCHITECTURE.md), low-level rules in [Hardware Safety](HARDWARE-SAFETY.md), current support in [Device Support](DEVICE-SUPPORT.md), and Lenovo implementation evidence in [Lenovo provider research](research/lenovo-providers.md) plus [X9 research](research/x9-15-gen1.md).
 
@@ -44,7 +45,7 @@ Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, To
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale vertical/horizontal scroll offsets so a revisited page reopens at its canonical header rail. Page-level actions belong on the shared top-right action rail rather than feature-specific one-off margins.
 
-Compact ↔ Advanced switching is a single-owner shell transition. The destination paints before the old surface disappears, and the real WPF lifecycle is exercised by CI rather than inferred from screenshots alone.
+Compact ↔ Advanced switching is a single-owner shell transition. The destination shell is restored and paints before the old surface disappears or a heavy destination page begins device work. The real WPF lifecycle is exercised by CI rather than inferred from screenshots alone.
 
 ## Performance and power
 
@@ -107,7 +108,11 @@ A finger lift ends a visual trail segment. New contacts and implausibly large ph
 
 Track control prefers the active Windows media session and falls back safely where needed. Optional center Play/Pause uses a visible bounded center zone and deliberate low-travel hold/release; normal swipes still own Previous/Next.
 
-Corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins inside the same physical diagonal lane drawn by the UI. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture. The editor mirrors that ownership: selecting a corner hides the edge editor; selecting an edge clears corner selection.
+Corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins inside the same physical diagonal lane drawn by the UI. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture. Explicit editor selection is mutually exclusive; transient live corner ownership must not collapse/re-expand page layout while a finger is moving.
+
+Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence and publishes all-up frames immediately. Raw-input/HID registration is deferred until after the visible shell/page has painted. UI-only corner/gesture listeners attach only while the Touchpad page is visible so leaving the page cannot keep high-rate dispatcher work alive elsewhere in Advanced.
+
+Corner launch idle geometry is mirrored exactly between left and right. Hover may change the pointer but does not visually promote one idle corner over the other; selected/live ownership is the strong state.
 
 ## Battery
 
@@ -118,6 +123,10 @@ Charge/discharge history is local and bounded. Windows remains the owner of syst
 ## Startup and shell reliability
 
 A dedicated painted loading surface appears before synchronous startup discovery and remains until the destination has completed a render pass. Whole-window fade tricks are not used to hide an unpainted native WPF window.
+
+Opening Advanced restores a minimized/hidden full window before requested heavy-page work begins. A passive successful-update confirmation can be dismissed directly; a deliberate Compact → Advanced transition clears it, while an update restart that already opens into Advanced still shows the confirmation once.
+
+WPF dispatcher work must use strongly understood overloads. In particular, `Dispatcher.BeginInvoke` calls with a priority pass `DispatcherPriority` first; putting it after a zero-argument delegate can bind it into `params object[]` and produce a delayed `TargetParameterCountException` through `DynamicInvoke`. CI includes a source regression guard for that crash class.
 
 The release gate includes real Compact → Advanced → Compact shell smoke plus deterministic screenshots across minimum/normal/wide widths, themes and important unavailable/error states.
 
@@ -137,11 +146,11 @@ Unknown/unverified laptops remain capability-driven and conservative. Windows-sa
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.32; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md).
+No automatic cloud compatibility/crash upload is part of alpha.33; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.32` release remains the baseline immediately before this regression release.
 
 ## Installation and updates
 
-Alpha.32 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.33 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior, compatibility with the legacy updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 
