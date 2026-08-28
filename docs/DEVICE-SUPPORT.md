@@ -98,7 +98,7 @@ Key product-level invariants:
 - power preferences use Windows power behavior plus reviewed X9 semantic thermal-policy coordination for the exact X9 scope;
 - keyboard hardware control uses reviewed Lenovo provider paths and shares serialized ownership with user-session effects.
 
-Concrete X9 transport/register evidence is intentionally maintained in [Lenovo Providers](LENOVO-PROVIDERS.md), [Hardware Safety](HARDWARE-SAFETY.md) and [X9 research](research/x9-15-gen1.md) rather than copied into every support/product document.
+Concrete X9 transport/register evidence is intentionally maintained in [Lenovo provider research](research/lenovo-providers.md), [Hardware Safety](HARDWARE-SAFETY.md) and [X9 research](research/x9-15-gen1.md) rather than copied into every support/product document.
 
 ## Precision Touchpad and haptics
 
