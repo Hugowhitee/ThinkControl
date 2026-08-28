@@ -12,11 +12,15 @@ public partial class App
         if (_advancedWindow is null || !_advancedWindow.IsVisible)
             OpenAdvancedSafely("Home");
 
-        Dispatcher.BeginInvoke(new Action(() =>
+        // DispatcherPriority must be the first argument. Putting it after a
+        // zero-argument Action binds to BeginInvoke(Delegate, params object[]), so
+        // WPF later tries to DynamicInvoke the Action with DispatcherPriority as an
+        // argument and crashes with TargetParameterCountException.
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             _advancedWindow?.ShowNotificationSheet();
             _advancedWindow?.Activate();
-        }), DispatcherPriority.Background);
+        }));
     }
 
     public void ToggleNotificationCenter()
@@ -27,10 +31,10 @@ public partial class App
             return;
         }
 
-        Dispatcher.BeginInvoke(new Action(() =>
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
             _advancedWindow?.ToggleNotificationSheet();
             _advancedWindow?.Activate();
-        }), DispatcherPriority.Background);
+        }));
     }
 }
