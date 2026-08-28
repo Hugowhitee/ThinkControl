@@ -19,7 +19,7 @@ The reference device is **not** the product boundary. Windows-safe features shou
 7. Keep model-specific writes behind explicit identity gates, provider-owned allowlists and readback/safety rules.
 8. Never expose an empty/black application surface while expensive startup discovery or view construction is in progress.
 
-Implementation boundaries are defined in [Architecture](ARCHITECTURE.md), low-level rules in [Hardware Safety](HARDWARE-SAFETY.md), current support in [Device Support](DEVICE-SUPPORT.md), and Lenovo implementation evidence in [Lenovo Providers](LENOVO-PROVIDERS.md) plus [X9 research](research/x9-15-gen1.md).
+Implementation boundaries are defined in [Architecture](ARCHITECTURE.md), low-level rules in [Hardware Safety](HARDWARE-SAFETY.md), current support in [Device Support](DEVICE-SUPPORT.md), and Lenovo implementation evidence in [Lenovo provider research](research/lenovo-providers.md) plus [X9 research](research/x9-15-gen1.md).
 
 ## Product surfaces
 
