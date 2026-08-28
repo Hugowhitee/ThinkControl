@@ -66,7 +66,11 @@ public partial class AdvancedWindow
             TextBlock? description = performanceCard.Children.OfType<TextBlock>().FirstOrDefault(text =>
                 text.Text.Contains("responsive or efficient", StringComparison.OrdinalIgnoreCase));
             if (description is not null)
-                description.Text = "Choose the Windows battery power behavior. AC remains independently configurable on the Performance page.";
+            {
+                description.Text = "Battery power preference. Configure AC separately on Performance.";
+                description.TextWrapping = TextWrapping.Wrap;
+                description.TextTrimming = TextTrimming.None;
+            }
         }
 
         // Keep the older fallback Performance page coherent too. The enhanced
@@ -140,7 +144,7 @@ public partial class AdvancedWindow
         var root = new Grid
         {
             Cursor = Cursors.Hand,
-            Margin = new Thickness(12, 0, 10, 0),
+            Margin = new Thickness(12, 0, 8, 0),
             VerticalAlignment = VerticalAlignment.Center
         };
         root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -148,9 +152,9 @@ public partial class AdvancedWindow
         root.ColumnDefinitions.Add(new ColumnDefinition());
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        // Use exactly the same left inset and label/value rhythm as the neighboring
-        // CPU/Fans/Power/Sensors metrics. Only the contextual gauge occupies the
-        // right side; remaining-time copy gets the full width on its own line.
+        // Use the same left inset and label/value rhythm as the neighboring metrics.
+        // The gauge is deliberately compact enough that BATTERY remains readable at
+        // the supported minimum Advanced width; ETA then gets the full second row.
         var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         copy.Children.Add(CreateMetricLabel("BATTERY"));
         TextBlock value = CreateMetricValue("BatteryPercentText", 20);
@@ -162,9 +166,9 @@ public partial class AdvancedWindow
 
         var gauge = new BatteryGauge
         {
-            Width = 120,
-            Height = 48,
-            Margin = new Thickness(10, 0, 0, 0),
+            Width = 108,
+            Height = 44,
+            Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right
         };
