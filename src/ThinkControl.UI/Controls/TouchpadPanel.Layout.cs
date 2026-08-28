@@ -12,10 +12,10 @@ public partial class TouchpadPanel
         Loaded += (_, _) =>
         {
             ConfigureCornerLaunchUi();
-            AttachCornerHost();
             ApplyTouchpadLayout();
             SyncTrackCenterOption();
             SyncCornerLaunchControls();
+            ApplySelectedZoneEditor();
         };
     }
 
@@ -44,8 +44,8 @@ public partial class TouchpadPanel
         TrackCenterRow.Visibility = tracks ? Visibility.Visible : Visibility.Collapsed;
         TrackCenterPlayPauseSwitch.IsChecked = _configuration.TrackCenterPlayPauseEnabled;
 
-        // TouchpadGestureZoneOverlay is the single visual owner of the bounded
-        // center target. There is no second floating center-action badge.
+        // TouchpadGestureZoneOverlay owns only the bounded, non-selectable center
+        // target. Edge/corner selection and hover/live grammar stay in Visualizer.
         SyncGestureZoneOverlay();
     }
 
