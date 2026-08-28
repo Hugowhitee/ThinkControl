@@ -1,9 +1,12 @@
+using System.Diagnostics;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class TouchpadGestureService : IDisposable
 {
+    private static readonly long UiFrameIntervalTicks = Math.Max(1, Stopwatch.Frequency / 60);
+
     private readonly WindowsTouchpadInput _input;
     private readonly EdgeGestureRecognizer _recognizer;
     private readonly CursorGestureGuard _cursorGuard;
@@ -13,6 +16,7 @@ internal sealed class TouchpadGestureService : IDisposable
 
     private TouchpadGestureConfiguration _configuration;
     private DateTimeOffset _lastFrame = DateTimeOffset.MinValue;
+    private long _lastUiFrameTimestamp;
     private bool _disposed;
 
     internal TouchpadGestureService(
@@ -103,7 +107,19 @@ internal sealed class TouchpadGestureService : IDisposable
                 return;
 
             _lastFrame = DateTimeOffset.UtcNow;
-            ContactFrameReceived?.Invoke(contacts, geometry);
+
+            // Recognition keeps every raw HID frame. The live drawing surface does
+            // not need hundreds of WPF dispatcher callbacks per second, however.
+            // Publish only the latest visual frame at roughly display-refresh rate,
+            // while always forwarding an all-up frame immediately so dots/trails do
+            // not remain stuck after lift.
+            long now = Stopwatch.GetTimestamp();
+            bool allUp = contacts.Count == 0 || contacts.All(static contact => !contact.IsDown);
+            if (_lastUiFrameTimestamp == 0 || allUp || now - _lastUiFrameTimestamp >= UiFrameIntervalTicks)
+            {
+                _lastUiFrameTimestamp = now;
+                ContactFrameReceived?.Invoke(contacts, geometry);
+            }
 
             GestureSignal? signal = _recognizer.ProcessFrame(contacts, geometry);
             if (signal is null)
