@@ -1,17 +1,30 @@
+using System.Windows;
 using System.Windows.Controls;
 
 namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
+    private bool _keyboardAutoUiHooked;
+
     private void ConfigureKeyboardAutoUi()
     {
         if (PageKeyboard is null)
             return;
 
         // PageKeyboard is collapsed during initial Advanced-surface setup, so its
-        // visual children may not be materialized yet. This pass is intentionally
-        // idempotent and is also called when Keyboard becomes visible.
+        // visual children may not be materialized yet. Hook visibility once and
+        // rerun this idempotent copy pass after WPF has built the visible tree.
+        if (!_keyboardAutoUiHooked)
+        {
+            _keyboardAutoUiHooked = true;
+            PageKeyboard.IsVisibleChanged += (_, args) =>
+            {
+                if (args.NewValue is true)
+                    Dispatcher.BeginInvoke(new Action(ConfigureKeyboardAutoUi));
+            };
+        }
+
         foreach (TextBlock text in FindVisualChildren<TextBlock>(PageKeyboard))
         {
             string current = text.Text ?? string.Empty;
