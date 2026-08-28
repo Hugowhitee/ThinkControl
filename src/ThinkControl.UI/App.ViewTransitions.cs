@@ -41,14 +41,27 @@ public partial class App
 
         try
         {
+            _attentionToast.HidePassive();
             AdvancedWindow advanced = EnsureAdvancedWindow();
-            advanced.Navigate(page);
 
-            // Paint the destination while Compact is still a real visible surface.
-            // Compact deactivation is ignored while this coordinator owns the move.
+            // A heavy page (notably live Touchpad input) must never be the work that
+            // decides whether the native Advanced HWND becomes visible. Stage the
+            // cheap Home surface while Compact remains present, restore/show and
+            // paint the Advanced shell, then navigate to the requested page. Compact
+            // is removed only after that destination has also completed a render.
+            if (!string.Equals(page, "Home", StringComparison.OrdinalIgnoreCase))
+                advanced.Navigate("Home");
+
             advanced.ShowAdvanced(animate: false);
             advanced.UpdateLayout();
             Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+
+            if (!string.Equals(page, "Home", StringComparison.OrdinalIgnoreCase))
+            {
+                advanced.Navigate(page);
+                advanced.UpdateLayout();
+                Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+            }
 
             CompactWindow.HideForViewTransition();
             advanced.Activate();
@@ -105,9 +118,26 @@ public partial class App
 
         try
         {
+            _attentionToast.HidePassive();
             AdvancedWindow advanced = EnsureAdvancedWindow();
-            advanced.Navigate(page);
+
+            if (!string.Equals(page, "Home", StringComparison.OrdinalIgnoreCase))
+                advanced.Navigate("Home");
+
+            // Restore a hidden/minimized Advanced shell first. The requested page is
+            // activated only after one real render pass, so slow device discovery can
+            // no longer leave the app apparently minimized/invisible while it runs.
             advanced.ShowAdvanced(animate: false);
+            advanced.UpdateLayout();
+            Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+
+            if (!string.Equals(page, "Home", StringComparison.OrdinalIgnoreCase))
+            {
+                advanced.Navigate(page);
+                advanced.UpdateLayout();
+                Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+            }
+
             advanced.Activate();
             VerifyPrimarySurfaceState(operation, expectCompact: false, expectAdvanced: true);
             RecordShellEvent("shell.transition.completed", true, operation);
@@ -194,10 +224,13 @@ public partial class App
     {
         bool compactVisible = CompactWindow?.IsVisible == true;
         bool advancedVisible = _advancedWindow?.IsVisible == true;
-        if (compactVisible != expectCompact || advancedVisible != expectAdvanced)
+        bool advancedMinimized = _advancedWindow?.WindowState == WindowState.Minimized;
+        if (compactVisible != expectCompact ||
+            advancedVisible != expectAdvanced ||
+            (expectAdvanced && advancedMinimized))
         {
             throw new InvalidOperationException(
-                $"{operation}: unexpected shell state (Compact={compactVisible}, Full={advancedVisible}).");
+                $"{operation}: unexpected shell state (Compact={compactVisible}, Full={advancedVisible}, Minimized={advancedMinimized}).");
         }
     }
 
@@ -239,6 +272,15 @@ public partial class App
             "This window exercises Compact activation ownership.",
             "Continue",
             callback);
+    }
+
+    internal void ShowPassiveAttentionForShellSmoke()
+    {
+        _attentionToast.ShowPassive(
+            "shell-smoke-passive-" + Guid.NewGuid().ToString("N"),
+            "ThinkControl updated",
+            "Updated successfully to the shell-smoke build.",
+            TimeSpan.FromMinutes(1));
     }
 
     /// <summary>
