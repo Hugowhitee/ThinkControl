@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using ThinkControl.Core.Touchpad;
+using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfPoint = System.Windows.Point;
 
 namespace ThinkControl.UI.Controls;
@@ -73,7 +74,7 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         dc.Pop();
     }
 
-    protected override void OnMouseMove(MouseEventArgs e)
+    protected override void OnMouseMove(WpfMouseEventArgs e)
     {
         base.OnMouseMove(e);
         TouchpadCorner? hover = HitCorner(e.GetPosition(this));
@@ -84,7 +85,7 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         InvalidateVisual();
     }
 
-    protected override void OnMouseLeave(MouseEventArgs e)
+    protected override void OnMouseLeave(WpfMouseEventArgs e)
     {
         base.OnMouseLeave(e);
         _hoverCorner = null;
