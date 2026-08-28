@@ -21,43 +21,20 @@ public partial class AdvancedWindow
         "PageHome",
         "PagePerformance",
         "PageFans",
-        "PageDisplay",
-        "PageKeyboard",
         "PageBattery",
+        "PageDisplay",
+        "PageAudio",
+        "PageKeyboard",
+        "PageTouchpad",
         "PageSystem",
         "PageUpdates",
         "PageSettings"
-    ];
-
-    private static readonly string[] DynamicPageResourceNames =
-    [
-        "ThinkControl.Dynamic.PageTouchpad",
-        "ThinkControl.Dynamic.PageAudio"
-    ];
-
-    private static readonly string[] NavigationOrder =
-    [
-        "Home",
-        "Performance",
-        "Fans",
-        "Battery",
-        "Display",
-        "Audio",
-        "Keyboard",
-        "Touchpad",
-        "System",
-        "Updates",
-        "Settings"
     ];
 
     private void ConfigureAdvancedUiConsistency()
     {
         if (_uiConsistencyConfigured)
         {
-            // Late page composition may replace a ScrollViewer child after the
-            // first consistency pass. Reapplying this bounded list is cheap and
-            // guarantees every final page content uses the same left rail without
-            // re-running visual-tree scans or navigation setup.
             ApplyConsistentPageRail();
             ApplyConsistentCaptionPalette();
             return;
@@ -85,37 +62,9 @@ public partial class AdvancedWindow
             slider.IsEnabledChanged += (_, _) => ApplySliderAvailability(slider);
         }
 
-        ApplyNavigationOrder();
         ApplySidebarPalette();
         ApplyConsistentPageRail();
         ApplyConsistentCaptionPalette();
-    }
-
-    private void ApplyNavigationOrder()
-    {
-        if (NavHome.Parent is not StackPanel navStack)
-            return;
-
-        Dictionary<string, RadioButton> navByTag = navStack.Children
-            .OfType<RadioButton>()
-            .Where(button => string.Equals(button.GroupName, "Nav", StringComparison.Ordinal))
-            .Where(button => button.Tag is string)
-            .ToDictionary(button => (string)button.Tag, StringComparer.OrdinalIgnoreCase);
-
-        foreach (RadioButton button in navByTag.Values)
-            navStack.Children.Remove(button);
-
-        foreach (string tag in NavigationOrder)
-        {
-            if (navByTag.TryGetValue(tag, out RadioButton? button))
-                navStack.Children.Add(button);
-        }
-
-        foreach (RadioButton button in navByTag.Values.Where(button =>
-                     button.Tag is string tag && !NavigationOrder.Contains(tag, StringComparer.OrdinalIgnoreCase)))
-        {
-            navStack.Children.Add(button);
-        }
     }
 
     private void ApplySidebarPalette()
@@ -140,12 +89,6 @@ public partial class AdvancedWindow
             if (FindName(pageName) is ScrollViewer scroll)
                 ApplyPageRail(scroll);
         }
-
-        foreach (string resourceName in DynamicPageResourceNames)
-        {
-            if (Resources.Contains(resourceName) && Resources[resourceName] is ScrollViewer scroll)
-                ApplyPageRail(scroll);
-        }
     }
 
     private static void ApplyPageRail(ScrollViewer scroll)
@@ -157,9 +100,9 @@ public partial class AdvancedWindow
             return;
 
         // One shared Advanced-page rail owns horizontal placement and width for
-        // every static and dynamic page. The content fills the usable viewport on
-        // normal/small windows, stops at one readable maximum on wide windows and
-        // always stays anchored directly beside the navigation rail.
+        // every page. Content fills the usable viewport on normal/small windows,
+        // stops at one readable maximum on wide windows and remains left-anchored
+        // beside the navigation rail.
         content.MinWidth = 0;
         content.MaxWidth = AdvancedContentMaxWidth;
         content.HorizontalAlignment = HorizontalAlignment.Left;

@@ -1,8 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
-using System.Windows.Media;
-using System.Windows.Shapes;
+using System.Windows.Media.Animation;
 using ThinkControl.UI.Services;
 using WpfButton = System.Windows.Controls.Button;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
@@ -11,7 +10,7 @@ namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
-    private const string InteractionPolishKey = "ThinkControl.Advanced.InteractionPolish";
+    private const string InteractionPolishKey = "ThinkControl.Advanced.Interactions";
 
     private void ConfigureInteractionPolish()
     {
@@ -19,45 +18,47 @@ public partial class AdvancedWindow
             return;
         Resources[InteractionPolishKey] = true;
 
-        AttachScrollReset(NavHome, PageHome);
-        AttachScrollReset(NavPerformance, PagePerformance);
-        AttachScrollReset(NavFans, PageFans);
-        AttachScrollReset(NavDisplay, PageDisplay);
-        AttachScrollReset(NavKeyboard, PageKeyboard);
-        AttachScrollReset(NavBattery, PageBattery);
-        AttachScrollReset(NavSystem, PageSystem);
-        AttachScrollReset(NavUpdates, PageUpdates);
-        AttachScrollReset(NavSettings, PageSettings);
-
-        AttachDynamicScrollReset("ThinkControl.Dynamic.NavTouchpad", "ThinkControl.Dynamic.PageTouchpad");
-        AttachDynamicScrollReset("ThinkControl.Dynamic.NavSensors", "ThinkControl.Dynamic.PageSensors");
-        AttachDynamicScrollReset("ThinkControl.Dynamic.NavAudio", "ThinkControl.Dynamic.PageAudio");
-
-        if (Resources["ThinkControl.Dynamic.NavSensors"] is RadioButton sensorsNav)
-        {
-            foreach (Path path in FindVisualChildren<Path>(sensorsNav))
-            {
-                path.SetBinding(Shape.StrokeProperty, new Binding(nameof(Foreground))
-                {
-                    Source = sensorsNav,
-                    Mode = BindingMode.OneWay
-                });
-            }
-        }
-        ConfigureDynamicNavIconWeight();
+        AttachPageInteraction(NavHome, PageHome);
+        AttachPageInteraction(NavPerformance, PagePerformance);
+        AttachPageInteraction(NavFans, PageFans);
+        AttachPageInteraction(NavBattery, PageBattery);
+        AttachPageInteraction(NavDisplay, PageDisplay);
+        AttachPageInteraction(NavAudio, PageAudio);
+        AttachPageInteraction(NavKeyboard, PageKeyboard);
+        AttachPageInteraction(NavTouchpad, PageTouchpad);
+        AttachPageInteraction(NavSystem, PageSystem);
+        AttachPageInteraction(NavUpdates, PageUpdates);
+        AttachPageInteraction(NavSettings, PageSettings);
 
         FixSwitchRow(DisplayAdaptiveSwitch);
         FixSwitchRow(HomeAdaptiveSwitch);
         ConfigureUpdateControls();
     }
 
-    private void AttachScrollReset(RadioButton nav, ScrollViewer page)
+    private void AttachPageInteraction(RadioButton nav, ScrollViewer page)
     {
         nav.Checked += (_, _) => page.Dispatcher.BeginInvoke(() =>
         {
             ResetTransientPageUi(page);
             page.ScrollToTop();
+            AnimatePageEntry(page);
         });
+    }
+
+    private static void AnimatePageEntry(FrameworkElement element)
+    {
+        element.BeginAnimation(UIElement.OpacityProperty, null);
+        if (!SystemParameters.ClientAreaAnimation)
+        {
+            element.Opacity = 1;
+            return;
+        }
+
+        element.Opacity = 0;
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+        element.BeginAnimation(
+            UIElement.OpacityProperty,
+            new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(135)) { EasingFunction = ease });
     }
 
     private static void ResetTransientPageUi(DependencyObject root)
@@ -69,13 +70,6 @@ public partial class AdvancedWindow
             combo.IsDropDownOpen = false;
         foreach (Expander expander in FindVisualChildren<Expander>(root))
             expander.IsExpanded = false;
-    }
-
-    private void AttachDynamicScrollReset(string navKey, string pageKey)
-    {
-        if (Resources[navKey] is not RadioButton nav || Resources[pageKey] is not ScrollViewer page)
-            return;
-        AttachScrollReset(nav, page);
     }
 
     private static void FixSwitchRow(WpfCheckBox toggle)

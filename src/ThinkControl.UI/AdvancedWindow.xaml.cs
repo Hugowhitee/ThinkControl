@@ -111,6 +111,14 @@ public partial class AdvancedWindow : Window
         navStack.Children.Insert(0, dockRow);
     }
 
+    private void InitializeFeaturePanels()
+    {
+        PerformancePanelControl.Initialize(_app);
+        FansPanelControl.Initialize(_app);
+        AudioPanelControl.Initialize(_app);
+        TouchpadPanelControl.Initialize(_app);
+    }
+
     public void ApplyThemeToChrome()
     {
         if (!IsSourceInitialized)
@@ -174,9 +182,11 @@ public partial class AdvancedWindow : Window
         {
             case "Performance": NavPerformance.IsChecked = true; break;
             case "Fans": NavFans.IsChecked = true; break;
-            case "Display": NavDisplay.IsChecked = true; break;
-            case "Keyboard": NavKeyboard.IsChecked = true; break;
             case "Battery": NavBattery.IsChecked = true; break;
+            case "Display": NavDisplay.IsChecked = true; break;
+            case "Audio": NavAudio.IsChecked = true; break;
+            case "Keyboard": NavKeyboard.IsChecked = true; break;
+            case "Touchpad": NavTouchpad.IsChecked = true; break;
             case "System": NavSystem.IsChecked = true; break;
             case "Updates": NavUpdates.IsChecked = true; break;
             case "Settings": NavSettings.IsChecked = true; break;
@@ -191,6 +201,7 @@ public partial class AdvancedWindow : Window
         if (DataContext is AppState state)
             state.PropertyChanged += State_PropertyChanged;
 
+        InitializeFeaturePanels();
         StartupSwitch.IsChecked = StartupService.IsEnabled();
         ConfigureHomeQuickControls();
         SyncControls();
@@ -238,13 +249,6 @@ public partial class AdvancedWindow : Window
             HomeBalanced.IsChecked = batteryPreference == ThinkControlPowerMode.Balanced;
             HomePerformance.IsChecked = batteryPreference == ThinkControlPowerMode.Performance;
 
-            bool quiet = state.SelectedMode == nameof(ThinkControlPowerMode.Quiet);
-            bool balanced = state.SelectedMode == nameof(ThinkControlPowerMode.Balanced);
-            bool performance = state.SelectedMode == nameof(ThinkControlPowerMode.Performance);
-            PerfQuiet.IsChecked = quiet;
-            PerfBalanced.IsChecked = balanced;
-            PerfPerformance.IsChecked = performance;
-
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);
             HomeRefresh60.IsEnabled = DisplayRefresh60.IsEnabled = supports60;
@@ -263,12 +267,6 @@ public partial class AdvancedWindow : Window
             HomeKeyboardLow.IsChecked = AdvancedKeyboardLow.IsChecked = isStatic && state.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase);
             HomeKeyboardHigh.IsChecked = AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
             HomeKeyboardAuto.IsChecked = AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
-
-            foreach (WpfButton button in FindVisualChildren<WpfButton>(PageFans))
-            {
-                if ((button.Tag is string tag && int.TryParse(tag, out _)) || Equals(button.Content, "Lenovo Auto"))
-                    button.IsEnabled = state.CanFanControl;
-            }
 
             if (HomeFanProfileCombo is not null)
             {
@@ -298,7 +296,8 @@ public partial class AdvancedWindow : Window
 
         foreach (FrameworkElement element in new FrameworkElement[]
         {
-            PageHome, PagePerformance, PageFans, PageDisplay, PageKeyboard, PageBattery, PageSystem, PageUpdates, PageSettings
+            PageHome, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
+            PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageSettings
         })
         {
             element.Visibility = Visibility.Collapsed;
@@ -308,9 +307,11 @@ public partial class AdvancedWindow : Window
         {
             "Performance" => PagePerformance,
             "Fans" => PageFans,
-            "Display" => PageDisplay,
-            "Keyboard" => PageKeyboard,
             "Battery" => PageBattery,
+            "Display" => PageDisplay,
+            "Audio" => PageAudio,
+            "Keyboard" => PageKeyboard,
+            "Touchpad" => PageTouchpad,
             "System" => PageSystem,
             "Updates" => PageUpdates,
             "Settings" => PageSettings,
@@ -323,9 +324,11 @@ public partial class AdvancedWindow : Window
     {
         if (NavPerformance.IsChecked == true) return "Performance";
         if (NavFans.IsChecked == true) return "Fans";
-        if (NavDisplay.IsChecked == true) return "Display";
-        if (NavKeyboard.IsChecked == true) return "Keyboard";
         if (NavBattery.IsChecked == true) return "Battery";
+        if (NavDisplay.IsChecked == true) return "Display";
+        if (NavAudio.IsChecked == true) return "Audio";
+        if (NavKeyboard.IsChecked == true) return "Keyboard";
+        if (NavTouchpad.IsChecked == true) return "Touchpad";
         if (NavSystem.IsChecked == true) return "System";
         if (NavUpdates.IsChecked == true) return "Updates";
         if (NavSettings.IsChecked == true) return "Settings";
@@ -340,7 +343,7 @@ public partial class AdvancedWindow : Window
 
     private void Dock_Click(object sender, RoutedEventArgs e) => _app.ReturnToCompact();
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => _app.HideAdvancedToTray();
 
     private void Mode_Click(object sender, RoutedEventArgs e)
@@ -402,24 +405,6 @@ public partial class AdvancedWindow : Window
             await _app.SetKeyboardStaticLevelAsync(value);
 
         SyncControls();
-    }
-
-    private async void FanAuto_Click(object sender, RoutedEventArgs e)
-    {
-        var response = await _app.HardwareClient.ReturnFanToAutoAsync();
-        if (response?.Success != true)
-            _app.State.HardwareAccess = response?.Error ?? "Fan control unavailable";
-        await _app.RefreshStatusAsync();
-    }
-
-    private async void FanLevel_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: string raw } || !int.TryParse(raw, out int level))
-            return;
-        var response = await _app.HardwareClient.SetFanLevelAsync(level);
-        if (response?.Success != true)
-            _app.State.HardwareAccess = response?.Error ?? "Fan control unavailable";
-        await _app.RefreshStatusAsync();
     }
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)

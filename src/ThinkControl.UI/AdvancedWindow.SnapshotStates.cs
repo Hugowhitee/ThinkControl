@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
 
@@ -66,18 +65,14 @@ public partial class AdvancedWindow
 
     internal void PrepareAudioForSnapshot(bool providersAvailable)
     {
-        const string audioPageKey = "ThinkControl.Dynamic.PageAudio";
-        if (!Resources.Contains(audioPageKey) || Resources[audioPageKey] is not ScrollViewer { Content: AudioPanel panel })
-            throw new InvalidOperationException("Audio page could not be prepared for visual QA.");
-
         // Normal/minimum cover the direct DAX state, unavailable has its dedicated
         // render, and the wide matrix exercises modern Fusion-only layout. This keeps
         // both provider generations under the existing visual gate without inventing
         // a second snapshot harness.
         if (providersAvailable && Width >= 1500)
-            panel.PrepareFusionForSnapshot();
+            AudioPanelControl.PrepareFusionForSnapshot();
         else
-            panel.PrepareForSnapshot(providersAvailable);
+            AudioPanelControl.PrepareForSnapshot(providersAvailable);
     }
 
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
