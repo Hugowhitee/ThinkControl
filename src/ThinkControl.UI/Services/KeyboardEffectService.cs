@@ -68,11 +68,16 @@ public sealed class KeyboardEffectService : IDisposable
         _breathingStarted = DateTimeOffset.UtcNow;
         _lastKeyboardActivity = DateTimeOffset.UtcNow;
 
-        // Lenovo's managed Vantage fallback owns a vendor OSD which cannot be
-        // suppressed responsibly from another process. Repeated writes would flash
-        // that OSD on every effect transition, so animated/idle effects are allowed
-        // only through a verified direct driver contract. Static clicks remain safe.
-        if (normalized != "Static" && !_state.CanKeyboardEffects)
+        // Auto is intentionally a low-frequency idle policy, not an animated effect:
+        // it only needs a verified writable keyboard-backlight capability. Requiring
+        // CanKeyboardEffects here made Auto silently fall back to Static on the X9
+        // even though Off/Low/High writes were already verified and working.
+        // Breathing/Reactive/Audio still require the stricter direct-effect contract
+        // so we never hammer a vendor fallback or flash an OEM OSD repeatedly.
+        bool modeSupported = normalized == "Auto"
+            ? _state.CanKeyboardBacklight
+            : _state.CanKeyboardEffects;
+        if (normalized != "Static" && !modeSupported)
         {
             _state.KeyboardMode = "Static";
             return;
