@@ -123,6 +123,7 @@ public partial class AdvancedWindow
     {
         TouchpadPanelControl.PrepareCornerForSnapshot(corner, live);
         TouchpadPanelControl.PrepareHapticsForSnapshot();
+        TouchpadPanelControl.ValidateCornerEditorLayoutForSnapshot(corner, live);
     }
 
     public void ValidateTouchpadCornerSymmetryForSnapshot() =>
