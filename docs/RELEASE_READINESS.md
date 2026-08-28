@@ -6,7 +6,7 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 `v0.1.0-alpha.31` is the immutable baseline. The active single release PR is #62 and targets **`v0.1.0-alpha.32`**.
 
-The product-code pre-readiness candidate `4fc46ae48003be5365ce65104cee997fe01b1f08` passed CI, Package ThinkControl and Installer reliability on the same head. Its generated WPF gallery was manually inspected after earlier screenshot review caught and fixed Battery header ordering, touchpad editor ambiguity and stale Keyboard Auto copy. Release-owned metadata is now being frozen; promotion still requires all gates to pass again on the final readiness head.
+The final readiness head `6c21fd3321ba58d2ab86279e0a85b475a729785b` passed CI, Package ThinkControl and Installer reliability on the same head. Its generated WPF gallery was manually inspected after earlier screenshot review caught and fixed Battery header ordering, touchpad editor ambiguity and stale Keyboard Auto copy. The final gallery visibly reports `v0.1.0-alpha.32` and matches the reviewed architecture.
 
 ### Implemented in alpha.32
 
@@ -32,7 +32,7 @@ The product-code pre-readiness candidate `4fc46ae48003be5365ce65104cee997fe01b1f
 
 ### Pre-readiness gate
 
-Passed on the product-code candidate `4fc46ae48003be5365ce65104cee997fe01b1f08`:
+Passed on the final readiness head `6c21fd3321ba58d2ab86279e0a85b475a729785b`:
 
 - [x] Repository hygiene.
 - [x] Release restore/build and Core unit tests.
@@ -43,15 +43,14 @@ Passed on the product-code candidate `4fc46ae48003be5365ce65104cee997fe01b1f08`:
 - [x] Manual screenshot review across representative Home/Battery/Keyboard/Touchpad/Fans, minimum/normal/wide, setup/error and light/dark states.
 - [x] Touchpad exclusivity regression test covers first-frame corner ownership, rejection, lift-required lockout and normal recognition after lift.
 - [x] Dead-code/reference/docs audit found no release-blocking duplicate implementation or generated tracked artifact in the alpha.32 scope.
+- [x] `version.json` is `0.1.0-alpha.32` with `releaseReady=true` and README/Product match it.
 
 ### Promotion gate
 
-Only the **final readiness head** may be merged/released:
-
 - [x] Freeze README/Product/release-readiness documentation to alpha.32.
-- [ ] Set `version.json` to `0.1.0-alpha.32` with `releaseReady=true`.
-- [ ] Re-run CI + Package + Installer reliability on that exact final readiness head.
-- [ ] Inspect the final-head generated UI artifact for release-version/header drift.
+- [x] Set `version.json` to `0.1.0-alpha.32` with `releaseReady=true`.
+- [x] Re-run CI + Package + Installer reliability on the exact final readiness head.
+- [x] Inspect the final-head generated UI artifact for release-version/header drift.
 - [ ] Squash-merge PR #62 to `main` using the expected final head SHA.
 - [ ] Verify `main` points to the returned squash SHA.
 - [ ] Verify the `Promote release-ready main` workflow succeeds for the squash SHA.
