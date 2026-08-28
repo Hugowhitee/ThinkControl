@@ -38,7 +38,8 @@ public partial class TouchpadPanel
         // action. It has its own spatial affordance so the four precision edge bars
         // remain reserved for continuous/media controls.
         ActionCombo.ItemsSource = ActionCombo.Items.Cast<ActionOption>()
-            .Where(option => option.Action is not GestureActionKind.OpenThinkControl and not GestureActionKind.OpenAdvanced)
+            .Where(option => option.Action != GestureActionKind.OpenThinkControl &&
+                             option.Action != GestureActionKind.OpenAdvanced)
             .ToArray();
 
         if (Visualizer.Parent is Grid visualizerHost)
@@ -108,9 +109,9 @@ public partial class TouchpadPanel
             Margin = corner == TouchpadCorner.TopLeft
                 ? new Thickness(22, 16, 0, 0)
                 : new Thickness(0, 16, 22, 0),
-            Tag = corner,
-            Panel = { ZIndex = 7 }
+            Tag = corner
         };
+        Panel.SetZIndex(zone, 7);
         zone.Click += CornerZone_Click;
         zone.Content = BuildLaunchGlyph(zone, GestureActionKind.Disabled);
         return zone;
@@ -274,7 +275,8 @@ public partial class TouchpadPanel
         GestureActionKind action = _configuration.LaunchFor(corner);
         bool enabled = action != GestureActionKind.Disabled;
         bool selected = _selectedLaunchCorner == corner;
-        bool live = signal?.Corner == corner && signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
+        bool live = signal?.Corner == corner &&
+                    signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
 
         zone.Opacity = enabled ? 0.92 : 0.58;
         zone.SetResourceReference(Control.BackgroundProperty, enabled || selected ? "Tc.SurfaceHover" : "Tc.Surface");
