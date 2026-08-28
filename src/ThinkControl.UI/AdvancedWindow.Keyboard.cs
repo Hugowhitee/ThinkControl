@@ -4,14 +4,14 @@ namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
-    private bool _keyboardAutoUiConfigured;
-
     private void ConfigureKeyboardAutoUi()
     {
-        if (_keyboardAutoUiConfigured || PageKeyboard is null)
+        if (PageKeyboard is null)
             return;
 
-        _keyboardAutoUiConfigured = true;
+        // PageKeyboard is collapsed during initial Advanced-surface setup, so its
+        // visual children may not be materialized yet. This pass is intentionally
+        // idempotent and is also called when Keyboard becomes visible.
         foreach (TextBlock text in FindVisualChildren<TextBlock>(PageKeyboard))
         {
             string current = text.Text ?? string.Empty;
