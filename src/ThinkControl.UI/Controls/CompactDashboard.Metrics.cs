@@ -1,13 +1,15 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using System.Windows.Data;
+using System.Windows.Input;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
 
 public partial class CompactDashboard
 {
+    private const string CompactMetricDragFormat = "ThinkControl.CompactMetric";
+
     private sealed record CompactMetricDefinition(
         string Id,
         string Label,
@@ -30,7 +32,6 @@ public partial class CompactDashboard
 
     private readonly CompactMetricLayoutService _compactMetricLayout = new();
     private string[] _compactMetricSlots = ["Battery", "CPU", "Fans"];
-    private int _editingCompactMetricSlot = -1;
     private bool _compactMetricsReady;
 
     private void EnsureCompactMetrics()
@@ -52,7 +53,7 @@ public partial class CompactDashboard
         {
             CompactMetricDefinition definition = DefinitionFor(_compactMetricSlots[i]);
             slots[i].Content = BuildCompactMetricContent(definition);
-            TcToolTip.Apply(slots[i], $"Change {definition.Label.ToLowerInvariant()} metric");
+            slots[i].ToolTip = null;
         }
     }
 
@@ -104,43 +105,148 @@ public partial class CompactDashboard
 
     private void CompactMetricSlot_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not Button { Tag: string raw } slot || !int.TryParse(raw, out int index) || index is < 0 or > 2)
+        if (sender is not Button { Tag: string raw } || !int.TryParse(raw, out int index) || index is < 0 or > 2)
             return;
 
-        _editingCompactMetricSlot = index;
+        CompactMetricDefinition definition = DefinitionFor(_compactMetricSlots[index]);
+        SwitchToAdvanced(definition.Page);
+    }
+
+    internal void PrepareMetricEditorForSnapshot()
+    {
+        EnsureCompactMetrics();
+        BuildCompactMetricEditor();
+        CompactMetricEditorOverlay.Visibility = Visibility.Visible;
+    }
+
+    private void CompactMetricsEdit_Click(object sender, RoutedEventArgs e)
+    {
+        BuildCompactMetricEditor();
+        CompactMetricEditorOverlay.Visibility = Visibility.Visible;
+        e.Handled = true;
+    }
+
+    private void BuildCompactMetricEditor()
+    {
+        CompactMetricEditSlots.Children.Clear();
         CompactMetricPickerItems.Children.Clear();
-        HashSet<string> inUse = _compactMetricSlots.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        foreach (CompactMetricDefinition definition in CompactMetricDefinitions.Where(definition => !inUse.Contains(definition.Id)))
+
+        for (int index = 0; index < _compactMetricSlots.Length; index++)
+        {
+            CompactMetricDefinition definition = DefinitionFor(_compactMetricSlots[index]);
+            var slot = new Button
+            {
+                Tag = index.ToString(),
+                Content = FriendlyMetricName(definition),
+                Style = TryFindResource("TcButton") as Style,
+                Padding = new Thickness(8, 7, 8, 7),
+                Margin = new Thickness(3),
+                AllowDrop = true,
+                Cursor = Cursors.SizeAll
+            };
+            slot.PreviewMouseMove += CompactMetricDragSource_MouseMove;
+            slot.DragOver += CompactMetricSlot_DragOver;
+            slot.Drop += CompactMetricSlot_Drop;
+            CompactMetricEditSlots.Children.Add(slot);
+        }
+
+        HashSet<string> selected = _compactMetricSlots.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (CompactMetricDefinition definition in CompactMetricDefinitions.Where(item => !selected.Contains(item.Id)))
         {
             var option = new Button
             {
                 Tag = definition.Id,
-                Content = definition.Label[0] + definition.Label[1..].ToLowerInvariant(),
-                Style = (Style)FindResource("TcButton"),
-                Padding = new Thickness(9, 7, 9, 7),
-                Margin = new Thickness(3)
+                Content = FriendlyMetricName(definition),
+                Style = TryFindResource("TcInlineButton") as Style,
+                Padding = new Thickness(8, 5, 8, 5),
+                Margin = new Thickness(3),
+                Cursor = Cursors.SizeAll,
+                ToolTip = null
             };
-            option.Click += CompactMetricOption_Click;
+            option.PreviewMouseMove += CompactMetricDragSource_MouseMove;
             CompactMetricPickerItems.Children.Add(option);
         }
-
-        CompactMetricPicker.PlacementTarget = slot;
-        CompactMetricPicker.HorizontalOffset = -20;
-        CompactMetricPicker.VerticalOffset = 5;
-        CompactMetricPicker.IsOpen = true;
     }
 
-    private void CompactMetricOption_Click(object sender, RoutedEventArgs e)
+    private void CompactMetricDragSource_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
-        if (_editingCompactMetricSlot is < 0 or > 2 || sender is not Button { Tag: string id })
+        if (e.LeftButton != MouseButtonState.Pressed || sender is not Button source)
             return;
 
-        _compactMetricSlots[_editingCompactMetricSlot] = DefinitionFor(id).Id;
-        _compactMetricLayout.Save(_compactMetricSlots);
-        CompactMetricPicker.IsOpen = false;
-        _editingCompactMetricSlot = -1;
-        RefreshCompactMetrics();
+        string? id = source.Tag switch
+        {
+            string raw when int.TryParse(raw, out int index) && index is >= 0 and <= 2 => _compactMetricSlots[index],
+            string raw => DefinitionFor(raw).Id,
+            _ => null
+        };
+        if (string.IsNullOrWhiteSpace(id))
+            return;
+
+        var data = new System.Windows.DataObject(CompactMetricDragFormat, id);
+        System.Windows.DragDrop.DoDragDrop(source, data, System.Windows.DragDropEffects.Move);
     }
+
+    private static void CompactMetricSlot_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(CompactMetricDragFormat)
+            ? System.Windows.DragDropEffects.Move
+            : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void CompactMetricSlot_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (sender is not Button { Tag: string rawTarget } ||
+            !int.TryParse(rawTarget, out int targetIndex) || targetIndex is < 0 or > 2 ||
+            e.Data.GetData(CompactMetricDragFormat) is not string rawId)
+        {
+            return;
+        }
+
+        string id = DefinitionFor(rawId).Id;
+        int sourceIndex = Array.FindIndex(
+            _compactMetricSlots,
+            current => current.Equals(id, StringComparison.OrdinalIgnoreCase));
+
+        if (sourceIndex == targetIndex)
+            return;
+
+        if (sourceIndex >= 0)
+        {
+            (_compactMetricSlots[sourceIndex], _compactMetricSlots[targetIndex]) =
+                (_compactMetricSlots[targetIndex], _compactMetricSlots[sourceIndex]);
+        }
+        else
+        {
+            _compactMetricSlots[targetIndex] = id;
+        }
+
+        _compactMetricLayout.Save(_compactMetricSlots);
+        RefreshCompactMetrics();
+        BuildCompactMetricEditor();
+        e.Handled = true;
+    }
+
+    private void CompactMetricsReset_Click(object sender, RoutedEventArgs e)
+    {
+        _compactMetricSlots = ["Battery", "CPU", "Fans"];
+        _compactMetricLayout.Save(_compactMetricSlots);
+        RefreshCompactMetrics();
+        BuildCompactMetricEditor();
+        e.Handled = true;
+    }
+
+    private void CompactMetricsDone_Click(object sender, RoutedEventArgs e)
+    {
+        CompactMetricEditorOverlay.Visibility = Visibility.Collapsed;
+        e.Handled = true;
+    }
+
+    private static string FriendlyMetricName(CompactMetricDefinition definition) => definition.Label switch
+    {
+        "CPU" => "CPU",
+        _ => definition.Label[0] + definition.Label[1..].ToLowerInvariant()
+    };
 
     private static CompactMetricDefinition DefinitionFor(string id) =>
         CompactMetricDefinitions.FirstOrDefault(definition => definition.Id.Equals(id, StringComparison.OrdinalIgnoreCase))

@@ -86,8 +86,8 @@
         <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
         <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
         <Setter Property="BorderThickness" Value="1" />
-        <Setter Property="MinHeight" Value="38" />
-        <Setter Property="Padding" Value="11,5,34,5" />
+        <Setter Property="MinHeight" Value="40" />
+        <Setter Property="Padding" Value="11,6,34,6" />
         <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ControlText}" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
@@ -147,7 +147,7 @@
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     MaxHeight="320"
                                     Margin="0,4,0,0"
-                                    Padding="4"
+                                    Padding="4,4,4,6"
                                     Background="{DynamicResource Tc.SurfaceAlt}"
                                     BorderBrush="{DynamicResource Tc.BorderStrong}"
                                     BorderThickness="1"

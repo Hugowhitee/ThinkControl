@@ -17,6 +17,7 @@ public partial class App
     private CancellationTokenSource? _hardwareAttentionDelay;
     private UpdateCheckResult? _pendingAttentionUpdate;
     private bool _attentionUpdateInstallBusy;
+    private string _shownUpdateVersionThisRun = string.Empty;
 
     private void InitializeAttentionNotifications()
     {
@@ -161,23 +162,49 @@ public partial class App
         if (_pendingAttentionUpdate is not { Available: true } update || !CanShowAttentionNow())
             return;
 
+        string version = update.Version?.Trim() ?? string.Empty;
+        if (UpdatePromptPolicy.IsDismissed(version, UserSettings.Current.DismissedUpdateVersion) ||
+            (version.Length > 0 && string.Equals(_shownUpdateVersionThisRun, version, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
         bool ready = !string.IsNullOrWhiteSpace(update.InstallerUrl) &&
                      !string.IsNullOrWhiteSpace(update.PayloadUrl) &&
                      !string.IsNullOrWhiteSpace(update.ChecksumUrl);
-        string key = "update:" + (update.Version ?? update.Status);
+        string key = "update:" + (version.Length > 0 ? version : update.Status);
+        string transition = UpdatePromptPolicy.Transition(UpdateService.CurrentVersion, version);
         string detail = ready
-            ? $"{update.Version ?? "A newer version"} is downloaded only after you choose Install update. Windows will ask once for administrator approval."
-            : update.Status;
+            ? $"{transition}\nReady to update. Download and SHA-256 verification start only after you choose Update; Windows asks once for administrator approval."
+            : $"{transition}\n{update.Status}";
 
         _attentionToast.Show(
             key,
             "ThinkControl update available",
             detail,
-            ready ? "Install update" : "Open Updates",
+            ready ? "Update" : "Open Updates",
             ready
                 ? () => _ = InstallUpdateFromAttentionAsync(update)
-                : () => OpenAdvancedSafely("Updates"));
+                : () => OpenAdvancedSafely("Updates"),
+            () => DismissUpdatePrompt(update),
+            dismissText: "Dismiss");
+        if (version.Length > 0)
+            _shownUpdateVersionThisRun = version;
     }
+
+    private void DismissUpdatePrompt(UpdateCheckResult update)
+    {
+        string version = update.Version?.Trim() ?? string.Empty;
+        if (version.Length == 0)
+            return;
+
+        UserSettings.Update(settings => settings with { DismissedUpdateVersion = version });
+        // Keep LatestUpdateResult intact. Dismiss means "do not interrupt me again
+        // for this version", not "forget this update"; the notification bell and
+        // Updates page continue to expose it.
+        UpdateAvailabilityChanged?.Invoke(this, EventArgs.Empty);
+    }
+
 
     private void EvaluatePreviousUpdateHandoff()
     {
@@ -228,6 +255,7 @@ public partial class App
             if (result.Success)
             {
                 _pendingAttentionUpdate = null;
+                UserSettings.Update(settings => settings with { DismissedUpdateVersion = string.Empty });
                 return;
             }
 

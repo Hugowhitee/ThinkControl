@@ -89,6 +89,7 @@ internal static class Program
         ThemeService.Apply(ThemeMode.Dark);
         RenderBootstrap(output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
+        RenderCompact(app, charging, output, snapshots, "compact-metrics-editor.png", "charging · metric editor", editMetrics: true);
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
         foreach (string page in AdvancedPages)
@@ -120,6 +121,8 @@ internal static class Program
         // deterministic provider states but the exact production controls/styles.
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention.png", "PawnIO + provider attention");
+        RenderNotificationSheet(app, charging, 1160, 760, output, snapshots,
+            "notifications-update-dismissed.png", "update available · startup prompt dismissed", updateAvailable: true, updateDismissed: true);
         RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 560, 360, output, snapshots,
             "hardware-setup-pawnio-repair.png", "PawnIO device repair");
         RenderHardwareSetup(app, pawnIoRepair, pawnIoRepairSetup, 500, 330, output, snapshots,
@@ -318,12 +321,21 @@ internal static class Program
             target.Add(value);
     }
 
-    private static void RenderCompact(App app, AppState state, string output, ICollection<SnapshotEntry> snapshots, string fileName, string stateName)
+    private static void RenderCompact(
+        App app,
+        AppState state,
+        string output,
+        ICollection<SnapshotEntry> snapshots,
+        string fileName,
+        string stateName,
+        bool editMetrics = false)
     {
         const int width = 390;
-        const int height = 480;
+        const int height = 500;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
+        if (editMetrics)
+            window.PrepareMetricEditorForSnapshot();
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, "Compact", stateName, width, height));
         window.ForceClose();
@@ -392,13 +404,18 @@ internal static class Program
         string output,
         ICollection<SnapshotEntry> snapshots,
         string fileName,
-        string stateName)
+        string stateName,
+        bool updateAvailable = false,
+        bool updateDismissed = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
         window.Navigate("Home");
-        window.PrepareNotificationSheetForSnapshot();
+        if (updateAvailable)
+            window.PrepareUpdateNotificationSheetForSnapshot(updateDismissed);
+        else
+            window.PrepareNotificationSheetForSnapshot();
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, "Notifications sheet", stateName, width, height));
         window.ForceClose();

@@ -138,14 +138,19 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                     item.Id,
                     FormatCrashPickerLabel(item))).ToArray();
                 CrashHistoryCombo.SelectedValue = crash.Id;
-                MarkCrashReportedButton.Visibility = crash.State == CrashReportState.Opened
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                bool draftOpened = crash.State == CrashReportState.Opened;
+                MarkCrashReportedButton.Visibility = draftOpened ? Visibility.Visible : Visibility.Collapsed;
+                OpenCrashDraftButton.Content = draftOpened ? "Reopen GitHub draft" : "Open GitHub draft";
+                CrashStateText.Text = draftOpened
+                    ? "GitHub draft opened · mark reported after you submit it."
+                    : "Ready to review locally · nothing has been uploaded.";
             }
             else
             {
                 _selectedCrashId = null;
                 CrashHistoryCombo.ItemsSource = null;
+                OpenCrashDraftButton.Content = "Open GitHub draft";
+                CrashStateText.Text = "Ready to review locally · nothing has been uploaded.";
             }
 
             LastEventText.Text = app.DiagnosticsRecorder.LastEventAtUtc is DateTimeOffset last
@@ -263,7 +268,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             return;
         }
         Refresh();
-        StatusText.Text = "Opened the redacted crash draft on GitHub. The local report remains until you explicitly dismiss it or mark it reported.";
+        StatusText.Text = "GitHub draft opened. ThinkControl now shows this crash as opened; mark it reported after you submit it, or dismiss it locally.";
     }
 
     private void DismissCrash_Click(object sender, RoutedEventArgs e)

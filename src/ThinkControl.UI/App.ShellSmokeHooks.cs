@@ -1,4 +1,5 @@
 using System.Windows.Threading;
+using Forms = System.Windows.Forms;
 
 namespace ThinkControl.UI;
 
@@ -17,6 +18,16 @@ public partial class App
         CompactWindow.ShowNearTray(animate: false);
         CompactWindow.UpdateLayout();
         Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+    }
+
+    internal void ExerciseRapidTrayOpenForShellSmoke()
+    {
+        CompactWindow.HideForViewTransition();
+        _trayToggleGateUntil = 0;
+        _trayToggleScheduled = 0;
+        var click = new Forms.MouseEventArgs(Forms.MouseButtons.Left, 1, 0, 0, 0);
+        TrayIcon_Toggle(_trayIcon, click);
+        TrayIcon_Toggle(_trayIcon, click);
     }
 
     internal void ApplyPreferredDesktopLaunchForShellSmoke(string view)

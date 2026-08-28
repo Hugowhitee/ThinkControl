@@ -34,14 +34,15 @@ internal sealed class AttentionToastService : IDisposable
         _hideTimer.Tick += (_, _) => Hide();
     }
 
-    internal void Show(string key, string title, string message, string actionText, Action action, Action? dismissed = null)
+    internal void Show(string key, string title, string message, string actionText, Action action, Action? dismissed = null, string dismissText = "Later")
     {
         if (!Prepare(key, title, message))
             return;
 
         _action!.Content = actionText;
         _action.Visibility = Visibility.Visible;
-        _dismiss!.Visibility = Visibility.Visible;
+        _dismiss!.Content = dismissText;
+        _dismiss.Visibility = Visibility.Visible;
         _actions!.Visibility = Visibility.Visible;
         _actionCallback = action;
         _dismissCallback = dismissed;

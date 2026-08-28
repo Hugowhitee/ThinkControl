@@ -30,6 +30,7 @@ public sealed record ThinkControlUserSettings(
     string DolbyProfile = "Dynamic",
     string DolbySubProfile = "Balanced",
     bool AutomaticUpdates = true,
+    string DismissedUpdateVersion = "",
     int BatteryDetailRetentionDays = 7,
     string DefaultOpeningView = "Compact",
     string AttentionAcknowledgedKey = "",
@@ -268,6 +269,9 @@ public sealed class UserSettingsService
         string hardwareIssueKeys = settings.HardwareIssuePromptedKeys?.Trim() ?? string.Empty;
         if (hardwareIssueKeys.Length > 512)
             hardwareIssueKeys = string.Empty;
+        string dismissedUpdateVersion = settings.DismissedUpdateVersion?.Trim() ?? string.Empty;
+        if (dismissedUpdateVersion.Length > 80)
+            dismissedUpdateVersion = string.Empty;
 
         return settings with
         {
@@ -293,7 +297,8 @@ public sealed class UserSettingsService
             AttentionAcknowledgedKey = acknowledgedKey,
             AttentionAcknowledgedAtUtc = acknowledgedAt,
             DiagnosticsSharingPrompted = settings.DiagnosticsSharingPrompted,
-            HardwareIssuePromptedKeys = hardwareIssueKeys
+            HardwareIssuePromptedKeys = hardwareIssueKeys,
+            DismissedUpdateVersion = dismissedUpdateVersion
         };
     }
 

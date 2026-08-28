@@ -8,8 +8,6 @@ internal sealed class GestureActionRouter
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
     private const double TrackSwipeThresholdMm = 5.5;
-    private const double TrackCenterMinimumHoldMs = 300;
-    private const double TrackCenterMovementToleranceMm = 1.4;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -201,7 +199,12 @@ internal sealed class GestureActionRouter
             return;
 
         double elapsedMs = (Stopwatch.GetTimestamp() - _trackGestureStarted) * 1000d / Stopwatch.Frequency;
-        if (elapsedMs < TrackCenterMinimumHoldMs || _trackMaxTravelMm > TrackCenterMovementToleranceMm)
+        // Center play/pause is intentionally a hold-and-release gesture, not a
+        // passive-rest gesture. Releasing too quickly is accidental; releasing
+        // after a long stationary rest is also treated as accidental. This keeps
+        // media from suddenly starting when a palm/finger has simply been parked
+        // on the top-edge control area.
+        if (!TrackCenterGesturePolicy.ShouldCommit(elapsedMs, _trackMaxTravelMm))
             return;
 
         _trackSwipeFired = true;

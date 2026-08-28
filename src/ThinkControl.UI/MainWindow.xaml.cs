@@ -17,6 +17,7 @@ public partial class MainWindow : Window
 
     internal bool SuppressExternalAutoHideForShellSmoke { get; set; }
     internal System.Windows.Controls.Button ExpandButtonForShellSmoke => Dashboard.ExpandButtonForShellSmoke;
+    internal void PrepareMetricEditorForSnapshot() => Dashboard.PrepareMetricEditorForSnapshot();
 
     public MainWindow(App app)
     {

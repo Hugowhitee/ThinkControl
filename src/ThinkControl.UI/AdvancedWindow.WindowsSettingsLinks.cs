@@ -11,7 +11,10 @@ public partial class AdvancedWindow
     private const string DisplayWindowsLinkTag = "ThinkControl.Display.WindowsSettings";
     private const string NightLightWindowsLinkTag = "ThinkControl.Display.NightLightSettings";
     private const string TouchpadWindowsLinkTag = "ThinkControl.Touchpad.WindowsSettings";
+    private const string BatteryWindowsLinkTag = "ThinkControl.Battery.WindowsSettings";
+    private const string BatteryUsageWindowsLinkTag = "ThinkControl.Battery.UsageSettings";
     private const string DisplayHeaderActionsTag = "ThinkControl.Display.HeaderActions";
+    private const string BatteryHeaderTag = "ThinkControl.Battery.Header";
 
     private void ConfigureWindowsSettingsLinks()
     {
@@ -19,6 +22,7 @@ public partial class AdvancedWindow
             Resources[WindowsLinksKey] = true;
 
         AddDisplayWindowsSettingsLink();
+        AddBatteryWindowsSettingsLinks();
         AddTouchpadWindowsSettingsLink();
     }
 
@@ -74,6 +78,55 @@ public partial class AdvancedWindow
         Button link = CreateWindowsLink("Display settings ↗", "ms-settings:display", DisplayWindowsLinkTag);
         link.Margin = new Thickness(0, 0, 2, 0);
         actions.Children.Insert(Math.Min(1, actions.Children.Count), link);
+    }
+
+    private void AddBatteryWindowsSettingsLinks()
+    {
+        if (PageBattery.Content is not StackPanel stack || stack.Children.Count == 0)
+            return;
+
+        Grid? header = stack.Children.OfType<Grid>()
+            .FirstOrDefault(grid => Equals(grid.Tag, BatteryHeaderTag));
+        if (header is null)
+        {
+            TextBlock? title = stack.Children.OfType<TextBlock>().FirstOrDefault();
+            if (title is null)
+                return;
+
+            stack.Children.Remove(title);
+            header = new Grid { Tag = BatteryHeaderTag };
+            header.ColumnDefinitions.Add(new ColumnDefinition());
+            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            header.Children.Add(title);
+            stack.Children.Insert(0, header);
+        }
+
+        StackPanel? actions = header.Children.OfType<StackPanel>()
+            .FirstOrDefault(panel => Grid.GetColumn(panel) == 1);
+        if (actions is null)
+        {
+            actions = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Center
+            };
+            Grid.SetColumn(actions, 1);
+            header.Children.Add(actions);
+        }
+
+        if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, BatteryWindowsLinkTag)))
+        {
+            Button power = CreateWindowsLink("Power & battery ↗", "ms-settings:powersleep", BatteryWindowsLinkTag);
+            power.Margin = new Thickness(0, 0, 8, 0);
+            actions.Children.Add(power);
+        }
+
+        if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, BatteryUsageWindowsLinkTag)))
+        {
+            Button usage = CreateWindowsLink("Battery use ↗", "ms-settings:batterysaver-usagedetails", BatteryUsageWindowsLinkTag);
+            actions.Children.Add(usage);
+        }
     }
 
     private void AddTouchpadWindowsSettingsLink()

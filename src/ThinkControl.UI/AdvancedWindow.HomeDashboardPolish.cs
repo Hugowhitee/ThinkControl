@@ -87,7 +87,6 @@ public partial class AdvancedWindow
             Margin = new Thickness(2, 0, 2, 12)
         };
         header.ColumnDefinitions.Add(new ColumnDefinition());
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
         var title = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         title.Children.Add(new TextBlock
@@ -106,37 +105,6 @@ public partial class AdvancedWindow
         title.Children.Add(subtitle);
         header.Children.Add(title);
 
-        var eta = new StackPanel
-        {
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(24, 0, 6, 0)
-        };
-        TextBlock etaLabel = new()
-        {
-            Text = "BATTERY",
-            FontSize = TypographyScale.Caption,
-            FontWeight = FontWeights.SemiBold,
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        etaLabel.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
-        eta.Children.Add(etaLabel);
-
-        TextBlock etaValue = new()
-        {
-            FontSize = TypographyScale.Secondary,
-            FontWeight = FontWeights.Medium,
-            Margin = new Thickness(0, 3, 0, 0),
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        etaValue.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        etaValue.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
-        {
-            Converter = ReadableTypography.BatteryTimeConverter
-        });
-        eta.Children.Add(etaValue);
-        Grid.SetColumn(eta, 1);
-        header.Children.Add(eta);
         return header;
     }
 
@@ -172,8 +140,7 @@ public partial class AdvancedWindow
         var root = new Grid
         {
             Cursor = Cursors.Hand,
-            Margin = new Thickness(12, 0, 10, 0),
-            ToolTip = "Open battery details"
+            Margin = new Thickness(8, 0, 10, 0)
         };
         root.ColumnDefinitions.Add(new ColumnDefinition());
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
@@ -186,16 +153,25 @@ public partial class AdvancedWindow
         TextBlock value = CreateMetricValue("BatteryPercentText", 20);
         value.Margin = new Thickness(0, 6, 0, 0);
         copy.Children.Add(value);
-        TextBlock detail = CreateMetricDetail("BatteryPowerText");
-        detail.Margin = new Thickness(0, 2, 0, 0);
+        TextBlock detail = new()
+        {
+            FontSize = TypographyScale.Secondary,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        detail.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
+        {
+            Converter = ReadableTypography.BatteryTimeConverter
+        });
+        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         copy.Children.Add(detail);
         root.Children.Add(copy);
 
         var gauge = new BatteryGauge
         {
-            Width = 118,
-            Height = 46,
-            Margin = new Thickness(12, 0, 0, 0),
+            Width = 126,
+            Height = 50,
+            Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right
         };
@@ -221,8 +197,7 @@ public partial class AdvancedWindow
         var hit = new Grid
         {
             Cursor = Cursors.Hand,
-            Margin = new Thickness(12, 0, 10, 0),
-            ToolTip = $"Open {page.ToLowerInvariant()} details"
+            Margin = new Thickness(12, 0, 10, 0)
         };
         var stack = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         stack.Children.Add(CreateMetricLabel(label));
@@ -325,7 +300,7 @@ public partial class AdvancedWindow
     {
         card.Tag = "ThinkControl.Home.InternalNavigation." + page;
         card.Cursor = Cursors.Hand;
-        card.ToolTip = $"Open {page}";
+        card.ToolTip = null;
 
         if (card.Child is StackPanel stack)
         {

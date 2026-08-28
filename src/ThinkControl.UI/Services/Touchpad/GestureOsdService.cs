@@ -18,8 +18,8 @@ internal sealed class GestureOsdService : IDisposable
     private const long WsExToolWindow = 0x00000080L;
     private const long WsExNoActivate = 0x08000000L;
     private const double HorizontalScreenInset = 22;
-    private const double TaskbarRevealOverlap = 1;
-    private const double RestingOffset = -8;
+    private const double TaskbarInset = 8;
+    private const double RestingOffset = 0;
     private const double HiddenOffset = 76;
 
     private readonly Func<ThinkControlUserSettings> _settings;
@@ -171,11 +171,10 @@ internal sealed class GestureOsdService : IDisposable
             _ => area.Left + (area.Width - _window.Width) / 2d
         };
 
-        // Keep the transparent clipping host flush with the taskbar boundary so the
-        // card still emerges from behind it. The visible shell then settles a few
-        // pixels above the boundary; this preserves the Windows-like reveal without
-        // leaving the card visually glued to the taskbar.
-        _window.Top = area.Bottom - _window.Height + TaskbarRevealOverlap;
+        // Keep the host itself above the taskbar and animate the card inside that
+        // host. Alpha.28 settled the shell at a negative Y offset, which meant the
+        // clipping host could cut several pixels from the top edge of the OSD.
+        _window.Top = area.Bottom - _window.Height - TaskbarInset;
 
         bool alreadyVisible = _window.IsVisible;
         int generation = ++_revealGeneration;

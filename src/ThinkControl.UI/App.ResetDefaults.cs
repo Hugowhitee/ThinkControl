@@ -89,7 +89,7 @@ public partial class App
     {
         ApplyTheme(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);
-        UserSettings.Update(settings => settings with { AutomaticUpdates = true });
+        UserSettings.Update(settings => settings with { AutomaticUpdates = true, DismissedUpdateVersion = string.Empty });
     }
 
     internal async Task ResetAllDefaultsAsync()
@@ -119,6 +119,7 @@ public partial class App
             DolbyProfile: "Dynamic",
             DolbySubProfile: "Balanced",
             AutomaticUpdates: true,
+            DismissedUpdateVersion: string.Empty,
             DiagnosticsSharingPrompted: current.DiagnosticsSharingPrompted,
             HardwareIssuePromptedKeys: current.HardwareIssuePromptedKeys));
 

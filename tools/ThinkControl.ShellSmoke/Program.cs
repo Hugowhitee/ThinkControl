@@ -58,7 +58,7 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, preferred app-icon Full/Compact routing, diagnostics Ready/Shared/Verified lifecycle, 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Full/Compact routing, diagnostics Ready/Shared/Verified lifecycle, 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
         catch (Exception ex)
@@ -128,6 +128,14 @@ internal static class Program
         app.PrepareInteractiveShellSmoke();
         Pump(app.Dispatcher);
         AssertPrimarySurface(app, compact: true, full: false, "initial Compact");
+
+        // Two impatient tray clicks before the first Input-priority open has painted
+        // must still produce exactly one open. Without the activation gate the second
+        // queued toggle closes Compact again, which is the real alpha.28 user bug.
+        app.ExerciseRapidTrayOpenForShellSmoke();
+        Pump(app.Dispatcher);
+        AssertPrimarySurface(app, compact: true, full: false, "rapid tray double-click");
+        AssertAlive(app, "rapid tray double-click");
 
         // Regression for alpha.24's hard-coded second-launch behavior. The saved
         // preference must own Start/desktop/taskbar re-activation in both directions.

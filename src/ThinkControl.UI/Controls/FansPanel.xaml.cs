@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
+using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Controls;
@@ -40,6 +41,7 @@ public partial class FansPanel : UserControl
         }
 
         SyncProfileSelector(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile);
+        ApplyProviderCopy(app.State, app.State.CanFanControl);
         SyncStatusSubscription();
         if (IsVisible)
             _ = app.HardwareClient.GetStatusAsync();
@@ -51,6 +53,7 @@ public partial class FansPanel : UserControl
         DataContext = state;
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
         ProfileComboBox.IsEnabled = state.CanFanControl;
+        ApplyProviderCopy(state, state.CanFanControl);
         CoolingDetailText.Text = state.CanFanControl
             ? $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
             : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
@@ -114,6 +117,8 @@ public partial class FansPanel : UserControl
         string profileId = telemetry?.CoolingProfileId ?? (profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Lenovo Auto" : profileName);
         SyncProfileSelector(profileName, profileId);
         ProfileComboBox.IsEnabled = canControl;
+        if (_app is not null)
+            ApplyProviderCopy(_app.State, canControl);
 
         CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
             ? "Choose a fan profile or open the curve editor."
@@ -353,7 +358,7 @@ public partial class FansPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(10, 4, 10, 4),
             FontSize = TypographyScale.Caption,
-            ToolTip = "Return fan ownership to Lenovo Auto"
+            ToolTip = null
         };
         reset.Click += Reset_Click;
         header.Children.Add(reset);
@@ -368,6 +373,29 @@ public partial class FansPanel : UserControl
         button.IsEnabled = false;
         try { _ = await _app.ResetFanDefaultsAsync(); }
         finally { button.IsEnabled = true; }
+    }
+
+
+    private void ApplyProviderCopy(AppState state, bool canControl)
+    {
+        bool x9 = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
+        FansIntroText.Text = x9
+            ? "Fan behavior is independent from Windows performance mode. ThinkControl keeps firmware Auto as the fail-safe and maps custom curves only to the verified X9 EC states."
+            : "Fan behavior is independent from Windows performance mode. ThinkControl uses only fan telemetry and control states exposed by the active provider; firmware stays in charge when no writable provider is verified.";
+        FanMappingDetailText.Text = x9
+            ? "Built-in and custom curves use the verified X9 fan-output mapping. Custom profiles can be created and edited in the curve editor."
+            : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.";
+        FanProviderDetailText.ToolTip = null;
+
+        // Characterization and raw EC stepping are X9-provider diagnostics. A future
+        // PWM or OEM-native provider should not inherit ThinkPad EC controls merely
+        // because it exposes generic fan control.
+        CalibrationCard.Visibility = x9 ? Visibility.Visible : Visibility.Collapsed;
+        RawEcStepsExpander.Visibility = x9 ? Visibility.Visible : Visibility.Collapsed;
+        ManualControlDescriptionText.Text = x9
+            ? "0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state."
+            : "The manual target uses only the active provider's verified output range. ThinkControl does not expose raw EC steps unless the provider is the verified X9 EC backend.";
+        ManualControlExpander.IsEnabled = canControl;
     }
 
     private static string DescribeUnavailable(string? machineType, string? hardwareAccess, bool telemetryReady)

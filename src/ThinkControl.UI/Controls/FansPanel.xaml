@@ -64,7 +64,7 @@
 
     <StackPanel>
         <TextBlock Text="Fans" Style="{StaticResource TcText.PageTitle}" />
-        <TextBlock Text="Fan behavior is independent from Windows performance mode. ThinkControl keeps Lenovo Auto as the fail-safe and maps custom curves only to verified X9 EC states."
+        <TextBlock x:Name="FansIntroText" Text="Fan behavior stays independent from Windows performance mode and follows only capabilities exposed by the active hardware provider."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
@@ -73,15 +73,14 @@
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="Fan profile" FontWeight="SemiBold" />
-                    <TextBlock x:Name="CoolingDetailText" Text="Lenovo firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <TextBlock Text="Built-in and custom curves use the same verified fan-output mapping. Custom profiles can be created and edited in the curve editor." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock x:Name="CoolingDetailText" Text="Firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <TextBlock x:Name="FanMappingDetailText" Text="Built-in and custom curves use the same verified fan-output mapping. Custom profiles can be created and edited in the curve editor." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <ComboBox x:Name="ProfileComboBox"
                               Style="{StaticResource TcComboBox}"
                               MinWidth="158"
                               MaxWidth="210"
-                              Height="36"
                               DisplayMemberPath="Name"
                               SelectionChanged="ProfileComboBox_SelectionChanged"
                               DropDownOpened="ProfileComboBox_DropDownOpened" />
@@ -114,7 +113,7 @@
                         </StackPanel>
                     </Grid>
                     <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
-                    <TextBlock FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" ToolTip="Continuous PWM is not assumed; percentages map only to provider states that have been measured and verified."><Run Text="PWM / EC · " /><Run Text="{Binding HardwareAccess}" /></TextBlock>
+                    <TextBlock x:Name="FanProviderDetailText" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"><Run Text="Provider · " /><Run Text="{Binding HardwareAccess}" /></TextBlock>
                 </StackPanel>
             </Border>
 
@@ -137,12 +136,12 @@
             </Border>
         </Grid>
 
-        <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+        <Border x:Name="CalibrationCard" Style="{StaticResource TcSection}" Margin="0,14,0,0">
             <StackPanel>
                 <Grid>
                     <StackPanel>
                         <TextBlock Text="Fan calibration" FontWeight="SemiBold" />
-                        <TextBlock Text="Measure the seven verified EC steps and their real tachometer response. Lower percentages are derived from RPM relative to step 7, the physically verified maximum."
+                        <TextBlock x:Name="CalibrationDescriptionText" Text="Measure the seven verified EC steps and their real tachometer response. Lower percentages are derived from RPM relative to step 7, the physically verified maximum."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,200,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
@@ -170,13 +169,13 @@
             </StackPanel>
         </Border>
 
-        <Expander Header="Advanced manual control" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
+        <Expander x:Name="ManualControlExpander" Header="Advanced manual control" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
             <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
                 <StackPanel>
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
-                            <TextBlock Text="0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state; ThinkControl does not expose the ineffective echoed 0x47 override."
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state; ThinkControl does not expose the ineffective echoed 0x47 override."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
@@ -187,7 +186,7 @@
                         <Button Grid.Column="1" Content="Apply" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
                     </Grid>
 
-                    <Expander Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
+                    <Expander x:Name="RawEcStepsExpander" Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
                             <TextBlock Text="Use these only for diagnostics. Step 7 is the physically verified maximum and is the hardware state used for a 100% target."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
