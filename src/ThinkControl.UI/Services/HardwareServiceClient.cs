@@ -143,9 +143,6 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> StartFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("StartFanCharacterization", null, cancellationToken, timeoutMs: 3500);
 
-    public async Task<ServiceResponse?> MarkFanLevelAudibleAsync(CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("MarkFanLevelAudible", null, cancellationToken, timeoutMs: 1200);
-
     public async Task<ServiceResponse?> StopFanCharacterizationAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("StopFanCharacterization", null, cancellationToken, timeoutMs: 4500);
 
