@@ -99,13 +99,9 @@ internal static class Program
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
             "advanced-battery-day-expanded.png", "expanded daily session detail", expandBatteryDay: true);
 
-        // Every page gets minimum-size coverage so clipping and scrollbar overlap
-        // cannot hide on a page that happened not to be in a hand-picked subset.
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
 
-        // Wide-screen geometry is also checked on every page. The left edge of each
-        // page should stay fixed while unused space grows only on the right.
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1720, 980, output, snapshots, $"advanced-{page.ToLowerInvariant()}-wide.png", "wide window");
 
@@ -113,12 +109,12 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker");
+        RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
+            "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
         RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots,
             "advanced-touchpad-inward-active.png", "right edge · inward · active", touchpadInward: true);
 
-        // High-value overlays/windows are part of the release gate too. They use
-        // deterministic provider states but the exact production controls/styles.
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention.png", "PawnIO + provider attention");
         RenderNotificationSheet(app, charging, 1160, 760, output, snapshots,
@@ -353,7 +349,8 @@ internal static class Program
         string stateName,
         bool audioProvidersAvailable = true,
         bool expandBatteryDay = false,
-        bool touchpadInward = false)
+        bool touchpadInward = false,
+        bool fanManualTest = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -376,6 +373,24 @@ internal static class Program
 
         if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
             window.PreparePerformanceForSnapshot();
+
+        if (fanManualTest &&
+            string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&
+            window.FindName("PageFans") is System.Windows.Controls.ScrollViewer
+            {
+                Content: FansPanel fansPanel
+            } fanScroll)
+        {
+            fansPanel.PrepareManualFanTestForSnapshot();
+            if (window.Content is FrameworkElement fanRoot)
+            {
+                fanRoot.Measure(new Size(width, height));
+                fanRoot.Arrange(new Rect(0, 0, width, height));
+                fanRoot.UpdateLayout();
+            }
+            fanScroll.ScrollToEnd();
+            fanScroll.UpdateLayout();
+        }
 
         if (expandBatteryDay)
         {

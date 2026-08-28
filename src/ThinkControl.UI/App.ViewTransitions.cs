@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -11,7 +10,6 @@ public partial class App
 {
     private bool _viewTransitionBusy;
     private long _compactDeactivationGeneration;
-    private volatile bool _trayInteractionPending;
 
     internal bool IsViewTransitionInProgress => _viewTransitionBusy;
     internal AdvancedWindow? AdvancedWindowForShellSmoke => _advancedWindow;
@@ -166,95 +164,31 @@ public partial class App
     }
 
     /// <summary>
-    /// Compact is a flyout, but losing activation to another ThinkControl top-level
-    /// window is not the same as losing the app. WPF raises Deactivated for both.
-    /// Only auto-hide after focus really moved outside the ThinkControl process.
-    /// The external-focus decision is deferred once so a tray click can claim the
-    /// interaction before the flyout disappears under the NotifyIcon toggle path.
+    /// Compact is a persistent utility surface. Losing focus to Chrome, a browser
+    /// tab, an editor, or any other application must not make it disappear. Hiding
+    /// is owned only by explicit close/tray-toggle/view-transition commands.
+    /// Deactivation remains observable for diagnostics, but never schedules Hide().
     /// </summary>
     internal void OnCompactDeactivated()
     {
         if (CompactWindow is null || !CompactWindow.IsVisible)
             return;
 
-        if (_viewTransitionBusy)
-        {
-            RecordShellEvent("shell.compact.deactivation-kept", true, "view-transition");
-            return;
-        }
-
-        // This is the important in-app popup/window case. Check immediately while
-        // the newly activated HWND is still foreground; a toast action may hide its
-        // own window before an idle callback gets a chance to inspect it.
-        if (ForegroundBelongsToThinkControl())
-        {
-            RecordShellEvent("shell.compact.deactivation-kept", true, "internal-window");
-            return;
-        }
-
-        long generation = Interlocked.Increment(ref _compactDeactivationGeneration);
-        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
-        {
-            if (generation != Volatile.Read(ref _compactDeactivationGeneration) ||
-                CompactWindow is null ||
-                !CompactWindow.IsVisible ||
-                CompactWindow.IsActive)
-            {
-                return;
-            }
-
-            if (_viewTransitionBusy || _trayInteractionPending)
-            {
-                RecordShellEvent("shell.compact.deactivation-kept", true,
-                    _viewTransitionBusy ? "view-transition" : "tray-interaction");
-                return;
-            }
-
-            if (ForegroundBelongsToThinkControl())
-            {
-                RecordShellEvent("shell.compact.deactivation-kept", true, "internal-window");
-                return;
-            }
-
-            RecordShellEvent("shell.compact.auto-hide", true, "external-focus");
-            CompactWindow.HideAnimated();
-        }));
+        Interlocked.Increment(ref _compactDeactivationGeneration);
+        RecordShellEvent(
+            "shell.compact.deactivation-kept",
+            true,
+            _viewTransitionBusy ? "view-transition" : "external-focus-explicit-close-only");
     }
 
     internal void OnCompactActivated() =>
         Interlocked.Increment(ref _compactDeactivationGeneration);
 
-    internal void NotifyTrayInteractionStarted()
-    {
-        _trayInteractionPending = true;
+    internal void NotifyTrayInteractionStarted() =>
         Interlocked.Increment(ref _compactDeactivationGeneration);
-    }
 
-    internal void NotifyTrayInteractionCompleted()
-    {
-        _trayInteractionPending = false;
+    internal void NotifyTrayInteractionCompleted() =>
         Interlocked.Increment(ref _compactDeactivationGeneration);
-    }
-
-    private static bool ForegroundBelongsToThinkControl()
-    {
-        if (!OperatingSystem.IsWindows())
-            return Application.Current?.Windows.OfType<Window>().Any(window => window.IsActive) == true;
-
-        try
-        {
-            IntPtr foreground = GetForegroundWindow();
-            if (foreground == IntPtr.Zero)
-                return false;
-
-            _ = GetWindowThreadProcessId(foreground, out uint processId);
-            return processId == (uint)Environment.ProcessId;
-        }
-        catch
-        {
-            return Application.Current?.Windows.OfType<Window>().Any(window => window.IsActive) == true;
-        }
-    }
 
     private void VerifyPrimarySurfaceState(string operation, bool expectCompact, bool expectAdvanced)
     {
@@ -309,9 +243,8 @@ public partial class App
 
     /// <summary>
     /// Retained as a lower-level constructor/layout regression gate. The dedicated
-    /// ShellSmoke executable now additionally invokes the real Compact button and
-    /// explicitly activates/clicks the attention window to cover the focus sequence
-    /// that alpha.23 did not exercise.
+    /// ShellSmoke executable additionally invokes real Compact and attention-window
+    /// controls so routed-click and activation behavior remain covered.
     /// </summary>
     internal void RunViewTransitionSmokeForVisualQa(int cycles = 3)
     {
@@ -341,10 +274,4 @@ public partial class App
             try { CompactWindow.ForceClose(); } catch { }
         }
     }
-
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
-
-    [DllImport("user32.dll")]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 }

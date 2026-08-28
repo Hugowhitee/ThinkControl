@@ -43,7 +43,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
             SetGestureActive,
             next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
             () => app.Dispatcher.BeginInvoke(new Action(_osd.ShowTrackCenter)),
-            () => app.Dispatcher.BeginInvoke(new Action(app.ShowThinkControlFromTray)));
+            () => app.Dispatcher.BeginInvoke(new Action(app.ShowThinkControlFromTray)),
+            () => app.Dispatcher.BeginInvoke(new Action(() => app.OpenAdvancedSafely("Home"))));
 
         bool x9 = string.Equals(app.State.MachineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
                   string.Equals(app.State.MachineType, "21Q7", StringComparison.OrdinalIgnoreCase);

@@ -7,7 +7,7 @@ internal sealed class GestureActionRouter
 {
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
-    private const double TrackSwipeThresholdMm = 5.5;
+    private const double TrackSwipeThresholdMm = 4.0;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -20,6 +20,7 @@ internal sealed class GestureActionRouter
     private readonly Action<bool> _showTrackOsd;
     private readonly Action _showTrackCenterOsd;
     private readonly Action _openThinkControl;
+    private readonly Action _openAdvanced;
 
     private int _volumeAtStart;
     private int _brightnessAtStart;
@@ -31,6 +32,7 @@ internal sealed class GestureActionRouter
     private bool _trackSwipeFired;
     private long _trackGestureStarted;
     private double _trackMaxTravelMm;
+    private double? _trackStartPosition01;
     private bool _trackStayedCandidate;
 
     internal GestureActionRouter(
@@ -44,7 +46,8 @@ internal sealed class GestureActionRouter
         Action<GestureActionKind, bool> setGestureActive,
         Action<bool> showTrackOsd,
         Action showTrackCenterOsd,
-        Action openThinkControl)
+        Action openThinkControl,
+        Action openAdvanced)
     {
         _nativeInput = nativeInput;
         _media = media;
@@ -57,6 +60,7 @@ internal sealed class GestureActionRouter
         _showTrackOsd = showTrackOsd;
         _showTrackCenterOsd = showTrackCenterOsd;
         _openThinkControl = openThinkControl;
+        _openAdvanced = openAdvanced;
     }
 
     internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
@@ -78,9 +82,6 @@ internal sealed class GestureActionRouter
                 Release(signal);
                 break;
             case GesturePhase.Cancelled:
-                // Cancellation (second finger, lost confidence, leaving the edge
-                // corridor) is never an action commit. A valid lift arrives as
-                // Released and owns the discrete fallback path.
                 End(signal.Action);
                 break;
         }
@@ -95,6 +96,7 @@ internal sealed class GestureActionRouter
         _trackSwipeFired = false;
         _trackGestureStarted = Stopwatch.GetTimestamp();
         _trackMaxTravelMm = 0;
+        _trackStartPosition01 = signal.EdgePosition01;
         _trackStayedCandidate = true;
     }
 
@@ -125,15 +127,19 @@ internal sealed class GestureActionRouter
                 _trackSwipeFired = false;
                 if (_trackGestureStarted == 0)
                     _trackGestureStarted = Stopwatch.GetTimestamp();
+                _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
                 _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
                 TryFireTrackSwipe(signal);
                 break;
             case GestureActionKind.PlayPause:
-                _nativeInput.TogglePlayPause();
+                _ = TogglePlayPauseReliablyAsync();
                 break;
             case GestureActionKind.OpenThinkControl:
                 _openThinkControl();
+                break;
+            case GestureActionKind.OpenAdvanced:
+                _openAdvanced();
                 break;
         }
     }
@@ -154,6 +160,7 @@ internal sealed class GestureActionRouter
                 QueueMediaSeek(signal);
                 break;
             case GestureActionKind.PreviousNextTrack:
+                _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
                 _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
                 TryFireTrackSwipe(signal);
@@ -165,6 +172,7 @@ internal sealed class GestureActionRouter
     {
         if (signal.Action == GestureActionKind.PreviousNextTrack)
         {
+            _trackStartPosition01 ??= signal.EdgePosition01;
             _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
             if (!_trackStayedCandidate)
                 TryFireTrackSwipe(signal, allowReleaseFallback: true);
@@ -180,16 +188,14 @@ internal sealed class GestureActionRouter
             return;
 
         double signed = ToPositiveControlDelta(signal, signal.TotalTravelMm);
-        double threshold = allowReleaseFallback ? TrackSwipeThresholdMm * 0.82 : TrackSwipeThresholdMm;
+        double threshold = allowReleaseFallback ? TrackSwipeThresholdMm * 0.75 : TrackSwipeThresholdMm;
         if (Math.Abs(signed) < threshold)
             return;
 
         _trackSwipeFired = true;
         bool next = signed > 0;
-        bool injected = next ? _nativeInput.NextTrack() : _nativeInput.PreviousTrack();
-        if (!injected)
-            _ = SkipTrackWithSessionAsync(next);
         _showTrackOsd(next);
+        _ = SkipTrackReliablyAsync(next);
     }
 
     private void TryFireTrackCenter()
@@ -199,24 +205,30 @@ internal sealed class GestureActionRouter
             return;
 
         double elapsedMs = (Stopwatch.GetTimestamp() - _trackGestureStarted) * 1000d / Stopwatch.Frequency;
-        // Center play/pause is intentionally a hold-and-release gesture, not a
-        // passive-rest gesture. Releasing too quickly is accidental; releasing
-        // after a long stationary rest is also treated as accidental. This keeps
-        // media from suddenly starting when a palm/finger has simply been parked
-        // on the top-edge control area.
-        if (!TrackCenterGesturePolicy.ShouldCommit(elapsedMs, _trackMaxTravelMm))
+        if (!TrackCenterGesturePolicy.ShouldCommit(elapsedMs, _trackMaxTravelMm, _trackStartPosition01))
             return;
 
         _trackSwipeFired = true;
-        if (_nativeInput.TogglePlayPause())
-            _showTrackCenterOsd();
+        _showTrackCenterOsd();
+        _ = TogglePlayPauseReliablyAsync();
     }
 
-    private async Task SkipTrackWithSessionAsync(bool next)
+    private async Task SkipTrackReliablyAsync(bool next)
     {
-        _ = next
+        bool handled = next
             ? await _media.TrySkipNextAsync().ConfigureAwait(false)
             : await _media.TrySkipPreviousAsync().ConfigureAwait(false);
+        if (handled)
+            return;
+
+        _ = next ? _nativeInput.NextTrack() : _nativeInput.PreviousTrack();
+    }
+
+    private async Task TogglePlayPauseReliablyAsync()
+    {
+        if (await _media.TryTogglePlayPauseAsync().ConfigureAwait(false))
+            return;
+        _ = _nativeInput.TogglePlayPause();
     }
 
     private void BeginContinuous(GestureSignal signal, double baseGain)
@@ -298,6 +310,7 @@ internal sealed class GestureActionRouter
             _trackSwipeFired = false;
             _trackGestureStarted = 0;
             _trackMaxTravelMm = 0;
+            _trackStartPosition01 = null;
             _trackStayedCandidate = false;
         }
 

@@ -37,6 +37,11 @@ public partial class TouchpadPanel
 
     internal void PrepareForSnapshot(bool showActiveGesture, bool showInwardGesture = false)
     {
+        // Snapshot rendering does not raise the normal Loaded lifecycle. Materialize
+        // the same runtime corner-launch UI explicitly so visual QA actually covers
+        // the new affordance rather than silently rendering the pre-alpha.30 shape.
+        ConfigureCornerLaunchUi();
+        AttachCornerHost();
         _settingsSaveTimer.Stop();
         ClearGestureFeedback();
         InputStatusText.Text = "Precision Touchpad detected";
@@ -45,23 +50,48 @@ public partial class TouchpadPanel
         {
             PrepareSnapshotBinding(TouchpadEdge.Top, GestureActionKind.MediaSeek, trackCenter: false);
             Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
+            RefreshCornerZoneVisuals(null);
             return;
         }
 
         if (showInwardGesture)
         {
-            PrepareSnapshotBinding(TouchpadEdge.Right, GestureActionKind.OpenThinkControl, trackCenter: false);
-            var inward = new GestureSignal(
+            _syncing = true;
+            try
+            {
+                GestureEnableSwitch.IsChecked = true;
+                _selectedLaunchCorner = TouchpadCorner.TopRight;
+                _configuration = (_configuration with
+                {
+                    Enabled = true,
+                    TrackCenterPlayPauseEnabled = false,
+                    CornerLaunches = new TouchpadCornerLaunchBindings(
+                        TopLeft: GestureActionKind.OpenThinkControl,
+                        TopRight: GestureActionKind.OpenAdvanced)
+                }).Sanitize();
+                Visualizer.Configuration = _configuration;
+                if (_topLeftLaunchCombo is not null)
+                    _topLeftLaunchCombo.SelectedItem = CornerLaunchOptions.First(option => option.Action == GestureActionKind.OpenThinkControl);
+                if (_topRightLaunchCombo is not null)
+                    _topRightLaunchCombo.SelectedItem = CornerLaunchOptions.First(option => option.Action == GestureActionKind.OpenAdvanced);
+            }
+            finally
+            {
+                _syncing = false;
+            }
+
+            var launch = new GestureSignal(
                 GesturePhase.Active,
-                TouchpadEdge.Right,
-                GestureActionKind.OpenThinkControl,
-                TotalTravelMm: 8.4,
+                Edge: null,
+                Action: GestureActionKind.OpenAdvanced,
+                TotalTravelMm: 9.1,
                 DeltaMm: 2.2,
-                ContactId: 1);
-            Visualizer.SetTestFrame([new TouchContact(1, 9600, 1200, true)], inward);
-            Visualizer.SetTestFrame([new TouchContact(1, 7800, 3100, true)], inward);
-            Visualizer.ShowActiveGestureValue(TouchpadEdge.Right, "Compact view");
-            GestureStatusText.Text = "Open Compact · inward";
+                ContactId: 1,
+                Corner: TouchpadCorner.TopRight);
+            Visualizer.SetTestFrame([new TouchContact(1, 12900, 500, true)], launch);
+            Visualizer.SetTestFrame([new TouchContact(1, 12200, 1200, true)], launch);
+            RefreshCornerZoneVisuals(launch);
+            GestureStatusText.Text = "Top-right launch · opening Advanced";
             return;
         }
 
@@ -79,6 +109,7 @@ public partial class TouchpadPanel
         Visualizer.SetTestFrame([new TouchContact(1, 5300, 7700, true)], signal);
         Visualizer.SetTestFrame([new TouchContact(1, 8500, 7700, true)], signal);
         Visualizer.ShowActiveGestureValue(TouchpadEdge.Bottom, "Next");
+        RefreshCornerZoneVisuals(null);
         GestureStatusText.Text = "Track control · Next";
     }
 
@@ -305,7 +336,8 @@ public partial class TouchpadPanel
         if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
         {
             Visualizer.ClearReleasedGestureFeedback();
-            Visualizer.ShowActiveGestureValue(signal.Edge, FormatGestureValue(signal));
+            if (signal.Edge is not null)
+                Visualizer.ShowActiveGestureValue(signal.Edge, FormatGestureValue(signal));
             return;
         }
 
@@ -313,7 +345,7 @@ public partial class TouchpadPanel
         {
             Visualizer.ClearActiveGestureFeedback();
             string value = FormatGestureValue(signal);
-            if (!(signal.Action == GestureActionKind.PreviousNextTrack && Math.Abs(signal.TotalTravelMm) < 0.5))
+            if (signal.Edge is not null && !(signal.Action == GestureActionKind.PreviousNextTrack && Math.Abs(signal.TotalTravelMm) < 0.5))
                 Visualizer.ShowReleasedGestureValue(signal.Edge, value);
             _gestureStartValue = null;
             return;
@@ -329,6 +361,8 @@ public partial class TouchpadPanel
 
     private string FormatGestureStatus(GestureSignal signal)
     {
+        if (signal.Corner is TouchpadCorner corner)
+            return $"{(corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right")} · {FormatGestureValue(signal)}";
         if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
             return $"{ActionLabel(signal.Action)} · {FormatGestureDirection(signal)}";
         return $"{ActionLabel(signal.Action)} · {FormatGestureValue(signal)}";
@@ -343,18 +377,19 @@ public partial class TouchpadPanel
 
     private string FormatGestureValue(GestureSignal signal)
     {
-        if (_host is null)
+        if (_host is null && signal.Action is not GestureActionKind.OpenThinkControl and not GestureActionKind.OpenAdvanced)
             return "Complete";
         return signal.Action switch
         {
-            GestureActionKind.Volume => $"{ResolveCurrentPercent(_host.CurrentVolumeTarget, _host.ReadVolumePercent())}%",
-            GestureActionKind.Brightness => $"{ResolveCurrentPercent(_host.CurrentBrightnessTarget, _app?.State.Brightness ?? 0)}%",
-            GestureActionKind.MediaSeek => FormatSeekDelta(_host.CurrentSeekDeltaSeconds),
+            GestureActionKind.Volume => $"{ResolveCurrentPercent(_host!.CurrentVolumeTarget, _host.ReadVolumePercent())}%",
+            GestureActionKind.Brightness => $"{ResolveCurrentPercent(_host!.CurrentBrightnessTarget, _app?.State.Brightness ?? 0)}%",
+            GestureActionKind.MediaSeek => FormatSeekDelta(_host!.CurrentSeekDeltaSeconds),
             GestureActionKind.PreviousNextTrack => Math.Abs(signal.TotalTravelMm) < 0.5
                 ? "Play / Pause"
                 : signal.TotalTravelMm >= 0 ? "Next" : "Previous",
             GestureActionKind.PlayPause => "Play / Pause",
-            GestureActionKind.OpenThinkControl => "Compact view",
+            GestureActionKind.OpenThinkControl => "Compact",
+            GestureActionKind.OpenAdvanced => "Advanced",
             _ => "Complete"
         };
     }

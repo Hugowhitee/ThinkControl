@@ -26,6 +26,25 @@ internal sealed class MediaSessionService
     internal async Task<bool> TrySkipNextAsync() => await TrySkipAsync(next: true).ConfigureAwait(false);
     internal async Task<bool> TrySkipPreviousAsync() => await TrySkipAsync(next: false).ConfigureAwait(false);
 
+    internal async Task<bool> TryTogglePlayPauseAsync()
+    {
+        await _gate.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            _manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+            GlobalSystemMediaTransportControlsSession? session = _manager.GetCurrentSession();
+            return session is not null && await session.TryTogglePlayPauseAsync();
+        }
+        catch
+        {
+            return false;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     private async Task<bool> TrySkipAsync(bool next)
     {
         await _gate.WaitAsync().ConfigureAwait(false);

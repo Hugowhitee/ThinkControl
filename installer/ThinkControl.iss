@@ -40,11 +40,12 @@ AppPublisherURL={#AppUrl}
 AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoCompany={#AppPublisher}
-VersionInfoDescription=Lenovo hardware companion
+VersionInfoDescription=Windows laptop control companion
 VersionInfoProductName={#AppName}
 VersionInfoVersion={#NumericVersion}
 VersionInfoProductVersion={#NumericVersion}
 DefaultDirName={autopf}\ThinkControl
+DisableDirPage=no
 DefaultGroupName=ThinkControl
 DisableProgramGroupPage=yes
 LicenseFile=..\LICENSE
@@ -85,6 +86,7 @@ Name: "{autodesktop}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilen
 [Registry]
 Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "1"; Tasks: compatibilitydiagnostics; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "0"; Tasks: not compatibilitydiagnostics; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\ThinkControl"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ThinkControl"; ValueData: """{app}\ui\{#UiExeName}"" --tray"; Tasks: startwithwindows; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "ThinkControl"; Tasks: not startwithwindows; Flags: deletevalue
 
@@ -98,6 +100,7 @@ Filename: "{app}\ui\{#UiExeName}"; Description: "Launch ThinkControl"; Flags: no
 Filename: "{app}\ui\{#UiExeName}"; Flags: nowait skipifnotsilent runasoriginaluser; Check: ShouldRelaunchAfterSilentUpdate
 
 [UninstallRun]
+Filename: "{sys}\taskkill.exe"; Parameters: "/IM {#UiExeName} /F"; Flags: runhidden waituntilterminated; RunOnceId: "StopThinkControlUi"
 Filename: "{sys}\sc.exe"; Parameters: "stop {#ServiceName}"; Flags: runhidden waituntilterminated; RunOnceId: "StopThinkControlService"
 Filename: "{sys}\sc.exe"; Parameters: "delete {#ServiceName}"; Flags: runhidden waituntilterminated; RunOnceId: "DeleteThinkControlService"
 
@@ -107,6 +110,8 @@ Type: filesandordirs; Name: "{app}\service"
 Type: filesandordirs; Name: "{app}\.update-stage"
 Type: filesandordirs; Name: "{app}\ui.previous"
 Type: filesandordirs; Name: "{app}\service.previous"
+Type: filesandordirs; Name: "{localappdata}\ThinkControl"
+Type: filesandordirs; Name: "{commonappdata}\ThinkControl"
 
 [Code]
 var
@@ -127,12 +132,19 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := ExistingInstall and (PageID = wpSelectTasks);
+  { A clean interactive install always gets the directory page. Once an AppId has
+    an existing install, Inno restores the remembered application directory and
+    updates stay there instead of accidentally creating a second installation. }
+  Result := (ExistingInstall or IsUpdateParameter()) and
+    ((PageID = wpSelectTasks) or (PageID = wpSelectDir));
 end;
 
 procedure InitializeWizard();
 begin
-  ExistingInstall := FileExists(ExpandConstant('{autopf}\ThinkControl\ui\{#UiExeName}'));
+  { InitializeWizard runs before the app constant may be expanded. WizardDirValue
+    safely exposes Inno's current directory value here, including a remembered
+    custom location from the same AppId when UsePreviousAppDir is enabled. }
+  ExistingInstall := FileExists(AddBackslash(WizardDirValue()) + 'ui\{#UiExeName}');
   if ExistingInstall or IsUpdateParameter() then
   begin
     WizardForm.Caption := 'Update ThinkControl';
