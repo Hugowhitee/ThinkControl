@@ -4,6 +4,7 @@ using System.Windows.Media;
 using ThinkControl.Core.Touchpad;
 using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfPoint = System.Windows.Point;
+using WpfSize = System.Windows.Size;
 
 namespace ThinkControl.UI.Controls;
 
@@ -153,7 +154,7 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         figure.Segments.Add(new LineSegment(innerA, true));
         figure.Segments.Add(new ArcSegment(
             innerB,
-            new Size(radiusPx, radiusPx),
+            new WpfSize(radiusPx, radiusPx),
             0,
             isLargeArc: false,
             SweepDirection.Clockwise,
@@ -253,7 +254,7 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
             TouchpadEdge.Top => new Rect(pad.Left + pad.Width * start, pad.Top + 2, pad.Width * (end - start), Math.Max(22, edgeWidthY - 4)),
             TouchpadEdge.Bottom => new Rect(pad.Left + pad.Width * start, pad.Bottom - Math.Max(22, edgeWidthY - 4) - 2, pad.Width * (end - start), Math.Max(22, edgeWidthY - 4)),
             TouchpadEdge.Left => new Rect(pad.Left + 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthX - 4), pad.Height * (end - start)),
-            _ => new Rect(pad.Right - Math.Max(22, edgeWidthX - 4) - 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthX - 4), pad.Height * (end - start))
+            _ => new Rect(pad.Right - Math.Max(22, edgeWidthX - 4) - 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthY - 4), pad.Height * (end - start))
         };
     }
 
