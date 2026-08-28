@@ -5,27 +5,16 @@ namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
-    private bool _keyboardAutoUiHooked;
-
     private void ConfigureKeyboardAutoUi()
     {
         if (PageKeyboard is null)
             return;
 
-        // PageKeyboard is collapsed during initial Advanced-surface setup, so its
-        // visual children may not be materialized yet. Hook visibility once and
-        // rerun this idempotent copy pass after WPF has built the visible tree.
-        if (!_keyboardAutoUiHooked)
-        {
-            _keyboardAutoUiHooked = true;
-            PageKeyboard.IsVisibleChanged += (_, args) =>
-            {
-                if (args.NewValue is true)
-                    Dispatcher.BeginInvoke(new Action(ConfigureKeyboardAutoUi));
-            };
-        }
-
-        foreach (TextBlock text in FindVisualChildren<TextBlock>(PageKeyboard))
+        // The Keyboard page is normally collapsed while Advanced initializes. WPF
+        // does not guarantee a materialized visual tree for collapsed content, but
+        // the XAML logical tree already exists. Use that stable tree so runtime and
+        // visual-QA render the same Auto contract without dispatcher timing tricks.
+        foreach (TextBlock text in FindKeyboardTextBlocks(PageKeyboard))
         {
             string current = text.Text ?? string.Empty;
             if (current.StartsWith("Hardware levels and ThinkControl effects are kept separate:", StringComparison.Ordinal))
@@ -44,6 +33,21 @@ public partial class AdvancedWindow
             {
                 text.Text = "Auto uses Lenovo firmware Auto when verified and otherwise falls back to normal Off / Low / High idle control. Breathing, Reactive and Audio require the stricter direct-effect backend.";
             }
+        }
+    }
+
+    private static IEnumerable<TextBlock> FindKeyboardTextBlocks(DependencyObject parent)
+    {
+        foreach (object child in LogicalTreeHelper.GetChildren(parent))
+        {
+            if (child is TextBlock text)
+                yield return text;
+
+            if (child is not DependencyObject dependency)
+                continue;
+
+            foreach (TextBlock descendant in FindKeyboardTextBlocks(dependency))
+                yield return descendant;
         }
     }
 }
