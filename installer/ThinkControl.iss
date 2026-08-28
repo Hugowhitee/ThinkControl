@@ -133,16 +133,16 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   { A clean interactive install always gets the directory page. Once an AppId has
-    an existing install, Inno restores its remembered {app} path and updates must
-    stay in that location instead of accidentally creating a second installation. }
+    an existing install, Inno restores the remembered application directory and
+    updates stay there instead of accidentally creating a second installation. }
   Result := (ExistingInstall or IsUpdateParameter()) and
     ((PageID = wpSelectTasks) or (PageID = wpSelectDir));
 end;
 
 procedure InitializeWizard();
 begin
-  { Use Inno's resolved {app}, not a hard-coded Program Files path. This keeps
-    update detection correct for users who chose a custom install directory. }
+  { Use Inno's resolved application directory, not a hard-coded Program Files path.
+    This keeps update detection correct for users who chose a custom location. }
   ExistingInstall := FileExists(ExpandConstant('{app}\ui\{#UiExeName}'));
   if ExistingInstall or IsUpdateParameter() then
   begin
