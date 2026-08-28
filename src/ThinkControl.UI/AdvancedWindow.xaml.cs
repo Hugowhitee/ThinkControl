@@ -244,12 +244,20 @@ public partial class AdvancedWindow : Window
         _syncing = true;
         try
         {
+            // Home has exactly one quick selector, so it represents the saved
+            // battery preference regardless of the laptop's current power source.
+            // The full Performance page owns independent Battery and AC choices.
+            ThinkControlPowerMode batteryPreference = _app.GetPowerPreference(onBattery: true);
+            HomeQuiet.IsChecked = batteryPreference == ThinkControlPowerMode.Quiet;
+            HomeBalanced.IsChecked = batteryPreference == ThinkControlPowerMode.Balanced;
+            HomePerformance.IsChecked = batteryPreference == ThinkControlPowerMode.Performance;
+
             bool quiet = state.SelectedMode == nameof(ThinkControlPowerMode.Quiet);
             bool balanced = state.SelectedMode == nameof(ThinkControlPowerMode.Balanced);
             bool performance = state.SelectedMode == nameof(ThinkControlPowerMode.Performance);
-            HomeQuiet.IsChecked = PerfQuiet.IsChecked = quiet;
-            HomeBalanced.IsChecked = PerfBalanced.IsChecked = balanced;
-            HomePerformance.IsChecked = PerfPerformance.IsChecked = performance;
+            PerfQuiet.IsChecked = quiet;
+            PerfBalanced.IsChecked = balanced;
+            PerfPerformance.IsChecked = performance;
 
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);
@@ -351,9 +359,12 @@ public partial class AdvancedWindow : Window
 
     private void Mode_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || sender is not FrameworkElement { Tag: string tag } || !Enum.TryParse(tag, out ThinkControlPowerMode mode))
+        if (_syncing || sender is not FrameworkElement { Tag: string tag } element || !Enum.TryParse(tag, out ThinkControlPowerMode mode))
             return;
-        if (!_app.SetPowerMode(mode))
+
+        bool homeQuickControl = element.Name.StartsWith("Home", StringComparison.Ordinal);
+        bool onBattery = homeQuickControl || _app.IsCurrentlyOnBattery();
+        if (!_app.SetPowerPreference(mode, onBattery))
             SyncControls();
     }
 
