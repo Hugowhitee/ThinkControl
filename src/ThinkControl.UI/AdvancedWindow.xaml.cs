@@ -343,7 +343,7 @@ public partial class AdvancedWindow : Window
 
     private void Dock_Click(object sender, RoutedEventArgs e) => _app.ReturnToCompact();
     private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
+    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
     private void Close_Click(object sender, RoutedEventArgs e) => _app.HideAdvancedToTray();
 
     private void Mode_Click(object sender, RoutedEventArgs e)

@@ -72,15 +72,6 @@ public partial class AdvancedWindow
                 description.TextTrimming = TextTrimming.None;
             }
         }
-
-        // Keep the older fallback Performance page coherent too. The enhanced
-        // PerformancePanel already uses Efficiency / Balanced / Performance.
-        if (PerfQuiet.Content is StackPanel quietCopy)
-        {
-            TextBlock? title = quietCopy.Children.OfType<TextBlock>().FirstOrDefault();
-            if (title is not null)
-                title.Text = "Efficiency";
-        }
     }
 
     private Grid BuildHomeHeader()
