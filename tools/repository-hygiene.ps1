@@ -23,7 +23,8 @@ try {
     # canonical owners. Keep them from quietly reappearing in a later hotfix.
     foreach ($legacyPartial in @(
         'src/ThinkControl.UI/AdvancedWindow.Alpha30HomePolish.cs',
-        'src/ThinkControl.UI/Controls/CompactDashboard.Alpha30Polish.cs'
+        'src/ThinkControl.UI/Controls/CompactDashboard.Alpha30Polish.cs',
+        'src/ThinkControl.UI/Controls/TouchpadPanel.ReleasePolish.cs'
     )) {
         if (Test-Path -LiteralPath $legacyPartial) {
             $failures.Add("Release-specific UI partial must stay consolidated: $legacyPartial")
