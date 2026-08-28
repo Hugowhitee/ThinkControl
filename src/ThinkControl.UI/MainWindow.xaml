@@ -26,5 +26,16 @@
     <!-- CompactDashboard is the only compact runtime surface. Compact behaves as
          a persistent quick-control window: clicking another app must not dismiss
          it. Users explicitly hide it with the close button or the tray toggle. -->
-    <controls:CompactDashboard x:Name="Dashboard" />
+    <Grid>
+        <controls:CompactDashboard x:Name="Dashboard" />
+        <Border x:Name="TransitionOutline"
+                Visibility="Collapsed"
+                IsHitTestVisible="False"
+                Panel.ZIndex="30"
+                Margin="1"
+                CornerRadius="8"
+                BorderThickness="2"
+                BorderBrush="{DynamicResource Tc.Accent}"
+                Opacity="0.88" />
+    </Grid>
 </Window>
