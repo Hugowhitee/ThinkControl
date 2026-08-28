@@ -18,6 +18,31 @@ internal sealed record HardwareSetupStatus(
     string LowLevelAccessDetail,
     bool ServiceReachable = false)
 {
+    // Keep existing snapshot/support fixtures source-compatible. Older callers did
+    // not distinguish uninstall registration from a complete PawnIO installation;
+    // for those fixtures, an installed low-level component implies registration.
+    internal HardwareSetupStatus(
+        bool ServiceInstalled,
+        bool ServiceRunning,
+        bool LowLevelAccessRelevant,
+        bool LowLevelAccessInstalled,
+        bool LowLevelAccessRunning,
+        string ServiceDetail,
+        string LowLevelAccessDetail,
+        bool ServiceReachable = false)
+        : this(
+            ServiceInstalled,
+            ServiceRunning,
+            LowLevelAccessRelevant,
+            LowLevelAccessInstalled,
+            LowLevelAccessRegistered: LowLevelAccessInstalled,
+            LowLevelAccessRunning,
+            ServiceDetail,
+            LowLevelAccessDetail,
+            ServiceReachable)
+    {
+    }
+
     internal bool NeedsAttention =>
         !ServiceRunning ||
         !ServiceReachable ||
