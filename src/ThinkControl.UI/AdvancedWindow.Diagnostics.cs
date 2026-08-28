@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI;
 
@@ -117,6 +118,16 @@ public partial class AdvancedWindow
         TouchpadPanelControl.PrepareForSnapshot(showActiveGesture: false, showInwardGesture: true);
         TouchpadPanelControl.PrepareHapticsForSnapshot();
     }
+
+    public void PrepareTouchpadCornerForSnapshot(TouchpadCorner corner, bool live)
+    {
+        TouchpadPanelControl.PrepareCornerForSnapshot(corner, live);
+        TouchpadPanelControl.PrepareHapticsForSnapshot();
+        TouchpadPanelControl.ValidateCornerEditorLayoutForSnapshot(corner, live);
+    }
+
+    public void ValidateTouchpadCornerSymmetryForSnapshot() =>
+        TouchpadPanelControl.ValidateCornerSymmetryForSnapshot();
 
     public void PreparePerformanceForSnapshot() =>
         PerformancePanelControl.PrepareForSnapshot();

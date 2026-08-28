@@ -11,15 +11,10 @@
              MinWidth="520">
     <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
         <StackPanel>
-            <Grid>
-                <TextBlock Text="Effects" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding KeyboardModeText}"
-                           HorizontalAlignment="Right"
-                           Foreground="{DynamicResource Tc.TextMuted}" />
-            </Grid>
+            <TextBlock Text="Effects" FontWeight="SemiBold" />
 
             <TextBlock Margin="0,7,0,12"
-                       Text="Auto uses normal verified Off / Low / High backlight control and dims after inactivity. Breathing, Reactive and Audio require the stricter direct-effect backend."
+                       Text="Breathing, Reactive and Audio are ThinkControl user-session effects. They are enabled only with the direct backlight provider so repeated changes do not invoke Lenovo's brightness pop-up."
                        Foreground="{DynamicResource Tc.TextMuted}"
                        FontSize="{x:Static ui:TypographyScale.Caption}"
                        TextWrapping="Wrap" />
@@ -29,12 +24,10 @@
                     <ColumnDefinition />
                     <ColumnDefinition />
                     <ColumnDefinition />
-                    <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <RadioButton x:Name="EffectAuto" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Auto" Tag="Auto" Click="Effect_Click" IsEnabled="{Binding CanKeyboardBacklight}" d:IsEnabled="True" Margin="0,0,5,0" />
-                <RadioButton x:Name="EffectBreathing" Grid.Column="1" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Breathing" Tag="Breathing" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="2,0" />
-                <RadioButton x:Name="EffectReactive" Grid.Column="2" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Reactive" Tag="Reactive" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="2,0" />
-                <RadioButton x:Name="EffectAudio" Grid.Column="3" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Audio" Tag="Audio" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="5,0,0,0" />
+                <RadioButton x:Name="EffectBreathing" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Breathing" Tag="Breathing" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="0,0,5,0" />
+                <RadioButton x:Name="EffectReactive" Grid.Column="1" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Reactive" Tag="Reactive" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="2,0" />
+                <RadioButton x:Name="EffectAudio" Grid.Column="2" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Audio" Tag="Audio" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="5,0,0,0" />
             </Grid>
 
             <Grid Margin="0,14,0,0">

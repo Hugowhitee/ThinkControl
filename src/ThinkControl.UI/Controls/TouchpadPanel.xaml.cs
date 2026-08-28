@@ -17,13 +17,15 @@ public partial class TouchpadPanel : UserControl
     private readonly DispatcherTimer _settingsSaveTimer;
     private App? _app;
     private TouchpadFeatureHost? _host;
-    private TouchpadEdge _selectedEdge = TouchpadEdge.Top;
+    private TouchpadZoneSelection _selectedZone = TouchpadZoneSelection.ForEdge(TouchpadEdge.Top);
     private TouchpadGestureConfiguration _configuration =
         TouchpadGestureConfiguration.Default with { Enabled = false };
     private IReadOnlyList<TouchContact> _contacts = Array.Empty<TouchContact>();
     private GestureSignal? _signal;
     private bool _syncing;
     private bool _hostUiSubscribed;
+
+    private TouchpadEdge SelectedEdge => _selectedZone.Edge ?? TouchpadEdge.Top;
 
     public TouchpadPanel()
     {
@@ -55,7 +57,7 @@ public partial class TouchpadPanel : UserControl
             new ActionOption(GestureActionKind.OpenThinkControl, "Open Compact", "Swipe inward from this edge to open ThinkControl Compact.", ResolveIcon(SemanticIconKeys.CompactView))
         };
 
-        Visualizer.EdgeSelected += OnEdgeSelected;
+        Visualizer.ZoneSelected += OnZoneSelected;
         SizeChanged += (_, _) => ApplyResponsiveLayout();
         IsVisibleChanged += (_, e) => OnVisibilityChanged(e.NewValue is true);
         Loaded += (_, _) => SyncHostUiSubscriptions(IsVisible);
@@ -104,10 +106,13 @@ public partial class TouchpadPanel : UserControl
             ActivationSlider.Value = _configuration.ActivationDistanceMm;
             ToleranceSlider.Value = _configuration.ContinuationToleranceMm;
             Visualizer.Configuration = _configuration;
-            Visualizer.SelectedEdge = _selectedEdge;
+            Visualizer.SelectedZone = _selectedZone;
             Visualizer.Geometry = _host.Geometry ?? DefaultGeometry();
             Visualizer.SetTestFrame(_contacts, _signal);
-            SyncSelectedEdge();
+            if (_selectedZone.Edge is not null)
+                SyncSelectedEdge();
+            SyncCornerLaunchControls();
+            ApplySelectedZoneEditor();
             SyncHaptics();
             SyncOsd();
             UpdateGestureLabels();
@@ -115,8 +120,8 @@ public partial class TouchpadPanel : UserControl
                 ? (_host.IsInputRunning ? "Waiting for touchpad input" : "Input inactive")
                 : (_host.Geometry.PhysicalSizeEstimated ? "Precision Touchpad · size estimated" : "Precision Touchpad detected");
             GestureStatusText.Text = _configuration.Enabled
-                ? "Edge gestures are active. Start inside a highlighted edge band and follow the assigned along-edge or inward motion."
-                : "Edge gestures are off. Live touch visualization runs only while this page is open.";
+                ? "Touchpad gestures are active. Select an edge or corner to edit its action."
+                : "Touchpad gestures are off. Live touch visualization runs only while this page is open.";
         }
         finally
         {
@@ -127,17 +132,18 @@ public partial class TouchpadPanel : UserControl
 
     private void SyncSelectedEdge()
     {
-        TouchpadEdgeBinding binding = _configuration.BindingFor(_selectedEdge);
+        TouchpadEdge edge = SelectedEdge;
+        TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
         TouchpadActionVisualSpec visual = TouchpadActionVisualCatalog.Get(binding.Action);
         SelectedEdgeDescription.Text = visual.Motion == TouchpadGestureMotionKind.Inward
-            ? _selectedEdge switch
+            ? edge switch
             {
                 TouchpadEdge.Top => "Swipe inward from the top edge.",
                 TouchpadEdge.Bottom => "Swipe inward from the bottom edge.",
                 TouchpadEdge.Left => "Swipe inward from the left edge.",
                 _ => "Swipe inward from the right edge."
             }
-            : _selectedEdge switch
+            : edge switch
             {
                 TouchpadEdge.Top => "Horizontal movement along the top edge.",
                 TouchpadEdge.Bottom => "Horizontal movement along the bottom edge.",
@@ -198,12 +204,28 @@ public partial class TouchpadPanel : UserControl
         OsdOpacitySlider.IsEnabled = settings.TouchpadOsdEnabled;
     }
 
-    private void OnEdgeSelected(TouchpadEdge edge)
+    private void OnZoneSelected(TouchpadZoneSelection zone)
     {
-        _selectedEdge = edge;
+        _selectedZone = zone.Sanitize();
+        Visualizer.SelectedZone = _selectedZone;
+        if (_selectedZone.Corner is not null)
+            _settingsSaveTimer.Stop();
+
         _syncing = true;
-        try { SyncSelectedEdge(); }
-        finally { _syncing = false; }
+        try
+        {
+            if (_selectedZone.Edge is not null)
+            {
+                SyncSelectedEdge();
+                SyncTrackCenterOption();
+            }
+            SyncCornerLaunchControls();
+            ApplySelectedZoneEditor();
+        }
+        finally
+        {
+            _syncing = false;
+        }
     }
 
     private void GestureEnable_Click(object sender, RoutedEventArgs e)
@@ -217,25 +239,26 @@ public partial class TouchpadPanel : UserControl
         else if (!IsVisible)
             _host.StopInputIfGesturesDisabled();
         Visualizer.Configuration = _configuration;
+        SyncGestureZoneOverlay();
         GestureStatusText.Text = _configuration.Enabled
-            ? "Edge gestures are active."
-            : "Edge gestures are off. Live visualization stops when you leave this page.";
+            ? "Touchpad gestures are active."
+            : "Touchpad gestures are off. Live visualization stops when you leave this page.";
     }
 
     private void ActionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncing || ActionCombo.SelectedItem is not ActionOption option)
+        if (_syncing || _selectedZone.Edge is null || ActionCombo.SelectedItem is not ActionOption option)
             return;
         ActionHelpText.Text = option.Description;
-        TouchpadEdgeBinding current = _configuration.BindingFor(_selectedEdge);
+        TouchpadEdgeBinding current = _configuration.BindingFor(SelectedEdge);
         SetSelectedBinding(current with { Action = option.Action });
     }
 
     private void InvertCheck_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing)
+        if (_syncing || _selectedZone.Edge is null)
             return;
-        TouchpadEdgeBinding current = _configuration.BindingFor(_selectedEdge);
+        TouchpadEdgeBinding current = _configuration.BindingFor(SelectedEdge);
         SetSelectedBinding(current with { Inverted = InvertCheck.IsChecked == true });
     }
 
@@ -253,7 +276,8 @@ public partial class TouchpadPanel : UserControl
         if (_host is null || _syncing)
             return;
 
-        TouchpadEdgeBinding selected = _configuration.BindingFor(_selectedEdge) with
+        TouchpadEdge edge = SelectedEdge;
+        TouchpadEdgeBinding selected = _configuration.BindingFor(edge) with
         {
             Sensitivity = SensitivitySlider.Value
         };
@@ -262,26 +286,28 @@ public partial class TouchpadPanel : UserControl
             EdgeWidthMm = EdgeWidthSlider.Value,
             ActivationDistanceMm = ActivationSlider.Value,
             ContinuationToleranceMm = ToleranceSlider.Value,
-            Bindings = WithBinding(_configuration.Bindings ?? TouchpadGestureBindings.AsusStyle, _selectedEdge, selected)
+            Bindings = WithBinding(_configuration.Bindings ?? TouchpadGestureBindings.AsusStyle, edge, selected)
         };
         _configuration = _configuration.Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
+        SyncGestureZoneOverlay();
         SensitivityValue.Text = FormatSensitivity(selected.Sensitivity);
     }
 
     private void SetSelectedBinding(TouchpadEdgeBinding binding)
     {
-        if (_host is null)
+        if (_host is null || _selectedZone.Edge is null)
             return;
 
+        TouchpadEdge selectedEdge = SelectedEdge;
         TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
         TouchpadEdge? movedFrom = null;
         if (binding.Action != GestureActionKind.Disabled)
         {
             foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
             {
-                if (edge == _selectedEdge)
+                if (edge == selectedEdge)
                     continue;
                 TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
                 if (existing.Action != binding.Action)
@@ -291,14 +317,15 @@ public partial class TouchpadPanel : UserControl
             }
         }
 
-        bindings = WithBinding(bindings, _selectedEdge, binding);
+        bindings = WithBinding(bindings, selectedEdge, binding);
         _configuration = (_configuration with { Bindings = bindings }).Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
+        SyncGestureZoneOverlay();
         SensitivityValue.Text = FormatSensitivity(binding.Sensitivity);
 
         if (movedFrom is TouchpadEdge previous)
-            GestureStatusText.Text = $"{ActionLabel(binding.Action)} moved from {EdgeLabel(previous)} to {EdgeLabel(_selectedEdge)}.";
+            GestureStatusText.Text = $"{ActionLabel(binding.Action)} moved from {EdgeLabel(previous)} to {EdgeLabel(selectedEdge)}.";
     }
 
     private void HapticSwitch_Click(object sender, RoutedEventArgs e)
@@ -374,9 +401,22 @@ public partial class TouchpadPanel : UserControl
             if (!IsVisible || !_hostUiSubscribed)
                 return;
 
-            UpdateGestureValueFeedback(signal);
+            if (signal.Corner is null)
+                UpdateGestureValueFeedback(signal);
+            else
+                Visualizer.ClearActiveGestureFeedback();
+
             _signal = signal.Phase is GesturePhase.Released or GesturePhase.Cancelled ? null : signal;
             Visualizer.SetTestFrame(_contacts, _signal);
+
+            if (signal.Corner is not null)
+            {
+                UpdateCornerGestureUi(signal);
+                return;
+            }
+
+            SetCornerLiveEmphasis(false);
+            SyncGestureZoneOverlay();
             GestureStatusText.Text = signal.Phase switch
             {
                 GesturePhase.Candidate when signal.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled =>
@@ -398,6 +438,7 @@ public partial class TouchpadPanel : UserControl
             if (!IsVisible || !_hostUiSubscribed)
                 return;
             Visualizer.Geometry = geometry;
+            SyncGestureZoneOverlay();
             InputStatusText.Text = geometry.PhysicalSizeEstimated
                 ? "Precision Touchpad · size estimated"
                 : "Precision Touchpad detected";
@@ -487,7 +528,9 @@ public partial class TouchpadPanel : UserControl
         _contacts = Array.Empty<TouchContact>();
         _signal = null;
         ClearGestureFeedback();
+        SetCornerLiveEmphasis(false);
         Visualizer.SetTestFrame(_contacts, null);
+        SyncGestureZoneOverlay();
         _host.StopInputIfGesturesDisabled();
     }
 
@@ -495,6 +538,7 @@ public partial class TouchpadPanel : UserControl
     {
         _settingsSaveTimer.Stop();
         ClearGestureFeedback();
+        SetCornerLiveEmphasis(false);
         SyncHostUiSubscriptions(false);
         _host?.StopInputIfGesturesDisabled();
     }
@@ -573,6 +617,7 @@ public partial class TouchpadPanel : UserControl
         GestureActionKind.PreviousNextTrack => "Track control",
         GestureActionKind.PlayPause => "Play / pause",
         GestureActionKind.OpenThinkControl => "Open ThinkControl",
+        GestureActionKind.OpenAdvanced => "Open Advanced",
         _ => "Off"
     };
 }

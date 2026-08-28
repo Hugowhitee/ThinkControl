@@ -37,62 +37,19 @@ public partial class TouchpadPanel
 
     internal void PrepareForSnapshot(bool showActiveGesture, bool showInwardGesture = false)
     {
-        // Snapshot rendering does not raise the normal Loaded lifecycle. Materialize
-        // the same runtime corner-launch UI explicitly so visual QA actually covers
-        // the new affordance rather than silently rendering the pre-alpha.30 shape.
-        ConfigureCornerLaunchUi();
-        SyncCornerLaunchControls();
-        AttachCornerHost();
-        _settingsSaveTimer.Stop();
-        ClearGestureFeedback();
-        InputStatusText.Text = "Precision Touchpad detected";
+        PrepareSnapshotBase();
 
         if (!showActiveGesture && !showInwardGesture)
         {
             PrepareSnapshotBinding(TouchpadEdge.Top, GestureActionKind.MediaSeek, trackCenter: false);
             Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
-            RefreshCornerZoneVisuals(null);
+            RefreshGestureZoneVisuals(null);
             return;
         }
 
         if (showInwardGesture)
         {
-            _syncing = true;
-            try
-            {
-                GestureEnableSwitch.IsChecked = true;
-                _selectedLaunchCorner = TouchpadCorner.TopRight;
-                _configuration = (_configuration with
-                {
-                    Enabled = true,
-                    TrackCenterPlayPauseEnabled = false,
-                    CornerLaunches = new TouchpadCornerLaunchBindings(
-                        TopLeft: GestureActionKind.OpenThinkControl,
-                        TopRight: GestureActionKind.OpenAdvanced)
-                }).Sanitize();
-                Visualizer.Configuration = _configuration;
-                if (_topLeftLaunchCombo is not null)
-                    _topLeftLaunchCombo.SelectedItem = CornerLaunchOptions.First(option => option.Action == GestureActionKind.OpenThinkControl);
-                if (_topRightLaunchCombo is not null)
-                    _topRightLaunchCombo.SelectedItem = CornerLaunchOptions.First(option => option.Action == GestureActionKind.OpenAdvanced);
-            }
-            finally
-            {
-                _syncing = false;
-            }
-
-            var launch = new GestureSignal(
-                GesturePhase.Active,
-                Edge: null,
-                Action: GestureActionKind.OpenAdvanced,
-                TotalTravelMm: 9.1,
-                DeltaMm: 2.2,
-                ContactId: 1,
-                Corner: TouchpadCorner.TopRight);
-            Visualizer.SetTestFrame([new TouchContact(1, 12900, 500, true)], launch);
-            Visualizer.SetTestFrame([new TouchContact(1, 12200, 1200, true)], launch);
-            RefreshCornerZoneVisuals(launch);
-            GestureStatusText.Text = "Top-right launch · opening Advanced";
+            PrepareCornerSnapshot(TouchpadCorner.TopRight, live: true);
             return;
         }
 
@@ -110,8 +67,91 @@ public partial class TouchpadPanel
         Visualizer.SetTestFrame([new TouchContact(1, 5300, 7700, true)], signal);
         Visualizer.SetTestFrame([new TouchContact(1, 8500, 7700, true)], signal);
         Visualizer.ShowActiveGestureValue(TouchpadEdge.Bottom, "Next");
-        RefreshCornerZoneVisuals(null);
+        RefreshGestureZoneVisuals(null);
         GestureStatusText.Text = "Track control · Next";
+    }
+
+    internal void PrepareCornerForSnapshot(TouchpadCorner corner, bool live)
+    {
+        PrepareSnapshotBase();
+        PrepareCornerSnapshot(corner, live);
+    }
+
+    internal void ValidateCornerSymmetryForSnapshot() => Visualizer.ValidateCornerSymmetryForSnapshot();
+
+    private void PrepareSnapshotBase()
+    {
+        // Snapshot rendering does not raise the normal Loaded lifecycle. Materialize
+        // the same runtime editor/auxiliary overlay explicitly without subscribing
+        // another live-input listener or touching hardware/user settings.
+        ConfigureCornerLaunchUi();
+        _settingsSaveTimer.Stop();
+        ClearGestureFeedback();
+        InputStatusText.Text = "Precision Touchpad detected";
+    }
+
+    private void PrepareCornerSnapshot(TouchpadCorner corner, bool live)
+    {
+        _syncing = true;
+        try
+        {
+            GestureEnableSwitch.IsChecked = true;
+            _selectedZone = TouchpadZoneSelection.ForCorner(corner);
+            _configuration = (_configuration with
+            {
+                Enabled = true,
+                TrackCenterPlayPauseEnabled = false,
+                CornerLaunches = new TouchpadCornerLaunchBindings(
+                    TopLeft: GestureActionKind.OpenThinkControl,
+                    TopRight: GestureActionKind.OpenAdvanced)
+            }).Sanitize();
+            Visualizer.Configuration = _configuration;
+            Visualizer.SelectedZone = _selectedZone;
+            SyncCornerLaunchControls();
+            ApplySelectedZoneEditor();
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        if (!live)
+        {
+            Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
+            RefreshGestureZoneVisuals(null);
+            GestureStatusText.Text = corner == TouchpadCorner.TopLeft
+                ? "Top-left corner selected · Compact"
+                : "Top-right corner selected · Advanced";
+            return;
+        }
+
+        GestureActionKind action = corner == TouchpadCorner.TopLeft
+            ? GestureActionKind.OpenThinkControl
+            : GestureActionKind.OpenAdvanced;
+        var launch = new GestureSignal(
+            GesturePhase.Active,
+            Edge: null,
+            Action: action,
+            TotalTravelMm: 9.1,
+            DeltaMm: 2.2,
+            ContactId: 1,
+            Corner: corner);
+
+        if (corner == TouchpadCorner.TopLeft)
+        {
+            Visualizer.SetTestFrame([new TouchContact(1, 600, 500, true)], launch);
+            Visualizer.SetTestFrame([new TouchContact(1, 1300, 1200, true)], launch);
+        }
+        else
+        {
+            Visualizer.SetTestFrame([new TouchContact(1, 12900, 500, true)], launch);
+            Visualizer.SetTestFrame([new TouchContact(1, 12200, 1200, true)], launch);
+        }
+
+        RefreshGestureZoneVisuals(launch);
+        GestureStatusText.Text = corner == TouchpadCorner.TopLeft
+            ? "Top-left launch · opening Compact"
+            : "Top-right launch · opening Advanced";
     }
 
     private void PrepareSnapshotBinding(TouchpadEdge selectedEdge, GestureActionKind action, bool trackCenter)
@@ -119,7 +159,7 @@ public partial class TouchpadPanel
         _syncing = true;
         try
         {
-            _selectedEdge = selectedEdge;
+            _selectedZone = TouchpadZoneSelection.ForEdge(selectedEdge);
             GestureEnableSwitch.IsChecked = true;
             TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
             foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
@@ -137,10 +177,12 @@ public partial class TouchpadPanel
                 TrackCenterPlayPauseEnabled = trackCenter,
                 Bindings = WithBinding(bindings, selectedEdge, new TouchpadEdgeBinding(action))
             }).Sanitize();
-            Visualizer.SelectedEdge = _selectedEdge;
+            Visualizer.SelectedZone = _selectedZone;
             Visualizer.Configuration = _configuration;
             SyncSelectedEdge();
             SyncTrackCenterOption();
+            SyncCornerLaunchControls();
+            ApplySelectedZoneEditor();
         }
         finally
         {
