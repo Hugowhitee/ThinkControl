@@ -75,7 +75,19 @@ public partial class AdvancedWindow
                 snapshotState.BatteryTemperatureC = 34.8;
 
             if (PageFans?.Content is Controls.FansPanel fansPanel)
+            {
                 fansPanel.PrepareForSnapshot(snapshotState);
+
+                // The dedicated active-curve fixture is the one visual-QA fan state
+                // that pins Balanced explicitly. Reuse it to show the production
+                // temporary manual-test safety controls as well, without starting a
+                // timer or touching hardware during screenshot generation.
+                if (snapshotState.CanFanControl &&
+                    string.Equals(snapshotState.CoolingProfile, "Balanced", StringComparison.OrdinalIgnoreCase))
+                {
+                    fansPanel.PrepareManualFanTestForSnapshot();
+                }
+            }
 
             if (PageBattery?.Content is Panel batteryContent &&
                 batteryContent.Children.OfType<Controls.BatteryTelemetryPanel>().FirstOrDefault() is { } batteryPanel)
