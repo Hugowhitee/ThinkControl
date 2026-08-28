@@ -2,6 +2,14 @@ using Windows.Media.Control;
 
 namespace ThinkControl.UI.Services.Touchpad;
 
+internal enum MediaToggleResult
+{
+    Unavailable,
+    Playing,
+    Paused,
+    Toggled
+}
+
 internal sealed class MediaSessionService
 {
     private static readonly TimeSpan DefaultSeekCadence = TimeSpan.FromMilliseconds(85);
@@ -26,18 +34,43 @@ internal sealed class MediaSessionService
     internal async Task<bool> TrySkipNextAsync() => await TrySkipAsync(next: true).ConfigureAwait(false);
     internal async Task<bool> TrySkipPreviousAsync() => await TrySkipAsync(next: false).ConfigureAwait(false);
 
-    internal async Task<bool> TryTogglePlayPauseAsync()
+    internal async Task<MediaToggleResult> TryTogglePlayPauseAsync()
     {
         await _gate.WaitAsync().ConfigureAwait(false);
         try
         {
             _manager ??= await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
             GlobalSystemMediaTransportControlsSession? session = _manager.GetCurrentSession();
-            return session is not null && await session.TryTogglePlayPauseAsync();
+            if (session is null)
+                return MediaToggleResult.Unavailable;
+
+            GlobalSystemMediaTransportControlsSessionPlaybackStatus before;
+            try
+            {
+                before = session.GetPlaybackInfo().PlaybackStatus;
+            }
+            catch
+            {
+                before = GlobalSystemMediaTransportControlsSessionPlaybackStatus.Changing;
+            }
+
+            if (!await session.TryTogglePlayPauseAsync())
+                return MediaToggleResult.Unavailable;
+
+            // The command itself is the source of truth. Derive the expected state
+            // from the session state immediately before the successful toggle rather
+            // than showing the same ambiguous combined icon every time.
+            return before switch
+            {
+                GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing => MediaToggleResult.Paused,
+                GlobalSystemMediaTransportControlsSessionPlaybackStatus.Paused or
+                GlobalSystemMediaTransportControlsSessionPlaybackStatus.Stopped => MediaToggleResult.Playing,
+                _ => MediaToggleResult.Toggled
+            };
         }
         catch
         {
-            return false;
+            return MediaToggleResult.Unavailable;
         }
         finally
         {

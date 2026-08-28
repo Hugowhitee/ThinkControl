@@ -40,15 +40,11 @@ public partial class AdvancedWindow : Window
 
     private void ConfigureNativeWindow()
     {
-        // Advanced is a normal Windows application window. Let Windows own the
-        // caption buttons, maximize/restore state, Snap Layouts and system menu.
         WindowChrome.SetWindowChrome(this, null);
         WindowStyle = WindowStyle.SingleBorderWindow;
         ResizeMode = ResizeMode.CanResize;
         ShowInTaskbar = true;
 
-        // The XAML keeps the old custom caption as a harmless fallback for Blend.
-        // At runtime its row is collapsed so there is exactly one title bar.
         if (Content is System.Windows.Controls.Border rootBorder)
         {
             rootBorder.CornerRadius = new CornerRadius(0);
@@ -115,6 +111,14 @@ public partial class AdvancedWindow : Window
         navStack.Children.Insert(0, dockRow);
     }
 
+    private void InitializeFeaturePanels()
+    {
+        PerformancePanelControl.Initialize(_app);
+        FansPanelControl.Initialize(_app);
+        AudioPanelControl.Initialize(_app);
+        TouchpadPanelControl.Initialize(_app);
+    }
+
     public void ApplyThemeToChrome()
     {
         if (!IsSourceInitialized)
@@ -128,7 +132,6 @@ public partial class AdvancedWindow : Window
         }
         catch
         {
-            // Native caption theming is cosmetic; never block the window.
         }
     }
 
@@ -142,10 +145,6 @@ public partial class AdvancedWindow : Window
             _positioned = true;
         }
 
-        // Never fade a top-level native WPF window from opacity 0. On slower first
-        // composition passes that exposed a large black client area before the real
-        // visual tree painted. Keep the window fully opaque and let the dedicated
-        // startup loader / existing Compact surface provide transition continuity.
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
 
@@ -166,8 +165,6 @@ public partial class AdvancedWindow : Window
         if (!IsVisible)
             return;
 
-        // Layout switching must be deterministic. A whole-window fade can overlap
-        // with activation/deactivation and leave a hidden/transparent native window.
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
         Hide();
@@ -185,9 +182,11 @@ public partial class AdvancedWindow : Window
         {
             case "Performance": NavPerformance.IsChecked = true; break;
             case "Fans": NavFans.IsChecked = true; break;
-            case "Display": NavDisplay.IsChecked = true; break;
-            case "Keyboard": NavKeyboard.IsChecked = true; break;
             case "Battery": NavBattery.IsChecked = true; break;
+            case "Display": NavDisplay.IsChecked = true; break;
+            case "Audio": NavAudio.IsChecked = true; break;
+            case "Keyboard": NavKeyboard.IsChecked = true; break;
+            case "Touchpad": NavTouchpad.IsChecked = true; break;
             case "System": NavSystem.IsChecked = true; break;
             case "Updates": NavUpdates.IsChecked = true; break;
             case "Settings": NavSettings.IsChecked = true; break;
@@ -202,6 +201,7 @@ public partial class AdvancedWindow : Window
         if (DataContext is AppState state)
             state.PropertyChanged += State_PropertyChanged;
 
+        InitializeFeaturePanels();
         StartupSwitch.IsChecked = StartupService.IsEnabled();
         ConfigureHomeQuickControls();
         SyncControls();
@@ -244,12 +244,10 @@ public partial class AdvancedWindow : Window
         _syncing = true;
         try
         {
-            bool quiet = state.SelectedMode == nameof(ThinkControlPowerMode.Quiet);
-            bool balanced = state.SelectedMode == nameof(ThinkControlPowerMode.Balanced);
-            bool performance = state.SelectedMode == nameof(ThinkControlPowerMode.Performance);
-            HomeQuiet.IsChecked = PerfQuiet.IsChecked = quiet;
-            HomeBalanced.IsChecked = PerfBalanced.IsChecked = balanced;
-            HomePerformance.IsChecked = PerfPerformance.IsChecked = performance;
+            ThinkControlPowerMode batteryPreference = _app.GetPowerPreference(onBattery: true);
+            HomeQuiet.IsChecked = batteryPreference == ThinkControlPowerMode.Quiet;
+            HomeBalanced.IsChecked = batteryPreference == ThinkControlPowerMode.Balanced;
+            HomePerformance.IsChecked = batteryPreference == ThinkControlPowerMode.Performance;
 
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);
@@ -269,12 +267,6 @@ public partial class AdvancedWindow : Window
             HomeKeyboardLow.IsChecked = AdvancedKeyboardLow.IsChecked = isStatic && state.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase);
             HomeKeyboardHigh.IsChecked = AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
             HomeKeyboardAuto.IsChecked = AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
-
-            foreach (WpfButton button in FindVisualChildren<WpfButton>(PageFans))
-            {
-                if ((button.Tag is string tag && int.TryParse(tag, out _)) || Equals(button.Content, "Lenovo Auto"))
-                    button.IsEnabled = state.CanFanControl;
-            }
 
             if (HomeFanProfileCombo is not null)
             {
@@ -304,7 +296,8 @@ public partial class AdvancedWindow : Window
 
         foreach (FrameworkElement element in new FrameworkElement[]
         {
-            PageHome, PagePerformance, PageFans, PageDisplay, PageKeyboard, PageBattery, PageSystem, PageUpdates, PageSettings
+            PageHome, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
+            PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageSettings
         })
         {
             element.Visibility = Visibility.Collapsed;
@@ -314,9 +307,11 @@ public partial class AdvancedWindow : Window
         {
             "Performance" => PagePerformance,
             "Fans" => PageFans,
-            "Display" => PageDisplay,
-            "Keyboard" => PageKeyboard,
             "Battery" => PageBattery,
+            "Display" => PageDisplay,
+            "Audio" => PageAudio,
+            "Keyboard" => PageKeyboard,
+            "Touchpad" => PageTouchpad,
             "System" => PageSystem,
             "Updates" => PageUpdates,
             "Settings" => PageSettings,
@@ -329,9 +324,11 @@ public partial class AdvancedWindow : Window
     {
         if (NavPerformance.IsChecked == true) return "Performance";
         if (NavFans.IsChecked == true) return "Fans";
-        if (NavDisplay.IsChecked == true) return "Display";
-        if (NavKeyboard.IsChecked == true) return "Keyboard";
         if (NavBattery.IsChecked == true) return "Battery";
+        if (NavDisplay.IsChecked == true) return "Display";
+        if (NavAudio.IsChecked == true) return "Audio";
+        if (NavKeyboard.IsChecked == true) return "Keyboard";
+        if (NavTouchpad.IsChecked == true) return "Touchpad";
         if (NavSystem.IsChecked == true) return "System";
         if (NavUpdates.IsChecked == true) return "Updates";
         if (NavSettings.IsChecked == true) return "Settings";
@@ -351,9 +348,15 @@ public partial class AdvancedWindow : Window
 
     private void Mode_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || sender is not FrameworkElement { Tag: string tag } || !Enum.TryParse(tag, out ThinkControlPowerMode mode))
+        if (_syncing || sender is not FrameworkElement element || element.Tag is not string tag ||
+            !Enum.TryParse(tag, out ThinkControlPowerMode mode))
+        {
             return;
-        if (!_app.SetPowerMode(mode))
+        }
+
+        bool homeQuickControl = element.Name.StartsWith("Home", StringComparison.Ordinal);
+        bool onBattery = homeQuickControl || _app.IsCurrentlyOnBattery();
+        if (!_app.SetPowerPreference(mode, onBattery))
             SyncControls();
     }
 
@@ -402,24 +405,6 @@ public partial class AdvancedWindow : Window
             await _app.SetKeyboardStaticLevelAsync(value);
 
         SyncControls();
-    }
-
-    private async void FanAuto_Click(object sender, RoutedEventArgs e)
-    {
-        var response = await _app.HardwareClient.ReturnFanToAutoAsync();
-        if (response?.Success != true)
-            _app.State.HardwareAccess = response?.Error ?? "Fan control unavailable";
-        await _app.RefreshStatusAsync();
-    }
-
-    private async void FanLevel_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is not FrameworkElement { Tag: string raw } || !int.TryParse(raw, out int level))
-            return;
-        var response = await _app.HardwareClient.SetFanLevelAsync(level);
-        if (response?.Success != true)
-            _app.State.HardwareAccess = response?.Error ?? "Fan control unavailable";
-        await _app.RefreshStatusAsync();
     }
 
     private async void CheckUpdates_Click(object sender, RoutedEventArgs e)

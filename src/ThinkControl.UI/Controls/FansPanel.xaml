@@ -141,7 +141,8 @@
                 <Grid>
                     <StackPanel>
                         <TextBlock Text="Fan calibration" FontWeight="SemiBold" />
-                        <TextBlock x:Name="CalibrationDescriptionText" Text="Measure the seven verified EC steps and their real tachometer response. Lower percentages are derived from RPM relative to step 7, the physically verified maximum."
+                        <TextBlock x:Name="CalibrationDescriptionText"
+                                   Text="Verified X9 only. Each EC step settles, then uses three real tachometer samples. A new run replaces the existing mapping only after all seven states validate; cancelling or losing telemetry keeps the previous verified calibration."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,200,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
@@ -150,10 +151,7 @@
                     </StackPanel>
                 </Grid>
                 <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="7" Margin="0,14,0,0" Visibility="Collapsed" />
-                <Grid Margin="0,10,0,0">
-                    <TextBlock x:Name="CharacterizationStatusText" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" />
-                    <Button x:Name="MarkAudibleButton" HorizontalAlignment="Right" Content="Clearly audible here" Style="{StaticResource TcButton}" Click="MarkAudible_Click" Visibility="Collapsed" />
-                </Grid>
+                <TextBlock x:Name="CharacterizationStatusText" Margin="0,10,0,0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" />
                 <ItemsControl x:Name="CalibrationResults" Margin="0,10,0,0">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>

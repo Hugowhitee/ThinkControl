@@ -1,8 +1,8 @@
 # Architecture
 
-This document describes the architecture used by ThinkControl `v0.1.0-alpha.23` and the compatibility/safety boundaries new provider work must preserve.
+This document describes the architecture used by ThinkControl `v0.1.0-alpha.31` and the compatibility/safety boundaries future provider work must preserve.
 
-ThinkControl is a general Windows laptop-control product. The current low-level reference implementation is Lenovo/ThinkPad/X9, but the core and UI architecture are intentionally vendor-neutral.
+ThinkControl is a general Windows laptop-control product. The current physically reviewed low-level reference is Lenovo/ThinkPad/X9, but the product/core/UI boundaries are capability-driven rather than vendor-specific.
 
 ```text
 ThinkControl.UI
@@ -17,48 +17,64 @@ ThinkControl.Service
             |-- Windows-safe providers
             |-- generic read-only sensors
             |-- OEM provider contracts
-            |-- family/model provider specializations
+            |-- family/model specializations
             `-- verified model-specific low-level backends
 ```
 
-## Projects
+## Project boundaries
 
 ### ThinkControl.Core
 
-Shared capability contracts, telemetry models, diagnostics, compatibility state and platform-independent behavior. Core does not depend on WPF or direct hardware I/O and must not contain OEM-specific register/IOCTL knowledge.
+Platform-independent contracts and behavior: capability/telemetry models, cooling policies/output mapping/calibration validation, diagnostics models, compatibility state and the pure touchpad gesture recognizer. Core does not depend on WPF or direct hardware I/O and must not contain OEM-specific register/IOCTL implementation details.
 
 ### ThinkControl.DeviceProfiles
 
-Device-profile schema/resolution boundary. Profiles select reasonable provider candidates using generic → OEM → family → exact-model scope. Profiles are data; they do not implement hardware access or independently authorize arbitrary writes.
+Profile schema/resolution boundary. Profiles identify reasonable provider candidates through generic → OEM → family → exact-model scope. Profiles are data; they do not implement hardware access or independently authorize arbitrary writes.
 
 ### ThinkControl.Hardware
 
-Hardware/provider implementations and probes. This layer owns provider lifecycle, validation/readback, backoff, low-level safety and write allowlists.
+Provider implementations/probes. Hardware owns provider lifetime, concrete Windows/OEM interfaces, low-level transport, model gating, readback, bounded backoff and write allowlists.
 
 ### ThinkControl.Service
 
-The Windows service owns elevated hardware operations and provider lifetime. Its IPC listener is established before slow hardware discovery. Normal `GetStatus` requests consume a cached hardware snapshot rather than rebuilding providers synchronously.
+The Windows service owns privileged hardware providers and fan-write ownership. Its IPC listener is available independently from slow provider discovery. Runtime status is cached/refreshed by the service; a UI `GetStatus` request is not allowed to reconstruct the complete hardware stack synchronously.
 
-Public operations are semantic, for example:
+Semantic IPC operations include, as applicable:
 
 ```text
 Ping
 GetStatus
 RefreshProviders
+RefreshSensorProviders
+RefreshKeyboardProvider
 SetFanLevel
+SetFanPercent
 ReturnFanToAuto
 SetCoolingProfile
+SetCoolingCurve
+StartFanCharacterization
+StopFanCharacterization
 SetKeyboardBacklight
 SetThermalMode
 ```
 
-The service never exposes generic EC, port or IOCTL passthrough.
+The service never exposes generic EC register writes, port I/O or raw IOCTL passthrough.
 
 ### ThinkControl.UI
 
-The WPF application owns Compact/full windows, Windows-safe controls, telemetry/history, touchpad/haptics, user-session effects, updates and local diagnostics.
+The unprivileged WPF application owns Compact/Advanced windows, Windows-safe controls, battery/history, touchpad/haptics, user-session keyboard/audio behavior, updates and local diagnostics. Hardware-specific UI is capability-gated; it does not become a separate Lenovo/ASUS/Dell page hierarchy.
 
-The UI is capability-first. Fans, Sensors, Battery, Audio, Keyboard, Display and Touchpad do not become separate Lenovo/ASUS/Dell page families.
+## Dependency direction
+
+```text
+UI             -> Core
+Service        -> Core, Hardware, DeviceProfiles
+Hardware       -> Core
+DeviceProfiles -> Core
+Core           -> no ThinkControl project
+```
+
+Provider expansion must preserve this direction. In particular, Core/UI must not import OEM transport details just to support another model.
 
 ## Device/provider hierarchy
 
@@ -72,119 +88,138 @@ product family
 exact model
 ```
 
-A more specific profile may add/narrow providers, but may not silently weaken safety inherited from a broader scope.
+A more specific profile can narrow/prioritize provider candidates but cannot weaken the safety contract inherited from a broader layer. Model-specific writes require the concrete provider to verify the identity/capability contract; profile metadata alone is not permission to write hardware.
 
-## Window and startup model
+## Service readiness versus provider readiness
 
-ThinkControl has two main user surfaces:
-
-- **Compact** — fixed tray flyout for quick controls/status.
-- **Full** — normal resizable Windows window with shared page rail and native Windows caption/Snap behavior.
-
-Alpha.23 makes shell ownership explicit:
-
-1. The small `BootstrapWindow` is shown from the earliest `Application.Startup` path, **before** synchronous WMI/SMBIOS preflight.
-2. The loader remains painted until the configured Compact/full destination has completed a WPF render pass.
-3. Compact ↔ Full switching has one app-level transition owner.
-4. The destination surface is shown and rendered before the previous surface is hidden.
-5. Whole-window opacity fades are not used for Compact/full switching because a transparent/uncomposed native WPF window can expose a black client area.
-6. Transition exceptions restore the prior surface instead of letting ThinkControl disappear.
-
-A dedicated `ThinkControl.ShellSmoke` tool runs the actual Compact → Full → Compact route repeatedly in release CI. Static screenshots are not considered sufficient coverage for shell transitions.
-
-## IPC boundary
-
-The current pipe is `ThinkControl.Service.v1`. Requests are versioned and length-bounded, and the local pipe ACL restricts access to intended Windows identities.
-
-Service readiness and provider readiness remain separate. A repair is only reported successful after SCM reaches Running **and** the real ThinkControl `Ping` request succeeds.
-
-These operations are intentionally absent:
-
-```text
-WriteEc(register, value)
-WritePort(port, value)
-RawIoctl(...)
-```
-
-## Capability/readiness model
-
-ThinkControl does not represent hardware as one global supported/unsupported boolean:
+ThinkControl deliberately models several states instead of one global “hardware online” boolean:
 
 ```text
 service installed/running
 → IPC reachable
-→ dependency/device accessible
+→ prerequisite/device accessible
 → provider initialized
-→ telemetry available
+→ telemetry capability available
 → reversible write/readback available
 → model-verified low-level write available
 ```
 
-This prevents a missing sensor provider from making a healthy service look offline and prevents an installed driver from being treated as proof that a low-level provider works.
+A missing sensor provider must not make a healthy Windows service look offline. Likewise, an installed driver is not proof that a low-level provider is writable.
+
+Provider refreshes are explicit operations. Refreshing providers while ThinkControl owns fan output first requires a safe handoff to firmware Auto; characterization blocks provider recycling until it stops.
+
+## Runtime status and performance
+
+Normal UI refresh must avoid fixed-cadence expensive discovery.
+
+- Windows power-source changes use OS events.
+- Cheap/cached service and battery state may update at runtime cadence appropriate to the visible surface.
+- WMI, full display capability discovery, `powercfg`-style inspection and provider reconstruction belong to startup, explicit refresh or bounded human-scale cache refreshes.
+- Failed low-level/read-only providers use bounded retry/backoff rather than being reprobed by every UI refresh.
+- Per-frame touch input/media actions use bounded/coalesced state owners rather than spawning unbounded OS calls.
+
+## Window and startup model
+
+ThinkControl has two main surfaces:
+
+- **Compact** — fixed utility surface near the notification area.
+- **Advanced** — normal resizable Windows application window with native caption/Snap/taskbar behavior and one shared page rail.
+
+Window ownership is explicit:
+
+1. `BootstrapWindow` is painted before synchronous startup preflight when the launch is interactive.
+2. The loader stays above the destination until the real Compact/Advanced surface has completed a WPF render pass.
+3. Compact ↔ Advanced switching has one app-level transition owner.
+4. Transition feedback paints before expensive destination construction/navigation.
+5. Destination state is established before the old surface disappears; exceptions restore a usable surface rather than leaving ThinkControl hidden/transparent.
+6. Compact remains a topmost utility while visible, but owned ThinkControl popups are allowed to remain above their owner.
+7. Whole-window opacity tricks are avoided where they can expose an uncomposed black WPF frame.
+
+`ThinkControl.ShellSmoke` runs the actual Compact → Advanced → Compact lifecycle in CI. Static screenshots are not sufficient coverage for window activation/ownership regressions.
+
+## Advanced UI composition
+
+All Advanced pages share one left content rail, maximum readable width, typography scale, scrollbar/style system and capability-state language. Dynamic pages such as Touchpad/Audio/Sensors must enter the same layout contract rather than creating their own screen geometry.
+
+Runtime visual-tree mutation is reserved for genuinely dynamic/capability-driven content. Release-specific one-off “polish” layers are not permanent architecture; stable rules belong to canonical feature/layout owners or shared XAML resources.
 
 ## Sensors and control temperature
 
-Sensor values must be real provider readings. LibreHardwareMonitor/PawnIO is a generic Windows provider route where supported. CPU Package is labelled CPU Package only when the provider actually identifies it as such. Generic ACPI thermal zones are not silently promoted to CPU temperature.
+Telemetry values must be real provider readings. Generic providers such as LibreHardwareMonitor/PawnIO may supply read-only sensors where supported. CPU/control-temperature labels reflect the provider identity; generic ACPI thermal zones are not silently renamed to CPU Package.
 
-The always-on sensor set is deliberately narrow. Slow or failing providers use bounded retry/backoff rather than being hammered by every UI refresh.
+The cooling control temperature is a canonical thermal input, not an arbitrary average of unrelated SSD/battery zones. Safety decisions use the raw control temperature; normal curve decisions may use bounded smoothing.
 
-## Current X9 provider
+## Cooling ownership
 
-Direct X9 EC writes are restricted to machine types `21Q6` and `21Q7`.
+Cooling is independent from Windows power preference.
 
-Verified fan states:
+- **Auto** returns fan ownership to OEM/firmware.
+- Supervised curves exist only while a verified writable provider and valid control-temperature source are available.
+- Discrete providers expose discrete states; percentage targets are mapped to verified/calibrated output rather than presented as fake continuous PWM.
+- Meaningful hot/upward transitions can happen promptly; downshifts use hysteresis/dwell to avoid audible state hunting.
+- Loss of required telemetry/provider state and the high-temperature safety boundary hand ownership back to firmware.
+- Service/app shutdown and temporary manual-test exit paths restore the previous safe owner/profile, with firmware Auto as the fallback.
 
-```text
-Lenovo Auto  0x80
-Level 1      0x01
-...
-Level 7      0x07
-```
+The verified X9 provider-specific transport/EC evidence lives in [Lenovo provider research](research/lenovo-providers.md), [Hardware Safety](HARDWARE-SAFETY.md) and [X9 research](research/x9-15-gen1.md), not duplicated here.
 
-The backend blocks fan-off `0x00` and the unverified `0x40` override family. EC transport probes modern ThinkPad ports `0x1604/0x1600` first with `0x66/0x62` fallback, under shared ThinkPad EC mutexes.
+## Fan calibration
 
-Fan telemetry prefers real LibreHardwareMonitor/PawnIO readings. The verified `0x84/0x85` EC tachometer remains a conservative fallback. Normal controller disposal attempts to return active manual fan ownership to Lenovo Auto.
+X9 discrete-output calibration is a supervised service operation, not a generic UI calculation.
 
-## Cooling profiles
+1. The service verifies the exact X9 provider plus fan write, control-temperature and real tachometer capabilities.
+2. A new run uses a separate candidate set; the previous known-good calibration remains untouched.
+3. Each EC state is settled and sampled several times.
+4. Core `FanCalibrationPolicy` validates the complete seven-state evidence, including credible positive RPM and a plausible state-7 maximum.
+5. Only a fully valid candidate replaces persisted calibration.
+6. Cancel/failure/provider loss/thermal safety handoff returns to firmware Auto and cannot persist partial evidence.
 
-Cooling ownership is separate from Windows power policy. Firmware/OEM Auto returns ownership to the platform. Supervised custom profiles run only when a writable provider and valid control-temperature input are both available.
+The old subjective audibility marker is not part of the product mapping contract.
 
-The supervisor uses bounded smoothing, hysteresis and state dwell with sparse discrete writes. Ordinary threshold noise cannot immediately bounce between adjacent levels; safety-critical/hot upshifts remain prompt.
+## Power and thermal policy
 
-## Performance/thermal policy
+Windows power preference is the generic baseline. Visible terminology is **Efficiency / Balanced / Performance**.
 
-Windows power mode is the generic baseline. User-facing UI terminology is **Efficiency / Balanced / Performance**.
+Battery and AC preferences are stored independently. Compact/Home expose the battery preference as the quick control; the Advanced Performance page configures both sources.
 
-On the verified X9 profile, ThinkControl additionally coordinates reviewed Lenovo LITSSvc semantic commands after applying the Windows mode. That provider is profile-specific and is never reused merely because another device has similarly named UI modes.
+A reviewed OEM thermal-policy provider may coordinate with the Windows preference for the exact verified scope. That semantic OEM integration is not reused merely because another laptop has similarly named performance modes.
 
 ## Keyboard
 
-Keyboard backlight is a capability, not a Lenovo page. Current Lenovo implementations probe established providers and require readback before writes. User-session effects remain separate from the privileged hardware-level setter.
+Keyboard backlight is a capability, not a Lenovo page. Hardware-level setters require the provider/readback contract appropriate to the backend. User-session Auto/effects and direct static changes share serialized write ownership so two paths cannot race and silently drop changes.
 
 ## Audio and Dolby
 
-Windows output/microphone control stays in the user session. Dolby DAX direct control only uses semantic operations accepted/read back by the installed DAX build. Compatible OEM DAX3 builds may use a bounded Dolby Access automation bridge for explicit requested actions. Guessed private IDs are not part of the architecture.
+Windows output/microphone/volume stay in the user session. Dolby direct control is enabled only when the installed DAX path exposes a semantic operation ThinkControl can verify; private profile IDs are never guessed. Opening official Dolby UI remains a safe fallback when direct semantic control is unavailable.
 
-## Battery and Windows settings
+## Battery
 
-Always-on battery status comes from Windows power APIs rather than fixed-cadence battery WMI. Charge/discharge history is local and bounded; slow/static metadata is cached or read explicitly.
+Always-on battery status uses Windows/platform-safe paths with bounded local history. Slow/static metadata is cached or read explicitly. Battery temperature is surfaced only from a credible battery-specific sensor/provider.
 
-Windows remains the owner of screen/sleep, Night light and presence-sensing policy. ThinkControl uses documented `ms-settings:` navigation for those surfaces rather than undocumented registry/CloudStore manipulation.
+Windows remains the owner of screen/sleep/Night light/presence policy. ThinkControl links to supported Windows settings rather than duplicating undocumented CloudStore/registry state.
 
-## Precision Touchpad gestures
+## Precision Touchpad and haptics
 
-Precision Touchpad input lives in `ThinkControl.UI` because it belongs to the interactive user session. The pure recognizer lives in Core. OS/media writes are coalesced and bounded.
+Interactive Precision Touchpad input lives in `ThinkControl.UI`; the pure recognizer/physical policies live in Core.
 
-The visualizer tracks contact lifetime separately from gesture state. A finger lift starts a new trail segment; physically implausible coordinate jumps also break a segment so the UI never draws a false line across empty space.
+- Contact lifetime is separate from gesture lifetime; lift/re-touch and implausible physical jumps break visual trail segments.
+- Precision edge actions use configurable physical edge bands.
+- Optional top-corner launch lanes have one shared millimetre geometry for Core recognition, UI drawing and UI hit-testing.
+- Track Previous/Next requires deliberate travel; optional center Play/Pause uses its own visible bounded center zone and low-travel hold/release policy.
+- Media/brightness/volume writes are coalesced/bounded.
+- Haptic controls reflect the capability actually reported by Windows/provider state; missing one haptic setting is not treated as proof the entire touchpad is absent.
 
-Transient gesture feedback is edge-local: direction while active, final value/action after release, then a bounded fade. New input replaces old feedback immediately.
+## Diagnostics and privacy
 
-## Installation
+Local diagnostics/crash history use bounded retention and allowlisted/redacted support schemas. Provider/profile matching does not require serial numbers, usernames, hostnames, personal paths, raw touch trails or unrelated user content.
+
+Crash reporting remains durable locally; a report is only considered handled/reported after the relevant explicit workflow/acknowledgement. Optional future cloud diagnostics must reuse the same bounded semantic schema rather than upload raw application state.
+
+## Installation and update architecture
 
 ```text
 ThinkControl-Setup-<version>.exe
         |
-        | HTTPS + pinned SHA-256
+        | HTTPS + SHA-256 verification
         v
 ThinkControl-Payload-<version>.zip
         |-- ui/
@@ -193,15 +228,9 @@ ThinkControl-Payload-<version>.zip
 
 Device-specific prerequisites belong to in-app Hardware Setup and are offered only when the resolved provider requires them.
 
-## Visual QA and release publication
+`version.json` is the build/release version source of truth. `releaseReady=false` prevents main-push promotion while a release PR is unfinished. Public prerelease tags/assets are immutable; changes made after a published version must advance to a new version rather than attempting to replace old release binaries.
 
-The real WPF interface is rendered in CI. Every full-view page is checked at normal, minimum and wide sizes, plus important unavailable/error states and overlays.
-
-The complete visual matrix lives in the temporary Actions artifact. Public releases include one composed `ui-overview.png` instead of a long screenshot list.
-
-`version.json` is the build/release version source. A release-ready change merges to `main`, the exact commit is tagged, and tagged packaging repeats build, tests, shell smoke, visual QA, payload/installer and service-lifecycle checks before publication.
-
-Managed public release assets are:
+Managed public release assets are exactly:
 
 ```text
 ThinkControl-Setup-<version>.exe
@@ -210,20 +239,10 @@ SHA256SUMS.txt
 ui-overview.png
 ```
 
-Tags are immutable release references. Merged same-repository feature/release branches are disposable.
+The release path repeats build/tests, WPF shell smoke, visual QA, package construction and installer/service lifecycle validation before promotion.
 
-## Diagnostics
+## Repository validation
 
-Local diagnostics use bounded retention and an allowlisted schema. Serial numbers, usernames, MAC addresses, disk identifiers and personal paths are not required for provider/profile matching.
+Normal CI validates repository hygiene before restore/build. The hygiene gate covers broken local Markdown references, tracked generated/runtime output, main-doc version drift and known release-specific UI partials that have been consolidated into permanent owners.
 
-## Dependency direction
-
-```text
-UI             -> Core
-Service        -> Core, Hardware, DeviceProfiles
-Hardware       -> Core
-DeviceProfiles -> Core
-Core           -> no ThinkControl project
-```
-
-Provider expansion must preserve this direction and keep OEM-specific implementation details out of Core/UI.
+Visual QA renders the real WPF interface at minimum/normal/wide sizes plus light/dark and important active/unavailable/error states. Generated screenshots must still be inspected; successful PNG creation is not a visual correctness proof.

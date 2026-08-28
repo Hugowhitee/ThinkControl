@@ -16,7 +16,6 @@ public partial class AdvancedWindow
     private const string ResetDefaultsConfiguredKey = "ThinkControl.Advanced.ResetDefaultsConfigured";
     private const string TouchpadResetButtonTag = "ThinkControl.Touchpad.ResetDefaults";
     private const string GlobalResetCardTag = "ThinkControl.Settings.GlobalResetCard";
-    private const string TouchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
 
     private void ConfigureResetDefaults()
     {
@@ -29,26 +28,9 @@ public partial class AdvancedWindow
 
         Resources[ResetDefaultsConfiguredKey] = true;
 
-        AddPageReset(
-            PagePerformance,
-            "Restore Balanced performance mode.",
-            async () =>
-            {
-                _ = _app.ResetPerformanceDefaults();
-                await _app.RefreshStatusAsync();
-                SyncControls();
-            });
-
-        AddPageReset(
-            PageFans,
-            "Return fan control to Lenovo Auto.",
-            async () =>
-            {
-                _ = await _app.ResetFanDefaultsAsync();
-                await _app.RefreshStatusAsync();
-                SyncControls();
-            });
-
+        // PerformancePanel and FansPanel own their own reset actions. Static legacy
+        // page headers no longer exist for those pages, so there is one reset owner
+        // per feature instead of a second AdvancedWindow wrapper.
         AddPageReset(
             PageDisplay,
             "Restore ThinkControl display behavior to Auto refresh. Brightness and adaptive brightness stay with Windows/OEM policy.",
@@ -103,11 +85,8 @@ public partial class AdvancedWindow
 
     private void AddTouchpadReset()
     {
-        TouchpadPanel? panel = Resources.Contains(TouchpadPageKey) &&
-            Resources[TouchpadPageKey] is WpfScrollViewer { Content: TouchpadPanel resourcePanel }
-                ? resourcePanel
-                : FindVisualChildren<TouchpadPanel>(this).FirstOrDefault();
-        if (panel?.Content is not WpfGrid root)
+        TouchpadPanel panel = TouchpadPanelControl;
+        if (panel.Content is not WpfGrid root)
             return;
 
         WpfGrid? header = root.Children
@@ -236,9 +215,7 @@ public partial class AdvancedWindow
         ThemeSystem.IsChecked = true;
         SyncControls();
 
-        foreach (TouchpadPanel panel in FindVisualChildren<TouchpadPanel>(this))
-            panel.Initialize(_app);
-
+        TouchpadPanelControl.Initialize(_app);
         DiagnosticsPanelControl?.Refresh();
     }
 }

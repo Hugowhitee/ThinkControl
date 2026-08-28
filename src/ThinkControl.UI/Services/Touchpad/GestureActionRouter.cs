@@ -7,7 +7,9 @@ internal sealed class GestureActionRouter
 {
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
-    private const double TrackSwipeThresholdMm = 4.0;
+    // Previous / Next is a discrete command. Requiring a real swipe prevents the
+    // tiny 3-4 mm movement that felt like an accidental tap in alpha.30.
+    private const double TrackSwipeThresholdMm = 9.0;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -18,7 +20,7 @@ internal sealed class GestureActionRouter
     private readonly Action<int> _queueBrightness;
     private readonly Action<GestureActionKind, bool> _setGestureActive;
     private readonly Action<bool> _showTrackOsd;
-    private readonly Action _showTrackCenterOsd;
+    private readonly Action<MediaToggleResult> _showTrackCenterOsd;
     private readonly Action _openThinkControl;
     private readonly Action _openAdvanced;
 
@@ -45,7 +47,7 @@ internal sealed class GestureActionRouter
         Action<int> queueBrightness,
         Action<GestureActionKind, bool> setGestureActive,
         Action<bool> showTrackOsd,
-        Action showTrackCenterOsd,
+        Action<MediaToggleResult> showTrackCenterOsd,
         Action openThinkControl,
         Action openAdvanced)
     {
@@ -188,7 +190,9 @@ internal sealed class GestureActionRouter
             return;
 
         double signed = ToPositiveControlDelta(signal, signal.TotalTravelMm);
-        double threshold = allowReleaseFallback ? TrackSwipeThresholdMm * 0.75 : TrackSwipeThresholdMm;
+        // Release is allowed to finish a swipe that crossed the same deliberate
+        // threshold between input frames; it is not a shortcut to a smaller gesture.
+        double threshold = TrackSwipeThresholdMm;
         if (Math.Abs(signed) < threshold)
             return;
 
@@ -209,7 +213,6 @@ internal sealed class GestureActionRouter
             return;
 
         _trackSwipeFired = true;
-        _showTrackCenterOsd();
         _ = TogglePlayPauseReliablyAsync();
     }
 
@@ -226,9 +229,12 @@ internal sealed class GestureActionRouter
 
     private async Task TogglePlayPauseReliablyAsync()
     {
-        if (await _media.TryTogglePlayPauseAsync().ConfigureAwait(false))
-            return;
-        _ = _nativeInput.TogglePlayPause();
+        MediaToggleResult result = await _media.TryTogglePlayPauseAsync().ConfigureAwait(false);
+        if (result == MediaToggleResult.Unavailable && _nativeInput.TogglePlayPause())
+            result = MediaToggleResult.Toggled;
+
+        if (result != MediaToggleResult.Unavailable)
+            _showTrackCenterOsd(result);
     }
 
     private void BeginContinuous(GestureSignal signal, double baseGain)

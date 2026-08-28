@@ -1,154 +1,119 @@
 # ThinkControl release-readiness roadmap
 
-This is the handoff checklist for future ThinkControl development chats. Keep it current. Do not call a milestone complete until the stated validation is real.
+This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
-## Current release: alpha.30 hotfix / polish
+## Current release: alpha.31 stabilization
 
-### User-facing regressions
-- [x] Home battery visual lifted/enlarged and remaining-time text given its own readable line.
-- [x] Compact quick-control ComboBoxes have enough vertical room; bottom border must not clip.
-- [x] Compact no longer auto-hides simply because focus moves to Chrome or another app. Explicit close/tray toggle still hides it.
-- [x] Advanced keeps normal Windows focus behavior. It is not Topmost and must not auto-hide on deactivation.
-- [x] Track control prefers the active Windows media session for Previous / Next / Play-Pause, with media-key fallback.
-- [x] Optional Track-center Play/Pause uses a visible center zone plus a bounded deliberate hold/release and low-travel guard.
-- [x] Track control carries the physical start position so off-center stationary touches cannot trigger the center action.
-- [x] Shared ThinkControl scrollbar replaces stock WPF scrollbars on scrollable app surfaces.
+`v0.1.0-alpha.30` is already immutable. Post-alpha.30 fixes therefore target **`v0.1.0-alpha.31`**. Keep `version.json.releaseReady=false` until the pre-readiness exact-head gate and visual inspection are complete.
 
-### Touchpad corner launch zones
-- [x] Launch zones are a separate subsystem from the four precision edge gestures.
-- [x] Only `Off`, `Compact`, and `Advanced` are valid corner actions.
-- [x] Both corners default to Off for existing and new users.
-- [x] A corner launch requires a start inside the configured top-corner zone plus deliberate diagonal inward travel.
-- [x] Corner tap alone does nothing.
-- [x] Normal vertical scrolling / along-edge movement from a corner does nothing.
-- [x] Edge action picker no longer offers ThinkControl launch actions; launch actions live only in the corner-launch UI.
-- [x] Compact and Advanced use dedicated simple window glyphs; do not reuse the old Compact gesture icon.
-- [ ] Fresh snapshot must visibly show both configured corner zones and an active corner launch.
-- [ ] Manually inspect corner-zone shape, spacing, neutral state, active accent state, and minimum-width Touchpad layout.
+### Implemented in the active PR
 
-### Manual fan safety
-- [x] First manual Apply remembers the currently selected cooling profile.
-- [x] Manual percentage and raw verified EC-step tests share one temporary-test lifecycle.
-- [x] `End test` immediately restores the prior profile.
-- [x] Manual tests auto-end after 30 seconds.
-- [x] Leaving the Fans page ends the manual test.
-- [x] Profile selector is disabled while a manual test is active.
-- [x] Restore falls back to firmware Auto if the saved profile cannot be restored.
-- [x] Raw EC controls and X9 calibration UI are hidden unless the verified X9 EC provider path is active.
-- [ ] Add/inspect a deterministic visual-QA state showing the active temporary test, countdown, and End test control.
+- [x] Root-cause fix for the `TargetParameterCountException` dispatcher crash path.
+- [x] Compact remains topmost while visible; ThinkControl-owned modal/notification surfaces can stay above it.
+- [x] Painted startup/transition feedback avoids dead/black shell periods.
+- [x] Home and Compact use one battery-power quick preference; full Performance owns separate battery/AC settings.
+- [x] Home battery/Performance layout is minimum-width safe and aligned with neighboring metrics/cards.
+- [x] Touchpad top-corner launches use shared physical Core/UI geometry instead of hidden square targets.
+- [x] Track Previous/Next requires deliberate travel; optional center Play/Pause has a bounded visible target and stateful OSD.
+- [x] Keyboard Auto no longer depends on unrelated effect capability; hardware/effect writes share serialized ownership.
+- [x] X9 fan calibration is transactional and accepts only complete/plausible seven-state tachometer evidence.
+- [x] Raw X9 EC/calibration UI requires the verified provider and required capabilities.
+- [x] Useless subjective fan-audibility UI removed.
+- [x] Release-specific UI partials consolidated into permanent owners.
+- [x] Repository/docs cleanup removed duplicate checklists, historical verification Markdown and committed visual-QA screenshots.
+- [x] Repository-hygiene CI rejects broken local docs links, tracked generated output, stale version entry points and reintroduction of known obsolete files.
 
-### Alpha.30 release gate
-- [x] Build / unit tests / WPF shell smoke / package / installer reliability have passed on an intermediate alpha.30 head.
-- [ ] Re-run all three exact-head workflows after the final QA/installer changes.
-- [ ] Manually inspect fresh Home, Compact, Fans, Touchpad, minimum-width, light-theme, OSD and scrollbar screenshots.
-- [ ] Keep `releaseReady=false` until all above checks pass.
-- [ ] Set `releaseReady=true` only after the pre-readiness exact-head gate is green.
-- [ ] Re-run CI + package + installer on the readiness head.
-- [ ] Squash-merge the one PR.
+### Pre-readiness gate
+
+All items must pass on the **same exact head**:
+
+- [ ] Repository hygiene.
+- [ ] Release restore/build and Core unit tests.
+- [ ] Real Compact → Advanced → Compact WPF shell smoke.
+- [ ] WPF visual-QA matrix render.
+- [ ] Package ThinkControl workflow.
+- [ ] Installer reliability workflow.
+- [ ] Manual screenshot review: Home min/normal/wide; Touchpad normal/wide/inward-active; Compact dark/light/battery; Fans normal/manual-test/unavailable; startup; updates/attention; representative unavailable/error states.
+- [ ] Dead-code/reference/docs audit has no unexplained duplicate implementation or stale tracked artifact.
+
+Crash issue #60 stays open until the published alpha.31 can be physically retested. Hosted shell smoke proves the software route, not the field report.
+
+### Promotion gate
+
+Only after the pre-readiness gate:
+
+- [ ] Set `version.json.releaseReady=true`.
+- [ ] Re-run CI + Package + Installer reliability on that exact readiness head.
+- [ ] Squash-merge the one release PR to `main`.
 - [ ] Verify `main` equals the squash SHA.
-- [ ] Verify `v0.1.0-alpha.30` points exactly at that `main` SHA.
-- [ ] Verify immutable prerelease and exactly the managed assets/checksums.
+- [ ] Verify `v0.1.0-alpha.31` points at that exact `main` SHA.
+- [ ] Verify immutable release contains exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`, with valid checksums.
+- [ ] Install/retest on the physical X9; close crash #60 only if the reported workflow no longer reproduces.
 
-## Installer / updater / uninstaller before public paid release
+## Commercial/public release program
 
-### Install experience
-- [ ] Explicitly keep the Inno Setup directory-selection page enabled. Do not rely on installer defaults.
-- [ ] Clean install allows changing the install location.
-- [ ] Update preserves the existing/custom install location.
-- [ ] Silent updater uses the existing location without prompting.
-- [ ] Install can optionally create desktop shortcut and start with Windows.
-- [ ] Diagnostics/device-improvement consent is clearly shown during install and is also available in Settings.
-- [ ] Install failure never destroys the previous working payload; staged update rollback remains tested.
-- [ ] Signed installer and binaries before commercial/public release.
-- [ ] SmartScreen/reputation plan documented and tested.
+Do **not** mix this backend/licensing program into an alpha stabilization PR. Implement it in bounded phases with a threat model and migration plan first.
 
-### Uninstall cleanup
-- [ ] Stop and delete `ThinkControlService` reliably.
-- [ ] Remove startup Run entry, shortcuts, install payload, update staging and backup payloads.
-- [ ] Remove `%LOCALAPPDATA%\ThinkControl` (settings, diagnostics, crash queue, battery/update state, prepared device reports) when performing a full clean uninstall.
-- [ ] Remove `%PROGRAMDATA%\ThinkControl` service logs on full clean uninstall.
-- [ ] Remove `HKCU\Software\ThinkControl` local preferences/consent state on full clean uninstall.
-- [ ] Future account/auth credentials must live in Windows Credential Manager / OS-protected storage and be removed on sign-out/full uninstall.
-- [ ] Verify uninstall leaves no running service/process, startup entry, shortcuts, update staging or owned local data.
-- [ ] Add clean-install → update → uninstall → reinstall automated smoke where feasible.
+### Installer, updater and signing
 
-## Capability-driven hardware UI
+- [ ] Preserve custom install location across interactive/silent updates.
+- [ ] Failed staged update cannot destroy the last working payload; rollback stays tested.
+- [ ] Full uninstall removes ThinkControl-owned service/process/startup/shortcuts/staging/local data according to explicit user policy and supports clean reinstall.
+- [ ] Sign binaries/installer and document/test SmartScreen reputation strategy.
+- [ ] Keep intentional legacy-updater compatibility until the supported installed-client floor no longer needs it.
 
-- [x] Generic Windows controls are vendor-neutral.
-- [x] Current raw X9 EC controls are hidden on non-X9 devices.
-- [ ] Replace device-name assumptions with explicit provider capabilities where possible.
-- [ ] Model fan backends separately: discrete EC levels, PWM/percentage target, OEM-native thermal policy, read-only telemetry.
-- [ ] Never show EC wording/controls unless an active verified provider exposes EC control.
-- [ ] Never show PWM wording/controls unless the provider exposes PWM/percentage semantics.
-- [ ] Vendor links/copy only appear for the detected manufacturer and relevant installed/provider state.
-- [ ] Unsupported/unknown devices stay safe/read-only until a provider is verified.
+### Capability-driven hardware architecture
 
-## Privacy-safe automatic diagnostics and compatibility learning
+- [x] Windows-generic UI is vendor-neutral.
+- [x] Raw X9 EC controls require the verified X9 provider path.
+- [ ] Continue replacing device-name assumptions with explicit capabilities.
+- [ ] Keep fan semantics distinct: OEM thermal policy, read-only telemetry, discrete EC states, continuous percentage/PWM.
+- [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic capability.
+- [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
 
-Goal: make compatibility and crash reports useful without requiring GitHub/manual report creation, while keeping the payload intentionally small and privacy-safe.
+### Privacy-safe diagnostics and device learning
 
-### Consent model
-- [ ] Installer presents a clear `Help improve ThinkControl` option, selected by default for normal interactive installs.
-- [ ] Explain exactly what may be sent before installation: app version, Windows version, manufacturer/product/machine type/BIOS, capability/provider families, bounded operation outcomes, sanitized crash exception/stack, and anonymous installation/device identifier.
-- [ ] Explicitly exclude serial numbers, usernames, hostnames, user documents, browser/app content, keystrokes, touch coordinates/trails, raw memory dumps, unrelated logs and full file paths.
-- [ ] Settings exposes the same control and allows opt-out at any time.
-- [ ] Opt-out stops future uploads and clears queued unsent telemetry if requested.
-- [ ] Separate essential licensing/account network traffic from optional diagnostics consent.
+Diagnostics consent and licensing are separate. Opting out of diagnostics must never break a paid entitlement.
 
-### Crash reporting
-- [ ] Keep the durable local crash journal as the source of truth.
-- [ ] Add a redaction/schema layer used by both preview and upload.
-- [ ] With diagnostics enabled, upload a bounded crash envelope automatically on the next healthy startup.
-- [ ] Mark the local crash record `Reported` only after the server acknowledges the exact report ID/hash.
-- [ ] Retry with bounded backoff; never block app startup.
-- [ ] Deduplicate repeated crash fingerprints server-side and track affected version/device families.
-- [ ] Settings shows last report time/status and a privacy preview.
+Allowed future upload schema should be intentionally small: app/Windows version, non-unique manufacturer/product/machine type/BIOS context, capability/provider families, bounded semantic operation outcomes, sanitized crash exception/stack and anonymous installation/device identifiers.
 
-### New-device compatibility learning
-- [ ] Unknown devices enter a visible but unobtrusive `Learning device support` state.
-- [ ] Collection runs in background from normal app use; no experimental hardware writes merely for telemetry.
-- [ ] Ask the user a small physical-verification question only when software evidence cannot prove something important (for example, whether fan RPM audibly changed).
-- [ ] Upload redacted capability evidence automatically when diagnostics consent is enabled.
-- [ ] One device sample is never enough to mark a new hardware profile verified.
-- [ ] Server groups evidence by manufacturer/product/machine-type/BIOS/provider fingerprint.
-- [ ] Promotion states: `Observed` → `Candidate` → `Verified` → `Regression watch`.
-- [ ] Require multiple independent installations and consistent evidence before automatically promoting a profile to Verified; hardware-write support requires a stricter threshold than read-only telemetry.
-- [ ] Conflicting evidence keeps the profile Candidate and creates a review item instead of silently changing writes for everybody.
-- [ ] Signed/versioned device-profile manifest is delivered separately from app releases so support can improve without shipping a new EXE when safe.
+Never upload usernames, hostnames, serial numbers, personal files/paths/content, browser content, keystrokes, touch coordinates/trails, memory dumps or arbitrary raw logs.
 
-## Accounts, paid licensing and source transition
+- [ ] Shared redaction/schema layer powers preview and upload.
+- [ ] Durable local crash journal remains source of truth; mark `Reported` only after server acknowledgement of exact report/hash.
+- [ ] Upload/retry is asynchronous, bounded and never blocks startup.
+- [ ] Unknown-device learning uses passive normal-app evidence; no experimental write probing merely for telemetry.
+- [ ] Confidence states: `Observed → Candidate → Verified → Regression watch`.
+- [ ] Multiple independent consistent installations are required for promotion; risky writes use a stricter threshold than read-only detection.
+- [ ] Conflicting evidence blocks automatic promotion and creates review work.
+- [ ] Any remote device/profile manifest is signed/versioned and cannot inject arbitrary hardware-write instructions.
 
-Do not bolt this directly into alpha.30. Build it as a separate commercial-release phase with a backend threat model first.
+### Accounts and licensing
 
-### Account/auth
-- [ ] Account is optional during early testing, mandatory only when paid licensing is enabled.
-- [ ] Support Google sign-in plus normal email/account sign-in through a proper OAuth/OIDC provider.
-- [ ] Use Authorization Code + PKCE/system browser for desktop login; never embed a Google password form.
-- [ ] Store refresh/session secrets only in OS-protected storage, never plain JSON/settings.
-- [ ] Account page shows signed-in identity, license state, devices and sign-out.
+- [ ] Define product tiers, activation limits and offline grace behavior before enforcement code.
+- [ ] Use OAuth/OIDC Authorization Code + PKCE through the system browser; never embed provider password forms.
+- [ ] Store refresh/session secrets only in OS-protected storage.
+- [ ] Purchases create server-side entitlements; desktop receives short-lived signed entitlement state.
+- [ ] License/network failure never disables safety-critical restore/firmware Auto behavior.
+- [ ] Device activation/deactivation is self-service.
+- [ ] Payment/signing secrets never ship in the desktop client.
 
-### License model
-- [ ] Define product tiers and exact offline behavior before coding enforcement.
-- [ ] Purchases create server-side entitlements attached to the account, not a reusable local serial alone.
-- [ ] Desktop receives a short-lived signed entitlement/token and can operate offline for a reasonable grace period.
-- [ ] Device activation limits and self-service deactivation are defined.
-- [ ] License checks fail gracefully: do not disable safety-critical restore/Auto behavior because the network is down.
-- [ ] Updates/download authorization and release distribution strategy are defined before the public repository is made private.
-- [ ] Never place payment provider secrets or signing private keys in the desktop client.
+### Backend/payments
 
-### Payments/backend
 - [ ] Backend owns users, entitlements, device activations, sanitized telemetry ingestion, compatibility evidence and profile promotion.
-- [ ] Payment provider webhooks are the authority for purchase/refund/subscription entitlement state.
-- [ ] Admin/review tooling exists for compatibility candidates and conflicting hardware evidence.
-- [ ] Audit logging, rate limiting, abuse controls, data retention and deletion/export flows are implemented.
+- [ ] Payment-provider webhooks are authoritative for purchase/refund/subscription state.
+- [ ] Admin/review tooling exists for compatibility candidates/conflicts.
+- [ ] Add audit logging, rate limiting, abuse controls, retention and deletion/export flows.
 
-### Source-code transition
-- [ ] Do not make the repo private until public builds/updater no longer depend on GitHub-public source/release URLs that would break.
-- [ ] Decide what remains public (website/privacy docs/changelog, perhaps profile schema/client notices) versus private product source.
-- [ ] Migrate release assets/update manifest to a distribution endpoint appropriate for paid users before privatizing the repo.
-- [ ] Rotate any credentials/tokens that were ever exposed before the private-source transition.
+### Source/release transition
+
+Do not make the source repository private while updater/build distribution still depends on public GitHub release URLs.
+
+- [ ] Decide public versus private surfaces (website/privacy/changelog/schema as appropriate).
+- [ ] Move release assets/update manifest to a paid-user-compatible distribution endpoint before privatizing source.
+- [ ] Rotate credentials/tokens that were ever exposed.
 - [ ] Add commercial license/EULA/privacy policy before accepting payment.
 
 ## Release principle
 
-A green compiler is not release readiness. Every promoted build needs: exact-head build/tests, real WPF lifecycle smoke, visual QA, package/installer/updater verification, capability-safety review, and only then release promotion.
+A green compiler is not release readiness. Promotion requires the exact-head repository/build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review, and only then release publication.

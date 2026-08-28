@@ -131,8 +131,8 @@ public partial class AdvancedWindow
 
     private void AddTouchpadWindowsSettingsLink()
     {
-        const string pageKey = "ThinkControl.Dynamic.PageTouchpad";
-        if (!Resources.Contains(pageKey) || Resources[pageKey] is not ScrollViewer { Content: TouchpadPanel panel } || panel.Content is not Grid root)
+        TouchpadPanel panel = TouchpadPanelControl;
+        if (panel.Content is not Grid root)
             return;
 
         Grid? header = root.Children.OfType<Grid>().FirstOrDefault(child => Grid.GetRow(child) == 0);

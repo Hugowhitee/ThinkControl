@@ -58,13 +58,13 @@ public partial class FansPanel : UserControl
             ? $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
             : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
         AppliedLevelText.Text = state.CanFanControl ? state.FanStateText : "Unavailable";
-        CharacterizeButton.IsEnabled = state.CanFanControl;
+        bool canCalibrate = IsVerifiedX9DiscreteEc(state, state.CanFanControl) && state.CanFanTelemetry;
+        CharacterizeButton.IsEnabled = canCalibrate;
         StopCharacterizationButton.Visibility = Visibility.Collapsed;
         CharacterizationProgress.Visibility = Visibility.Collapsed;
-        CharacterizationStatusText.Text = state.CanFanControl
-            ? "Ready to calibrate the verified X9 fan states"
-            : "Calibration requires a verified writable fan provider";
-        MarkAudibleButton.Visibility = Visibility.Collapsed;
+        CharacterizationStatusText.Text = canCalibrate
+            ? "Ready for a transactional seven-step tachometer calibration"
+            : "Calibration appears only with the verified X9 EC writer and real fan tachometer telemetry";
         ManualPercentSlider.IsEnabled = state.CanFanControl;
         _calibrationRows.Clear();
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, state.ControlTemperatureC, state.FanRpm);
@@ -111,7 +111,8 @@ public partial class FansPanel : UserControl
     {
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
         bool canControl = response?.Capabilities?.FanControl == true;
-        bool hasTelemetry = response?.Capabilities?.FanTelemetry == true || response?.Capabilities?.SensorTelemetry == true;
+        bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
+        bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
 
         string profileName = telemetry?.CoolingProfile ?? "Lenovo Auto";
         string profileId = telemetry?.CoolingProfileId ?? (profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Lenovo Auto" : profileName);
@@ -141,19 +142,16 @@ public partial class FansPanel : UserControl
 
         FanCharacterizationSnapshot? characterization = telemetry?.FanCharacterization;
         bool running = characterization?.Running == true;
-        CharacterizeButton.IsEnabled = canControl && !running;
+        bool x9Calibration = _app is not null && IsVerifiedX9DiscreteEc(_app.State, canControl) && canFanTelemetry;
+        CharacterizeButton.IsEnabled = x9Calibration && !running;
         StopCharacterizationButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
         CharacterizationProgress.Maximum = Math.Max(1, characterization?.TotalLevels ?? 7);
         CharacterizationProgress.Visibility = running || (characterization?.Levels.Count ?? 0) > 0
             ? Visibility.Visible : Visibility.Collapsed;
         CharacterizationProgress.Value = characterization?.CompletedLevels ?? 0;
-        CharacterizationStatusText.Text = characterization?.Status ?? (canControl
+        CharacterizationStatusText.Text = characterization?.Status ?? (x9Calibration
             ? "Not calibrated yet"
-            : "Calibration requires a verified writable fan provider");
-        MarkAudibleButton.Visibility = running && characterization?.CurrentLevel is >= 1 and <= 7
-            ? Visibility.Visible : Visibility.Collapsed;
-        if (characterization?.CurrentLevel is int current)
-            MarkAudibleButton.Content = $"Clearly audible at step {current}";
+            : "Calibration requires the verified X9 EC writer and fan tachometer telemetry");
 
         ManualPercentSlider.IsEnabled = canControl;
         BuildCalibrationRows(characterization);
@@ -194,9 +192,6 @@ public partial class FansPanel : UserControl
 
             _calibrationRows.Add(new CalibrationRow(label, rpm, point.Stable ? "Stable" : "Variable"));
         }
-
-        if (characterization.AudibleFromLevel is int audible)
-            CharacterizationStatusText.Text += audible >= 7 ? " · verified maximum marked audible" : $" · clearly audible from step {audible}";
     }
 
     private void SyncProfileSelector(string? profileName, string? profileId)
@@ -375,28 +370,33 @@ public partial class FansPanel : UserControl
         finally { button.IsEnabled = true; }
     }
 
-
     private void ApplyProviderCopy(AppState state, bool canControl)
     {
-        bool x9 = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
-        FansIntroText.Text = x9
-            ? "Fan behavior is independent from Windows performance mode. ThinkControl keeps firmware Auto as the fail-safe and maps custom curves only to the verified X9 EC states."
+        bool x9Model = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
+        bool x9EcWriter = x9Model && canControl;
+        bool x9Calibration = x9EcWriter && state.CanFanTelemetry;
+
+        FansIntroText.Text = x9Model
+            ? "Fan behavior is independent from Windows performance mode. ThinkControl keeps firmware Auto as the fail-safe and maps custom curves only through capabilities verified by the active X9 provider."
             : "Fan behavior is independent from Windows performance mode. ThinkControl uses only fan telemetry and control states exposed by the active provider; firmware stays in charge when no writable provider is verified.";
-        FanMappingDetailText.Text = x9
-            ? "Built-in and custom curves use the verified X9 fan-output mapping. Custom profiles can be created and edited in the curve editor."
+        FanMappingDetailText.Text = x9EcWriter
+            ? "Built-in and custom curves use the verified X9 discrete fan-output mapping. Custom profiles can be created and edited in the curve editor."
             : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.";
         FanProviderDetailText.ToolTip = null;
 
-        // Characterization and raw EC stepping are X9-provider diagnostics. A future
-        // PWM or OEM-native provider should not inherit ThinkPad EC controls merely
-        // because it exposes generic fan control.
-        CalibrationCard.Visibility = x9 ? Visibility.Visible : Visibility.Collapsed;
-        RawEcStepsExpander.Visibility = x9 ? Visibility.Visible : Visibility.Collapsed;
-        ManualControlDescriptionText.Text = x9
+        // Model identity alone is not permission to expose firmware-level actions.
+        // Raw steps require the active writable X9 provider; characterization also
+        // requires a real tachometer because it would otherwise generate fake data.
+        CalibrationCard.Visibility = x9Calibration ? Visibility.Visible : Visibility.Collapsed;
+        RawEcStepsExpander.Visibility = x9EcWriter ? Visibility.Visible : Visibility.Collapsed;
+        ManualControlDescriptionText.Text = x9EcWriter
             ? "0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state."
-            : "The manual target uses only the active provider's verified output range. ThinkControl does not expose raw EC steps unless the provider is the verified X9 EC backend.";
+            : "The manual target uses only the active provider's verified output range. ThinkControl does not expose raw EC steps unless the active provider explicitly supports the verified X9 EC contract.";
         ManualControlExpander.IsEnabled = canControl;
     }
+
+    private static bool IsVerifiedX9DiscreteEc(AppState state, bool canControl) =>
+        canControl && DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
 
     private static string DescribeUnavailable(string? machineType, string? hardwareAccess, bool telemetryReady)
     {
@@ -426,12 +426,6 @@ public partial class FansPanel : UserControl
     {
         if (_app is not null)
             await _app.StopFanCharacterizationAsync();
-    }
-
-    private async void MarkAudible_Click(object sender, RoutedEventArgs e)
-    {
-        if (_app is not null)
-            await _app.MarkCurrentFanLevelAudibleAsync();
     }
 
     private async void ManualLevel_Click(object sender, RoutedEventArgs e)

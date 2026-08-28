@@ -1,6 +1,6 @@
 # Visual QA
 
-ThinkControl renders its real WPF interface into deterministic screenshots so UI changes can be reviewed at the same viewport sizes every time.
+ThinkControl renders the real WPF interface into deterministic screenshots so layout changes can be reviewed at fixed viewports instead of relying on memory or one developer machine.
 
 ## Local review
 
@@ -10,47 +10,42 @@ From the repository root on Windows:
 .\tools\visual-qa.ps1
 ```
 
-The command restores/builds ThinkControl, renders the snapshot matrix into `artifacts/visual-qa`, and opens `gallery.html`.
+Use `-NoBuild` when the solution is already built and `-NoOpen` when only the files are needed. Output is generated under `artifacts/` and is ignored by Git.
 
-Use `-NoBuild` when the solution is already built and `-NoOpen` when only the files are needed.
+## CI matrix
 
-## Snapshot matrix
+The snapshot renderer covers:
 
-Visual QA intentionally covers more than one comfortable desktop size:
+- Compact at its production fixed size, including battery/charging states;
+- every Advanced page at minimum, normal and wide viewports;
+- selected light-theme states;
+- important provider unavailable/offline states;
+- hardware setup and diagnostics states;
+- temporary manual fan-test safety UI;
+- Touchpad normal, Track-center and active corner-launch states;
+- startup/loading and gesture OSD surfaces.
 
-- Compact tray surface at its fixed 410 × 640 runtime size.
-- Every Advanced page at 1160 × 760.
-- Every Advanced page at the minimum supported 980 × 650 viewport.
-- Every Advanced page at 1720 × 980 to catch wide-screen recentering or over-stretching.
-- Charging and on-battery Compact states.
-- Hardware-ready and hardware-service-offline states.
-- Dark and selected light-theme states.
+Snapshot telemetry is deterministic fixture data. It proves rendering/state composition only and must never be described as physical hardware evidence.
 
-The renderer uses a deterministic demo `AppState`. It must never be mistaken for physical hardware validation; its purpose is layout, hierarchy, clipping and state-visibility review.
+## Review contract
 
-## Pull requests and main
+Generating PNG files is not enough. Material UI work requires visual inspection of the Actions `ThinkControl-Visual-QA` artifact.
 
-CI builds/tests the solution and uploads a `ThinkControl-Visual-QA` artifact containing:
+Check at minimum:
 
-- every PNG snapshot;
-- `gallery.html` for a single-page visual review;
-- `README.md` as a GitHub-friendly image gallery;
-- `manifest.json` with surface, state and viewport metadata.
+1. no clipping or horizontal escape at the minimum viewport;
+2. shared Advanced left rail and spacing remain consistent at normal/wide widths;
+3. cards and typography do not stretch or compress awkwardly;
+4. controls, icons, selected/disabled states and hit areas match the shared design language;
+5. unsupported/provider-unavailable states are understandable and cannot look writable;
+6. Compact stays clear and dense without hiding important state;
+7. Touchpad visible gesture zones match the recognizer's real physical hit geometry;
+8. dark/light contrast and hierarchy remain usable;
+9. startup and Compact ↔ Advanced transitions always provide an immediately painted surface;
+10. overlays/popups intended to block interaction appear above Compact as well as Advanced.
 
-Review the artifact before merging material UI changes. This is the preferred way to catch regressions such as content extending past the right edge, controls becoming too wide, misaligned cards, clipped text or inconsistent empty states.
+## Artifact ownership
 
-Generated screenshots are intentionally **not committed to a permanent branch**. The former `visual-main` publishing workflow was removed in alpha.4; source branches now contain source only, while visual output stays attached to the CI run that produced it.
+Generated screenshots and galleries are CI artifacts, not repository source. Do not commit visual-QA PNG dumps under `docs/`, create screenshot-only branches, or preserve old release screenshots as permanent documentation.
 
-## Review checklist
-
-For every material UI change, check:
-
-1. no horizontal clipping at 980 × 650;
-2. every page keeps the same left content rail at 1160 and 1720 widths;
-3. cards do not become unnecessarily stretched on wide windows;
-4. titles, icons and action rows align to the same visual grid;
-5. disabled/unavailable hardware states remain understandable;
-6. Compact communicates battery, cooling and hardware state without looking busy;
-7. interactive charts reserve readable axis and hover-label space;
-8. dark and light surfaces retain contrast and hierarchy;
-9. navigation and branding remain visually consistent between Compact and Advanced.
+The public release contains one composed `ui-overview.png`; the full QA matrix stays attached to the workflow run that produced it.

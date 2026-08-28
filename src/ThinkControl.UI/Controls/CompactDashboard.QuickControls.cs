@@ -61,7 +61,7 @@ public partial class CompactDashboard
         _syncingQuickControls = true;
         try
         {
-            CompactPerformanceCombo.SelectedItem = _app.State.SelectedModeDisplay;
+            CompactPerformanceCombo.SelectedItem = App.PowerPreferenceDisplayName(_app.GetPowerPreference(onBattery: true));
             CompactFanCombo.IsEnabled = _app.State.CanFanControl;
             CompactFanCombo.ItemsSource = BuildFanOptions();
             CompactFanCombo.SelectedItem = DisplayFanName(_app.State.CoolingProfile);
@@ -103,12 +103,19 @@ public partial class CompactDashboard
     {
         if (_syncingQuickControls || _app is null || CompactPerformanceCombo.SelectedItem is not string raw)
             return;
-        _app.SetPowerMode(raw switch
+
+        ThinkControlPowerMode mode = raw switch
         {
             "Efficiency" => ThinkControlPowerMode.Quiet,
             "Performance" => ThinkControlPowerMode.Performance,
             _ => ThinkControlPowerMode.Balanced
-        });
+        };
+
+        // Compact intentionally exposes one quick power selector. Make that one
+        // selector unambiguous: it is the battery preference. AC remains independently
+        // configurable on the full Performance page instead of silently changing too.
+        if (!_app.SetPowerPreference(mode, onBattery: true))
+            SyncQuickControls();
     }
 
     private async void CompactFan_SelectionChanged(object sender, SelectionChangedEventArgs e)

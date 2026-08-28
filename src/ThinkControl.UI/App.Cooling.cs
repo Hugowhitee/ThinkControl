@@ -134,15 +134,6 @@ public partial class App
         return false;
     }
 
-    internal async Task<bool> MarkCurrentFanLevelAudibleAsync()
-    {
-        ServiceResponse? response = await HardwareClient.MarkFanLevelAudibleAsync();
-        if (response?.Success == true)
-            return true;
-        State.HardwareAccess = response?.Error ?? "Audibility marker unavailable";
-        return false;
-    }
-
     internal async Task<bool> StopFanCharacterizationAsync()
     {
         ServiceResponse? response = await HardwareClient.StopFanCharacterizationAsync();

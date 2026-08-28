@@ -1,16 +1,86 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
     private const string MoreFanProfilesLabel = "Auto / custom…";
+    private bool _homeQuickControlsConfigured;
 
     private void ConfigureHomeQuickControls()
     {
+        if (!_homeQuickControlsConfigured)
+        {
+            _homeQuickControlsConfigured = true;
+
+            // Home has one deliberately simple power control, so it always edits the
+            // battery preference. The full Performance page remains the source for
+            // independent AC/DC configuration. Detach the generic current-source
+            // handler that XAML wires for these three Home buttons.
+            HomeQuiet.Click -= Mode_Click;
+            HomeBalanced.Click -= Mode_Click;
+            HomePerformance.Click -= Mode_Click;
+            HomeQuiet.Click += HomeBatteryMode_Click;
+            HomeBalanced.Click += HomeBatteryMode_Click;
+            HomePerformance.Click += HomeBatteryMode_Click;
+
+            _app.State.PropertyChanged += HomeQuickState_PropertyChanged;
+            Closed += (_, _) => _app.State.PropertyChanged -= HomeQuickState_PropertyChanged;
+        }
+
+        SyncHomeBatteryMode();
         RefreshHomeFanProfiles();
+    }
+
+    private void HomeQuickState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(ViewModels.AppState.SelectedMode))
+            return;
+
+        // AdvancedWindow.SyncControls is subscribed earlier and mirrors the current
+        // source into both sets of controls. Re-apply Home's battery-only meaning on
+        // the next dispatcher turn so AC state can never make this card lie.
+        Dispatcher.BeginInvoke(new Action(SyncHomeBatteryMode));
+    }
+
+    private void HomeBatteryMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || sender is not FrameworkElement { Tag: string tag } ||
+            !Enum.TryParse(tag, out ThinkControlPowerMode mode))
+        {
+            return;
+        }
+
+        if (!_app.SetPowerPreference(mode, onBattery: true))
+        {
+            SyncHomeBatteryMode();
+            return;
+        }
+
+        SyncHomeBatteryMode();
+    }
+
+    private void SyncHomeBatteryMode()
+    {
+        if (HomeQuiet is null || HomeBalanced is null || HomePerformance is null)
+            return;
+
+        ThinkControlPowerMode battery = _app.GetPowerPreference(onBattery: true);
+        _syncing = true;
+        try
+        {
+            HomeQuiet.IsChecked = battery == ThinkControlPowerMode.Quiet;
+            HomeBalanced.IsChecked = battery == ThinkControlPowerMode.Balanced;
+            HomePerformance.IsChecked = battery == ThinkControlPowerMode.Performance;
+        }
+        finally
+        {
+            _syncing = false;
+        }
     }
 
     private void RefreshHomeFanProfiles()

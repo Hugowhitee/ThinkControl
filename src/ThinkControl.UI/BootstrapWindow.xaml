@@ -10,33 +10,45 @@
         ShowInTaskbar="False"
         AllowsTransparency="True"
         Background="Transparent">
-    <Border Background="{DynamicResource Tc.Window}"
-            BorderBrush="{DynamicResource Tc.BorderStrong}"
-            BorderThickness="1"
-            CornerRadius="8"
-            Padding="32">
-        <Grid>
-            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="190">
-                <controls:BrandMark Width="44" Height="44" HorizontalAlignment="Center" />
-                <TextBlock Text="ThinkControl" FontSize="{x:Static ui:TypographyScale.ValueLarge}" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,13,0,0" />
-                <TextBlock Text="Preparing device controls"
-                           Foreground="{DynamicResource Tc.TextMuted}"
-                           FontSize="{x:Static ui:TypographyScale.Caption}"
-                           HorizontalAlignment="Center"
-                           Margin="0,6,0,0" />
-                <Grid x:Name="ProgressTrack" Height="3" Margin="0,22,0,0" ClipToBounds="True">
-                    <Border Background="{DynamicResource Tc.Border}" CornerRadius="1.5" />
-                <Border x:Name="ProgressBar"
-                        Width="92"
-                        HorizontalAlignment="Left"
-                        Background="{DynamicResource Tc.Accent}"
-                        CornerRadius="1.5">
-                    <Border.RenderTransform>
-                        <TranslateTransform x:Name="ProgressTransform" />
-                    </Border.RenderTransform>
-                </Border>
-                </Grid>
-            </StackPanel>
-        </Grid>
-    </Border>
+    <Grid>
+        <Border Background="{DynamicResource Tc.Window}"
+                BorderBrush="{DynamicResource Tc.BorderStrong}"
+                BorderThickness="1"
+                CornerRadius="8"
+                Padding="32">
+            <Grid>
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Width="190">
+                    <controls:BrandMark Width="44" Height="44" HorizontalAlignment="Center" />
+                    <TextBlock Text="ThinkControl" FontSize="{x:Static ui:TypographyScale.ValueLarge}" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,13,0,0" />
+                    <TextBlock Text="Preparing device controls"
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               HorizontalAlignment="Center"
+                               Margin="0,6,0,0" />
+                    <Grid x:Name="ProgressTrack" Height="3" Margin="0,22,0,0" ClipToBounds="True">
+                        <Border Background="{DynamicResource Tc.Border}" CornerRadius="1.5" />
+                        <Border x:Name="ProgressBar"
+                                Width="92"
+                                HorizontalAlignment="Left"
+                                Background="{DynamicResource Tc.Accent}"
+                                CornerRadius="1.5">
+                            <Border.RenderTransform>
+                                <TranslateTransform x:Name="ProgressTransform" />
+                            </Border.RenderTransform>
+                        </Border>
+                    </Grid>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Immediate visual acknowledgement that the shell is still actively
+             preparing. This mirrors Compact's pending-transition outline instead of
+             leaving a static card that can look frozen during a cold provider pass. -->
+        <Border x:Name="LoadingOutline"
+                BorderBrush="{DynamicResource Tc.Accent}"
+                BorderThickness="1.25"
+                CornerRadius="8"
+                Opacity="0.38"
+                IsHitTestVisible="False" />
+    </Grid>
 </Window>

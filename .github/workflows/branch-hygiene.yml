@@ -30,17 +30,8 @@ jobs:
           default_branch="main"
           declare -A candidates=()
 
-          # Known superseded/generated branches. They must be deleted, not merged:
-          # merging them would reintroduce stale verification output into main.
-          candidates["visual-main"]=1
-          candidates["noop-temp"]=1
-          candidates["polish/windows-ui-consistency"]=1
-          candidates["chore/alpha5-verifier-run"]=1
-          candidates["chore/verify-alpha6-release"]=1
-          candidates["fix/alpha15-x9-ec-readback"]=1
-
-          # Branches from merged PRs are safe to remove even when the PR was
-          # squash-merged and their original commit SHAs are not ancestors of main.
+          # Squash-merged PR branches are safe to remove even when their original
+          # commit SHAs are not literal ancestors of main.
           while IFS= read -r branch; do
             [[ -n "$branch" && "$branch" != "$default_branch" ]] && candidates["$branch"]=1
           done < <(
@@ -48,8 +39,9 @@ jobs:
               --json headRefName --jq '.[].headRefName'
           )
 
-          # Also prune abandoned branches that contain no commits not already in
-          # main. This catches temporary setup/retry branches that never had a PR.
+          # Also prune temporary/abandoned branches that contain no commits not
+          # already represented by main. No historical branch-name allowlist is
+          # required; the repository state itself is the source of truth.
           while IFS= read -r branch; do
             [[ -z "$branch" || "$branch" == "$default_branch" ]] && continue
 

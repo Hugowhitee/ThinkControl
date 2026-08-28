@@ -22,6 +22,12 @@ internal sealed class GestureOsdService : IDisposable
     private const double RestingOffset = 0;
     private const double HiddenOffset = 76;
 
+    // Deliberately simple state glyphs. The old combined Material play/pause path
+    // read as another skip icon at OSD size and could not tell the user what the
+    // successful command actually did.
+    private static readonly Geometry PlayStateGeometry = Geometry.Parse("M260,190 L730,480 L260,770 Z");
+    private static readonly Geometry PauseStateGeometry = Geometry.Parse("M260,190 H400 V770 H260 Z M560,190 H700 V770 H560 Z");
+
     private readonly Func<ThinkControlUserSettings> _settings;
     private readonly Func<string, int, bool> _setValue;
     private readonly Func<bool> _toggleMute;
@@ -100,7 +106,23 @@ internal sealed class GestureOsdService : IDisposable
             next ? ResolveResourceGeometry(SemanticIconKeys.Next) : ResolveResourceGeometry(SemanticIconKeys.Previous));
     }
 
-    internal void ShowTrackCenter() => ShowMediaCommand("Play / pause", ResolveResourceGeometry(SemanticIconKeys.PlayPause));
+    internal void ShowTrackCenter(MediaToggleResult result)
+    {
+        switch (result)
+        {
+            case MediaToggleResult.Playing:
+                ShowMediaCommand("Playing", PlayStateGeometry);
+                break;
+            case MediaToggleResult.Paused:
+                ShowMediaCommand("Paused", PauseStateGeometry);
+                break;
+            case MediaToggleResult.Toggled:
+                // The virtual-key fallback has no reliable post-command playback
+                // state. Say exactly that rather than pretending Play or Pause won.
+                ShowMediaCommand("Playback toggled", Geometry.Empty);
+                break;
+        }
+    }
 
     private void ShowMediaCommand(string label, Geometry geometry)
     {

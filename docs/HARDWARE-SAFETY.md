@@ -1,101 +1,94 @@
 # Hardware safety
 
-This policy applies to privileged and low-level hardware features in ThinkControl. `v0.1.0-alpha.2` implements manual X9 fan control, Lenovo keyboard backlight writes and X9-gated Lenovo Intelligent Cooling policy coordination. Future autonomous control requires additional safeguards before release.
+This document defines the non-negotiable safety boundary for privileged and low-level hardware control in ThinkControl. Product UI is capability-driven; a manufacturer/model name alone never grants a write capability.
 
-## Current requirements
+## Core rules
 
-### Device-specific writes are model-gated
+### Capabilities, not brands, authorize UI
 
-The X9 EC backend and X9 Lenovo Intelligent Cooling command set are authorized only when the detected Lenovo machine type is `21Q6` or `21Q7`.
+Keep these concepts separate:
 
-Other laptops may use Windows-level features or their own validated providers. They do not inherit the X9 register map or the X9 `502/503/504/507/508/509` thermal-policy commands.
+- Windows-generic controls;
+- OEM-native thermal policy;
+- fan telemetry only;
+- writable fan target;
+- discrete EC fan states;
+- percentage/PWM fan control;
+- keyboard hardware control;
+- haptic touchpad control;
+- Precision Touchpad input only.
+
+The UI may show a low-level control only when the active provider exposes the matching capability and its required validation state. Raw EC wording must not appear for a generic percentage/PWM provider, and Lenovo-specific wording must not appear merely because SMBIOS says Lenovo.
+
+### Unknown hardware is read-only first
+
+New/unknown devices may use documented Windows APIs and verified read-only provider probes. Risky firmware, EC, IOCTL, ACPI or OEM command writes require reviewed provider code, a recovery model and evidence appropriate to the risk.
+
+One independent machine is not enough evidence to promote risky write behavior to broadly verified support. Conflicting evidence blocks promotion.
 
 ### No generic raw-write interface
 
-The UI and IPC expose semantic operations only. The desktop process cannot request arbitrary EC registers, I/O ports, ACPI methods, raw named-pipe command IDs or IOCTL payloads.
+The desktop UI and public IPC expose semantic operations only. They do not accept arbitrary EC registers, port I/O, ACPI methods, IOCTL payloads or OEM command IDs.
 
-Low-level addresses/command IDs remain inside compiled, model-gated providers.
+Remote device metadata and diagnostics can select or score known provider/profile candidates, but cannot inject executable low-level writes. New write contracts ship as reviewed application/provider code.
 
-### X9 fan allowlist
+### Privilege stays in the service
 
-```text
-Control register   0x2F
-Lenovo Auto        0x80
-Manual levels      0x01 to 0x07
-Fan off            0x00, blocked
-Override family    0x40, unverified and blocked
-```
+The WPF app remains an ordinary user process. Privileged hardware ownership belongs to `ThinkControl.Service`; Windows-safe UI, touchpad input, media actions and normal update checks do not require an elevated desktop process.
 
-ThinkControl never converts a percentage into an arbitrary EC value.
+## Fan ownership and recovery
 
-### X9 Lenovo thermal-policy allowlist
+- Firmware/OEM Auto is the safe ownership fallback.
+- Manual tests are temporary and bounded.
+- The first temporary fan test remembers the previous cooling profile.
+- `End test`, timeout, leaving the Fans page, provider failure and normal shutdown restore prior ownership/profile where possible; firmware Auto is the fallback.
+- Telemetry refresh never creates fan-control writes.
+- Unchanged low-level fan states are not continuously rewritten.
+- Missing control temperature/provider state returns supervised cooling to firmware ownership.
+- Hot/safety handoff returns control to firmware rather than trapping the machine at a ThinkControl manual state.
 
-The observed Lenovo Intelligent Cooling contract is limited to:
+See [Cooling design](COOLING-DESIGN.md) for the canonical curve/calibration lifecycle.
 
-```text
-AC Quiet        502
-AC Balanced     503
-AC Performance  504
-DC Quiet        507
-DC Balanced     508
-DC Performance  509
-```
+## Calibration
 
-The service chooses AC/DC from Windows power-source state and accepts only the semantic `Quiet`, `Balanced` or `Performance` operation. The UI cannot submit a raw command ID.
+Calibration is characterization of an already verified writable backend; it is not hardware discovery by write-probing.
 
-This provider is explicitly a **thermal-policy** interface. It must not be described or used as arbitrary fan RPM/PWM control.
+For the verified X9 discrete backend, a new calibration is accepted only after all seven allowed states have complete, plausible tachometer evidence. Collection occurs separately from persistence: cancellation, telemetry loss, safety failure or an inconsistent result leaves the previous known-good mapping untouched. Partial calibration is never promoted to verified mapping data.
 
-### Readback / response boundaries
+## Verified X9 low-level boundary
 
-Manual fan writes and return-to-Auto operations are checked against EC state. Supported Lenovo keyboard writes are read back after a change.
+The current physically reviewed low-level reference is ThinkPad X9-15 Gen 1 machine type `21Q6` / `21Q7`.
 
-For the LITSSvc Intelligent Cooling pipe, the observed protocol writes one UInt32 and reads one Int32 response. Lenovo has not published the meaning of that Int32, so ThinkControl treats receipt of the complete response as the protocol boundary and does not invent a `0 == success` or similar rule.
-
-### Failed manual fan writes prefer Lenovo Auto
-
-If a manual X9 fan write fails after ThinkControl has attempted direct control, the backend attempts to restore Lenovo Auto before reporting failure.
-
-### Normal shutdown releases manual fan control
-
-During normal controller or service disposal, ThinkControl attempts to return an active manual X9 fan state to Lenovo Auto. This covers normal service stop, replacement and uninstall paths where cleanup code can run; it cannot guarantee recovery from sudden power loss or kernel failure.
-
-### Duplicate writes are suppressed
-
-An unchanged manual fan level is not continuously rewritten. Telemetry refresh must not produce fan-control writes.
-
-### RPM polling is conservative
-
-X9 testing found that aggressive tachometer access could affect audible fan behavior. RPM is therefore polled conservatively and remains separate from any future high-frequency control loop.
-
-### Shared EC locks are respected
-
-The X9 transport uses established ThinkPad EC mutexes:
+Verified fan-control state family:
 
 ```text
-Access_Thinkpad_EC
-Global\Access_EC
+Lenovo/OEM Auto   0x80
+Manual states     0x01 .. 0x07
+Fan off           0x00  blocked
+0x40 override     unverified and blocked
 ```
 
-If the required lock cannot be acquired, the operation fails rather than bypassing coordination.
+A UI percentage, where shown, is a normalized target mapped onto calibrated verified discrete states. It is never treated as an arbitrary EC value or proof that the hardware exposes continuous PWM.
 
-### Remote metadata cannot define hardware writes
+The reviewed X9 Lenovo thermal-policy provider is a separate semantic policy path. It may coordinate the current power preference only after the exact X9 provider/identity checks pass. It must not be described as direct fan RPM/PWM control. Exact transport/command evidence belongs in [X9 research](research/x9-15-gen1.md).
 
-Remote support metadata, diagnostics responses and downloaded catalogs cannot introduce executable EC addresses, raw LITS command IDs, raw IOCTL payloads or arbitrary write instructions. New low-level support must ship as reviewed provider code in a normal ThinkControl release.
+### Readback and transport discipline
 
-### Privilege is limited to the service
+- Manual X9 fan writes and return-to-Auto use state readback.
+- Supported keyboard hardware writes require their provider/readback contract.
+- Low-level transport uses bounded waits, shared hardware locks and failure recovery rather than high-frequency blind polling.
+- X9 tachometer access remains conservative because aggressive polling was observed to disturb fan behavior.
 
-The WPF application runs as the signed-in user. The Windows service owns restricted hardware operations. Normal UI, update checks, display controls and user-session keyboard effects do not require an elevated desktop process.
+## Diagnostics and device learning
 
-### Diagnostics use an allowlist
+Diagnostics and licensing are independent concerns. Opting out of optional diagnostics must never disable a paid entitlement or safety behavior.
 
-Diagnostics exclude unique device identifiers and personal activity data. See [Diagnostics and Privacy](DIAGNOSTICS.md).
+Automatic/future compatibility evidence must be allowlisted and deliberately redacted. Never upload usernames, hostnames, serial numbers, personal paths/content, browser content, keystrokes, touch coordinates/trails, memory dumps or arbitrary raw personal logs. See [Diagnostics and privacy](DIAGNOSTICS.md).
 
-## Requirements for future autonomous fan control
-
-Before a custom curve engine is enabled, it should include conflict detection, sleep/hibernate handoff, provider reopening after resume, immediate upward cooling transitions, delayed downward transitions, hysteresis, minimum hold times, write deduplication, safe return to Lenovo Auto and practical recovery from ungraceful service failure.
+Device-learning states are conceptually `Observed → Candidate → Verified → Regression watch`. Read-only evidence may promote with a lower threshold than risky writes; conflicting reports prevent automatic promotion.
 
 ## Release rule
 
-Compilation and CI are not evidence that a low-level provider is physically verified. Writable/provider behavior still needs validation on the actual device before stronger hardware claims are made.
+A green compiler, snapshot or hosted CI runner is not physical hardware verification. Hardware-write claims require appropriate real-device evidence in addition to software gates.
 
-See [Release Checklist](RELEASE-CHECKLIST.md) and [Alpha Testing](ALPHA-TESTING.md).
+Before release promotion, follow [Release readiness](RELEASE_READINESS.md) and the current [Alpha testing](ALPHA-TESTING.md) checklist. Do not weaken a safety or backwards-compatibility contract merely to make the repository smaller.

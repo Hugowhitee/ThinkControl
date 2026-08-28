@@ -41,7 +41,12 @@ public partial class PerformancePanel : UserControl
             nameof(AppState.BatteryStatus) or
             nameof(AppState.BatteryCharging))
         {
-            Dispatcher.BeginInvoke(Sync);
+            // Sync has an optional argument for snapshot forcing. Passing the method
+            // group directly to Dispatcher stores a delegate with one parameter;
+            // WPF later invokes it with zero arguments through DynamicInvoke, which
+            // caused the production TargetParameterCountException crash. Always
+            // schedule an explicit parameterless Action instead.
+            Dispatcher.BeginInvoke(new Action(() => Sync()));
         }
     }
 

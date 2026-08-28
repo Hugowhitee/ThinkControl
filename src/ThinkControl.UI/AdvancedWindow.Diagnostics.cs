@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
 
@@ -11,9 +10,13 @@ public partial class AdvancedWindow
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
+        ConfigureAdvancedSurface();
+    }
+
+    private void ConfigureAdvancedSurface()
+    {
+        InitializeFeaturePanels();
         ConfigureAdvancedBranding();
-        AdvancedWindowEnhancer.Ensure(this, _app);
-        AdvancedFeaturePages.Ensure(this, _app);
         ConfigureAdvancedUiConsistency();
         ConfigureInteractionPolish();
         ConfigureResetDefaults();
@@ -21,7 +24,6 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
-        ConfigureNavigationPolish();
         ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureNotificationButton();
@@ -30,7 +32,6 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
         ConfigureHomeDashboardPolish();
-        ApplyAlpha30HomePolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         ConfigureSettingsHierarchy();
@@ -41,32 +42,7 @@ public partial class AdvancedWindow
     public void PrepareEnhancedUiForSnapshot()
     {
         _snapshotUiPrepared = true;
-        ConfigureAdvancedBranding();
-        AdvancedWindowEnhancer.Ensure(this, _app);
-        AdvancedFeaturePages.Ensure(this, _app);
-        ConfigureAdvancedUiConsistency();
-        ConfigureInteractionPolish();
-        ConfigureResetDefaults();
-        ConfigureSliderCommitBehavior();
-        ConfigureCopyPolish();
-        ConfigureBatteryPage();
-        ConfigureHardwareSetupEntry();
-        ConfigureNavigationPolish();
-        ConfigureTouchpadPolish();
-        ConfigureWindowsSettingsLinks();
-        ConfigureNotificationButton();
-        ConfigureShellUtilitySizing();
-        ConfigureNotificationMessagePolish();
-        ConfigureSupportCard();
-        ConfigureHomeQuickControls();
-        ConfigureHomeDashboardPolish();
-        ApplyAlpha30HomePolish();
-        ConfigureUpdateUi();
-        ConfigureAppPreferencesUi();
-        ConfigureSettingsHierarchy();
-        ConfigureAdvancedUiConsistency();
-        DiagnosticsPanelControl?.Refresh();
-
+        ConfigureAdvancedSurface();
         SyncControls();
 
         if (DataContext is ViewModels.AppState snapshotState)
@@ -74,19 +50,16 @@ public partial class AdvancedWindow
             if (snapshotState.CanSensorTelemetry && snapshotState.BatteryTemperatureC is null)
                 snapshotState.BatteryTemperatureC = 34.8;
 
-            if (PageFans?.Content is Controls.FansPanel fansPanel)
-            {
-                fansPanel.PrepareForSnapshot(snapshotState);
+            FansPanelControl.PrepareForSnapshot(snapshotState);
 
-                // The dedicated active-curve fixture is the one visual-QA fan state
-                // that pins Balanced explicitly. Reuse it to show the production
-                // temporary manual-test safety controls as well, without starting a
-                // timer or touching hardware during screenshot generation.
-                if (snapshotState.CanFanControl &&
-                    string.Equals(snapshotState.CoolingProfile, "Balanced", StringComparison.OrdinalIgnoreCase))
-                {
-                    fansPanel.PrepareManualFanTestForSnapshot();
-                }
+            // The dedicated active-curve fixture is the one visual-QA fan state
+            // that pins Balanced explicitly. Reuse it to show the production
+            // temporary manual-test safety controls as well, without starting a
+            // timer or touching hardware during screenshot generation.
+            if (snapshotState.CanFanControl &&
+                string.Equals(snapshotState.CoolingProfile, "Balanced", StringComparison.OrdinalIgnoreCase))
+            {
+                FansPanelControl.PrepareManualFanTestForSnapshot();
             }
 
             if (PageBattery?.Content is Panel batteryContent &&
@@ -101,21 +74,11 @@ public partial class AdvancedWindow
 
     private void ValidateSharedPageRailForSnapshot()
     {
-        var pages = new List<ScrollViewer>();
         foreach (string pageName in ConsistentPageNames)
         {
-            if (FindName(pageName) is ScrollViewer scroll)
-                pages.Add(scroll);
-        }
+            if (FindName(pageName) is not ScrollViewer scroll)
+                continue;
 
-        foreach (string resourceName in DynamicPageResourceNames)
-        {
-            if (Resources.Contains(resourceName) && Resources[resourceName] is ScrollViewer scroll)
-                pages.Add(scroll);
-        }
-
-        foreach (ScrollViewer scroll in pages)
-        {
             if (scroll.HorizontalContentAlignment != HorizontalAlignment.Left)
                 throw new InvalidOperationException($"{scroll.Tag ?? scroll.Name} is not left-anchored to the shared Advanced page rail.");
 
@@ -135,60 +98,27 @@ public partial class AdvancedWindow
 
     public void NavigateTouchpad()
     {
-        ConfigureAdvancedBranding();
-        AdvancedWindowEnhancer.Ensure(this, _app);
-        AdvancedFeaturePages.Ensure(this, _app);
-        ConfigureAdvancedUiConsistency();
-        ConfigureInteractionPolish();
-        ConfigureResetDefaults();
-        ConfigureSliderCommitBehavior();
-        ConfigureCopyPolish();
-        ConfigureNavigationPolish();
-        ConfigureTouchpadPolish();
-        ConfigureWindowsSettingsLinks();
-        ConfigureNotificationButton();
-        ConfigureShellUtilitySizing();
-        ConfigureSupportCard();
-        ConfigureAdvancedUiConsistency();
-        AdvancedWindowEnhancer.SelectTouchpad(this);
+        ConfigureAdvancedSurface();
+        Navigate("Touchpad");
 
         if (_snapshotUiPrepared)
-        {
-            RevealDynamicPageForSnapshot("ThinkControl.Dynamic.PageTouchpad");
             PrepareTouchpadForSnapshot();
-        }
     }
 
     private void PrepareTouchpadForSnapshot()
     {
-        const string touchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
-        if (!Resources.Contains(touchpadPageKey) ||
-            Resources[touchpadPageKey] is not ScrollViewer { Content: Controls.TouchpadPanel panel })
-        {
-            throw new InvalidOperationException("Touchpad page could not be prepared for visual QA.");
-        }
-
-        panel.PrepareForSnapshot(showActiveGesture: Width >= 1500);
+        TouchpadPanelControl.PrepareForSnapshot(showActiveGesture: Width >= 1500);
+        TouchpadPanelControl.PrepareHapticsForSnapshot();
     }
 
     public void PrepareTouchpadInwardForSnapshot()
     {
-        const string touchpadPageKey = "ThinkControl.Dynamic.PageTouchpad";
-        if (!Resources.Contains(touchpadPageKey) ||
-            Resources[touchpadPageKey] is not ScrollViewer { Content: Controls.TouchpadPanel panel })
-        {
-            throw new InvalidOperationException("Touchpad inward gesture could not be prepared for visual QA.");
-        }
-
-        panel.PrepareForSnapshot(showActiveGesture: false, showInwardGesture: true);
+        TouchpadPanelControl.PrepareForSnapshot(showActiveGesture: false, showInwardGesture: true);
+        TouchpadPanelControl.PrepareHapticsForSnapshot();
     }
 
-    public void PreparePerformanceForSnapshot()
-    {
-        if (PagePerformance?.Content is not Controls.PerformancePanel panel)
-            throw new InvalidOperationException("Performance page could not be prepared for visual QA.");
-        panel.PrepareForSnapshot();
-    }
+    public void PreparePerformanceForSnapshot() =>
+        PerformancePanelControl.PrepareForSnapshot();
 
     public void ExpandBatteryHistoryForSnapshot()
     {
@@ -202,32 +132,9 @@ public partial class AdvancedWindow
         }
     }
 
-    private void RevealDynamicPageForSnapshot(string resourceKey)
-    {
-        if (!Resources.Contains(resourceKey) || Resources[resourceKey] is not FrameworkElement page)
-            throw new InvalidOperationException($"Dynamic page '{resourceKey}' is unavailable for visual QA.");
-        page.BeginAnimation(UIElement.OpacityProperty, null);
-        page.Opacity = 1;
-        page.Visibility = Visibility.Visible;
-    }
-
     public void NavigateAudio()
     {
-        ConfigureAdvancedBranding();
-        AdvancedWindowEnhancer.Ensure(this, _app);
-        AdvancedFeaturePages.Ensure(this, _app);
-        ConfigureAdvancedUiConsistency();
-        ConfigureInteractionPolish();
-        ConfigureResetDefaults();
-        ConfigureSliderCommitBehavior();
-        ConfigureCopyPolish();
-        ConfigureNavigationPolish();
-        ConfigureTouchpadPolish();
-        ConfigureWindowsSettingsLinks();
-        ConfigureNotificationButton();
-        ConfigureShellUtilitySizing();
-        ConfigureSupportCard();
-        ConfigureAdvancedUiConsistency();
-        AdvancedFeaturePages.SelectAudio(this);
+        ConfigureAdvancedSurface();
+        Navigate("Audio");
     }
 }

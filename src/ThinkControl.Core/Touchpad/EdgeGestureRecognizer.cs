@@ -7,7 +7,6 @@ namespace ThinkControl.Core.Touchpad;
 /// </summary>
 public sealed class EdgeGestureRecognizer
 {
-    private const double CornerZoneMm = 13.0;
     private const double CornerActivationMm = 6.5;
     private const double CornerMinimumAxisMm = 2.5;
     private const double CornerMinimumAxisRatio = 0.34;
@@ -151,8 +150,8 @@ public sealed class EdgeGestureRecognizer
         TouchpadGeometry geometry = _geometry!;
 
         // Configured launch corners get first refusal only when the finger actually
-        // starts inside their small top-corner zone. A disabled corner is invisible
-        // to recognition, so the existing top/side edge gesture remains available.
+        // starts inside the same diagonal lane that the UI draws. A disabled corner
+        // is invisible to recognition, so the top/side edge remains available.
         TouchpadCorner? corner = DetectConfiguredCorner(contact);
         if (corner is TouchpadCorner launchCorner)
         {
@@ -394,17 +393,15 @@ public sealed class EdgeGestureRecognizer
     private TouchpadCorner? DetectConfiguredCorner(TouchContact contact)
     {
         TouchpadGeometry geometry = _geometry!;
-        if (geometry.YToMm(contact.Y) > CornerZoneMm)
-            return null;
 
-        if (geometry.XToMm(contact.X) <= CornerZoneMm &&
-            _configuration.LaunchFor(TouchpadCorner.TopLeft) != GestureActionKind.Disabled)
+        if (_configuration.LaunchFor(TouchpadCorner.TopLeft) != GestureActionKind.Disabled &&
+            TouchpadCornerZonePolicy.ContainsStart(TouchpadCorner.TopLeft, geometry, contact.X, contact.Y))
         {
             return TouchpadCorner.TopLeft;
         }
 
-        if (geometry.EffectiveWidthMm - geometry.XToMm(contact.X) <= CornerZoneMm &&
-            _configuration.LaunchFor(TouchpadCorner.TopRight) != GestureActionKind.Disabled)
+        if (_configuration.LaunchFor(TouchpadCorner.TopRight) != GestureActionKind.Disabled &&
+            TouchpadCornerZonePolicy.ContainsStart(TouchpadCorner.TopRight, geometry, contact.X, contact.Y))
         {
             return TouchpadCorner.TopRight;
         }

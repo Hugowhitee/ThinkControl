@@ -66,16 +66,11 @@ public partial class AdvancedWindow
             TextBlock? description = performanceCard.Children.OfType<TextBlock>().FirstOrDefault(text =>
                 text.Text.Contains("responsive or efficient", StringComparison.OrdinalIgnoreCase));
             if (description is not null)
-                description.Text = "Choose the Windows power behavior for this power source.";
-        }
-
-        // Keep the older fallback Performance page coherent too. The enhanced
-        // PerformancePanel already uses Efficiency / Balanced / Performance.
-        if (PerfQuiet.Content is StackPanel quietCopy)
-        {
-            TextBlock? title = quietCopy.Children.OfType<TextBlock>().FirstOrDefault();
-            if (title is not null)
-                title.Text = "Efficiency";
+            {
+                description.Text = "Battery power preference. Configure AC separately on Performance.";
+                description.TextWrapping = TextWrapping.Wrap;
+                description.TextTrimming = TextTrimming.None;
+            }
         }
     }
 
@@ -140,45 +135,57 @@ public partial class AdvancedWindow
         var root = new Grid
         {
             Cursor = Cursors.Hand,
-            Margin = new Thickness(8, 0, 10, 0)
+            Margin = new Thickness(12, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center
         };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.ColumnDefinitions.Add(new ColumnDefinition());
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        // Battery copy follows exactly the same left-aligned hierarchy as CPU,
-        // Fans, Power and Sensors. The graphic is contextual information, so it
-        // sits at the far right instead of pushing the text out of alignment.
+        // Use the same left inset and label/value rhythm as the neighboring metrics.
+        // The gauge is deliberately compact enough that BATTERY remains readable at
+        // the supported minimum Advanced width; ETA then gets the full second row.
         var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         copy.Children.Add(CreateMetricLabel("BATTERY"));
         TextBlock value = CreateMetricValue("BatteryPercentText", 20);
         value.Margin = new Thickness(0, 6, 0, 0);
         copy.Children.Add(value);
-        TextBlock detail = new()
-        {
-            FontSize = TypographyScale.Secondary,
-            Margin = new Thickness(0, 2, 0, 0),
-            TextTrimming = TextTrimming.CharacterEllipsis
-        };
-        detail.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
-        {
-            Converter = ReadableTypography.BatteryTimeConverter
-        });
-        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        copy.Children.Add(detail);
+        Grid.SetRow(copy, 0);
+        Grid.SetColumn(copy, 0);
         root.Children.Add(copy);
 
         var gauge = new BatteryGauge
         {
-            Width = 126,
-            Height = 50,
+            Width = 108,
+            Height = 44,
             Margin = new Thickness(8, 0, 0, 0),
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right
         };
         gauge.SetBinding(BatteryGauge.PercentProperty, new Binding("BatteryPercent"));
         gauge.SetBinding(BatteryGauge.IsChargingProperty, new Binding("BatteryCharging"));
+        Grid.SetRow(gauge, 0);
         Grid.SetColumn(gauge, 1);
         root.Children.Add(gauge);
+
+        TextBlock detail = new()
+        {
+            FontSize = TypographyScale.Secondary,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.None,
+            TextWrapping = TextWrapping.NoWrap,
+            HorizontalAlignment = HorizontalAlignment.Left
+        };
+        detail.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
+        {
+            Converter = ReadableTypography.BatteryTimeConverter
+        });
+        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        Grid.SetRow(detail, 1);
+        Grid.SetColumn(detail, 0);
+        Grid.SetColumnSpan(detail, 2);
+        root.Children.Add(detail);
 
         root.MouseLeftButtonUp += (_, _) => Navigate("Battery");
         return root;

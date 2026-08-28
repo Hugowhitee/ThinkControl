@@ -18,12 +18,33 @@ public partial class CompactDashboard : UserControl
     public CompactDashboard()
     {
         InitializeComponent();
-        ApplyAlpha30CompactPolish();
+        ConfigureQuickControlGeometry();
         IsVisibleChanged += (_, e) =>
         {
             if (e.NewValue is true && _app is not null)
                 RefreshCompactVolume();
         };
+    }
+
+    private void ConfigureQuickControlGeometry()
+    {
+        // Compact selectors use the shared 40 px control height. Give the card a
+        // little vertical breathing room so the ComboBox border never sits on the
+        // card clip edge at the minimum Compact size.
+        foreach (ComboBox combo in new[]
+        {
+            CompactPerformanceCombo,
+            CompactFanCombo,
+            CompactRefreshCombo,
+            CompactKeyboardCombo
+        })
+        {
+            combo.Margin = new Thickness(0, 6, 0, 0);
+            combo.MinHeight = 40;
+
+            if (combo.Parent is StackPanel stack && stack.Parent is Border card)
+                card.Padding = new Thickness(10, 6, 10, 6);
+        }
     }
 
     internal void Initialize(App app)
@@ -83,25 +104,32 @@ public partial class CompactDashboard : UserControl
             return;
 
         _viewSwitchPending = true;
+        MainWindow? compact = Window.GetWindow(this) as MainWindow;
+        compact?.SetTransitionPending(true);
 
-        // Exercise exactly one shell owner after the routed button event completes.
-        // Deferring past the current input pass avoids constructing another native
-        // top-level window while WPF is still unwinding the Compact button click.
-        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        // Let the outline paint before constructing/navigating the larger WPF tree.
+        // Without this render handoff the click and the eventual window could be
+        // separated by a perceptible dead period on a cold Advanced open.
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
-            try
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
             {
-                _app.SwitchCompactToAdvanced(page);
-            }
-            catch (Exception ex)
-            {
-                _app.RecordShellException("compact-expand", ex);
-                try { _app.CompactWindow.ShowNearTray(animate: false); } catch { }
-            }
-            finally
-            {
-                _viewSwitchPending = false;
-            }
+                try
+                {
+                    _app.SwitchCompactToAdvanced(page);
+                }
+                catch (Exception ex)
+                {
+                    _app.RecordShellException("compact-expand", ex);
+                    try { _app.CompactWindow.ShowNearTray(animate: false); } catch { }
+                }
+                finally
+                {
+                    if (compact?.IsVisible == true)
+                        compact.SetTransitionPending(false);
+                    _viewSwitchPending = false;
+                }
+            }));
         }));
     }
 
