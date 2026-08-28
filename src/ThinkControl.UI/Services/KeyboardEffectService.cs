@@ -1,5 +1,4 @@
 using NAudio.Wave;
-using System.Runtime.InteropServices;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.ViewModels;
 
@@ -9,8 +8,6 @@ public sealed class KeyboardEffectService : IDisposable
 {
     private static readonly TimeSpan MinHardwareWriteInterval = TimeSpan.FromMilliseconds(260);
     private static readonly TimeSpan ReactiveHold = TimeSpan.FromMilliseconds(430);
-    private static readonly TimeSpan IdleLowAfter = TimeSpan.FromSeconds(15);
-    private static readonly TimeSpan IdleOffAfter = TimeSpan.FromSeconds(35);
 
     private readonly HardwareServiceClient _hardware;
     private readonly AppState _state;
@@ -26,7 +23,6 @@ public sealed class KeyboardEffectService : IDisposable
     private string? _lastAppliedLevel;
     private WasapiLoopbackCapture? _audioCapture;
     private double _audioRms;
-    private bool _firmwareAutoActive;
     private bool _disposed;
 
     public KeyboardEffectService(HardwareServiceClient hardware, AppState state)
@@ -45,7 +41,6 @@ public sealed class KeyboardEffectService : IDisposable
         await StopEffectRuntimeAsync().ConfigureAwait(false);
         StopAudioCapture();
         StopKeyboardHook();
-        _firmwareAutoActive = false;
         _state.KeyboardMode = "Static";
         _state.KeyboardBaseLevel = NormalizeLevel(level);
         _breathingStarted = DateTimeOffset.UtcNow;
@@ -66,24 +61,10 @@ public sealed class KeyboardEffectService : IDisposable
         await StopEffectRuntimeAsync().ConfigureAwait(false);
         StopAudioCapture();
         StopKeyboardHook();
-        _firmwareAutoActive = false;
 
         _state.KeyboardMode = normalized;
         _breathingStarted = DateTimeOffset.UtcNow;
         _lastKeyboardActivity = DateTimeOffset.UtcNow;
-
-        // Auto prefers Lenovo's actual firmware state (value 3) whenever the
-        // privileged provider can set and read it back. The existing low-frequency
-        // idle policy is retained only for Lenovo backends that genuinely cannot set
-        // OEM Auto. Animated modes still require the stricter effects contract.
-        bool modeSupported = normalized == "Auto"
-            ? _state.CanKeyboardBacklight
-            : _state.CanKeyboardEffects;
-        if (normalized != "Static" && !modeSupported)
-        {
-            _state.KeyboardMode = "Static";
-            return;
-        }
 
         if (normalized == "Static")
         {
@@ -91,9 +72,25 @@ public sealed class KeyboardEffectService : IDisposable
             return;
         }
 
-        if (normalized == "Auto" && await TryEnableFirmwareAutoAsync(cancellationToken).ConfigureAwait(false))
+        // Auto is exclusively Lenovo's verified firmware mode. It is intentionally
+        // not a ThinkControl effect and has no software idle fallback: if the active
+        // Lenovo backend cannot set/read back FirmwareAuto, keep the prior hardware
+        // state and return the editor to Static rather than starting a hidden loop.
+        if (normalized == "Auto")
         {
-            _firmwareAutoActive = true;
+            if (_state.CanKeyboardBacklight && await TryEnableFirmwareAutoAsync(cancellationToken).ConfigureAwait(false))
+                return;
+
+            _state.KeyboardMode = "Static";
+            return;
+        }
+
+        // Animated effects are allowed only through the direct provider. AppState's
+        // CanKeyboardEffects explicitly excludes the Vantage fallback because its
+        // repeated writes can show Lenovo's own brightness pop-up.
+        if (!_state.CanKeyboardEffects)
+        {
+            _state.KeyboardMode = "Static";
             return;
         }
 
@@ -112,11 +109,8 @@ public sealed class KeyboardEffectService : IDisposable
 
     private void StartEffectRuntime()
     {
-        if (_disposed || _state.KeyboardMode == "Static" ||
-            (_state.KeyboardMode == "Auto" && _firmwareAutoActive))
-        {
+        if (_disposed || _state.KeyboardMode is "Static" or "Auto")
             return;
-        }
 
         lock (_runtimeGate)
         {
@@ -170,9 +164,6 @@ public sealed class KeyboardEffectService : IDisposable
 
     private TimeSpan CurrentEffectInterval() => _state.KeyboardMode switch
     {
-        // Software Auto only reacts to 15/35 second idle thresholds; a one-second
-        // cadence is enough and is used only when OEM Auto was unavailable.
-        "Auto" => TimeSpan.FromSeconds(1),
         "Reactive" => TimeSpan.FromMilliseconds(90),
         "Audio" => TimeSpan.FromMilliseconds(100),
         "Breathing" => TimeSpan.FromMilliseconds(120),
@@ -181,12 +172,11 @@ public sealed class KeyboardEffectService : IDisposable
 
     private async Task TickEffectAsync(CancellationToken cancellationToken)
     {
-        if (!_state.CanKeyboardBacklight || (_state.KeyboardMode == "Auto" && _firmwareAutoActive))
+        if (!_state.CanKeyboardEffects)
             return;
 
         string? target = _state.KeyboardMode switch
         {
-            "Auto" => AutoTarget(),
             "Breathing" => BreathingTarget(),
             "Reactive" => ReactiveTarget(),
             "Audio" => AudioTarget(),
@@ -215,16 +205,6 @@ public sealed class KeyboardEffectService : IDisposable
         {
             _writeGate.Release();
         }
-    }
-
-    private string AutoTarget()
-    {
-        TimeSpan idle = GetIdleTime();
-        if (idle >= IdleOffAfter)
-            return "Off";
-        if (idle >= IdleLowAfter)
-            return "Low";
-        return "High";
     }
 
     private string BreathingTarget()
@@ -283,7 +263,7 @@ public sealed class KeyboardEffectService : IDisposable
 
         try
         {
-            var result = await _hardware.SetKeyboardBacklightAsync(level, cancellationToken).ConfigureAwait(false);
+            ServiceResponse? result = await _hardware.SetKeyboardBacklightAsync(level, cancellationToken).ConfigureAwait(false);
             _lastHardwareWrite = DateTimeOffset.UtcNow;
             if (result?.Success == true)
             {
@@ -333,16 +313,6 @@ public sealed class KeyboardEffectService : IDisposable
         "low" => "Low",
         _ => "High"
     };
-
-    private static TimeSpan GetIdleTime()
-    {
-        var info = new LastInputInfo { Size = (uint)Marshal.SizeOf<LastInputInfo>() };
-        if (!GetLastInputInfo(ref info))
-            return TimeSpan.Zero;
-
-        uint elapsed = unchecked((uint)Environment.TickCount - info.Time);
-        return TimeSpan.FromMilliseconds(elapsed);
-    }
 
     private void StartAudioCapture()
     {
@@ -436,15 +406,4 @@ public sealed class KeyboardEffectService : IDisposable
         StopKeyboardHook();
         _writeGate.Dispose();
     }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct LastInputInfo
-    {
-        public uint Size;
-        public uint Time;
-    }
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool GetLastInputInfo(ref LastInputInfo info);
 }
