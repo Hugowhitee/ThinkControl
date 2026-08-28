@@ -4,7 +4,6 @@ using System.Windows.Media;
 using ThinkControl.Core.Touchpad;
 using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfPoint = System.Windows.Point;
-using WpfSize = System.Windows.Size;
 
 namespace ThinkControl.UI.Controls;
 
@@ -64,13 +63,12 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
 
         Brush muted = ResourceBrush("Tc.TextMuted", Brushes.Gray);
         Brush faint = ResourceBrush("Tc.TextFaint", Brushes.DimGray);
-        Brush text = ResourceBrush("Tc.Text", Brushes.White);
         Brush accent = ResourceBrush("Tc.Accent", Brushes.Red);
         Brush surface = ResourceBrush("Tc.SurfaceAlt", Brushes.Black);
 
         dc.PushClip(new RectangleGeometry(pad, PadCornerRadius, PadCornerRadius));
-        DrawCornerLane(dc, pad, TouchpadCorner.TopLeft, muted, faint, text, accent);
-        DrawCornerLane(dc, pad, TouchpadCorner.TopRight, muted, faint, text, accent);
+        DrawCornerGuide(dc, pad, TouchpadCorner.TopLeft, muted, faint, accent);
+        DrawCornerGuide(dc, pad, TouchpadCorner.TopRight, muted, faint, accent);
         DrawTrackCenterZone(dc, pad, surface, muted, accent);
         dc.Pop();
     }
@@ -106,13 +104,12 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         e.Handled = true;
     }
 
-    private void DrawCornerLane(
+    private void DrawCornerGuide(
         DrawingContext dc,
         Rect pad,
         TouchpadCorner corner,
         Brush muted,
         Brush faint,
-        Brush text,
         Brush accent)
     {
         GestureActionKind action = _configuration.LaunchFor(corner);
@@ -123,46 +120,42 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
                     _signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
 
         Brush source = live ? accent : selected || hovered || enabled ? muted : faint;
-        double opacity = live ? 1.0 : selected ? 0.82 : hovered ? 0.68 : enabled ? 0.54 : 0.30;
-        var pen = new Pen(TransparentClone(source, opacity), live ? 2.4 : selected ? 2.0 : 1.55)
+        double opacity = live ? 1.0 : selected ? 0.86 : hovered ? 0.50 : enabled ? 0.24 : 0.10;
+        double width = live ? 2.25 : selected ? 1.8 : 1.15;
+        var boundaryPen = new Pen(TransparentClone(source, opacity), width)
         {
             StartLineCap = PenLineCap.Round,
-            EndLineCap = PenLineCap.Round,
-            LineJoin = PenLineJoin.Round
+            EndLineCap = PenLineCap.Round
         };
 
-        Geometry outline = BuildCornerOutline(pad, corner);
-        dc.DrawGeometry(null, pen, outline);
-
-        WpfPoint glyphCenter = CornerLanePoint(pad, corner, TouchpadCornerZonePolicy.LengthMm * 0.57, 0);
-        DrawLaunchGlyph(dc, action, glyphCenter, TransparentClone(live ? accent : enabled ? text : faint, live ? 1 : enabled ? 0.76 : 0.40));
-    }
-
-    private Geometry BuildCornerOutline(Rect pad, TouchpadCorner corner)
-    {
+        // Two parallel rails and one inner stop define the actual diagonal lane
+        // without turning it into a decorative capsule or embedding app/window
+        // glyphs. Both sides are generated from the same physical policy and mirror
+        // exactly, so the right guide cannot drift or deform independently.
         double half = TouchpadCornerZonePolicy.HalfWidthMm;
-        double start = TouchpadCornerZonePolicy.StartInsetMm;
-        double capCenter = TouchpadCornerZonePolicy.LengthMm - half;
-
+        double start = TouchpadCornerZonePolicy.StartInsetMm + 1.2;
+        double end = TouchpadCornerZonePolicy.LengthMm - half;
         WpfPoint outerA = CornerLanePoint(pad, corner, start, -half);
-        WpfPoint innerA = CornerLanePoint(pad, corner, capCenter, -half);
-        WpfPoint innerB = CornerLanePoint(pad, corner, capCenter, half);
+        WpfPoint innerA = CornerLanePoint(pad, corner, end, -half);
         WpfPoint outerB = CornerLanePoint(pad, corner, start, half);
-        double radiusPx = Math.Max(2, half / _geometry.EffectiveWidthMm * pad.Width);
+        WpfPoint innerB = CornerLanePoint(pad, corner, end, half);
+        dc.DrawLine(boundaryPen, outerA, innerA);
+        dc.DrawLine(boundaryPen, outerB, innerB);
+        dc.DrawLine(boundaryPen, innerA, innerB);
 
-        var figure = new PathFigure { StartPoint = outerA, IsClosed = false, IsFilled = false };
-        figure.Segments.Add(new LineSegment(innerA, true));
-        figure.Segments.Add(new ArcSegment(
-            innerB,
-            new WpfSize(radiusPx, radiusPx),
-            0,
-            isLargeArc: false,
-            SweepDirection.Clockwise,
-            isStroked: true));
-        figure.Segments.Add(new LineSegment(outerB, true));
-        var geometry = new PathGeometry();
-        geometry.Figures.Add(figure);
-        return geometry;
+        if (selected || live)
+        {
+            var centerPen = new Pen(
+                TransparentClone(live ? accent : muted, live ? 0.92 : 0.48),
+                live ? 1.7 : 1.25)
+            {
+                StartLineCap = PenLineCap.Round,
+                EndLineCap = PenLineCap.Round
+            };
+            WpfPoint centerStart = CornerLanePoint(pad, corner, start + 3.0, 0);
+            WpfPoint centerEnd = CornerLanePoint(pad, corner, end - 4.0, 0);
+            dc.DrawLine(centerPen, centerStart, centerEnd);
+        }
     }
 
     private WpfPoint CornerLanePoint(Rect pad, TouchpadCorner corner, double alongMm, double acrossMm)
@@ -175,35 +168,6 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         return corner == TouchpadCorner.TopLeft
             ? new WpfPoint(pad.Left + x, pad.Top + y)
             : new WpfPoint(pad.Right - x, pad.Top + y);
-    }
-
-    private static void DrawLaunchGlyph(DrawingContext dc, GestureActionKind action, WpfPoint point, Brush brush)
-    {
-        var pen = new Pen(brush, 1.45)
-        {
-            StartLineCap = PenLineCap.Round,
-            EndLineCap = PenLineCap.Round,
-            LineJoin = PenLineJoin.Round
-        };
-        Rect body = new(point.X - 8, point.Y - 6, 16, 12);
-
-        if (action == GestureActionKind.Disabled)
-        {
-            dc.DrawEllipse(null, pen, point, 2.1, 2.1);
-            return;
-        }
-
-        dc.DrawRoundedRectangle(null, pen, body, 1.5, 1.5);
-        if (action == GestureActionKind.OpenThinkControl)
-        {
-            dc.DrawLine(pen, new WpfPoint(body.Left + 5, body.Top), new WpfPoint(body.Left + 5, body.Bottom));
-            return;
-        }
-
-        // Advanced is a full application surface: use a small header plus two
-        // content columns rather than the old unrelated monitor/window glyph.
-        dc.DrawLine(pen, new WpfPoint(body.Left, body.Top + 3.5), new WpfPoint(body.Right, body.Top + 3.5));
-        dc.DrawLine(pen, new WpfPoint(point.X, body.Top + 3.5), new WpfPoint(point.X, body.Bottom));
     }
 
     private void DrawTrackCenterZone(DrawingContext dc, Rect pad, Brush surface, Brush muted, Brush accent)
@@ -232,9 +196,6 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         };
         dc.DrawRoundedRectangle(TransparentClone(surface, 0.96), pen, zone, 3, 3);
 
-        // Intentionally use only the pause bars here. A combined play/pause glyph
-        // resembles a skip icon at this size and does not communicate a bounded
-        // center target clearly.
         WpfPoint center = new(zone.Left + zone.Width / 2, zone.Top + zone.Height / 2);
         double barLength = Math.Clamp(Math.Min(zone.Width, zone.Height) * 0.46, 8, 14);
         double gap = 3.0;
@@ -254,7 +215,7 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
             TouchpadEdge.Top => new Rect(pad.Left + pad.Width * start, pad.Top + 2, pad.Width * (end - start), Math.Max(22, edgeWidthY - 4)),
             TouchpadEdge.Bottom => new Rect(pad.Left + pad.Width * start, pad.Bottom - Math.Max(22, edgeWidthY - 4) - 2, pad.Width * (end - start), Math.Max(22, edgeWidthY - 4)),
             TouchpadEdge.Left => new Rect(pad.Left + 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthX - 4), pad.Height * (end - start)),
-            _ => new Rect(pad.Right - Math.Max(22, edgeWidthX - 4) - 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthY - 4), pad.Height * (end - start))
+            _ => new Rect(pad.Right - Math.Max(22, edgeWidthX - 4) - 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthX - 4), pad.Height * (end - start))
         };
     }
 
