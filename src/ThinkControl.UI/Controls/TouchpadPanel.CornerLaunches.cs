@@ -227,4 +227,16 @@ public partial class TouchpadPanel
         _gestureZoneOverlay.SelectedCorner = _selectedLaunchCorner;
         _gestureZoneOverlay.Signal = _signal;
     }
+
+    // Visual QA uses the real overlay instead of a snapshot-only imitation. This
+    // helper only controls the live signal shown in that canonical overlay.
+    private void RefreshCornerZoneVisuals(GestureSignal? signal)
+    {
+        if (_gestureZoneOverlay is null)
+            return;
+        _gestureZoneOverlay.Configuration = _configuration;
+        _gestureZoneOverlay.Geometry = _host?.Geometry ?? DefaultGeometry();
+        _gestureZoneOverlay.SelectedCorner = _selectedLaunchCorner;
+        _gestureZoneOverlay.Signal = signal;
+    }
 }
