@@ -2,77 +2,77 @@
 
 This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
-## Current release: alpha.33 touchpad, shell and crash regression hardening
+## Current release: alpha.34 unified Touchpad zones and Keyboard Auto cleanup
 
-`v0.1.0-alpha.32` is the immutable production baseline. The active single release PR is #63 and targets **`v0.1.0-alpha.33`**.
+`v0.1.0-alpha.33` is the immutable production baseline. The active single release PR is #64 and targets **`v0.1.0-alpha.34`**.
 
-The product-code head `7d54051c2447b298c09d05da574b551e9093c3f0` passed CI, Package ThinkControl and Installer reliability after the recurring WPF dispatcher crash root cause was fixed and a source regression guard was added. Release metadata was then frozen to alpha.33. The release-ready head `a8340287bd821c020a348aed6ec6cf3b1aa9c9db` subsequently passed CI, Package ThinkControl and Installer reliability on the same SHA, including repository hygiene, Core tests, the real WPF shell smoke, installer/service lifecycle and updater compatibility. Its generated alpha.33 visual-QA artifact was manually inspected: minimum/normal/wide Touchpad layouts are stable, idle corner guides are mirrored, the live-corner fixture keeps the settings geometry in place, and the corrected QA fixture shows both idle corner selectors as `Off` rather than blank.
+The implementation/visual-QA head `ad17495a1b9403bec832be51780d3224ec95f0c9` passed CI, Package ThinkControl and Installer reliability on the same SHA. That evidence includes repository hygiene, restore/build, Core tests, real Compact ↔ Advanced shell smoke, the WPF snapshot renderer, package/bootstrap creation, service lifecycle smoke, deep installer/IPC smoke and legacy updater compatibility. The corrected WPF visual-QA artifact from CI run 1369 was manually inspected: top-left and top-right selected/live corner states use exact mirrored final geometry, the selected corner editor remains stable during live ownership, top-left shows `Compact`, top-right shows `Advanced`, normal/minimum/wide Touchpad layouts remain stable, and the Keyboard page exposes Auto only in the normal hardware-mode row while Effects contains Breathing / Reactive / Audio.
 
-This handoff update itself changes only documentation. No more branch content changes are planned. Before squash merge, CI + Package + Installer reliability must also be green on the exact PR head that contains this handoff commit; GitHub workflow/release history is the immutable record of that final gate and promotion.
+Release metadata is now frozen to alpha.34. README and Product document the six-zone Touchpad selection/rendering model, preserved runtime corner/edge recognition exclusivity, and the keyboard contract that Lenovo/OEM Auto must be verified rather than silently replaced by a software idle policy. `version.json` is `0.1.0-alpha.34` with `releaseReady=true`.
 
-### Implemented in alpha.33
+This handoff update is the **last planned branch content change**. Before squash merge, CI + Package + Installer reliability must all be green on the exact PR head containing this handoff commit. No implementation, QA-fixture or documentation changes should be added afterward; if the head moves, repeat the exact-head gate.
 
-- [x] Live Touchpad responsive layout is anchored to the stable Advanced page rail instead of a grid whose own layout changes its measured width.
-- [x] Full-rate raw HID frames remain available to gesture recognition while WPF live visualization coalesces updates to roughly display-refresh cadence; all-up/release frames remain immediate.
-- [x] Raw-input/HID startup is deferred until after Advanced/Touchpad has painted so device probing cannot decide whether the window becomes visible.
-- [x] Runtime corner Candidate/Claimed/Active state no longer collapses/re-expands the edge editor; live ownership dims/disables it in place without changing page geometry.
-- [x] Touchpad corner/gesture UI listeners attach only while the Touchpad page is visible and detach when the page is hidden, preventing continued high-rate dispatcher work elsewhere in Advanced.
-- [x] Left/right idle corner guides use exact mirrored final-pixel geometry and identical idle treatment; hover changes pointer affordance without promoting one corner to a different visual state.
-- [x] Alpha.32 corner/edge recognition exclusivity, lift-required lockout and deliberate diagonal launch thresholds remain unchanged.
-- [x] Successful-update passive confirmation is click-dismissable.
-- [x] A deliberate Compact → Advanced transition removes the passive successful-update confirmation so it cannot remain topmost over Full.
-- [x] Advanced-preferred startup no longer redundantly reopens an already visible Advanced window after update handoff, so a successful-update confirmation is still shown once when the updater restarts directly into Advanced.
-- [x] Advanced is restored/shown and receives a render pass before a heavy requested page such as Touchpad is activated.
-- [x] Primary-surface verification treats an expected Advanced window that is still minimized as a shell failure.
-- [x] Real WPF shell smoke covers passive-update → Advanced dismissal, minimized Advanced → Touchpad recovery, bounded pre-HID open latency and leaving Touchpad after deferred input work.
-- [x] Recurring issue #60 / signature `016E9126228907A1` was traced to a real WPF overload bug: `App.Notifications` passed a zero-argument `Action` first and `DispatcherPriority` second, allowing WPF to bind the priority into `params object[]` and later throw `TargetParameterCountException` through `DynamicInvoke`.
-- [x] Notification-center dispatcher calls now use the strongly typed priority-first overload.
-- [x] Core CI includes a source regression test that rejects the dangerous method/delegate-first `Dispatcher.BeginInvoke(..., DispatcherPriority...)` pattern across `ThinkControl.UI`.
-- [x] No fan/PawnIO/Lenovo-Auto safety contract from alpha.32 is weakened by this regression release.
+### Implemented in alpha.34
+
+- [x] Touchpad editor selection is one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
+- [x] `TouchpadVisualizer` owns edge/corner selection, rendering and hit-testing; the auxiliary corner overlay is non-interactive and no longer competes for mouse ownership.
+- [x] Corner hit-testing takes priority only inside the deliberate diagonal corner lane; normal edge selection remains available outside it.
+- [x] Runtime corner-vs-edge gesture recognition, first-candidate corner ownership, reject-until-lift lockout and deliberate diagonal thresholds remain unchanged from alpha.33.
+- [x] Left/right corner guides are generated from one canonical final geometry and the right side is an exact mirror of the left.
+- [x] Edge and corner zones share one idle/selected/hover/candidate/live visual grammar instead of looking like separate gesture systems.
+- [x] Live corner ownership remains visual-only for editor state: the selected editor stays in layout and is dimmed/disabled without reflow while a finger is moving.
+- [x] WPF visual QA renders top-left/top-right selected and live fixtures and executes a symmetry assertion against the real visualizer.
+- [x] CI explicitly requires those four corner-state PNGs so future snapshot changes cannot silently drop the release-specific QA coverage.
+- [x] Snapshot fixtures preserve injected Compact/Advanced corner actions instead of re-reading the live host configuration and displaying misleading `Off` values.
+- [x] Keyboard Auto is removed from the separate Effects card.
+- [x] The normal Off / Low / High / Auto row keeps Lenovo firmware Auto as the OEM mode and requires successful set/readback verification.
+- [x] The old software idle-dimming Auto fallback is removed; ThinkControl no longer labels a High → Low → Off loop as Auto when OEM Auto is unavailable.
+- [x] Breathing, Reactive and Audio remain user-session effects and require the direct backlight provider; the Lenovo Vantage fallback stays excluded to avoid repeated Lenovo keyboard-brightness pop-ups.
+- [x] Alpha.33 shell restore, successful-update confirmation, high-rate Touchpad coalescing, page-visibility listener lifecycle and WPF dispatcher crash protections remain intact.
+- [x] No fan/PawnIO/EC write-safety contract is loosened by this release.
 
 ### Automated release evidence
 
-Passed before this final handoff-only commit:
+Passed on implementation head `ad17495a1b9403bec832be51780d3224ec95f0c9` before metadata freeze:
 
-- [x] Repository hygiene and alpha.33 version/document consistency.
-- [x] Release restore/build and Core tests, including the dispatcher scheduling source guard.
-- [x] Real Compact ↔ Advanced WPF shell smoke with the new update-toast/minimized-Touchpad regression paths.
-- [x] WPF visual-QA matrix render.
-- [x] Final alpha.33 Touchpad minimum/normal/wide and live-corner screenshots manually inspected.
-- [x] Snapshot-only corner selector synchronization fixed so visual QA reflects the real runtime `Off` state.
-- [x] Package ThinkControl workflow.
-- [x] Installer reliability workflow, including deep install/service/IPC and legacy updater compatibility smoke.
-- [x] Package workflow bootstrap installer/service lifecycle smoke.
-- [x] Crash issue #60 remains open for physical confirmation rather than being closed merely because a source root cause and automated guard exist.
+- [x] Repository hygiene.
+- [x] Release restore/build and Core tests, including Touchpad zone-selection/corner policy regressions and the existing WPF dispatcher scheduling source guard.
+- [x] Real Compact ↔ Advanced WPF shell smoke.
+- [x] WPF visual-QA matrix render with exact corner-symmetry and live-editor-stability assertions.
+- [x] Top-left/top-right selected/live screenshots manually inspected after the snapshot-state correction.
+- [x] Keyboard page manually inspected with Auto only in the hardware row and Breathing / Reactive / Audio under Effects.
+- [x] Package ThinkControl workflow, including bootstrap installer/service lifecycle smoke.
+- [x] Installer reliability workflow, including deep install/service/IPC and exact legacy updater compatibility smoke.
 
 ### Promotion gate
 
-- [x] Freeze README/Product/release-readiness documentation to alpha.33.
-- [x] Set `version.json` to `0.1.0-alpha.33` with `releaseReady=true`.
-- [x] Run CI + Package + Installer reliability on the release-ready alpha.33 candidate.
-- [x] Inspect the generated alpha.33 UI artifact for version/header drift and representative Touchpad stability.
+- [x] Freeze README/Product documentation to alpha.34.
+- [x] Set `version.json` to `0.1.0-alpha.34` with `releaseReady=true`.
+- [x] Update this single persistent release-readiness handoff for alpha.34.
 - [ ] Require CI + Package + Installer reliability green on the exact PR head containing this final handoff commit; make no further branch changes afterward.
-- [ ] Squash-merge PR #63 to `main` using that exact expected head SHA.
+- [ ] Confirm PR #64 has no unexpected changed files and is still based on the immutable alpha.33 `main` baseline.
+- [ ] Mark PR #64 ready for review if it is still draft.
+- [ ] Squash-merge PR #64 to `main` using that exact expected head SHA.
 - [ ] Verify `main` points to the returned squash SHA.
 - [ ] Verify the `Promote release-ready main` workflow succeeds for the squash SHA.
-- [ ] Verify tag `v0.1.0-alpha.33` points to that exact `main` SHA.
-- [ ] Verify the immutable GitHub prerelease exists and contains exactly `ThinkControl-Setup-0.1.0-alpha.33.exe`, `ThinkControl-Payload-0.1.0-alpha.33.zip`, `SHA256SUMS.txt` and `ui-overview.png`.
+- [ ] Verify tag `v0.1.0-alpha.34` points to that exact `main` SHA.
+- [ ] Verify the immutable GitHub prerelease exists and contains exactly `ThinkControl-Setup-0.1.0-alpha.34.exe`, `ThinkControl-Payload-0.1.0-alpha.34.zip`, `SHA256SUMS.txt` and `ui-overview.png`.
 - [ ] Verify the published release checksums succeed and assets are non-empty/downloadable.
-- [ ] Remove the merged alpha.33 branch after immutable release verification.
+- [ ] Remove the merged alpha.34 branch after immutable release verification.
 
 ### Physical X9 follow-up — not an automated release claim
 
 Hosted CI cannot prove the following and this document must not mark them complete without a real 21Q6/21Q7 test:
 
-- [ ] Live Touchpad no longer oscillates in size on the physical X9, including when Advanced is fullscreen.
-- [ ] Opening/using/leaving Touchpad no longer makes the rest of Advanced sluggish during a real high-rate touch stream.
-- [ ] Opening Touchpad from a minimized/hidden state no longer leaves ThinkControl invisible in normal installed use.
-- [ ] Left/right corner launch guides and real corner interaction feel symmetric and deliberate on the physical haptic pad.
-- [ ] Issue #60 `TargetParameterCountException` does not recur during normal shell/notification use on alpha.33; keep the issue open until field evidence supports closure.
+- [ ] The unified six-zone Touchpad editor feels natural on the physical X9 haptic pad and corner selection does not steal ordinary edge selection outside the intended diagonal lane.
+- [ ] Top-left and top-right corner launches feel equally sized/sensitive in real touch use, not only in rendered geometry.
+- [ ] Live corner Candidate/Claimed/Active frames do not produce visible page movement or sluggishness under a real high-rate touch stream.
+- [ ] Lenovo OEM keyboard Auto works without ThinkControl substituting a software idle mode, and Fn+Space/readback remain in agreement through normal use/restart.
+- [ ] Breathing/Reactive/Audio on a direct provider do not produce Lenovo keyboard pop-ups; effects remain unavailable when only the Vantage fallback is active.
+- [ ] Issue #60 `TargetParameterCountException` does not recur during normal shell/notification use; keep the issue open until field evidence supports closure.
 - [ ] Clean PawnIO reinstall/repair after stale/missing kernel-service state.
 - [ ] Restart/UAC path and provider refresh after PawnIO repair.
 - [ ] Fan RPM/control recovery on the verified X9 EC path after repair.
-- [ ] Lenovo OEM Auto, Fn+Space and readback stay in agreement through normal use/restart.
 
 ## Commercial/public release program
 
