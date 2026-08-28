@@ -9,6 +9,7 @@ Set-StrictMode -Version Latest
 $serviceName = 'ThinkControlService'
 $pipeName = 'ThinkControl.Service.v1'
 $smokeDir = Join-Path $env:TEMP 'ThinkControlInstallerReliabilitySmoke'
+$cleanInstallLog = Join-Path $env:TEMP 'ThinkControlInstallerReliabilityClean.log'
 $updateLog = Join-Path $env:TEMP 'ThinkControlInstallerReliabilityUpdate.log'
 $localDataDir = Join-Path $env:LOCALAPPDATA 'ThinkControl'
 $commonDataDir = Join-Path $env:ProgramData 'ThinkControl'
@@ -31,8 +32,6 @@ function Assert-UpdaterElevationContract {
     $updateText = Get-Content $updateSource -Raw
     $installerText = Get-Content $installerSource -Raw
 
-    # Inno Setup owns elevation. Pre-elevating Setup from the UI can lose the
-    # original desktop token and break the normal-user relaunch after updating.
     if ($updateText -match 'Verb\s*=\s*"runas"') {
         throw 'UpdateService pre-elevates Setup. Let Inno Setup own the UAC transition instead.'
     }
@@ -43,8 +42,6 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer owns the expected administrator transition.'
     }
 
-    # A clean interactive install must explicitly expose the directory picker. Once
-    # installed, updates use the AppId-restored {app} location and skip relocation.
     if (-not $installerText.Contains('DisableDirPage=no')) {
         throw 'Installer no longer explicitly exposes the install-location page for clean installs.'
     }
@@ -55,9 +52,6 @@ function Assert-UpdaterElevationContract {
         throw 'Existing-install updates no longer skip the directory page and may relocate accidentally.'
     }
 
-    # Alpha.15.1 regression contract: after user approval the app must not disappear
-    # before Setup has actually survived launch, and Setup must stage a complete,
-    # verified payload before it closes the running ThinkControl UI.
     if ($updateText -notmatch 'Process\?\s+process\s*=\s*Process\.Start\(start\)') {
         throw 'UpdateService no longer verifies the spawned Setup process.'
     }
@@ -102,8 +96,6 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer persists an explicit Start with Windows opt-out by removing the Run entry.'
     }
 
-    # Full uninstall owns all ThinkControl-created local state. Future account
-    # credentials use OS-protected storage and will get their own explicit assertion.
     foreach ($required in @(
         'Type: filesandordirs; Name: "{localappdata}\ThinkControl"',
         'Type: filesandordirs; Name: "{commonappdata}\ThinkControl"',
@@ -186,21 +178,32 @@ function Assert-ServiceIpc {
     Write-Host '[smoke] IPC verified: Ping + GetStatus protocol v1'
 }
 
+function Show-InstallerFailureLog([string]$phase, [string]$path) {
+    if (-not (Test-Path $path)) {
+        Write-Host "[smoke] $phase did not create an Inno Setup log at $path"
+        return
+    }
+
+    Write-Host "[smoke] ---- $phase installer log tail ----"
+    Get-Content $path -Tail 140 | ForEach-Object { Write-Host $_ }
+    Write-Host "[smoke] ---- end installer log tail ----"
+}
+
 function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false, [bool]$passExplicitDir = $true) {
     Write-Host "[smoke] $phase $($setup.Name) with external payload $($payload.Name)"
+    $phaseLog = if ($legacyUpdateMode) { $updateLog } else { $cleanInstallLog }
+    Remove-Item $phaseLog -Force -ErrorAction SilentlyContinue
+
     $arguments = @(
         '/VERYSILENT',
         '/SUPPRESSMSGBOXES',
         '/NORESTART',
-        '/SP-'
+        '/SP-',
+        "/LOG=`"$phaseLog`""
     )
 
     if ($legacyUpdateMode) {
-        # Alpha.14/15 used this hidden updater shape. The new Setup must remain
-        # compatible with it so old installs cannot end up with UAC -> close ->
-        # nothing. Relaunch is disabled only on CI; source assertions above verify
-        # the real updater's normal-user relaunch and handoff contract separately.
-        $arguments += @('/CLOSEAPPLICATIONS', '/UPDATE=1', '/RELAUNCH=0', "/LOG=`"$updateLog`"")
+        $arguments += @('/CLOSEAPPLICATIONS', '/UPDATE=1', '/RELAUNCH=0')
     }
 
     if ($passExplicitDir) {
@@ -209,7 +212,14 @@ function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false, [bo
     $arguments += "/PAYLOAD=`"$($payload.FullName)`""
 
     $process = Start-Process -FilePath $setup.FullName -ArgumentList $arguments -Wait -PassThru
-    if ($process.ExitCode -ne 0) { throw "$phase failed with installer exit code $($process.ExitCode)." }
+    if ($process.ExitCode -ne 0) {
+        Show-InstallerFailureLog $phase $phaseLog
+        throw "$phase failed with installer exit code $($process.ExitCode)."
+    }
+
+    if (-not (Test-Path $phaseLog) -or (Get-Item $phaseLog).Length -lt 100) {
+        throw "$phase did not preserve a useful installer log."
+    }
 
     $ui = Join-Path $smokeDir 'ui\ThinkControl.UI.exe'
     $serviceExe = Join-Path $smokeDir 'service\ThinkControl.Service.exe'
@@ -217,11 +227,6 @@ function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false, [bo
     if (-not (Test-Path $ui)) { throw "UI executable missing after $phase. The installer may have lost the remembered custom directory." }
     if (-not (Test-Path $serviceExe)) { throw "Service executable missing after $phase." }
     if (-not (Test-Path $uninstaller)) { throw "Uninstaller missing after $phase." }
-
-    if ($legacyUpdateMode) {
-        if (-not (Test-Path $updateLog)) { throw 'Legacy-style update did not create its requested installer log.' }
-        if ((Get-Item $updateLog).Length -lt 100) { throw 'Legacy-style update log is unexpectedly empty.' }
-    }
 
     Wait-ServiceRunning
     Assert-ServiceIpc
@@ -241,17 +246,15 @@ try {
     Assert-UpdaterElevationContract
     Remove-SmokeService
     Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $cleanInstallLog -Force -ErrorAction SilentlyContinue
     Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
     Remove-Item $localDataDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $commonDataDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $preferencesRegistry -Recurse -Force -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue
 
-    # Explicit /DIR proves a clean install supports a custom location.
     Install-SmokeCopy 'clean install' $false $true
 
-    # Exercise the exact hidden argument family used by older in-app updaters but do
-    # NOT pass /DIR. Inno must recover the previous custom location from the AppId.
     Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false
 
     $defaultProgramFilesInstall = Join-Path $env:ProgramFiles 'ThinkControl\ui\ThinkControl.UI.exe'
@@ -281,7 +284,9 @@ try {
     if (Test-Path $localDataDir) { throw '%LOCALAPPDATA%\ThinkControl remained after full uninstall.' }
     if (Test-Path $commonDataDir) { throw '%PROGRAMDATA%\ThinkControl remained after full uninstall.' }
     if (Test-Path $preferencesRegistry) { throw 'HKCU\Software\ThinkControl remained after full uninstall.' }
-    if ($null -ne (Get-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue).ThinkControl) {
+
+    $runEntry = Get-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue
+    if ($null -ne $runEntry -and $null -ne $runEntry.ThinkControl) {
         throw 'ThinkControl startup Run entry remained after uninstall.'
     }
 
@@ -290,6 +295,7 @@ try {
 finally {
     Remove-SmokeService
     Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item $cleanInstallLog -Force -ErrorAction SilentlyContinue
     Remove-Item $updateLog -Force -ErrorAction SilentlyContinue
     Remove-Item $localDataDir -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item $commonDataDir -Recurse -Force -ErrorAction SilentlyContinue
