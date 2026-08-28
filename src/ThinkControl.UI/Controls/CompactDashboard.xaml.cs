@@ -18,6 +18,7 @@ public partial class CompactDashboard : UserControl
     public CompactDashboard()
     {
         InitializeComponent();
+        ApplyAlpha30CompactPolish();
         IsVisibleChanged += (_, e) =>
         {
             if (e.NewValue is true && _app is not null)
