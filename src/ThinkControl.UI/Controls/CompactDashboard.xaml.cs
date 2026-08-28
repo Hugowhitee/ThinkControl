@@ -83,25 +83,32 @@ public partial class CompactDashboard : UserControl
             return;
 
         _viewSwitchPending = true;
+        MainWindow? compact = Window.GetWindow(this) as MainWindow;
+        compact?.SetTransitionPending(true);
 
-        // Exercise exactly one shell owner after the routed button event completes.
-        // Deferring past the current input pass avoids constructing another native
-        // top-level window while WPF is still unwinding the Compact button click.
-        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        // Let the outline paint before constructing/navigating the larger WPF tree.
+        // Without this render handoff the click and the eventual window could be
+        // separated by a perceptible dead period on a cold Advanced open.
+        Dispatcher.BeginInvoke(DispatcherPriority.Render, new Action(() =>
         {
-            try
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
             {
-                _app.SwitchCompactToAdvanced(page);
-            }
-            catch (Exception ex)
-            {
-                _app.RecordShellException("compact-expand", ex);
-                try { _app.CompactWindow.ShowNearTray(animate: false); } catch { }
-            }
-            finally
-            {
-                _viewSwitchPending = false;
-            }
+                try
+                {
+                    _app.SwitchCompactToAdvanced(page);
+                }
+                catch (Exception ex)
+                {
+                    _app.RecordShellException("compact-expand", ex);
+                    try { _app.CompactWindow.ShowNearTray(animate: false); } catch { }
+                }
+                finally
+                {
+                    if (compact?.IsVisible == true)
+                        compact.SetTransitionPending(false);
+                    _viewSwitchPending = false;
+                }
+            }));
         }));
     }
 
