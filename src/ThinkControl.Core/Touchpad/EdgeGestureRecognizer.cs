@@ -1,12 +1,17 @@
 namespace ThinkControl.Core.Touchpad;
 
 /// <summary>
-/// Platform-independent recognizer for one-finger edge gestures. It deliberately
-/// knows nothing about WPF, Raw Input, cursor capture or the action backend so the
-/// recognition contract can be replay-tested in CI.
+/// Platform-independent recognizer for one-finger edge and launch-corner gestures.
+/// It deliberately knows nothing about WPF, Raw Input, cursor capture or the action
+/// backend so the recognition contract can be replay-tested in CI.
 /// </summary>
 public sealed class EdgeGestureRecognizer
 {
+    private const double CornerZoneMm = 13.0;
+    private const double CornerActivationMm = 6.5;
+    private const double CornerMinimumAxisMm = 2.5;
+    private const double CornerMinimumAxisRatio = 0.34;
+
     private TouchpadGestureConfiguration _configuration;
     private TouchpadGeometry? _geometry;
     private bool _lockoutUntilAllLift;
@@ -16,7 +21,9 @@ public sealed class EdgeGestureRecognizer
     private int _lastX;
     private int _lastY;
     private TouchpadEdge[] _candidateEdges = [];
+    private TouchpadCorner? _candidateCorner;
     private TouchpadEdge? _claimedEdge;
+    private TouchpadCorner? _claimedCorner;
     private GestureActionKind _claimedAction;
     private GesturePhase? _phase;
     private double _lastTotalTravelMm;
@@ -28,6 +35,7 @@ public sealed class EdgeGestureRecognizer
 
     public bool HasCandidateOrActiveGesture => _phase is not null;
     public TouchpadEdge? ActiveEdge => _claimedEdge;
+    public TouchpadCorner? ActiveCorner => _claimedCorner;
 
     public void SetConfiguration(TouchpadGestureConfiguration configuration)
     {
@@ -60,21 +68,23 @@ public sealed class EdgeGestureRecognizer
             if (_phase is GesturePhase.Claimed or GesturePhase.Active)
             {
                 TouchpadEdge? edge = _claimedEdge;
+                TouchpadCorner? corner = _claimedCorner;
                 GestureSignal released = new(
                     GesturePhase.Released,
                     edge,
                     _claimedAction,
                     TotalTravelMm: _lastTotalTravelMm,
                     ContactId: _contactId,
-                    EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null);
+                    EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null,
+                    Corner: corner);
                 Reset();
                 return released;
             }
 
             // Track control optionally owns a deliberate center hold-and-release.
-            // Emit a release for an unambiguous candidate; the action router owns
-            // duration, movement and center-zone safety policy.
-            if (_phase == GesturePhase.Candidate && _candidateEdges.Length == 1)
+            // Emit a release for an unambiguous edge candidate; launch corners never
+            // commit on lift alone and therefore cannot become glorified corner taps.
+            if (_phase == GesturePhase.Candidate && _candidateCorner is null && _candidateEdges.Length == 1)
             {
                 TouchpadEdge edge = _candidateEdges[0];
                 GestureActionKind action = _configuration.BindingFor(edge).Action;
@@ -139,8 +149,29 @@ public sealed class EdgeGestureRecognizer
     private GestureSignal? BeginCandidate(TouchContact contact)
     {
         TouchpadGeometry geometry = _geometry!;
-        var candidates = new List<TouchpadEdge>(2);
 
+        // Configured launch corners get first refusal only when the finger actually
+        // starts inside their small top-corner zone. A disabled corner is invisible
+        // to recognition, so the existing top/side edge gesture remains available.
+        TouchpadCorner? corner = DetectConfiguredCorner(contact);
+        if (corner is TouchpadCorner launchCorner)
+        {
+            _candidateCorner = launchCorner;
+            _candidateEdges = [];
+            _contactId = contact.ContactId;
+            _startX = _lastX = contact.X;
+            _startY = _lastY = contact.Y;
+            _phase = GesturePhase.Candidate;
+            _lastTotalTravelMm = 0;
+            return new GestureSignal(
+                GesturePhase.Candidate,
+                Edge: null,
+                _configuration.LaunchFor(launchCorner),
+                ContactId: contact.ContactId,
+                Corner: launchCorner);
+        }
+
+        var candidates = new List<TouchpadEdge>(2);
         foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
         {
             if (_configuration.BindingFor(edge).Action == GestureActionKind.Disabled)
@@ -157,6 +188,7 @@ public sealed class EdgeGestureRecognizer
         }
 
         _candidateEdges = candidates.ToArray();
+        _candidateCorner = null;
         _contactId = contact.ContactId;
         _startX = _lastX = contact.X;
         _startY = _lastY = contact.Y;
@@ -170,13 +202,16 @@ public sealed class EdgeGestureRecognizer
             GesturePhase.Candidate,
             candidates.Count == 1 ? candidates[0] : null,
             candidateAction,
-            Reason: candidates.Count > 1 ? "Corner candidate" : null,
+            Reason: candidates.Count > 1 ? "Edge-corner candidate" : null,
             ContactId: contact.ContactId,
             EdgePosition01: candidates.Count == 1 ? AlongEdgePosition01(candidates[0], contact.X, contact.Y) : null);
     }
 
     private GestureSignal? ResolveCandidate(TouchContact contact)
     {
+        if (_candidateCorner is TouchpadCorner corner)
+            return ResolveCornerCandidate(corner, contact);
+
         TouchpadGeometry geometry = _geometry!;
         double dx = geometry.DeltaXToMm(contact.X - _startX);
         double dy = geometry.DeltaYToMm(contact.Y - _startY);
@@ -190,25 +225,6 @@ public sealed class EdgeGestureRecognizer
             _lastTotalTravelMm = Math.Sqrt(dx * dx + dy * dy);
             return null;
         }
-
-        // Open ThinkControl follows the ASUS-style mental model: start at an edge
-        // and move into the touchpad, perpendicular to that edge. It intentionally
-        // differs from continuous controls, which travel along the edge. Give an
-        // assigned inward action first refusal at a corner so a diagonal inward
-        // swipe is deterministic instead of depending on enum order.
-        TouchpadEdge? inward = null;
-        foreach (TouchpadEdge edge in _candidateEdges)
-        {
-            if (_configuration.BindingFor(edge).Action != GestureActionKind.OpenThinkControl ||
-                !IsInwardIntent(edge, dx, dy, activation, dominance))
-            {
-                continue;
-            }
-            inward = edge;
-            break;
-        }
-        if (inward is TouchpadEdge inwardEdge)
-            return Claim(inwardEdge, contact, InwardTravelMm(inwardEdge, dx, dy));
 
         TouchpadEdge? chosen = null;
         bool horizontalIntent = absX >= activation && absX >= absY * dominance;
@@ -229,22 +245,54 @@ public sealed class EdgeGestureRecognizer
         if (verticalIntent && !_candidateEdges.Any(IsVerticalEdge))
             return Cancel("Wrong direction");
 
-        // OpenThinkControl is perpendicular-only. If its edge was selected by the
-        // normal along-edge resolver, do not accidentally treat that as an opener.
-        if (_configuration.BindingFor(chosen.Value).Action == GestureActionKind.OpenThinkControl)
-            return Cancel("Swipe inward to open ThinkControl");
-
         double total = AxisTravelMm(chosen.Value, contact.X, contact.Y);
         TouchpadEdgeBinding binding = _configuration.BindingFor(chosen.Value);
         if (binding.Inverted)
             total = -total;
         total *= binding.Sensitivity;
-        return Claim(chosen.Value, contact, total);
+        return ClaimEdge(chosen.Value, contact, total);
     }
 
-    private GestureSignal Claim(TouchpadEdge edge, TouchContact contact, double total)
+    private GestureSignal? ResolveCornerCandidate(TouchpadCorner corner, TouchContact contact)
+    {
+        TouchpadGeometry geometry = _geometry!;
+        double dx = geometry.DeltaXToMm(contact.X - _startX);
+        double dy = geometry.DeltaYToMm(contact.Y - _startY);
+        double inwardX = corner == TouchpadCorner.TopLeft ? dx : -dx;
+        double inwardY = dy;
+        double combined = Math.Sqrt(inwardX * inwardX + inwardY * inwardY);
+        _lastTotalTravelMm = combined;
+
+        // A launch is intentionally stricter than an edge adjustment. Both axes
+        // must move inward by several millimetres and neither axis may dominate the
+        // other completely. Normal vertical scrolling or horizontal pointer travel
+        // from a corner therefore stays a no-op.
+        if (inwardX < -1.0 || inwardY < -1.0)
+        {
+            if (combined >= CornerActivationMm)
+                return Cancel("Corner gesture moved outward");
+            return null;
+        }
+
+        if (combined < CornerActivationMm)
+            return null;
+
+        double minAxis = Math.Min(inwardX, inwardY);
+        double maxAxis = Math.Max(inwardX, inwardY);
+        if (minAxis < CornerMinimumAxisMm || maxAxis <= 0 || minAxis / maxAxis < CornerMinimumAxisRatio)
+        {
+            if (combined >= CornerActivationMm * 1.55)
+                return Cancel("Corner launch requires diagonal inward motion");
+            return null;
+        }
+
+        return ClaimCorner(corner, contact, combined);
+    }
+
+    private GestureSignal ClaimEdge(TouchpadEdge edge, TouchContact contact, double total)
     {
         _claimedEdge = edge;
+        _claimedCorner = null;
         _claimedAction = _configuration.BindingFor(edge).Action;
         _phase = GesturePhase.Claimed;
         _lastX = contact.X;
@@ -261,17 +309,36 @@ public sealed class EdgeGestureRecognizer
             EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
     }
 
+    private GestureSignal ClaimCorner(TouchpadCorner corner, TouchContact contact, double total)
+    {
+        _claimedEdge = null;
+        _claimedCorner = corner;
+        _claimedAction = _configuration.LaunchFor(corner);
+        _phase = GesturePhase.Claimed;
+        _lastX = contact.X;
+        _lastY = contact.Y;
+        _lastTotalTravelMm = total;
+
+        return new GestureSignal(
+            GesturePhase.Claimed,
+            Edge: null,
+            _claimedAction,
+            TotalTravelMm: total,
+            DeltaMm: total,
+            ContactId: contact.ContactId,
+            Corner: corner);
+    }
+
     private GestureSignal? UpdateActive(TouchContact contact)
     {
-        TouchpadEdge edge = _claimedEdge!.Value;
-        TouchpadGeometry geometry = _geometry!;
-        TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
-
-        if (_claimedAction == GestureActionKind.OpenThinkControl)
+        if (_claimedCorner is TouchpadCorner corner)
         {
+            TouchpadGeometry geometry = _geometry!;
             double dx = geometry.DeltaXToMm(contact.X - _startX);
             double dy = geometry.DeltaYToMm(contact.Y - _startY);
-            double total = InwardTravelMm(edge, dx, dy) * binding.Sensitivity;
+            double inwardX = corner == TouchpadCorner.TopLeft ? dx : -dx;
+            double inwardY = dy;
+            double total = Math.Sqrt(Math.Max(0, inwardX) * Math.Max(0, inwardX) + Math.Max(0, inwardY) * Math.Max(0, inwardY));
             double previous = _lastTotalTravelMm;
             _lastTotalTravelMm = total;
             _lastX = contact.X;
@@ -279,21 +346,25 @@ public sealed class EdgeGestureRecognizer
             _phase = GesturePhase.Active;
             return new GestureSignal(
                 GesturePhase.Active,
-                edge,
+                Edge: null,
                 _claimedAction,
-                total,
-                total - previous,
+                TotalTravelMm: total,
+                DeltaMm: total - previous,
                 ContactId: contact.ContactId,
-                EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
+                Corner: corner);
         }
 
-        if (geometry.DistanceToEdgeMm(edge, contact.X, contact.Y) > _configuration.ContinuationToleranceMm)
+        TouchpadEdge edge = _claimedEdge!.Value;
+        TouchpadGeometry edgeGeometry = _geometry!;
+        TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
+
+        if (edgeGeometry.DistanceToEdgeMm(edge, contact.X, contact.Y) > _configuration.ContinuationToleranceMm)
             return Cancel("Gesture left edge tolerance");
 
         double axisTotal = AxisTravelMm(edge, contact.X, contact.Y);
         double delta = edge is TouchpadEdge.Left or TouchpadEdge.Right
-            ? geometry.DeltaYToMm(contact.Y - _lastY)
-            : geometry.DeltaXToMm(contact.X - _lastX);
+            ? edgeGeometry.DeltaYToMm(contact.Y - _lastY)
+            : edgeGeometry.DeltaXToMm(contact.X - _lastX);
 
         if (binding.Inverted)
         {
@@ -318,6 +389,27 @@ public sealed class EdgeGestureRecognizer
             EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
     }
 
+    private TouchpadCorner? DetectConfiguredCorner(TouchContact contact)
+    {
+        TouchpadGeometry geometry = _geometry!;
+        if (geometry.YToMm(contact.Y) > CornerZoneMm)
+            return null;
+
+        if (geometry.XToMm(contact.X) <= CornerZoneMm &&
+            _configuration.LaunchFor(TouchpadCorner.TopLeft) != GestureActionKind.Disabled)
+        {
+            return TouchpadCorner.TopLeft;
+        }
+
+        if (geometry.EffectiveWidthMm - geometry.XToMm(contact.X) <= CornerZoneMm &&
+            _configuration.LaunchFor(TouchpadCorner.TopRight) != GestureActionKind.Disabled)
+        {
+            return TouchpadCorner.TopRight;
+        }
+
+        return null;
+    }
+
     private double AxisTravelMm(TouchpadEdge edge, int x, int y)
     {
         TouchpadGeometry geometry = _geometry!;
@@ -334,46 +426,27 @@ public sealed class EdgeGestureRecognizer
             : Math.Clamp((x - geometry.XLogicalMin) / (double)geometry.XRange, 0.0, 1.0);
     }
 
-    private static bool IsInwardIntent(
-        TouchpadEdge edge,
-        double dx,
-        double dy,
-        double activation,
-        double dominance)
-    {
-        double inward = InwardTravelMm(edge, dx, dy);
-        double parallel = edge is TouchpadEdge.Left or TouchpadEdge.Right ? Math.Abs(dy) : Math.Abs(dx);
-        double combined = Math.Sqrt(inward * inward + parallel * parallel);
-
-        // ASUS documents its ScreenXpert shortcut as a diagonal move from the
-        // top-right corner toward the touchpad centre. Accept both that diagonal
-        // physical intent and a straight perpendicular edge swipe, while rejecting
-        // movement that is overwhelmingly along the edge.
-        return inward >= activation * 0.70 &&
-               combined >= activation &&
-               inward >= parallel * 0.55;
-    }
-
-    private static double InwardTravelMm(TouchpadEdge edge, double dx, double dy) => edge switch
-    {
-        TouchpadEdge.Left => dx,
-        TouchpadEdge.Right => -dx,
-        TouchpadEdge.Top => dy,
-        TouchpadEdge.Bottom => -dy,
-        _ => 0
-    };
-
     private GestureSignal Cancel(string reason, bool preserveLockout = false)
     {
         TouchpadEdge? edge = _claimedEdge ?? (_candidateEdges.Length == 1 ? _candidateEdges[0] : null);
+        TouchpadCorner? corner = _claimedCorner ?? _candidateCorner;
+        GestureActionKind action = _claimedAction != GestureActionKind.Disabled
+            ? _claimedAction
+            : corner is TouchpadCorner candidateCorner
+                ? _configuration.LaunchFor(candidateCorner)
+                : edge is TouchpadEdge candidateEdge
+                    ? _configuration.BindingFor(candidateEdge).Action
+                    : GestureActionKind.Disabled;
+
         GestureSignal signal = new(
             GesturePhase.Cancelled,
             edge,
-            _claimedAction,
+            action,
             TotalTravelMm: _lastTotalTravelMm,
             Reason: reason,
             ContactId: _contactId,
-            EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null);
+            EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null,
+            Corner: corner);
 
         bool lockout = preserveLockout || _lockoutUntilAllLift;
         Reset();
@@ -385,7 +458,9 @@ public sealed class EdgeGestureRecognizer
     {
         _contactId = null;
         _candidateEdges = [];
+        _candidateCorner = null;
         _claimedEdge = null;
+        _claimedCorner = null;
         _claimedAction = GestureActionKind.Disabled;
         _phase = null;
         _lastTotalTravelMm = 0;
