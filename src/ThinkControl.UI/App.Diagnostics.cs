@@ -128,6 +128,7 @@ public partial class App
         (string eventName, string capability, string provider) = operation.Operation switch
         {
             "SetFanLevel" => ("fan.level_set", "FanControl", "ThinkPadEC"),
+            "SetFanPercent" => ("fan.percent_set", "FanControl", "ThinkPadEC"),
             "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", "ThinkPadEC"),
             "SetCoolingCurve" => ("fan.cooling_curve_set", "FanControl", "FanSupervisor"),
             "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
