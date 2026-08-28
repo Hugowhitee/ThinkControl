@@ -14,6 +14,11 @@ public partial class AudioPanel
 
     private void ResetTransientAudioInteractionState()
     {
+        // IsVisible can change while InitializeComponent is still constructing the
+        // control, before these readonly timers have been assigned by our ctor.
+        if (_volumeApplyTimer is null || _microphoneApplyTimer is null || _volumeRefreshTimer is null)
+            return;
+
         _volumeApplyTimer.Stop();
         _microphoneApplyTimer.Stop();
         _volumeRefreshTimer.Stop();
