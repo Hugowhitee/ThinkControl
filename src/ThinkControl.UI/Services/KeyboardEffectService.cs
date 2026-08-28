@@ -1,5 +1,6 @@
 using NAudio.Wave;
 using System.Runtime.InteropServices;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Services;
