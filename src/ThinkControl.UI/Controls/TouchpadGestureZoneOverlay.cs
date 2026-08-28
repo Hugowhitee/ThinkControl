@@ -209,22 +209,15 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         TouchpadEdge? edge = Enum.GetValues<TouchpadEdge>()
             .FirstOrDefault(candidate => _configuration.BindingFor(candidate).Action == GestureActionKind.PreviousNextTrack);
         if (edge is not TouchpadEdge trackEdge ||
-            _configuration.BindingFor(trackEdge).Action != GestureActionKind.PreviousNextTrack)
+            _configuration.BindingFor(trackEdge).Action != GestureActionKind.PreviousNextTrack ||
+            !_configuration.TrackCenterPlayPauseEnabled)
         {
             return;
         }
 
+        // The center target exists only while the option is enabled. Outside this
+        // bounded rectangle the entire edge remains a Previous / Next swipe lane.
         Rect zone = TrackCenterRect(pad, trackEdge);
-
-        // Mask the catalog's old combined play/pause glyph. With the option off the
-        // whole edge remains a previous/next swipe lane and there is no fake center
-        // button. With it on, draw one explicit bounded center target.
-        Rect mask = zone;
-        mask.Inflate(4, 4);
-        dc.DrawRectangle(TransparentClone(surface, 0.98), null, mask);
-        if (!_configuration.TrackCenterPlayPauseEnabled)
-            return;
-
         bool live = _signal?.Edge == trackEdge &&
                     _signal.Action == GestureActionKind.PreviousNextTrack &&
                     _signal.Phase == GesturePhase.Candidate &&
@@ -237,20 +230,14 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         };
         dc.DrawRoundedRectangle(TransparentClone(surface, 0.96), pen, zone, 3, 3);
 
+        // Intentionally use only the pause bars here. A combined play/pause glyph
+        // resembles a skip icon at this size and does not communicate a bounded
+        // center target clearly.
         WpfPoint center = new(zone.Left + zone.Width / 2, zone.Top + zone.Height / 2);
         double barLength = Math.Clamp(Math.Min(zone.Width, zone.Height) * 0.46, 8, 14);
         double gap = 3.0;
-        if (trackEdge is TouchpadEdge.Top or TouchpadEdge.Bottom)
-        {
-            dc.DrawLine(pen, new WpfPoint(center.X - gap, center.Y - barLength / 2), new WpfPoint(center.X - gap, center.Y + barLength / 2));
-            dc.DrawLine(pen, new WpfPoint(center.X + gap, center.Y - barLength / 2), new WpfPoint(center.X + gap, center.Y + barLength / 2));
-        }
-        else
-        {
-            // Keep the pause symbol upright even though the edge itself is vertical.
-            dc.DrawLine(pen, new WpfPoint(center.X - gap, center.Y - barLength / 2), new WpfPoint(center.X - gap, center.Y + barLength / 2));
-            dc.DrawLine(pen, new WpfPoint(center.X + gap, center.Y - barLength / 2), new WpfPoint(center.X + gap, center.Y + barLength / 2));
-        }
+        dc.DrawLine(pen, new WpfPoint(center.X - gap, center.Y - barLength / 2), new WpfPoint(center.X - gap, center.Y + barLength / 2));
+        dc.DrawLine(pen, new WpfPoint(center.X + gap, center.Y - barLength / 2), new WpfPoint(center.X + gap, center.Y + barLength / 2));
     }
 
     private Rect TrackCenterRect(Rect pad, TouchpadEdge edge)
