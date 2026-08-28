@@ -23,7 +23,7 @@ public partial class CompactDashboard
             combo.MinHeight = 40;
 
             if (combo.Parent is StackPanel stack && stack.Parent is Border card)
-                card.Padding = new Thickness(10, 6);
+                card.Padding = new Thickness(10, 6, 10, 6);
         }
     }
 }
