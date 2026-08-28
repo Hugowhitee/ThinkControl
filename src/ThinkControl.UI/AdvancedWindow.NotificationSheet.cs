@@ -92,7 +92,7 @@ public partial class AdvancedWindow
 
         var backdrop = new Border
         {
-            Background = new SolidColorBrush(Color.FromArgb(24, 0, 0, 0)),
+            Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(24, 0, 0, 0)),
             Cursor = System.Windows.Input.Cursors.Arrow
         };
         backdrop.MouseLeftButtonUp += (_, e) =>
