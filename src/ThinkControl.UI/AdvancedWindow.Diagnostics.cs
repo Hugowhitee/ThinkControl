@@ -30,6 +30,7 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
         ConfigureHomeDashboardPolish();
+        ApplyAlpha30HomePolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         ConfigureSettingsHierarchy();
@@ -59,6 +60,7 @@ public partial class AdvancedWindow
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
         ConfigureHomeDashboardPolish();
+        ApplyAlpha30HomePolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         ConfigureSettingsHierarchy();
