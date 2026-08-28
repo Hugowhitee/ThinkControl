@@ -265,11 +265,13 @@ public sealed class EdgeGestureRecognizer
         // A launch is intentionally stricter than an edge adjustment. Both axes
         // must move inward by several millimetres and neither axis may dominate the
         // other completely. Normal vertical scrolling or horizontal pointer travel
-        // from a corner therefore stays a no-op.
+        // from a corner therefore stays a no-op. Once a configured corner owns a
+        // contact, rejecting that launch locks recognition until lift so the same
+        // physical contact can never fall through and become an edge gesture.
         if (inwardX < -1.0 || inwardY < -1.0)
         {
             if (combined >= CornerActivationMm)
-                return Cancel("Corner gesture moved outward");
+                return Cancel("Corner gesture moved outward", preserveLockout: true);
             return null;
         }
 
@@ -281,7 +283,7 @@ public sealed class EdgeGestureRecognizer
         if (minAxis < CornerMinimumAxisMm || maxAxis <= 0 || minAxis / maxAxis < CornerMinimumAxisRatio)
         {
             if (combined >= CornerActivationMm * 1.55)
-                return Cancel("Corner launch requires diagonal inward motion");
+                return Cancel("Corner launch requires diagonal inward motion", preserveLockout: true);
             return null;
         }
 
