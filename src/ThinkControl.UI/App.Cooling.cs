@@ -96,35 +96,6 @@ public partial class App
         return false;
     }
 
-    // Compatibility bridge for the short-lived threshold editor used during alpha.16
-    // development. Convert it to a named graph profile so there remains one runtime
-    // fan-control model.
-    internal async Task<bool> SetCustomCoolingCurveAsync(IReadOnlyList<double> thresholds)
-    {
-        if (!FanCurvePolicy.TryValidateCustomThresholds(thresholds, out double[] old, out string? error))
-        {
-            State.HardwareAccess = error ?? "Custom cooling curve is invalid";
-            return false;
-        }
-
-        FanCurvePoint[] points =
-        [
-            new(35, 0), new(old[0], 16), new(old[1], 32), new(old[2], 48),
-            new(old[3], 64), new(old[4], 80), new(old[5], 94), new(92, 100)
-        ];
-        Array.Sort(points, (a, b) => a.TemperatureC.CompareTo(b.TemperatureC));
-        FanCurveDefinition definition = FanCurveGraphPolicy.TryNormalize(points, out FanCurvePoint[] valid, out _)
-            ? new FanCurveDefinition("custom:migrated", "Custom", valid)
-            : FanCurveDefaults.Balanced with { Id = "custom:migrated", Name = "Custom" };
-
-        if (!FanProfiles.SaveCurve(definition, out error))
-        {
-            State.HardwareAccess = error ?? "Custom fan profile could not be saved";
-            return false;
-        }
-        return await ApplyFanCurveAsync(definition, persistSelection: true);
-    }
-
     internal async Task<bool> StartFanCharacterizationAsync()
     {
         ServiceResponse? response = await HardwareClient.StartFanCharacterizationAsync();
