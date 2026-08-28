@@ -37,6 +37,11 @@ public partial class TouchpadPanel
 
     internal void PrepareForSnapshot(bool showActiveGesture, bool showInwardGesture = false)
     {
+        // Snapshot rendering does not raise the normal Loaded lifecycle. Materialize
+        // the same runtime corner-launch UI explicitly so visual QA actually covers
+        // the new affordance rather than silently rendering the pre-alpha.30 shape.
+        ConfigureCornerLaunchUi();
+        AttachCornerHost();
         _settingsSaveTimer.Stop();
         ClearGestureFeedback();
         InputStatusText.Text = "Precision Touchpad detected";
