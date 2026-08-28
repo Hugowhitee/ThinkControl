@@ -21,6 +21,7 @@ public partial class TouchpadPanel
     private TouchpadGestureZoneOverlay? _gestureZoneOverlay;
     private ComboBox? _topLeftLaunchCombo;
     private ComboBox? _topRightLaunchCombo;
+    private FrameworkElement? _edgeEditorCard;
     private bool _cornerLaunchUiConfigured;
     private bool _cornerHostSubscribed;
     private TouchpadCorner? _selectedLaunchCorner;
@@ -39,6 +40,10 @@ public partial class TouchpadPanel
                              option.Action != GestureActionKind.OpenAdvanced)
             .ToArray();
 
+        _edgeEditorCard = SettingsStack.Children.Count > 0
+            ? SettingsStack.Children[0] as FrameworkElement
+            : null;
+
         if (Visualizer.Parent is Grid visualizerHost)
         {
             _gestureZoneOverlay = new TouchpadGestureZoneOverlay
@@ -54,11 +59,12 @@ public partial class TouchpadPanel
         }
 
         // Editor ownership mirrors recognizer ownership. Selecting an edge clears
-        // corner emphasis; selecting a corner hides edge-selection emphasis.
+        // corner emphasis and restores the edge editor; selecting a corner gives the
+        // corner editor exclusive ownership instead of showing two selected models.
         Visualizer.EdgeSelected += _ =>
         {
             _selectedLaunchCorner = null;
-            Visualizer.EdgeSelectionVisible = true;
+            SetCornerEditorOwnership(false);
             SyncGestureZoneOverlay();
         };
 
@@ -136,7 +142,7 @@ public partial class TouchpadPanel
     private void CornerZone_Selected(TouchpadCorner corner)
     {
         _selectedLaunchCorner = corner;
-        Visualizer.EdgeSelectionVisible = false;
+        SetCornerEditorOwnership(true);
         SyncGestureZoneOverlay();
 
         ComboBox? combo = corner == TouchpadCorner.TopLeft ? _topLeftLaunchCombo : _topRightLaunchCombo;
@@ -163,7 +169,7 @@ public partial class TouchpadPanel
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
         _selectedLaunchCorner = corner;
-        Visualizer.EdgeSelectionVisible = false;
+        SetCornerEditorOwnership(true);
         SyncGestureZoneOverlay();
     }
 
@@ -184,7 +190,7 @@ public partial class TouchpadPanel
         {
             _syncing = false;
         }
-        Visualizer.EdgeSelectionVisible = _selectedLaunchCorner is null;
+        SetCornerEditorOwnership(_selectedLaunchCorner is not null);
         SyncGestureZoneOverlay();
     }
 
@@ -217,7 +223,7 @@ public partial class TouchpadPanel
             if (signal.Corner is TouchpadCorner corner)
             {
                 bool live = signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
-                Visualizer.EdgeSelectionVisible = !live && _selectedLaunchCorner is null;
+                SetCornerEditorOwnership(live || _selectedLaunchCorner is not null);
 
                 string cornerName = corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right";
                 string action = signal.Action == GestureActionKind.OpenAdvanced ? "Advanced" : "Compact";
@@ -231,6 +237,13 @@ public partial class TouchpadPanel
                 };
             }
         }));
+    }
+
+    private void SetCornerEditorOwnership(bool cornerOwns)
+    {
+        Visualizer.EdgeSelectionVisible = !cornerOwns;
+        if (_edgeEditorCard is not null)
+            _edgeEditorCard.Visibility = cornerOwns ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void SyncGestureZoneOverlay()
@@ -253,6 +266,6 @@ public partial class TouchpadPanel
         _gestureZoneOverlay.Geometry = _host?.Geometry ?? DefaultGeometry();
         _gestureZoneOverlay.SelectedCorner = _selectedLaunchCorner;
         _gestureZoneOverlay.Signal = signal;
-        Visualizer.EdgeSelectionVisible = signal?.Corner is null && _selectedLaunchCorner is null;
+        SetCornerEditorOwnership(signal?.Corner is not null || _selectedLaunchCorner is not null);
     }
 }
