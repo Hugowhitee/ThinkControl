@@ -41,6 +41,7 @@ public partial class TouchpadPanel
         // the same runtime corner-launch UI explicitly so visual QA actually covers
         // the new affordance rather than silently rendering the pre-alpha.30 shape.
         ConfigureCornerLaunchUi();
+        SyncCornerLaunchControls();
         AttachCornerHost();
         _settingsSaveTimer.Stop();
         ClearGestureFeedback();

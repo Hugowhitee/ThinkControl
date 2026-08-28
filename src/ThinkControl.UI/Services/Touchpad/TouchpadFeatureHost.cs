@@ -1,3 +1,4 @@
+using System.Windows.Threading;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Services.Touchpad;
@@ -14,6 +15,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private int _volumeWorkerRunning;
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
+    private int _inputStartScheduled;
     private bool _disposed;
 
     internal TouchpadFeatureHost(App app)
@@ -89,7 +91,36 @@ internal sealed class TouchpadFeatureHost : IDisposable
         hidFeedbackSupported: _gestures.HapticFeedbackSupported,
         hidClickForceSupported: _gestures.ClickForceSupported);
 
-    internal bool EnsureInputStarted() => !_disposed && _gestures.Start();
+    internal bool EnsureInputStarted()
+    {
+        if (_disposed)
+            return false;
+        if (_gestures.IsRunning)
+            return true;
+
+        // Raw-input registration includes a connected-device/HID probe. It is useful
+        // work, but it must not sit synchronously inside a page VisibilityChanged or
+        // shell transition. Queue one start after the current render/input work so
+        // Advanced becomes visible first. Enabled gestures still start automatically
+        // at app activation; this only changes when that setup blocks the WPF thread.
+        if (Interlocked.CompareExchange(ref _inputStartScheduled, 1, 0) != 0)
+            return true;
+
+        _app.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+        {
+            try
+            {
+                if (!_disposed)
+                    _gestures.Start();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _inputStartScheduled, 0);
+            }
+        }));
+        return true;
+    }
+
     internal void StopInputIfGesturesDisabled()
     {
         if (!_disposed)

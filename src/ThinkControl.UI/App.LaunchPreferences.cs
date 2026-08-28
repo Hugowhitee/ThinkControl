@@ -23,6 +23,15 @@ public partial class App
         if (IsTrayOnlyLaunch() || !IsAdvancedOpeningPreferred())
             return;
 
+        // ShowConfiguredInitialView already routes an Advanced preference through
+        // OpenAdvancedSafely before post-startup polish evaluates an update handoff.
+        // Do not perform a second no-op Advanced transition afterwards: besides
+        // unnecessary shell work, that would dismiss the just-shown passive
+        // "ThinkControl updated" confirmation. Only recover the preference when the
+        // expected surface genuinely is not visible/non-minimized.
+        if (_advancedWindow is { IsVisible: true, WindowState: not System.Windows.WindowState.Minimized })
+            return;
+
         OpenAdvancedSafely("Home");
     }
 

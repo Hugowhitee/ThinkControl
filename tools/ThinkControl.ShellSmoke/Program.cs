@@ -58,7 +58,7 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Full/Compact routing, diagnostics Ready/Shared/Verified lifecycle, 6 real Compact expand clicks, 5 return transitions, notification activation/action/dismiss, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Full/Compact routing, passive-update dismissal on Full transition, diagnostics Ready/Shared/Verified lifecycle, repeated real Compact/Full routing, notification activation/action/dismiss, minimized Touchpad recovery, bounded page-navigation latency, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
         catch (Exception ex)
@@ -148,6 +148,28 @@ internal static class Program
         Pump(app.Dispatcher);
         AssertPrimarySurface(app, compact: true, full: false, "preferred app-icon Compact");
         AssertAlive(app, "preferred app-icon Compact");
+
+        // Alpha.32's successful-update card had no escape hatch and could remain
+        // topmost over the newly opened Full surface. Reproduce the real Compact
+        // state, show the passive confirmation, then invoke the actual expand button.
+        // The transition owns dismissal; actionable attention windows are unaffected.
+        app.ShowPassiveAttentionForShellSmoke();
+        Pump(app.Dispatcher);
+        Window passiveToast = app.AttentionWindowForShellSmoke
+            ?? throw new InvalidOperationException("Passive update smoke: toast window was not created.");
+        if (!passiveToast.IsVisible)
+            throw new InvalidOperationException("Passive update smoke: confirmation was not visible over Compact.");
+
+        InvokeButton(app.CompactWindow.ExpandButtonForShellSmoke);
+        Pump(app.Dispatcher);
+        AssertPrimarySurface(app, compact: false, full: true, "passive update -> Full");
+        if (passiveToast.IsVisible)
+            throw new InvalidOperationException("Passive update smoke: confirmation remained visible over Advanced.");
+        AssertAlive(app, "passive update -> Full");
+
+        app.SwitchAdvancedToCompact();
+        Pump(app.Dispatcher);
+        AssertPrimarySurface(app, compact: true, full: false, "after passive update regression");
 
         // Lifecycle regression for the old forever-ready diagnostics flag. An
         // unknown but fully settled device becomes Ready once, the same semantic
@@ -254,13 +276,13 @@ internal static class Program
         AssertPrimarySurface(app, compact: false, full: true, "post-notification real expand click");
         AssertAlive(app, "post-notification Full");
 
-        ValidateAudioNavigation(app);
+        ValidatePageNavigation(app);
     }
 
-    private static void ValidateAudioNavigation(App app)
+    private static void ValidatePageNavigation(App app)
     {
         AdvancedWindow window = app.AdvancedWindowForShellSmoke
-            ?? throw new InvalidOperationException("Audio smoke: Advanced window was not available.");
+            ?? throw new InvalidOperationException("Page smoke: Advanced window was not available.");
 
         for (int attempt = 1; attempt <= 3; attempt++)
         {
@@ -277,6 +299,34 @@ internal static class Program
             Pump(app.Dispatcher);
             AssertAlive(app, $"audio navigation {attempt}");
         }
+
+        // Alpha.32 could appear permanently minimized/invisible when Touchpad page
+        // activation synchronously entered raw-input/HID setup. Force the real Full
+        // window into the minimized state, then use the same safe open route as tray
+        // and gesture callers. The method itself must restore/paint before deferred
+        // input discovery executes at ContextIdle.
+        window.Navigate("Home");
+        window.WindowState = WindowState.Minimized;
+        Pump(app.Dispatcher);
+
+        var touchpadElapsed = Stopwatch.StartNew();
+        app.OpenAdvancedSafely("Touchpad");
+        touchpadElapsed.Stop();
+        if (touchpadElapsed.Elapsed > TimeSpan.FromMilliseconds(750))
+        {
+            throw new InvalidOperationException(
+                $"Touchpad smoke: safe open blocked the WPF dispatcher for {touchpadElapsed.ElapsedMilliseconds} ms before returning.");
+        }
+        if (!window.IsVisible || window.WindowState == WindowState.Minimized)
+            throw new InvalidOperationException("Touchpad smoke: Advanced did not recover to a visible non-minimized state.");
+
+        Pump(app.Dispatcher);
+        AssertPrimarySurface(app, compact: false, full: true, "Touchpad minimized recovery");
+        AssertAlive(app, "Touchpad minimized recovery");
+
+        window.Navigate("Home");
+        Pump(app.Dispatcher);
+        AssertAlive(app, "Touchpad listener detach after leaving page");
     }
 
     private static void InvokeButton(Button button)

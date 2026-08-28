@@ -58,13 +58,13 @@ public partial class TouchpadPanel
             visualizerHost.Children.Add(_gestureZoneOverlay);
         }
 
-        // Editor ownership mirrors recognizer ownership. Selecting an edge clears
-        // corner emphasis and restores the edge editor; selecting a corner gives the
-        // corner editor exclusive ownership instead of showing two selected models.
+        // Explicit editor selection may change which editor is shown. Runtime
+        // corner candidates never do: live input must not collapse/re-expand a card
+        // and feed another layout pass while the finger is moving.
         Visualizer.EdgeSelected += _ =>
         {
             _selectedLaunchCorner = null;
-            SetCornerEditorOwnership(false);
+            SetCornerSelectionOwnership(false);
             SyncGestureZoneOverlay();
         };
 
@@ -98,7 +98,11 @@ public partial class TouchpadPanel
 
         Loaded += (_, _) =>
         {
-            AttachCornerHost();
+            // Collapsed Advanced pages are still part of the loaded visual tree. Do
+            // not subscribe merely because WPF loaded the control; live UI listeners
+            // exist only while the Touchpad page is actually visible.
+            if (IsVisible)
+                AttachCornerHost();
             SyncCornerLaunchControls();
         };
         Unloaded += (_, _) => DetachCornerHost();
@@ -108,6 +112,13 @@ public partial class TouchpadPanel
             {
                 AttachCornerHost();
                 SyncCornerLaunchControls();
+            }
+            else
+            {
+                DetachCornerHost();
+                SetCornerLiveEmphasis(false);
+                if (_gestureZoneOverlay is not null)
+                    _gestureZoneOverlay.Signal = null;
             }
         };
     }
@@ -142,7 +153,7 @@ public partial class TouchpadPanel
     private void CornerZone_Selected(TouchpadCorner corner)
     {
         _selectedLaunchCorner = corner;
-        SetCornerEditorOwnership(true);
+        SetCornerSelectionOwnership(true);
         SyncGestureZoneOverlay();
 
         ComboBox? combo = corner == TouchpadCorner.TopLeft ? _topLeftLaunchCombo : _topRightLaunchCombo;
@@ -169,7 +180,7 @@ public partial class TouchpadPanel
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
         _selectedLaunchCorner = corner;
-        SetCornerEditorOwnership(true);
+        SetCornerSelectionOwnership(true);
         SyncGestureZoneOverlay();
     }
 
@@ -190,7 +201,7 @@ public partial class TouchpadPanel
         {
             _syncing = false;
         }
-        SetCornerEditorOwnership(_selectedLaunchCorner is not null);
+        SetCornerSelectionOwnership(_selectedLaunchCorner is not null);
         SyncGestureZoneOverlay();
     }
 
@@ -223,7 +234,7 @@ public partial class TouchpadPanel
             if (signal.Corner is TouchpadCorner corner)
             {
                 bool live = signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
-                SetCornerEditorOwnership(live || _selectedLaunchCorner is not null);
+                SetCornerLiveEmphasis(live);
 
                 string cornerName = corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right";
                 string action = signal.Action == GestureActionKind.OpenAdvanced ? "Advanced" : "Compact";
@@ -239,11 +250,29 @@ public partial class TouchpadPanel
         }));
     }
 
-    private void SetCornerEditorOwnership(bool cornerOwns)
+    private void SetCornerSelectionOwnership(bool cornerOwns)
     {
-        Visualizer.EdgeSelectionVisible = !cornerOwns;
         if (_edgeEditorCard is not null)
+        {
+            _edgeEditorCard.Opacity = 1;
+            _edgeEditorCard.IsHitTestVisible = true;
             _edgeEditorCard.Visibility = cornerOwns ? Visibility.Collapsed : Visibility.Visible;
+        }
+        Visualizer.EdgeSelectionVisible = !cornerOwns;
+    }
+
+    private void SetCornerLiveEmphasis(bool live)
+    {
+        // Runtime ownership is visual-only. Never mutate card visibility here: doing
+        // that on Candidate/Cancelled frames causes the whole Touchpad page to
+        // remeasure while the user is touching it. Dim and disable the existing edge
+        // editor in place so the corner remains the sole active interaction model.
+        Visualizer.EdgeSelectionVisible = !live && _selectedLaunchCorner is null;
+        if (_edgeEditorCard is not null && _edgeEditorCard.Visibility == Visibility.Visible)
+        {
+            _edgeEditorCard.Opacity = live ? 0.38 : 1;
+            _edgeEditorCard.IsHitTestVisible = !live;
+        }
     }
 
     private void SyncGestureZoneOverlay()
@@ -266,6 +295,6 @@ public partial class TouchpadPanel
         _gestureZoneOverlay.Geometry = _host?.Geometry ?? DefaultGeometry();
         _gestureZoneOverlay.SelectedCorner = _selectedLaunchCorner;
         _gestureZoneOverlay.Signal = signal;
-        SetCornerEditorOwnership(signal?.Corner is not null || _selectedLaunchCorner is not null);
+        SetCornerLiveEmphasis(signal?.Corner is not null);
     }
 }

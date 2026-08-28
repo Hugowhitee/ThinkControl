@@ -32,7 +32,7 @@
             </StackPanel>
         </Grid>
 
-        <Grid x:Name="ContentGrid" Grid.Row="1">
+        <Grid x:Name="ContentGrid" Grid.Row="1" Width="{Binding ActualWidth, ElementName=RootGrid}">
             <Grid.ColumnDefinitions><ColumnDefinition x:Name="VisualizerColumn" Width="3*" /><ColumnDefinition x:Name="SettingsColumn" Width="2*" /></Grid.ColumnDefinitions>
             <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
 

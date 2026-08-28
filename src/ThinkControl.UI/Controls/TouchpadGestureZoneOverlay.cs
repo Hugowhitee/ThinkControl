@@ -81,7 +81,9 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
             return;
         _hoverCorner = hover;
         Cursor = hover.HasValue ? Cursors.Hand : Cursors.Arrow;
-        InvalidateVisual();
+        // Hover is deliberately not a visual selection state. The two idle corner
+        // guides remain identical; click/selection and real live recognition are the
+        // only states allowed to make one side visually stronger than the other.
     }
 
     protected override void OnMouseLeave(WpfMouseEventArgs e)
@@ -89,7 +91,6 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         base.OnMouseLeave(e);
         _hoverCorner = null;
         Cursor = Cursors.Arrow;
-        InvalidateVisual();
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
@@ -115,12 +116,14 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         GestureActionKind action = _configuration.LaunchFor(corner);
         bool enabled = action != GestureActionKind.Disabled;
         bool selected = _selectedCorner == corner;
-        bool hovered = _hoverCorner == corner;
         bool live = _signal?.Corner == corner &&
                     _signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
 
-        Brush source = live ? accent : selected || hovered || enabled ? muted : faint;
-        double opacity = live ? 1.0 : selected ? 0.86 : hovered ? 0.50 : enabled ? 0.24 : 0.10;
+        // Both idle lanes use the exact same hue and geometry. Configuration only
+        // changes their quiet opacity; pointer hover never makes one corner look like
+        // a different control. Selection/live ownership is the deliberate exception.
+        Brush source = live ? accent : selected ? muted : enabled ? muted : faint;
+        double opacity = live ? 1.0 : selected ? 0.86 : enabled ? 0.22 : 0.10;
         double width = live ? 2.25 : selected ? 1.8 : 1.15;
         var boundaryPen = new Pen(TransparentClone(source, opacity), width)
         {
@@ -128,10 +131,6 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
             EndLineCap = PenLineCap.Round
         };
 
-        // Two parallel rails and one inner stop define the actual diagonal lane
-        // without turning it into a decorative capsule or embedding app/window
-        // glyphs. Both sides are generated from the same physical policy and mirror
-        // exactly, so the right guide cannot drift or deform independently.
         double half = TouchpadCornerZonePolicy.HalfWidthMm;
         double start = TouchpadCornerZonePolicy.StartInsetMm + 1.2;
         double end = TouchpadCornerZonePolicy.LengthMm - half;
@@ -165,9 +164,14 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         double localY = (alongMm + acrossMm) * invSqrt2;
         double x = localX / _geometry.EffectiveWidthMm * pad.Width;
         double y = localY / _geometry.EffectiveHeightMm * pad.Height;
+
+        // Generate the left geometry once and mirror its final pixel coordinate for
+        // the right side. This makes the two rendered guides exact visual mirrors,
+        // independent of DPI/layout rounding.
+        WpfPoint leftPoint = new(pad.Left + x, pad.Top + y);
         return corner == TouchpadCorner.TopLeft
-            ? new WpfPoint(pad.Left + x, pad.Top + y)
-            : new WpfPoint(pad.Right - x, pad.Top + y);
+            ? leftPoint
+            : new WpfPoint(pad.Left + pad.Right - leftPoint.X, leftPoint.Y);
     }
 
     private void DrawTrackCenterZone(DrawingContext dc, Rect pad, Brush surface, Brush muted, Brush accent)
@@ -181,8 +185,6 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
             return;
         }
 
-        // The center target exists only while the option is enabled. Outside this
-        // bounded rectangle the entire edge remains a Previous / Next swipe lane.
         Rect zone = TrackCenterRect(pad, trackEdge);
         bool live = _signal?.Edge == trackEdge &&
                     _signal.Action == GestureActionKind.PreviousNextTrack &&
