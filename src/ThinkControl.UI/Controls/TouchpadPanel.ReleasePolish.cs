@@ -45,49 +45,10 @@ public partial class TouchpadPanel
         TrackCenterRow.Visibility = tracks ? Visibility.Visible : Visibility.Collapsed;
         TrackCenterPlayPauseSwitch.IsChecked = _configuration.TrackCenterPlayPauseEnabled;
 
-        bool showCenterZone = tracks && _configuration.TrackCenterPlayPauseEnabled;
-        TrackCenterHint.Visibility = showCenterZone ? Visibility.Visible : Visibility.Collapsed;
-        if (showCenterZone)
-            PositionTrackCenterHint();
-    }
-
-    private void PositionTrackCenterHint()
-    {
-        const double longSide = 86;
-        const double shortSide = 24;
-        TrackCenterHint.Margin = new Thickness(0);
-
-        switch (_selectedEdge)
-        {
-            case ThinkControl.Core.Touchpad.TouchpadEdge.Top:
-                TrackCenterHint.Width = longSide;
-                TrackCenterHint.Height = shortSide;
-                TrackCenterHint.HorizontalAlignment = HorizontalAlignment.Center;
-                TrackCenterHint.VerticalAlignment = VerticalAlignment.Top;
-                TrackCenterHint.Margin = new Thickness(0, 14, 0, 0);
-                break;
-            case ThinkControl.Core.Touchpad.TouchpadEdge.Bottom:
-                TrackCenterHint.Width = longSide;
-                TrackCenterHint.Height = shortSide;
-                TrackCenterHint.HorizontalAlignment = HorizontalAlignment.Center;
-                TrackCenterHint.VerticalAlignment = VerticalAlignment.Bottom;
-                TrackCenterHint.Margin = new Thickness(0, 0, 0, 14);
-                break;
-            case ThinkControl.Core.Touchpad.TouchpadEdge.Left:
-                TrackCenterHint.Width = shortSide;
-                TrackCenterHint.Height = longSide;
-                TrackCenterHint.HorizontalAlignment = HorizontalAlignment.Left;
-                TrackCenterHint.VerticalAlignment = VerticalAlignment.Center;
-                TrackCenterHint.Margin = new Thickness(14, 0, 0, 0);
-                break;
-            default:
-                TrackCenterHint.Width = shortSide;
-                TrackCenterHint.Height = longSide;
-                TrackCenterHint.HorizontalAlignment = HorizontalAlignment.Right;
-                TrackCenterHint.VerticalAlignment = VerticalAlignment.Center;
-                TrackCenterHint.Margin = new Thickness(0, 0, 14, 0);
-                break;
-        }
+        // TouchpadGestureZoneOverlay is the single visual owner of the bounded
+        // center target. The old floating rounded "hold" badge intentionally stays
+        // unused and is removed from XAML as part of this cleanup.
+        SyncGestureZoneOverlay();
     }
 
     private void TrackCenterPlayPause_Click(object sender, RoutedEventArgs e)
