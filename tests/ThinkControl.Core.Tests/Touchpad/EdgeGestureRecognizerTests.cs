@@ -127,12 +127,14 @@ public sealed class EdgeGestureRecognizerTests
         var recognizer = new EdgeGestureRecognizer(config);
 
         GestureSignal? candidate = recognizer.ProcessFrame([Contact(1, 600, 500)], X9Geometry);
-        GestureSignal? cancelled = recognizer.ProcessFrame([Contact(1, 1500, 500)]);
+        // Deliberately move far enough horizontally to reject the diagonal launch.
+        GestureSignal? cancelled = recognizer.ProcessFrame([Contact(1, 1700, 500)]);
         GestureSignal? whileStillDown = recognizer.ProcessFrame([Contact(1, 2200, 450)]);
 
         Assert.Equal(TouchpadCorner.TopLeft, candidate?.Corner);
         Assert.Null(candidate?.Edge);
         Assert.Equal(GesturePhase.Cancelled, cancelled?.Phase);
+        Assert.Equal(TouchpadCorner.TopLeft, cancelled?.Corner);
         Assert.Null(cancelled?.Edge);
         Assert.Null(whileStillDown);
 
