@@ -11,13 +11,18 @@ public partial class App
             CompactWindow = new MainWindow(this) { DataContext = State };
 
         // Hosted GitHub runners do not grant the console test process ownership of
-        // the interactive desktop foreground. Suppress only that external-host
-        // auto-hide artifact while transition clicks are exercised. The smoke turns
-        // this off for the owned-notification activation sequence.
+        // the interactive desktop foreground. Keep the legacy host suppression for
+        // activation tests, but explicitly exercise the production deactivation
+        // coordinator below so external focus loss can never regress into auto-hide.
         CompactWindow.SuppressExternalAutoHideForShellSmoke = true;
         CompactWindow.ShowNearTray(animate: false);
         CompactWindow.UpdateLayout();
         Dispatcher.Invoke(DispatcherPriority.Render, new Action(static () => { }));
+
+        OnCompactDeactivated();
+        Dispatcher.Invoke(DispatcherPriority.ApplicationIdle, new Action(static () => { }));
+        if (!CompactWindow.IsVisible)
+            throw new InvalidOperationException("Compact focus-loss regression: deactivation hid the persistent utility window.");
     }
 
     internal void ExerciseRapidTrayOpenForShellSmoke()
