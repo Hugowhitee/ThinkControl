@@ -132,7 +132,6 @@ public partial class App
             "SetCoolingProfile" => ("fan.cooling_profile_set", "FanControl", "FanSupervisor"),
             "SetCustomCoolingCurve" => ("fan.custom_curve_set", "FanControl", "FanSupervisor"),
             "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
-            "MarkFanLevelAudible" => ("fan.audible_level_marked", "FanControl", "FanSupervisor"),
             "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),
             "SetKeyboardBacklight" => ("keyboard.level_set", "KeyboardBacklight", "Lenovo"),
             "SetThermalMode" => ("thermal.policy_set", "ThermalPolicy", "LenovoLITS"),
