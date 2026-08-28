@@ -63,10 +63,12 @@ public partial class HardwareSetupWindow : Window
                 PrimaryActionButton.Content = "Repair service";
                 break;
             case HardwarePrerequisiteIssue.PawnIo:
-                bool installed = status.LowLevelAccessInstalled;
-                PrimaryTitleText.Text = installed ? "PawnIO needs repair" : "PawnIO installation required";
-                PrimaryStatusText.Text = "ThinkControl needs this verified driver for fan control and sensor data on this PC. Other Windows controls continue to work without it.";
-                PrimaryActionButton.Content = installed ? "Repair PawnIO" : "Install PawnIO";
+                bool registered = status.LowLevelAccessRegistered;
+                PrimaryTitleText.Text = registered ? "PawnIO needs repair" : "PawnIO installation required";
+                PrimaryStatusText.Text = registered
+                    ? "ThinkControl found an incomplete or unusable PawnIO installation. Repair restores the verified driver required for fan control and sensor data; other Windows controls continue to work."
+                    : "ThinkControl needs this verified driver for fan control and sensor data on this PC. Other Windows controls continue to work without it.";
+                PrimaryActionButton.Content = registered ? "Repair PawnIO" : "Install PawnIO";
                 break;
             case HardwarePrerequisiteIssue.Sensors:
                 PrimaryTitleText.Text = "Sensor provider needs a retry";
@@ -120,6 +122,15 @@ public partial class HardwareSetupWindow : Window
                     success = pawnIo.Success;
                     restartRequired = pawnIo.RestartRequired;
                     failure = pawnIo.Message;
+                    if (success && !restartRequired)
+                    {
+                        bool providersReady = await _app.RefreshHardwareProvidersAsync();
+                        if (!providersReady)
+                        {
+                            success = false;
+                            failure = "PawnIO registration and its kernel service were repaired, but the hardware provider still could not open and verify the required device path. Unsafe fan writes remain disabled; retry PawnIO or review Diagnostics.";
+                        }
+                    }
                     break;
                 case HardwarePrerequisiteIssue.Sensors:
                     success = await _app.RefreshSensorProvidersAsync();
