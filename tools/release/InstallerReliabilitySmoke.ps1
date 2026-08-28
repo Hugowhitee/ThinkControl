@@ -45,8 +45,8 @@ function Assert-UpdaterElevationContract {
     if (-not $installerText.Contains('DisableDirPage=no')) {
         throw 'Installer no longer explicitly exposes the install-location page for clean installs.'
     }
-    if (-not $installerText.Contains("ExistingInstall := FileExists(ExpandConstant('{app}\ui\{#UiExeName}'));")) {
-        throw 'Installer update detection is not based on Inno''s resolved {app} path.'
+    if (-not $installerText.Contains("ExistingInstall := FileExists(AddBackslash(WizardDirValue()) + 'ui\{#UiExeName}');")) {
+        throw 'Installer early update detection must use WizardDirValue instead of expanding {app} before it is initialized.'
     }
     if (-not $installerText.Contains('(PageID = wpSelectDir)')) {
         throw 'Existing-install updates no longer skip the directory page and may relocate accidentally.'
@@ -254,7 +254,6 @@ try {
     Remove-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue
 
     Install-SmokeCopy 'clean install' $false $true
-
     Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false
 
     $defaultProgramFilesInstall = Join-Path $env:ProgramFiles 'ThinkControl\ui\ThinkControl.UI.exe'
