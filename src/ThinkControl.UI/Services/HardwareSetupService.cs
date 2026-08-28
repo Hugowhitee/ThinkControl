@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Security.Cryptography;
+using ThinkControl.Core.Hardware;
 
 namespace ThinkControl.UI.Services;
 
@@ -11,6 +12,7 @@ internal sealed record HardwareSetupStatus(
     bool ServiceRunning,
     bool LowLevelAccessRelevant,
     bool LowLevelAccessInstalled,
+    bool LowLevelAccessRegistered,
     bool LowLevelAccessRunning,
     string ServiceDetail,
     string LowLevelAccessDetail,
@@ -52,26 +54,32 @@ internal sealed class HardwareSetupService
         ServiceQuery pawnIoDriver = lowLevelRelevant
             ? await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false)
             : default;
+        PawnIoBootstrapReadiness pawnIo = PawnIoBootstrapPolicy.Evaluate(
+            required: lowLevelRelevant,
+            uninstallRegistered: pawnIoInstall.Installed,
+            installedVersion: pawnIoInstall.Version,
+            minimumVersion: MinimumPawnIoVersion,
+            kernelServiceRegistered: pawnIoDriver.Exists,
+            kernelServiceRunning: pawnIoDriver.Running);
 
-        // Match LibreHardwareMonitor's own readiness contract: PawnIO installation is
-        // identified by its uninstall registration and DisplayVersion, not by whether
-        // the demand-start kernel driver happens to be RUNNING at this instant.
-        bool pawnIoCompatible = !lowLevelRelevant ||
-                                (pawnIoInstall.Installed && pawnIoInstall.Version is not null && pawnIoInstall.Version >= MinimumPawnIoVersion);
+        // A stopped PawnIO service is valid: the kernel driver is demand-started by
+        // the provider. A stale uninstall entry without the kernel service is not.
+        // Actual device/module access remains the final fail-closed gate in Hardware.
+        bool pawnIoReadyForProviderProbe = pawnIo.Ready;
 
-        string lowLevelDetail = !lowLevelRelevant
-            ? "Not currently required by detected capabilities"
-            : !pawnIoInstall.Installed
-                ? verifiedWriteProfile
-                    ? "Missing · required for X9 sensor discovery and the verified EC fan provider"
-                    : "Missing · install it for additional LibreHardwareMonitor sensor discovery"
-                : pawnIoInstall.Version is null
-                    ? "Installed · version could not be verified · repair recommended"
-                    : pawnIoInstall.Version < MinimumPawnIoVersion
-                        ? $"Installed {pawnIoInstall.Version} · PawnIO {PawnIoVersion} or newer is required"
-                        : pawnIoDriver.Running
-                            ? $"Installed {pawnIoInstall.Version} · driver active"
-                            : $"Installed {pawnIoInstall.Version} · demand-start driver idle until a provider opens it";
+        string lowLevelDetail = pawnIo.State switch
+        {
+            PawnIoBootstrapState.NotRequired => "Not currently required by detected capabilities",
+            PawnIoBootstrapState.MissingRegistration => verifiedWriteProfile
+                ? "Missing · required for X9 sensor discovery and the verified EC fan provider"
+                : "Missing · install it for additional LibreHardwareMonitor sensor discovery",
+            PawnIoBootstrapState.UnknownVersion => "Installed · version could not be verified · repair recommended",
+            PawnIoBootstrapState.IncompatibleVersion => $"Installed {pawnIoInstall.Version} · PawnIO {PawnIoVersion} or newer is required",
+            PawnIoBootstrapState.MissingKernelService => $"Registered {pawnIoInstall.Version} · kernel service missing · repair required",
+            PawnIoBootstrapState.ReadyForProviderProbe when pawnIoDriver.Running => $"Installed {pawnIoInstall.Version} · driver active",
+            PawnIoBootstrapState.ReadyForProviderProbe => $"Installed {pawnIoInstall.Version} · driver registered · starts on demand",
+            _ => "PawnIO state could not be verified"
+        };
 
         string serviceDetail = service.Running
             ? serviceReachable
@@ -85,7 +93,8 @@ internal sealed class HardwareSetupService
             ServiceInstalled: service.Exists,
             ServiceRunning: service.Running,
             LowLevelAccessRelevant: lowLevelRelevant,
-            LowLevelAccessInstalled: pawnIoCompatible,
+            LowLevelAccessInstalled: pawnIoReadyForProviderProbe,
+            LowLevelAccessRegistered: pawnIoInstall.Installed,
             LowLevelAccessRunning: pawnIoDriver.Running,
             ServiceDetail: serviceDetail,
             LowLevelAccessDetail: lowLevelDetail,
@@ -163,8 +172,8 @@ internal sealed class HardwareSetupService
             await File.WriteAllBytesAsync(installer, payload).ConfigureAwait(false);
 
             // Use the exact public PawnIO installer mode used by LibreHardwareMonitor.
-            // The previous extra -silent switch hid the only useful installation UX
-            // and made a failed UAC/driver install look like a button that did nothing.
+            // This path is also the repair path when registration exists but the
+            // kernel service/device was removed.
             using Process? process = Process.Start(new ProcessStartInfo
             {
                 FileName = installer,
@@ -183,18 +192,38 @@ internal sealed class HardwareSetupService
 
             await Task.Delay(700).ConfigureAwait(false);
             PawnIoInstallState after = ReadPawnIoInstallState();
-            if (after.Installed && after.Version is not null && after.Version >= MinimumPawnIoVersion)
+            ServiceQuery driverAfter = await QueryServiceAsync(PawnIoServiceName).ConfigureAwait(false);
+            PawnIoBootstrapReadiness readiness = PawnIoBootstrapPolicy.Evaluate(
+                required: true,
+                uninstallRegistered: after.Installed,
+                installedVersion: after.Version,
+                minimumVersion: MinimumPawnIoVersion,
+                kernelServiceRegistered: driverAfter.Exists,
+                kernelServiceRunning: driverAfter.Running);
+
+            if (restart && readiness.CompatibleRegistration)
             {
-                return new(true, restart,
-                    restart
-                        ? $"PawnIO {after.Version} is installed. Windows requested a restart; ThinkControl will refresh providers after reboot."
-                        : $"PawnIO {after.Version} is installed and verified. ThinkControl can refresh hardware providers now.");
+                return new(true, true,
+                    $"PawnIO {after.Version} is installed. Windows requested a restart; ThinkControl will verify the kernel service and refresh providers after reboot.");
             }
 
-            return new(false, restart,
-                after.Installed
-                    ? "PawnIO is registered, but its installed version could not be verified as compatible. Run the repair again or restart Windows."
-                    : "The PawnIO installer finished, but Windows does not report the installation. Restart Windows or run the repair again.");
+            if (readiness.Ready)
+            {
+                return new(true, false,
+                    $"PawnIO {after.Version} registration and kernel service are verified. ThinkControl can refresh hardware providers now.");
+            }
+
+            return readiness.State switch
+            {
+                PawnIoBootstrapState.MissingKernelService => new(false, false,
+                    "PawnIO is registered, but its kernel service is still missing. Run Repair PawnIO again or restart Windows before retrying the fan provider."),
+                PawnIoBootstrapState.IncompatibleVersion => new(false, false,
+                    $"PawnIO {after.Version} is still older than the required {PawnIoVersion}. Run the repair again."),
+                PawnIoBootstrapState.UnknownVersion => new(false, false,
+                    "PawnIO is registered, but its installed version could not be verified as compatible. Run the repair again or restart Windows."),
+                _ => new(false, false,
+                    "The PawnIO installer finished, but Windows does not report a complete driver installation. Restart Windows or run the repair again.")
+            };
         }
         catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
         {
