@@ -166,7 +166,7 @@ public sealed class EdgeGestureRecognizer
             return new GestureSignal(
                 GesturePhase.Candidate,
                 Edge: null,
-                _configuration.LaunchFor(launchCorner),
+                Action: _configuration.LaunchFor(launchCorner),
                 ContactId: contact.ContactId,
                 Corner: launchCorner);
         }
@@ -322,7 +322,7 @@ public sealed class EdgeGestureRecognizer
         return new GestureSignal(
             GesturePhase.Claimed,
             Edge: null,
-            _claimedAction,
+            Action: _claimedAction,
             TotalTravelMm: total,
             DeltaMm: total,
             ContactId: contact.ContactId,
@@ -338,7 +338,9 @@ public sealed class EdgeGestureRecognizer
             double dy = geometry.DeltaYToMm(contact.Y - _startY);
             double inwardX = corner == TouchpadCorner.TopLeft ? dx : -dx;
             double inwardY = dy;
-            double total = Math.Sqrt(Math.Max(0, inwardX) * Math.Max(0, inwardX) + Math.Max(0, inwardY) * Math.Max(0, inwardY));
+            double positiveX = Math.Max(0, inwardX);
+            double positiveY = Math.Max(0, inwardY);
+            double total = Math.Sqrt(positiveX * positiveX + positiveY * positiveY);
             double previous = _lastTotalTravelMm;
             _lastTotalTravelMm = total;
             _lastX = contact.X;
@@ -347,7 +349,7 @@ public sealed class EdgeGestureRecognizer
             return new GestureSignal(
                 GesturePhase.Active,
                 Edge: null,
-                _claimedAction,
+                Action: _claimedAction,
                 TotalTravelMm: total,
                 DeltaMm: total - previous,
                 ContactId: contact.ContactId,
