@@ -182,15 +182,15 @@ public partial class CompactDashboard
         if (string.IsNullOrWhiteSpace(id))
             return;
 
-        var data = new DataObject(CompactMetricDragFormat, id);
-        DragDrop.DoDragDrop(source, data, DragDropEffects.Move);
+        var data = new System.Windows.DataObject(CompactMetricDragFormat, id);
+        System.Windows.DragDrop.DoDragDrop(source, data, System.Windows.DragDropEffects.Move);
     }
 
     private static void CompactMetricSlot_DragOver(object sender, System.Windows.DragEventArgs e)
     {
         e.Effects = e.Data.GetDataPresent(CompactMetricDragFormat)
-            ? DragDropEffects.Move
-            : DragDropEffects.None;
+            ? System.Windows.DragDropEffects.Move
+            : System.Windows.DragDropEffects.None;
         e.Handled = true;
     }
 
