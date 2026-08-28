@@ -11,12 +11,7 @@
              MinWidth="520">
     <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
         <StackPanel>
-            <Grid>
-                <TextBlock Text="Effects" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding KeyboardModeText}"
-                           HorizontalAlignment="Right"
-                           Foreground="{DynamicResource Tc.TextMuted}" />
-            </Grid>
+            <TextBlock Text="Effects" FontWeight="SemiBold" />
 
             <TextBlock Margin="0,7,0,12"
                        Text="Breathing, Reactive and Audio are ThinkControl user-session effects. They are enabled only with the direct backlight provider so repeated changes do not invoke Lenovo's brightness pop-up."
