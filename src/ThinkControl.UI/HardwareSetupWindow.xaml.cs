@@ -125,10 +125,16 @@ public partial class HardwareSetupWindow : Window
                     if (success && !restartRequired)
                     {
                         bool providersReady = await _app.RefreshHardwareProvidersAsync();
-                        if (!providersReady)
+                        bool expectsWritableFan = DeviceCapabilityExpectations.ExpectsWritableFanControl(_app.State);
+                        if (expectsWritableFan && !_app.State.CanFanControl)
                         {
                             success = false;
-                            failure = "PawnIO registration and its kernel service were repaired, but the hardware provider still could not open and verify the required device path. Unsafe fan writes remain disabled; retry PawnIO or review Diagnostics.";
+                            failure = "PawnIO registration and its kernel service were repaired, but the verified X9 EC fan path still did not pass its real access/readback gate. Lenovo firmware remains in control and fan writes stay disabled; retry the fan provider or review Diagnostics.";
+                        }
+                        else if (!providersReady)
+                        {
+                            success = false;
+                            failure = "PawnIO registration and its kernel service were repaired, but the hardware provider still could not open and verify the required device path. Unsafe hardware actions remain disabled; retry the provider or review Diagnostics.";
                         }
                     }
                     break;
@@ -179,7 +185,8 @@ public partial class HardwareSetupWindow : Window
         HardwarePrerequisiteIssue.None => true,
         HardwarePrerequisiteIssue.Service => status.ServiceRunning && status.ServiceReachable,
         HardwarePrerequisiteIssue.PawnIo => status.LowLevelAccessInstalled &&
-                                             _app.ResolvePrimaryHardwareIssue(status) != HardwarePrerequisiteIssue.PawnIo,
+                                             _app.ResolvePrimaryHardwareIssue(status) != HardwarePrerequisiteIssue.PawnIo &&
+                                             (!DeviceCapabilityExpectations.ExpectsWritableFanControl(_app.State) || _app.State.CanFanControl),
         HardwarePrerequisiteIssue.Sensors => _app.State.CanSensorTelemetry,
         HardwarePrerequisiteIssue.FanControl => _app.State.CanFanControl,
         HardwarePrerequisiteIssue.Keyboard => _app.State.CanKeyboardBacklight,
