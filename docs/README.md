@@ -1,8 +1,8 @@
 # ThinkControl documentation
 
-This directory contains product, hardware and development documentation for ThinkControl.
+This directory contains the current product, hardware, safety and development documentation for ThinkControl.
 
-For installation, start with the main [README](../README.md) and the [Releases](https://github.com/Hugowhitee/ThinkControl/releases) page.
+For installation, start with the main [README](../README.md) and the [Releases](https://github.com/Hugowhitee/ThinkControl/releases) page. For active development/release work, use the [release-readiness roadmap](RELEASE_READINESS.md) rather than copying milestone checklists into new ad-hoc documents.
 
 ## Documentation index
 
@@ -14,13 +14,15 @@ For installation, start with the main [README](../README.md) and the [Releases](
 | [Hardware Safety](HARDWARE-SAFETY.md) | Rules for privileged and low-level hardware access |
 | [Architecture](ARCHITECTURE.md) | Project boundaries, service architecture and IPC |
 | [Product Specification](PRODUCT.md) | Current product behavior and scope |
+| [Cooling Design](COOLING-DESIGN.md) | Power/cooling separation, supervision and calibration invariants |
 | [Design System](DESIGN.md) | UI layout, typography, controls and visual rules |
 | [UI Editing](UI_EDITING.md) | Editing WPF/XAML with Visual Studio and Blend |
 | [Diagnostics and Privacy](DIAGNOSTICS.md) | Local diagnostics, redaction and support bundles |
 | [Dependencies](DEPENDENCIES.md) | Runtime and provider dependencies |
 | [Alpha Testing](ALPHA-TESTING.md) | Physical validation on the current X9 reference device |
-| [Release Checklist](RELEASE-CHECKLIST.md) | Packaging and release checks |
-| [v0.1 Acceptance](V0.1-ACCEPTANCE.md) | Historical acceptance criteria for the first alpha |
+| [Release Checklist](RELEASE-CHECKLIST.md) | Evergreen packaging and release procedure |
+| [Release Readiness](RELEASE_READINESS.md) | Current milestone blockers and future release roadmap |
+| [v0.1 Acceptance](V0.1-ACCEPTANCE.md) | Historical acceptance criteria for the first alpha; not the current release gate |
 
 ## Compatibility terminology
 
@@ -59,7 +61,7 @@ See [`devices/README.md`](../devices/README.md) for the full rules.
 
 ## Device research
 
-The detailed X9 research record is available at [research/x9-15-gen1.md](research/x9-15-gen1.md). It documents the evidence used to establish the first verified low-level provider.
+The detailed X9 research record is available at [research/x9-15-gen1.md](research/x9-15-gen1.md). It documents the evidence used to establish the first verified low-level provider. The [G-Helper fan UX note](research/g-helper-fan-ux.md) is reference research, not a product contract; current behavior is defined by [Cooling Design](COOLING-DESIGN.md) and the code/tests.
 
 Most new devices should first reuse Windows-safe capabilities and existing OEM/family providers. Useful validation data normally includes exact product identity, relevant OEM drivers/services, provider availability, plausible read-only telemetry and readback results for reversible controls.
 
