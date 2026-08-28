@@ -190,4 +190,5 @@ public sealed record GestureSignal(
     double TotalTravelMm = 0,
     double DeltaMm = 0,
     string? Reason = null,
-    int? ContactId = null);
+    int? ContactId = null,
+    double? EdgePosition01 = null);
