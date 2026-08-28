@@ -1,0 +1,36 @@
+name: Alpha29 build diagnostic
+
+on:
+  push:
+    branches:
+      - fix/alpha29-ui-activation-updates
+    paths:
+      - '.github/workflows/alpha29-build-diagnostic.yml'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/**'
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Restore
+        shell: pwsh
+        run: dotnet restore ThinkControl.slnx
+      - name: Capture build output
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          dotnet build ThinkControl.slnx -c Release --no-restore *> "$env:RUNNER_TEMP\alpha29-build.txt"
+          Get-Content "$env:RUNNER_TEMP\alpha29-build.txt"
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha29-build-output
+          path: ${{ runner.temp }}/alpha29-build.txt
+          if-no-files-found: error
+          retention-days: 1
