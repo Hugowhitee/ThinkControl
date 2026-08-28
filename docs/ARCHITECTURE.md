@@ -160,7 +160,7 @@ Cooling is independent from Windows power preference.
 - Loss of required telemetry/provider state and the high-temperature safety boundary hand ownership back to firmware.
 - Service/app shutdown and temporary manual-test exit paths restore the previous safe owner/profile, with firmware Auto as the fallback.
 
-The verified X9 provider-specific transport/EC evidence lives in [Lenovo Providers](LENOVO-PROVIDERS.md), [Hardware Safety](HARDWARE-SAFETY.md) and [X9 research](research/x9-15-gen1.md), not duplicated here.
+The verified X9 provider-specific transport/EC evidence lives in [Lenovo provider research](research/lenovo-providers.md), [Hardware Safety](HARDWARE-SAFETY.md) and [X9 research](research/x9-15-gen1.md), not duplicated here.
 
 ## Fan calibration
 
