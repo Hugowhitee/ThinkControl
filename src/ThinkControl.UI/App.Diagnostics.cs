@@ -129,8 +129,7 @@ public partial class App
         {
             "SetFanLevel" => ("fan.level_set", "FanControl", "ThinkPadEC"),
             "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", "ThinkPadEC"),
-            "SetCoolingProfile" => ("fan.cooling_profile_set", "FanControl", "FanSupervisor"),
-            "SetCustomCoolingCurve" => ("fan.custom_curve_set", "FanControl", "FanSupervisor"),
+            "SetCoolingCurve" => ("fan.cooling_curve_set", "FanControl", "FanSupervisor"),
             "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
             "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),
             "SetKeyboardBacklight" => ("keyboard.level_set", "KeyboardBacklight", "Lenovo"),
@@ -144,9 +143,7 @@ public partial class App
 
         string state = operation.Operation == "ReturnFanToAuto"
             ? "LenovoAuto"
-            : operation.Operation == "SetCustomCoolingCurve"
-                ? "Custom"
-                : operation.Value ?? "unknown";
+            : operation.Value ?? "unknown";
 
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
