@@ -91,6 +91,79 @@ public sealed class EdgeGestureRecognizerTests
     }
 
     [Fact]
+    public void ConfiguredCornerOwnsOverlapFromFirstCandidateFrame()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            CornerLaunches = new TouchpadCornerLaunchBindings(
+                TopLeft: GestureActionKind.OpenThinkControl,
+                TopRight: GestureActionKind.Disabled)
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        // 6 x 5 mm is inside the visible diagonal corner lane and also close enough
+        // to the top edge to be ambiguous without explicit first-frame ownership.
+        GestureSignal? candidate = recognizer.ProcessFrame([Contact(1, 600, 500)], X9Geometry);
+        GestureSignal? claimed = recognizer.ProcessFrame([Contact(1, 1300, 1200)]);
+
+        Assert.Equal(GesturePhase.Candidate, candidate?.Phase);
+        Assert.Equal(TouchpadCorner.TopLeft, candidate?.Corner);
+        Assert.Null(candidate?.Edge);
+        Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
+        Assert.Equal(TouchpadCorner.TopLeft, claimed?.Corner);
+        Assert.Null(claimed?.Edge);
+        Assert.Equal(GestureActionKind.OpenThinkControl, claimed?.Action);
+    }
+
+    [Fact]
+    public void CornerCandidateNeverFallsThroughToEdgeBeforeLift()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            CornerLaunches = new TouchpadCornerLaunchBindings(
+                TopLeft: GestureActionKind.OpenAdvanced,
+                TopRight: GestureActionKind.Disabled)
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        GestureSignal? candidate = recognizer.ProcessFrame([Contact(1, 600, 500)], X9Geometry);
+        GestureSignal? cancelled = recognizer.ProcessFrame([Contact(1, 1500, 500)]);
+        GestureSignal? whileStillDown = recognizer.ProcessFrame([Contact(1, 2200, 450)]);
+
+        Assert.Equal(TouchpadCorner.TopLeft, candidate?.Corner);
+        Assert.Null(candidate?.Edge);
+        Assert.Equal(GesturePhase.Cancelled, cancelled?.Phase);
+        Assert.Null(cancelled?.Edge);
+        Assert.Null(whileStillDown);
+
+        recognizer.ProcessFrame([]);
+        GestureSignal? nextContact = recognizer.ProcessFrame([Contact(2, 6500, 150)]);
+        Assert.Equal(GesturePhase.Candidate, nextContact?.Phase);
+        Assert.Null(nextContact?.Corner);
+    }
+
+    [Fact]
+    public void MirroredRightCornerAlsoOwnsEdgeOverlap()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            CornerLaunches = new TouchpadCornerLaunchBindings(
+                TopLeft: GestureActionKind.Disabled,
+                TopRight: GestureActionKind.OpenAdvanced)
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        GestureSignal? candidate = recognizer.ProcessFrame([Contact(1, 12900, 500)], X9Geometry);
+        GestureSignal? claimed = recognizer.ProcessFrame([Contact(1, 12200, 1200)]);
+
+        Assert.Equal(TouchpadCorner.TopRight, candidate?.Corner);
+        Assert.Null(candidate?.Edge);
+        Assert.Equal(TouchpadCorner.TopRight, claimed?.Corner);
+        Assert.Null(claimed?.Edge);
+        Assert.Equal(GestureActionKind.OpenAdvanced, claimed?.Action);
+    }
+
+    [Fact]
     public void SecondFinger_CancelsAndLocksOutUntilAllLift()
     {
         var recognizer = Create();
