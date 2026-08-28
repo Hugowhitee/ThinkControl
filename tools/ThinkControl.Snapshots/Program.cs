@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ThinkControl.Core.Ipc;
+using ThinkControl.Core.Touchpad;
 using ThinkControl.UI;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
@@ -105,6 +106,15 @@ internal static class Program
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1720, 980, output, snapshots, $"advanced-{page.ToLowerInvariant()}-wide.png", "wide window");
 
+        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots,
+            "advanced-touchpad-top-left-selected.png", "top-left corner · selected", touchpadCorner: TouchpadCorner.TopLeft);
+        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots,
+            "advanced-touchpad-top-right-selected.png", "top-right corner · selected", touchpadCorner: TouchpadCorner.TopRight);
+        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots,
+            "advanced-touchpad-top-left-live.png", "top-left corner · live", touchpadCorner: TouchpadCorner.TopLeft, touchpadCornerLive: true);
+        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots,
+            "advanced-touchpad-top-right-live.png", "top-right corner · live", touchpadCorner: TouchpadCorner.TopRight, touchpadCornerLive: true);
+
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
@@ -112,8 +122,6 @@ internal static class Program
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
         RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
-        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots,
-            "advanced-touchpad-inward-active.png", "right edge · inward · active", touchpadInward: true);
 
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention.png", "PawnIO + provider attention");
@@ -349,7 +357,8 @@ internal static class Program
         string stateName,
         bool audioProvidersAvailable = true,
         bool expandBatteryDay = false,
-        bool touchpadInward = false,
+        TouchpadCorner? touchpadCorner = null,
+        bool touchpadCornerLive = false,
         bool fanManualTest = false)
     {
         SyncAppState(state, app.State);
@@ -360,8 +369,8 @@ internal static class Program
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
         {
             window.NavigateTouchpad();
-            if (touchpadInward)
-                window.PrepareTouchpadInwardForSnapshot();
+            if (touchpadCorner is TouchpadCorner corner)
+                window.PrepareTouchpadCornerForSnapshot(corner, touchpadCornerLive);
         }
         else if (string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase))
         {
@@ -405,6 +414,14 @@ internal static class Program
 
         if (string.Equals(page, "Updates", StringComparison.OrdinalIgnoreCase))
             window.PrepareUpdateUiForSnapshot(DateTimeOffset.Now.AddMinutes(-4));
+
+        if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase) && window.Content is FrameworkElement touchpadRoot)
+        {
+            touchpadRoot.Measure(new Size(width, height));
+            touchpadRoot.Arrange(new Rect(0, 0, width, height));
+            touchpadRoot.UpdateLayout();
+            window.ValidateTouchpadCornerSymmetryForSnapshot();
+        }
 
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, $"Advanced · {page}", stateName, width, height));
