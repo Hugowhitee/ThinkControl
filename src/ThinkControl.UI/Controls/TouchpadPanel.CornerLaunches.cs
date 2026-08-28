@@ -98,7 +98,11 @@ public partial class TouchpadPanel
 
         Loaded += (_, _) =>
         {
-            AttachCornerHost();
+            // Collapsed Advanced pages are still part of the loaded visual tree. Do
+            // not subscribe merely because WPF loaded the control; live UI listeners
+            // exist only while the Touchpad page is actually visible.
+            if (IsVisible)
+                AttachCornerHost();
             SyncCornerLaunchControls();
         };
         Unloaded += (_, _) => DetachCornerHost();
@@ -108,6 +112,13 @@ public partial class TouchpadPanel
             {
                 AttachCornerHost();
                 SyncCornerLaunchControls();
+            }
+            else
+            {
+                DetachCornerHost();
+                SetCornerLiveEmphasis(false);
+                if (_gestureZoneOverlay is not null)
+                    _gestureZoneOverlay.Signal = null;
             }
         };
     }
