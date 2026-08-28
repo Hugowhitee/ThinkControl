@@ -85,13 +85,25 @@ public partial class FansPanel
             row.Children.Add(_manualFanTestStatus);
         }
 
-        foreach (Button button in FindDescendants<Button>(RawEcStepsExpander))
+        // These controls live inside a collapsed Expander, so walk the logical tree
+        // rather than the generated visual tree. This wires the safety handler even
+        // before the user expands Raw verified EC steps for the first time.
+        foreach (Button button in FindLogicalDescendants<Button>(RawEcStepsExpander))
         {
             if (button.Tag is not string raw || !int.TryParse(raw, out int level) || level is < 1 or > 7)
                 continue;
             button.Click -= ManualLevel_Click;
             button.Click += ManualLevelTest_Click;
         }
+
+        ProfileComboBox.DropDownOpened += (_, _) =>
+        {
+            if (!_manualFanTestActive)
+                return;
+            ProfileComboBox.IsDropDownOpen = false;
+            ProfileComboBox.IsEnabled = false;
+            UpdateManualFanTestUi();
+        };
 
         _manualFanTestTimer.Tick += ManualFanTestTimer_Tick;
         IsVisibleChanged += (_, args) =>
@@ -127,7 +139,7 @@ public partial class FansPanel
         if (_app is null || sender is not Button { Tag: string raw } || !int.TryParse(raw, out int level))
             return;
 
-        buttonBusy(sender, true);
+        SetButtonBusy(sender, true);
         try
         {
             await BeginOrRefreshManualFanTestAsync(async () =>
@@ -141,14 +153,14 @@ public partial class FansPanel
         }
         finally
         {
-            buttonBusy(sender, false);
+            SetButtonBusy(sender, false);
         }
+    }
 
-        static void buttonBusy(object source, bool busy)
-        {
-            if (source is Button button)
-                button.IsEnabled = !busy;
-        }
+    private static void SetButtonBusy(object source, bool busy)
+    {
+        if (source is Button button)
+            button.IsEnabled = !busy;
     }
 
     private async Task BeginOrRefreshManualFanTestAsync(Func<Task<bool>> apply, string testLabel)
@@ -278,15 +290,15 @@ public partial class FansPanel
         return _app.FanProfiles.Find(id)?.Name ?? DisplayProfile(id);
     }
 
-    private static IEnumerable<T> FindDescendants<T>(DependencyObject root) where T : DependencyObject
+    private static IEnumerable<T> FindLogicalDescendants<T>(DependencyObject root) where T : DependencyObject
     {
-        int count = System.Windows.Media.VisualTreeHelper.GetChildrenCount(root);
-        for (int i = 0; i < count; i++)
+        foreach (object child in LogicalTreeHelper.GetChildren(root))
         {
-            DependencyObject child = System.Windows.Media.VisualTreeHelper.GetChild(root, i);
-            if (child is T match)
+            if (child is not DependencyObject dependency)
+                continue;
+            if (dependency is T match)
                 yield return match;
-            foreach (T nested in FindDescendants<T>(child))
+            foreach (T nested in FindLogicalDescendants<T>(dependency))
                 yield return nested;
         }
     }
