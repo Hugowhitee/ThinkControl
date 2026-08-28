@@ -21,6 +21,7 @@ internal sealed class AttentionToastService : IDisposable
     private readonly DispatcherTimer _hideTimer;
     private string _lastKey = string.Empty;
     private DateTimeOffset _lastShown = DateTimeOffset.MinValue;
+    private bool _passivePresentation;
 
     internal Window? WindowForShellSmoke => _window;
     internal Button? ActionButtonForShellSmoke => _action;
@@ -39,6 +40,7 @@ internal sealed class AttentionToastService : IDisposable
         if (!Prepare(key, title, message))
             return;
 
+        _passivePresentation = false;
         _action!.Content = actionText;
         _action.Visibility = Visibility.Visible;
         _dismiss!.Content = dismissText;
@@ -55,6 +57,7 @@ internal sealed class AttentionToastService : IDisposable
         if (!Prepare(key, title, message))
             return;
 
+        _passivePresentation = true;
         _actionCallback = null;
         _dismissCallback = null;
         _action!.Visibility = Visibility.Collapsed;
@@ -271,6 +274,17 @@ internal sealed class AttentionToastService : IDisposable
             _hideTimer.Stop();
             _hideTimer.Start();
         };
+        shell.MouseLeftButtonUp += (_, e) =>
+        {
+            if (!_passivePresentation)
+                return;
+
+            // Confirmation toasts have no decision attached. Make the complete card
+            // an obvious escape hatch rather than forcing the user to wait for its
+            // timer. Actionable attention windows keep their explicit buttons.
+            e.Handled = true;
+            Hide();
+        };
 
         _window = new Window
         {
@@ -306,9 +320,16 @@ internal sealed class AttentionToastService : IDisposable
         callback?.Invoke();
     }
 
+    internal void HidePassive()
+    {
+        if (_passivePresentation)
+            Hide();
+    }
+
     internal void Hide()
     {
         _hideTimer.Stop();
+        _passivePresentation = false;
         if (_window is null || !_window.IsVisible)
             return;
 
@@ -321,5 +342,6 @@ internal sealed class AttentionToastService : IDisposable
         _hideTimer.Stop();
         try { _window?.Close(); } catch { }
         _window = null;
+        _passivePresentation = false;
     }
 }
