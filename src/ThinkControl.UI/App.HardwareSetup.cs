@@ -153,7 +153,11 @@ public partial class App
         if (!status.ServiceReachable)
             return "Hardware service running · app connection needs attention";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
-            return "PawnIO installation required · action available in Inbox";
+        {
+            return status.LowLevelAccessRegistered
+                ? "PawnIO needs repair · action available in Inbox"
+                : "PawnIO installation required · action available in Inbox";
+        }
         if (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess))
             return "PawnIO needs repair · action available in Inbox";
 
