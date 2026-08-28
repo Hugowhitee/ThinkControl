@@ -7,9 +7,7 @@ $failures = [System.Collections.Generic.List[string]]::new()
 Push-Location $repoRoot
 try {
     $tracked = @(& git ls-files)
-    if ($LASTEXITCODE -ne 0) {
-        throw 'git ls-files failed'
-    }
+    if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed' }
 
     # Build output, local IDE state and runtime artifacts must never be committed.
     $generatedPattern = '(^|/)(bin|obj|artifacts|TestResults|coverage|\.vs|\.idea)(/|$)|\.(user|suo|cache|log)$'
@@ -19,20 +17,35 @@ try {
         }
     }
 
-    # Release-specific one-off partials are deliberately consolidated into their
-    # canonical owners. Keep them from quietly reappearing in a later hotfix.
-    foreach ($legacyPartial in @(
+    # These alpha-era files were deliberately consolidated/removed. Keeping an
+    # explicit deny-list prevents a future agent from resurrecting a second source
+    # of truth simply because it appears in older Git history.
+    $obsoleteFiles = @(
+        'design-qa.md',
+        'docs/RELEASE-CHECKLIST.md',
+        'docs/V0.1-ACCEPTANCE.md',
+        'docs/UI_EDITING.md',
+        'docs/DEPENDENCIES.md',
+        'docs/LENOVO-PROVIDERS.md',
+        'docs/research/g-helper-fan-ux.md',
         'src/ThinkControl.UI/AdvancedWindow.Alpha30HomePolish.cs',
         'src/ThinkControl.UI/Controls/CompactDashboard.Alpha30Polish.cs',
         'src/ThinkControl.UI/Controls/TouchpadPanel.ReleasePolish.cs'
-    )) {
-        if (Test-Path -LiteralPath $legacyPartial) {
-            $failures.Add("Release-specific UI partial must stay consolidated: $legacyPartial")
+    )
+    foreach ($obsolete in $obsoleteFiles) {
+        if ($tracked -contains $obsolete) {
+            $failures.Add("Obsolete duplicate/history file returned: $obsolete")
         }
     }
 
-    # The two high-level user/developer entry points must describe the same version
-    # that packaging consumes from version.json.
+    foreach ($prefix in @('docs/screenshots/', 'docs/release-verification/')) {
+        foreach ($path in $tracked | Where-Object { $_.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) }) {
+            $failures.Add("Generated/historical docs artifact must stay out of source: $path")
+        }
+    }
+
+    # README and the product contract must follow version.json because these are the
+    # two versioned entry points people/agents are expected to read first.
     $metadata = Get-Content 'version.json' -Raw | ConvertFrom-Json
     $version = [string]$metadata.version
     if ([string]::IsNullOrWhiteSpace($version)) {
@@ -49,8 +62,8 @@ try {
     }
 
     # Validate repository-local Markdown targets. External URLs, mail links and pure
-    # anchors are intentionally outside this gate. Fenced code blocks are removed
-    # first so examples do not become fake filesystem dependencies.
+    # anchors are intentionally outside this gate. Remove fenced examples first so
+    # code snippets never become fake filesystem dependencies.
     $markdownFiles = @(& git ls-files -- '*.md')
     $linkPattern = '(?m)!?\[[^\]]*\]\((?<target>[^)\r\n]+)\)'
     foreach ($relative in $markdownFiles) {

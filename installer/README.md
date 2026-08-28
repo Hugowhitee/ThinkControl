@@ -1,112 +1,78 @@
 # ThinkControl installer
 
-ThinkControl `v0.1.0-alpha.23` uses a small x64 Inno Setup web bootstrapper plus a separate SHA-256-pinned application payload.
+ThinkControl uses a small x64 Inno Setup bootstrapper plus a separate framework-dependent application payload. `version.json` is the release version source of truth; this document describes the lifecycle contract rather than copying a particular alpha's filenames/hashes.
 
-## Release assets
+## Managed release assets
+
+A release contains exactly:
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.23.exe
-ThinkControl-Payload-0.1.0-alpha.23.zip
+ThinkControl-Setup-<version>.exe
+ThinkControl-Payload-<version>.zip
 SHA256SUMS.txt
 ui-overview.png
 ```
 
-Release CI renders the real WPF interface as validation evidence. The complete screenshot matrix stays in the short-lived CI visual-QA artifact; the public GitHub Release contains one composed `ui-overview.png` so users can see the current interface without a long list of screenshots.
+The complete visual-QA matrix remains an Actions artifact. Only the composed overview is a public release asset.
 
-The Setup executable does not embed the ThinkControl UI/service payload or a duplicate .NET runtime. The matching payload is downloaded from the same GitHub release and verified before extraction.
-
-## Installation flow
+## Install contract
 
 Setup:
 
-1. requests administrator elevation;
-2. checks for a compatible .NET 10 Desktop Runtime;
-3. downloads the pinned official Microsoft x64 Desktop Runtime only when missing and verifies its SHA-256;
-4. downloads `ThinkControl-Payload-<version>.zip` from the matching GitHub release;
-5. verifies the payload against the SHA-256 compiled into that Setup build;
-6. extracts only the verified `ui/` and `service/` payload under Program Files;
-7. registers and starts `ThinkControlService`;
-8. creates Start menu and optional desktop shortcuts using the canonical v3 icon;
-9. offers a default-enabled **Start ThinkControl with Windows** choice, which can be changed later in Settings;
-10. offers **Launch ThinkControl** on first installation.
+1. requests elevation once for install/service work;
+2. ensures the required .NET Desktop Runtime is present using the pinned values in `ThinkControl.iss`;
+3. downloads the matching payload from the release endpoint;
+4. verifies the payload SHA-256 compiled into that Setup build;
+5. extracts only the verified UI/service payload;
+6. registers and starts `ThinkControlService`;
+7. creates the selected shortcuts/startup entry;
+8. optionally launches ThinkControl when the interactive installation completes.
 
-The installer itself stays device-neutral. Hardware/provider recovery happens after startup so one setup build can work across supported laptops.
+A clean interactive install allows selecting a destination directory. Existing/update installs preserve the previously selected location. Silent in-app updates reuse the existing installation location instead of assuming Program Files.
 
-## Required components after installation
+The installer is device-neutral. Optional hardware-provider setup/repair happens in the app and cannot grant unknown low-level write capability merely by installing a driver.
 
-ThinkControl's in-app **Inbox** checks providers independently and opens one focused prerequisite prompt instead of treating the whole laptop as supported/unsupported.
+## Payload verification
 
-It can:
+Packaging creates the payload first, hashes it, then compiles its exact release URL and SHA-256 into Setup. A payload from another build/version therefore cannot pass the bootstrapper's integrity check.
 
-- verify and repair `ThinkControlService`;
-- offer pinned PawnIO 2.2.0 when additional LibreHardwareMonitor sensor access is useful;
-- retry telemetry/provider discovery after installation;
-- point Lenovo laptops to Lenovo Vantage / Windows Update when the Lenovo keyboard/platform provider is missing.
+CI may use the installer's local payload override, but the override must still match the compile-time hash. This exercises the same extraction/service/uninstall path before public assets exist.
 
-Installing PawnIO on an unverified laptop only expands read-only discovery. It never authorizes unknown EC/PWM writes. Direct fan control remains restricted to reviewed device profiles such as the verified X9 `21Q6/21Q7` profile.
+## Hardware/provider prerequisites
 
-## ThinkControl payload verification
+Provider readiness is capability-specific. Missing PawnIO/Lenovo/OEM components may limit a related capability while Windows-generic features continue to work.
 
-The packaging workflow creates the application payload first, computes its SHA-256, and then compiles both the deterministic GitHub release URL and that hash into Setup.
+Installing a provider does not authorize firmware/EC writes. Writable behavior remains gated by reviewed provider code, capability checks, device/profile identity and recovery/readback rules.
 
-A public release installer therefore downloads only its own matching payload. A payload from another build/version cannot pass the embedded hash check.
+Exact third-party runtime/provider versions and SHA-256 pins live in the installer source/workflows so there is one executable source of truth rather than duplicated values in Markdown.
 
-For CI only, Setup accepts a `/PAYLOAD=<local zip>` override. The local payload must still match the compile-time SHA-256. This lets CI exercise the complete extraction, service and uninstall path before a GitHub release exists without weakening the public installer path.
+## Update contract
 
-The built-in `tar.exe` on supported Windows 10/11 systems performs ZIP extraction. Setup verifies that both `ui/ThinkControl.UI.exe` and `service/ThinkControl.Service.exe` exist before continuing.
+The in-app updater stages Setup + Payload + checksums, verifies managed files and then performs one explicit elevation handoff. Background update checks never install software or open UAC automatically.
 
-## Microsoft .NET Desktop Runtime pin
+Before replacement, Setup closes the running UI when needed, stops the service, updates the verified payload and restarts service registration. Existing custom install location is preserved.
 
-```text
-Version  10.0.10
-Arch     x64
-File     windowsdesktop-runtime-10.0.10-win-x64.exe
-Source   https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.10/windowsdesktop-runtime-10.0.10-win-x64.exe
-SHA-256  E82FC901C8F52D716293B2BC0830CE0DD254A06268C457A19E8FC503560A84D1
-```
+The repository intentionally keeps the legacy-updater compatibility smoke while released clients still depend on that contract. Do not delete the compatibility path just because its original alpha number is old.
 
-## PawnIO pin
+## Uninstall contract
 
-```text
-Version  2.2.0
-File     PawnIO_setup.exe
-Source   https://github.com/namazso/PawnIO.Setup/releases/download/2.2.0/PawnIO_setup.exe
-SHA-256  1F519A22E47187F70A1379A48CA604981C4FCF694F4E65B734AAA74A9FBA3032
-Mode     -install -silent
-```
+Normal full uninstall stops/removes `ThinkControlService`, owned shortcuts/startup state, install/update staging and ThinkControl-owned local application/service data according to the current installer policy. Shared OEM software/providers are not removed merely because ThinkControl used them.
 
-Failure of a device-specific provider does not make unrelated Windows features unavailable. ThinkControl keeps provider states separate and disables only the capability whose prerequisites or verification are missing.
+Fan ownership cleanup remains a product safety concern: normal service/controller shutdown attempts to restore OEM/firmware ownership before low-level access closes.
 
-## Upgrade behavior
+## Validation
 
-Running a newer ThinkControl Setup over an existing installation is a first-class update path. Existing installs switch Setup into update wording, skip first-install shortcut choices and retain the normal install location.
+Pull requests touching application, installer, version, updater or branding code are covered by the package/installer workflows. The release path additionally requires:
 
-Before replacing files, Setup closes a running ThinkControl tray/UI instance, stops `ThinkControlService`, replaces the verified payload and updates/restarts the service registration. Normal controller disposal attempts to hand an active verified fan override back to Lenovo Auto before low-level access closes.
+- restore/build and tests;
+- real Compact ↔ Advanced WPF shell smoke;
+- visual-QA rendering/inspection;
+- payload/hash/bootstrap construction;
+- custom-location clean install;
+- service start and IPC;
+- in-place update/location preservation;
+- intentionally supported legacy-updater compatibility;
+- uninstall cleanup;
+- immutable release asset/checksum verification.
 
-The in-app updater downloads Setup + Payload + `SHA256SUMS.txt`, verifies the assets and starts Setup with update/relaunch parameters. Background update checks never elevate or install by themselves.
-
-## Icons and shortcuts
-
-The canonical v3 multi-resolution application icon is used for Setup, `ThinkControl.UI.exe`, Start menu, optional desktop shortcut, Add/Remove Programs and the full window. The notification-area icon uses the same bold T/C design language with a runtime-optimized small-size mark.
-
-## Size budgets
-
-Package CI enforces:
-
-```text
-Combined framework-dependent UI + service  <= 65 MB uncompressed
-Compressed ThinkControl payload             <= 20 MB
-ThinkControl web bootstrap installer         <= 5 MB
-```
-
-The practical installed-payload target remains much smaller than the hard ceiling. The 5 MB bootstrap ceiling prevents the application payload or .NET runtime from being silently embedded back into Setup.
-
-## CI and release validation
-
-Pull requests that change application, installer, branding or version code run the package workflow. It verifies branding, restores/builds the solution, publishes framework-dependent UI and service files, creates and hashes the external payload, builds the bootstrapper, installs it with the verified local payload override, waits for `ThinkControlService` to reach Running, uninstalls it and verifies cleanup.
-
-Release CI also runs the WPF visual matrix and the real Compact ↔ Full transition smoke. Tagged release packaging repeats the validated path and publishes Setup, Payload, `SHA256SUMS.txt` and one composed `ui-overview.png` in the same immutable GitHub Release.
-
-## Uninstall
-
-The uninstaller stops and removes `ThinkControlService` and deletes ThinkControl-owned UI and service payload directories. It does not remove shared hardware providers, Lenovo software or Intel platform components.
+See [release readiness](../docs/RELEASE_READINESS.md) for unfinished commercial/public-release work. The workflows and `ThinkControl.iss` are authoritative for executable packaging details.
