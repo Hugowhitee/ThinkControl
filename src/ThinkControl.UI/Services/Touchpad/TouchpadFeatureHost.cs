@@ -42,7 +42,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
             QueueBrightness,
             SetGestureActive,
             next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
-            () => app.Dispatcher.BeginInvoke(new Action(_osd.ShowTrackCenter)),
+            result => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrackCenter(result))),
             () => app.Dispatcher.BeginInvoke(new Action(app.ShowThinkControlFromTray)),
             () => app.Dispatcher.BeginInvoke(new Action(() => app.OpenAdvancedSafely("Home"))));
 
