@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Threading;
 using Forms = System.Windows.Forms;
@@ -7,6 +8,9 @@ namespace ThinkControl.UI;
 public partial class App
 {
     private bool _trayActivationRecoveryAttached;
+    private int _trayToggleScheduled;
+    private long _trayToggleGateUntil;
+    private static readonly long TrayToggleGateTicks = (long)(Stopwatch.Frequency * 0.55);
 
     private void AttachTrayActivationRecovery()
     {
@@ -43,17 +47,32 @@ public partial class App
         if (e.Button != Forms.MouseButtons.Left)
             return;
 
-        // Clicking a WinForms NotifyIcon momentarily moves foreground ownership to
-        // Explorer before the WPF dispatcher receives our queued toggle. Claim the
-        // interaction immediately so Compact's flyout deactivation does not race
-        // ahead and turn an intended hide into a hide-then-show (or vice versa).
+        long now = Stopwatch.GetTimestamp();
+        if (now < Volatile.Read(ref _trayToggleGateUntil) ||
+            Interlocked.CompareExchange(ref _trayToggleScheduled, 1, 0) != 0)
+        {
+            return;
+        }
+
+        // NotifyIcon activation should feel immediate even while background startup
+        // work is still producing status updates. Queue at Input priority rather
+        // than ApplicationIdle, and keep a short post-click gate so an impatient
+        // second click cannot close the flyout before the first open has painted.
         NotifyTrayInteractionStarted();
         Dispatcher.BeginInvoke(
-            DispatcherPriority.ApplicationIdle,
+            DispatcherPriority.Input,
             new Action(() =>
             {
-                try { ToggleThinkControlFromTray(); }
-                finally { NotifyTrayInteractionCompleted(); }
+                try
+                {
+                    ToggleThinkControlFromTray();
+                    Volatile.Write(ref _trayToggleGateUntil, Stopwatch.GetTimestamp() + TrayToggleGateTicks);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _trayToggleScheduled, 0);
+                    NotifyTrayInteractionCompleted();
+                }
             }));
     }
 

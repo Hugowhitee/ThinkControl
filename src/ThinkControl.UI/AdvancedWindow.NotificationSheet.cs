@@ -4,6 +4,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using ThinkControl.UI.Services;
+using ThinkControl.Core.Notifications;
 
 namespace ThinkControl.UI;
 
@@ -224,11 +225,17 @@ public partial class AdvancedWindow
             UpdateCheckResult? update = _app.LatestUpdateResult;
             if (update is { Available: true })
             {
+                string transition = UpdatePromptPolicy.Transition(UpdateService.CurrentVersion, update.Version);
+                bool promptDismissed = UpdatePromptPolicy.IsDismissed(
+                    update.Version,
+                    _app.UserSettings.Current.DismissedUpdateVersion);
+                string detail = $"{transition}. " +
+                    (promptDismissed
+                        ? "The startup prompt was dismissed, but the update remains available here until you install it or a newer release replaces it."
+                        : "A newer release is ready. Open Updates to review and install it.");
                 messages.Add(new(
                     "ThinkControl update available",
-                    string.IsNullOrWhiteSpace(update.Version)
-                        ? update.Status
-                        : $"{update.Version} is ready. Open Updates to review and install it.",
+                    detail,
                     "Open Updates",
                     SheetAction.Updates,
                     true));

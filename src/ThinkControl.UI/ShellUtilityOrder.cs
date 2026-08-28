@@ -34,9 +34,11 @@ internal static class ShellUtilityOrder
     internal static void ConfigureModeButton(Button button, string label, string iconKind, Brush foreground)
     {
         button.Tag = ViewModeTag;
-        button.Width = 96;
+        if (Application.Current?.TryFindResource("TcShellModeButton") is Style shellStyle)
+            button.Style = shellStyle;
+        button.Width = 108;
         button.Height = 38;
-        button.Padding = new Thickness(10, 0, 11, 0);
+        button.Padding = new Thickness(9, 0, 10, 0);
         button.HorizontalContentAlignment = HorizontalAlignment.Center;
         button.Content = new StackPanel
         {

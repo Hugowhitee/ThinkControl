@@ -83,7 +83,7 @@
                         <Grid x:Name="TrackCenterRow" Margin="0,11,0,0" Visibility="Collapsed">
                             <StackPanel Margin="0,0,76,0">
                                 <TextBlock Text="Center play / pause" Foreground="{DynamicResource Tc.TextMuted}" />
-                                <TextBlock Text="Hold near the middle, then release. Passing through the center while swiping never triggers it." Style="{StaticResource TouchpadLabel}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                <TextBlock Text="Hold briefly near the middle (about half a second), then release. Quick taps, normal swipes and long passive rests are ignored." Style="{StaticResource TouchpadLabel}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
                             <CheckBox x:Name="TrackCenterPlayPauseSwitch" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource TcSwitch}" Click="TrackCenterPlayPause_Click" />
                         </Grid>

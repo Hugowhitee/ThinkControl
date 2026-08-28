@@ -50,7 +50,7 @@ public partial class TouchpadPanel : UserControl
             new ActionOption(GestureActionKind.Volume, "Volume", "Slide continuously to change volume. The speaker button in the pop-up handles mute and unmute.", ResolveIcon(SemanticIconKeys.Volume)),
             new ActionOption(GestureActionKind.Brightness, "Brightness", "Slide continuously to change Windows display brightness.", ResolveIcon(SemanticIconKeys.Brightness)),
             new ActionOption(GestureActionKind.MediaSeek, "Media scrub", "Scrub through the active media session. Slow movement is precise; faster movement seeks farther.", ResolveIcon(SemanticIconKeys.MediaScrub)),
-            new ActionOption(GestureActionKind.PreviousNextTrack, "Track control", "Swipe one way for previous and the other for next. Optional center hold can play or pause without triggering while you swipe through it.", ResolveIcon(SemanticIconKeys.Next)),
+            new ActionOption(GestureActionKind.PreviousNextTrack, "Track control", "Swipe one way for previous and the other for next. Optional center play/pause requires a brief deliberate hold-and-release; taps, long rests and normal swipes are ignored.", ResolveIcon(SemanticIconKeys.Next)),
             new ActionOption(GestureActionKind.PlayPause, "Play / pause", "Toggle the active media session once when the edge gesture is claimed.", ResolveIcon(SemanticIconKeys.PlayPause)),
             new ActionOption(GestureActionKind.OpenThinkControl, "Open Compact", "Swipe inward from this edge to open ThinkControl Compact.", ResolveIcon(SemanticIconKeys.CompactView))
         };
@@ -380,7 +380,7 @@ public partial class TouchpadPanel : UserControl
             GestureStatusText.Text = signal.Phase switch
             {
                 GesturePhase.Candidate when signal.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled =>
-                    "Track control · hold for Play / Pause, or swipe for Previous / Next",
+                    "Track control · brief hold + release for Play / Pause, or swipe for Previous / Next",
                 GesturePhase.Candidate => signal.Reason ?? "Gesture candidate",
                 GesturePhase.Claimed => $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}",
                 GesturePhase.Active => FormatGestureStatus(signal),

@@ -43,6 +43,27 @@ public partial class AdvancedWindow
         Panel.SetZIndex(_notificationOverlay, 200);
     }
 
+    internal void PrepareUpdateNotificationSheetForSnapshot(bool dismissed)
+    {
+        EnsureNotificationSheet();
+        if (_notificationOverlay is null || _notificationMessages is null || _notificationSummary is null)
+            throw new InvalidOperationException("Notifications sheet could not be prepared for update visual QA.");
+
+        _notificationMessages.Children.Clear();
+        _notificationSummary.Text = "1 item needs attention";
+        string detail = dismissed
+            ? "0.1.0-alpha.28  →  0.1.0-alpha.29. The startup prompt was dismissed, but the update remains available here until it is installed or replaced by a newer release."
+            : "0.1.0-alpha.28  →  0.1.0-alpha.29. A newer release is ready to review and install.";
+        _notificationMessages.Children.Add(CreateNotificationCard(new SheetMessage(
+            "ThinkControl update available",
+            detail,
+            "Open Updates",
+            SheetAction.Updates,
+            true)));
+        _notificationOverlay.Visibility = Visibility.Visible;
+        Panel.SetZIndex(_notificationOverlay, 200);
+    }
+
     internal void PrepareAudioForSnapshot(bool providersAvailable)
     {
         const string audioPageKey = "ThinkControl.Dynamic.PageAudio";

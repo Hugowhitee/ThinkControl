@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI;
 
@@ -25,38 +24,46 @@ public partial class AdvancedWindow
                 labels[1].Text = "Lower power";
         }
 
-        // System is hidden when the advanced shell is first composed. A visual-tree
-        // scan therefore misses its buttons in both normal startup and snapshot QA.
-        // Walk the logical tree instead so user-facing copy is correct before the
-        // page is ever rendered.
-        foreach (WpfButton button in FindLogicalButtons(this))
-        {
-            if (button.Content is not string text ||
-                !text.Contains("Commercial Vantage", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            button.Content = text.Replace(
-                "Commercial Vantage",
-                "Lenovo Vantage",
-                StringComparison.OrdinalIgnoreCase);
-            button.Tag = "ms-windows-store://search/?query=Lenovo%20Vantage";
-        }
+        ConfigureVendorSupportShortcut();
     }
 
-    private static IEnumerable<WpfButton> FindLogicalButtons(DependencyObject root)
+    private void ConfigureVendorSupportShortcut()
     {
-        if (root is WpfButton button)
-            yield return button;
+        string manufacturer = _app.CurrentManufacturer?.Trim() ?? string.Empty;
+        SystemVendorCardTitle.Text = "Device & drivers";
+        SystemVendorPrimaryButton.Visibility = Visibility.Collapsed;
+        SystemVendorPrimaryButton.ToolTip = null;
 
-        foreach (object child in LogicalTreeHelper.GetChildren(root))
+        (string Label, string Target, string Detail)? vendor = manufacturer.ToUpperInvariant() switch
         {
-            if (child is not DependencyObject dependencyObject)
-                continue;
+            string value when value.Contains("LENOVO") => (
+                "Lenovo Vantage",
+                "ms-windows-store://search/?query=Lenovo%20Vantage",
+                "Windows driver updates plus Lenovo Vantage for supported Lenovo-specific settings."),
+            string value when value.Contains("ASUS") => (
+                "MyASUS",
+                "ms-windows-store://search/?query=MyASUS",
+                "Windows driver updates plus MyASUS for supported ASUS-specific settings."),
+            string value when value.Contains("DELL") => (
+                "Dell Support",
+                "https://www.dell.com/support/home",
+                "Windows driver updates plus Dell's support page for detected Dell hardware."),
+            string value when value.Contains("HP") || value.Contains("HEWLETT") => (
+                "HP Support",
+                "https://support.hp.com/",
+                "Windows driver updates plus HP's support page for detected HP hardware."),
+            _ => null
+        };
 
-            foreach (WpfButton nested in FindLogicalButtons(dependencyObject))
-                yield return nested;
+        if (vendor is not { } resolved)
+        {
+            SystemVendorCardDetail.Text = "Windows Update remains the universal driver path. ThinkControl adds no vendor shortcut when one is not confidently identified.";
+            return;
         }
+
+        SystemVendorPrimaryButton.Content = resolved.Label;
+        SystemVendorPrimaryButton.Tag = resolved.Target;
+        SystemVendorPrimaryButton.Visibility = Visibility.Visible;
+        SystemVendorCardDetail.Text = resolved.Detail;
     }
 }

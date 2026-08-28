@@ -98,6 +98,8 @@ public partial class DiagnosticsPanel
             CrashHistoryCombo.SelectedValue = latestId;
             CrashHistoryCombo.Visibility = Visibility.Visible;
             MarkCrashReportedButton.Visibility = Visibility.Visible;
+            OpenCrashDraftButton.Content = "Reopen GitHub draft";
+            CrashStateText.Text = "GitHub draft opened · mark reported after you submit it.";
         }
         finally
         {
@@ -107,9 +109,9 @@ public partial class DiagnosticsPanel
 
     internal bool BringCrashQueueIntoViewForSnapshot()
     {
-        // This hook runs after the snapshot window completed Measure / Arrange.
-        // Re-materialize the requested synthetic state here so later layout work can
-        // never erase the evidence before capture.
+        // Snapshot setup may run before WPF Loaded/Refresh. Re-apply the requested
+        // synthetic state after Measure/Arrange so runtime refresh cannot erase the
+        // evidence immediately before capture.
         if (_crashQueueSnapshotRequested)
             ApplyCrashQueueSnapshotState();
 
