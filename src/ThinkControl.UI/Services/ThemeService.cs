@@ -15,10 +15,11 @@ public enum ThemeMode
 
 public static class ThemeService
 {
-    // Use an assembly-qualified pack URI. ThemeService is also exercised by the
-    // separate snapshot host; a plain relative URI would resolve against that EXE
-    // instead of ThinkControl.UI and make visual QA fail even though the app builds.
+    // Use assembly-qualified pack URIs. ThemeService is also exercised by the
+    // separate snapshot host; plain relative URIs would resolve against that EXE
+    // instead of ThinkControl.UI and make visual QA differ from the real app.
     private const string SelectionStylesSource = "/ThinkControl.UI;component/Resources/SelectionStyles.xaml";
+    private const string ScrollBarStylesSource = "/ThinkControl.UI;component/Resources/ScrollBarStyles.xaml";
 
     public static ThemeMode Current { get; private set; } = ThemeMode.System;
 
@@ -55,19 +56,20 @@ public static class ThemeService
         resources[SystemColors.InactiveSelectionHighlightBrushKey] = resources["Tc.SurfaceAlt"];
         resources[SystemColors.InactiveSelectionHighlightTextBrushKey] = resources["Tc.Text"];
 
-        EnsureSelectionStyles(resources);
+        EnsureSharedStyles(resources, SelectionStylesSource, "SelectionStyles.xaml");
+        EnsureSharedStyles(resources, ScrollBarStylesSource, "ScrollBarStyles.xaml");
     }
 
-    private static void EnsureSelectionStyles(ResourceDictionary resources)
+    private static void EnsureSharedStyles(ResourceDictionary resources, string source, string fileName)
     {
         bool alreadyLoaded = resources.MergedDictionaries.Any(dictionary =>
-            dictionary.Source?.OriginalString.EndsWith("SelectionStyles.xaml", StringComparison.OrdinalIgnoreCase) == true);
+            dictionary.Source?.OriginalString.EndsWith(fileName, StringComparison.OrdinalIgnoreCase) == true);
         if (alreadyLoaded)
             return;
 
         resources.MergedDictionaries.Add(new ResourceDictionary
         {
-            Source = new Uri(SelectionStylesSource, UriKind.RelativeOrAbsolute)
+            Source = new Uri(source, UriKind.RelativeOrAbsolute)
         });
     }
 
