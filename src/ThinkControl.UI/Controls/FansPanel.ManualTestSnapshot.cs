@@ -15,5 +15,7 @@ public partial class FansPanel
         _manualFanTestEnding = false;
         _manualFanTestEndsAt = DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(secondsRemaining, 1, ManualFanTestDurationSeconds));
         UpdateManualFanTestUi(label);
+        ManualControlExpander.IsExpanded = true;
+        UpdateLayout();
     }
 }
