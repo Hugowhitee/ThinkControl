@@ -141,9 +141,10 @@ end;
 
 procedure InitializeWizard();
 begin
-  { Use Inno's resolved application directory, not a hard-coded Program Files path.
-    This keeps update detection correct for users who chose a custom location. }
-  ExistingInstall := FileExists(ExpandConstant('{app}\ui\{#UiExeName}'));
+  { InitializeWizard runs before the app constant may be expanded. WizardDirValue
+    safely exposes Inno's current directory value here, including a remembered
+    custom location from the same AppId when UsePreviousAppDir is enabled. }
+  ExistingInstall := FileExists(AddBackslash(WizardDirValue()) + 'ui\{#UiExeName}');
   if ExistingInstall or IsUpdateParameter() then
   begin
     WizardForm.Caption := 'Update ThinkControl';
