@@ -242,7 +242,11 @@ public partial class TouchpadPanel
     private void SetCornerSelectionOwnership(bool cornerOwns)
     {
         if (_edgeEditorCard is not null)
+        {
+            _edgeEditorCard.Opacity = 1;
+            _edgeEditorCard.IsHitTestVisible = true;
             _edgeEditorCard.Visibility = cornerOwns ? Visibility.Collapsed : Visibility.Visible;
+        }
         Visualizer.EdgeSelectionVisible = !cornerOwns;
     }
 
@@ -250,8 +254,14 @@ public partial class TouchpadPanel
     {
         // Runtime ownership is visual-only. Never mutate card visibility here: doing
         // that on Candidate/Cancelled frames causes the whole Touchpad page to
-        // remeasure while the user is touching it.
+        // remeasure while the user is touching it. Dim and disable the existing edge
+        // editor in place so the corner remains the sole active interaction model.
         Visualizer.EdgeSelectionVisible = !live && _selectedLaunchCorner is null;
+        if (_edgeEditorCard is not null && _edgeEditorCard.Visibility == Visibility.Visible)
+        {
+            _edgeEditorCard.Opacity = live ? 0.38 : 1;
+            _edgeEditorCard.IsHitTestVisible = !live;
+        }
     }
 
     private void SyncGestureZoneOverlay()
