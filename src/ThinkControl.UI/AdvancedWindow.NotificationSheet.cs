@@ -211,7 +211,7 @@ public partial class AdvancedWindow
             }
             catch
             {
-                setup = new HardwareSetupStatus(false, false, true, false, false,
+                setup = new HardwareSetupStatus(false, false, true, false, false, false,
                     "Could not query ThinkControl hardware service", "Provider status unavailable");
             }
 
