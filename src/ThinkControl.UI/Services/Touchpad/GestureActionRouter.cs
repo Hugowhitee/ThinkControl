@@ -20,6 +20,7 @@ internal sealed class GestureActionRouter
     private readonly Action<bool> _showTrackOsd;
     private readonly Action _showTrackCenterOsd;
     private readonly Action _openThinkControl;
+    private readonly Action _openAdvanced;
 
     private int _volumeAtStart;
     private int _brightnessAtStart;
@@ -45,7 +46,8 @@ internal sealed class GestureActionRouter
         Action<GestureActionKind, bool> setGestureActive,
         Action<bool> showTrackOsd,
         Action showTrackCenterOsd,
-        Action openThinkControl)
+        Action openThinkControl,
+        Action openAdvanced)
     {
         _nativeInput = nativeInput;
         _media = media;
@@ -58,6 +60,7 @@ internal sealed class GestureActionRouter
         _showTrackOsd = showTrackOsd;
         _showTrackCenterOsd = showTrackCenterOsd;
         _openThinkControl = openThinkControl;
+        _openAdvanced = openAdvanced;
     }
 
     internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
@@ -79,9 +82,6 @@ internal sealed class GestureActionRouter
                 Release(signal);
                 break;
             case GesturePhase.Cancelled:
-                // Cancellation (second finger, lost confidence, leaving the edge
-                // corridor) is never an action commit. A valid lift arrives as
-                // Released and owns the discrete fallback path.
                 End(signal.Action);
                 break;
         }
@@ -138,6 +138,9 @@ internal sealed class GestureActionRouter
             case GestureActionKind.OpenThinkControl:
                 _openThinkControl();
                 break;
+            case GestureActionKind.OpenAdvanced:
+                _openAdvanced();
+                break;
         }
     }
 
@@ -191,11 +194,6 @@ internal sealed class GestureActionRouter
 
         _trackSwipeFired = true;
         bool next = signed > 0;
-
-        // Give immediate gesture feedback once recognition succeeds. The actual
-        // transport command prefers the active Windows media session and falls back
-        // to a media key, which is more reliable than treating SendInput success as
-        // proof that the player handled the command.
         _showTrackOsd(next);
         _ = SkipTrackReliablyAsync(next);
     }
