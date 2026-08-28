@@ -168,7 +168,7 @@ public partial class CompactDashboard
         }
     }
 
-    private void CompactMetricDragSource_MouseMove(object sender, MouseEventArgs e)
+    private void CompactMetricDragSource_MouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
         if (e.LeftButton != MouseButtonState.Pressed || sender is not Button source)
             return;
@@ -186,7 +186,7 @@ public partial class CompactDashboard
         DragDrop.DoDragDrop(source, data, DragDropEffects.Move);
     }
 
-    private static void CompactMetricSlot_DragOver(object sender, DragEventArgs e)
+    private static void CompactMetricSlot_DragOver(object sender, System.Windows.DragEventArgs e)
     {
         e.Effects = e.Data.GetDataPresent(CompactMetricDragFormat)
             ? DragDropEffects.Move
@@ -194,7 +194,7 @@ public partial class CompactDashboard
         e.Handled = true;
     }
 
-    private void CompactMetricSlot_Drop(object sender, DragEventArgs e)
+    private void CompactMetricSlot_Drop(object sender, System.Windows.DragEventArgs e)
     {
         if (sender is not Button { Tag: string rawTarget } ||
             !int.TryParse(rawTarget, out int targetIndex) || targetIndex is < 0 or > 2 ||
