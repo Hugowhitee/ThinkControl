@@ -167,6 +167,7 @@ public partial class AdvancedWindow
         }
 
         panel.PrepareForSnapshot(showActiveGesture: Width >= 1500);
+        panel.PrepareHapticsForSnapshot();
     }
 
     public void PrepareTouchpadInwardForSnapshot()
@@ -179,6 +180,7 @@ public partial class AdvancedWindow
         }
 
         panel.PrepareForSnapshot(showActiveGesture: false, showInwardGesture: true);
+        panel.PrepareHapticsForSnapshot();
     }
 
     public void PreparePerformanceForSnapshot()
