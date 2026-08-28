@@ -10,16 +10,15 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'git ls-files failed' }
 
     # Build output, local IDE state and runtime artifacts must never be committed.
-    $generatedPattern = '(^|/)(bin|obj|artifacts|TestResults|coverage|\.vs|\.idea)(/|$)|\.(user|suo|cache|log)$'
+    $generatedPattern = '(^|/)(bin|obj|artifacts|TestResults|coverage|\.vs|\.idea)(/|$)|\.(user|suo|cache|log|trx|coverage|coveragexml)$'
     foreach ($path in $tracked) {
         if ($path -match $generatedPattern) {
             $failures.Add("Tracked generated/local file: $path")
         }
     }
 
-    # These alpha-era files were deliberately consolidated/removed. Keeping an
-    # explicit deny-list prevents a future agent from resurrecting a second source
-    # of truth simply because it appears in older Git history.
+    # These alpha-era files/names were deliberately consolidated or removed. Keep
+    # old Git history from becoming a second source of truth in later cleanup work.
     $obsoleteFiles = @(
         'design-qa.md',
         'docs/RELEASE-CHECKLIST.md',
@@ -28,7 +27,19 @@ try {
         'docs/DEPENDENCIES.md',
         'docs/LENOVO-PROVIDERS.md',
         'docs/research/g-helper-fan-ux.md',
+        'installer/release-manifest.example.json',
+        'tests/README.md',
+        'src/ThinkControl.UI/GlobalWpfAliases.cs',
+        'src/ThinkControl.UI/WpfTypeAliases.cs',
         'src/ThinkControl.UI/AdvancedWindow.Alpha30HomePolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.CopyPolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.HomeDashboardPolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.InteractionPolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.NavigationPolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.NotificationPolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.ShellChromePolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.TouchpadPolish.cs',
+        'src/ThinkControl.UI/App.TrayIconPolish.cs',
         'src/ThinkControl.UI/Controls/CompactDashboard.Alpha30Polish.cs',
         'src/ThinkControl.UI/Controls/TouchpadPanel.ReleasePolish.cs'
     )
@@ -44,8 +55,8 @@ try {
         }
     }
 
-    # README and the product contract must follow version.json because these are the
-    # two versioned entry points people/agents are expected to read first.
+    # README and PRODUCT are the versioned entry points people/agents are expected
+    # to read first, so both must follow version.json.
     $metadata = Get-Content 'version.json' -Raw | ConvertFrom-Json
     $version = [string]$metadata.version
     if ([string]::IsNullOrWhiteSpace($version)) {
