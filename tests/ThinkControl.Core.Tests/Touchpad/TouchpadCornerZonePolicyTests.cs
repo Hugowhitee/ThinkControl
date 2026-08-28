@@ -53,4 +53,20 @@ public sealed class TouchpadCornerZonePolicyTests
         Assert.True(TouchpadCornerZonePolicy.ContainsStart(TouchpadCorner.TopRight, Geometry, x, y));
         Assert.False(TouchpadCornerZonePolicy.ContainsStart(TouchpadCorner.TopLeft, Geometry, x, y));
     }
+
+    [Theory]
+    [InlineData(350, 300)]
+    [InlineData(600, 500)]
+    [InlineData(1000, 900)]
+    [InlineData(1500, 1300)]
+    [InlineData(1900, 1600)]
+    public void LeftAndRightRecognitionLanes_AreExactLogicalMirrors(int leftX, int y)
+    {
+        int rightX = Geometry.XLogicalMax - (leftX - Geometry.XLogicalMin);
+
+        bool left = TouchpadCornerZonePolicy.ContainsStart(TouchpadCorner.TopLeft, Geometry, leftX, y);
+        bool right = TouchpadCornerZonePolicy.ContainsStart(TouchpadCorner.TopRight, Geometry, rightX, y);
+
+        Assert.Equal(left, right);
+    }
 }
