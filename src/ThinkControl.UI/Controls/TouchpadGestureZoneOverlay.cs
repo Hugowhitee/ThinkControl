@@ -1,16 +1,15 @@
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Media;
 using ThinkControl.Core.Touchpad;
-using WpfMouseEventArgs = System.Windows.Input.MouseEventArgs;
 using WpfPoint = System.Windows.Point;
 
 namespace ThinkControl.UI.Controls;
 
 /// <summary>
-/// Interaction overlay for gesture zones that are spatially distinct from the four
-/// edge bands. It deliberately shares the physical corner-lane policy with Core so
-/// what the user sees and clicks is also where the real launch recognizer starts.
+/// Non-interactive auxiliary overlay for gesture visuals that are not selectable
+/// editor zones. The six selectable edge/corner zones are owned entirely by
+/// <see cref="TouchpadVisualizer"/>; this overlay only renders the optional bounded
+/// track-center play/pause target.
 /// </summary>
 internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
 {
@@ -18,11 +17,7 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
     private TouchpadGestureConfiguration _configuration =
         TouchpadGestureConfiguration.Default with { Enabled = false };
     private TouchpadGeometry _geometry = new(0, 13500, 0, 8000, 135, 80, true);
-    private TouchpadCorner? _selectedCorner;
-    private TouchpadCorner? _hoverCorner;
     private GestureSignal? _signal;
-
-    internal event Action<TouchpadCorner>? CornerSelected;
 
     internal TouchpadGestureConfiguration Configuration
     {
@@ -36,12 +31,6 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
         set { _geometry = value; InvalidateVisual(); }
     }
 
-    internal TouchpadCorner? SelectedCorner
-    {
-        get => _selectedCorner;
-        set { _selectedCorner = value; InvalidateVisual(); }
-    }
-
     internal GestureSignal? Signal
     {
         get => _signal;
@@ -50,8 +39,8 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
 
     public TouchpadGestureZoneOverlay()
     {
-        Cursor = Cursors.Arrow;
         Focusable = false;
+        IsHitTestVisible = false;
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -62,116 +51,12 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
             return;
 
         Brush muted = ResourceBrush("Tc.TextMuted", Brushes.Gray);
-        Brush faint = ResourceBrush("Tc.TextFaint", Brushes.DimGray);
         Brush accent = ResourceBrush("Tc.Accent", Brushes.Red);
         Brush surface = ResourceBrush("Tc.SurfaceAlt", Brushes.Black);
 
         dc.PushClip(new RectangleGeometry(pad, PadCornerRadius, PadCornerRadius));
-        DrawCornerGuide(dc, pad, TouchpadCorner.TopLeft, muted, faint, accent);
-        DrawCornerGuide(dc, pad, TouchpadCorner.TopRight, muted, faint, accent);
         DrawTrackCenterZone(dc, pad, surface, muted, accent);
         dc.Pop();
-    }
-
-    protected override void OnMouseMove(WpfMouseEventArgs e)
-    {
-        base.OnMouseMove(e);
-        TouchpadCorner? hover = HitCorner(e.GetPosition(this));
-        if (hover == _hoverCorner)
-            return;
-        _hoverCorner = hover;
-        Cursor = hover.HasValue ? Cursors.Hand : Cursors.Arrow;
-        // Hover is deliberately not a visual selection state. The two idle corner
-        // guides remain identical; click/selection and real live recognition are the
-        // only states allowed to make one side visually stronger than the other.
-    }
-
-    protected override void OnMouseLeave(WpfMouseEventArgs e)
-    {
-        base.OnMouseLeave(e);
-        _hoverCorner = null;
-        Cursor = Cursors.Arrow;
-    }
-
-    protected override void OnMouseLeftButtonDown(MouseButtonEventArgs e)
-    {
-        base.OnMouseLeftButtonDown(e);
-        TouchpadCorner? corner = HitCorner(e.GetPosition(this));
-        if (corner is not TouchpadCorner selected)
-            return;
-
-        SelectedCorner = selected;
-        CornerSelected?.Invoke(selected);
-        e.Handled = true;
-    }
-
-    private void DrawCornerGuide(
-        DrawingContext dc,
-        Rect pad,
-        TouchpadCorner corner,
-        Brush muted,
-        Brush faint,
-        Brush accent)
-    {
-        GestureActionKind action = _configuration.LaunchFor(corner);
-        bool enabled = action != GestureActionKind.Disabled;
-        bool selected = _selectedCorner == corner;
-        bool live = _signal?.Corner == corner &&
-                    _signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
-
-        // Both idle lanes use the exact same hue and geometry. Configuration only
-        // changes their quiet opacity; pointer hover never makes one corner look like
-        // a different control. Selection/live ownership is the deliberate exception.
-        Brush source = live ? accent : selected ? muted : enabled ? muted : faint;
-        double opacity = live ? 1.0 : selected ? 0.86 : enabled ? 0.22 : 0.10;
-        double width = live ? 2.25 : selected ? 1.8 : 1.15;
-        var boundaryPen = new Pen(TransparentClone(source, opacity), width)
-        {
-            StartLineCap = PenLineCap.Round,
-            EndLineCap = PenLineCap.Round
-        };
-
-        double half = TouchpadCornerZonePolicy.HalfWidthMm;
-        double start = TouchpadCornerZonePolicy.StartInsetMm + 1.2;
-        double end = TouchpadCornerZonePolicy.LengthMm - half;
-        WpfPoint outerA = CornerLanePoint(pad, corner, start, -half);
-        WpfPoint innerA = CornerLanePoint(pad, corner, end, -half);
-        WpfPoint outerB = CornerLanePoint(pad, corner, start, half);
-        WpfPoint innerB = CornerLanePoint(pad, corner, end, half);
-        dc.DrawLine(boundaryPen, outerA, innerA);
-        dc.DrawLine(boundaryPen, outerB, innerB);
-        dc.DrawLine(boundaryPen, innerA, innerB);
-
-        if (selected || live)
-        {
-            var centerPen = new Pen(
-                TransparentClone(live ? accent : muted, live ? 0.92 : 0.48),
-                live ? 1.7 : 1.25)
-            {
-                StartLineCap = PenLineCap.Round,
-                EndLineCap = PenLineCap.Round
-            };
-            WpfPoint centerStart = CornerLanePoint(pad, corner, start + 3.0, 0);
-            WpfPoint centerEnd = CornerLanePoint(pad, corner, end - 4.0, 0);
-            dc.DrawLine(centerPen, centerStart, centerEnd);
-        }
-    }
-
-    private WpfPoint CornerLanePoint(Rect pad, TouchpadCorner corner, double alongMm, double acrossMm)
-    {
-        const double invSqrt2 = 0.7071067811865476;
-        double localX = (alongMm - acrossMm) * invSqrt2;
-        double localY = (alongMm + acrossMm) * invSqrt2;
-        double x = localX / _geometry.EffectiveWidthMm * pad.Width;
-        double y = localY / _geometry.EffectiveHeightMm * pad.Height;
-
-        // Generate the left geometry once and mirror its final pixel coordinate for
-        // the right side. This makes the two rendered guides exact visual mirrors,
-        // independent of DPI/layout rounding.
-        WpfPoint leftPoint = new(pad.Left + x, pad.Top + y);
-        return corner == TouchpadCorner.TopLeft
-            ? leftPoint
-            : new WpfPoint(pad.Left + pad.Right - leftPoint.X, leftPoint.Y);
     }
 
     private void DrawTrackCenterZone(DrawingContext dc, Rect pad, Brush surface, Brush muted, Brush accent)
@@ -200,7 +85,7 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
 
         WpfPoint center = new(zone.Left + zone.Width / 2, zone.Top + zone.Height / 2);
         double barLength = Math.Clamp(Math.Min(zone.Width, zone.Height) * 0.46, 8, 14);
-        double gap = 3.0;
+        const double gap = 3.0;
         dc.DrawLine(pen, new WpfPoint(center.X - gap, center.Y - barLength / 2), new WpfPoint(center.X - gap, center.Y + barLength / 2));
         dc.DrawLine(pen, new WpfPoint(center.X + gap, center.Y - barLength / 2), new WpfPoint(center.X + gap, center.Y + barLength / 2));
     }
@@ -219,23 +104,6 @@ internal sealed class TouchpadGestureZoneOverlay : FrameworkElement
             TouchpadEdge.Left => new Rect(pad.Left + 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthX - 4), pad.Height * (end - start)),
             _ => new Rect(pad.Right - Math.Max(22, edgeWidthX - 4) - 2, pad.Top + pad.Height * start, Math.Max(22, edgeWidthX - 4), pad.Height * (end - start))
         };
-    }
-
-    private TouchpadCorner? HitCorner(WpfPoint point)
-    {
-        Rect pad = PadRect();
-        if (!pad.Contains(point))
-            return null;
-
-        double localY = (point.Y - pad.Top) / Math.Max(1, pad.Height) * _geometry.EffectiveHeightMm;
-        double leftX = (point.X - pad.Left) / Math.Max(1, pad.Width) * _geometry.EffectiveWidthMm;
-        if (TouchpadCornerZonePolicy.ContainsLocal(leftX, localY))
-            return TouchpadCorner.TopLeft;
-
-        double rightX = (pad.Right - point.X) / Math.Max(1, pad.Width) * _geometry.EffectiveWidthMm;
-        return TouchpadCornerZonePolicy.ContainsLocal(rightX, localY)
-            ? TouchpadCorner.TopRight
-            : null;
     }
 
     private Rect PadRect()
