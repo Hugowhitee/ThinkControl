@@ -211,12 +211,13 @@ public partial class AdvancedWindow
             }
             catch
             {
-                setup = new HardwareSetupStatus(false, false, true, false, false,
+                setup = new HardwareSetupStatus(false, false, true, false, false, false,
                     "Could not query ThinkControl hardware service", "Provider status unavailable");
             }
 
             string hardwareDetail = _app.State.HardwareAccess ?? string.Empty;
-            bool pawnIoRepair = setup.LowLevelAccessRelevant && IsPawnIoRepairFailure(hardwareDetail);
+            bool pawnIoRepair = setup.LowLevelAccessRelevant &&
+                ((setup.LowLevelAccessRegistered && !setup.LowLevelAccessInstalled) || IsPawnIoRepairFailure(hardwareDetail));
             bool verifiedX9 = IsVerifiedX9(_app.State.MachineType);
             bool ecCompatibilityFailure = verifiedX9 && IsEcCompatibilityFailure(hardwareDetail);
 
@@ -253,12 +254,15 @@ public partial class AdvancedWindow
 
             if (setup.LowLevelAccessRelevant && !setup.LowLevelAccessInstalled)
             {
+                bool registered = setup.LowLevelAccessRegistered;
                 messages.Add(new(
-                    "PawnIO installation required",
-                    verifiedX9
-                        ? "PawnIO is required for X9 sensor discovery and the verified EC provider. ThinkControl downloads the pinned package, verifies SHA-256, then asks Windows once before installation."
-                        : "An additional low-level provider is required for the detected hardware. ThinkControl verifies the pinned package before Windows is asked to install it.",
-                    "Install PawnIO",
+                    registered ? "PawnIO needs repair" : "PawnIO installation required",
+                    registered
+                        ? $"ThinkControl found PawnIO registration, but the driver installation is incomplete: {setup.LowLevelAccessDetail}. Repair restores the pinned verified component before dependent providers are retried."
+                        : verifiedX9
+                            ? "PawnIO is required for X9 sensor discovery and the verified EC provider. ThinkControl downloads the pinned package, verifies SHA-256, then asks Windows once before installation."
+                            : "An additional low-level provider is required for the detected hardware. ThinkControl verifies the pinned package before Windows is asked to install it.",
+                    registered ? "Review repair" : "Install PawnIO",
                     SheetAction.PawnIo,
                     true));
             }

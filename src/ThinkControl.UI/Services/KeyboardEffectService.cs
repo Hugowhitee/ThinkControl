@@ -1,5 +1,6 @@
 using NAudio.Wave;
 using System.Runtime.InteropServices;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI.ViewModels;
 
 namespace ThinkControl.UI.Services;
@@ -25,6 +26,7 @@ public sealed class KeyboardEffectService : IDisposable
     private string? _lastAppliedLevel;
     private WasapiLoopbackCapture? _audioCapture;
     private double _audioRms;
+    private bool _firmwareAutoActive;
     private bool _disposed;
 
     public KeyboardEffectService(HardwareServiceClient hardware, AppState state)
@@ -43,6 +45,7 @@ public sealed class KeyboardEffectService : IDisposable
         await StopEffectRuntimeAsync().ConfigureAwait(false);
         StopAudioCapture();
         StopKeyboardHook();
+        _firmwareAutoActive = false;
         _state.KeyboardMode = "Static";
         _state.KeyboardBaseLevel = NormalizeLevel(level);
         _breathingStarted = DateTimeOffset.UtcNow;
@@ -63,17 +66,16 @@ public sealed class KeyboardEffectService : IDisposable
         await StopEffectRuntimeAsync().ConfigureAwait(false);
         StopAudioCapture();
         StopKeyboardHook();
+        _firmwareAutoActive = false;
 
         _state.KeyboardMode = normalized;
         _breathingStarted = DateTimeOffset.UtcNow;
         _lastKeyboardActivity = DateTimeOffset.UtcNow;
 
-        // Auto is intentionally a low-frequency idle policy, not an animated effect:
-        // it only needs a verified writable keyboard-backlight capability. Requiring
-        // CanKeyboardEffects here made Auto silently fall back to Static on the X9
-        // even though Off/Low/High writes were already verified and working.
-        // Breathing/Reactive/Audio still require the stricter direct-effect contract
-        // so we never hammer a vendor fallback or flash an OEM OSD repeatedly.
+        // Auto prefers Lenovo's actual firmware state (value 3) whenever the
+        // privileged provider can set and read it back. The existing low-frequency
+        // idle policy is retained only for Lenovo backends that genuinely cannot set
+        // OEM Auto. Animated modes still require the stricter effects contract.
         bool modeSupported = normalized == "Auto"
             ? _state.CanKeyboardBacklight
             : _state.CanKeyboardEffects;
@@ -86,6 +88,12 @@ public sealed class KeyboardEffectService : IDisposable
         if (normalized == "Static")
         {
             await ApplyLevelAsync(_state.KeyboardBaseLevel, force: true, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        if (normalized == "Auto" && await TryEnableFirmwareAutoAsync(cancellationToken).ConfigureAwait(false))
+        {
+            _firmwareAutoActive = true;
             return;
         }
 
@@ -104,8 +112,11 @@ public sealed class KeyboardEffectService : IDisposable
 
     private void StartEffectRuntime()
     {
-        if (_disposed || _state.KeyboardMode == "Static")
+        if (_disposed || _state.KeyboardMode == "Static" ||
+            (_state.KeyboardMode == "Auto" && _firmwareAutoActive))
+        {
             return;
+        }
 
         lock (_runtimeGate)
         {
@@ -159,11 +170,9 @@ public sealed class KeyboardEffectService : IDisposable
 
     private TimeSpan CurrentEffectInterval() => _state.KeyboardMode switch
     {
-        // Auto only reacts to 15/35 second idle thresholds; a one-second cadence is
-        // indistinguishable to the user and avoids an 8 Hz background wakeup.
+        // Software Auto only reacts to 15/35 second idle thresholds; a one-second
+        // cadence is enough and is used only when OEM Auto was unavailable.
         "Auto" => TimeSpan.FromSeconds(1),
-        // User-selected animated/reactive modes can sample faster while active, but
-        // still coalesce hardware writes through MinHardwareWriteInterval below.
         "Reactive" => TimeSpan.FromMilliseconds(90),
         "Audio" => TimeSpan.FromMilliseconds(100),
         "Breathing" => TimeSpan.FromMilliseconds(120),
@@ -172,7 +181,7 @@ public sealed class KeyboardEffectService : IDisposable
 
     private async Task TickEffectAsync(CancellationToken cancellationToken)
     {
-        if (!_state.CanKeyboardBacklight)
+        if (!_state.CanKeyboardBacklight || (_state.KeyboardMode == "Auto" && _firmwareAutoActive))
             return;
 
         string? target = _state.KeyboardMode switch
@@ -186,6 +195,26 @@ public sealed class KeyboardEffectService : IDisposable
 
         if (target is not null)
             await ApplyLevelAsync(target, force: false, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<bool> TryEnableFirmwareAutoAsync(CancellationToken cancellationToken)
+    {
+        await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            ServiceResponse? result = await _hardware.SetKeyboardBacklightAsync("FirmwareAuto", cancellationToken).ConfigureAwait(false);
+            _lastHardwareWrite = DateTimeOffset.UtcNow;
+            if (result?.Success != true)
+                return false;
+
+            _lastAppliedLevel = null;
+            _state.KeyboardStatus = "Lenovo Auto";
+            return true;
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
     }
 
     private string AutoTarget()

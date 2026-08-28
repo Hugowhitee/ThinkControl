@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.31`.
+Current prerelease candidate: `v0.1.0-alpha.32`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -14,10 +14,11 @@ The reference device is **not** the product boundary. Windows-safe features shou
 2. Show telemetry only when a real provider supplies it.
 3. Detect support per capability instead of assuming a brand/family shares one hardware interface.
 4. Keep the desktop UI unprivileged and isolate low-level operations in the Windows service.
-5. Fail safely when a provider is missing, unsupported or returns an unexpected state.
+5. Fail safely when a provider is missing, incomplete, unsupported or returns an unexpected state.
 6. Keep the UI capability-first so adding another OEM does not create vendor-specific copies of product pages.
 7. Keep model-specific writes behind explicit identity gates, provider-owned allowlists and readback/safety rules.
 8. Never expose an empty/black application surface while expensive startup discovery or view construction is in progress.
+9. Keep setup state truthful: registration metadata, kernel/service readiness and actual provider/device access are distinct facts.
 
 Implementation boundaries are defined in [Architecture](ARCHITECTURE.md), low-level rules in [Hardware Safety](HARDWARE-SAFETY.md), current support in [Device Support](DEVICE-SUPPORT.md), and Lenovo implementation evidence in [Lenovo provider research](research/lenovo-providers.md) plus [X9 research](research/x9-15-gen1.md).
 
@@ -35,13 +36,13 @@ Compact contains the controls and telemetry most useful during normal operation:
 - keyboard backlight when supported;
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. It does not disappear merely because focus moves to another application. Explicit close, tray-toggle and Compact/Advanced transitions still hide it.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not.
 
 ### Advanced
 
 Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
 
-All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Advanced is a normal Windows application window with normal focus, taskbar, Snap and caption behavior.
+All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale vertical/horizontal scroll offsets so a revisited page reopens at its canonical header rail. Page-level actions belong on the shared top-right action rail rather than feature-specific one-off margins.
 
 Compact ↔ Advanced switching is a single-owner shell transition. The destination paints before the old surface disappears, and the real WPF lifecycle is exercised by CI rather than inferred from screenshots alone.
 
@@ -53,11 +54,20 @@ Battery and plugged-in preferences are stored separately. Compact and Home inten
 
 An OEM thermal-policy provider may coordinate with the selected Windows preference only when that semantic contract has been reviewed for the exact supported scope. Power mode is not treated as fake direct fan-RPM/PWM control.
 
-## Fans and temperatures
+## Fans, PawnIO and temperatures
 
 Fans consume generic fan/control-temperature capabilities. The provider may expose discrete EC states, a percentage/PWM target, an OEM-native thermal policy, or read-only telemetry; the UI must not assume one backend merely because `FanControl` exists.
 
 The verified X9 provider uses discrete fan states and supervised curves. ThinkControl maps user-facing targets onto verified hardware output states rather than pretending the EC exposes continuous PWM.
+
+PawnIO prerequisite state is not inferred from an uninstall registry entry alone. ThinkControl distinguishes:
+
+- whether compatible PawnIO registration exists;
+- whether the PawnIO kernel service is registered;
+- whether a demand-start driver is currently running;
+- whether the hardware provider can actually open/verify the required device/module path.
+
+A compatible registration with a missing kernel service is an incomplete installation and is presented as **repair**. A stopped demand-start kernel service can still be ready for provider probing. On the verified X9, repair is not considered a successful fan recovery until the X9 EC fan-control/readback capability itself passes again; unrelated sensor or keyboard recovery cannot unlock fan writes.
 
 Supervised cooling uses bounded smoothing, hysteresis, dwell time, immediate meaningful cooling increases and firmware fallback. Missing control telemetry/provider state or a thermal safety handoff returns ownership to OEM firmware.
 
@@ -85,7 +95,9 @@ Dolby controls are provider-driven rather than Lenovo-specific. Direct controls 
 
 Hardware backlight and optional user-session effects are separate concepts. A backend must pass its read/probe contract before writes are enabled. Direct static changes and effects share serialized hardware ownership so one cannot silently overwrite/drop the other.
 
-Other OEMs should provide their own backend behind the same keyboard capability rather than adding vendor-specific UI.
+On a Lenovo backend that exposes the reviewed Vantage keyboard contract, `FirmwareAuto = 3` is treated as an observed OEM state, not a guessed direct-driver command. Selecting Auto first requests Lenovo firmware Auto and requires readback verification. If that semantic operation is not available, ThinkControl may fall back to the bounded software idle policy (High → Low after 15 seconds → Off after 35 seconds). The UI must identify that behavior as fallback rather than claiming every ThinkPad exposes native Auto.
+
+Other OEMs should provide their own backend behind the same keyboard capability rather than adding vendor-specific page copies.
 
 ## Touchpad
 
@@ -93,13 +105,15 @@ The Touchpad page shows real contact points, bounded recent trails, configurable
 
 A finger lift ends a visual trail segment. New contacts and implausibly large physical jumps do not draw fake connecting lines.
 
-Track control prefers the active Windows media session and falls back safely where needed. Optional center Play/Pause uses a visible bounded center zone and deliberate low-travel hold/release; normal swipes still own Previous/Next. Optional top-corner launches use the exact same physical lane geometry in Core recognition and UI visualization/hit-testing.
+Track control prefers the active Windows media session and falls back safely where needed. Optional center Play/Pause uses a visible bounded center zone and deliberate low-travel hold/release; normal swipes still own Previous/Next.
+
+Corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins inside the same physical diagonal lane drawn by the UI. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture. The editor mirrors that ownership: selecting a corner hides the edge editor; selecting an edge clears corner selection.
 
 ## Battery
 
 ThinkControl can display percentage, charging state, live/smoothed watts, remaining/full-charge Wh, health, cycle count when exposed, filtered ETA and battery temperature only when a credible battery-specific sensor/provider supplies it.
 
-Charge/discharge history is local and bounded. Windows remains the owner of system sleep/screen/presence policy; ThinkControl links to supported Windows settings instead of duplicating undocumented policy.
+Charge/discharge history is local and bounded. Windows remains the owner of system sleep/screen/presence policy; ThinkControl links to supported Windows settings instead of duplicating undocumented policy. Battery uses the same title/subtitle/top-action rail as other Advanced pages.
 
 ## Startup and shell reliability
 
@@ -123,13 +137,13 @@ Unknown/unverified laptops remain capability-driven and conservative. Windows-sa
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.31; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md).
+No automatic cloud compatibility/crash upload is part of alpha.32; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md).
 
 ## Installation and updates
 
-Alpha.31 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.32 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
-Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior and uninstall cleanup. `version.json` remains the build/release version source of truth.
+Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior, compatibility with the legacy updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 
 ## Safety boundary
 

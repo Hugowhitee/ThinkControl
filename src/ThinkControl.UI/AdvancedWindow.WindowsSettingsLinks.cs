@@ -89,7 +89,10 @@ public partial class AdvancedWindow
             .FirstOrDefault(grid => Equals(grid.Tag, BatteryHeaderTag));
         if (header is null)
         {
-            TextBlock? title = stack.Children.OfType<TextBlock>().FirstOrDefault();
+            // Defensive fallback for an old/customized page shape. Prefer a real
+            // PageTitle candidate; never turn the first subtitle into the header.
+            TextBlock? title = stack.Children.OfType<TextBlock>()
+                .FirstOrDefault(text => string.Equals(text.Text, "Battery", StringComparison.Ordinal));
             if (title is null)
                 return;
 
@@ -105,27 +108,37 @@ public partial class AdvancedWindow
             .FirstOrDefault(panel => Grid.GetColumn(panel) == 1);
         if (actions is null)
         {
+            // Normalize any direct legacy header buttons into the shared action rail.
+            Button[] legacyButtons = header.Children.OfType<Button>().ToArray();
+            foreach (Button button in legacyButtons)
+                header.Children.Remove(button);
+
             actions = new StackPanel
             {
                 Orientation = Orientation.Horizontal,
                 HorizontalAlignment = HorizontalAlignment.Right,
                 VerticalAlignment = VerticalAlignment.Center
             };
+            foreach (Button button in legacyButtons)
+                actions.Children.Add(button);
             Grid.SetColumn(actions, 1);
             header.Children.Add(actions);
         }
 
+        // Keep the page actions in a stable order: broad battery settings, usage,
+        // then the narrower Screen & sleep link already owned by Battery.cs.
         if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, BatteryWindowsLinkTag)))
         {
             Button power = CreateWindowsLink("Power & battery ↗", "ms-settings:powersleep", BatteryWindowsLinkTag);
             power.Margin = new Thickness(0, 0, 8, 0);
-            actions.Children.Add(power);
+            actions.Children.Insert(0, power);
         }
 
         if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, BatteryUsageWindowsLinkTag)))
         {
             Button usage = CreateWindowsLink("Battery use ↗", "ms-settings:batterysaver-usagedetails", BatteryUsageWindowsLinkTag);
-            actions.Children.Add(usage);
+            usage.Margin = new Thickness(0, 0, 8, 0);
+            actions.Children.Insert(Math.Min(1, actions.Children.Count), usage);
         }
     }
 

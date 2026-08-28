@@ -28,6 +28,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
     private TouchpadGeometry _geometry = new(0, 13500, 0, 8000, 135, 80, true);
     private IReadOnlyList<TouchContact> _contacts = Array.Empty<TouchContact>();
     private TouchpadEdge _selectedEdge = TouchpadEdge.Top;
+    private bool _edgeSelectionVisible = true;
     private TouchpadEdge? _hoverEdge;
     private GestureSignal? _signal;
     private TouchpadEdge? _activeFeedbackEdge;
@@ -94,6 +95,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
     {
         get => _selectedEdge;
         set { _selectedEdge = value; InvalidateVisual(); }
+    }
+
+    public bool EdgeSelectionVisible
+    {
+        get => _edgeSelectionVisible;
+        set { _edgeSelectionVisible = value; InvalidateVisual(); }
     }
 
     public void SetTestFrame(IReadOnlyList<TouchContact> contacts, GestureSignal? signal)
@@ -213,7 +220,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         dc.DrawRoundedRectangle(null, new Pen(border, 1), pad, PadCornerRadius, PadCornerRadius);
         DrawEdgeLabels(dc, pad, accent, muted, faint);
 
-        DrawLabel(dc, EdgeName(_selectedEdge).ToUpperInvariant(),
+        DrawLabel(dc, _edgeSelectionVisible ? EdgeName(_selectedEdge).ToUpperInvariant() : "CORNER LAUNCH",
             new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 8),
             TypographyScale.Caption, muted, centered: true);
         string size = _geometry.PhysicalSizeEstimated
@@ -265,6 +272,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         if (edge is null)
             return;
 
+        _edgeSelectionVisible = true;
         SelectedEdge = edge.Value;
         EdgeSelected?.Invoke(edge.Value);
         e.Handled = true;
@@ -331,7 +339,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
         bool active = IsActiveEdge(edge);
         bool candidate = IsCandidateEdge(edge);
-        bool selected = edge == _selectedEdge;
+        bool selected = _edgeSelectionVisible && edge == _selectedEdge;
         bool hovered = edge == _hoverEdge;
         bool enabled = binding.Action != GestureActionKind.Disabled;
         Rect zone = EdgeBandRect(pad, edge);
@@ -449,7 +457,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
             bool active = IsActiveEdge(edge);
             bool candidate = IsCandidateEdge(edge);
-            bool selected = edge == _selectedEdge;
+            bool selected = _edgeSelectionVisible && edge == _selectedEdge;
             bool hovered = edge == _hoverEdge;
             bool enabled = binding.Action != GestureActionKind.Disabled;
             Brush labelBrush = active || candidate ? accent : selected ? ResourceBrush("Tc.Text", muted) : hovered ? ResourceBrush("Tc.Text", muted) : enabled ? muted : faint;
@@ -502,13 +510,11 @@ public sealed class TouchpadVisualizer : FrameworkElement
             TouchpadVisualCue lastCue;
             if (vertical)
             {
-                // Vertical edge gestures use up as positive and down as negative.
                 firstCue = binding.Inverted ? spec.Negative : spec.Positive;
                 lastCue = binding.Inverted ? spec.Positive : spec.Negative;
             }
             else
             {
-                // Horizontal edge gestures use left as negative and right as positive.
                 firstCue = binding.Inverted ? spec.Positive : spec.Negative;
                 lastCue = binding.Inverted ? spec.Negative : spec.Positive;
             }

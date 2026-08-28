@@ -14,6 +14,8 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private const string ResetDefaultsConfiguredKey = "ThinkControl.Advanced.ResetDefaultsConfigured";
+    private const string PageHeaderTag = "ThinkControl.PageHeader";
+    private const string PageResetButtonTag = "ThinkControl.Page.ResetDefaults";
     private const string TouchpadResetButtonTag = "ThinkControl.Touchpad.ResetDefaults";
     private const string GlobalResetCardTag = "ThinkControl.Settings.GlobalResetCard";
 
@@ -69,10 +71,14 @@ public partial class AdvancedWindow
 
         stack.Children.RemoveAt(0);
 
-        var header = new WpfGrid();
+        var header = new WpfGrid { Tag = PageHeaderTag };
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(title);
 
         WpfButton button = CreatePageResetButton(tooltip);
+        button.Tag = PageResetButtonTag;
+        WpfGrid.SetColumn(button, 1);
         button.Click += async (_, _) =>
         {
             button.IsEnabled = false;
@@ -95,13 +101,30 @@ public partial class AdvancedWindow
         WpfStackPanel? actions = header?.Children
             .OfType<WpfStackPanel>()
             .FirstOrDefault(child => WpfGrid.GetColumn(child) == 1);
-        if (actions is null || actions.Children.OfType<WpfButton>().Any(button => Equals(button.Tag, TouchpadResetButtonTag)))
+        if (header is null || actions is null)
+            return;
+
+        header.Tag = PageHeaderTag;
+        header.Margin = new Thickness(0, 0, 0, 18);
+        actions.VerticalAlignment = VerticalAlignment.Top;
+
+        WpfStackPanel? copy = header.Children
+            .OfType<WpfStackPanel>()
+            .FirstOrDefault(child => WpfGrid.GetColumn(child) == 0);
+        if (copy?.Children.OfType<WpfTextBlock>().Skip(1).FirstOrDefault() is WpfTextBlock subtitle)
+        {
+            subtitle.Margin = new Thickness(0, 6, 0, 0);
+            if (TryFindResource("TcText.PageSubtitle") is Style subtitleStyle)
+                subtitle.Style = subtitleStyle;
+        }
+
+        if (actions.Children.OfType<WpfButton>().Any(button => Equals(button.Tag, TouchpadResetButtonTag)))
             return;
 
         WpfButton reset = CreatePageResetButton(
             "Restore edge gestures, gesture pop-up and supported Windows haptic settings to ThinkControl defaults.");
         reset.Tag = TouchpadResetButtonTag;
-        reset.Margin = new Thickness(0, 0, 12, 0);
+        reset.Margin = new Thickness(0, 0, PageHeaderActionGap, 0);
         reset.Click += async (_, _) =>
         {
             reset.IsEnabled = false;
@@ -126,7 +149,7 @@ public partial class AdvancedWindow
             Content = "Defaults",
             ToolTip = "Reset this page · " + tooltip,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
             Padding = new Thickness(8, 4, 8, 4),
             FontSize = TypographyScale.Caption,
             Cursor = System.Windows.Input.Cursors.Hand,

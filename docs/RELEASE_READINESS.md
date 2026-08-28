@@ -2,63 +2,83 @@
 
 This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
-## Current release: alpha.31 stabilization
+## Current release: alpha.32 hardware and touchpad hardening
 
-`v0.1.0-alpha.30` is already immutable. Post-alpha.30 fixes therefore target **`v0.1.0-alpha.31`**. Keep `version.json.releaseReady=false` until the pre-readiness exact-head gate and visual inspection are complete.
+`v0.1.0-alpha.31` is the immutable baseline. The active single release PR is #62 and targets **`v0.1.0-alpha.32`**.
 
-### Implemented in the active PR
+The final readiness head `6c21fd3321ba58d2ab86279e0a85b475a729785b` passed CI, Package ThinkControl and Installer reliability on the same head. Its generated WPF gallery was manually inspected after earlier screenshot review caught and fixed Battery header ordering, touchpad editor ambiguity and stale Keyboard Auto copy. The final gallery visibly reports `v0.1.0-alpha.32` and matches the reviewed architecture.
 
-- [x] Root-cause fix for the `TargetParameterCountException` dispatcher crash path.
-- [x] Compact remains topmost while visible; ThinkControl-owned modal/notification surfaces can stay above it.
-- [x] Painted startup/transition feedback avoids dead/black shell periods.
-- [x] Home and Compact use one battery-power quick preference; full Performance owns separate battery/AC settings.
-- [x] Home battery/Performance layout is minimum-width safe and aligned with neighboring metrics/cards.
-- [x] Touchpad top-corner launches use shared physical Core/UI geometry instead of hidden square targets.
-- [x] Track Previous/Next requires deliberate travel; optional center Play/Pause has a bounded visible target and stateful OSD.
-- [x] Keyboard Auto no longer depends on unrelated effect capability; hardware/effect writes share serialized ownership.
-- [x] X9 fan calibration is transactional and accepts only complete/plausible seven-state tachometer evidence.
-- [x] Raw X9 EC/calibration UI requires the verified provider and required capabilities.
-- [x] Useless subjective fan-audibility UI removed.
-- [x] Release-specific UI partials consolidated into permanent owners.
-- [x] Repository/docs cleanup removed duplicate checklists, historical verification Markdown and committed visual-QA screenshots.
-- [x] Repository-hygiene CI rejects broken local docs links, tracked generated output, stale version entry points and reintroduction of known obsolete files.
+### Implemented in alpha.32
+
+- [x] PawnIO bootstrap state separates uninstall registration, compatible version, kernel-service registration/running state and provider/device readiness.
+- [x] Compatible PawnIO registration with a missing kernel service is classified as repair, not a generic fan retry or a healthy installation.
+- [x] Demand-start PawnIO may be registered but stopped before a provider opens the device; continuous running is not required.
+- [x] PawnIO install/repair uses the pinned package and SHA-256 verification before elevation.
+- [x] After PawnIO repair, verified X9 fan recovery requires the real EC fan-control/readback capability; unrelated providers cannot make fan setup report success.
+- [x] X9 fan writes remain fail-closed behind exact identity, provider and readback gates.
+- [x] Lenovo keyboard Auto prefers the reviewed Vantage/OEM `FirmwareAuto = 3` semantic path and requires readback verification.
+- [x] No guessed direct-driver Auto IOCTL/payload was introduced; ThinkControl software Auto remains a bounded fallback.
+- [x] Keyboard UI copy describes Lenovo Auto as preferred/verified and the High → Low → Off behavior as fallback-only.
+- [x] Touchpad corner and edge selection are mutually exclusive in the editor.
+- [x] Configured corners own matching contacts from the first candidate frame.
+- [x] Rejected corner contacts are locked out until lift and cannot fall through into an edge with the same finger.
+- [x] Corner launch visuals are symmetric/quieter and use the same physical Core lane geometry as recognition.
+- [x] The live-corner visual-QA fixture reflects corner ownership instead of leaving an edge visually selected.
+- [x] Right-side touchpad track-center geometry is corrected.
+- [x] Advanced pages reset stale scroll offsets when revisited.
+- [x] Battery uses the shared title → subtitle → top-action rail without Windows-link augmentation reordering its title.
+- [x] Shared page/reset actions use the common top-right action pattern.
+- [x] Repository hygiene, real shell smoke, WPF visual QA, packaging and installer lifecycle remain part of the release gate.
 
 ### Pre-readiness gate
 
-All items must pass on the **same exact head**:
+Passed on the final readiness head `6c21fd3321ba58d2ab86279e0a85b475a729785b`:
 
-- [ ] Repository hygiene.
-- [ ] Release restore/build and Core unit tests.
-- [ ] Real Compact → Advanced → Compact WPF shell smoke.
-- [ ] WPF visual-QA matrix render.
-- [ ] Package ThinkControl workflow.
-- [ ] Installer reliability workflow.
-- [ ] Manual screenshot review: Home min/normal/wide; Touchpad normal/wide/inward-active; Compact dark/light/battery; Fans normal/manual-test/unavailable; startup; updates/attention; representative unavailable/error states.
-- [ ] Dead-code/reference/docs audit has no unexplained duplicate implementation or stale tracked artifact.
-
-Crash issue #60 stays open until the published alpha.31 can be physically retested. Hosted shell smoke proves the software route, not the field report.
+- [x] Repository hygiene.
+- [x] Release restore/build and Core unit tests.
+- [x] Real Compact → Advanced → Compact WPF shell smoke.
+- [x] WPF visual-QA matrix render.
+- [x] Package ThinkControl workflow.
+- [x] Installer reliability workflow, including deep install/service/IPC and legacy updater compatibility smoke.
+- [x] Manual screenshot review across representative Home/Battery/Keyboard/Touchpad/Fans, minimum/normal/wide, setup/error and light/dark states.
+- [x] Touchpad exclusivity regression test covers first-frame corner ownership, rejection, lift-required lockout and normal recognition after lift.
+- [x] Dead-code/reference/docs audit found no release-blocking duplicate implementation or generated tracked artifact in the alpha.32 scope.
+- [x] `version.json` is `0.1.0-alpha.32` with `releaseReady=true` and README/Product match it.
 
 ### Promotion gate
 
-Only after the pre-readiness gate:
+- [x] Freeze README/Product/release-readiness documentation to alpha.32.
+- [x] Set `version.json` to `0.1.0-alpha.32` with `releaseReady=true`.
+- [x] Re-run CI + Package + Installer reliability on the exact final readiness head.
+- [x] Inspect the final-head generated UI artifact for release-version/header drift.
+- [ ] Squash-merge PR #62 to `main` using the expected final head SHA.
+- [ ] Verify `main` points to the returned squash SHA.
+- [ ] Verify the `Promote release-ready main` workflow succeeds for the squash SHA.
+- [ ] Verify tag `v0.1.0-alpha.32` points to that exact `main` SHA.
+- [ ] Verify the GitHub prerelease exists and contains exactly `ThinkControl-Setup-0.1.0-alpha.32.exe`, `ThinkControl-Payload-0.1.0-alpha.32.zip`, `SHA256SUMS.txt` and `ui-overview.png`.
+- [ ] Verify the published release checksums succeed and assets are non-empty.
 
-- [ ] Set `version.json.releaseReady=true`.
-- [ ] Re-run CI + Package + Installer reliability on that exact readiness head.
-- [ ] Squash-merge the one release PR to `main`.
-- [ ] Verify `main` equals the squash SHA.
-- [ ] Verify `v0.1.0-alpha.31` points at that exact `main` SHA.
-- [ ] Verify immutable release contains exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`, with valid checksums.
-- [ ] Install/retest on the physical X9; close crash #60 only if the reported workflow no longer reproduces.
+### Physical X9 follow-up — not an automated release claim
+
+Hosted CI cannot prove the following and this document must not mark them complete without a real 21Q6/21Q7 test:
+
+- [ ] Clean PawnIO reinstall/repair after stale/missing kernel-service state.
+- [ ] Restart/UAC path and provider refresh after PawnIO repair.
+- [ ] Fan RPM/control recovery on the verified X9 EC path after repair.
+- [ ] Lenovo OEM Auto, Fn+Space and readback stay in agreement through normal use/restart.
+- [ ] Real touchpad corner/edge feel and rejection behavior are comfortable on the physical haptic pad.
+- [ ] Close any related field crash/hardware issue only after its reported workflow no longer reproduces.
 
 ## Commercial/public release program
 
-Do **not** mix this backend/licensing program into an alpha stabilization PR. Implement it in bounded phases with a threat model and migration plan first.
+Do **not** mix this backend/licensing program into an alpha stabilization/hardware-hardening PR. Implement it in bounded phases with a threat model and migration plan first.
 
 ### Installer, updater and signing
 
-- [ ] Preserve custom install location across interactive/silent updates.
+- [x] Preserve custom install location across the currently supported in-place update path.
+- [x] Exercise clean install, service start/IPC, update compatibility and uninstall cleanup in CI.
 - [ ] Failed staged update cannot destroy the last working payload; rollback stays tested.
-- [ ] Full uninstall removes ThinkControl-owned service/process/startup/shortcuts/staging/local data according to explicit user policy and supports clean reinstall.
+- [ ] Define explicit uninstall policy for ThinkControl-owned runtime/local data before a commercial release.
 - [ ] Sign binaries/installer and document/test SmartScreen reputation strategy.
 - [ ] Keep intentional legacy-updater compatibility until the supported installed-client floor no longer needs it.
 
@@ -66,7 +86,8 @@ Do **not** mix this backend/licensing program into an alpha stabilization PR. Im
 
 - [x] Windows-generic UI is vendor-neutral.
 - [x] Raw X9 EC controls require the verified X9 provider path.
-- [ ] Continue replacing device-name assumptions with explicit capabilities.
+- [x] Setup distinguishes installation metadata from real provider readiness.
+- [ ] Continue replacing residual device-name assumptions with explicit capabilities.
 - [ ] Keep fan semantics distinct: OEM thermal policy, read-only telemetry, discrete EC states, continuous percentage/PWM.
 - [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic capability.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
@@ -116,4 +137,4 @@ Do not make the source repository private while updater/build distribution still
 
 ## Release principle
 
-A green compiler is not release readiness. Promotion requires the exact-head repository/build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review, and only then release publication.
+A green compiler is not release readiness. Promotion requires the exact-head repository/build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review, and only then release publication. Physical hardware behavior remains a separate evidence class and must never be inferred from hosted CI.

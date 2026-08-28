@@ -63,10 +63,12 @@ public partial class HardwareSetupWindow : Window
                 PrimaryActionButton.Content = "Repair service";
                 break;
             case HardwarePrerequisiteIssue.PawnIo:
-                bool installed = status.LowLevelAccessInstalled;
-                PrimaryTitleText.Text = installed ? "PawnIO needs repair" : "PawnIO installation required";
-                PrimaryStatusText.Text = "ThinkControl needs this verified driver for fan control and sensor data on this PC. Other Windows controls continue to work without it.";
-                PrimaryActionButton.Content = installed ? "Repair PawnIO" : "Install PawnIO";
+                bool registered = status.LowLevelAccessRegistered;
+                PrimaryTitleText.Text = registered ? "PawnIO needs repair" : "PawnIO installation required";
+                PrimaryStatusText.Text = registered
+                    ? "ThinkControl found an incomplete or unusable PawnIO installation. Repair restores the verified driver required for fan control and sensor data; other Windows controls continue to work."
+                    : "ThinkControl needs this verified driver for fan control and sensor data on this PC. Other Windows controls continue to work without it.";
+                PrimaryActionButton.Content = registered ? "Repair PawnIO" : "Install PawnIO";
                 break;
             case HardwarePrerequisiteIssue.Sensors:
                 PrimaryTitleText.Text = "Sensor provider needs a retry";
@@ -120,6 +122,21 @@ public partial class HardwareSetupWindow : Window
                     success = pawnIo.Success;
                     restartRequired = pawnIo.RestartRequired;
                     failure = pawnIo.Message;
+                    if (success && !restartRequired)
+                    {
+                        bool providersReady = await _app.RefreshHardwareProvidersAsync();
+                        bool expectsWritableFan = DeviceCapabilityExpectations.ExpectsWritableFanControl(_app.State);
+                        if (expectsWritableFan && !_app.State.CanFanControl)
+                        {
+                            success = false;
+                            failure = "PawnIO registration and its kernel service were repaired, but the verified X9 EC fan path still did not pass its real access/readback gate. Lenovo firmware remains in control and fan writes stay disabled; retry the fan provider or review Diagnostics.";
+                        }
+                        else if (!providersReady)
+                        {
+                            success = false;
+                            failure = "PawnIO registration and its kernel service were repaired, but the hardware provider still could not open and verify the required device path. Unsafe hardware actions remain disabled; retry the provider or review Diagnostics.";
+                        }
+                    }
                     break;
                 case HardwarePrerequisiteIssue.Sensors:
                     success = await _app.RefreshSensorProvidersAsync();
@@ -168,7 +185,8 @@ public partial class HardwareSetupWindow : Window
         HardwarePrerequisiteIssue.None => true,
         HardwarePrerequisiteIssue.Service => status.ServiceRunning && status.ServiceReachable,
         HardwarePrerequisiteIssue.PawnIo => status.LowLevelAccessInstalled &&
-                                             _app.ResolvePrimaryHardwareIssue(status) != HardwarePrerequisiteIssue.PawnIo,
+                                             _app.ResolvePrimaryHardwareIssue(status) != HardwarePrerequisiteIssue.PawnIo &&
+                                             (!DeviceCapabilityExpectations.ExpectsWritableFanControl(_app.State) || _app.State.CanFanControl),
         HardwarePrerequisiteIssue.Sensors => _app.State.CanSensorTelemetry,
         HardwarePrerequisiteIssue.FanControl => _app.State.CanFanControl,
         HardwarePrerequisiteIssue.Keyboard => _app.State.CanKeyboardBacklight,

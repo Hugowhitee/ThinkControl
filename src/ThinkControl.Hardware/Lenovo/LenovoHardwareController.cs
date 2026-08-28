@@ -301,10 +301,9 @@ public sealed class LenovoHardwareController : IDisposable
             return false;
         }
 
-        if (!Enum.TryParse(value, true, out KeyboardBacklightLevel level) ||
-            level == KeyboardBacklightLevel.FirmwareAuto)
+        if (!Enum.TryParse(value, true, out KeyboardBacklightLevel level))
         {
-            error = "The privileged service accepts only Off, Low and High. Auto/effects are user-session ThinkControl policies.";
+            error = "Keyboard backlight state must be Off, Low, High or FirmwareAuto.";
             return false;
         }
 
@@ -320,7 +319,9 @@ public sealed class LenovoHardwareController : IDisposable
             bool success = _keyboard.SetAndVerify(level);
             if (!success)
             {
-                error = $"Lenovo keyboard backlight did not verify {level}.";
+                error = level == KeyboardBacklightLevel.FirmwareAuto
+                    ? "Lenovo OEM Auto is not exposed by a verified set-and-readback contract on this keyboard backend."
+                    : $"Lenovo keyboard backlight did not verify {level}.";
                 return false;
             }
 

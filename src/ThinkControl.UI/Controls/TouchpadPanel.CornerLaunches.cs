@@ -21,6 +21,7 @@ public partial class TouchpadPanel
     private TouchpadGestureZoneOverlay? _gestureZoneOverlay;
     private ComboBox? _topLeftLaunchCombo;
     private ComboBox? _topRightLaunchCombo;
+    private FrameworkElement? _edgeEditorCard;
     private bool _cornerLaunchUiConfigured;
     private bool _cornerHostSubscribed;
     private TouchpadCorner? _selectedLaunchCorner;
@@ -39,6 +40,10 @@ public partial class TouchpadPanel
                              option.Action != GestureActionKind.OpenAdvanced)
             .ToArray();
 
+        _edgeEditorCard = SettingsStack.Children.Count > 0
+            ? SettingsStack.Children[0] as FrameworkElement
+            : null;
+
         if (Visualizer.Parent is Grid visualizerHost)
         {
             _gestureZoneOverlay = new TouchpadGestureZoneOverlay
@@ -53,6 +58,16 @@ public partial class TouchpadPanel
             visualizerHost.Children.Add(_gestureZoneOverlay);
         }
 
+        // Editor ownership mirrors recognizer ownership. Selecting an edge clears
+        // corner emphasis and restores the edge editor; selecting a corner gives the
+        // corner editor exclusive ownership instead of showing two selected models.
+        Visualizer.EdgeSelected += _ =>
+        {
+            _selectedLaunchCorner = null;
+            SetCornerEditorOwnership(false);
+            SyncGestureZoneOverlay();
+        };
+
         var card = new Border
         {
             Style = TryFindResource("TcSection") as Style,
@@ -66,7 +81,7 @@ public partial class TouchpadPanel
         });
         var description = new TextBlock
         {
-            Text = "Start inside one of the outlined diagonal corner lanes and swipe inward. The visible lane is the real trigger area; taps and movement outside it do nothing.",
+            Text = "Start inside a diagonal corner guide and move deliberately inward. The guide uses the same physical trigger lane as recognition; taps and ordinary edge movement do nothing.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 11),
             FontSize = TypographyScale.Caption
@@ -127,6 +142,7 @@ public partial class TouchpadPanel
     private void CornerZone_Selected(TouchpadCorner corner)
     {
         _selectedLaunchCorner = corner;
+        SetCornerEditorOwnership(true);
         SyncGestureZoneOverlay();
 
         ComboBox? combo = corner == TouchpadCorner.TopLeft ? _topLeftLaunchCombo : _topRightLaunchCombo;
@@ -153,6 +169,7 @@ public partial class TouchpadPanel
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
         _selectedLaunchCorner = corner;
+        SetCornerEditorOwnership(true);
         SyncGestureZoneOverlay();
     }
 
@@ -173,6 +190,7 @@ public partial class TouchpadPanel
         {
             _syncing = false;
         }
+        SetCornerEditorOwnership(_selectedLaunchCorner is not null);
         SyncGestureZoneOverlay();
     }
 
@@ -204,6 +222,9 @@ public partial class TouchpadPanel
 
             if (signal.Corner is TouchpadCorner corner)
             {
+                bool live = signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
+                SetCornerEditorOwnership(live || _selectedLaunchCorner is not null);
+
                 string cornerName = corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right";
                 string action = signal.Action == GestureActionKind.OpenAdvanced ? "Advanced" : "Compact";
                 GestureStatusText.Text = signal.Phase switch
@@ -216,6 +237,13 @@ public partial class TouchpadPanel
                 };
             }
         }));
+    }
+
+    private void SetCornerEditorOwnership(bool cornerOwns)
+    {
+        Visualizer.EdgeSelectionVisible = !cornerOwns;
+        if (_edgeEditorCard is not null)
+            _edgeEditorCard.Visibility = cornerOwns ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private void SyncGestureZoneOverlay()
@@ -238,5 +266,6 @@ public partial class TouchpadPanel
         _gestureZoneOverlay.Geometry = _host?.Geometry ?? DefaultGeometry();
         _gestureZoneOverlay.SelectedCorner = _selectedLaunchCorner;
         _gestureZoneOverlay.Signal = signal;
+        SetCornerEditorOwnership(signal?.Corner is not null || _selectedLaunchCorner is not null);
     }
 }

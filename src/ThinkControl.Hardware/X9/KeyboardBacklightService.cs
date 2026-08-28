@@ -87,6 +87,7 @@ public sealed class KeyboardBacklightService : IDisposable
     private DriverConfig? _driver;
     private VantageKeyboardBackend? _vantage;
     private DateTimeOffset _lastVantageProbe = DateTimeOffset.MinValue;
+    private string? _lastBackendLabel;
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern SafeFileHandle CreateFile(
@@ -109,16 +110,26 @@ public sealed class KeyboardBacklightService : IDisposable
         out int bytesReturned,
         IntPtr overlapped);
 
-    public string BackendLabel => _driver?.Name ?? _vantage?.Label ?? "Not exposed";
+    public string BackendLabel => _lastBackendLabel ?? _driver?.Name ?? _vantage?.Label ?? "Not exposed";
 
     public bool IsAvailable
     {
         get
         {
             EnsureOpen();
-            if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null)
-                return TryGet(_driver, _handle, out _);
-            return _vantage?.TryGet(out _) == true;
+            if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null &&
+                TryGet(_driver, _handle, out _))
+            {
+                _lastBackendLabel = _driver.Name;
+                return true;
+            }
+
+            if (EnsureVantageBackend() && _vantage?.TryGet(out _) == true)
+            {
+                _lastBackendLabel = _vantage.Label;
+                return true;
+            }
+            return false;
         }
     }
 
@@ -127,18 +138,36 @@ public sealed class KeyboardBacklightService : IDisposable
         level = KeyboardBacklightLevel.Off;
         EnsureOpen();
 
-        if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null)
-            return TryGet(_driver, _handle, out level);
+        if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null &&
+            TryGet(_driver, _handle, out level))
+        {
+            _lastBackendLabel = _driver.Name;
+            return true;
+        }
 
-        return _vantage?.TryGet(out level) == true;
+        if (EnsureVantageBackend() && _vantage?.TryGet(out level) == true)
+        {
+            _lastBackendLabel = _vantage.Label;
+            return true;
+        }
+        return false;
     }
 
     public bool SetAndVerify(KeyboardBacklightLevel level)
     {
-        if (level is KeyboardBacklightLevel.FirmwareAuto)
-            return false;
-
         EnsureOpen();
+
+        // FirmwareAuto=3 is an observed Lenovo/Vantage contract and is verified by
+        // readback. Direct-driver configs intentionally have no guessed SetAuto
+        // payload, so OEM Auto is attempted only through the installed Lenovo API.
+        if (level == KeyboardBacklightLevel.FirmwareAuto)
+        {
+            if (!EnsureVantageBackend() || _vantage?.SetAndVerify(level) != true)
+                return false;
+            _lastBackendLabel = _vantage.Label;
+            return true;
+        }
+
         if (_handle is { IsInvalid: false, IsClosed: false } && _driver is not null)
         {
             uint payload = level switch
@@ -171,12 +200,20 @@ public sealed class KeyboardBacklightService : IDisposable
             {
                 Thread.Sleep(attempt == 0 ? 55 : 70);
                 if (TryGet(out KeyboardBacklightLevel current) && current == level)
+                {
+                    _lastBackendLabel = _driver.Name;
                     return true;
+                }
             }
             return false;
         }
 
-        return _vantage?.SetAndVerify(level) == true;
+        if (EnsureVantageBackend() && _vantage?.SetAndVerify(level) == true)
+        {
+            _lastBackendLabel = _vantage.Label;
+            return true;
+        }
+        return false;
     }
 
     private void EnsureOpen()
@@ -211,21 +248,26 @@ public sealed class KeyboardBacklightService : IDisposable
             {
                 _driver = candidate;
                 _handle = handle;
-                _vantage = null;
                 return;
             }
 
             handle.Dispose();
         }
 
+        _ = EnsureVantageBackend();
+    }
+
+    private bool EnsureVantageBackend()
+    {
         if (_vantage is not null && _vantage.TryGet(out _))
-            return;
+            return true;
 
         if (DateTimeOffset.UtcNow - _lastVantageProbe < TimeSpan.FromSeconds(15))
-            return;
+            return false;
 
         _lastVantageProbe = DateTimeOffset.UtcNow;
         _vantage = VantageKeyboardBackend.TryCreate();
+        return _vantage is not null;
     }
 
     private static bool TryGet(
@@ -274,6 +316,7 @@ public sealed class KeyboardBacklightService : IDisposable
         _driver = null;
         _vantage = null;
         _lastVantageProbe = DateTimeOffset.MinValue;
+        _lastBackendLabel = null;
     }
 
     public void Dispose() => RefreshBackend();

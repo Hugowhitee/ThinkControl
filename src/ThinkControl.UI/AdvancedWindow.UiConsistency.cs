@@ -14,6 +14,7 @@ public partial class AdvancedWindow
     private const int DwmwaTextColor = 36;
     private const double AdvancedContentMaxWidth = 1040;
     private const double PageRightGutter = 10;
+    internal const double PageHeaderActionGap = 10;
     private bool _uiConsistencyConfigured;
 
     private static readonly string[] ConsistentPageNames =
@@ -60,6 +61,26 @@ public partial class AdvancedWindow
         {
             ApplySliderAvailability(slider);
             slider.IsEnabledChanged += (_, _) => ApplySliderAvailability(slider);
+        }
+
+        foreach (string pageName in ConsistentPageNames)
+        {
+            if (FindName(pageName) is not ScrollViewer scroll)
+                continue;
+
+            // A page title belongs to one fixed top rail. ScrollViewer retains its
+            // previous offset while hidden, so without this a revisited Battery (or
+            // any other page) can appear to have a different title/header position.
+            // Reset only when the page becomes visible; content scrolling itself is
+            // otherwise untouched.
+            scroll.IsVisibleChanged += (_, args) =>
+            {
+                if (args.NewValue is true)
+                {
+                    scroll.ScrollToTop();
+                    scroll.ScrollToHorizontalOffset(0);
+                }
+            };
         }
 
         ApplySidebarPalette();

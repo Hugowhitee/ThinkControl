@@ -16,7 +16,11 @@ public partial class AdvancedWindow
         _batteryPageConfigured = true;
         var content = new StackPanel();
 
-        var header = new Grid();
+        // Battery uses the same page-header contract as the other Advanced pages:
+        // title on the left, page actions on the right, then subtitle/help text.
+        // Tag the canonical header so WindowsSettingsLinks augments this row instead
+        // of accidentally promoting the subtitle into a second synthetic header.
+        var header = new Grid { Tag = BatteryHeaderTag };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(new TextBlock
@@ -27,13 +31,19 @@ public partial class AdvancedWindow
             VerticalAlignment = VerticalAlignment.Center
         });
 
+        var actions = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center
+        };
         Button windowsPower = CreateWindowsLink(
             "Screen & sleep ↗",
             "ms-settings:powersleep",
             "ThinkControl.Battery.PowerSettings");
-        windowsPower.HorizontalAlignment = HorizontalAlignment.Right;
-        Grid.SetColumn(windowsPower, 1);
-        header.Children.Add(windowsPower);
+        actions.Children.Add(windowsPower);
+        Grid.SetColumn(actions, 1);
+        header.Children.Add(actions);
         content.Children.Add(header);
 
         content.Children.Add(new TextBlock
