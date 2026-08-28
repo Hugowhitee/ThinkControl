@@ -30,6 +30,7 @@ public sealed class EdgeGestureReleaseTests
         Assert.True(active?.TotalTravelMm > 7);
         Assert.Equal(GesturePhase.Released, released?.Phase);
         Assert.Equal(active?.TotalTravelMm, released?.TotalTravelMm);
+        Assert.InRange(released?.EdgePosition01 ?? -1, 0.45, 0.47);
     }
 
     [Fact]
@@ -46,7 +47,7 @@ public sealed class EdgeGestureReleaseTests
         };
         var recognizer = new EdgeGestureRecognizer(config);
 
-        GestureSignal? candidate = recognizer.ProcessFrame([new TouchContact(1, 6200, 120, true)], Geometry);
+        GestureSignal? candidate = recognizer.ProcessFrame([new TouchContact(1, 6750, 120, true)], Geometry);
         GestureSignal? released = recognizer.ProcessFrame([]);
 
         Assert.Equal(GesturePhase.Candidate, candidate?.Phase);
@@ -54,6 +55,29 @@ public sealed class EdgeGestureReleaseTests
         Assert.Equal(GesturePhase.Released, released?.Phase);
         Assert.Equal(GestureActionKind.PreviousNextTrack, released?.Action);
         Assert.Equal(0, released?.TotalTravelMm);
+        Assert.InRange(released?.EdgePosition01 ?? -1, 0.499, 0.501);
+    }
+
+    [Fact]
+    public void StationaryTrackCandidate_PreservesOffCenterStartForSafetyGate()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            TrackCenterPlayPauseEnabled = true,
+            Bindings = new TouchpadGestureBindings(
+                new(GestureActionKind.Volume),
+                new(GestureActionKind.Brightness),
+                new(GestureActionKind.PreviousNextTrack),
+                new(GestureActionKind.Disabled))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        recognizer.ProcessFrame([new TouchContact(1, 2600, 120, true)], Geometry);
+        GestureSignal? released = recognizer.ProcessFrame([]);
+
+        Assert.Equal(GesturePhase.Released, released?.Phase);
+        Assert.InRange(released?.EdgePosition01 ?? -1, 0.19, 0.20);
+        Assert.False(TrackCenterGesturePolicy.IsInsideCenterZone(released?.EdgePosition01));
     }
 
     [Fact]
