@@ -40,15 +40,11 @@ public partial class AdvancedWindow : Window
 
     private void ConfigureNativeWindow()
     {
-        // Advanced is a normal Windows application window. Let Windows own the
-        // caption buttons, maximize/restore state, Snap Layouts and system menu.
         WindowChrome.SetWindowChrome(this, null);
         WindowStyle = WindowStyle.SingleBorderWindow;
         ResizeMode = ResizeMode.CanResize;
         ShowInTaskbar = true;
 
-        // The XAML keeps the old custom caption as a harmless fallback for Blend.
-        // At runtime its row is collapsed so there is exactly one title bar.
         if (Content is System.Windows.Controls.Border rootBorder)
         {
             rootBorder.CornerRadius = new CornerRadius(0);
@@ -128,7 +124,6 @@ public partial class AdvancedWindow : Window
         }
         catch
         {
-            // Native caption theming is cosmetic; never block the window.
         }
     }
 
@@ -142,10 +137,6 @@ public partial class AdvancedWindow : Window
             _positioned = true;
         }
 
-        // Never fade a top-level native WPF window from opacity 0. On slower first
-        // composition passes that exposed a large black client area before the real
-        // visual tree painted. Keep the window fully opaque and let the dedicated
-        // startup loader / existing Compact surface provide transition continuity.
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
 
@@ -166,8 +157,6 @@ public partial class AdvancedWindow : Window
         if (!IsVisible)
             return;
 
-        // Layout switching must be deterministic. A whole-window fade can overlap
-        // with activation/deactivation and leave a hidden/transparent native window.
         BeginAnimation(OpacityProperty, null);
         Opacity = 1;
         Hide();
@@ -244,9 +233,6 @@ public partial class AdvancedWindow : Window
         _syncing = true;
         try
         {
-            // Home has exactly one quick selector, so it represents the saved
-            // battery preference regardless of the laptop's current power source.
-            // The full Performance page owns independent Battery and AC choices.
             ThinkControlPowerMode batteryPreference = _app.GetPowerPreference(onBattery: true);
             HomeQuiet.IsChecked = batteryPreference == ThinkControlPowerMode.Quiet;
             HomeBalanced.IsChecked = batteryPreference == ThinkControlPowerMode.Balanced;
@@ -359,8 +345,11 @@ public partial class AdvancedWindow : Window
 
     private void Mode_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || sender is not FrameworkElement { Tag: string tag } element || !Enum.TryParse(tag, out ThinkControlPowerMode mode))
+        if (_syncing || sender is not FrameworkElement element || element.Tag is not string tag ||
+            !Enum.TryParse(tag, out ThinkControlPowerMode mode))
+        {
             return;
+        }
 
         bool homeQuickControl = element.Name.StartsWith("Home", StringComparison.Ordinal);
         bool onBattery = homeQuickControl || _app.IsCurrentlyOnBattery();
