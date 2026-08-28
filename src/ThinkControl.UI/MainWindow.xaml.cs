@@ -167,7 +167,13 @@ public partial class MainWindow : Window
 
     private void EnsureTopmostNoActivate()
     {
-        if (!IsSourceInitialized || !IsVisible)
+        if (!IsVisible)
+            return;
+
+        IntPtr hwnd;
+        try { hwnd = new WindowInteropHelper(this).Handle; }
+        catch { return; }
+        if (hwnd == IntPtr.Zero)
             return;
 
         // Owned ThinkControl surfaces (notably update/attention popups) must remain
@@ -181,9 +187,7 @@ public partial class MainWindow : Window
 
         try
         {
-            IntPtr hwnd = new WindowInteropHelper(this).Handle;
-            if (hwnd != IntPtr.Zero)
-                _ = SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
+            _ = SetWindowPos(hwnd, HwndTopmost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpNoActivate);
         }
         catch
         {
