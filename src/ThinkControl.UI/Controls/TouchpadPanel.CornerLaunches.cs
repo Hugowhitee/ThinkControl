@@ -253,5 +253,6 @@ public partial class TouchpadPanel
         _gestureZoneOverlay.Geometry = _host?.Geometry ?? DefaultGeometry();
         _gestureZoneOverlay.SelectedCorner = _selectedLaunchCorner;
         _gestureZoneOverlay.Signal = signal;
+        Visualizer.EdgeSelectionVisible = signal?.Corner is null && _selectedLaunchCorner is null;
     }
 }
