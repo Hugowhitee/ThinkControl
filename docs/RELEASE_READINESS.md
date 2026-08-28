@@ -4,7 +4,7 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 ## Current release: alpha.34 unified Touchpad zones and Keyboard Auto cleanup
 
-`v0.1.0-alpha.33` is the immutable production baseline. The active single release PR is #64 and targets **`v0.1.0-alpha.34`**.
+`v0.1.0-alpha.33` is the immutable production baseline. The active single release PR is #65 and targets **`v0.1.0-alpha.34`**.
 
 The implementation/visual-QA head `ad17495a1b9403bec832be51780d3224ec95f0c9` passed CI, Package ThinkControl and Installer reliability on the same SHA. That evidence includes repository hygiene, restore/build, Core tests, real Compact ↔ Advanced shell smoke, the WPF snapshot renderer, package/bootstrap creation, service lifecycle smoke, deep installer/IPC smoke and legacy updater compatibility. The corrected WPF visual-QA artifact from CI run 1369 was manually inspected: top-left and top-right selected/live corner states use exact mirrored final geometry, the selected corner editor remains stable during live ownership, top-left shows `Compact`, top-right shows `Advanced`, normal/minimum/wide Touchpad layouts remain stable, and the Keyboard page exposes Auto only in the normal hardware-mode row while Effects contains Breathing / Reactive / Audio.
 
@@ -49,10 +49,10 @@ Passed on implementation head `ad17495a1b9403bec832be51780d3224ec95f0c9` before 
 - [x] Freeze README/Product documentation to alpha.34.
 - [x] Set `version.json` to `0.1.0-alpha.34` with `releaseReady=true`.
 - [x] Update this single persistent release-readiness handoff for alpha.34.
-- [ ] Require CI + Package + Installer reliability green on the exact PR head containing this final handoff commit; make no further branch changes afterward.
-- [ ] Confirm PR #64 has no unexpected changed files and is still based on the immutable alpha.33 `main` baseline.
-- [ ] Mark PR #64 ready for review if it is still draft.
-- [ ] Squash-merge PR #64 to `main` using that exact expected head SHA.
+- [x] Replace the unmergeable draft PR #64 with non-draft PR #65 on the exact same branch/base after the connected ready-for-review mutation failed at GitHub's GraphQL schema layer.
+- [ ] Require CI + Package + Installer reliability green on the exact PR #65 head containing this final handoff commit; make no further branch changes afterward.
+- [ ] Confirm PR #65 has no unexpected changed files and is still based on the immutable alpha.33 `main` baseline.
+- [ ] Squash-merge PR #65 to `main` using that exact expected head SHA.
 - [ ] Verify `main` points to the returned squash SHA.
 - [ ] Verify the `Promote release-ready main` workflow succeeds for the squash SHA.
 - [ ] Verify tag `v0.1.0-alpha.34` points to that exact `main` SHA.
