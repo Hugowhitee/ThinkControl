@@ -59,21 +59,21 @@ public sealed class EdgeGestureRecognizer
             _lockoutUntilAllLift = false;
             if (_phase is GesturePhase.Claimed or GesturePhase.Active)
             {
+                TouchpadEdge? edge = _claimedEdge;
                 GestureSignal released = new(
                     GesturePhase.Released,
-                    _claimedEdge,
+                    edge,
                     _claimedAction,
                     TotalTravelMm: _lastTotalTravelMm,
-                    ContactId: _contactId);
+                    ContactId: _contactId,
+                    EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null);
                 Reset();
                 return released;
             }
 
-            // Previous/Next optionally owns a deliberate hold-and-release action.
-            // Before alpha.26 a stationary contact never left Candidate, so lifting
-            // simply reset the recognizer and Play/Pause could never fire reliably.
-            // Emit a release for an unambiguous candidate; the action router owns the
-            // hold duration and travel threshold, so ordinary taps remain no-ops.
+            // Track control optionally owns a deliberate center hold-and-release.
+            // Emit a release for an unambiguous candidate; the action router owns
+            // duration, movement and center-zone safety policy.
             if (_phase == GesturePhase.Candidate && _candidateEdges.Length == 1)
             {
                 TouchpadEdge edge = _candidateEdges[0];
@@ -83,7 +83,8 @@ public sealed class EdgeGestureRecognizer
                     edge,
                     action,
                     TotalTravelMm: _lastTotalTravelMm,
-                    ContactId: _contactId);
+                    ContactId: _contactId,
+                    EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
                 Reset();
                 return released;
             }
@@ -170,7 +171,8 @@ public sealed class EdgeGestureRecognizer
             candidates.Count == 1 ? candidates[0] : null,
             candidateAction,
             Reason: candidates.Count > 1 ? "Corner candidate" : null,
-            ContactId: contact.ContactId);
+            ContactId: contact.ContactId,
+            EdgePosition01: candidates.Count == 1 ? AlongEdgePosition01(candidates[0], contact.X, contact.Y) : null);
     }
 
     private GestureSignal? ResolveCandidate(TouchContact contact)
@@ -255,7 +257,8 @@ public sealed class EdgeGestureRecognizer
             _claimedAction,
             total,
             total,
-            ContactId: contact.ContactId);
+            ContactId: contact.ContactId,
+            EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
     }
 
     private GestureSignal? UpdateActive(TouchContact contact)
@@ -280,7 +283,8 @@ public sealed class EdgeGestureRecognizer
                 _claimedAction,
                 total,
                 total - previous,
-                ContactId: contact.ContactId);
+                ContactId: contact.ContactId,
+                EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
         }
 
         if (geometry.DistanceToEdgeMm(edge, contact.X, contact.Y) > _configuration.ContinuationToleranceMm)
@@ -310,7 +314,8 @@ public sealed class EdgeGestureRecognizer
             _claimedAction,
             axisTotal,
             delta,
-            ContactId: contact.ContactId);
+            ContactId: contact.ContactId,
+            EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
     }
 
     private double AxisTravelMm(TouchpadEdge edge, int x, int y)
@@ -319,6 +324,14 @@ public sealed class EdgeGestureRecognizer
         return edge is TouchpadEdge.Left or TouchpadEdge.Right
             ? geometry.DeltaYToMm(y - _startY)
             : geometry.DeltaXToMm(x - _startX);
+    }
+
+    private double AlongEdgePosition01(TouchpadEdge edge, int x, int y)
+    {
+        TouchpadGeometry geometry = _geometry!;
+        return edge is TouchpadEdge.Left or TouchpadEdge.Right
+            ? Math.Clamp((y - geometry.YLogicalMin) / (double)geometry.YRange, 0.0, 1.0)
+            : Math.Clamp((x - geometry.XLogicalMin) / (double)geometry.XRange, 0.0, 1.0);
     }
 
     private static bool IsInwardIntent(
@@ -352,13 +365,15 @@ public sealed class EdgeGestureRecognizer
 
     private GestureSignal Cancel(string reason, bool preserveLockout = false)
     {
+        TouchpadEdge? edge = _claimedEdge ?? (_candidateEdges.Length == 1 ? _candidateEdges[0] : null);
         GestureSignal signal = new(
             GesturePhase.Cancelled,
-            _claimedEdge ?? (_candidateEdges.Length == 1 ? _candidateEdges[0] : null),
+            edge,
             _claimedAction,
             TotalTravelMm: _lastTotalTravelMm,
             Reason: reason,
-            ContactId: _contactId);
+            ContactId: _contactId,
+            EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null);
 
         bool lockout = preserveLockout || _lockoutUntilAllLift;
         Reset();
