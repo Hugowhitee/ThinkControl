@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.33`.
+Current prerelease candidate: `v0.1.0-alpha.34`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -94,25 +94,33 @@ Dolby controls are provider-driven rather than Lenovo-specific. Direct controls 
 
 ## Keyboard
 
-Hardware backlight and optional user-session effects are separate concepts. A backend must pass its read/probe contract before writes are enabled. Direct static changes and effects share serialized hardware ownership so one cannot silently overwrite/drop the other.
+Hardware backlight states and optional user-session effects are separate concepts. A backend must pass its read/probe contract before writes are enabled. Direct static changes and effects share serialized hardware ownership so one cannot silently overwrite/drop the other.
 
-On a Lenovo backend that exposes the reviewed Vantage keyboard contract, `FirmwareAuto = 3` is treated as an observed OEM state, not a guessed direct-driver command. Selecting Auto first requests Lenovo firmware Auto and requires readback verification. If that semantic operation is not available, ThinkControl may fall back to the bounded software idle policy (High → Low after 15 seconds → Off after 35 seconds). The UI must identify that behavior as fallback rather than claiming every ThinkPad exposes native Auto.
+On a Lenovo backend that exposes the reviewed Vantage keyboard contract, `FirmwareAuto = 3` is treated as an observed OEM state, not a guessed direct-driver command. The normal keyboard-mode row exposes Off / Low / High / Auto. Selecting Auto requests Lenovo firmware Auto and requires readback verification.
+
+Auto is **not** a ThinkControl effect and there is no software idle-dimming fallback. If Lenovo/OEM Auto cannot be set and verified, ThinkControl does not silently substitute a High → Low → Off policy while still labelling the result Auto.
+
+Breathing, Reactive and Audio are separate bounded user-session effects. They require the stricter direct backlight provider and are deliberately unavailable through the Lenovo Vantage fallback because repeated Vantage writes can show Lenovo's own keyboard-brightness pop-up. Effects remain local, rate-limited and deduplicated; Reactive listens only while selected and Audio uses local loopback level data without storing audio.
 
 Other OEMs should provide their own backend behind the same keyboard capability rather than adding vendor-specific page copies.
 
 ## Touchpad
 
-The Touchpad page shows real contact points, bounded recent trails, configurable precision edge gestures, separate optional corner-launch lanes, haptic settings where Windows/provider support exists, and bounded OSD feedback.
+The Touchpad page shows real contact points, bounded recent trails, configurable precision edge gestures, deliberate top-corner launch lanes, haptic settings where Windows/provider support exists, and bounded OSD feedback.
 
 A finger lift ends a visual trail segment. New contacts and implausibly large physical jumps do not draw fake connecting lines.
 
 Track control prefers the active Windows media session and falls back safely where needed. Optional center Play/Pause uses a visible bounded center zone and deliberate low-travel hold/release; normal swipes still own Previous/Next.
 
-Corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins inside the same physical diagonal lane drawn by the UI. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture. Explicit editor selection is mutually exclusive; transient live corner ownership must not collapse/re-expand page layout while a finger is moving.
+The editor/visualizer uses one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. Edges and corners share one rendering owner and one idle/selected/hover/candidate/live visual grammar. The former auxiliary corner overlay is non-interactive and does not own mouse selection.
+
+Corner hit-testing wins only inside the same deliberate diagonal physical lane that represents a configured corner launch. Outside that lane, the normal edge selector remains available. The final right-corner geometry is mirrored from the canonical left-corner geometry rather than independently approximated.
+
+Runtime corner recognition remains intentionally separate from edge recognition and preserves the alpha.33 safety contract: corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins inside its diagonal lane. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture.
+
+Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners and asserts mirrored final geometry plus unchanged editor layout across live frames.
 
 Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence and publishes all-up frames immediately. Raw-input/HID registration is deferred until after the visible shell/page has painted. UI-only corner/gesture listeners attach only while the Touchpad page is visible so leaving the page cannot keep high-rate dispatcher work alive elsewhere in Advanced.
-
-Corner launch idle geometry is mirrored exactly between left and right. Hover may change the pointer but does not visually promote one idle corner over the other; selected/live ownership is the strong state.
 
 ## Battery
 
@@ -146,11 +154,11 @@ Unknown/unverified laptops remain capability-driven and conservative. Windows-sa
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.33; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.32` release remains the baseline immediately before this regression release.
+No automatic cloud compatibility/crash upload is part of alpha.34; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.33` release remains the production baseline immediately before this release.
 
 ## Installation and updates
 
-Alpha.33 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.34 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior, compatibility with the legacy updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 
