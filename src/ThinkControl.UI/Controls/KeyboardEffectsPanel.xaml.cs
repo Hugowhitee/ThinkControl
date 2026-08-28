@@ -67,7 +67,6 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
         _syncing = true;
         try
         {
-            EffectAuto.IsChecked = _state.KeyboardMode == "Auto";
             EffectBreathing.IsChecked = _state.KeyboardMode == "Breathing";
             EffectReactive.IsChecked = _state.KeyboardMode == "Reactive";
             EffectAudio.IsChecked = _state.KeyboardMode == "Audio";
