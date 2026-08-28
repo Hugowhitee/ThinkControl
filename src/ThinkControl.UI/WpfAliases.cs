@@ -8,6 +8,7 @@ global using Brushes = System.Windows.Media.Brushes;
 global using Button = System.Windows.Controls.Button;
 global using ButtonBase = System.Windows.Controls.Primitives.ButtonBase;
 global using CheckBox = System.Windows.Controls.CheckBox;
+global using Color = System.Windows.Media.Color;
 global using ComboBox = System.Windows.Controls.ComboBox;
 global using ContextMenu = System.Windows.Controls.ContextMenu;
 global using Control = System.Windows.Controls.Control;
