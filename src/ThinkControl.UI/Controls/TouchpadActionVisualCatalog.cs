@@ -96,13 +96,16 @@ internal static class TouchpadActionVisualCatalog
 
             [GestureActionKind.PreviousNextTrack] = new(
                 GestureActionKind.PreviousNextTrack,
-                TouchpadVisualCue.Icon(SemanticIconKeys.PlayPause),
+                // The optional center action is a real bounded target drawn by the
+                // gesture-zone overlay. Keeping a combined play/pause material icon
+                // here made it look like a third skip action and left a stray dot
+                // when the center option was disabled.
+                TouchpadVisualCue.None,
                 TouchpadVisualCue.Icon(SemanticIconKeys.Previous),
                 TouchpadVisualCue.Icon(SemanticIconKeys.Next),
                 Directional: true,
                 Motion: TouchpadGestureMotionKind.AlongEdge,
-                Behavior: TouchpadGestureBehavior.Discrete,
-                CenterRequiresTrackOption: true),
+                Behavior: TouchpadGestureBehavior.Discrete),
 
             [GestureActionKind.PlayPause] = new(
                 GestureActionKind.PlayPause,
