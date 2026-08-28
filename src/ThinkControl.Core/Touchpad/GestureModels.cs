@@ -8,6 +8,12 @@ public enum TouchpadEdge
     Bottom
 }
 
+public enum TouchpadCorner
+{
+    TopLeft,
+    TopRight
+}
+
 public enum GestureActionKind
 {
     Disabled,
@@ -24,7 +30,8 @@ public enum GestureActionKind
     KeyboardBacklight,
     PerformanceMode,
     CustomShortcut,
-    OpenThinkControl
+    OpenThinkControl,
+    OpenAdvanced
 }
 
 public enum GesturePhase
@@ -54,7 +61,9 @@ public sealed record TouchpadEdgeBinding(
         GestureActionKind.ShowDesktop or
         GestureActionKind.KeyboardBacklight or
         GestureActionKind.PerformanceMode or
-        GestureActionKind.CustomShortcut => GestureActionKind.Disabled,
+        GestureActionKind.CustomShortcut or
+        GestureActionKind.OpenThinkControl or
+        GestureActionKind.OpenAdvanced => GestureActionKind.Disabled,
         _ when Enum.IsDefined(action) => action,
         _ => GestureActionKind.Disabled
     };
@@ -112,6 +121,31 @@ public sealed record TouchpadGestureBindings(
     }
 }
 
+public sealed record TouchpadCornerLaunchBindings(
+    GestureActionKind TopLeft = GestureActionKind.Disabled,
+    GestureActionKind TopRight = GestureActionKind.Disabled)
+{
+    public GestureActionKind Get(TouchpadCorner corner) => corner switch
+    {
+        TouchpadCorner.TopLeft => SanitizeLaunch(TopLeft),
+        TouchpadCorner.TopRight => SanitizeLaunch(TopRight),
+        _ => GestureActionKind.Disabled
+    };
+
+    public TouchpadCornerLaunchBindings Sanitize() => this with
+    {
+        TopLeft = SanitizeLaunch(TopLeft),
+        TopRight = SanitizeLaunch(TopRight)
+    };
+
+    private static GestureActionKind SanitizeLaunch(GestureActionKind action) => action switch
+    {
+        GestureActionKind.OpenThinkControl => GestureActionKind.OpenThinkControl,
+        GestureActionKind.OpenAdvanced => GestureActionKind.OpenAdvanced,
+        _ => GestureActionKind.Disabled
+    };
+}
+
 public sealed record TouchpadGestureConfiguration(
     bool Enabled = true,
     double EdgeWidthMm = 5.0,
@@ -121,10 +155,12 @@ public sealed record TouchpadGestureConfiguration(
     bool LockCursor = true,
     bool HideCursorWhenActive = true,
     bool TrackCenterPlayPauseEnabled = false,
-    TouchpadGestureBindings? Bindings = null)
+    TouchpadGestureBindings? Bindings = null,
+    TouchpadCornerLaunchBindings? CornerLaunches = null)
 {
     public static TouchpadGestureConfiguration Default { get; } = new(
-        Bindings: TouchpadGestureBindings.AsusStyle);
+        Bindings: TouchpadGestureBindings.AsusStyle,
+        CornerLaunches: new TouchpadCornerLaunchBindings());
 
     public TouchpadGestureConfiguration Sanitize() => this with
     {
@@ -132,11 +168,15 @@ public sealed record TouchpadGestureConfiguration(
         ActivationDistanceMm = Math.Clamp(double.IsFinite(ActivationDistanceMm) ? ActivationDistanceMm : 2.0, 0.5, 8.0),
         ContinuationToleranceMm = Math.Clamp(double.IsFinite(ContinuationToleranceMm) ? ContinuationToleranceMm : 12.0, 4.0, 30.0),
         DirectionDominance = Math.Clamp(double.IsFinite(DirectionDominance) ? DirectionDominance : 1.15, 1.02, 2.5),
-        Bindings = (Bindings ?? TouchpadGestureBindings.AsusStyle).Sanitize()
+        Bindings = (Bindings ?? TouchpadGestureBindings.AsusStyle).Sanitize(),
+        CornerLaunches = (CornerLaunches ?? new TouchpadCornerLaunchBindings()).Sanitize()
     };
 
     public TouchpadEdgeBinding BindingFor(TouchpadEdge edge) =>
         (Bindings ?? TouchpadGestureBindings.AsusStyle).Get(edge).Sanitize();
+
+    public GestureActionKind LaunchFor(TouchpadCorner corner) =>
+        (CornerLaunches ?? new TouchpadCornerLaunchBindings()).Get(corner);
 }
 
 public sealed record TouchpadGeometry(
@@ -191,4 +231,5 @@ public sealed record GestureSignal(
     double DeltaMm = 0,
     string? Reason = null,
     int? ContactId = null,
-    double? EdgePosition01 = null);
+    double? EdgePosition01 = null,
+    TouchpadCorner? Corner = null);
