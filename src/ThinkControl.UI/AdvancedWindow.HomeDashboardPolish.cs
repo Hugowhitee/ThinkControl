@@ -66,7 +66,7 @@ public partial class AdvancedWindow
             TextBlock? description = performanceCard.Children.OfType<TextBlock>().FirstOrDefault(text =>
                 text.Text.Contains("responsive or efficient", StringComparison.OrdinalIgnoreCase));
             if (description is not null)
-                description.Text = "Choose the Windows power behavior for this power source.";
+                description.Text = "Choose the Windows battery power behavior. AC remains independently configurable on the Performance page.";
         }
 
         // Keep the older fallback Performance page coherent too. The enhanced
@@ -140,45 +140,57 @@ public partial class AdvancedWindow
         var root = new Grid
         {
             Cursor = Cursors.Hand,
-            Margin = new Thickness(8, 0, 10, 0)
+            Margin = new Thickness(12, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
         };
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        root.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         root.ColumnDefinitions.Add(new ColumnDefinition());
         root.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        // Battery copy follows exactly the same left-aligned hierarchy as CPU,
-        // Fans, Power and Sensors. The graphic is contextual information, so it
-        // sits at the far right instead of pushing the text out of alignment.
+        // Use exactly the same left inset and label/value rhythm as the neighboring
+        // CPU/Fans/Power/Sensors metrics. Only the contextual gauge occupies the
+        // right side; remaining-time copy gets the full width on its own line.
         var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
         copy.Children.Add(CreateMetricLabel("BATTERY"));
         TextBlock value = CreateMetricValue("BatteryPercentText", 20);
         value.Margin = new Thickness(0, 6, 0, 0);
         copy.Children.Add(value);
+        Grid.SetRow(copy, 0);
+        Grid.SetColumn(copy, 0);
+        root.Children.Add(copy);
+
+        var gauge = new BatteryGauge
+        {
+            Width = 120,
+            Height = 48,
+            Margin = new Thickness(10, 0, 0, 0),
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        gauge.SetBinding(BatteryGauge.PercentProperty, new Binding("BatteryPercent"));
+        gauge.SetBinding(BatteryGauge.IsChargingProperty, new Binding("BatteryCharging"));
+        Grid.SetRow(gauge, 0);
+        Grid.SetColumn(gauge, 1);
+        root.Children.Add(gauge);
+
         TextBlock detail = new()
         {
             FontSize = TypographyScale.Secondary,
             Margin = new Thickness(0, 2, 0, 0),
-            TextTrimming = TextTrimming.CharacterEllipsis
+            TextTrimming = TextTrimming.None,
+            TextWrapping = TextWrapping.NoWrap,
+            HorizontalAlignment = HorizontalAlignment.Left
         };
         detail.SetBinding(TextBlock.TextProperty, new Binding("BatteryEtaText")
         {
             Converter = ReadableTypography.BatteryTimeConverter
         });
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        copy.Children.Add(detail);
-        root.Children.Add(copy);
-
-        var gauge = new BatteryGauge
-        {
-            Width = 126,
-            Height = 50,
-            Margin = new Thickness(8, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            HorizontalAlignment = HorizontalAlignment.Right
-        };
-        gauge.SetBinding(BatteryGauge.PercentProperty, new Binding("BatteryPercent"));
-        gauge.SetBinding(BatteryGauge.IsChargingProperty, new Binding("BatteryCharging"));
-        Grid.SetColumn(gauge, 1);
-        root.Children.Add(gauge);
+        Grid.SetRow(detail, 1);
+        Grid.SetColumn(detail, 0);
+        Grid.SetColumnSpan(detail, 2);
+        root.Children.Add(detail);
 
         root.MouseLeftButtonUp += (_, _) => Navigate("Battery");
         return root;
