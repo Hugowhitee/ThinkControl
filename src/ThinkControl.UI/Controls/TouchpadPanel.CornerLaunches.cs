@@ -145,9 +145,9 @@ public partial class TouchpadPanel
 
     private void SyncCornerLaunchControls()
     {
-        if (_host is not null)
-            _configuration = _host.Configuration.Sanitize();
-
+        // _configuration is the panel's current state owner. SyncAll refreshes it
+        // from the host before calling here; snapshot fixtures intentionally inject
+        // deterministic bindings and must not be overwritten by a second host read.
         if (_cornerLaunchCombo is null)
             return;
 
