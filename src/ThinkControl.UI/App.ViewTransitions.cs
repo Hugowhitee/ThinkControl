@@ -166,59 +166,21 @@ public partial class App
     }
 
     /// <summary>
-    /// Compact is a flyout, but losing activation to another ThinkControl top-level
-    /// window is not the same as losing the app. WPF raises Deactivated for both.
-    /// Only auto-hide after focus really moved outside the ThinkControl process.
-    /// The external-focus decision is deferred once so a tray click can claim the
-    /// interaction before the flyout disappears under the NotifyIcon toggle path.
+    /// Compact is a persistent utility surface. Losing focus to Chrome, a browser
+    /// tab, an editor, or any other application must not make it disappear. Hiding
+    /// is owned only by explicit close/tray-toggle/view-transition commands.
+    /// Deactivation remains observable for diagnostics, but never schedules Hide().
     /// </summary>
     internal void OnCompactDeactivated()
     {
         if (CompactWindow is null || !CompactWindow.IsVisible)
             return;
 
-        if (_viewTransitionBusy)
-        {
-            RecordShellEvent("shell.compact.deactivation-kept", true, "view-transition");
-            return;
-        }
-
-        // This is the important in-app popup/window case. Check immediately while
-        // the newly activated HWND is still foreground; a toast action may hide its
-        // own window before an idle callback gets a chance to inspect it.
-        if (ForegroundBelongsToThinkControl())
-        {
-            RecordShellEvent("shell.compact.deactivation-kept", true, "internal-window");
-            return;
-        }
-
-        long generation = Interlocked.Increment(ref _compactDeactivationGeneration);
-        Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, new Action(() =>
-        {
-            if (generation != Volatile.Read(ref _compactDeactivationGeneration) ||
-                CompactWindow is null ||
-                !CompactWindow.IsVisible ||
-                CompactWindow.IsActive)
-            {
-                return;
-            }
-
-            if (_viewTransitionBusy || _trayInteractionPending)
-            {
-                RecordShellEvent("shell.compact.deactivation-kept", true,
-                    _viewTransitionBusy ? "view-transition" : "tray-interaction");
-                return;
-            }
-
-            if (ForegroundBelongsToThinkControl())
-            {
-                RecordShellEvent("shell.compact.deactivation-kept", true, "internal-window");
-                return;
-            }
-
-            RecordShellEvent("shell.compact.auto-hide", true, "external-focus");
-            CompactWindow.HideAnimated();
-        }));
+        Interlocked.Increment(ref _compactDeactivationGeneration);
+        RecordShellEvent(
+            "shell.compact.deactivation-kept",
+            true,
+            _viewTransitionBusy ? "view-transition" : "external-focus-explicit-close-only");
     }
 
     internal void OnCompactActivated() =>
