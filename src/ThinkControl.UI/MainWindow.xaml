@@ -14,8 +14,7 @@
         Foreground="{DynamicResource Tc.Text}"
         FontFamily="Segoe UI"
         UseLayoutRounding="True"
-        SnapsToDevicePixels="True"
-        Deactivated="Window_Deactivated">
+        SnapsToDevicePixels="True">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="0"
                             CornerRadius="8"
@@ -24,8 +23,8 @@
                             UseAeroCaptionButtons="False" />
     </shell:WindowChrome.WindowChrome>
 
-    <!-- CompactDashboard is the only compact runtime surface. Keeping the old
-         alpha dashboard compiled behind this window previously meant every compact
-         control existed twice even though the old tree was immediately discarded. -->
+    <!-- CompactDashboard is the only compact runtime surface. Compact behaves as
+         a persistent quick-control window: clicking another app must not dismiss
+         it. Users explicitly hide it with the close button or the tray toggle. -->
     <controls:CompactDashboard x:Name="Dashboard" />
 </Window>
