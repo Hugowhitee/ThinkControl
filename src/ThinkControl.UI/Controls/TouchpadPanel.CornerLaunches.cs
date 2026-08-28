@@ -53,6 +53,15 @@ public partial class TouchpadPanel
             visualizerHost.Children.Add(_gestureZoneOverlay);
         }
 
+        // Editor ownership mirrors recognizer ownership. Selecting an edge clears
+        // corner emphasis; selecting a corner hides edge-selection emphasis.
+        Visualizer.EdgeSelected += _ =>
+        {
+            _selectedLaunchCorner = null;
+            Visualizer.EdgeSelectionVisible = true;
+            SyncGestureZoneOverlay();
+        };
+
         var card = new Border
         {
             Style = TryFindResource("TcSection") as Style,
@@ -66,7 +75,7 @@ public partial class TouchpadPanel
         });
         var description = new TextBlock
         {
-            Text = "Start inside one of the outlined diagonal corner lanes and swipe inward. The visible lane is the real trigger area; taps and movement outside it do nothing.",
+            Text = "Start inside a diagonal corner guide and move deliberately inward. The guide uses the same physical trigger lane as recognition; taps and ordinary edge movement do nothing.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 4, 0, 11),
             FontSize = TypographyScale.Caption
@@ -127,6 +136,7 @@ public partial class TouchpadPanel
     private void CornerZone_Selected(TouchpadCorner corner)
     {
         _selectedLaunchCorner = corner;
+        Visualizer.EdgeSelectionVisible = false;
         SyncGestureZoneOverlay();
 
         ComboBox? combo = corner == TouchpadCorner.TopLeft ? _topLeftLaunchCombo : _topRightLaunchCombo;
@@ -153,6 +163,7 @@ public partial class TouchpadPanel
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
         _selectedLaunchCorner = corner;
+        Visualizer.EdgeSelectionVisible = false;
         SyncGestureZoneOverlay();
     }
 
@@ -173,6 +184,7 @@ public partial class TouchpadPanel
         {
             _syncing = false;
         }
+        Visualizer.EdgeSelectionVisible = _selectedLaunchCorner is null;
         SyncGestureZoneOverlay();
     }
 
@@ -204,6 +216,9 @@ public partial class TouchpadPanel
 
             if (signal.Corner is TouchpadCorner corner)
             {
+                bool live = signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
+                Visualizer.EdgeSelectionVisible = !live && _selectedLaunchCorner is null;
+
                 string cornerName = corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right";
                 string action = signal.Action == GestureActionKind.OpenAdvanced ? "Advanced" : "Compact";
                 GestureStatusText.Text = signal.Phase switch
