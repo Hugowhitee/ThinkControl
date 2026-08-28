@@ -8,10 +8,11 @@ public partial class TouchpadPanel
     protected override void OnInitialized(EventArgs e)
     {
         base.OnInitialized(e);
-        ConfigureCornerLaunchUi();
         ActionCombo.SelectionChanged += (_, _) => SyncTrackCenterOption();
         Loaded += (_, _) =>
         {
+            ConfigureCornerLaunchUi();
+            AttachCornerHost();
             ApplyReleaseTouchpadPolish();
             SyncTrackCenterOption();
             SyncCornerLaunchControls();
