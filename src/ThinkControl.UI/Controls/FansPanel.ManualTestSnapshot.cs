@@ -46,7 +46,7 @@ public partial class FansPanel
             ],
             state.Sensors.ToArray());
 
-            ApplyProviderCopy(state, canControl: true, FanControlKinds.OemTargetRpm);
+            ApplyProviderCopy(state, true, FanControlKinds.OemTargetRpm);
             CoolingDetailText.Text = "Balanced · continuous Lenovo OEM target-RPM control";
             AppliedLevelText.Text = $"{targetPercent}% OEM target";
             LiveCurveStatus.Text = $"{state.ControlTemperatureText} · temporary {targetPercent}% OEM target · 3,650 / 3,510 RPM";
