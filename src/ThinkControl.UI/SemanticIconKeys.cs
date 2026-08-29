@@ -12,4 +12,5 @@ internal static class SemanticIconKeys
     internal const string SeekForward = "Tc.Icon.SeekForward";
     internal const string MediaScrub = "Tc.Icon.MediaScrub";
     internal const string CompactView = "Tc.Icon.ViewSidebar";
+    internal const string AdvancedView = "Tc.Icon.OpenInFull";
 }
