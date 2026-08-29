@@ -26,13 +26,16 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
     public void OemCoordinator_UsesEnergyDrvTelemetryWhenOtherModeWriterIsAbsent()
     {
         string provider = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
+        string normalizedProvider = provider.Replace("\r\n", "\n", StringComparison.Ordinal);
         string controller = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
 
         Assert.Contains("LenovoEnergyDrvFanProvider _energyDrv", provider, StringComparison.Ordinal);
         Assert.Contains("return BuildReadOnlyEnergyDrvFallback(detail);", provider, StringComparison.Ordinal);
         Assert.Contains("EnergyDrv writer intentionally disabled pending exact X9 command validation", provider, StringComparison.Ordinal);
-        Assert.Contains("Available: true", provider, StringComparison.Ordinal);
-        Assert.Contains("CanControl: false", provider, StringComparison.Ordinal);
+        Assert.Contains(
+            "new LenovoOtherModeFanStatus(\n            true,\n            false,\n            energy.Fans,\n            []",
+            normalizedProvider,
+            StringComparison.Ordinal);
 
         // The controller already gives any OEM provider telemetry priority over direct
         // EC tachometer reads. Once EnergyDrv returns real fan channels this condition
