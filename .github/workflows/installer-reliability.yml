@@ -34,6 +34,14 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
+      - name: Restore NuGet package cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-runtime-${{ hashFiles('src/**/*.csproj', 'Directory.Build.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-runtime-
+
       - name: Resolve smoke version
         shell: pwsh
         run: |
@@ -128,7 +136,15 @@ jobs:
         shell: pwsh
         run: ./tools/release/InstallerReliabilitySmoke.ps1 -ArtifactDirectory ./artifacts/installer
 
+      - name: Restore oldest-supported updater fixture cache
+        id: legacy-cache
+        uses: actions/cache@v6
+        with:
+          path: artifacts/legacy-alpha14
+          key: thinkcontrol-updater-fixture-v0.1.0-alpha.14.1
+
       - name: Download oldest-supported updater fixture (alpha.14.1)
+        if: steps.legacy-cache.outputs.cache-hit != 'true'
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -140,6 +156,12 @@ jobs:
             --pattern "ThinkControl-Setup-0.1.0-alpha.14.1.exe" `
             --pattern "ThinkControl-Payload-0.1.0-alpha.14.1.zip" `
             --dir $legacy
+
+      - name: Verify oldest-supported updater fixture
+        shell: pwsh
+        run: |
+          $legacy = "artifacts/legacy-alpha14"
+          if (-not (Test-Path $legacy)) { throw "alpha.14.1 regression fixture directory is missing" }
           if ((Get-ChildItem $legacy -File).Count -ne 2) { throw "alpha.14.1 regression fixture is incomplete" }
 
       - name: Oldest-supported upgrade compatibility
