@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.34** and later cleanup candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.35** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -22,7 +22,7 @@ The recurring `TargetParameterCountException` dispatcher bug was fixed and guard
 
 ## Audio lifecycle regression
 
-This is a specific cleanup regression path.
+Alpha.35 adds a specific navigation-lifecycle fix and source regression guard.
 
 1. Open Advanced → Audio.
 2. Drag output volume, navigate away while dragging, then return.
@@ -30,7 +30,7 @@ This is a specific cleanup regression path.
 4. Confirm no delayed off-page write visibly jumps the control when returning.
 5. Leave the Audio page idle for several seconds and confirm live output/microphone state continues refreshing after the navigation cycle.
 
-The expected behavior is that Audio debounce timers and temporary drag flags are discarded when the page hides.
+The expected behavior is that Audio output/microphone debounce timers and temporary drag flags are discarded when the page hides or unloads.
 
 ## Keyboard
 
@@ -58,6 +58,9 @@ The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-ri
 - Test Lenovo Auto return after a manual/custom fan state.
 - Do not interpret a UI control being visible as proof that a hardware write succeeded; verify readback/status.
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
+- Manual percentage and graph-curve operations should appear as fan-control diagnostics rather than generic hardware events.
+
+The alpha.35 cleanup removes obsolete **current-client** cooling wrappers. The service-side legacy cooling IPC remains intentionally present for installed-client compatibility and is still covered by the immutable alpha.14.1 updater fixture.
 
 ## Diagnostics/device learning
 
@@ -65,6 +68,16 @@ The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-ri
 - Unknown/new-device collection should remain passive and hardware-focused.
 - Sharing remains explicit; verify the preview contains no usernames, serial numbers, personal file paths/content, keystrokes or raw touch trails.
 - After a successful share/report flow, the UI should not keep claiming the same report is still ready to send as if nothing happened.
+
+## Repository/release hygiene
+
+Alpha.35 also cleans the repository and workflow layer:
+
+- current workflow action majors must not regress to the deprecated Node-20-era versions;
+- removed compatibility helper/current-client cooling APIs must remain absent;
+- generated/local build output and historical duplicate documentation remain rejected by repository hygiene;
+- PR CI, package and installer runs for a superseded head should cancel rather than consume Windows runners after a newer head exists;
+- immutable/tag release packaging must remain non-cancellable by that PR/ref optimization.
 
 ## Release acceptance
 
