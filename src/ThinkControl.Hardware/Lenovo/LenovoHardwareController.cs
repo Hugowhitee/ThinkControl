@@ -58,6 +58,7 @@ public sealed class LenovoHardwareController : IDisposable
     private IReadOnlyList<HardwareSensorReading> _x9EcThermals = Array.Empty<HardwareSensorReading>();
     private IReadOnlyList<LenovoFanReading> _genericFans = Array.Empty<LenovoFanReading>();
     private LenovoFanControlKind _activeFanControlKind = LenovoFanControlKind.None;
+    private bool _nativeOemFanTelemetryConfirmed;
     private bool _keyboardAvailable;
     private bool _disposed;
 
@@ -96,6 +97,10 @@ public sealed class LenovoHardwareController : IDisposable
             _x9EcThermals = Array.Empty<HardwareSensorReading>();
             _genericFans = Array.Empty<LenovoFanReading>();
             _activeFanControlKind = LenovoFanControlKind.None;
+            // Deliberately do not clear _nativeOemFanTelemetryConfirmed. Once this
+            // service instance has proved that the exact X9 exposes a native Lenovo
+            // two-fan path, a transient provider miss must never silently re-authorize
+            // the known-inferior EC writer during a provider refresh.
             _keyboardAvailable = false;
         }
     }
@@ -134,17 +139,20 @@ public sealed class LenovoHardwareController : IDisposable
                 ? _otherModeFans.ReadStatus()
                 : new LenovoOtherModeFanStatus(false, false, [], [], "Not a Lenovo device");
             bool oemFanControl = _identity.IsVerifiedX9 && oemFanStatus.CanControl;
-            bool nativeOemFanTelemetry = _identity.IsVerifiedX9 && HasNativeOemFanTelemetry(oemFanStatus);
+            bool nativeOemFanTelemetryNow = _identity.IsVerifiedX9 && HasNativeOemFanTelemetry(oemFanStatus);
+            if (nativeOemFanTelemetryNow)
+                _nativeOemFanTelemetryConfirmed = true;
+            bool nativeOemSafetyBoundary = _identity.IsVerifiedX9 && _nativeOemFanTelemetryConfirmed;
 
             // The exact X9 test showed that the classic seven-step EC path does not
-            // reproduce Lenovo's smooth/hot Auto range. Once the machine exposes two
-            // native Lenovo fan channels (Other Mode or EnergyDrv), treat those as the
-            // product boundary: use them for telemetry and do not advertise EC writes
-            // merely because PawnIO can still reach 0x2F. The EC may remain open only
-            // for the existing read-only thermal fallback while the exact OEM writer is
-            // being recovered and validated.
+            // reproduce Lenovo's smooth/hot Auto range. Once this service has proved
+            // two native Lenovo fan channels (Other Mode or EnergyDrv), latch that
+            // product boundary for the rest of the service lifetime. A later transient
+            // OEM query failure may reduce live telemetry, but it must never make EC
+            // writes appear safe again merely because PawnIO can still reach 0x2F.
+            // The EC may remain open only for the existing read-only thermal fallback.
             bool needEcForThermals = !sensorSnapshot.ControlTemperatureC.HasValue;
-            bool ecAvailable = !nativeOemFanTelemetry || needEcForThermals
+            bool ecAvailable = !nativeOemSafetyBoundary || needEcForThermals
                 ? EnsureX9Ec(now)
                 : _ec is not null;
             IReadOnlyList<LenovoFanReading> lhmFans = BuildLhmFanTelemetry(sensorSnapshot);
@@ -197,24 +205,27 @@ public sealed class LenovoHardwareController : IDisposable
 
             IReadOnlyList<LenovoFanReading> fans = BuildFanTelemetry(oemFanStatus, ecAvailable, lhmFans);
             LenovoFanReading? primaryFan = fans.FirstOrDefault();
-            LenovoFanControlKind fanControlKind = ResolveFanControlKind(oemFanControl, nativeOemFanTelemetry, ecAvailable);
+            LenovoFanControlKind fanControlKind = ResolveFanControlKind(oemFanControl, nativeOemSafetyBoundary, ecAvailable);
 
             string fanState = _activeFanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm
                 ? "ThinkControl managed · Lenovo OEM target RPM"
-                : nativeOemFanTelemetry
+                : nativeOemFanTelemetryNow
                     ? "Lenovo managed · OEM fan telemetry"
-                    : _identity.IsVerifiedX9 && ecAvailable && _fanControl.HasValue
-                        ? ThinkPadFanProtocol.DescribeControl(_fanControl.Value)
-                        : fans.Count > 0
-                            ? "Lenovo managed · read-only telemetry"
-                            : "Lenovo managed · telemetry unavailable";
+                    : nativeOemSafetyBoundary
+                        ? "Lenovo managed · native OEM fan path confirmed · live OEM telemetry temporarily unavailable"
+                        : _identity.IsVerifiedX9 && ecAvailable && _fanControl.HasValue
+                            ? ThinkPadFanProtocol.DescribeControl(_fanControl.Value)
+                            : fans.Count > 0
+                                ? "Lenovo managed · read-only telemetry"
+                                : "Lenovo managed · telemetry unavailable";
 
             bool canFanTelemetry = fans.Count > 0;
             bool canSensorTelemetry = mergedSensors.Count > 0;
             string hardwareAccess = BuildHardwareAccess(
                 fanControlKind,
                 oemFanStatus.Detail,
-                nativeOemFanTelemetry,
+                nativeOemFanTelemetryNow,
+                nativeOemSafetyBoundary,
                 ecAvailable,
                 canFanTelemetry,
                 _keyboardAvailable,
@@ -269,8 +280,10 @@ public sealed class LenovoHardwareController : IDisposable
                 return false;
             }
             if (HasNativeOemFanTelemetry(oem))
+                _nativeOemFanTelemetryConfirmed = true;
+            if (_nativeOemFanTelemetryConfirmed)
             {
-                error = "Raw EC steps are disabled because the X9 exposes native Lenovo fan telemetry but the matching OEM writer is not yet validated. Lenovo Auto keeps fan ownership while ThinkControl recovers the native target-RPM command.";
+                error = "Raw EC steps are disabled because this X9 has already exposed a native Lenovo two-fan path but the matching OEM writer is not yet validated. A transient telemetry miss cannot re-enable the EC fallback; Lenovo Auto keeps fan ownership.";
                 return false;
             }
 
@@ -313,23 +326,27 @@ public sealed class LenovoHardwareController : IDisposable
         lock (_gate)
         {
             LenovoOtherModeFanStatus status = _otherModeFans.ReadStatus();
+            if (HasNativeOemFanTelemetry(status))
+                _nativeOemFanTelemetryConfirmed = true;
             if (!status.CanControl)
             {
-                error = HasNativeOemFanTelemetry(status)
-                    ? "Native Lenovo fan telemetry is active, but the exact X9 OEM target-RPM writer has not passed validation yet. Lenovo Auto keeps ownership."
+                error = _nativeOemFanTelemetryConfirmed
+                    ? "This X9 has confirmed a native Lenovo two-fan path, but the exact OEM target-RPM writer has not passed validation yet. A transient telemetry miss cannot fall through to EC control; Lenovo Auto keeps ownership."
                     : "Lenovo Other Mode did not expose two constrained writable X9 fan channels.";
                 return false;
             }
 
-            // Never let legacy EC manual ownership and the OEM target-RPM contract
-            // compete. If a prior diagnostic EC state is still active, hand that path
-            // back to firmware before issuing the OEM request.
-            if (IsThinkControlFanState(_fanControl) && _ec is not null)
+            // Never let two ThinkControl-owned providers compete. Only release the EC
+            // path here when this controller actually took EC ownership; merely reading
+            // an external/manual EC state does not make ThinkControl its owner.
+            if (_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete &&
+                IsThinkControlFanState(_fanControl) && _ec is not null)
             {
                 try
                 {
                     _ec.ReturnToBios();
                     _fanControl = ThinkPadRegisters.BiosControl;
+                    _activeFanControlKind = LenovoFanControlKind.None;
                 }
                 catch (Exception ex)
                 {
@@ -374,7 +391,8 @@ public sealed class LenovoHardwareController : IDisposable
                 }
             }
 
-            if (IsThinkControlFanState(_fanControl) && _ec is not null)
+            if (_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete &&
+                IsThinkControlFanState(_fanControl) && _ec is not null)
             {
                 DateTimeOffset now = DateTimeOffset.UtcNow;
                 try
@@ -438,11 +456,11 @@ public sealed class LenovoHardwareController : IDisposable
         }
     }
 
-    private LenovoFanControlKind ResolveFanControlKind(bool oemFanControl, bool nativeOemFanTelemetry, bool ecAvailable)
+    private LenovoFanControlKind ResolveFanControlKind(bool oemFanControl, bool nativeOemSafetyBoundary, bool ecAvailable)
     {
         if (_identity.IsVerifiedX9 && oemFanControl)
             return LenovoFanControlKind.LenovoOtherModeTargetRpm;
-        if (_identity.IsVerifiedX9 && nativeOemFanTelemetry)
+        if (_identity.IsVerifiedX9 && nativeOemSafetyBoundary)
             return LenovoFanControlKind.None;
         if (_identity.IsVerifiedX9 && ecAvailable)
             return LenovoFanControlKind.ThinkPadEcDiscrete;
@@ -582,7 +600,9 @@ public sealed class LenovoHardwareController : IDisposable
         if (oemFanStatus.Fans.Count > 0)
             return oemFanStatus.Fans;
 
-        bool managedX9 = _identity.IsVerifiedX9 && ecAvailable && IsThinkControlFanState(_fanControl);
+        bool managedX9 = _identity.IsVerifiedX9 && ecAvailable &&
+                         _activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete &&
+                         IsThinkControlFanState(_fanControl);
         if (managedX9)
         {
             if (_x9FanRpm.HasValue && _x9AuxFanRpm.HasValue)
@@ -671,7 +691,8 @@ public sealed class LenovoHardwareController : IDisposable
     private string BuildHardwareAccess(
         LenovoFanControlKind fanControlKind,
         string oemDetail,
-        bool nativeOemFanTelemetry,
+        bool nativeOemFanTelemetryNow,
+        bool nativeOemSafetyBoundary,
         bool ecAvailable,
         bool fanTelemetry,
         bool keyboardAvailable,
@@ -686,10 +707,14 @@ public sealed class LenovoHardwareController : IDisposable
                 return keyboardAvailable
                     ? $"Full · X9 Lenovo OEM target-RPM fan control + keyboard · {oemDetail}"
                     : $"Full fan control · X9 Lenovo OEM target-RPM provider · {oemDetail}";
-            if (nativeOemFanTelemetry)
+            if (nativeOemFanTelemetryNow)
                 return keyboardAvailable
                     ? $"Read-only · X9 Lenovo OEM fan telemetry + keyboard · native fan writer pending validation · {oemDetail}"
                     : $"Read-only · X9 Lenovo OEM fan telemetry · native fan writer pending validation · {oemDetail}";
+            if (nativeOemSafetyBoundary)
+                return keyboardAvailable
+                    ? $"Read-only · X9 native Lenovo two-fan path previously confirmed + keyboard · live OEM telemetry temporarily unavailable · writer remains blocked · {oemDetail}"
+                    : $"Read-only · X9 native Lenovo two-fan path previously confirmed · live OEM telemetry temporarily unavailable · writer remains blocked · {oemDetail}";
             if (fanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete && keyboardAvailable)
                 return sensorTelemetry
                     ? "Fallback · verified X9 discrete EC telemetry/control + Lenovo keyboard"
@@ -721,7 +746,8 @@ public sealed class LenovoHardwareController : IDisposable
         {
             try { _otherModeFans.ReturnToAuto(out _); } catch { }
         }
-        if (IsThinkControlFanState(_fanControl) && _ec is not null)
+        if (_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete &&
+            IsThinkControlFanState(_fanControl) && _ec is not null)
         {
             try { _ec.ReturnToBios(); } catch { }
         }
