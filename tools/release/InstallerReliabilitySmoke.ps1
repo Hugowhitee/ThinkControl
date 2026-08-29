@@ -189,8 +189,14 @@ function Show-InstallerFailureLog([string]$phase, [string]$path) {
     Write-Host "[smoke] ---- end installer log tail ----"
 }
 
-function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false, [bool]$passExplicitDir = $true) {
-    Write-Host "[smoke] $phase $($setup.Name) with external payload $($payload.Name)"
+function Install-SmokeCopy(
+    [string]$phase,
+    [bool]$legacyUpdateMode = $false,
+    [bool]$passExplicitDir = $true,
+    [bool]$passExplicitPayload = $true
+) {
+    $payloadMode = if ($passExplicitPayload) { 'explicit external payload' } else { 'sibling payload auto-discovery' }
+    Write-Host "[smoke] $phase $($setup.Name) using $payloadMode ($($payload.Name))"
     $phaseLog = if ($legacyUpdateMode) { $updateLog } else { $cleanInstallLog }
     Remove-Item $phaseLog -Force -ErrorAction SilentlyContinue
 
@@ -209,7 +215,9 @@ function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false, [bo
     if ($passExplicitDir) {
         $arguments += "/DIR=`"$smokeDir`""
     }
-    $arguments += "/PAYLOAD=`"$($payload.FullName)`""
+    if ($passExplicitPayload) {
+        $arguments += "/PAYLOAD=`"$($payload.FullName)`""
+    }
 
     $process = Start-Process -FilePath $setup.FullName -ArgumentList $arguments -Wait -PassThru
     if ($process.ExitCode -ne 0) {
@@ -253,8 +261,10 @@ try {
     Remove-Item $preferencesRegistry -Recurse -Force -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue
 
-    Install-SmokeCopy 'clean install' $false $true
-    Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false
+    # The clean install deliberately omits /PAYLOAD so this deeper smoke also
+    # owns the package workflow's former sibling-payload discovery coverage.
+    Install-SmokeCopy 'clean install' $false $true $false
+    Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false $true
 
     $defaultProgramFilesInstall = Join-Path $env:ProgramFiles 'ThinkControl\ui\ThinkControl.UI.exe'
     if ((Resolve-Path $smokeDir).Path -ne (Join-Path $env:ProgramFiles 'ThinkControl') -and (Test-Path $defaultProgramFilesInstall)) {
@@ -289,7 +299,7 @@ try {
         throw 'ThinkControl startup Run entry remained after uninstall.'
     }
 
-    Write-Host '[smoke] Deep installer + custom-location persistence + IPC + alpha.14 update compatibility + clean uninstall lifecycle passed'
+    Write-Host '[smoke] Deep installer + sibling-payload discovery + custom-location persistence + IPC + alpha.14 update compatibility + clean uninstall lifecycle passed'
 }
 finally {
     Remove-SmokeService
