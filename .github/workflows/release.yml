@@ -136,14 +136,6 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore NuGet package cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.nuget/packages
-          key: ${{ runner.os }}-nuget-runtime-${{ hashFiles('src/**/*.csproj', 'tools/ThinkControl.Snapshots/*.csproj', 'Directory.Build.props') }}
-          restore-keys: |
-            ${{ runner.os }}-nuget-runtime-
-
       - name: Restore tagged release preview renderer
         if: env.VERSIONED_RELEASE == '1'
         shell: pwsh
@@ -232,17 +224,11 @@ jobs:
           if ($overviewFile.Length -lt 20000) { throw "Release overview is unexpectedly small" }
           Write-Host "Release overview: $([math]::Round($overviewFile.Length / 1KB)) KB"
 
-      - name: Restore runtime publish projects
-        shell: pwsh
-        run: |
-          dotnet restore src/ThinkControl.UI/ThinkControl.UI.csproj -r win-x64
-          dotnet restore src/ThinkControl.Service/ThinkControl.Service.csproj -r win-x64
-
       - name: Publish UI
         shell: pwsh
         run: |
           dotnet publish src/ThinkControl.UI/ThinkControl.UI.csproj `
-            -c Release -r win-x64 --self-contained false --no-restore `
+            -c Release -r win-x64 --self-contained false `
             -p:Version=$env:APP_VERSION `
             -p:InformationalVersion=$env:APP_VERSION `
             -p:DebugType=None `
@@ -253,7 +239,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/ThinkControl.Service/ThinkControl.Service.csproj `
-            -c Release -r win-x64 --self-contained false --no-restore `
+            -c Release -r win-x64 --self-contained false `
             -p:Version=$env:APP_VERSION `
             -p:InformationalVersion=$env:APP_VERSION `
             -p:DebugType=None `
