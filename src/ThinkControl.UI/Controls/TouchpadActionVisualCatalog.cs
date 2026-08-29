@@ -123,6 +123,15 @@ internal static class TouchpadActionVisualCatalog
                 TouchpadVisualCue.None,
                 Directional: false,
                 Motion: TouchpadGestureMotionKind.Inward,
+                Behavior: TouchpadGestureBehavior.Inward),
+
+            [GestureActionKind.OpenAdvanced] = new(
+                GestureActionKind.OpenAdvanced,
+                TouchpadVisualCue.Icon(SemanticIconKeys.AdvancedView),
+                TouchpadVisualCue.None,
+                TouchpadVisualCue.None,
+                Directional: false,
+                Motion: TouchpadGestureMotionKind.Inward,
                 Behavior: TouchpadGestureBehavior.Inward)
         };
 
@@ -148,7 +157,8 @@ internal static class TouchpadActionVisualCatalog
             GestureActionKind.MediaSeek,
             GestureActionKind.PreviousNextTrack,
             GestureActionKind.PlayPause,
-            GestureActionKind.OpenThinkControl
+            GestureActionKind.OpenThinkControl,
+            GestureActionKind.OpenAdvanced
         ];
 
         foreach (GestureActionKind action in current)
