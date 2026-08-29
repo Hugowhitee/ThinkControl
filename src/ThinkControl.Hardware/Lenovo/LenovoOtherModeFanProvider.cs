@@ -29,7 +29,8 @@ internal sealed record LenovoOtherModeFanStatus(
 /// firmware-defined target RPM. Capability Data 00 advertises GET/SET support
 /// per fan and Fan Test Data supplies the OEM min/max constraints used by the
 /// Linux lenovo-wmi-other driver. ThinkControl never enables writes without all
-/// of those constraints; missing or inconsistent metadata remains read-only.
+/// of those constraints and a successful live read from every writable channel;
+/// missing or inconsistent evidence remains read-only.
 /// </summary>
 internal sealed class LenovoOtherModeFanProvider
 {
@@ -102,6 +103,7 @@ internal sealed class LenovoOtherModeFanProvider
             }
 
             bool canControl = channels.Length >= 2 &&
+                              fans.Count == channels.Length &&
                               channels.All(channel =>
                                   (channel.Capability & RequiredWriteSupport) == RequiredWriteSupport &&
                                   IsSaneConstraint(channel.MinRpm, channel.MaxRpm));
@@ -112,7 +114,9 @@ internal sealed class LenovoOtherModeFanProvider
                 Channels: channels,
                 Detail: canControl
                     ? $"Lenovo Other Mode · {DescribeRanges(channels)}"
-                    : detail);
+                    : fans.Count != channels.Length
+                        ? $"Lenovo Other Mode metadata found, but only {fans.Count}/{channels.Length} fan channels passed live GET validation"
+                        : detail);
         }
         catch (Exception ex)
         {
@@ -153,6 +157,17 @@ internal sealed class LenovoOtherModeFanProvider
             {
                 error = "LENOVO_OTHER_METHOD is unavailable.";
                 return false;
+            }
+
+            // Re-prove the read side immediately before taking ownership. Capability
+            // metadata by itself is not sufficient permission for a hardware write.
+            foreach (LenovoOtherModeFanChannel channel in channels)
+            {
+                if (!TryGetFeatureValue(method, channel.AttributeId, out uint current) || current > MaximumPlausibleRpm)
+                {
+                    error = $"Fan {channel.Index + 1} failed the live OEM read gate; Lenovo Auto keeps ownership.";
+                    return false;
+                }
             }
 
             var targets = new List<string>(channels.Length);
@@ -266,7 +281,7 @@ internal sealed class LenovoOtherModeFanProvider
                 (channel.Capability & RequiredWriteSupport) == RequiredWriteSupport &&
                 IsSaneConstraint(channel.MinRpm, channel.MaxRpm));
             _discoveryDetail = writable == _channels.Length && writable >= 2
-                ? $"Lenovo Other Mode target-RPM control ready · {DescribeRanges(_channels)}"
+                ? $"Lenovo Other Mode target-RPM metadata ready · {DescribeRanges(_channels)} · live GET still required"
                 : $"Lenovo Other Mode fan telemetry found · {writable}/{_channels.Length} channels have OEM write constraints";
         }
         catch (Exception ex)
