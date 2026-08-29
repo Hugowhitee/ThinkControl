@@ -14,6 +14,12 @@ public enum TouchpadCorner
     TopRight
 }
 
+public enum CornerGestureDirection
+{
+    Inward,
+    Outward
+}
+
 public enum GestureActionKind
 {
     Disabled,
@@ -123,13 +129,22 @@ public sealed record TouchpadGestureBindings(
 
 public sealed record TouchpadCornerLaunchBindings(
     GestureActionKind TopLeft = GestureActionKind.Disabled,
-    GestureActionKind TopRight = GestureActionKind.Disabled)
+    GestureActionKind TopRight = GestureActionKind.Disabled,
+    bool TopLeftReverseClose = false,
+    bool TopRightReverseClose = false)
 {
     public GestureActionKind Get(TouchpadCorner corner) => corner switch
     {
         TouchpadCorner.TopLeft => SanitizeLaunch(TopLeft),
         TouchpadCorner.TopRight => SanitizeLaunch(TopRight),
         _ => GestureActionKind.Disabled
+    };
+
+    public bool ReverseCloseFor(TouchpadCorner corner) => corner switch
+    {
+        TouchpadCorner.TopLeft => TopLeftReverseClose,
+        TouchpadCorner.TopRight => TopRightReverseClose,
+        _ => false
     };
 
     public TouchpadCornerLaunchBindings Sanitize() => this with
@@ -177,6 +192,10 @@ public sealed record TouchpadGestureConfiguration(
 
     public GestureActionKind LaunchFor(TouchpadCorner corner) =>
         (CornerLaunches ?? new TouchpadCornerLaunchBindings()).Get(corner);
+
+    public bool ReverseCloseFor(TouchpadCorner corner) =>
+        LaunchFor(corner) != GestureActionKind.Disabled &&
+        (CornerLaunches ?? new TouchpadCornerLaunchBindings()).ReverseCloseFor(corner);
 }
 
 public sealed record TouchpadGeometry(
@@ -232,4 +251,5 @@ public sealed record GestureSignal(
     string? Reason = null,
     int? ContactId = null,
     double? EdgePosition01 = null,
-    TouchpadCorner? Corner = null);
+    TouchpadCorner? Corner = null,
+    CornerGestureDirection? CornerDirection = null);
