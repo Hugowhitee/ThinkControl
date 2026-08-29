@@ -213,6 +213,8 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
         dc.DrawRoundedRectangle(null, new Pen(border, 1), pad, PadCornerRadius, PadCornerRadius);
         DrawEdgeLabels(dc, pad, accent, muted, faint);
+        DrawCornerLabel(dc, pad, TouchpadCorner.TopLeft, accent, muted, faint);
+        DrawCornerLabel(dc, pad, TouchpadCorner.TopRight, accent, muted, faint);
 
         DrawLabel(dc, ZoneName(_selectedZone).ToUpperInvariant(),
             new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 - 8),
@@ -279,8 +281,16 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
         CornerGuide left = CornerGuideFor(pad, TouchpadCorner.TopLeft);
         CornerGuide right = CornerGuideFor(pad, TouchpadCorner.TopRight);
-        WpfPoint[] leftPoints = [left.OuterA, left.InnerA, left.OuterB, left.InnerB, left.CenterStart, left.CenterEnd];
-        WpfPoint[] rightPoints = [right.OuterA, right.InnerA, right.OuterB, right.InnerB, right.CenterStart, right.CenterEnd];
+        WpfPoint[] leftPoints =
+        [
+            left.OuterA, left.InnerA, left.OuterB, left.InnerB,
+            left.CenterStart, left.CenterEnd, left.GuardTop, left.GuardSide, left.InnerTip
+        ];
+        WpfPoint[] rightPoints =
+        [
+            right.OuterA, right.InnerA, right.OuterB, right.InnerB,
+            right.CenterStart, right.CenterEnd, right.GuardTop, right.GuardSide, right.InnerTip
+        ];
 
         for (int i = 0; i < leftPoints.Length; i++)
         {
@@ -414,38 +424,104 @@ public sealed class TouchpadVisualizer : FrameworkElement
     {
         GestureActionKind action = _configuration.LaunchFor(corner);
         bool enabled = action != GestureActionKind.Disabled;
+        bool reverseClose = _configuration.ReverseCloseFor(corner);
         bool active = IsActiveCorner(corner);
         bool candidate = IsCandidateCorner(corner);
         bool selected = _selectedZone.Corner == corner;
         bool hovered = _hoverZone?.Corner == corner;
+        bool outwardLive = (active || candidate) &&
+                           _signal?.Corner == corner &&
+                           _signal.CornerDirection == CornerGestureDirection.Outward;
         CornerGuide guide = CornerGuideFor(pad, corner);
 
         Brush fillSource = active || candidate ? accent : muted;
         double fillOpacity = ZoneFillOpacity(active, candidate, selected, hovered, enabled);
         double laneWidth = CornerLanePixelWidth(pad);
-        var fillPen = new Pen(TransparentClone(fillSource, fillOpacity), laneWidth)
+        var laneFill = new Pen(TransparentClone(fillSource, fillOpacity), laneWidth)
         {
-            StartLineCap = PenLineCap.Round,
-            EndLineCap = PenLineCap.Round
+            StartLineCap = PenLineCap.Flat,
+            EndLineCap = PenLineCap.Flat
         };
-        dc.DrawLine(fillPen, guide.CenterStart, guide.CenterEnd);
+        dc.DrawLine(laneFill, guide.CenterStart, guide.CenterEnd);
+
+        // The visible quarter-circle is also the real first-frame priority guard.
+        // It only reserves runtime input when this corner action is enabled; disabled
+        // corners remain editor-selectable without stealing an edge gesture.
+        if (enabled || selected || hovered || candidate || active)
+        {
+            WpfPoint cornerCenter = CornerOrigin(pad, corner);
+            double guardRadius = CornerPhysicalPixels(pad, TouchpadCornerZonePolicy.OuterGuardRadiusMm);
+            double guardOpacity = active ? 0.16 : candidate ? 0.11 : selected ? 0.08 : hovered ? 0.065 : enabled ? 0.045 : 0.025;
+            dc.DrawEllipse(TransparentClone(fillSource, guardOpacity), null, cornerCenter, guardRadius, guardRadius);
+        }
 
         Pen boundary = ZoneBoundaryPen(active, candidate, selected, hovered, enabled, accent, muted, faint);
         dc.DrawLine(boundary, guide.OuterA, guide.InnerA);
         dc.DrawLine(boundary, guide.OuterB, guide.InnerB);
-        dc.DrawLine(boundary, guide.InnerA, guide.InnerB);
 
-        if (selected || hovered || candidate || active)
+        if (enabled || selected || hovered || candidate || active)
+        {
+            WpfPoint cornerCenter = CornerOrigin(pad, corner);
+            double guardRadius = CornerPhysicalPixels(pad, TouchpadCornerZonePolicy.OuterGuardRadiusMm);
+            dc.DrawEllipse(null, boundary, cornerCenter, guardRadius, guardRadius);
+        }
+
+        DrawPolyline(dc, InnerCapPoints(pad, corner), boundary);
+
+        if (enabled || selected || hovered || candidate || active)
         {
             Brush source = active || candidate ? accent : muted;
-            double centerOpacity = active ? 0.92 : candidate ? 0.72 : selected ? 0.48 : 0.34;
-            var centerPen = new Pen(TransparentClone(source, centerOpacity), active ? 1.7 : candidate ? 1.5 : 1.2)
+            double arrowOpacity = active ? 0.96 : candidate ? 0.78 : selected ? 0.62 : hovered ? 0.48 : enabled ? 0.34 : 0.22;
+            var arrowPen = new Pen(TransparentClone(source, arrowOpacity), active ? 2.1 : candidate ? 1.8 : 1.45)
             {
                 StartLineCap = PenLineCap.Round,
-                EndLineCap = PenLineCap.Round
+                EndLineCap = PenLineCap.Round,
+                LineJoin = PenLineJoin.Round
             };
-            dc.DrawLine(centerPen, guide.CenterStart, guide.CenterEnd);
+
+            if (outwardLive)
+                DrawArrow(dc, guide.CenterEnd, guide.CenterStart, arrowPen);
+            else
+                DrawArrow(dc, guide.CenterStart, guide.CenterEnd, arrowPen);
+
+            if (reverseClose && !outwardLive)
+                DrawArrowHead(dc, guide.CenterEnd, guide.CenterStart, new Pen(TransparentClone(source, arrowOpacity * 0.62), arrowPen.Thickness));
         }
+    }
+
+    private void DrawCornerLabel(
+        DrawingContext dc,
+        Rect pad,
+        TouchpadCorner corner,
+        Brush accent,
+        Brush muted,
+        Brush faint)
+    {
+        GestureActionKind action = _configuration.LaunchFor(corner);
+        if (action == GestureActionKind.Disabled)
+            return;
+
+        bool active = IsActiveCorner(corner);
+        bool candidate = IsCandidateCorner(corner);
+        bool selected = _selectedZone.Corner == corner;
+        bool hovered = _hoverZone?.Corner == corner;
+        Brush brush = active || candidate
+            ? accent
+            : selected || hovered
+                ? ResourceBrush("Tc.Text", muted)
+                : muted;
+        TouchpadActionVisualSpec spec = TouchpadActionVisualCatalog.Get(action);
+        WpfPoint iconPoint = CornerLanePoint(pad, corner, TouchpadCornerZonePolicy.LengthMm + 7.0, 0);
+        DrawCue(dc, spec.Center, iconPoint, brush, vertical: false);
+
+        string label = action == GestureActionKind.OpenAdvanced ? "Advanced" : "Compact";
+        DrawLabel(
+            dc,
+            label,
+            new WpfPoint(iconPoint.X, iconPoint.Y + 18),
+            TypographyScale.Caption,
+            active || candidate || selected || hovered ? brush : faint,
+            centered: true);
     }
 
     private static double ZoneFillOpacity(bool active, bool candidate, bool selected, bool hovered, bool enabled) =>
@@ -530,8 +606,17 @@ public sealed class TouchpadVisualizer : FrameworkElement
             EndLineCap = PenLineCap.Round
         }, start, end);
         dc.DrawLine(pen, segmentA, segmentB);
-        dc.DrawLine(pen, start, end);
+        DrawArrow(dc, start, end, pen);
+    }
 
+    private static void DrawArrow(DrawingContext dc, WpfPoint start, WpfPoint end, Pen pen)
+    {
+        dc.DrawLine(pen, start, end);
+        DrawArrowHead(dc, start, end, pen);
+    }
+
+    private static void DrawArrowHead(DrawingContext dc, WpfPoint start, WpfPoint end, Pen pen)
+    {
         WpfPoint direction = new(end.X - start.X, end.Y - start.Y);
         double length = Math.Max(1, Math.Sqrt(direction.X * direction.X + direction.Y * direction.Y));
         double ux = direction.X / length;
@@ -540,6 +625,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
         WpfPoint arrowB = new(end.X - ux * 8 + uy * 5, end.Y - uy * 8 - ux * 5);
         dc.DrawLine(pen, arrowA, end);
         dc.DrawLine(pen, arrowB, end);
+    }
+
+    private static void DrawPolyline(DrawingContext dc, IReadOnlyList<WpfPoint> points, Pen pen)
+    {
+        for (int i = 1; i < points.Count; i++)
+            dc.DrawLine(pen, points[i - 1], points[i]);
     }
 
     private void DrawEdgeLabels(DrawingContext dc, Rect pad, Brush accent, Brush muted, Brush faint)
@@ -817,15 +908,61 @@ public sealed class TouchpadVisualizer : FrameworkElement
     private CornerGuide CornerGuideFor(Rect pad, TouchpadCorner corner)
     {
         double half = TouchpadCornerZonePolicy.HalfWidthMm;
-        double start = TouchpadCornerZonePolicy.StartInsetMm + half * 0.55;
-        double end = TouchpadCornerZonePolicy.LengthMm - half;
+        double start = TouchpadCornerZonePolicy.LaneStartAlongMm;
+        double end = TouchpadCornerZonePolicy.InnerCapCenterMm;
         WpfPoint outerA = CornerLanePoint(pad, corner, start, -half);
         WpfPoint innerA = CornerLanePoint(pad, corner, end, -half);
         WpfPoint outerB = CornerLanePoint(pad, corner, start, half);
         WpfPoint innerB = CornerLanePoint(pad, corner, end, half);
-        WpfPoint centerStart = CornerLanePoint(pad, corner, start, 0);
-        WpfPoint centerEnd = CornerLanePoint(pad, corner, end, 0);
-        return new CornerGuide(outerA, innerA, outerB, innerB, centerStart, centerEnd);
+        WpfPoint centerStart = CornerLanePoint(pad, corner, start + 1.4, 0);
+        WpfPoint centerEnd = CornerLanePoint(pad, corner, end - 1.8, 0);
+        WpfPoint guardTop = CornerLocalPoint(pad, corner, TouchpadCornerZonePolicy.OuterGuardRadiusMm, 0);
+        WpfPoint guardSide = CornerLocalPoint(pad, corner, 0, TouchpadCornerZonePolicy.OuterGuardRadiusMm);
+        WpfPoint innerTip = CornerLanePoint(pad, corner, TouchpadCornerZonePolicy.LengthMm, 0);
+        return new CornerGuide(
+            outerA,
+            innerA,
+            outerB,
+            innerB,
+            centerStart,
+            centerEnd,
+            guardTop,
+            guardSide,
+            innerTip);
+    }
+
+    private IReadOnlyList<WpfPoint> InnerCapPoints(Rect pad, TouchpadCorner corner)
+    {
+        const int segments = 12;
+        var points = new WpfPoint[segments + 1];
+        double half = TouchpadCornerZonePolicy.HalfWidthMm;
+        double center = TouchpadCornerZonePolicy.InnerCapCenterMm;
+        for (int i = 0; i <= segments; i++)
+        {
+            double theta = -Math.PI / 2 + Math.PI * i / segments;
+            double along = center + half * Math.Cos(theta);
+            double across = half * Math.Sin(theta);
+            points[i] = CornerLanePoint(pad, corner, along, across);
+        }
+        return points;
+    }
+
+    private WpfPoint CornerOrigin(Rect pad, TouchpadCorner corner) =>
+        corner == TouchpadCorner.TopLeft
+            ? new WpfPoint(pad.Left, pad.Top)
+            : new WpfPoint(pad.Right, pad.Top);
+
+    private double CornerPhysicalPixels(Rect pad, double millimetres) =>
+        millimetres * pad.Width / Math.Max(1, _geometry.EffectiveWidthMm);
+
+    private WpfPoint CornerLocalPoint(Rect pad, TouchpadCorner corner, double localXmm, double localYmm)
+    {
+        double x = localXmm / _geometry.EffectiveWidthMm * pad.Width;
+        double y = localYmm / _geometry.EffectiveHeightMm * pad.Height;
+        WpfPoint leftPoint = new(pad.Left + x, pad.Top + y);
+        return corner == TouchpadCorner.TopLeft
+            ? leftPoint
+            : new WpfPoint(pad.Left + pad.Right - leftPoint.X, leftPoint.Y);
     }
 
     private WpfPoint CornerLanePoint(Rect pad, TouchpadCorner corner, double alongMm, double acrossMm)
@@ -833,13 +970,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         const double invSqrt2 = 0.7071067811865476;
         double localX = (alongMm - acrossMm) * invSqrt2;
         double localY = (alongMm + acrossMm) * invSqrt2;
-        double x = localX / _geometry.EffectiveWidthMm * pad.Width;
-        double y = localY / _geometry.EffectiveHeightMm * pad.Height;
-
-        WpfPoint leftPoint = new(pad.Left + x, pad.Top + y);
-        return corner == TouchpadCorner.TopLeft
-            ? leftPoint
-            : new WpfPoint(pad.Left + pad.Right - leftPoint.X, leftPoint.Y);
+        return CornerLocalPoint(pad, corner, localX, localY);
     }
 
     private double CornerLanePixelWidth(Rect pad)
@@ -920,7 +1051,10 @@ public sealed class TouchpadVisualizer : FrameworkElement
         WpfPoint OuterB,
         WpfPoint InnerB,
         WpfPoint CenterStart,
-        WpfPoint CenterEnd);
+        WpfPoint CenterEnd,
+        WpfPoint GuardTop,
+        WpfPoint GuardSide,
+        WpfPoint InnerTip);
 
     private readonly record struct TrailPoint(int ContactId, int X, int Y, DateTimeOffset Timestamp, bool StartsSegment);
 }

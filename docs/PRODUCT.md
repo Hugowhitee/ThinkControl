@@ -108,7 +108,7 @@ Other OEMs should provide their own backend behind the same keyboard capability 
 
 ## Touchpad
 
-The Touchpad page shows real contact points, bounded recent trails, configurable precision edge gestures, deliberate top-corner launch lanes, haptic settings where Windows/provider support exists, and bounded OSD feedback.
+The Touchpad page shows real contact points, bounded recent trails, configurable precision edge gestures, deliberate top-corner launch zones, haptic settings where Windows/provider support exists, and bounded OSD feedback.
 
 A finger lift ends a visual trail segment. New contacts and implausibly large physical jumps do not draw fake connecting lines.
 
@@ -116,11 +116,15 @@ Track control prefers the active Windows media session and falls back safely whe
 
 The editor/visualizer uses one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. Edges and corners share one rendering owner and one idle/selected/hover/candidate/live visual grammar. The former auxiliary corner overlay is non-interactive and does not own mouse selection.
 
-Corner hit-testing wins only inside the same deliberate diagonal physical lane that represents a configured corner launch. Outside that lane, the normal edge selector remains available. The final right-corner geometry is mirrored from the canonical left-corner geometry rather than independently approximated.
+Each enabled corner launch uses one canonical physical **guard → diagonal lane → rounded end-cap** shape. The visible quarter-circle guard is also the recognizer's real first-frame priority area, so slightly imperfect finger placement near the physical corner cannot accidentally become the neighboring top/side gesture. The lane and rounded end-cap are real usable areas too, not decorative overlays. If a corner launch is Off, it does not reserve runtime input from the edge recognizer.
 
-Runtime corner recognition remains intentionally separate from edge recognition and preserves the alpha.33 safety contract: corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins inside its diagonal lane. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture.
+The final right-corner geometry is mirrored from the canonical left-corner geometry rather than independently approximated. The center guide is a directional arrow, the inner end is a semicircular arc rather than a flat 90-degree cross-line/filled blob, and enabled Compact/Advanced actions show their semantic icon and text.
 
-Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners and asserts mirrored final geometry plus unchanged editor layout across live frames.
+Runtime corner recognition remains intentionally separate from edge recognition and preserves the alpha.33 safety contract: corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins anywhere inside its visible guard/lane/cap area. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture.
+
+Each corner can independently enable **Reverse swipe closes ThinkControl**. With that option enabled, the rounded inner cap becomes the outward start target: a deliberate diagonal swipe back toward the physical corner hides the currently visible Compact or Advanced shell. With the option disabled, the cap remains part of the normal inward launch area. The reverse path uses the same recognizer ownership, diagonal-intent and reject-until-lift rules as the launch path; it does not add a parallel gesture worker or overlay.
+
+Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners, covers the normal inward state on the left and the opt-in reverse-close state on the mirrored right, and asserts mirrored final geometry plus unchanged editor layout across live frames.
 
 Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence and publishes all-up frames immediately. Raw-input/HID registration is deferred until after the visible shell/page has painted. UI-only corner/gesture listeners attach only while the Touchpad page is visible so leaving the page cannot keep high-rate dispatcher work alive elsewhere in Advanced.
 

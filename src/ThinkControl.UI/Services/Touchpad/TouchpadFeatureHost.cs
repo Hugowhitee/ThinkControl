@@ -46,7 +46,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
             next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
             result => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrackCenter(result))),
             () => app.Dispatcher.BeginInvoke(new Action(app.ShowThinkControlFromTray)),
-            () => app.Dispatcher.BeginInvoke(new Action(() => app.OpenAdvancedSafely("Home"))));
+            () => app.Dispatcher.BeginInvoke(new Action(() => app.OpenAdvancedSafely("Home"))),
+            () => app.Dispatcher.BeginInvoke(new Action(app.HideThinkControlToTray)));
 
         bool x9 = string.Equals(app.State.MachineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
                   string.Equals(app.State.MachineType, "21Q7", StringComparison.OrdinalIgnoreCase);

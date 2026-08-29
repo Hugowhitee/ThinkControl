@@ -25,6 +25,71 @@ public partial class TouchpadPanel
     }
 
     /// <summary>
+    /// Reuse the existing right-corner snapshot pair to cover the opt-in reverse
+    /// close affordance as well as the normal left-corner launch fixtures. This does
+    /// not persist settings or route an action; it only prepares deterministic UI.
+    /// </summary>
+    internal void PrepareReverseCornerForSnapshot(TouchpadCorner corner, bool live)
+    {
+        TouchpadCornerLaunchBindings launches = _configuration.CornerLaunches ?? new TouchpadCornerLaunchBindings();
+        launches = corner switch
+        {
+            TouchpadCorner.TopLeft => launches with { TopLeftReverseClose = true },
+            TouchpadCorner.TopRight => launches with { TopRightReverseClose = true },
+            _ => launches
+        };
+
+        _syncing = true;
+        try
+        {
+            _configuration = (_configuration with { CornerLaunches = launches }).Sanitize();
+            Visualizer.Configuration = _configuration;
+            SyncCornerLaunchControls();
+        }
+        finally
+        {
+            _syncing = false;
+        }
+
+        if (!live)
+        {
+            Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
+            RefreshGestureZoneVisuals(null);
+            GestureStatusText.Text = corner == TouchpadCorner.TopLeft
+                ? "Top-left corner selected · Compact · reverse close on"
+                : "Top-right corner selected · Advanced · reverse close on";
+            return;
+        }
+
+        GestureActionKind action = _configuration.LaunchFor(corner);
+        var reverse = new GestureSignal(
+            GesturePhase.Active,
+            Edge: null,
+            Action: action,
+            TotalTravelMm: 9.9,
+            DeltaMm: 2.4,
+            ContactId: 1,
+            Corner: corner,
+            CornerDirection: CornerGestureDirection.Outward);
+
+        if (corner == TouchpadCorner.TopLeft)
+        {
+            Visualizer.SetTestFrame([new TouchContact(1, 1650, 1650, true)], reverse);
+            Visualizer.SetTestFrame([new TouchContact(1, 950, 950, true)], reverse);
+        }
+        else
+        {
+            Visualizer.SetTestFrame([new TouchContact(1, 11850, 1650, true)], reverse);
+            Visualizer.SetTestFrame([new TouchContact(1, 12550, 950, true)], reverse);
+        }
+
+        RefreshGestureZoneVisuals(reverse);
+        GestureStatusText.Text = corner == TouchpadCorner.TopLeft
+            ? "Top-left reverse · closing ThinkControl"
+            : "Top-right reverse · closing ThinkControl";
+    }
+
+    /// <summary>
     /// Live corner Candidate/Active emphasis must never change editor visibility or
     /// child structure. Alpha.33 fixed the reflow regression; keep that invariant as
     /// an executable visual-QA assertion while still allowing opacity/hit-test state

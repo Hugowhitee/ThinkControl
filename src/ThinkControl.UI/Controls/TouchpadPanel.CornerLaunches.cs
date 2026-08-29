@@ -20,6 +20,7 @@ public partial class TouchpadPanel
 
     private TouchpadGestureZoneOverlay? _gestureZoneOverlay;
     private ComboBox? _cornerLaunchCombo;
+    private CheckBox? _cornerReverseCloseCheckBox;
     private FrameworkElement? _edgeEditorCard;
     private Border? _cornerEditorCard;
     private TextBlock? _cornerEditorTitle;
@@ -32,7 +33,7 @@ public partial class TouchpadPanel
             return;
         _cornerLaunchUiConfigured = true;
 
-        // Surface launches are owned by the two deliberate diagonal corner lanes,
+        // Surface launches are owned by the two deliberate diagonal corner zones,
         // not by the four edge bindings. Runtime recognition remains separate, but
         // editor selection/rendering is one six-zone model in TouchpadVisualizer.
         ActionCombo.ItemsSource = ActionCombo.Items.Cast<ActionOption>()
@@ -96,6 +97,27 @@ public partial class TouchpadPanel
         };
         _cornerLaunchCombo.SelectionChanged += CornerLaunchCombo_SelectionChanged;
         stack.Children.Add(_cornerLaunchCombo);
+
+        _cornerReverseCloseCheckBox = new CheckBox
+        {
+            Content = "Reverse swipe closes ThinkControl",
+            Margin = new Thickness(0, 14, 0, 0),
+            FontSize = TypographyScale.Secondary
+        };
+        _cornerReverseCloseCheckBox.Checked += CornerReverseClose_Changed;
+        _cornerReverseCloseCheckBox.Unchecked += CornerReverseClose_Changed;
+        stack.Children.Add(_cornerReverseCloseCheckBox);
+
+        var reverseDescription = new TextBlock
+        {
+            Text = "Start at the rounded inner end and swipe back toward the corner to hide Compact or Advanced.",
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(24, 4, 0, 0),
+            FontSize = TypographyScale.Caption
+        };
+        reverseDescription.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        stack.Children.Add(reverseDescription);
+
         _cornerEditorCard.Child = stack;
 
         int insertIndex = Math.Min(1, SettingsStack.Children.Count);
@@ -140,6 +162,28 @@ public partial class TouchpadPanel
         _configuration = (_configuration with { CornerLaunches = launches }).Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
+        SyncCornerLaunchControls();
+    }
+
+    private void CornerReverseClose_Changed(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || _host is null ||
+            sender is not CheckBox { Tag: TouchpadCorner corner } checkBox)
+        {
+            return;
+        }
+
+        bool enabled = checkBox.IsChecked == true;
+        TouchpadCornerLaunchBindings launches = _configuration.CornerLaunches ?? new TouchpadCornerLaunchBindings();
+        launches = corner switch
+        {
+            TouchpadCorner.TopLeft => launches with { TopLeftReverseClose = enabled },
+            TouchpadCorner.TopRight => launches with { TopRightReverseClose = enabled },
+            _ => launches
+        };
+        _configuration = (_configuration with { CornerLaunches = launches }).Sanitize();
+        _host.UpdateConfiguration(_configuration);
+        Visualizer.Configuration = _configuration;
         SyncGestureZoneOverlay();
     }
 
@@ -156,13 +200,26 @@ public partial class TouchpadPanel
         {
             if (_selectedZone.Corner is TouchpadCorner corner)
             {
+                TouchpadCornerLaunchBindings launches = _configuration.CornerLaunches ?? new TouchpadCornerLaunchBindings();
                 _cornerLaunchCombo.Tag = corner;
                 _cornerLaunchCombo.SelectedItem = CornerLaunchOptions.First(option => option.Action == _configuration.LaunchFor(corner));
+                if (_cornerReverseCloseCheckBox is not null)
+                {
+                    _cornerReverseCloseCheckBox.Tag = corner;
+                    _cornerReverseCloseCheckBox.IsChecked = launches.ReverseCloseFor(corner);
+                    _cornerReverseCloseCheckBox.IsEnabled = _configuration.LaunchFor(corner) != GestureActionKind.Disabled;
+                }
             }
             else
             {
                 _cornerLaunchCombo.Tag = null;
                 _cornerLaunchCombo.SelectedItem = null;
+                if (_cornerReverseCloseCheckBox is not null)
+                {
+                    _cornerReverseCloseCheckBox.Tag = null;
+                    _cornerReverseCloseCheckBox.IsChecked = false;
+                    _cornerReverseCloseCheckBox.IsEnabled = false;
+                }
             }
         }
         finally
@@ -198,23 +255,11 @@ public partial class TouchpadPanel
         if (_cornerEditorDescription is not null)
         {
             _cornerEditorDescription.Text = corner == TouchpadCorner.TopLeft
-                ? "Start in the top-left diagonal lane and move deliberately inward to launch the selected ThinkControl surface."
-                : "Start in the top-right diagonal lane and move deliberately inward to launch the selected ThinkControl surface.";
+                ? "Start in the top-left corner guard and move deliberately along the arrow to launch the selected ThinkControl surface."
+                : "Start in the top-right corner guard and move deliberately along the arrow to launch the selected ThinkControl surface.";
         }
 
-        if (_cornerLaunchCombo is not null)
-        {
-            _syncing = true;
-            try
-            {
-                _cornerLaunchCombo.Tag = corner;
-                _cornerLaunchCombo.SelectedItem = CornerLaunchOptions.First(option => option.Action == _configuration.LaunchFor(corner));
-            }
-            finally
-            {
-                _syncing = false;
-            }
-        }
+        SyncCornerLaunchControls();
     }
 
     private void UpdateCornerGestureUi(GestureSignal signal)
@@ -228,12 +273,17 @@ public partial class TouchpadPanel
             return;
 
         string cornerName = corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right";
+        bool closing = signal.CornerDirection == CornerGestureDirection.Outward;
         string action = signal.Action == GestureActionKind.OpenAdvanced ? "Advanced" : "Compact";
         GestureStatusText.Text = signal.Phase switch
         {
+            GesturePhase.Candidate when closing => $"{cornerName} reverse · continue diagonally toward the corner to close",
             GesturePhase.Candidate => $"{cornerName} launch · continue diagonally inward for {action}",
+            GesturePhase.Claimed or GesturePhase.Active when closing => $"{cornerName} reverse · closing ThinkControl",
             GesturePhase.Claimed or GesturePhase.Active => $"{cornerName} launch · opening {action}",
+            GesturePhase.Cancelled when closing => $"{cornerName} reverse rejected · {signal.Reason}",
             GesturePhase.Cancelled => $"{cornerName} launch rejected · {signal.Reason}",
+            GesturePhase.Released when closing => $"{cornerName} reverse complete · ThinkControl hidden",
             GesturePhase.Released => $"{cornerName} launch complete · {action}",
             _ => GestureStatusText.Text
         };
