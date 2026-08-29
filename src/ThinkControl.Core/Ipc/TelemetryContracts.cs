@@ -6,6 +6,13 @@ public static class ThinkControlProtocol
     public const string PipeName = "ThinkControl.Service.v1";
 }
 
+public static class FanControlKinds
+{
+    public const string None = "None";
+    public const string DiscreteEc = "ThinkPadEcDiscrete";
+    public const string OemTargetRpm = "LenovoOtherModeTargetRpm";
+}
+
 public sealed record ServiceRequest(
     int Version,
     string Operation,
@@ -86,4 +93,5 @@ public sealed record HardwareCapabilitySnapshot(
     bool KeyboardBacklight,
     bool CpuTemperature,
     bool SensorTelemetry = false,
-    int FanCount = 0);
+    int FanCount = 0,
+    string FanControlKind = FanControlKinds.None);
