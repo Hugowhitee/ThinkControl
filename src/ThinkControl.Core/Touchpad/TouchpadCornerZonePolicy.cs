@@ -10,7 +10,6 @@ public static class TouchpadCornerZonePolicy
     public const double LengthMm = 24.0;
     public const double HalfWidthMm = 4.0;
     public const double OuterGuardRadiusMm = 10.0;
-    public const double StartInsetMm = 1.5;
 
     public static double InnerCapCenterMm => LengthMm - HalfWidthMm;
 
