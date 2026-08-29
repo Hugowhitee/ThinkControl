@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.34**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
+This document describes the support model at **v0.1.0-alpha.35**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
 
 ## Support levels
 
@@ -49,7 +49,7 @@ Fan features are kept semantically distinct:
 - **manual percent/output**: only where the provider explicitly supports that meaning;
 - **telemetry-only**: RPM/state can be shown without enabling writes.
 
-The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto`. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls.
+The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto`. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls. Alpha.35 removes the obsolete current-client wrappers while intentionally preserving those server-side compatibility handlers and the legacy updater fixture.
 
 ## Keyboard semantics
 
@@ -88,6 +88,7 @@ Hosted CI can prove source/build/lifecycle behavior but not physical hardware fe
 - Lenovo keyboard Auto/Fn+Space/readback agreement;
 - direct-provider effect behavior without Lenovo pop-ups;
 - haptic Touchpad corner sensitivity/symmetry and high-rate responsiveness;
+- Audio volume/microphone behavior across real navigation during a drag;
 - provider repair/restart behavior after real PawnIO/service failure states.
 
 These checks belong in `docs/ALPHA-TESTING.md` and release-readiness notes; they must not be marked complete from screenshots alone.
