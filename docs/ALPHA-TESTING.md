@@ -65,6 +65,19 @@ The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-ri
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
 - Manual percentage and graph-curve operations should appear as fan-control diagnostics rather than generic hardware events.
 
+For the draft X9 dual-fan investigation in PR #71, use this specific order and **do not run fan characterization first**:
+
+1. Start in **Lenovo Auto** and leave ThinkControl open. Confirm the OEM fan behavior remains smooth; ordinary Auto status discovery must not exercise selector `0x31` just because the app is open.
+2. Enter Quiet, Balanced and Max Cooling one at a time. After each change, the previous RPM should disappear/settle rather than remain displayed as an obviously stale value while the physical fans have already changed speed.
+3. While a managed state is active, verify any Fan 1/Fan 2 values are plausible. If the exact pair has not settled yet, temporary unavailable telemetry is preferable to reusing one old or ambiguous fan value.
+4. Listen specifically for the previous repeating wave/beating character. Record whether it is absent, reduced or unchanged; hosted CI cannot determine acoustics.
+5. Test 100% manual only as **standard EC step 7 / 100% of ThinkControl's verified managed range**. Do not expect or report it as equivalent to Lenovo Auto's hottest or absolute physical fan ceiling.
+6. Return to Lenovo Auto and confirm the firmware regains smooth control without a fan stall, zero-RPM surprise or persistent left/right divergence.
+7. After the session, Advanced → Diagnostics → **Export support bundle** should produce a redacted JSON containing bounded X9 fan samples from the status stream (profile, control temperature, applied level and up to two RPM values). The diagnostics path must not create another hardware polling loop.
+8. For Lenovo Auto reverse engineering, run `tools/research/Capture-LenovoAuto.ps1` separately for naturally occurring states such as `lenovo-auto-hot`, `lenovo-auto-cool` and a managed step-7 comparison. The script is observational only: it reads ThinkControl `GetStatus`, `LITSSVC\IC`, LITSSVC version and Windows power state and performs no EC/registry/power/service/firmware writes.
+
+The standard ThinkPad distinction matters here: EC levels `0..7` are normal manual states; `0x80` hands cooling back to the firmware's internal Auto algorithm; the separate `0x40` full-speed/disengaged family is not the same thing as step 7 and remains blocked on the X9 because its semantics have not passed physical safety validation.
+
 The alpha.35 cleanup removes obsolete **current-client** cooling wrappers. The service-side legacy cooling IPC remains intentionally present for installed-client compatibility and is still covered by the immutable alpha.14.1 updater fixture.
 
 ## Diagnostics/device learning
