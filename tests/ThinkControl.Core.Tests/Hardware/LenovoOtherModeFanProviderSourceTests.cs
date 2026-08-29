@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Hardware;
 public sealed class LenovoOtherModeFanProviderSourceTests
 {
     [Fact]
-    public void OtherModeProvider_RequiresCapabilityReportedConstrainedFanChannels()
+    public void OtherModeProvider_RequiresCapabilityReportedConstrainedFanChannelsAndLiveReads()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
 
@@ -14,6 +14,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("LENOVO_FAN_TEST_DATA", source, StringComparison.Ordinal);
         Assert.Contains("RequiredWriteSupport = SupportValid | SupportGet | SupportSet", source, StringComparison.Ordinal);
         Assert.Contains("channels.Length >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("fans.Count == channels.Length", source, StringComparison.Ordinal);
+        Assert.Contains("failed the live OEM read gate; Lenovo Auto keeps ownership", source, StringComparison.Ordinal);
         Assert.Contains("IsSaneConstraint(channel.MinRpm, channel.MaxRpm)", source, StringComparison.Ordinal);
         Assert.Contains("BuildFanRpmAttributeId", source, StringComparison.Ordinal);
         Assert.Contains("DescribeRanges(channels)", source, StringComparison.Ordinal);
@@ -33,6 +35,18 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("Lenovo Auto was requested for all writable channels", source, StringComparison.Ordinal);
         Assert.DoesNotContain("0x831020C0", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("CleanDust", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void X9Controller_GatesOemWritesByExactIdentityAndPrefersThemOverEcFallback()
+    {
+        string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
+
+        Assert.Contains("bool oemFanControl = _identity.IsVerifiedX9 && oemFanStatus.CanControl;", source, StringComparison.Ordinal);
+        Assert.Contains("if (!_identity.IsVerifiedX9)", source, StringComparison.Ordinal);
+        Assert.Contains("if (oem.CanControl)", source, StringComparison.Ordinal);
+        Assert.Contains("Raw EC steps are disabled while the X9 exposes Lenovo's constrained OEM target-RPM provider", source, StringComparison.Ordinal);
+        Assert.Contains("_activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm", source, StringComparison.Ordinal);
     }
 
     [Fact]
