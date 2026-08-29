@@ -99,6 +99,36 @@ public partial class App
         ShowThinkControlFromTray();
     }
 
+    internal void HideThinkControlToTray()
+    {
+        if (CompactWindow?.IsVisible != true && _advancedWindow?.IsVisible != true)
+            return;
+
+        const string operation = "hide-to-tray";
+        if (!TryBeginViewTransition(operation))
+            return;
+
+        try
+        {
+            _attentionToast.HidePassive();
+            if (CompactWindow?.IsVisible == true)
+                CompactWindow.HideAnimated();
+            if (_advancedWindow?.IsVisible == true)
+                _advancedWindow.HideAnimated();
+
+            VerifyPrimarySurfaceState(operation, expectCompact: false, expectAdvanced: false);
+            RecordShellEvent("shell.transition.completed", true, operation);
+        }
+        catch (Exception ex)
+        {
+            RecordShellException(operation, ex);
+        }
+        finally
+        {
+            EndViewTransition();
+        }
+    }
+
     public void ShowThinkControlFromTray()
     {
         if (CompactWindow is null)
