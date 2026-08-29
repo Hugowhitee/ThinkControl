@@ -25,12 +25,19 @@ internal sealed record LenovoOtherModeFanStatus(
     string Detail);
 
 /// <summary>
-/// Lenovo's modern "Other Mode" WMI contract exposes current fan RPM and a
-/// firmware-defined target RPM. Capability Data 00 advertises GET/SET support
-/// per fan and Fan Test Data supplies the OEM min/max constraints used by the
-/// Linux lenovo-wmi-other driver. ThinkControl never enables writes without all
-/// of those constraints and a successful live read from every writable channel;
-/// missing or inconsistent evidence remains read-only.
+/// Lenovo OEM fan provider coordinator.
+///
+/// The preferred writable transport is Lenovo's modern "Other Mode" WMI
+/// contract, which exposes semantic target RPM plus capability metadata and
+/// per-fan constraints. Some Lenovo families (including the X9 under current
+/// investigation) may not expose those WMI classes even though Lenovo's own
+/// Windows stack still exposes fan telemetry through EnergyDrv. In that case
+/// EnergyDrv is used read-only so ThinkControl can stop touching EC tachometers
+/// just to observe fan speed while the exact OEM writer is recovered.
+///
+/// EnergyDrv writes are intentionally absent here: public Lenovo code proves a
+/// separate ChangeFanSpeed IOCTL exists, but its command encoding is not yet
+/// physically validated on the X9. Missing write semantics must fail closed.
 /// </summary>
 internal sealed class LenovoOtherModeFanProvider
 {
@@ -53,6 +60,7 @@ internal sealed class LenovoOtherModeFanProvider
     private const int MaximumPlausibleRpm = 20_000;
 
     private readonly object _gate = new();
+    private readonly LenovoEnergyDrvFanProvider _energyDrv = new();
     private bool _discoveryComplete;
     private LenovoOtherModeFanChannel[] _channels = [];
     private string _discoveryDetail = "Lenovo Other Mode fan capability not probed";
@@ -64,6 +72,7 @@ internal sealed class LenovoOtherModeFanProvider
             _discoveryComplete = false;
             _channels = [];
             _discoveryDetail = "Lenovo Other Mode fan capability not probed";
+            _energyDrv.Refresh();
         }
     }
 
@@ -79,13 +88,13 @@ internal sealed class LenovoOtherModeFanProvider
         }
 
         if (channels.Length == 0)
-            return new LenovoOtherModeFanStatus(false, false, [], [], detail);
+            return BuildReadOnlyEnergyDrvFallback(detail);
 
         try
         {
             using ManagementObject? method = FindActiveMethodObject();
             if (method is null)
-                return new LenovoOtherModeFanStatus(false, false, [], channels, "LENOVO_OTHER_METHOD is unavailable");
+                return BuildReadOnlyEnergyDrvFallback("LENOVO_OTHER_METHOD is unavailable");
 
             var fans = new List<LenovoFanReading>(channels.Length);
             foreach (LenovoOtherModeFanChannel channel in channels)
@@ -107,8 +116,14 @@ internal sealed class LenovoOtherModeFanProvider
                               channels.All(channel =>
                                   (channel.Capability & RequiredWriteSupport) == RequiredWriteSupport &&
                                   IsSaneConstraint(channel.MinRpm, channel.MaxRpm));
+            if (fans.Count == 0)
+            {
+                return BuildReadOnlyEnergyDrvFallback(
+                    $"Lenovo Other Mode metadata found, but 0/{channels.Length} fan channels passed live GET validation");
+            }
+
             return new LenovoOtherModeFanStatus(
-                Available: fans.Count > 0,
+                Available: true,
                 CanControl: canControl,
                 Fans: fans,
                 Channels: channels,
@@ -120,7 +135,7 @@ internal sealed class LenovoOtherModeFanProvider
         }
         catch (Exception ex)
         {
-            return new LenovoOtherModeFanStatus(false, false, [], channels,
+            return BuildReadOnlyEnergyDrvFallback(
                 $"Lenovo Other Mode fan read failed: {ex.GetType().Name}");
         }
     }
@@ -146,7 +161,7 @@ internal sealed class LenovoOtherModeFanProvider
                 (channel.Capability & RequiredWriteSupport) != RequiredWriteSupport ||
                 !IsSaneConstraint(channel.MinRpm, channel.MaxRpm)))
         {
-            error = "Lenovo Other Mode did not expose two fully constrained writable fan channels.";
+            error = "Lenovo Other Mode did not expose two fully constrained writable fan channels. EnergyDrv is telemetry-only until the exact X9 ChangeFanSpeed command is recovered.";
             return false;
         }
 
@@ -209,8 +224,11 @@ internal sealed class LenovoOtherModeFanProvider
 
         if (channels.Length == 0)
         {
-            error = "Lenovo Other Mode fan capability is unavailable.";
-            return false;
+            // EnergyDrv has no validated write/handoff contract in ThinkControl yet.
+            // With no Other Mode writer active there is nothing for this provider to
+            // release; firmware already owns the EnergyDrv-observed fans.
+            error = null;
+            return true;
         }
 
         try
@@ -239,6 +257,30 @@ internal sealed class LenovoOtherModeFanProvider
             error = $"Lenovo Other Mode Auto handoff failed: {ex.Message}";
             return false;
         }
+    }
+
+    private LenovoOtherModeFanStatus BuildReadOnlyEnergyDrvFallback(string otherModeDetail)
+    {
+        LenovoEnergyDrvFanStatus energy = _energyDrv.ReadStatus(DateTimeOffset.UtcNow);
+        if (!energy.Available)
+        {
+            return new LenovoOtherModeFanStatus(
+                false,
+                false,
+                [],
+                [],
+                $"{otherModeDetail} · {energy.Detail}");
+        }
+
+        string completeness = energy.Complete
+            ? "two-channel OEM telemetry confirmed"
+            : "partial OEM telemetry only";
+        return new LenovoOtherModeFanStatus(
+            true,
+            false,
+            energy.Fans,
+            [],
+            $"{otherModeDetail} · {energy.Detail} · {completeness} · EnergyDrv writer intentionally disabled pending exact X9 command validation");
     }
 
     private void EnsureDiscoveredLocked()
@@ -287,7 +329,7 @@ internal sealed class LenovoOtherModeFanProvider
         catch (Exception ex)
         {
             _channels = [];
-            _discoveryDetail = $"Lenovo Other Mode capability discovery failed: {ex.GetType().Name}";
+            _discoveryDetail = $"Lenovo Other Mode capability discovery failed: {DescribeManagementFailure(ex)}";
         }
     }
 
@@ -414,6 +456,13 @@ internal sealed class LenovoOtherModeFanProvider
     private static string DescribeRanges(IEnumerable<LenovoOtherModeFanChannel> channels) =>
         string.Join(" · ", channels.Select(channel =>
             $"Fan {channel.Index + 1} {channel.MinRpm:N0}–{channel.MaxRpm:N0} RPM"));
+
+    private static string DescribeManagementFailure(Exception ex)
+    {
+        if (ex is ManagementException management)
+            return $"{ex.GetType().Name}/{management.ErrorCode}";
+        return ex.GetType().Name;
+    }
 
     private static int ResolveTargetRpm(LenovoOtherModeFanChannel channel, int percent)
     {
