@@ -31,14 +31,25 @@ if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     $OutputPath = Join-Path $desktop ("ThinkControl-LenovoAuto-{0}-{1}.json" -f $safeLabel, $started.ToString("yyyyMMdd-HHmmss"))
 }
 
+function Get-ObjectPropertyString {
+    param([object]$InputObject, [string]$Name)
+    if ($null -eq $InputObject) { return "" }
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) { return "" }
+    return [string]$property.Value
+}
+
 function Convert-SafeRegistryValue {
     param([object]$Value)
 
     if ($null -eq $Value) { return $null }
     if ($Value -is [byte[]]) {
         $bytes = [byte[]]$Value
+        if ($bytes.Length -eq 0) { return "" }
         $take = [Math]::Min($bytes.Length, 64)
-        return ([Convert]::ToHexString($bytes[0..($take - 1)]) + $(if ($bytes.Length -gt $take) { "..." } else { "" }))
+        $hex = ([BitConverter]::ToString($bytes, 0, $take)).Replace("-", "")
+        if ($bytes.Length -gt $take) { $hex += "..." }
+        return $hex
     }
     if ($Value -is [Array]) {
         return @($Value | Select-Object -First 32 | ForEach-Object { [string]$_ })
@@ -47,10 +58,10 @@ function Convert-SafeRegistryValue {
     $text = [string]$Value
     $home = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
     if (-not [string]::IsNullOrWhiteSpace($home)) {
-        $text = $text.Replace($home, "[user]", [StringComparison]::OrdinalIgnoreCase)
+        $text = $text.Replace($home, "[user]")
     }
-    $text = $text.Replace([Environment]::UserName, "[redacted]", [StringComparison]::OrdinalIgnoreCase)
-    $text = $text.Replace([Environment]::MachineName, "[redacted]", [StringComparison]::OrdinalIgnoreCase)
+    $text = $text.Replace([Environment]::UserName, "[redacted]")
+    $text = $text.Replace([Environment]::MachineName, "[redacted]")
     if ($text.Length -gt 240) { $text = $text.Substring(0, 240) + "..." }
     return $text
 }
@@ -97,19 +108,20 @@ function Get-ThinkControlStatus {
     $writer = $null
     $reader = $null
     try {
-        $pipe = [System.IO.Pipes.NamedPipeClientStream]::new(
+        $pipe = New-Object System.IO.Pipes.NamedPipeClientStream(
             ".",
             $pipeName,
             [System.IO.Pipes.PipeDirection]::InOut,
             [System.IO.Pipes.PipeOptions]::None)
         $pipe.Connect(900)
-        $writer = [System.IO.StreamWriter]::new($pipe, [System.Text.UTF8Encoding]::new($false), 4096, $true)
-        $reader = [System.IO.StreamReader]::new($pipe, [System.Text.UTF8Encoding]::new($false), $false, 8192, $true)
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        $writer = New-Object System.IO.StreamWriter($pipe, $utf8, 4096, $true)
+        $reader = New-Object System.IO.StreamReader($pipe, $utf8, $false, 8192, $true)
         $writer.AutoFlush = $true
         $writer.WriteLine('{"version":1,"operation":"GetStatus","value":null}')
         $line = $reader.ReadLine()
         if ([string]::IsNullOrWhiteSpace($line)) { return $null }
-        $response = $line | ConvertFrom-Json -Depth 30
+        $response = $line | ConvertFrom-Json
         if (-not $response.success -or $null -eq $response.telemetry) {
             return [pscustomobject]@{ online = $true; success = $false; error = [string]$response.error }
         }
@@ -172,9 +184,10 @@ $computer = Get-CimInstance Win32_ComputerSystem -ErrorAction SilentlyContinue
 $bios = Get-CimInstance Win32_BIOS -ErrorAction SilentlyContinue
 $litsService = Get-CimInstance Win32_Service -Filter "Name='LITSSVC'" -ErrorAction SilentlyContinue
 $litsVersion = $null
-if ($null -ne $litsService -and -not [string]::IsNullOrWhiteSpace([string]$litsService.PathName)) {
+$litsPath = Get-ObjectPropertyString $litsService "PathName"
+if (-not [string]::IsNullOrWhiteSpace($litsPath)) {
     try {
-        $exe = ([string]$litsService.PathName).Trim('"').Split('"')[0]
+        $exe = $litsPath.Trim('"').Split('"')[0]
         if (Test-Path $exe) { $litsVersion = (Get-Item $exe).VersionInfo.FileVersion }
     }
     catch { }
@@ -187,16 +200,16 @@ $meta = [pscustomobject]@{
     durationSeconds = $DurationSeconds
     sampleIntervalSeconds = $SampleIntervalSeconds
     readOnly = $true
-    manufacturer = [string]$computer.Manufacturer
-    model = [string]$computer.Model
-    biosVersion = [string]$bios.SMBIOSBIOSVersion
-    litsServiceState = [string]$litsService.State
+    manufacturer = Get-ObjectPropertyString $computer "Manufacturer"
+    model = Get-ObjectPropertyString $computer "Model"
+    biosVersion = Get-ObjectPropertyString $bios "SMBIOSBIOSVersion"
+    litsServiceState = Get-ObjectPropertyString $litsService "State"
     litsServiceVersion = $litsVersion
     powerAtStart = Get-PowerSnapshot
     note = "Observational capture only. No EC/register/power/service/firmware writes are performed by this script."
 }
 
-$samples = [System.Collections.Generic.List[object]]::new()
+$samples = New-Object 'System.Collections.Generic.List[object]'
 $deadline = [DateTimeOffset]::Now.AddSeconds($DurationSeconds)
 Write-Host "Capturing Lenovo Auto evidence for $DurationSeconds seconds..."
 Write-Host "Do not change fan settings just for the script. Reproduce the state you want to compare naturally."
