@@ -23,6 +23,7 @@ internal sealed class GestureActionRouter
     private readonly Action<MediaToggleResult> _showTrackCenterOsd;
     private readonly Action _openThinkControl;
     private readonly Action _openAdvanced;
+    private readonly Action _hideThinkControl;
 
     private int _volumeAtStart;
     private int _brightnessAtStart;
@@ -49,7 +50,8 @@ internal sealed class GestureActionRouter
         Action<bool> showTrackOsd,
         Action<MediaToggleResult> showTrackCenterOsd,
         Action openThinkControl,
-        Action openAdvanced)
+        Action openAdvanced,
+        Action hideThinkControl)
     {
         _nativeInput = nativeInput;
         _media = media;
@@ -63,6 +65,7 @@ internal sealed class GestureActionRouter
         _showTrackCenterOsd = showTrackCenterOsd;
         _openThinkControl = openThinkControl;
         _openAdvanced = openAdvanced;
+        _hideThinkControl = hideThinkControl;
     }
 
     internal double CurrentSeekDeltaSeconds => _seekCumulativeSeconds;
@@ -104,6 +107,12 @@ internal sealed class GestureActionRouter
 
     private void Begin(GestureSignal signal)
     {
+        if (signal.Corner is not null && signal.CornerDirection == CornerGestureDirection.Outward)
+        {
+            _hideThinkControl();
+            return;
+        }
+
         switch (signal.Action)
         {
             case GestureActionKind.Volume:
