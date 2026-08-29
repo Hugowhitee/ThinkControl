@@ -137,15 +137,10 @@ internal sealed class ThinkPadEc : IDisposable
         {
             WithEcLock(() =>
             {
-                try
-                {
-                    WriteAndVerifySelectedFanUnlocked(ThinkPadRegisters.MainFan, requested, acceptsReadBack, label, "main");
-                    WriteAndVerifySelectedFanUnlocked(ThinkPadRegisters.AuxiliaryFan, requested, acceptsReadBack, label, "auxiliary");
-                }
-                finally
-                {
-                    TrySelectMainFanUnlocked();
-                }
+                // Upstream ThinkPad evidence treats 0x31 as a tachometer selector;
+                // the shared 0x2F control state affects the cooling assembly. Do not
+                // invent two independently addressable fan-control registers on X9.
+                WriteAndVerifyFanControlUnlocked(requested, acceptsReadBack, label);
                 return 0;
             });
 
@@ -164,25 +159,10 @@ internal sealed class ThinkPadEc : IDisposable
         {
             WithEcLock(() =>
             {
-                try
-                {
-                    WriteAndVerifySelectedFanUnlocked(
-                        ThinkPadRegisters.MainFan,
-                        ThinkPadRegisters.BiosControl,
-                        readBack => readBack == ThinkPadRegisters.BiosControl,
-                        "Lenovo Auto",
-                        "main");
-                    WriteAndVerifySelectedFanUnlocked(
-                        ThinkPadRegisters.AuxiliaryFan,
-                        ThinkPadRegisters.BiosControl,
-                        readBack => readBack == ThinkPadRegisters.BiosControl,
-                        "Lenovo Auto",
-                        "auxiliary");
-                }
-                finally
-                {
-                    TrySelectMainFanUnlocked();
-                }
+                WriteAndVerifyFanControlUnlocked(
+                    ThinkPadRegisters.BiosControl,
+                    readBack => readBack == ThinkPadRegisters.BiosControl,
+                    "Lenovo Auto");
                 return 0;
             });
         }
@@ -213,12 +193,10 @@ internal sealed class ThinkPadEc : IDisposable
         return rpm;
     }
 
-    private void WriteAndVerifySelectedFanUnlocked(
-        byte selector,
+    private void WriteAndVerifyFanControlUnlocked(
         byte requested,
         Func<byte, bool> acceptsReadBack,
-        string label,
-        string fanLabel)
+        string label)
     {
         byte readBack = 0;
         Exception? lastError = null;
@@ -227,7 +205,6 @@ internal sealed class ThinkPadEc : IDisposable
         {
             try
             {
-                SelectFanUnlocked(selector);
                 WriteByteUnlocked(ThinkPadRegisters.FanControl, requested);
                 Thread.Sleep(FanControlSettleMs);
                 readBack = ReadByteUnlocked(ThinkPadRegisters.FanControl);
@@ -244,7 +221,7 @@ internal sealed class ThinkPadEc : IDisposable
         }
 
         throw new InvalidOperationException(
-            $"Fan write verification failed for {label} on the {fanLabel} fan. Requested 0x{requested:X2}, EC returned 0x{readBack:X2}.",
+            $"Fan write verification failed for {label}. Requested 0x{requested:X2}, EC returned 0x{readBack:X2}.",
             lastError);
     }
 
@@ -340,15 +317,7 @@ internal sealed class ThinkPadEc : IDisposable
         {
             WithEcLock(() =>
             {
-                try
-                {
-                    BestEffortWriteFanControlUnlocked(ThinkPadRegisters.MainFan, ThinkPadRegisters.BiosControl);
-                    BestEffortWriteFanControlUnlocked(ThinkPadRegisters.AuxiliaryFan, ThinkPadRegisters.BiosControl);
-                }
-                finally
-                {
-                    TrySelectMainFanUnlocked();
-                }
+                BestEffortWriteFanControlUnlocked(ThinkPadRegisters.BiosControl);
                 return 0;
             });
         }
@@ -362,11 +331,10 @@ internal sealed class ThinkPadEc : IDisposable
         }
     }
 
-    private void BestEffortWriteFanControlUnlocked(byte selector, byte value)
+    private void BestEffortWriteFanControlUnlocked(byte value)
     {
         try
         {
-            SelectFanUnlocked(selector);
             WriteByteUnlocked(ThinkPadRegisters.FanControl, value);
             Thread.Sleep(FanControlSettleMs);
         }
