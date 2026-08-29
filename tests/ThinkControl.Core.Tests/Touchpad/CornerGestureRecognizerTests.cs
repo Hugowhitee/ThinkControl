@@ -16,8 +16,8 @@ public sealed class CornerGestureRecognizerTests
             reverseClose: false);
 
         GestureSignal? candidate = recognizer.ProcessFrame([Contact(1, 100, 800)], Geometry);
-        GestureSignal? cancelled = recognizer.ProcessFrame([Contact(1, 100, 1600)]);
-        GestureSignal? stillDown = recognizer.ProcessFrame([Contact(1, 100, 2200)]);
+        GestureSignal? cancelled = recognizer.ProcessFrame([Contact(1, 100, 1900)]);
+        GestureSignal? stillDown = recognizer.ProcessFrame([Contact(1, 100, 2600)]);
 
         Assert.Equal(TouchpadCorner.TopLeft, candidate?.Corner);
         Assert.Null(candidate?.Edge);
@@ -76,7 +76,7 @@ public sealed class CornerGestureRecognizerTests
 
         Assert.Equal(CornerGestureDirection.Outward, candidate?.CornerDirection);
         Assert.Equal(GesturePhase.Cancelled, cancelled?.Phase);
-        Assert.Contains("moved inward", cancelled?.Reason, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Reverse corner gesture moved inward", cancelled?.Reason);
         Assert.Null(stillDown);
     }
 
