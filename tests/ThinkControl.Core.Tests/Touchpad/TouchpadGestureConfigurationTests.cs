@@ -38,4 +38,18 @@ public sealed class TouchpadGestureConfigurationTests
         Assert.Equal(GestureActionKind.MediaSeek, bindings.Get(TouchpadEdge.Top).Action);
         Assert.Equal(GestureActionKind.Disabled, bindings.Get(TouchpadEdge.Bottom).Action);
     }
+
+    [Fact]
+    public void ReverseClose_IsEffectiveOnlyForAnEnabledCornerLaunch()
+    {
+        var configuration = new TouchpadGestureConfiguration(
+            CornerLaunches: new TouchpadCornerLaunchBindings(
+                TopLeft: GestureActionKind.OpenThinkControl,
+                TopRight: GestureActionKind.Disabled,
+                TopLeftReverseClose: true,
+                TopRightReverseClose: true));
+
+        Assert.True(configuration.ReverseCloseFor(TouchpadCorner.TopLeft));
+        Assert.False(configuration.ReverseCloseFor(TouchpadCorner.TopRight));
+    }
 }
