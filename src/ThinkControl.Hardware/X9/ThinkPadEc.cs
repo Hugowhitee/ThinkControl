@@ -1,5 +1,7 @@
 namespace ThinkControl.Hardware.X9;
 
+internal readonly record struct ThinkPadFanRpmPair(int MainRpm, int AuxiliaryRpm);
+
 internal sealed class ThinkPadEc : IDisposable
 {
     private const ushort EcType1CommandPort = 0x1604;
@@ -21,6 +23,9 @@ internal sealed class ThinkPadEc : IDisposable
     private const int OptionalThermalTimeoutMs = 120;
     private const int PollSleepMs = 10;
     private const int MutexTimeoutMs = 1500;
+    private const int FanSelectorSettleMs = 5;
+    private const int FanControlSettleMs = 100;
+    private const int FanControlWriteAttempts = 3;
     private static readonly TimeSpan ThermalFailureBackoff = TimeSpan.FromSeconds(30);
 
     private readonly PawnIoEcTransport _ports;
@@ -63,21 +68,30 @@ internal sealed class ThinkPadEc : IDisposable
 
     internal string PortLabel => $"0x{_commandPort:X}/0x{_dataPort:X}";
 
-    internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
+    internal byte ReadFanControl() => WithEcLock(() =>
+    {
+        SelectFanUnlocked(ThinkPadRegisters.MainFan);
+        return ReadByteUnlocked(ThinkPadRegisters.FanControl);
+    });
 
-    internal int ReadFanRpm()
+    internal ThinkPadFanRpmPair ReadFanRpms()
     {
         return WithEcLock(() =>
         {
-            byte low = ReadByteUnlocked(ThinkPadRegisters.FanSpeedLow);
-            Thread.Sleep(5);
-            byte high = ReadByteUnlocked(ThinkPadRegisters.FanSpeedHigh);
-            int rpm = ThinkPadFanProtocol.CombineRpm(low, high);
-            if (!ThinkPadFanProtocol.IsPlausibleRpm(rpm))
-                throw new InvalidOperationException($"Implausible fan RPM value {rpm}.");
-            return rpm;
+            try
+            {
+                int main = ReadSelectedFanRpmUnlocked(ThinkPadRegisters.MainFan);
+                int auxiliary = ReadSelectedFanRpmUnlocked(ThinkPadRegisters.AuxiliaryFan);
+                return new ThinkPadFanRpmPair(main, auxiliary);
+            }
+            finally
+            {
+                TrySelectMainFanUnlocked();
+            }
         });
     }
+
+    internal int ReadFanRpm() => ReadFanRpms().MainRpm;
 
     internal IReadOnlyList<(byte Register, byte Celsius)> ReadThermalSensors()
     {
@@ -123,17 +137,19 @@ internal sealed class ThinkPadEc : IDisposable
         {
             WithEcLock(() =>
             {
-                WriteByteUnlocked(ThinkPadRegisters.FanControl, requested);
+                try
+                {
+                    WriteAndVerifySelectedFanUnlocked(ThinkPadRegisters.MainFan, requested, acceptsReadBack, label, "main");
+                    WriteAndVerifySelectedFanUnlocked(ThinkPadRegisters.AuxiliaryFan, requested, acceptsReadBack, label, "auxiliary");
+                }
+                finally
+                {
+                    TrySelectMainFanUnlocked();
+                }
                 return 0;
             });
 
-            Thread.Sleep(45);
-            byte readBack = ReadFanControl();
-            if (!acceptsReadBack(readBack))
-                throw new InvalidOperationException(
-                    $"Fan write verification failed for {label}. Requested 0x{requested:X2}, EC returned 0x{readBack:X2}.");
-
-            _lastManualControl = readBack;
+            _lastManualControl = requested;
         }
         catch
         {
@@ -144,19 +160,99 @@ internal sealed class ThinkPadEc : IDisposable
 
     internal void ReturnToBios()
     {
-        WithEcLock(() =>
+        try
         {
-            WriteByteUnlocked(ThinkPadRegisters.FanControl, ThinkPadRegisters.BiosControl);
-            return 0;
-        });
-
-        Thread.Sleep(45);
-        byte readBack = ReadFanControl();
-        if (readBack != ThinkPadRegisters.BiosControl)
-            throw new InvalidOperationException($"BIOS fan-control verification failed. EC returned 0x{readBack:X2}.");
+            WithEcLock(() =>
+            {
+                try
+                {
+                    WriteAndVerifySelectedFanUnlocked(
+                        ThinkPadRegisters.MainFan,
+                        ThinkPadRegisters.BiosControl,
+                        readBack => readBack == ThinkPadRegisters.BiosControl,
+                        "Lenovo Auto",
+                        "main");
+                    WriteAndVerifySelectedFanUnlocked(
+                        ThinkPadRegisters.AuxiliaryFan,
+                        ThinkPadRegisters.BiosControl,
+                        readBack => readBack == ThinkPadRegisters.BiosControl,
+                        "Lenovo Auto",
+                        "auxiliary");
+                }
+                finally
+                {
+                    TrySelectMainFanUnlocked();
+                }
+                return 0;
+            });
+        }
+        catch
+        {
+            TryReturnToBiosAfterFailedManualWrite();
+            throw;
+        }
 
         _manualControlEngaged = false;
         _lastManualControl = null;
+    }
+
+    private int ReadSelectedFanRpmUnlocked(byte selector)
+    {
+        SelectFanUnlocked(selector);
+        byte low = ReadByteUnlocked(ThinkPadRegisters.FanSpeedLow);
+        Thread.Sleep(5);
+        byte high = ReadByteUnlocked(ThinkPadRegisters.FanSpeedHigh);
+        int rpm = ThinkPadFanProtocol.CombineRpm(low, high);
+        if (!ThinkPadFanProtocol.IsPlausibleRpm(rpm))
+            throw new InvalidOperationException($"Implausible fan RPM value {rpm} for selector {selector}.");
+        return rpm;
+    }
+
+    private void WriteAndVerifySelectedFanUnlocked(
+        byte selector,
+        byte requested,
+        Func<byte, bool> acceptsReadBack,
+        string label,
+        string fanLabel)
+    {
+        byte readBack = 0;
+        Exception? lastError = null;
+
+        for (int attempt = 1; attempt <= FanControlWriteAttempts; attempt++)
+        {
+            try
+            {
+                SelectFanUnlocked(selector);
+                WriteByteUnlocked(ThinkPadRegisters.FanControl, requested);
+                Thread.Sleep(FanControlSettleMs);
+                readBack = ReadByteUnlocked(ThinkPadRegisters.FanControl);
+                if (acceptsReadBack(readBack))
+                    return;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
+
+            if (attempt < FanControlWriteAttempts)
+                Thread.Sleep(FanControlSettleMs);
+        }
+
+        throw new InvalidOperationException(
+            $"Fan write verification failed for {label} on the {fanLabel} fan. Requested 0x{requested:X2}, EC returned 0x{readBack:X2}.",
+            lastError);
+    }
+
+    private void SelectFanUnlocked(byte selector)
+    {
+        WriteByteUnlocked(ThinkPadRegisters.FanSelector, selector);
+        Thread.Sleep(FanSelectorSettleMs);
+    }
+
+    private void TrySelectMainFanUnlocked()
+    {
+        try { SelectFanUnlocked(ThinkPadRegisters.MainFan); }
+        catch { }
     }
 
     private void DetectPortPair()
@@ -239,11 +335,35 @@ internal sealed class ThinkPadEc : IDisposable
         {
             WithEcLock(() =>
             {
-                WriteByteUnlocked(ThinkPadRegisters.FanControl, ThinkPadRegisters.BiosControl);
+                try
+                {
+                    BestEffortWriteFanControlUnlocked(ThinkPadRegisters.MainFan, ThinkPadRegisters.BiosControl);
+                    BestEffortWriteFanControlUnlocked(ThinkPadRegisters.AuxiliaryFan, ThinkPadRegisters.BiosControl);
+                }
+                finally
+                {
+                    TrySelectMainFanUnlocked();
+                }
                 return 0;
             });
+        }
+        catch
+        {
+        }
+        finally
+        {
             _manualControlEngaged = false;
             _lastManualControl = null;
+        }
+    }
+
+    private void BestEffortWriteFanControlUnlocked(byte selector, byte value)
+    {
+        try
+        {
+            SelectFanUnlocked(selector);
+            WriteByteUnlocked(ThinkPadRegisters.FanControl, value);
+            Thread.Sleep(FanControlSettleMs);
         }
         catch
         {
