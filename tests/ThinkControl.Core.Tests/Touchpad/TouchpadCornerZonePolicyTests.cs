@@ -17,17 +17,26 @@ public sealed class TouchpadCornerZonePolicyTests
     }
 
     [Theory]
+    [InlineData(1.0, 8.0)]
+    [InlineData(5.0, 5.0)]
+    [InlineData(8.0, 1.0)]
+    public void EnabledCornerGuard_ContainsForgivingFirstFrameArea(double xMm, double yMm)
+    {
+        Assert.True(TouchpadCornerZonePolicy.ContainsLocal(xMm, yMm));
+    }
+
+    [Theory]
     [InlineData(1.0, 10.0)]
     [InlineData(10.0, 1.0)]
     [InlineData(18.0, 4.0)]
     [InlineData(20.0, 20.0)]
-    public void DiagonalLane_RejectsOldSquareCornerAreaOutsideVisibleLane(double xMm, double yMm)
+    public void CornerZone_RejectsAreaOutsideVisibleGuardAndLane(double xMm, double yMm)
     {
         Assert.False(TouchpadCornerZonePolicy.ContainsLocal(xMm, yMm));
     }
 
     [Fact]
-    public void Recognizer_DoesNotTreatInvisibleSquareAreaAsCornerLaunch()
+    public void Recognizer_UsesVisibleGuardInsteadOfFallingThroughToEdge()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -37,11 +46,50 @@ public sealed class TouchpadCornerZonePolicyTests
         };
         var recognizer = new EdgeGestureRecognizer(config);
 
-        // 1 mm from the left and 10 mm from the top was inside the old 13 x 13 mm
-        // square, but it is visibly outside the new diagonal lane.
-        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 100, 1000, true)], Geometry);
+        // 1 x 8 mm is outside the old narrow diagonal corridor, but now visibly
+        // inside the quarter-circle guard and close enough to the left edge that it
+        // would otherwise become a side gesture.
+        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 100, 800, true)], Geometry);
 
-        Assert.NotEqual(TouchpadCorner.TopLeft, signal?.Corner);
+        Assert.Equal(TouchpadCorner.TopLeft, signal?.Corner);
+        Assert.Equal(CornerGestureDirection.Inward, signal?.CornerDirection);
+        Assert.Null(signal?.Edge);
+    }
+
+    [Fact]
+    public void ReverseEnabled_InnerRoundedCapOwnsOutwardStart()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            CornerLaunches = new TouchpadCornerLaunchBindings(
+                TopLeft: GestureActionKind.OpenThinkControl,
+                TopRight: GestureActionKind.Disabled,
+                TopLeftReverseClose: true)
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        // About 16.5 x 16.5 mm is in the rounded inner cap at the end of the lane.
+        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 1650, 1650, true)], Geometry);
+
+        Assert.Equal(TouchpadCorner.TopLeft, signal?.Corner);
+        Assert.Equal(CornerGestureDirection.Outward, signal?.CornerDirection);
+    }
+
+    [Fact]
+    public void ReverseDisabled_InnerRoundedCapRemainsAnInwardLaunchStart()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            CornerLaunches = new TouchpadCornerLaunchBindings(
+                TopLeft: GestureActionKind.OpenAdvanced,
+                TopRight: GestureActionKind.Disabled,
+                TopLeftReverseClose: false)
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 1650, 1650, true)], Geometry);
+
+        Assert.Equal(CornerGestureDirection.Inward, signal?.CornerDirection);
     }
 
     [Fact]
@@ -55,12 +103,13 @@ public sealed class TouchpadCornerZonePolicyTests
     }
 
     [Theory]
+    [InlineData(100, 800)]
     [InlineData(350, 300)]
     [InlineData(600, 500)]
     [InlineData(1000, 900)]
     [InlineData(1500, 1300)]
     [InlineData(1900, 1600)]
-    public void LeftAndRightRecognitionLanes_AreExactLogicalMirrors(int leftX, int y)
+    public void LeftAndRightRecognitionZones_AreExactLogicalMirrors(int leftX, int y)
     {
         int rightX = Geometry.XLogicalMax - (leftX - Geometry.XLogicalMin);
 
