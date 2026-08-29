@@ -21,9 +21,11 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  smoke:
+  build-candidate:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 12
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
 
     steps:
       - name: Checkout
@@ -43,6 +45,7 @@ jobs:
             ${{ runner.os }}-nuget-runtime-
 
       - name: Resolve smoke version
+        id: version
         shell: pwsh
         run: |
           $metadata = Get-Content version.json -Raw | ConvertFrom-Json
@@ -50,9 +53,11 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($sourceVersion)) { throw "version.json does not contain a version" }
           $coreVersion = $sourceVersion.Split('-')[0]
           $build = [int]$env:GITHUB_RUN_NUMBER % 65535
+          $appVersion = "$sourceVersion-smoke.$env:GITHUB_RUN_NUMBER"
           "SOURCE_VERSION=$sourceVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
-          "APP_VERSION=$sourceVersion-smoke.$env:GITHUB_RUN_NUMBER" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "APP_VERSION=$appVersion" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           "NUMERIC_VERSION=$coreVersion.$build" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
+          "app_version=$appVersion" | Out-File $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Restore runtime publish projects
         shell: pwsh
@@ -132,9 +137,48 @@ jobs:
           if ($null -eq $setup) { throw "Installer was not produced" }
           if ($setup.Length -gt 5MB) { throw "Bootstrap installer exceeds 5 MB budget." }
 
+      - name: Upload smoke candidate
+        uses: actions/upload-artifact@v7
+        with:
+          name: ThinkControl-Installer-Smoke-Candidate
+          path: artifacts/installer/**
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+  lifecycle-smoke:
+    needs: build-candidate
+    runs-on: windows-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download smoke candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: ThinkControl-Installer-Smoke-Candidate
+          path: artifacts/installer
+
       - name: Deep installer and IPC smoke
         shell: pwsh
         run: ./tools/release/InstallerReliabilitySmoke.ps1 -ArtifactDirectory ./artifacts/installer
+
+  oldest-upgrade-smoke:
+    needs: build-candidate
+    runs-on: windows-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Download smoke candidate
+        uses: actions/download-artifact@v8
+        with:
+          name: ThinkControl-Installer-Smoke-Candidate
+          path: artifacts/installer
 
       - name: Restore oldest-supported updater fixture cache
         id: legacy-cache
@@ -170,4 +214,4 @@ jobs:
           ./tools/release/Alpha14UpgradeCompatibilitySmoke.ps1 `
             -CandidateArtifactDirectory ./artifacts/installer `
             -LegacyArtifactDirectory ./artifacts/legacy-alpha14 `
-            -ExpectedVersion $env:APP_VERSION
+            -ExpectedVersion "${{ needs.build-candidate.outputs.app_version }}"
