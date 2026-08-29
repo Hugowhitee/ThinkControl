@@ -3,8 +3,11 @@ namespace ThinkControl.Hardware.X9;
 internal static class ThinkPadRegisters
 {
     internal const byte FanControl = 0x2F;
+    internal const byte FanSelector = 0x31;
     internal const byte FanSpeedLow = 0x84;
     internal const byte FanSpeedHigh = 0x85;
+    internal const byte MainFan = 0x00;
+    internal const byte AuxiliaryFan = 0x01;
     internal const byte BiosControl = 0x80;
     internal const byte MinManualLevel = 0x01;
     internal const byte MaxManualLevel = 0x07;
