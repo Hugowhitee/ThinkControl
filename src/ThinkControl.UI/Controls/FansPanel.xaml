@@ -74,7 +74,7 @@
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="Fan profile" FontWeight="SemiBold" />
                     <TextBlock x:Name="CoolingDetailText" Text="Firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <TextBlock x:Name="FanMappingDetailText" Text="Built-in and custom curves use the same verified fan-output mapping. Custom profiles can be created and edited in the curve editor." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock x:Name="FanMappingDetailText" Text="Built-in and custom curves use the active verified fan provider. Provider-specific output details appear after hardware detection." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <ComboBox x:Name="ProfileComboBox"
@@ -142,7 +142,7 @@
                     <StackPanel>
                         <TextBlock Text="Fan calibration" FontWeight="SemiBold" />
                         <TextBlock x:Name="CalibrationDescriptionText"
-                                   Text="Verified X9 only. Each EC step settles, then uses three real tachometer samples. A new run replaces the existing mapping only after all seven states validate; cancelling or losing telemetry keeps the previous verified calibration."
+                                   Text="Verified X9 EC fallback only. Each EC step settles, then uses three real tachometer samples. A new run replaces the existing mapping only after all seven states validate; cancelling or losing telemetry keeps the previous verified calibration."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,200,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
@@ -173,7 +173,7 @@
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ManualControlDescriptionText" Text="0% means the lowest verified running state, not fan-off. 100% means the highest verified standard X9 EC step in ThinkControl's managed range (step 7), not necessarily Lenovo Auto's hottest or absolute physical ceiling. Intermediate targets select the safest calibrated discrete state; the unverified 0x40 full-speed/disengaged family remains blocked."
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="Manual targets use only the range exposed by the active verified provider. Lenovo Auto remains a separate firmware-owned mode and is restored automatically when a temporary test ends."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
@@ -186,7 +186,7 @@
 
                     <Expander x:Name="RawEcStepsExpander" Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Text="Use these only for diagnostics. Step 7 is the highest verified standard EC step and 100% of ThinkControl's managed range. Lenovo Auto uses a separate firmware algorithm and may command different speeds."
+                            <TextBlock Text="Diagnostic fallback only. Step 7 is the highest verified standard EC state, not a claim about Lenovo Auto's hottest or absolute physical fan ceiling."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
