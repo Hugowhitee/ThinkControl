@@ -91,10 +91,10 @@ function Get-LitsSnapshot {
     }
 
     $result["available"] = $true
-    $result["IC"] = Get-RegistryKeyValues $litsRoot
+    $result["IC"] = $(Get-RegistryKeyValues $litsRoot)
     try {
         foreach ($key in Get-ChildItem -Path $litsRoot -ErrorAction Stop | Sort-Object PSChildName) {
-            $result[$key.PSChildName] = Get-RegistryKeyValues $key.PSPath
+            $result[$key.PSChildName] = $(Get-RegistryKeyValues $key.PSPath)
         }
     }
     catch {
@@ -108,15 +108,17 @@ function Get-ThinkControlStatus {
     $writer = $null
     $reader = $null
     try {
-        $pipe = New-Object System.IO.Pipes.NamedPipeClientStream(
+        $pipeArguments = @(
             ".",
             $pipeName,
             [System.IO.Pipes.PipeDirection]::InOut,
-            [System.IO.Pipes.PipeOptions]::None)
+            [System.IO.Pipes.PipeOptions]::None
+        )
+        $pipe = New-Object System.IO.Pipes.NamedPipeClientStream -ArgumentList $pipeArguments
         $pipe.Connect(900)
-        $utf8 = New-Object System.Text.UTF8Encoding($false)
-        $writer = New-Object System.IO.StreamWriter($pipe, $utf8, 4096, $true)
-        $reader = New-Object System.IO.StreamReader($pipe, $utf8, $false, 8192, $true)
+        $utf8 = New-Object System.Text.UTF8Encoding -ArgumentList $false
+        $writer = New-Object System.IO.StreamWriter -ArgumentList @($pipe, $utf8, 4096, $true)
+        $reader = New-Object System.IO.StreamReader -ArgumentList @($pipe, $utf8, $false, 8192, $true)
         $writer.AutoFlush = $true
         $writer.WriteLine('{"version":1,"operation":"GetStatus","value":null}')
         $line = $reader.ReadLine()
@@ -200,12 +202,12 @@ $meta = [pscustomobject]@{
     durationSeconds = $DurationSeconds
     sampleIntervalSeconds = $SampleIntervalSeconds
     readOnly = $true
-    manufacturer = Get-ObjectPropertyString $computer "Manufacturer"
-    model = Get-ObjectPropertyString $computer "Model"
-    biosVersion = Get-ObjectPropertyString $bios "SMBIOSBIOSVersion"
-    litsServiceState = Get-ObjectPropertyString $litsService "State"
+    manufacturer = $(Get-ObjectPropertyString $computer "Manufacturer")
+    model = $(Get-ObjectPropertyString $computer "Model")
+    biosVersion = $(Get-ObjectPropertyString $bios "SMBIOSBIOSVersion")
+    litsServiceState = $(Get-ObjectPropertyString $litsService "State")
     litsServiceVersion = $litsVersion
-    powerAtStart = Get-PowerSnapshot
+    powerAtStart = $(Get-PowerSnapshot)
     note = "Observational capture only. No EC/register/power/service/firmware writes are performed by this script."
 }
 
@@ -219,8 +221,8 @@ while ([DateTimeOffset]::Now -lt $deadline) {
     $sampleStarted = [DateTimeOffset]::Now
     $samples.Add([pscustomobject]@{
         timestampLocal = $sampleStarted.ToString("o")
-        thinkControl = Get-ThinkControlStatus
-        lits = Get-LitsSnapshot
+        thinkControl = $(Get-ThinkControlStatus)
+        lits = $(Get-LitsSnapshot)
     })
 
     $remaining = $SampleIntervalSeconds - ([DateTimeOffset]::Now - $sampleStarted).TotalSeconds
@@ -231,7 +233,7 @@ while ([DateTimeOffset]::Now -lt $deadline) {
 
 $document = [pscustomobject]@{
     meta = $meta
-    powerAtEnd = Get-PowerSnapshot
+    powerAtEnd = $(Get-PowerSnapshot)
     samples = $samples
 }
 
