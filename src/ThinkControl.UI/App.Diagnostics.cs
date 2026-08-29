@@ -74,6 +74,8 @@ public partial class App
                     State.CanFanTelemetry = State.Fans.Count > 0;
                 }
 
+                RecordFanTelemetrySample(telemetry);
+
                 string profile = telemetry.CoolingProfile;
                 if (!string.IsNullOrWhiteSpace(profile) && !profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase))
                 {
