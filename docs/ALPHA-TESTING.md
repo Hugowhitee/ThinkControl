@@ -71,13 +71,15 @@ The alpha.35 cleanup removes obsolete **current-client** cooling wrappers. The s
 
 ## Repository/release hygiene
 
-Alpha.35 also cleans the repository and workflow layer:
+Current validation is intentionally split by ownership rather than duplicated across three full Windows builds:
 
-- current workflow action majors must not regress to the deprecated Node-20-era versions;
-- removed compatibility helper/current-client cooling APIs must remain absent;
-- generated/local build output and historical duplicate documentation remain rejected by repository hygiene;
-- PR CI, package and installer runs for a superseded head should cancel rather than consume Windows runners after a newer head exists;
+- **CI** owns repository hygiene, solution build/tests, real Compact ↔ Advanced ShellSmoke and the WPF visual-QA matrix;
+- **Package ThinkControl** owns candidate publish/payload/bootstrap plus the deep installer/service/IPC lifecycle, non-elevating UI contract, custom-location update behavior, clean uninstall and real oldest-supported alpha.14.1 → candidate updater regression;
+- ordinary PR Package runs do not render a duplicate copy of the 85-snapshot visual matrix; tagged/versioned release packaging still renders the public release overview;
+- superseded PR CI/Package runs should cancel rather than consume stale Windows runner time;
 - immutable/tag release packaging must remain non-cancellable by that PR/ref optimization.
+
+Do not recreate a standalone full installer build merely because an older checklist names one. If validation ownership changes in the future, inspect the current workflow definitions and preserve equivalent or stronger coverage.
 
 ## Release acceptance
 
@@ -88,10 +90,10 @@ Before calling a candidate releasable, require:
 - Core tests;
 - real Compact/Advanced WPF shell smoke;
 - complete visual-QA matrix with representative screenshots manually inspected;
-- Package ThinkControl;
-- Installer reliability including legacy updater compatibility;
+- Package ThinkControl including its current deep installer/service/IPC and oldest-supported updater compatibility checks;
 - exact final PR-head validation after version/docs are frozen;
-- squash merge with expected-head guard;
+- final diff/changed-file review so new code is actually wired and duplicate/dead paths are intentional;
+- squash merge with expected-head guard where supported;
 - promotion/tag verification and an immutable prerelease with exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`;
 - successful checksum verification of the published Setup/Payload.
 

@@ -2,69 +2,99 @@
 
 This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
-## Current release: alpha.35 maintenance cleanup
+## Current repository/release state
 
-`v0.1.0-alpha.34` is the immutable production baseline. The active single release PR is #66 on `cleanup/alpha35-maintenance` and targets **`v0.1.0-alpha.35`**.
+Published production prerelease:
 
-The cleanup implementation head `3211e540b1359cdb684200f1f998e9389b853ce0` passed all three normal release workflows on the same SHA before the metadata freeze:
+- `v0.1.0-alpha.35`
+- immutable tag/release SHA: `b6d2fb7a0a19d65dbac070f1c3f54fb9a662c6eb`
+- exactly four managed public assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
 
-- CI 1402 / run `33221051212` — repository hygiene, Release build, **0 compiler warnings**, **107/107 tests**, real Compact ↔ Advanced shell smoke, 85-snapshot WPF visual-QA render and artifact upload.
-- Package ThinkControl 1132 / run `33221051181` — release overview, UI/service publish, payload-size validation, bootstrap build, installer/service lifecycle and development artifact creation.
-- Installer reliability 431 / run `33221051268` — restore/build, compact payload, non-elevated UI manifest gate, bootstrap install, deep installer/service/IPC smoke and exact immutable `v0.1.0-alpha.14.1` updater-compatibility smoke.
+Current `main` is intentionally ahead of that immutable release because post-release CI/release-maintenance work was merged without republishing or moving the alpha.35 tag.
 
-The WPF artifact from CI 1402 (`ThinkControl-Visual-QA`, artifact `9705190628`, digest `sha256:29d88953acc12aa0e27bb24d30d2bf65e2c18a60b71e7cd99bb76604dfc8a39b`) was inspected after the implementation stabilized. Audio normal/minimum/wide retained the existing layout, Home and Touchpad remained visually unchanged, the notification sheet still rendered correctly after the obsolete color shim was removed, and the alpha.34 Touchpad corner fixtures remained present.
+Current `main` after PR #68:
 
-Release metadata is frozen to `0.1.0-alpha.35` with `releaseReady=true`. README, Product, Architecture, Device Support and Alpha Testing describe the cleanup behavior. This handoff update is the **last planned branch content change**. CI + Package + Installer reliability must now all be green on the exact PR head containing this commit. If the head moves, repeat the exact-head gate.
+- `659bc1de087dade48d402814e6814bce1487a91d`
+- `version.json` still records `0.1.0-alpha.35` with `releaseReady=true`
+- `Promote release-ready main` detects the existing alpha.35 release and verifies it idempotently; it must never retag an existing immutable release to a newer `main` commit
 
-### Implemented in alpha.35
+The next actual product release must be prepared deliberately from current `main` with a new version/release scope. Do not treat the post-release workflow-maintenance commits as a reason to rewrite or republish alpha.35.
 
-- [x] Audio page lifecycle clears both output and microphone debounce timers when hidden/unloaded.
-- [x] Audio page lifecycle clears transient output/microphone drag flags so navigating away mid-drag cannot suppress a later refresh.
-- [x] Source regression coverage protects the Audio hide/unload lifecycle behavior.
-- [x] Removed obsolete current-client cooling compatibility wrappers from `App.Cooling` and `HardwareServiceClient`.
-- [x] Preserved service-side legacy cooling IPC required by the supported installed-client/updater compatibility floor.
-- [x] Added source guards so removed current-client cooling APIs do not silently return while the service compatibility handlers remain intentional.
-- [x] Fan percentage and graph-curve writes now classify as fan-control diagnostics instead of generic `hardware.operation` events.
-- [x] Removed the obsolete `AdvancedWindow.ColorCompat.cs` shim and replaced its only WPF usage with an explicit `System.Windows.Media.Color` reference, avoiding global drawing/WPF type ambiguity.
-- [x] Updated active Architecture, Device Support and Alpha Testing docs that still described alpha.31/alpha.34-era contracts as current.
-- [x] Updated GitHub Actions to current official majors used by the hosted runner (`actions/checkout@v7`, `actions/setup-dotnet@v6`, `actions/upload-artifact@v7`) and eliminated the previous Node-20 deprecation warnings.
-- [x] Added PR/ref concurrency cancellation to CI, Package ThinkControl and Installer reliability so superseded branch heads stop consuming Windows runners.
-- [x] Kept immutable/tag release packaging outside the PR/ref cancellation behavior.
-- [x] Strengthened repository hygiene against removed alpha-era helper files, stale action majors and current-version documentation drift.
-- [x] No hardware write scope, X9 EC safety gate, Touchpad recognizer behavior, Keyboard Auto contract, updater safety boundary or release asset model was widened by this cleanup.
+## Current validation ownership
 
-### Audit findings deliberately retained
+The old standalone **Installer reliability** workflow has been consolidated into the Package path. Do not recreate a third full candidate build unless a future measured need justifies it.
 
-Not every old-looking path is dead code. The cleanup intentionally retains:
+### CI owns
 
-- service-side `SetCoolingProfile`, `SetCustomCoolingCurve` and related legacy handlers required by installed-client compatibility;
-- the immutable alpha.14.1 updater fixture used by Installer reliability;
-- conservative X9/PawnIO/provider gates whose duplication is tied to process/provider safety rather than presentation convenience;
-- physical-device validation items that hosted CI cannot prove.
+- repository hygiene;
+- solution restore/build;
+- Core tests;
+- real Compact ↔ Advanced WPF shell lifecycle smoke;
+- the deterministic WPF visual-QA matrix and artifact upload.
 
-Future cleanup must distinguish **current-client dead code** from **server/updater compatibility debt** before deleting compatibility endpoints.
+`ThinkControl.ShellSmoke` is part of the solution build so its execution uses `--no-build --no-restore` instead of silently compiling another WPF copy.
 
-### Promotion gate
+### Package ThinkControl owns
 
-- [x] Audit current `main`, open PR/branch state and alpha.34 baseline before changes.
-- [x] Keep one coherent release branch and one PR (#66).
-- [x] Pass implementation-head CI + Package + Installer reliability on `3211e540b1359cdb684200f1f998e9389b853ce0`.
-- [x] Inspect the implementation-head WPF artifact.
-- [x] Freeze `version.json` to `0.1.0-alpha.35` with `releaseReady=true`.
-- [x] Freeze README/Product/Architecture/Device Support/Alpha Testing to alpha.35.
-- [x] Update this single persistent release-readiness handoff for alpha.35.
-- [ ] Require CI + Package + Installer reliability green on the **exact final PR #66 head** containing this handoff commit; make no further branch changes afterward.
-- [ ] Confirm PR #66 has no unexpected changed files and is still based on immutable alpha.34 `main` (`e09e3eeb6145d5dda8b6351ebb0c3c0bf7292796`).
-- [ ] Squash-merge PR #66 to `main` using that exact expected head SHA.
-- [ ] Verify `main` points to the returned squash SHA.
-- [ ] Verify post-merge main CI succeeds for that squash SHA.
-- [ ] Verify `Promote release-ready main` succeeds for the squash SHA.
-- [ ] Verify tag `v0.1.0-alpha.35` points to that exact `main` SHA.
-- [ ] Verify the immutable GitHub prerelease exists and contains exactly `ThinkControl-Setup-0.1.0-alpha.35.exe`, `ThinkControl-Payload-0.1.0-alpha.35.zip`, `SHA256SUMS.txt` and `ui-overview.png`.
-- [ ] Verify published release checksums succeed and assets are non-empty/downloadable.
-- [ ] Confirm the merged cleanup branch is removed by branch hygiene or remove it after immutable release verification.
+- current UI/service candidate publish;
+- compact payload-size checks and payload archive;
+- bootstrap installer compilation;
+- non-elevating UI manifest/project contract;
+- installer-owned UAC/update handoff contract;
+- sibling-payload auto-discovery;
+- custom install-location persistence;
+- service startup and named-pipe IPC v1 verification;
+- current in-place update path;
+- clean uninstall and ThinkControl-owned state cleanup;
+- the real immutable oldest-supported `v0.1.0-alpha.14.1` → candidate updater regression;
+- candidate checksums/development artifact.
 
-### Physical X9 follow-up — not an automated release claim
+The immutable alpha.14.1 fixture is a **support-floor regression fixture**, not the current tester version. It stays until the supported updater floor is deliberately advanced. The small immutable fixture may be cached; do not replace it with a newer release merely to make the workflow look newer.
+
+For ordinary PR Package runs, visual snapshots are not rendered a second time. CI owns PR visual QA. Tagged/versioned release packaging still owns the release overview needed for the public release asset set.
+
+### Measured validation improvement
+
+On the final PR #68 head `1c6764da774a2fea4496c722439c4e28c3b69791`:
+
+- CI 1421 / run `33260403035` passed in roughly 1m27;
+- Package 1145 / run `33260403034` passed in roughly 1m52 end-to-end on that runner, including the deep installer/IPC smoke and the real alpha.14.1 upgrade regression;
+- the two gates run concurrently, so practical PR wait is governed by the slower gate rather than the sum.
+
+The exact Package log confirmed:
+
+- `UI stays non-elevating` contract passed;
+- sibling-payload discovery passed;
+- `Ping + GetStatus` IPC v1 passed;
+- current in-place update and clean uninstall lifecycle passed;
+- real immutable alpha.14.1 → candidate swapped UI/service and restored IPC.
+
+A NuGet cache experiment was removed after measurement showed that restoring/saving the large cache made wall-clock time worse. Performance changes must be evidence-based; do not add caches just because caching sounds faster.
+
+PR #68 was squash-merged with the expected head guard. Post-merge CI 1422 passed on `659bc1de087dade48d402814e6814bce1487a91d`, and Promote release-ready main verified the existing immutable alpha.35 release/checksums/four assets without retagging it.
+
+## Release workflow principles
+
+For the next coherent release:
+
+- [ ] Start from current `main` and inspect open PRs/branches before creating anything new.
+- [ ] Keep one active branch / one PR for the coherent release scope.
+- [ ] Read this handoff plus `AGENTS.md`, Architecture, Product, Device Support and Alpha Testing before changing behavior.
+- [ ] Preserve current known-good architecture and safety boundaries; do not stack duplicate helpers/providers/timers/visual layers over existing owners.
+- [ ] Distinguish current-client dead code from intentionally retained service/updater compatibility before deleting old-looking paths.
+- [ ] Run the CURRENT required workflows on the exact final PR head. At present that means CI + Package; if workflow ownership changes later, follow the executable workflows rather than stale prose.
+- [ ] Inspect UI artifacts manually when UI changes; generated-success alone is not visual QA.
+- [ ] Review the final changed-file list/diff for unrelated changes and verify new code is actually referenced/reachable.
+- [ ] Freeze version/docs only when the release scope is actually ready.
+- [ ] Merge with an exact expected-head guard where supported.
+- [ ] Verify post-merge `main` and the current promotion/release workflow.
+- [ ] For a new version, verify the immutable tag points to the intended release commit and the public release has exactly the managed asset set with valid checksums.
+- [ ] Never move an existing immutable release tag to a different commit.
+- [ ] Let merged same-repository feature branches be deleted after verification.
+
+The reusable version-agnostic prompt bootstrap for future coding chats lives in [`CHAT_STARTER.md`](CHAT_STARTER.md). It is **not** a release-state source of truth; it intentionally instructs new chats to recover mutable facts from GitHub and this handoff.
+
+## Physical X9 follow-up — not an automated release claim
 
 Hosted CI cannot prove the following and this document must not mark them complete without a real 21Q6/21Q7 test:
 
@@ -87,7 +117,7 @@ Do **not** mix this backend/licensing program into an alpha stabilization/hardwa
 ### Installer, updater and signing
 
 - [x] Preserve custom install location across the currently supported in-place update path.
-- [x] Exercise clean install, service start/IPC, update compatibility and uninstall cleanup in CI.
+- [x] Exercise clean install, service start/IPC, update compatibility and uninstall cleanup in CI/Package validation.
 - [ ] Failed staged update cannot destroy the last working payload; rollback stays tested.
 - [ ] Define explicit uninstall policy for ThinkControl-owned runtime/local data before a commercial release.
 - [ ] Sign binaries/installer and document/test SmartScreen reputation strategy.
@@ -148,4 +178,4 @@ Do not make the source repository private while updater/build distribution still
 
 ## Release principle
 
-A green compiler is not release readiness. Promotion requires the exact-head repository/build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review, and only then release publication. Physical hardware behavior remains a separate evidence class and must never be inferred from hosted CI.
+A green compiler is not release readiness. Promotion requires exact-head repository/build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review, and only then release publication. Physical hardware behavior remains a separate evidence class and must never be inferred from hosted CI.
