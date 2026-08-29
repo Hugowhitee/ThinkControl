@@ -10,15 +10,18 @@ Published production prerelease:
 - immutable tag/release SHA: `b6d2fb7a0a19d65dbac070f1c3f54fb9a662c6eb`
 - exactly four managed public assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
 
-Current `main` is intentionally ahead of that immutable release because post-release CI/release-maintenance work was merged without republishing or moving the alpha.35 tag.
+Current `main` is intentionally ahead of that immutable release because post-release fixes/maintenance were merged without republishing or moving the alpha.35 tag.
 
-Current `main` after PR #68:
+Current `main` after PR #70:
 
-- `659bc1de087dade48d402814e6814bce1487a91d`
+- `aa697799319b8b942e58834649f7fed25bc33b85`
 - `version.json` still records `0.1.0-alpha.35` with `releaseReady=true`
-- `Promote release-ready main` detects the existing alpha.35 release and verifies it idempotently; it must never retag an existing immutable release to a newer `main` commit
+- PR #70 merged the touchpad corner-gesture reliability/reverse-close work after exact-head CI + Package validation
+- `Promote release-ready main` must continue treating the existing alpha.35 release as immutable; it must never retag that release to newer `main`
 
-The next actual product release must be prepared deliberately from current `main` with a new version/release scope. Do not treat the post-release workflow-maintenance commits as a reason to rewrite or republish alpha.35.
+Draft PR #71 (`fix/x9-dual-fan-control-stability`) is an exact-X9 hardware investigation and is **not release-ready**. Physical testing found the first candidate somewhat improved managed fan acoustics, but also proved that manual step 7/100% is not equivalent to hot Lenovo Auto and exposed stale RPM presentation after fan-state changes. The PR now keeps `0x2F` fan control shared, treats selector `0x31` as managed-mode tachometer evidence only, invalidates stale RPM immediately after state changes, adds bounded redacted dual-fan diagnostics, and adds a read-only Lenovo Auto/LITSSVC capture script. It remains blocked on a new real-device validation pass.
+
+The next actual product release must be prepared deliberately from current `main` with a new version/release scope. Do not treat post-release commits as a reason to rewrite or republish alpha.35.
 
 ## Current validation ownership
 
@@ -109,6 +112,11 @@ Hosted CI cannot prove the following and this document must not mark them comple
 - [ ] Clean PawnIO reinstall/repair after stale/missing kernel-service state.
 - [ ] Restart/UAC path and provider refresh after PawnIO repair.
 - [ ] Fan RPM/control recovery on the verified X9 EC path after repair.
+- [ ] PR #71 latest candidate: Lenovo Auto stays smooth when ThinkControl is merely open; ordinary Auto discovery does not touch selector `0x31`.
+- [ ] PR #71 latest candidate: entering Quiet/Balanced/Max Cooling produces plausible Fan 1/Fan 2 readings without the previous wave/beating behavior or fan stalls.
+- [ ] PR #71 latest candidate: changing fan state clears the old RPM immediately and a settled replacement appears within the bounded managed telemetry cadence instead of showing an old ~3800 RPM while the fan is already quiet.
+- [ ] PR #71 latest candidate: manual 100% is validated as standard EC step 7 only; do not claim it equals Lenovo Auto's hottest/absolute physical fan ceiling.
+- [ ] Capture and compare read-only `lenovo-auto-hot`, `lenovo-auto-cool` and managed step-7 evidence with `tools/research/Capture-LenovoAuto.ps1` before inferring any additional LITS/EC control contract.
 
 ## Commercial/public release program
 
