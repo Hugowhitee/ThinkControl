@@ -25,7 +25,9 @@ public sealed record LenovoHardwareStatus(
 
 public sealed class LenovoHardwareController : IDisposable
 {
-    private static readonly TimeSpan FanRpmPollInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan FirmwareFanRpmPollInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ManagedFanRpmPollInterval = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan PostFanStateChangeReadDelay = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan EcThermalPollInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan GenericFanPollInterval = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan EcRetryInterval = TimeSpan.FromSeconds(45);
@@ -249,7 +251,7 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 _ec.SetManualLevel((byte)level);
                 _fanControl = (byte)level;
-                _lastFanRpmRead = now - FanRpmPollInterval + TimeSpan.FromSeconds(4);
+                InvalidateFanRpmAfterStateChange(now);
                 return true;
             }
             catch (Exception ex)
@@ -285,8 +287,7 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 _ec.ReturnToBios();
                 _fanControl = ThinkPadRegisters.BiosControl;
-                _x9AuxFanRpm = null;
-                _lastFanRpmRead = now - FanRpmPollInterval + TimeSpan.FromSeconds(4);
+                InvalidateFanRpmAfterStateChange(now);
                 return true;
             }
             catch (Exception ex)
@@ -341,7 +342,8 @@ public sealed class LenovoHardwareController : IDisposable
 
     private void ReadX9FanRpm(DateTimeOffset now)
     {
-        if (_ec is null || now - _lastFanRpmRead < FanRpmPollInterval)
+        TimeSpan pollInterval = FanRpmPollIntervalForCurrentState();
+        if (_ec is null || now - _lastFanRpmRead < pollInterval)
             return;
 
         _lastFanRpmRead = now;
@@ -374,6 +376,24 @@ public sealed class LenovoHardwareController : IDisposable
                 _x9FanRpmSource = $"Unavailable · X9 tachometer read failed: {ex.GetType().Name}";
             }
         }
+    }
+
+    private TimeSpan FanRpmPollIntervalForCurrentState() =>
+        IsThinkControlFanState(_fanControl) ? ManagedFanRpmPollInterval : FirmwareFanRpmPollInterval;
+
+    private void InvalidateFanRpmAfterStateChange(DateTimeOffset now)
+    {
+        // A fan-state write makes the previous tachometer sample semantically stale even
+        // if the number itself is still plausible. Drop it immediately so the UI cannot
+        // claim the old 3,800 RPM while the physical fans are already spinning down.
+        // The first replacement read is allowed after a short settling delay, then the
+        // normal low-rate cadence resumes to avoid turning tachometer reads into a servo.
+        _x9FanRpm = null;
+        _x9AuxFanRpm = null;
+        _x9FanRpmSource = "Settling after fan-state change";
+        _x9FanRpmFailures = 0;
+        _lastFanRpmSuccess = DateTimeOffset.MinValue;
+        _lastFanRpmRead = now - FanRpmPollIntervalForCurrentState() + PostFanStateChangeReadDelay;
     }
 
     private void ReadX9EcThermals(DateTimeOffset now)
@@ -450,21 +470,30 @@ public sealed class LenovoHardwareController : IDisposable
         bool ecAvailable,
         IReadOnlyList<LenovoFanReading> lhmFans)
     {
-        if (_identity.IsVerifiedX9 && ecAvailable && _x9FanRpm.HasValue && _x9AuxFanRpm.HasValue)
+        bool managedX9 = _identity.IsVerifiedX9 && ecAvailable && IsThinkControlFanState(_fanControl);
+        if (managedX9)
         {
-            return
-            [
-                new LenovoFanReading(
-                    "x9-ec-main",
-                    _x9FanRpm.Value,
-                    "Fan 1",
-                    _x9FanRpmSource),
-                new LenovoFanReading(
-                    "x9-ec-auxiliary",
-                    _x9AuxFanRpm.Value,
-                    "Fan 2",
-                    _x9FanRpmSource)
-            ];
+            if (_x9FanRpm.HasValue && _x9AuxFanRpm.HasValue)
+            {
+                return
+                [
+                    new LenovoFanReading(
+                        "x9-ec-main",
+                        _x9FanRpm.Value,
+                        "Fan 1",
+                        _x9FanRpmSource),
+                    new LenovoFanReading(
+                        "x9-ec-auxiliary",
+                        _x9AuxFanRpm.Value,
+                        "Fan 2",
+                        _x9FanRpmSource)
+                ];
+            }
+
+            // During the short post-write settling window, do not replace the missing
+            // exact pair with one ambiguous generic fan channel. Two independently
+            // identified channels are still acceptable as a read-only fallback.
+            return lhmFans.Count >= 2 ? lhmFans : Array.Empty<LenovoFanReading>();
         }
 
         if (lhmFans.Count > 0)
