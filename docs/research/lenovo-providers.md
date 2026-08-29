@@ -31,6 +31,20 @@ Writable backends are modeled separately, for example:
 
 A generic `FanControl` label is not enough to infer EC, PWM or target-RPM semantics. A native OEM telemetry path does not become writable merely because a nearby driver IOCTL exists: the write command format, rollback and readback contract must be recovered and validated independently.
 
+## EnergyDrv fan contracts are not interchangeable
+
+Public Lenovo reverse-engineering exposes several **different** `\\.\EnergyDrv` fan-related contracts. Similar names or the fact that all of them reach the same driver are not evidence that their payloads can be mixed:
+
+| IOCTL | Publicly observed semantic | Known payload evidence | ThinkControl policy |
+| --- | --- | --- | --- |
+| `0x831020C0` | legacy clean-dust / temporary high-speed action | three DWORDs `[6, 1, mode]`, with public tools using `0` normal and `1` fast | never use as a curve/target backend; it is a pulsing/time-limited family |
+| `0x831020C4` | companion legacy fan-state query | one DWORD input `14`, one DWORD result | read-only research only |
+| `0x8310213C` | family-specific legacy ITS/Geek full-speed overlay in public ThinkBook tooling | public code uses `0x001F100B` enable and `0x000F100B` disable | evidence for that family only; never generalize to X9 |
+| `0x83102570` | `QueryFanSpeed` | one DWORD zero-based fan index, one DWORD speed result; dual-fan code queries indices `0` and `1` | allowed read-only X9 candidate |
+| `0x8310257C` | `ChangeFanSpeed` | one DWORD `dwFanCtrlCmd`, one DWORD action-status result | blocked until the exact X9 command encoding and Auto/rollback semantics are recovered |
+
+This separation matters because the legacy dust implementation explicitly re-issues its fast request as the driver times out/reverts; that behavior matches a temporary maintenance action, not stable target-RPM ownership. The X9 product goal is smooth Lenovo-like control, so a maintenance/full-speed overlay cannot be renamed into a percentage curve.
+
 ## ThinkPad X9-15 Gen 1
 
 Machine types `21Q6` and `21Q7` are the current physically reviewed low-level reference. Physical testing has shown that the classic ThinkPad EC path can expose both fan tachometers, but its seven manual states do not reproduce Lenovo Auto's useful high-cooling range or acoustic behavior. That path is therefore investigation/fallback evidence rather than the desired product fan-control boundary.
@@ -43,6 +57,8 @@ The preferred X9 hierarchy is now:
 4. writable EC steps only on machines where no native Lenovo fan surface has been established and the exact-model EC contract remains explicitly allowed.
 
 On the physically tested X9 candidate, Other Mode did not become writable. PR #71 therefore also probes `EnergyDrv` `QueryFanSpeed` (`0x83102570`) for fan indices 0/1 read-only. When two native Lenovo fan channels are present, ThinkControl prioritizes those RPMs and deliberately stops advertising the known-inferior EC writer while the exact OEM target-RPM command is recovered. Public Lenovo reverse-engineering proves a separate `ChangeFanSpeed` IOCTL (`0x8310257C`) exists, but does not define the X9 `dwFanCtrlCmd` encoding; ThinkControl must not brute-force it.
+
+That native two-fan proof is a **safety boundary**, not just a momentary UI result. Within a service lifetime, once the exact X9 has successfully exposed two native Lenovo fan channels, ThinkControl latches that evidence. A later transient EnergyDrv/Other Mode read failure may make live RPM temporarily unavailable, but it must not silently re-authorize the known-inferior EC writer. Provider refresh preserves the latch. Likewise, merely reading an EC manual-looking value does not make ThinkControl the owner of another utility's EC state; automatic cleanup is restricted to the provider this controller actually took ownership of.
 
 Exact registers, transport observations and physical test evidence are maintained in [x9-15-gen1.md](x9-15-gen1.md).
 
