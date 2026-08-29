@@ -31,13 +31,15 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
         Assert.Contains("LenovoEnergyDrvFanProvider _energyDrv", provider, StringComparison.Ordinal);
         Assert.Contains("return BuildReadOnlyEnergyDrvFallback(detail);", provider, StringComparison.Ordinal);
         Assert.Contains("EnergyDrv writer intentionally disabled pending exact X9 command validation", provider, StringComparison.Ordinal);
-        Assert.Contains("new LenovoOtherModeFanStatus(\n            true,\n            false,", provider, StringComparison.Ordinal);
+        Assert.Contains("Available: true", provider, StringComparison.Ordinal);
+        Assert.Contains("CanControl: false", provider, StringComparison.Ordinal);
 
         // The controller already gives any OEM provider telemetry priority over direct
         // EC tachometer reads. Once EnergyDrv returns real fan channels this condition
         // prevents the 0x31/0x84/0x85 path being polled merely for live RPM display.
         Assert.Contains("if (oemFanStatus.Fans.Count == 0 &&", controller, StringComparison.Ordinal);
-        Assert.Contains("if (oemFanStatus.Fans.Count > 0)\n            return oemFanStatus.Fans;", controller, StringComparison.Ordinal);
+        Assert.Contains("if (oemFanStatus.Fans.Count > 0)", controller, StringComparison.Ordinal);
+        Assert.Contains("return oemFanStatus.Fans;", controller, StringComparison.Ordinal);
     }
 
     private static string ReadSource(params string[] path)
