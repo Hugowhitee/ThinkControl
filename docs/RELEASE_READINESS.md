@@ -19,7 +19,7 @@ Current `main` after PR #70:
 - PR #70 merged the touchpad corner-gesture reliability/reverse-close work after exact-head CI + Package validation
 - `Promote release-ready main` must continue treating the existing alpha.35 release as immutable; it must never retag that release to newer `main`
 
-Draft PR #71 (`fix/x9-dual-fan-control-stability`) is an exact-X9 hardware investigation and is **not release-ready**. Physical testing found the first candidate somewhat improved managed fan acoustics, but also proved that manual step 7/100% is not equivalent to hot Lenovo Auto and exposed stale RPM presentation after fan-state changes. The PR now keeps `0x2F` fan control shared, treats selector `0x31` as managed-mode tachometer evidence only, invalidates stale RPM immediately after state changes, adds bounded redacted dual-fan diagnostics, and adds a read-only Lenovo Auto/LITSSVC capture script. It remains blocked on a new real-device validation pass.
+Draft PR #71 (`fix/x9-dual-fan-control-stability`) is an exact-X9 hardware investigation and is **not release-ready**. Physical testing proved that the legacy EC step-7/100% model is not equivalent to hot Lenovo Auto and exposed stale RPM presentation after fan-state changes. The PR now treats EC `1..7` as a fallback, preserves low-rate dual-fan EC telemetry investigation, invalidates stale RPM after writes, and adds an exact-X9 candidate for Lenovo's capability-reported `LENOVO_OTHER_METHOD` target-RPM interface. That OEM provider is enabled only when at least two fan channels expose valid GET+SET capability plus sane Lenovo-reported RPM constraints; it then routes curve/manual 0..100% targets continuously across those OEM ranges and keeps target `0` reserved for firmware Auto. This is a real OEM-native target interface, but it is **not yet proof of full Lenovo Auto range**: Lenovo documents the fan-test min/max values as reference constraints and notes firmware can physically run outside them. PR #71 therefore remains blocked on real-device provider detection, acoustics/range comparison and Auto-handoff validation. If the X9 does not expose writable Other Mode channels, or its target maximum is still materially below hot Auto, continue the existing read-only EnergyDrv/LITSSvc evidence path rather than brute-forcing commands.
 
 The next actual product release must be prepared deliberately from current `main` with a new version/release scope. Do not treat post-release commits as a reason to rewrite or republish alpha.35.
 
@@ -111,12 +111,16 @@ Hosted CI cannot prove the following and this document must not mark them comple
 - [ ] Issue #60 `TargetParameterCountException` does not recur during normal shell/notification use; keep the issue open until field evidence supports closure.
 - [ ] Clean PawnIO reinstall/repair after stale/missing kernel-service state.
 - [ ] Restart/UAC path and provider refresh after PawnIO repair.
-- [ ] Fan RPM/control recovery on the verified X9 EC path after repair.
-- [ ] PR #71 latest candidate: Lenovo Auto stays smooth when ThinkControl is merely open; ordinary Auto discovery does not touch selector `0x31`.
-- [ ] PR #71 latest candidate: entering Quiet/Balanced/Max Cooling produces plausible Fan 1/Fan 2 readings without the previous wave/beating behavior or fan stalls.
-- [ ] PR #71 latest candidate: changing fan state clears the old RPM immediately and a settled replacement appears within the bounded managed telemetry cadence instead of showing an old ~3800 RPM while the fan is already quiet.
-- [ ] PR #71 latest candidate: manual 100% is validated as standard EC step 7 only; do not claim it equals Lenovo Auto's hottest/absolute physical fan ceiling.
-- [ ] Capture and compare read-only `lenovo-auto-hot`, `lenovo-auto-cool` and managed step-7 evidence with `tools/research/Capture-LenovoAuto.ps1` before inferring any additional LITS/EC control contract.
+- [ ] Fan RPM/control recovery on the verified X9 path after repair.
+- [ ] PR #71: Lenovo Auto stays smooth when ThinkControl is merely open; ordinary Auto discovery must not disturb the EC selector/control path.
+- [ ] PR #71: record which fan-control provider the physical X9 actually exposes. If `LenovoOtherModeTargetRpm` is active, the Fans page must show the OEM-reported Fan 1/Fan 2 target ranges and hide EC calibration/raw-step controls. If it is absent, the app must remain on the verified EC fallback without pretending continuous control exists.
+- [ ] PR #71 OEM candidate: manual 25/50/75/100% produces plausible two-fan telemetry, smooth settling and no previous wave/re-kick behavior; the requested RPM targets stay within each Lenovo-reported range.
+- [ ] PR #71 OEM candidate: compare manual 100% directly with a naturally hot Lenovo Auto state. Acceptance requires the useful high-cooling range to be materially equivalent; an OEM target API that still tops out below hot Auto is **not** the finished fix.
+- [ ] PR #71 OEM candidate: repeated return-to-Auto handoffs succeed and do not leave one fan on a stale target, stall a fan or create persistent fan-to-fan divergence.
+- [ ] PR #71 EC fallback: entering Quiet/Balanced/Max Cooling produces plausible Fan 1/Fan 2 readings without the previous wave/beating behavior or fan stalls.
+- [ ] PR #71 EC fallback: changing fan state clears the old RPM immediately and a settled replacement appears within the bounded managed telemetry cadence instead of showing an old ~3800 RPM while the fan is already quiet.
+- [ ] PR #71 EC fallback: step 7 remains only the highest verified standard EC state; never claim it equals Lenovo Auto's hottest/absolute physical fan ceiling.
+- [ ] If Other Mode is unavailable or its constrained maximum fails the Auto comparison, capture read-only `lenovo-auto-hot`/`lenovo-auto-cool` EnergyDrv/LITSSvc evidence with `tools/research/Capture-LenovoAuto.ps1`, recover the exact X9 OEM command semantics from installed binaries, and do not brute-force `dwFanCtrlCmd`.
 
 ## Commercial/public release program
 
@@ -137,7 +141,7 @@ Do **not** mix this backend/licensing program into an alpha stabilization/hardwa
 - [x] Raw X9 EC controls require the verified X9 provider path.
 - [x] Setup distinguishes installation metadata from real provider readiness.
 - [ ] Continue replacing residual device-name assumptions with explicit capabilities.
-- [ ] Keep fan semantics distinct: OEM thermal policy, read-only telemetry, discrete EC states, continuous percentage/PWM.
+- [ ] Keep fan semantics distinct: OEM thermal policy, read-only telemetry, discrete EC states, continuous target-RPM/percentage control.
 - [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic capability.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
 
