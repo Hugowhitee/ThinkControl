@@ -127,11 +127,16 @@ public partial class App
 
     private void HardwareClient_HardwareOperationCompleted(object? sender, HardwareOperationResult operation)
     {
+        string fanProvider = State.HardwareAccess.Contains("OEM target-RPM", StringComparison.OrdinalIgnoreCase) ||
+                             State.HardwareAccess.Contains("Other Mode", StringComparison.OrdinalIgnoreCase)
+            ? "LenovoOtherMode"
+            : "ThinkPadEC";
+
         (string eventName, string capability, string provider) = operation.Operation switch
         {
             "SetFanLevel" => ("fan.level_set", "FanControl", "ThinkPadEC"),
-            "SetFanPercent" => ("fan.percent_set", "FanControl", "ThinkPadEC"),
-            "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", "ThinkPadEC"),
+            "SetFanPercent" => ("fan.percent_set", "FanControl", fanProvider),
+            "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", fanProvider),
             "SetCoolingCurve" => ("fan.cooling_curve_set", "FanControl", "FanSupervisor"),
             "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
             "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),
