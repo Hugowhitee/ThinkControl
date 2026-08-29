@@ -62,11 +62,15 @@ A machine with only basic/Vantage-mediated brightness support may therefore expo
 
 ## Touchpad semantics
 
-The Touchpad editor exposes six selectable zones: Top, Bottom, Left, Right, Top-left and Top-right. Edges and corners share one selection/rendering system, while runtime recognition remains deliberately strict.
+The Touchpad editor exposes six selectable zones: Top, Bottom, Left, Right, Top-left and Top-right. Edges and corners share one selection/rendering system, while runtime recognition remains deliberately strict and vendor-neutral.
 
-Corner launch lanes are diagonal and win only in their intended corner region. Edge/corner recognizers preserve ownership and reject-until-lift behavior so a corner cannot steal an already-started edge gesture. Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream.
+An enabled top-corner launch uses one canonical physical **guard → diagonal lane → rounded end-cap** shape. The visible quarter-circle corner guard is also the recognizer's real first-frame priority area: a finger that begins there belongs to the enabled corner before the adjacent top/side edge can claim it. The lane and rounded cap are real usable areas too, not decorative hit targets. Disabled corner launches do not reserve that runtime input, so normal edge gestures remain available.
 
-Track-center behavior remains a separate optional affordance and does not create a second corner-selection system.
+Both corner visuals are generated from the same left-local physical geometry; the right corner is an exact horizontal mirror. The center visual is a directional arrow rather than a neutral divider, the end is a semicircular arc rather than a flat 90-degree cross-line, and an enabled action shows its Compact/Advanced semantic icon and label.
+
+Per corner, **Reverse swipe closes ThinkControl** can be enabled independently. With that option on, starting in the rounded inner cap and swiping deliberately back toward the physical corner is classified as an outward corner gesture and hides whichever ThinkControl surface is visible. With it off, the same end-cap remains part of the normal inward launch area. Wrong-direction/rejected corner candidates stay locked out until lift and never fall through into a nearby edge gesture.
+
+Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream. Track-center behavior remains a separate optional affordance and does not create a second corner-selection system.
 
 ## Unknown/new hardware
 
@@ -88,6 +92,8 @@ Hosted CI can prove source/build/lifecycle behavior but not physical hardware fe
 - Lenovo keyboard Auto/Fn+Space/readback agreement;
 - direct-provider effect behavior without Lenovo pop-ups;
 - haptic Touchpad corner sensitivity/symmetry and high-rate responsiveness;
+- corner guard reliability against nearby top/side gestures on real finger contact;
+- reverse-close feel and accidental-trigger rate for both mirrored corners;
 - Audio volume/microphone behavior across real navigation during a drag;
 - provider repair/restart behavior after real PawnIO/service failure states.
 
