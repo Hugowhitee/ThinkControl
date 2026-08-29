@@ -24,14 +24,27 @@ if ($null -eq $payload) { throw 'Payload artifact is missing.' }
 function Assert-UpdaterElevationContract {
     $updateSource = Join-Path $PWD 'src/ThinkControl.UI/Services/UpdateService.cs'
     $installerSource = Join-Path $PWD 'installer/ThinkControl.iss'
-    if (-not (Test-Path $updateSource) -or -not (Test-Path $installerSource)) {
+    $manifestSource = Join-Path $PWD 'src/ThinkControl.UI/app.manifest'
+    $projectSource = Join-Path $PWD 'src/ThinkControl.UI/ThinkControl.UI.csproj'
+    if (-not (Test-Path $updateSource) -or
+        -not (Test-Path $installerSource) -or
+        -not (Test-Path $manifestSource) -or
+        -not (Test-Path $projectSource)) {
         Write-Host '[smoke] Source contract files not present; skipping elevation-source assertions.'
         return
     }
 
     $updateText = Get-Content $updateSource -Raw
     $installerText = Get-Content $installerSource -Raw
+    $manifestText = Get-Content $manifestSource -Raw
+    $projectText = Get-Content $projectSource -Raw
 
+    if ($manifestText -notmatch 'requestedExecutionLevel\s+level="asInvoker"\s+uiAccess="false"') {
+        throw 'ThinkControl.UI must remain asInvoker/uiAccess=false; privileged hardware work belongs in the service.'
+    }
+    if ($projectText -notmatch '<ApplicationManifest>app\.manifest</ApplicationManifest>') {
+        throw 'ThinkControl.UI.csproj is not embedding the non-elevating application manifest.'
+    }
     if ($updateText -match 'Verb\s*=\s*"runas"') {
         throw 'UpdateService pre-elevates Setup. Let Inno Setup own the UAC transition instead.'
     }
@@ -106,7 +119,7 @@ function Assert-UpdaterElevationContract {
         }
     }
 
-    Write-Host '[smoke] Updater/install lifecycle verified: clean installs expose location choice, updates preserve {app}, Inno owns UAC, staging precedes non-recursive app close, relaunch uses original user, startup opt-out is explicit, and full uninstall owns ThinkControl local state.'
+    Write-Host '[smoke] Updater/install lifecycle verified: UI stays non-elevating, clean installs expose location choice, updates preserve {app}, Inno owns UAC, staging precedes non-recursive app close, relaunch uses original user, startup opt-out is explicit, and full uninstall owns ThinkControl local state.'
 }
 
 function Remove-SmokeService {
