@@ -37,12 +37,27 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
             normalizedProvider,
             StringComparison.Ordinal);
 
-        // The controller already gives any OEM provider telemetry priority over direct
-        // EC tachometer reads. Once EnergyDrv returns real fan channels this condition
-        // prevents the 0x31/0x84/0x85 path being polled merely for live RPM display.
+        // Native Lenovo telemetry owns observation ahead of direct EC tachometers.
         Assert.Contains("if (oemFanStatus.Fans.Count == 0 &&", controller, StringComparison.Ordinal);
         Assert.Contains("if (oemFanStatus.Fans.Count > 0)", controller, StringComparison.Ordinal);
         Assert.Contains("return oemFanStatus.Fans;", controller, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void NativeX9OemTelemetry_DisablesKnownInferiorEcWriterUntilOemWriterIsValidated()
+    {
+        string controller = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
+
+        Assert.Contains("bool nativeOemFanTelemetry = _identity.IsVerifiedX9 && HasNativeOemFanTelemetry(oemFanStatus);", controller, StringComparison.Ordinal);
+        Assert.Contains("ResolveFanControlKind(oemFanControl, nativeOemFanTelemetry, ecAvailable)", controller, StringComparison.Ordinal);
+        Assert.Contains("if (_identity.IsVerifiedX9 && nativeOemFanTelemetry)\n            return LenovoFanControlKind.None;", controller.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
+        Assert.Contains("Raw EC steps are disabled because the X9 exposes native Lenovo fan telemetry", controller, StringComparison.Ordinal);
+        Assert.Contains("native fan writer pending validation", controller, StringComparison.Ordinal);
+        Assert.Contains("Lenovo managed · OEM fan telemetry", controller, StringComparison.Ordinal);
+
+        // EC access may still exist as a read-only thermal fallback. The safety rule is
+        // that native two-channel OEM fan evidence can no longer grant EC fan writes.
+        Assert.Contains("bool ecAvailable = !nativeOemFanTelemetry || needEcForThermals", controller, StringComparison.Ordinal);
     }
 
     private static string ReadSource(params string[] path)
