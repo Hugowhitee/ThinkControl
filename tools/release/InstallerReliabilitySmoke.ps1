@@ -24,14 +24,27 @@ if ($null -eq $payload) { throw 'Payload artifact is missing.' }
 function Assert-UpdaterElevationContract {
     $updateSource = Join-Path $PWD 'src/ThinkControl.UI/Services/UpdateService.cs'
     $installerSource = Join-Path $PWD 'installer/ThinkControl.iss'
-    if (-not (Test-Path $updateSource) -or -not (Test-Path $installerSource)) {
+    $manifestSource = Join-Path $PWD 'src/ThinkControl.UI/app.manifest'
+    $projectSource = Join-Path $PWD 'src/ThinkControl.UI/ThinkControl.UI.csproj'
+    if (-not (Test-Path $updateSource) -or
+        -not (Test-Path $installerSource) -or
+        -not (Test-Path $manifestSource) -or
+        -not (Test-Path $projectSource)) {
         Write-Host '[smoke] Source contract files not present; skipping elevation-source assertions.'
         return
     }
 
     $updateText = Get-Content $updateSource -Raw
     $installerText = Get-Content $installerSource -Raw
+    $manifestText = Get-Content $manifestSource -Raw
+    $projectText = Get-Content $projectSource -Raw
 
+    if ($manifestText -notmatch 'requestedExecutionLevel\s+level="asInvoker"\s+uiAccess="false"') {
+        throw 'ThinkControl.UI must remain asInvoker/uiAccess=false; privileged hardware work belongs in the service.'
+    }
+    if ($projectText -notmatch '<ApplicationManifest>app\.manifest</ApplicationManifest>') {
+        throw 'ThinkControl.UI.csproj is not embedding the non-elevating application manifest.'
+    }
     if ($updateText -match 'Verb\s*=\s*"runas"') {
         throw 'UpdateService pre-elevates Setup. Let Inno Setup own the UAC transition instead.'
     }
@@ -106,7 +119,7 @@ function Assert-UpdaterElevationContract {
         }
     }
 
-    Write-Host '[smoke] Updater/install lifecycle verified: clean installs expose location choice, updates preserve {app}, Inno owns UAC, staging precedes non-recursive app close, relaunch uses original user, startup opt-out is explicit, and full uninstall owns ThinkControl local state.'
+    Write-Host '[smoke] Updater/install lifecycle verified: UI stays non-elevating, clean installs expose location choice, updates preserve {app}, Inno owns UAC, staging precedes non-recursive app close, relaunch uses original user, startup opt-out is explicit, and full uninstall owns ThinkControl local state.'
 }
 
 function Remove-SmokeService {
@@ -189,8 +202,14 @@ function Show-InstallerFailureLog([string]$phase, [string]$path) {
     Write-Host "[smoke] ---- end installer log tail ----"
 }
 
-function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false, [bool]$passExplicitDir = $true) {
-    Write-Host "[smoke] $phase $($setup.Name) with external payload $($payload.Name)"
+function Install-SmokeCopy(
+    [string]$phase,
+    [bool]$legacyUpdateMode = $false,
+    [bool]$passExplicitDir = $true,
+    [bool]$passExplicitPayload = $true
+) {
+    $payloadMode = if ($passExplicitPayload) { 'explicit external payload' } else { 'sibling payload auto-discovery' }
+    Write-Host "[smoke] $phase $($setup.Name) using $payloadMode ($($payload.Name))"
     $phaseLog = if ($legacyUpdateMode) { $updateLog } else { $cleanInstallLog }
     Remove-Item $phaseLog -Force -ErrorAction SilentlyContinue
 
@@ -209,7 +228,9 @@ function Install-SmokeCopy([string]$phase, [bool]$legacyUpdateMode = $false, [bo
     if ($passExplicitDir) {
         $arguments += "/DIR=`"$smokeDir`""
     }
-    $arguments += "/PAYLOAD=`"$($payload.FullName)`""
+    if ($passExplicitPayload) {
+        $arguments += "/PAYLOAD=`"$($payload.FullName)`""
+    }
 
     $process = Start-Process -FilePath $setup.FullName -ArgumentList $arguments -Wait -PassThru
     if ($process.ExitCode -ne 0) {
@@ -253,8 +274,10 @@ try {
     Remove-Item $preferencesRegistry -Recurse -Force -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue
 
-    Install-SmokeCopy 'clean install' $false $true
-    Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false
+    # The clean install deliberately omits /PAYLOAD so this deeper smoke also
+    # owns the package workflow's former sibling-payload discovery coverage.
+    Install-SmokeCopy 'clean install' $false $true $false
+    Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false $true
 
     $defaultProgramFilesInstall = Join-Path $env:ProgramFiles 'ThinkControl\ui\ThinkControl.UI.exe'
     if ((Resolve-Path $smokeDir).Path -ne (Join-Path $env:ProgramFiles 'ThinkControl') -and (Test-Path $defaultProgramFilesInstall)) {
@@ -289,7 +312,7 @@ try {
         throw 'ThinkControl startup Run entry remained after uninstall.'
     }
 
-    Write-Host '[smoke] Deep installer + custom-location persistence + IPC + alpha.14 update compatibility + clean uninstall lifecycle passed'
+    Write-Host '[smoke] Deep installer + sibling-payload discovery + custom-location persistence + IPC + alpha.14 update compatibility + clean uninstall lifecycle passed'
 }
 finally {
     Remove-SmokeService

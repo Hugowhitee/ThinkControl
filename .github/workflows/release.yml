@@ -6,6 +6,7 @@ on:
     paths:
       - "src/**"
       - "installer/**"
+      - "tools/release/**"
       - "assets/brand/**"
       - "README.md"
       - "version.json"
@@ -24,7 +25,7 @@ concurrency:
 jobs:
   package:
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 18
 
     steps:
       - name: Checkout
@@ -135,13 +136,18 @@ jobs:
         with:
           dotnet-version: "10.0.x"
 
-      - name: Restore
-        run: dotnet restore ThinkControl.slnx
+      - name: Restore tagged release preview renderer
+        if: env.VERSIONED_RELEASE == '1'
+        shell: pwsh
+        run: dotnet restore tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj
 
-      - name: Build
-        run: dotnet build ThinkControl.slnx -c Release --no-restore
+      - name: Build tagged release preview renderer
+        if: env.VERSIONED_RELEASE == '1'
+        shell: pwsh
+        run: dotnet build tools/ThinkControl.Snapshots/ThinkControl.Snapshots.csproj -c Release --no-restore
 
-      - name: Render release overview
+      - name: Render tagged release overview
+        if: env.VERSIONED_RELEASE == '1'
         shell: pwsh
         run: |
           $output = Join-Path $PWD "artifacts\release-previews"
@@ -222,9 +228,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/ThinkControl.UI/ThinkControl.UI.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained false `
+            -c Release -r win-x64 --self-contained false `
             -p:Version=$env:APP_VERSION `
             -p:InformationalVersion=$env:APP_VERSION `
             -p:DebugType=None `
@@ -235,9 +239,7 @@ jobs:
         shell: pwsh
         run: |
           dotnet publish src/ThinkControl.Service/ThinkControl.Service.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained false `
+            -c Release -r win-x64 --self-contained false `
             -p:Version=$env:APP_VERSION `
             -p:InformationalVersion=$env:APP_VERSION `
             -p:DebugType=None `
@@ -292,9 +294,18 @@ jobs:
           "PAYLOAD_SHA256=$hash" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
           "PAYLOAD_URL=$url" | Out-File $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: Install Inno Setup
+      - name: Ensure Inno Setup
         shell: pwsh
-        run: choco install innosetup --no-progress -y
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (Test-Path $iscc) {
+            Write-Host "Using preinstalled Inno Setup: $iscc"
+            exit 0
+          }
+
+          Write-Host "Inno Setup not present on runner; installing fallback package."
+          choco install innosetup --no-progress -y
+          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found after fallback install" }
 
       - name: Build web bootstrap installer
         shell: pwsh
@@ -317,128 +328,45 @@ jobs:
             throw "ThinkControl bootstrap installer exceeds the 5 MB hard budget. The application payload must not be embedded."
           }
 
-      - name: Smoke-test bootstrap payload and service lifecycle
+      - name: Deep installer and IPC reliability smoke
+        shell: pwsh
+        run: ./tools/release/InstallerReliabilitySmoke.ps1 -ArtifactDirectory ./artifacts/installer
+
+      - name: Restore oldest-supported updater fixture cache
+        id: legacy-cache
+        uses: actions/cache@v6
+        with:
+          path: artifacts/legacy-alpha14
+          key: thinkcontrol-updater-fixture-v0.1.0-alpha.14.1
+
+      - name: Download oldest-supported updater fixture (alpha.14.1)
+        if: steps.legacy-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $legacy = "artifacts/legacy-alpha14"
+          New-Item $legacy -ItemType Directory -Force | Out-Null
+          gh release download v0.1.0-alpha.14.1 `
+            --repo $env:GITHUB_REPOSITORY `
+            --pattern "ThinkControl-Setup-0.1.0-alpha.14.1.exe" `
+            --pattern "ThinkControl-Payload-0.1.0-alpha.14.1.zip" `
+            --dir $legacy
+
+      - name: Verify oldest-supported updater fixture
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $serviceName = 'ThinkControlService'
-          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          $payload = Get-Item $env:PAYLOAD_PATH
-          if ($null -eq $setup) { throw "Installer missing" }
-          if (-not $payload.Exists) { throw "Payload missing" }
+          $legacy = "artifacts/legacy-alpha14"
+          if (-not (Test-Path $legacy)) { throw "alpha.14.1 regression fixture directory is missing" }
+          if ((Get-ChildItem $legacy -File).Count -ne 2) { throw "alpha.14.1 regression fixture is incomplete" }
 
-          $smokeDir = Join-Path $env:TEMP "ThinkControlInstallerSmoke"
-
-          function Show-ServiceDiagnostics {
-            Write-Host "--- sc.exe query $serviceName ---"
-            $query = Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('query', $serviceName) -Wait -PassThru -NoNewWindow
-            Write-Host "sc query exit code: $($query.ExitCode)"
-            Write-Host "--- sc.exe qc $serviceName ---"
-            $qc = Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('qc', $serviceName) -Wait -PassThru -NoNewWindow
-            Write-Host "sc qc exit code: $($qc.ExitCode)"
-            Write-Host "--- recent Service Control Manager events ---"
-            try {
-              Get-WinEvent -FilterHashtable @{
-                LogName='System'
-                ProviderName='Service Control Manager'
-                StartTime=(Get-Date).AddMinutes(-5)
-              } -ErrorAction Stop |
-                Where-Object { $_.Message -match 'ThinkControl' } |
-                Select-Object -First 12 TimeCreated, Id, LevelDisplayName, Message |
-                Format-List | Out-String | Write-Host
-            }
-            catch {
-              Write-Host "No readable ThinkControl Service Control Manager events: $($_.Exception.Message)"
-            }
-          }
-
-          function Remove-SmokeService {
-            Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('stop', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
-            Start-Sleep -Milliseconds 400
-            Start-Process -FilePath "$env:SystemRoot\System32\sc.exe" -ArgumentList @('delete', $serviceName) -Wait -PassThru -WindowStyle Hidden | Out-Null
-
-            $deadline = (Get-Date).AddSeconds(20)
-            do {
-              $remaining = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-              if ($null -eq $remaining) { return }
-              Start-Sleep -Milliseconds 500
-            } while ((Get-Date) -lt $deadline)
-          }
-
-          try {
-            Write-Host "[smoke] Cleaning previous test state"
-            Remove-SmokeService
-            Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
-
-            Write-Host "[smoke] Installing $($setup.Name) using its automatically discovered sibling payload $($payload.Name)"
-            $dirArg = "/DIR=`"$smokeDir`""
-            $install = Start-Process -FilePath $setup.FullName -ArgumentList @(
-              "/VERYSILENT",
-              "/SUPPRESSMSGBOXES",
-              "/NORESTART",
-              "/SP-",
-              $dirArg
-            ) -Wait -PassThru
-            Write-Host "[smoke] Installer exit code: $($install.ExitCode)"
-            if ($install.ExitCode -ne 0) { throw "Silent install failed with exit code $($install.ExitCode)" }
-
-            $ui = Join-Path $smokeDir "ui\ThinkControl.UI.exe"
-            $serviceExe = Join-Path $smokeDir "service\ThinkControl.Service.exe"
-            $uninstaller = Join-Path $smokeDir "unins000.exe"
-            if (-not (Test-Path $ui)) { throw "Installed UI executable not found at $ui" }
-            if (-not (Test-Path $serviceExe)) { throw "Installed service executable not found at $serviceExe" }
-            if (-not (Test-Path $uninstaller)) { throw "Uninstaller not found at $uninstaller" }
-
-            $service = $null
-            $deadline = (Get-Date).AddSeconds(20)
-            do {
-              $service = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-              if ($null -ne $service) {
-                $service.Refresh()
-                Write-Host "[smoke] Service status: $($service.Status)"
-                if ($service.Status -eq [System.ServiceProcess.ServiceControllerStatus]::Running) { break }
-              }
-              Start-Sleep -Milliseconds 750
-            } while ((Get-Date) -lt $deadline)
-
-            if ($null -eq $service -or $service.Status -ne [System.ServiceProcess.ServiceControllerStatus]::Running) {
-              Show-ServiceDiagnostics
-              throw "$serviceName did not reach Running state"
-            }
-
-            $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
-              "/VERYSILENT",
-              "/SUPPRESSMSGBOXES",
-              "/NORESTART"
-            ) -Wait -PassThru
-            if ($uninstall.ExitCode -ne 0) { throw "Silent uninstall failed with exit code $($uninstall.ExitCode)" }
-
-            $deadline = (Get-Date).AddSeconds(20)
-            $serviceAfter = $null
-            do {
-              $serviceAfter = Get-Service -Name $serviceName -ErrorAction SilentlyContinue
-              if ($null -eq $serviceAfter) { break }
-              Start-Sleep -Milliseconds 500
-            } while ((Get-Date) -lt $deadline)
-
-            if (Test-Path $ui) { throw "UI executable remained after uninstall" }
-            if (Test-Path $serviceExe) { throw "Service executable remained after uninstall" }
-            if ($null -ne $serviceAfter) {
-              Show-ServiceDiagnostics
-              throw "$serviceName remained registered after uninstall"
-            }
-
-            Write-Host "[smoke] Web bootstrap + payload + service lifecycle passed"
-          }
-          catch {
-            Write-Host "[smoke] FAILURE: $($_.Exception.Message)"
-            Show-ServiceDiagnostics
-            throw
-          }
-          finally {
-            Remove-SmokeService
-            Remove-Item $smokeDir -Recurse -Force -ErrorAction SilentlyContinue
-          }
+      - name: Oldest-supported upgrade compatibility
+        shell: pwsh
+        run: |
+          ./tools/release/Alpha14UpgradeCompatibilitySmoke.ps1 `
+            -CandidateArtifactDirectory ./artifacts/installer `
+            -LegacyArtifactDirectory ./artifacts/legacy-alpha14 `
+            -ExpectedVersion $env:APP_VERSION
 
       - name: Create checksums
         shell: pwsh
@@ -461,8 +389,9 @@ jobs:
             artifacts/installer/ThinkControl-Setup-*.exe
             artifacts/installer/ThinkControl-Payload-*.zip
             artifacts/installer/SHA256SUMS.txt
-            artifacts/release-previews/ui-overview.png
           if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
 
       - name: Publish tagged GitHub release
         if: env.VERSIONED_RELEASE == '1'
