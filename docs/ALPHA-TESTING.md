@@ -60,28 +60,39 @@ The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-ri
 
 - Unsupported devices must remain safe/read-only.
 - On the verified X9 path, fan writes must be enabled only after a concrete provider passes its own capability gate; model identity by itself is not permission to write.
-- Test Lenovo Auto return after every manual/custom fan state.
+- Native Lenovo fan telemetry and writable fan ownership are separate capabilities. Seeing two Lenovo fan channels does not authorize a nearby EnergyDrv write command.
+- Test Lenovo Auto return after every manual/custom fan state that a validated writer actually exposes.
 - Do not interpret a UI control being visible as proof that a hardware write succeeded; verify status and physical response.
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
 - Manual percentage and graph-curve operations should appear as fan-control diagnostics rather than generic hardware events, and diagnostics should name the active provider rather than always claiming ThinkPad EC.
 
-For draft PR #71, use this order and **do not start seven-step fan calibration unless the Fans page explicitly reports the EC fallback**:
+### PR #71 physical evidence already established
 
-1. Start in **Lenovo Auto** and leave ThinkControl open. Confirm OEM fan behavior remains smooth and merely opening the app does not disturb fan speed.
-2. Open Advanced → Fans and record the provider shown in the status/detail text.
-   - If it reports **Lenovo OEM target-RPM / Other Mode**, record the displayed Fan 1 and Fan 2 OEM target ranges. EC calibration and raw-step controls must be hidden.
-   - If it reports the **verified X9 discrete EC fallback**, raw steps/calibration may be visible and the old EC-specific checks below apply.
-   - If neither writable provider passes, ThinkControl must remain firmware-managed/read-only.
-3. With the OEM target-RPM provider active, test temporary manual **25%, 50%, 75% and 100%**. The status text should show the concrete requested RPM for each fan, all targets must stay inside the displayed Lenovo-reported ranges, and Fan 1/Fan 2 telemetry should settle plausibly without the old repeating wave/re-kick behavior.
-4. Still on the OEM provider, test Quiet, Balanced and Max Cooling. Curves should use continuous target percentages rather than collapsing to EC steps. Listen for smooth ramps and watch for stale RPM after each change.
-5. At OEM **100%**, compare the actual settled RPM/noise/cooling directly with a naturally hot **Lenovo Auto** state. This is the key acceptance check: the target-RPM provider is useful only if its effective high-cooling range is materially equivalent to what Lenovo can use. Lenovo documents Fan Test Data min/max as reference constraints and notes firmware can physically run outside them, so a green OEM API alone does **not** prove the range problem is solved.
-6. Return to Lenovo Auto several times. Confirm both fans hand back cleanly with no stall, zero-RPM surprise, stale manual target or persistent left/right divergence. A partial OEM multi-fan write failure should also request Auto for all writable channels.
-7. If the EC fallback is active instead, enter Quiet, Balanced and Max Cooling one at a time. The previous RPM should disappear/settle rather than remain displayed while the physical fans have already changed speed. Managed Fan 1/Fan 2 values should be plausible; temporary unavailable telemetry is preferable to reusing one old/ambiguous fan value.
-8. On the EC fallback only, manual 100% remains **standard EC step 7**, the highest verified normal EC state. Do not report it as Lenovo Auto's hottest or absolute physical fan ceiling. The separate `0x40` full-speed/disengaged family remains blocked because exact-X9 testing has not validated it safely.
-9. After the session, Advanced → Diagnostics → **Export support bundle** should contain bounded X9 fan samples from the existing status stream (profile, control temperature, applied output and up to two RPM values). The diagnostics path must not create another hardware polling loop.
-10. If Other Mode is unavailable **or** its constrained 100% still falls materially below hot Lenovo Auto, run `tools/research/Capture-LenovoAuto.ps1` for naturally occurring `lenovo-auto-hot` and `lenovo-auto-cool` states plus a managed comparison. The script is observational: it uses ThinkControl `GetStatus`, Lenovo/LITSSvc state, read-only EnergyDrv queries and local OEM binary evidence scanning. It never invokes `ChangeFanSpeed 0x8310257C`, dust-removal/high-speed `0x831020C0`, arbitrary EC writes or brute-forced command values.
+`dev.1191` on the physical X9 established the following:
 
-The standard ThinkPad distinction remains important: EC levels `0..7` are normal manual states; `0x80` hands cooling back to firmware Auto; the separate `0x40` full-speed/disengaged family is not the same as step 7. Lenovo Other Mode target-RPM control is a different OEM contract again and must be evaluated by its actual physical range, not by its name.
+- Fan 1 and Fan 2 RPM could both be displayed, confirming the old one-fan telemetry model was incomplete.
+- The writable provider still reported `Fallback · verified X9 discrete EC telemetry/control`; the capability-gated `LENOVO_OTHER_METHOD` writer did not activate on that X9/software state.
+- EC Max Cooling remained softer than naturally hot Lenovo Auto and could still have a faint electronic/buzzy character. The seven-step EC writer is therefore not the desired finished X9 product path.
+
+### PR #71 native-OEM investigation flow
+
+For candidates after that finding, use this order. **Do not start EC calibration or manual EC testing merely because PawnIO is present.**
+
+1. Start in **Lenovo Auto** and leave ThinkControl open. Confirm OEM fan behavior remains smooth and merely opening Advanced → Fans does not change the acoustic character.
+2. Record the provider/status detail and Fan 1/Fan 2 sources.
+   - If `LENOVO_OTHER_METHOD` passes the full exact-X9 writer gate, the page may expose **Lenovo OEM target-RPM** control. Raw EC calibration/steps must stay hidden.
+   - If Lenovo `EnergyDrv · QueryFanSpeed 0x83102570` supplies two fan channels but no validated writer exists, the page must be **read-only** for fan control. It should keep Lenovo Auto ownership and must not fall back to EC writes simply because 0x2F is reachable.
+   - Only when no native two-channel Lenovo fan surface is established may the explicitly gated EC investigation fallback remain available.
+3. With read-only EnergyDrv telemetry active, let the machine move naturally between cool and hot Lenovo Auto states. Verify the two RPM values track what you physically hear without the previous long stale-value behavior or a new repeating wave/re-kick disturbance caused by observation.
+4. Export Advanced → Diagnostics → **Export support bundle** after the session. It should contain bounded X9 fan samples from the existing status stream and must not create another independent hardware polling worker.
+5. Run `tools/research/Capture-LenovoAuto.ps1 -Label lenovo-auto-hot -BundleRelevantOemBinaries` during a naturally hot Lenovo Auto state, and a separate `lenovo-auto-cool` capture when cool. The script is observational: it reads ThinkControl status, Lenovo/LITSSvc state, the known read-side EnergyDrv queries and installed OEM binary evidence. Review the JSON/ZIP before sharing.
+6. Public Lenovo reverse-engineering establishes `EnergyDrv` `QueryFanSpeed 0x83102570` with zero-based fan indices 0/1 and a separate `ChangeFanSpeed 0x8310257C` accepting a single `dwFanCtrlCmd`. The exact X9 command encoding is still unknown. **Do not brute-force that value or copy a command from another Lenovo family.** Recover it from the installed X9 OEM stack/captured state first.
+7. A separate legacy Lenovo full-speed/dust/Geek-style EnergyDrv command is not a substitute for smooth target-RPM control. Do not use pulsing dust-removal behavior as a curve backend, and do not generalize ThinkBook/Legion full-speed overlays to the X9 without exact-device validation.
+8. Once an exact X9 OEM writer is recovered, re-run temporary 25/50/75/100% (or equivalent semantic target states), Quiet/Balanced/Max Cooling, direct comparison against naturally hot Lenovo Auto, and repeated Auto handoff. Acceptance requires Lenovo-like smoothness and useful high-cooling range with both fans remaining plausible and synchronized.
+
+If a future X9 firmware/software stack exposes the existing Other Mode target-RPM contract, its documented target `0` is Auto and per-fan min/max capability data still bounds normal writes. Lenovo documents those Fan Test Data values as reference constraints, so physical comparison against hot Auto remains required even for a green WMI writer.
+
+The standard ThinkPad distinction remains relevant only to the EC investigation fallback: EC levels `0..7` are normal manual states; `0x80` hands cooling back to firmware Auto; the separate `0x40` full-speed/disengaged family is not the same as step 7 and remains blocked on the X9 after unsafe/contradictory physical evidence.
 
 The alpha.35 cleanup removes obsolete **current-client** cooling wrappers. The service-side legacy cooling IPC remains intentionally present for installed-client compatibility and is still covered by the immutable alpha.14.1 updater fixture.
 
