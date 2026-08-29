@@ -80,6 +80,21 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void VisualQa_ExercisesOemProviderWithoutIssuingHardwareRequests()
+    {
+        string snapshot = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.ManualTestSnapshot.cs");
+
+        Assert.Contains("PrepareOemTargetRpmForSnapshot(72)", snapshot, StringComparison.Ordinal);
+        Assert.Contains("_fanControlKind = FanControlKinds.OemTargetRpm", snapshot, StringComparison.Ordinal);
+        Assert.Contains("lenovo-other-mode-1", snapshot, StringComparison.Ordinal);
+        Assert.Contains("lenovo-other-mode-2", snapshot, StringComparison.Ordinal);
+        Assert.Contains("ApplyProviderCopy(state, true, FanControlKinds.OemTargetRpm)", snapshot, StringComparison.Ordinal);
+        Assert.Contains("% OEM target", snapshot, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetStatusAsync", snapshot, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetFanPercent", snapshot, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(params string[] path)
     {
         string root = FindRepositoryRoot();
