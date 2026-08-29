@@ -68,11 +68,13 @@ internal sealed class ThinkPadEc : IDisposable
 
     internal string PortLabel => $"0x{_commandPort:X}/0x{_dataPort:X}";
 
-    internal byte ReadFanControl() => WithEcLock(() =>
-    {
-        SelectFanUnlocked(ThinkPadRegisters.MainFan);
-        return ReadByteUnlocked(ThinkPadRegisters.FanControl);
-    });
+    // Keep ordinary status discovery read-only. Selector 0x31 remains an exact-X9
+    // managed-mode test candidate and must not be touched merely because the app is open.
+    internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
+
+    // Released builds used the shared tachometer without selector writes. Preserve that
+    // path for Lenovo Auto so opening ThinkControl cannot disturb otherwise smooth OEM control.
+    internal int ReadFanRpm() => WithEcLock(ReadFanRpmUnlocked);
 
     internal ThinkPadFanRpmPair ReadFanRpms()
     {
@@ -90,8 +92,6 @@ internal sealed class ThinkPadEc : IDisposable
             }
         });
     }
-
-    internal int ReadFanRpm() => ReadFanRpms().MainRpm;
 
     internal IReadOnlyList<(byte Register, byte Celsius)> ReadThermalSensors()
     {
@@ -199,12 +199,17 @@ internal sealed class ThinkPadEc : IDisposable
     private int ReadSelectedFanRpmUnlocked(byte selector)
     {
         SelectFanUnlocked(selector);
+        return ReadFanRpmUnlocked();
+    }
+
+    private int ReadFanRpmUnlocked()
+    {
         byte low = ReadByteUnlocked(ThinkPadRegisters.FanSpeedLow);
         Thread.Sleep(5);
         byte high = ReadByteUnlocked(ThinkPadRegisters.FanSpeedHigh);
         int rpm = ThinkPadFanProtocol.CombineRpm(low, high);
         if (!ThinkPadFanProtocol.IsPlausibleRpm(rpm))
-            throw new InvalidOperationException($"Implausible fan RPM value {rpm} for selector {selector}.");
+            throw new InvalidOperationException($"Implausible fan RPM value {rpm}.");
         return rpm;
     }
 
