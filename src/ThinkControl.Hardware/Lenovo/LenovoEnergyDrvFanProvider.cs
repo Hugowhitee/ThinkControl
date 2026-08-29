@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 using Microsoft.Win32.SafeHandles;
 
@@ -28,6 +27,7 @@ internal sealed class LenovoEnergyDrvFanProvider
     private const uint FileShareRead = 0x00000001;
     private const uint FileShareWrite = 0x00000002;
     private const uint OpenExisting = 3;
+    private const int ErrorInvalidData = 13;
     private const int ExpectedFanCount = 2;
     private const int MaximumPlausibleRpm = 20_000;
     private static readonly TimeSpan ReadInterval = TimeSpan.FromSeconds(2);
@@ -135,7 +135,6 @@ internal sealed class LenovoEnergyDrvFanProvider
             return handle;
         }
 
-        error = Marshal.GetLastWin32Error();
         handle.Dispose();
         handle = CreateFileW(
             DevicePath,
@@ -175,10 +174,17 @@ internal sealed class LenovoEnergyDrvFanProvider
             out uint bytesReturned,
             IntPtr.Zero);
 
-        if (!ok || bytesReturned < sizeof(uint) || output > int.MaxValue)
+        if (!ok)
         {
             rpm = 0;
-            error = ok ? new Win32Exception().NativeErrorCode : Marshal.GetLastWin32Error();
+            error = Marshal.GetLastWin32Error();
+            return false;
+        }
+
+        if (bytesReturned < sizeof(uint) || output > int.MaxValue)
+        {
+            rpm = 0;
+            error = ErrorInvalidData;
             return false;
         }
 
