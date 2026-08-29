@@ -136,10 +136,13 @@ public sealed class LenovoHardwareController : IDisposable
 
             if (ecAvailable && _ec is not null)
             {
-                // The X9-15 is a dual-fan machine. Read the exact-model EC pair even
-                // when a generic monitor reports a fan, because one generic reading
-                // cannot tell us whether the two physical fans are synchronized.
-                ReadX9FanRpm(now);
+                // Preserve the released shared-tach path while Lenovo owns the fans.
+                // Selector 0x31 is exercised only after the user explicitly enters a
+                // ThinkControl-managed state, where dual-fan synchronization is the
+                // behavior under investigation. If no richer telemetry exists in Auto,
+                // the old low-rate shared tachometer remains available.
+                if (IsThinkControlFanState(_fanControl) || lhmFans.Count == 0)
+                    ReadX9FanRpm(now);
 
                 if (!sensorSnapshot.ControlTemperatureC.HasValue)
                     ReadX9EcThermals(now);
@@ -162,9 +165,8 @@ public sealed class LenovoHardwareController : IDisposable
                     ? $"ThinkPad X9 EC · hottest read-only thermal sensor · {_ec?.PortLabel ?? "detected port"}"
                     : "Unavailable";
 
-            bool x9PairAvailable = _x9FanRpm.HasValue && _x9AuxFanRpm.HasValue;
             bool needGenericFanFallback = lhmFans.Count == 0 &&
-                (!_identity.IsVerifiedX9 || !ecAvailable || !x9PairAvailable);
+                (!_identity.IsVerifiedX9 || !ecAvailable || !_x9FanRpm.HasValue);
             if (_isLenovo && needGenericFanFallback && now - _lastGenericFanRead >= GenericFanPollInterval)
                 ReadGenericLenovoFanTelemetry(now);
 
@@ -283,6 +285,7 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 _ec.ReturnToBios();
                 _fanControl = ThinkPadRegisters.BiosControl;
+                _x9AuxFanRpm = null;
                 _lastFanRpmRead = now - FanRpmPollInterval + TimeSpan.FromSeconds(4);
                 return true;
             }
@@ -344,10 +347,20 @@ public sealed class LenovoHardwareController : IDisposable
         _lastFanRpmRead = now;
         try
         {
-            ThinkPadFanRpmPair pair = _ec.ReadFanRpms();
-            _x9FanRpm = pair.MainRpm;
-            _x9AuxFanRpm = pair.AuxiliaryRpm;
-            _x9FanRpmSource = $"ThinkPad X9 EC dual tachometers · selector 0x31 + 0x84/0x85 · {_ec.PortLabel}";
+            if (IsThinkControlFanState(_fanControl))
+            {
+                ThinkPadFanRpmPair pair = _ec.ReadFanRpms();
+                _x9FanRpm = pair.MainRpm;
+                _x9AuxFanRpm = pair.AuxiliaryRpm;
+                _x9FanRpmSource = $"ThinkPad X9 EC dual tachometers · selector 0x31 + 0x84/0x85 · {_ec.PortLabel}";
+            }
+            else
+            {
+                _x9FanRpm = _ec.ReadFanRpm();
+                _x9AuxFanRpm = null;
+                _x9FanRpmSource = $"ThinkPad X9 EC shared tachometer 0x84/0x85 · {_ec.PortLabel}";
+            }
+
             _lastFanRpmSuccess = now;
             _x9FanRpmFailures = 0;
         }
@@ -358,7 +371,7 @@ public sealed class LenovoHardwareController : IDisposable
             {
                 _x9FanRpm = null;
                 _x9AuxFanRpm = null;
-                _x9FanRpmSource = $"Unavailable · X9 dual tachometer read failed: {ex.GetType().Name}";
+                _x9FanRpmSource = $"Unavailable · X9 tachometer read failed: {ex.GetType().Name}";
             }
         }
     }
@@ -456,6 +469,18 @@ public sealed class LenovoHardwareController : IDisposable
 
         if (lhmFans.Count > 0)
             return lhmFans;
+
+        if (_identity.IsVerifiedX9 && ecAvailable && _x9FanRpm.HasValue)
+        {
+            return
+            [
+                new LenovoFanReading(
+                    "x9-ec-shared",
+                    _x9FanRpm.Value,
+                    "System fan tachometer",
+                    _x9FanRpmSource)
+            ];
+        }
 
         if (_genericFans.Count > 0)
             return _genericFans;
