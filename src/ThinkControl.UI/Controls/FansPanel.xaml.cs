@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
@@ -13,9 +14,15 @@ public partial class FansPanel : UserControl
     private readonly ObservableCollection<CalibrationRow> _calibrationRows = [];
     private readonly ObservableCollection<FanProfileChoice> _profileChoices = [];
     private readonly FanCurveGraph _activeCurveGraph = new() { IsReadOnly = true, ShowLiveLabel = false };
+    private readonly DispatcherTimer _statusRefreshTimer = new(DispatcherPriority.Background)
+    {
+        Interval = TimeSpan.FromSeconds(2)
+    };
     private App? _app;
     private bool _resetAdded;
     private bool _statusSubscribed;
+    private bool _statusRefreshInFlight;
+    private bool _snapshotMode;
     private bool _syncingProfileSelection;
     private string _currentProfileId = "Lenovo Auto";
 
@@ -25,6 +32,7 @@ public partial class FansPanel : UserControl
         ActiveCurvePreviewHost.Content = _activeCurveGraph;
         CalibrationResults.ItemsSource = _calibrationRows;
         ProfileComboBox.ItemsSource = _profileChoices;
+        _statusRefreshTimer.Tick += async (_, _) => await RefreshVisibleStatusAsync();
         Loaded += (_, _) => SyncStatusSubscription();
         Unloaded += (_, _) => UnsubscribeStatus();
         IsVisibleChanged += (_, _) => SyncStatusSubscription();
@@ -43,12 +51,12 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile);
         ApplyProviderCopy(app.State, app.State.CanFanControl);
         SyncStatusSubscription();
-        if (IsVisible)
-            _ = app.HardwareClient.GetStatusAsync();
     }
 
     internal void PrepareForSnapshot(AppState state)
     {
+        _snapshotMode = true;
+        UnsubscribeStatus();
         EnsureResetButton();
         DataContext = state;
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
@@ -72,14 +80,19 @@ public partial class FansPanel : UserControl
 
     private void SyncStatusSubscription()
     {
-        bool shouldSubscribe = _app is not null && IsLoaded && IsVisible;
+        bool shouldSubscribe = !_snapshotMode && _app is not null && IsLoaded && IsVisible;
         if (shouldSubscribe == _statusSubscribed)
+        {
+            if (shouldSubscribe && !_statusRefreshTimer.IsEnabled)
+                _statusRefreshTimer.Start();
             return;
+        }
 
         if (shouldSubscribe)
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
             _statusSubscribed = true;
+            _statusRefreshTimer.Start();
             _ = _app.HardwareClient.GetStatusAsync();
         }
         else
@@ -90,10 +103,32 @@ public partial class FansPanel : UserControl
 
     private void UnsubscribeStatus()
     {
+        _statusRefreshTimer.Stop();
+        _statusRefreshInFlight = false;
         if (!_statusSubscribed || _app is null)
             return;
         _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
         _statusSubscribed = false;
+    }
+
+    private async Task RefreshVisibleStatusAsync()
+    {
+        if (_snapshotMode || _statusRefreshInFlight || _app is null || !IsLoaded || !IsVisible)
+            return;
+
+        _statusRefreshInFlight = true;
+        try
+        {
+            // The service remains cache-first and the X9 provider keeps its own low-rate
+            // tachometer throttle. This visible-page request cadence only advances the
+            // canonical status pipeline so a settled sample reaches the UI promptly; it
+            // does not turn EC RPM reads into a two-second hardware polling loop.
+            _ = await _app.HardwareClient.GetStatusAsync();
+        }
+        finally
+        {
+            _statusRefreshInFlight = false;
+        }
     }
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
@@ -182,7 +217,7 @@ public partial class FansPanel : UserControl
                 if (maximumRpm is > 0)
                 {
                     int relative = point.Level == 7 ? 100 : (int)Math.Round(Math.Clamp(average / maximumRpm.Value * 100.0, 0, 99));
-                    rpm = $"{values} · ~{relative}% of verified maximum";
+                    rpm = $"{values} · ~{relative}% of calibrated step 7";
                 }
                 else
                 {
@@ -390,7 +425,7 @@ public partial class FansPanel : UserControl
         CalibrationCard.Visibility = x9Calibration ? Visibility.Visible : Visibility.Collapsed;
         RawEcStepsExpander.Visibility = x9EcWriter ? Visibility.Visible : Visibility.Collapsed;
         ManualControlDescriptionText.Text = x9EcWriter
-            ? "0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state."
+            ? "0% means the lowest verified running state, not fan-off. 100% requests the highest verified standard X9 EC step (step 7) in ThinkControl's managed range, not necessarily Lenovo Auto's hottest or absolute physical ceiling. Intermediate targets select the safest calibrated discrete state; the unverified 0x40 full-speed/disengaged family remains blocked."
             : "The manual target uses only the active provider's verified output range. ThinkControl does not expose raw EC steps unless the active provider explicitly supports the verified X9 EC contract.";
         ManualControlExpander.IsEnabled = canControl;
     }
