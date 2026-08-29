@@ -173,7 +173,7 @@
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ManualControlDescriptionText" Text="0% means the lowest verified running state, not fan-off. 100% requests the physically verified X9 maximum, EC step 7. Intermediate targets select the safest calibrated discrete state; ThinkControl does not expose the ineffective echoed 0x47 override."
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="0% means the lowest verified running state, not fan-off. 100% means the highest verified standard X9 EC step in ThinkControl's managed range (step 7), not necessarily Lenovo Auto's hottest or absolute physical ceiling. Intermediate targets select the safest calibrated discrete state; the unverified 0x40 full-speed/disengaged family remains blocked."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
@@ -186,7 +186,7 @@
 
                     <Expander x:Name="RawEcStepsExpander" Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Text="Use these only for diagnostics. Step 7 is the physically verified maximum and is the hardware state used for a 100% target."
+                            <TextBlock Text="Use these only for diagnostics. Step 7 is the highest verified standard EC step and 100% of ThinkControl's managed range. Lenovo Auto uses a separate firmware algorithm and may command different speeds."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
