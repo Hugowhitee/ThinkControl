@@ -81,9 +81,11 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
-    public void VisualQa_ExercisesOemProviderWithoutIssuingHardwareRequests()
+    public void VisualQa_ExercisesOemProviderWithoutIssuingHardwareRequestsOrReplacingBalancedFixture()
     {
         string snapshot = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.ManualTestSnapshot.cs");
+        string advancedSnapshot = ReadSource("src", "ThinkControl.UI", "AdvancedWindow.Diagnostics.cs");
+        string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
 
         Assert.Contains("PrepareOemTargetRpmForSnapshot(72)", snapshot, StringComparison.Ordinal);
         Assert.Contains("_fanControlKind = FanControlKinds.OemTargetRpm", snapshot, StringComparison.Ordinal);
@@ -93,6 +95,10 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("% OEM target", snapshot, StringComparison.Ordinal);
         Assert.DoesNotContain("GetStatusAsync", snapshot, StringComparison.Ordinal);
         Assert.DoesNotContain("SetFanPercent", snapshot, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("PrepareManualFanTestForSnapshot", advancedSnapshot, StringComparison.Ordinal);
+        Assert.Contains("fansPanel.PrepareManualFanTestForSnapshot();", renderer, StringComparison.Ordinal);
+        Assert.Contains("fanManualTest: true", renderer, StringComparison.Ordinal);
     }
 
     private static string ReadSource(params string[] path)
