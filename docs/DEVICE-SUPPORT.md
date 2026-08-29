@@ -1,126 +1,94 @@
 # Device support
 
-This document describes compatibility for ThinkControl `v0.1.0-alpha.31`.
-
-ThinkControl evaluates support **per capability and provider**. The current physically reviewed low-level reference is Lenovo ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`), but that model is not the product boundary. Windows-safe functionality and future OEM providers share the same capability-first UI.
+This document describes the support model at **v0.1.0-alpha.35**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
 
 ## Support levels
 
-### Verified
+### Windows-generic
 
-The relevant low-level provider/capability contract has been explicitly authorized and physically reviewed for the exact scope.
+Available without vendor-specific write access where Windows exposes the information/action safely:
 
-Current verified reference:
+- shell/navigation and settings;
+- update/install flow;
+- Windows power-policy integration;
+- display/audio pages backed by Windows-visible capabilities;
+- battery and generic telemetry that Windows/providers expose;
+- diagnostics/report preview and explicit sharing controls.
 
-- Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
+Unsupported vendor controls stay visible as unavailable rather than disappearing or pretending to work.
 
-“Verified” applies to the reviewed capabilities/provider path; it does not mean every optional Windows/OEM feature is guaranteed on every driver/BIOS revision.
+### Provider-backed read-only
 
-### Beta / candidate
+ThinkControl can expose telemetry from a reviewed provider without implying that writes are safe. Examples include temperature/fan/sensor discovery where the provider produces credible values but no verified write contract exists.
 
-ThinkControl recognizes an OEM/family/provider combination that is reasonable to probe, but the exact hardware has not completed physical validation. Read-only telemetry can be exposed when the provider identifies it honestly. Writable controls still require the provider-specific identity/readback/safety contract.
+### Verified write support
 
-### Generic
+A write control is enabled only when the active provider advertises the exact semantic capability and passes its provider/device validation gate. A failed or unknown write path must fall back to safe firmware/OEM ownership rather than guessing addresses, EC commands or vendor APIs.
 
-No OEM-specific profile is required. Windows-level features work where Windows exposes the relevant documented interface.
+## ThinkPad X9 15 Gen 1
 
-## Profile hierarchy
+Machine types `21Q6` / `21Q7` are the current verified X9 development path. That identity is only one part of the gate: the relevant low-level provider must also initialize and validate the expected hardware behavior before EC writes become available.
 
-```text
-Windows generic capability
-→ OEM generic profile
-→ product-family profile
-→ exact-model profile
-```
+Current X9-oriented areas include:
 
-Example today:
+- sensor discovery and CPU/control temperature sources;
+- fan RPM/telemetry where available;
+- verified fan EC control with Lenovo Auto fallback;
+- Lenovo keyboard backlight provider/readback;
+- Lenovo/OEM keyboard Auto where verified;
+- haptic/raw-touchpad discovery and the shared Touchpad gesture editor.
 
-```text
-Windows
-→ Lenovo
-→ ThinkPad
-→ X9-15 Gen 1
-```
+If PawnIO is missing, stale or inaccessible, ThinkControl should present the existing repair path instead of silently attempting another low-level write backend.
 
-Future ASUS, Dell, HP, Acer, MSI and other integrations should use the same hierarchy rather than create vendor-specific copies of the main UI. See [devices/README.md](../devices/README.md).
+## Fan semantics
 
-Profiles select/prioritize providers; providers own implementation and write safety. Profile metadata alone is never permission to perform arbitrary low-level writes.
+Fan features are kept semantically distinct:
 
-## Compatibility matrix
+- **Lenovo Auto / firmware Auto**: firmware owns cooling;
+- **named fan curves**: ThinkControl's current graph-based curve model;
+- **manual percent/output**: only where the provider explicitly supports that meaning;
+- **telemetry-only**: RPM/state can be shown without enabling writes.
 
-| Device scope | Windows-safe features | Sensors / fan telemetry | Keyboard | Fan writes | OEM thermal policy | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| ThinkPad X9-15 Gen 1 `21Q6/21Q7` | Supported where Windows exposes them | Generic real sensor providers plus verified X9 fallback paths | Reviewed Lenovo providers with read/probe contract | Verified discrete X9 provider, firmware Auto fallback | Reviewed X9 Lenovo semantic policy coordination | Verified reference |
-| Other ThinkPads | Supported | Generic/read-only Lenovo providers when exposed | Known Lenovo providers after probe | Requires verified provider/family/model contract | Capability-specific only | Beta/candidate |
-| ThinkBook / Yoga / IdeaPad | Supported | Generic/read-only providers | Known Lenovo providers after probe | Requires verified provider/family/model contract | Capability-specific only | Beta/candidate |
-| Legion / LOQ | Supported | Generic/supported Lenovo telemetry providers | Provider-dependent | Provider-specific only when verified | Capability-specific only | Beta/candidate |
-| Other Lenovo | Supported | Conservative read-only discovery | Provider discovery only | Disabled without verified write provider | No X9 semantic-command reuse | Beta/candidate |
-| Other Windows laptops | Where Windows supports it | Generic safe sensor providers when available | OEM provider required for hardware backlight | OEM/family/model write provider required | OEM provider required | Generic / expandable |
+The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto`. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls. Alpha.35 removes the obsolete current-client wrappers while intentionally preserving those server-side compatibility handlers and the legacy updater fixture.
 
-## Windows-level baseline
+## Keyboard semantics
 
-These can work without a Lenovo/model-specific profile when Windows exposes the necessary interface:
+- Off / Low / High are static hardware states when available.
+- Auto means a verified Lenovo/OEM firmware mode. ThinkControl no longer substitutes a software idle-dimming loop and calls it Auto.
+- Breathing / Reactive / Audio are separate ThinkControl user-session effects.
+- Effects require the direct keyboard provider; the Vantage fallback is intentionally excluded from repeated effect writes so Lenovo brightness pop-ups are not generated continuously.
 
-- power behavior (**Efficiency / Balanced / Performance** in ThinkControl);
-- separate stored battery and plugged-in power preferences;
-- display refresh-rate selection/automatic policy;
-- internal display brightness and adaptive brightness;
-- Windows display/power/sleep/Night light navigation;
-- system output, microphone and volume controls;
-- battery percentage/source/watts/Wh/health and filtered time estimates;
-- local charge/discharge history;
-- compatible read-only sensor/temperature telemetry;
-- compatible Precision Touchpad visualization/edge gestures;
-- themes, tray/startup behavior, updates and local diagnostics.
+A machine with only basic/Vantage-mediated brightness support may therefore expose static/firmware behavior without exposing Effects.
 
-Unavailable data is shown as unavailable rather than replaced with a synthetic value.
+## Touchpad semantics
 
-## Sensors and fan telemetry
+The Touchpad editor exposes six selectable zones: Top, Bottom, Left, Right, Top-left and Top-right. Edges and corners share one selection/rendering system, while runtime recognition remains deliberately strict.
 
-ThinkControl prefers provider-reported hardware identity and real sensor domains. LibreHardwareMonitor/PawnIO is one broad Windows provider route, not a vendor lock-in.
+Corner launch lanes are diagonal and win only in their intended corner region. Edge/corner recognizers preserve ownership and reject-until-lift behavior so a corner cannot steal an already-started edge gesture. Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream.
 
-A generic ACPI thermal zone is not automatically relabelled as CPU Package. Exact/family read-only fallbacks remain honestly sourced and become a cooling control-temperature input only when the provider safety contract permits it.
+Track-center behavior remains a separate optional affordance and does not create a second corner-selection system.
 
-Read-only fan RPM may come from a real generic sensor provider, a verified model-specific telemetry fallback or an OEM/Windows telemetry interface. Missing channels/provider classes are valid compatibility outcomes; ThinkControl never fabricates RPM or separate Fan 1/Fan 2 identity merely because the chassis physically contains two fans.
+## Unknown/new hardware
 
-## ThinkPad X9-15 Gen 1
+Unknown hardware should remain safe by default:
 
-The verified low-level X9 provider is restricted to machine types `21Q6` and `21Q7` and exposes a **discrete** fan-output model plus firmware Auto ownership. The user-facing cooling supervisor can map curve/percentage targets onto verified/calibrated discrete states; the UI does not imply continuous PWM.
+1. collect passive, non-sensitive identity/capability evidence;
+2. expose read-only features that have credible generic/provider support;
+3. keep risky writes unavailable;
+4. allow an explicit sanitized compatibility report;
+5. promote write support only after reviewed evidence and an explicit provider/profile change.
 
-Key product-level invariants:
+ThinkControl should never learn a new device by experimentally writing arbitrary EC/IOCTL/BIOS values merely for diagnostics.
 
-- firmware Auto is the safe handoff/fallback state;
-- arbitrary EC writes and fan-off/unverified override paths are not exposed;
-- control-temperature/provider loss and high-temperature safety hand ownership back to firmware;
-- temporary manual tests restore the previous cooling profile with Auto fallback;
-- seven-state calibration requires real tachometer telemetry, validates a complete candidate before replacement and never persists a partial failed/cancelled run;
-- raw EC/calibration controls are shown only while the verified X9 provider plus required capabilities are active;
-- power preferences use Windows power behavior plus reviewed X9 semantic thermal-policy coordination for the exact X9 scope;
-- keyboard hardware control uses reviewed Lenovo provider paths and shares serialized ownership with user-session effects.
+## Physical validation
 
-Concrete X9 transport/register evidence is intentionally maintained in [Lenovo provider research](research/lenovo-providers.md), [Hardware Safety](HARDWARE-SAFETY.md) and [X9 research](research/x9-15-gen1.md) rather than copied into every support/product document.
+Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device validation is still required for:
 
-## Precision Touchpad and haptics
+- actual X9 fan RPM/control and Auto recovery;
+- Lenovo keyboard Auto/Fn+Space/readback agreement;
+- direct-provider effect behavior without Lenovo pop-ups;
+- haptic Touchpad corner sensitivity/symmetry and high-rate responsiveness;
+- Audio volume/microphone behavior across real navigation during a drag;
+- provider repair/restart behavior after real PawnIO/service failure states.
 
-Precision Touchpad input is a Windows/user-session capability. Compatible devices can use live visualization and precision edge gestures independent of Lenovo device support.
-
-Optional top-corner launch lanes are separate from the four precision edge bindings and use one shared physical geometry for UI/recognition. Track center Play/Pause is also separately capability/configuration gated.
-
-Haptic settings remain granular: if Windows/provider support for one haptic/click-force setting is missing, ThinkControl disables/explains that setting rather than claiming the whole Precision Touchpad is absent.
-
-## Dolby / audio
-
-Normal Windows audio controls are generic. Dolby controls depend on the installed DAX provider, not laptop brand alone. Direct controls appear only when semantic operations can be verified; otherwise ThinkControl can keep normal Windows audio usable and, where appropriate, open official Dolby Access rather than guess private IDs.
-
-## Adding another OEM/model
-
-Support should normally be added in this order:
-
-1. reuse Windows-safe capabilities;
-2. add/read an OEM-generic provider;
-3. narrow behavior in a family profile when necessary;
-4. add exact-model low-level writes only after physical validation and recovery/readback design.
-
-Compatibility matching may use normal SMBIOS manufacturer/product/machine type/BIOS context, ACPI/PnP IDs and installed provider/service identities. Serial numbers, usernames, hostnames, MAC addresses and disk identifiers are not needed for support matching.
-
-Use the [bug report form](https://github.com/Hugowhitee/ThinkControl/issues/new?template=bug-report.yml) for compatibility issues. A prepared redacted ThinkControl support/device report can be attached when useful.
+These checks belong in `docs/ALPHA-TESTING.md` and release-readiness notes; they must not be marked complete from screenshots alone.

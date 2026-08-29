@@ -32,6 +32,7 @@ try {
         'src/ThinkControl.UI/GlobalWpfAliases.cs',
         'src/ThinkControl.UI/WpfTypeAliases.cs',
         'src/ThinkControl.UI/AdvancedWindow.Alpha30HomePolish.cs',
+        'src/ThinkControl.UI/AdvancedWindow.ColorCompat.cs',
         'src/ThinkControl.UI/AdvancedWindow.CopyPolish.cs',
         'src/ThinkControl.UI/AdvancedWindow.HomeDashboardPolish.cs',
         'src/ThinkControl.UI/AdvancedWindow.InteractionPolish.cs',
@@ -55,8 +56,21 @@ try {
         }
     }
 
-    # README and PRODUCT are the versioned entry points people/agents are expected
-    # to read first, so both must follow version.json.
+    # Current hosted runners force older Node-20 action builds onto Node 24. Keep
+    # ThinkControl on the maintained official action majors so CI logs stay clean
+    # and release workflows do not accumulate avoidable platform debt.
+    $workflowFiles = @(& git ls-files -- '.github/workflows/*.yml' '.github/workflows/*.yaml')
+    foreach ($workflow in $workflowFiles) {
+        $workflowText = Get-Content $workflow -Raw
+        foreach ($legacyAction in @('actions/checkout@v4', 'actions/setup-dotnet@v4', 'actions/upload-artifact@v4')) {
+            if ($workflowText.Contains($legacyAction, [StringComparison]::OrdinalIgnoreCase)) {
+                $failures.Add("Deprecated GitHub Action major in $workflow -> $legacyAction")
+            }
+        }
+    }
+
+    # These are the active product/release documents, so all of them must follow
+    # version.json rather than silently describing an older alpha as current.
     $metadata = Get-Content 'version.json' -Raw | ConvertFrom-Json
     $version = [string]$metadata.version
     if ([string]::IsNullOrWhiteSpace($version)) {
@@ -64,7 +78,13 @@ try {
     }
     else {
         $versionToken = "v$version"
-        foreach ($document in @('README.md', 'docs/PRODUCT.md')) {
+        foreach ($document in @(
+            'README.md',
+            'docs/PRODUCT.md',
+            'docs/ARCHITECTURE.md',
+            'docs/ALPHA-TESTING.md',
+            'docs/DEVICE-SUPPORT.md'
+        )) {
             $text = Get-Content $document -Raw
             if (-not $text.Contains($versionToken, [StringComparison]::OrdinalIgnoreCase)) {
                 $failures.Add("$document does not reference current version $versionToken")

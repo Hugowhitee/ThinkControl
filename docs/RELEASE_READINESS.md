@@ -2,70 +2,76 @@
 
 This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
-## Current release: alpha.34 unified Touchpad zones and Keyboard Auto cleanup
+## Current release: alpha.35 maintenance cleanup
 
-`v0.1.0-alpha.33` is the immutable production baseline. The active single release PR is #65 and targets **`v0.1.0-alpha.34`**.
+`v0.1.0-alpha.34` is the immutable production baseline. The active single release PR is #66 on `cleanup/alpha35-maintenance` and targets **`v0.1.0-alpha.35`**.
 
-The implementation/visual-QA head `ad17495a1b9403bec832be51780d3224ec95f0c9` passed CI, Package ThinkControl and Installer reliability on the same SHA. That evidence includes repository hygiene, restore/build, Core tests, real Compact ↔ Advanced shell smoke, the WPF snapshot renderer, package/bootstrap creation, service lifecycle smoke, deep installer/IPC smoke and legacy updater compatibility. The corrected WPF visual-QA artifact from CI run 1369 was manually inspected: top-left and top-right selected/live corner states use exact mirrored final geometry, the selected corner editor remains stable during live ownership, top-left shows `Compact`, top-right shows `Advanced`, normal/minimum/wide Touchpad layouts remain stable, and the Keyboard page exposes Auto only in the normal hardware-mode row while Effects contains Breathing / Reactive / Audio.
+The cleanup implementation head `3211e540b1359cdb684200f1f998e9389b853ce0` passed all three normal release workflows on the same SHA before the metadata freeze:
 
-Release metadata is now frozen to alpha.34. README and Product document the six-zone Touchpad selection/rendering model, preserved runtime corner/edge recognition exclusivity, and the keyboard contract that Lenovo/OEM Auto must be verified rather than silently replaced by a software idle policy. `version.json` is `0.1.0-alpha.34` with `releaseReady=true`.
+- CI 1402 / run `33221051212` — repository hygiene, Release build, **0 compiler warnings**, **107/107 tests**, real Compact ↔ Advanced shell smoke, 85-snapshot WPF visual-QA render and artifact upload.
+- Package ThinkControl 1132 / run `33221051181` — release overview, UI/service publish, payload-size validation, bootstrap build, installer/service lifecycle and development artifact creation.
+- Installer reliability 431 / run `33221051268` — restore/build, compact payload, non-elevated UI manifest gate, bootstrap install, deep installer/service/IPC smoke and exact immutable `v0.1.0-alpha.14.1` updater-compatibility smoke.
 
-This handoff update is the **last planned branch content change**. Before squash merge, CI + Package + Installer reliability must all be green on the exact PR head containing this handoff commit. No implementation, QA-fixture or documentation changes should be added afterward; if the head moves, repeat the exact-head gate.
+The WPF artifact from CI 1402 (`ThinkControl-Visual-QA`, artifact `9705190628`, digest `sha256:29d88953acc12aa0e27bb24d30d2bf65e2c18a60b71e7cd99bb76604dfc8a39b`) was inspected after the implementation stabilized. Audio normal/minimum/wide retained the existing layout, Home and Touchpad remained visually unchanged, the notification sheet still rendered correctly after the obsolete color shim was removed, and the alpha.34 Touchpad corner fixtures remained present.
 
-### Implemented in alpha.34
+Release metadata is frozen to `0.1.0-alpha.35` with `releaseReady=true`. README, Product, Architecture, Device Support and Alpha Testing describe the cleanup behavior. This handoff update is the **last planned branch content change**. CI + Package + Installer reliability must now all be green on the exact PR head containing this commit. If the head moves, repeat the exact-head gate.
 
-- [x] Touchpad editor selection is one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
-- [x] `TouchpadVisualizer` owns edge/corner selection, rendering and hit-testing; the auxiliary corner overlay is non-interactive and no longer competes for mouse ownership.
-- [x] Corner hit-testing takes priority only inside the deliberate diagonal corner lane; normal edge selection remains available outside it.
-- [x] Runtime corner-vs-edge gesture recognition, first-candidate corner ownership, reject-until-lift lockout and deliberate diagonal thresholds remain unchanged from alpha.33.
-- [x] Left/right corner guides are generated from one canonical final geometry and the right side is an exact mirror of the left.
-- [x] Edge and corner zones share one idle/selected/hover/candidate/live visual grammar instead of looking like separate gesture systems.
-- [x] Live corner ownership remains visual-only for editor state: the selected editor stays in layout and is dimmed/disabled without reflow while a finger is moving.
-- [x] WPF visual QA renders top-left/top-right selected and live fixtures and executes a symmetry assertion against the real visualizer.
-- [x] CI explicitly requires those four corner-state PNGs so future snapshot changes cannot silently drop the release-specific QA coverage.
-- [x] Snapshot fixtures preserve injected Compact/Advanced corner actions instead of re-reading the live host configuration and displaying misleading `Off` values.
-- [x] Keyboard Auto is removed from the separate Effects card.
-- [x] The normal Off / Low / High / Auto row keeps Lenovo firmware Auto as the OEM mode and requires successful set/readback verification.
-- [x] The old software idle-dimming Auto fallback is removed; ThinkControl no longer labels a High → Low → Off loop as Auto when OEM Auto is unavailable.
-- [x] Breathing, Reactive and Audio remain user-session effects and require the direct backlight provider; the Lenovo Vantage fallback stays excluded to avoid repeated Lenovo keyboard-brightness pop-ups.
-- [x] Alpha.33 shell restore, successful-update confirmation, high-rate Touchpad coalescing, page-visibility listener lifecycle and WPF dispatcher crash protections remain intact.
-- [x] No fan/PawnIO/EC write-safety contract is loosened by this release.
+### Implemented in alpha.35
 
-### Automated release evidence
+- [x] Audio page lifecycle clears both output and microphone debounce timers when hidden/unloaded.
+- [x] Audio page lifecycle clears transient output/microphone drag flags so navigating away mid-drag cannot suppress a later refresh.
+- [x] Source regression coverage protects the Audio hide/unload lifecycle behavior.
+- [x] Removed obsolete current-client cooling compatibility wrappers from `App.Cooling` and `HardwareServiceClient`.
+- [x] Preserved service-side legacy cooling IPC required by the supported installed-client/updater compatibility floor.
+- [x] Added source guards so removed current-client cooling APIs do not silently return while the service compatibility handlers remain intentional.
+- [x] Fan percentage and graph-curve writes now classify as fan-control diagnostics instead of generic `hardware.operation` events.
+- [x] Removed the obsolete `AdvancedWindow.ColorCompat.cs` shim and replaced its only WPF usage with an explicit `System.Windows.Media.Color` reference, avoiding global drawing/WPF type ambiguity.
+- [x] Updated active Architecture, Device Support and Alpha Testing docs that still described alpha.31/alpha.34-era contracts as current.
+- [x] Updated GitHub Actions to current official majors used by the hosted runner (`actions/checkout@v7`, `actions/setup-dotnet@v6`, `actions/upload-artifact@v7`) and eliminated the previous Node-20 deprecation warnings.
+- [x] Added PR/ref concurrency cancellation to CI, Package ThinkControl and Installer reliability so superseded branch heads stop consuming Windows runners.
+- [x] Kept immutable/tag release packaging outside the PR/ref cancellation behavior.
+- [x] Strengthened repository hygiene against removed alpha-era helper files, stale action majors and current-version documentation drift.
+- [x] No hardware write scope, X9 EC safety gate, Touchpad recognizer behavior, Keyboard Auto contract, updater safety boundary or release asset model was widened by this cleanup.
 
-Passed on implementation head `ad17495a1b9403bec832be51780d3224ec95f0c9` before metadata freeze:
+### Audit findings deliberately retained
 
-- [x] Repository hygiene.
-- [x] Release restore/build and Core tests, including Touchpad zone-selection/corner policy regressions and the existing WPF dispatcher scheduling source guard.
-- [x] Real Compact ↔ Advanced WPF shell smoke.
-- [x] WPF visual-QA matrix render with exact corner-symmetry and live-editor-stability assertions.
-- [x] Top-left/top-right selected/live screenshots manually inspected after the snapshot-state correction.
-- [x] Keyboard page manually inspected with Auto only in the hardware row and Breathing / Reactive / Audio under Effects.
-- [x] Package ThinkControl workflow, including bootstrap installer/service lifecycle smoke.
-- [x] Installer reliability workflow, including deep install/service/IPC and exact legacy updater compatibility smoke.
+Not every old-looking path is dead code. The cleanup intentionally retains:
+
+- service-side `SetCoolingProfile`, `SetCustomCoolingCurve` and related legacy handlers required by installed-client compatibility;
+- the immutable alpha.14.1 updater fixture used by Installer reliability;
+- conservative X9/PawnIO/provider gates whose duplication is tied to process/provider safety rather than presentation convenience;
+- physical-device validation items that hosted CI cannot prove.
+
+Future cleanup must distinguish **current-client dead code** from **server/updater compatibility debt** before deleting compatibility endpoints.
 
 ### Promotion gate
 
-- [x] Freeze README/Product documentation to alpha.34.
-- [x] Set `version.json` to `0.1.0-alpha.34` with `releaseReady=true`.
-- [x] Update this single persistent release-readiness handoff for alpha.34.
-- [x] Replace the unmergeable draft PR #64 with non-draft PR #65 on the exact same branch/base after the connected ready-for-review mutation failed at GitHub's GraphQL schema layer.
-- [ ] Require CI + Package + Installer reliability green on the exact PR #65 head containing this final handoff commit; make no further branch changes afterward.
-- [ ] Confirm PR #65 has no unexpected changed files and is still based on the immutable alpha.33 `main` baseline.
-- [ ] Squash-merge PR #65 to `main` using that exact expected head SHA.
+- [x] Audit current `main`, open PR/branch state and alpha.34 baseline before changes.
+- [x] Keep one coherent release branch and one PR (#66).
+- [x] Pass implementation-head CI + Package + Installer reliability on `3211e540b1359cdb684200f1f998e9389b853ce0`.
+- [x] Inspect the implementation-head WPF artifact.
+- [x] Freeze `version.json` to `0.1.0-alpha.35` with `releaseReady=true`.
+- [x] Freeze README/Product/Architecture/Device Support/Alpha Testing to alpha.35.
+- [x] Update this single persistent release-readiness handoff for alpha.35.
+- [ ] Require CI + Package + Installer reliability green on the **exact final PR #66 head** containing this handoff commit; make no further branch changes afterward.
+- [ ] Confirm PR #66 has no unexpected changed files and is still based on immutable alpha.34 `main` (`e09e3eeb6145d5dda8b6351ebb0c3c0bf7292796`).
+- [ ] Squash-merge PR #66 to `main` using that exact expected head SHA.
 - [ ] Verify `main` points to the returned squash SHA.
-- [ ] Verify the `Promote release-ready main` workflow succeeds for the squash SHA.
-- [ ] Verify tag `v0.1.0-alpha.34` points to that exact `main` SHA.
-- [ ] Verify the immutable GitHub prerelease exists and contains exactly `ThinkControl-Setup-0.1.0-alpha.34.exe`, `ThinkControl-Payload-0.1.0-alpha.34.zip`, `SHA256SUMS.txt` and `ui-overview.png`.
-- [ ] Verify the published release checksums succeed and assets are non-empty/downloadable.
-- [ ] Remove the merged alpha.34 branch after immutable release verification.
+- [ ] Verify post-merge main CI succeeds for that squash SHA.
+- [ ] Verify `Promote release-ready main` succeeds for the squash SHA.
+- [ ] Verify tag `v0.1.0-alpha.35` points to that exact `main` SHA.
+- [ ] Verify the immutable GitHub prerelease exists and contains exactly `ThinkControl-Setup-0.1.0-alpha.35.exe`, `ThinkControl-Payload-0.1.0-alpha.35.zip`, `SHA256SUMS.txt` and `ui-overview.png`.
+- [ ] Verify published release checksums succeed and assets are non-empty/downloadable.
+- [ ] Confirm the merged cleanup branch is removed by branch hygiene or remove it after immutable release verification.
 
 ### Physical X9 follow-up — not an automated release claim
 
 Hosted CI cannot prove the following and this document must not mark them complete without a real 21Q6/21Q7 test:
 
+- [ ] Audio output and microphone continue refreshing after navigating away mid-drag and back on the physical X9.
+- [ ] No delayed off-page Audio write causes a visible volume/microphone jump after navigation.
 - [ ] The unified six-zone Touchpad editor feels natural on the physical X9 haptic pad and corner selection does not steal ordinary edge selection outside the intended diagonal lane.
-- [ ] Top-left and top-right corner launches feel equally sized/sensitive in real touch use, not only in rendered geometry.
+- [ ] Top-left and top-right corner launches feel equally sized/sensitive in real touch use.
 - [ ] Live corner Candidate/Claimed/Active frames do not produce visible page movement or sluggishness under a real high-rate touch stream.
 - [ ] Lenovo OEM keyboard Auto works without ThinkControl substituting a software idle mode, and Fn+Space/readback remain in agreement through normal use/restart.
 - [ ] Breathing/Reactive/Audio on a direct provider do not produce Lenovo keyboard pop-ups; effects remain unavailable when only the Vantage fallback is active.

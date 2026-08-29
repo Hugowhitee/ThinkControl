@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.34`.
+Current prerelease candidate: `v0.1.0-alpha.35`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -90,6 +90,8 @@ Runtime status uses cheap/cached paths. Slow WMI, display-capability and `powerc
 
 Normal output, microphone and volume controls use Windows audio endpoints.
 
+Output and microphone writes are debounced while the Audio page is active. Those timers and temporary drag flags are transient page state: hiding the page cancels pending writes and clears drag ownership so navigating away mid-drag cannot suppress future refreshes or apply a stale off-page microphone write.
+
 Dolby controls are provider-driven rather than Lenovo-specific. Direct controls are enabled only when the installed DAX path exposes a semantic operation ThinkControl can verify; otherwise ThinkControl may open the official Dolby Access surface where appropriate. Private profile IDs/IEQ mappings are not guessed.
 
 ## Keyboard
@@ -150,15 +152,17 @@ Profiles select reasonable provider candidates. Providers own implementation, re
 
 Unknown/unverified laptops remain capability-driven and conservative. Windows-safe features may work, read-only providers may surface real telemetry, and hardware-specific writes remain unavailable until the relevant provider/device contract is verified.
 
+The current desktop client uses the graph-based cooling API. Older service-side cooling IPC handlers remain intentionally available for the supported installed-client/updater compatibility floor; they are legacy server compatibility endpoints, not current UI features.
+
 ## Diagnostics and privacy
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.34; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.33` release remains the production baseline immediately before this release.
+No automatic cloud compatibility/crash upload is part of alpha.35; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.34` release remains the production baseline immediately before this release.
 
 ## Installation and updates
 
-Alpha.34 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.35 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior, compatibility with the legacy updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 

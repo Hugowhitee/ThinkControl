@@ -119,24 +119,12 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> ReturnFanToAutoAsync(CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken, timeoutMs: 4500);
 
-    public async Task<ServiceResponse?> SetCoolingProfileAsync(string profile, CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 3500);
-
     public async Task<ServiceResponse?> SetCoolingCurveAsync(
         FanCurveDefinition definition,
         CancellationToken cancellationToken = default) =>
         await SendTrackedAsync(
             "SetCoolingCurve",
             JsonSerializer.Serialize(definition, JsonOptions),
-            cancellationToken,
-            timeoutMs: 3500);
-
-    public async Task<ServiceResponse?> SetCustomCoolingCurveAsync(
-        IReadOnlyList<double> thresholds,
-        CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync(
-            "SetCustomCoolingCurve",
-            JsonSerializer.Serialize(thresholds, JsonOptions),
             cancellationToken,
             timeoutMs: 3500);
 
