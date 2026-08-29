@@ -18,4 +18,16 @@ public partial class FansPanel
         ManualControlExpander.IsExpanded = true;
         UpdateLayout();
     }
+
+    /// <summary>
+    /// Visual-QA only: expands the normal manual target surface after an OEM
+    /// target-RPM provider fixture has already been applied by PrepareForSnapshot.
+    /// This deliberately does not start a temporary test or mutate hardware state.
+    /// </summary>
+    internal void PrepareOemTargetRpmForSnapshot(int percent = 75)
+    {
+        ManualPercentSlider.Value = Math.Clamp(percent, 0, 100);
+        ManualControlExpander.IsExpanded = true;
+        UpdateLayout();
+    }
 }
