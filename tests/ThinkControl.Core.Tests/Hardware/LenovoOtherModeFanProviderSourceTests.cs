@@ -16,6 +16,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("channels.Length >= 2", source, StringComparison.Ordinal);
         Assert.Contains("IsSaneConstraint(channel.MinRpm, channel.MaxRpm)", source, StringComparison.Ordinal);
         Assert.Contains("BuildFanRpmAttributeId", source, StringComparison.Ordinal);
+        Assert.Contains("DescribeRanges(channels)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -28,6 +29,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("target / RpmDivisor * RpmDivisor", source, StringComparison.Ordinal);
         Assert.Contains("TrySetFeatureValue(method, channel.AttributeId, 0", source, StringComparison.Ordinal);
         Assert.Contains("BestEffortReturnToAuto(method, channels)", source, StringComparison.Ordinal);
+        Assert.Contains("BestEffortRecoverAuto(channels)", source, StringComparison.Ordinal);
+        Assert.Contains("Lenovo Auto was requested for all writable channels", source, StringComparison.Ordinal);
         Assert.DoesNotContain("0x831020C0", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("CleanDust", source, StringComparison.OrdinalIgnoreCase);
     }
@@ -50,6 +53,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     {
         string service = ReadSource("src", "ThinkControl.Service", "ServiceEngine.cs");
         string ui = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs");
+        string xaml = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.xaml");
 
         Assert.Contains("ToFanControlKind(status.FanControlKind)", service, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", service, StringComparison.Ordinal);
@@ -59,6 +63,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("RawEcStepsExpander.Visibility = x9EcWriter", ui, StringComparison.Ordinal);
         Assert.Contains("CalibrationCard.Visibility = x9Calibration", ui, StringComparison.Ordinal);
         Assert.Contains("% OEM target", ui, StringComparison.Ordinal);
+        Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
     }
 
     private static string ReadSource(params string[] path)
