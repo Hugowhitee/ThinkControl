@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Hardware;
 public sealed class X9DualFanSourceTests
 {
     [Fact]
-    public void X9EcContract_UsesSelectorForBothPhysicalFans()
+    public void X9EcContract_UsesSelectorForTelemetryButSharedFanControl()
     {
         string root = FindRepositoryRoot();
         string registers = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "X9", "ThinkPadRegisters.cs"));
@@ -17,8 +17,8 @@ public sealed class X9DualFanSourceTests
         Assert.Contains("ReadFanRpms()", ec, StringComparison.Ordinal);
         Assert.Contains("ReadSelectedFanRpmUnlocked(ThinkPadRegisters.MainFan)", ec, StringComparison.Ordinal);
         Assert.Contains("ReadSelectedFanRpmUnlocked(ThinkPadRegisters.AuxiliaryFan)", ec, StringComparison.Ordinal);
-        Assert.Contains("WriteAndVerifySelectedFanUnlocked(ThinkPadRegisters.MainFan", ec, StringComparison.Ordinal);
-        Assert.Contains("WriteAndVerifySelectedFanUnlocked(ThinkPadRegisters.AuxiliaryFan", ec, StringComparison.Ordinal);
+        Assert.Contains("WriteAndVerifyFanControlUnlocked(requested, acceptsReadBack, label)", ec, StringComparison.Ordinal);
+        Assert.DoesNotContain("WriteAndVerifySelectedFanUnlocked", ec, StringComparison.Ordinal);
         Assert.Contains("TrySelectMainFanUnlocked()", ec, StringComparison.Ordinal);
     }
 
