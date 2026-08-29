@@ -45,10 +45,15 @@ The expected behavior is that Audio output/microphone debounce timers and tempor
 The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
 
 - Selecting an edge must clear a selected corner, and selecting a corner must clear the edge selection.
-- Top-left and top-right guides should look like exact mirrors: same size, angle, inset, boundary weight and selected/live treatment.
-- A corner launch should win only inside its deliberate diagonal recognition lane; ordinary edge gestures outside that lane should still behave normally.
+- Top-left and top-right guides must be exact mirrors: same guard radius, lane size, angle, rounded end arc, boundary weight and selected/live treatment.
+- Enable one corner launch and confirm the visible quarter-circle guard, diagonal lane and rounded end-cap correspond to the actual usable launch start area. The guard should reserve runtime input only while that corner action is enabled; turning the action Off must leave the nearby top/side edge available again.
+- Start near either edge of the enabled quarter-circle guard where a side/top gesture would otherwise be plausible. The corner candidate must own that contact from the first frame and a rejected corner must stay locked out until lift rather than falling through into the edge recognizer.
+- Start an ordinary edge gesture outside the corner guard/lane and confirm the edge still behaves normally.
+- Confirm the old neutral center divider is gone: the lane should show a directional arrow, the inner end should be a semicircular arc rather than a flat 90-degree cross-line/filled blob, and enabled Compact/Advanced corners should show the matching semantic icon and text.
+- Select each corner and confirm its editor exposes **Reverse swipe closes ThinkControl**. With it enabled, start in the rounded inner end-cap and swipe diagonally back toward the physical corner; Compact or Advanced should hide to tray. With it disabled, that outward swipe must not close ThinkControl.
+- Verify reverse-close on both mirrored corners and confirm a wrong-direction/rejected reverse candidate cannot become a nearby edge gesture while the same contact remains down.
 - Test corner candidate/active behavior under real touch and confirm the settings layout does not reflow or oscillate.
-- Test normal, maximized/fullscreen and restored Advanced sizes.
+- Inspect selected and live fixtures at minimum, normal and wide Advanced sizes plus light/dark states. The existing left fixture covers inward launch; the mirrored right fixture covers the opt-in reverse-close state.
 - Leave Touchpad for another page and confirm the rest of Advanced remains responsive during normal touchpad use.
 
 ## Fans and hardware providers
