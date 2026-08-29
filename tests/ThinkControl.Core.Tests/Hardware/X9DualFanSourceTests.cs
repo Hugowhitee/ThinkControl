@@ -23,6 +23,22 @@ public sealed class X9DualFanSourceTests
     }
 
     [Fact]
+    public void LenovoAuto_StatusDiscovery_PreservesReleasedReadOnlyPath()
+    {
+        string root = FindRepositoryRoot();
+        string ec = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "X9", "ThinkPadEc.cs"));
+        string controller = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs"));
+
+        Assert.Contains(
+            "internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));",
+            ec,
+            StringComparison.Ordinal);
+        Assert.Contains("internal int ReadFanRpm() => WithEcLock(ReadFanRpmUnlocked);", ec, StringComparison.Ordinal);
+        Assert.Contains("if (IsThinkControlFanState(_fanControl))", controller, StringComparison.Ordinal);
+        Assert.Contains("_x9FanRpm = _ec.ReadFanRpm();", controller, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void X9Controller_ExposesBothExactEcTachometers()
     {
         string root = FindRepositoryRoot();
