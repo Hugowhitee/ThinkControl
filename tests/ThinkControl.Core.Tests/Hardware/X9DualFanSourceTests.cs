@@ -36,10 +36,11 @@ public sealed class X9DualFanSourceTests
         Assert.Contains("internal int ReadFanRpm() => WithEcLock(ReadFanRpmUnlocked);", ec, StringComparison.Ordinal);
         Assert.Contains("if (IsThinkControlFanState(_fanControl))", controller, StringComparison.Ordinal);
         Assert.Contains("_x9FanRpm = _ec.ReadFanRpm();", controller, StringComparison.Ordinal);
+        Assert.Contains("FirmwareFanRpmPollInterval = TimeSpan.FromSeconds(10)", controller, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void X9Controller_ExposesBothExactEcTachometers()
+    public void X9Controller_ExposesBothExactEcTachometersOnlyWhenManaged()
     {
         string root = FindRepositoryRoot();
         string controller = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs"));
@@ -48,7 +49,22 @@ public sealed class X9DualFanSourceTests
         Assert.Contains("x9-ec-main", controller, StringComparison.Ordinal);
         Assert.Contains("x9-ec-auxiliary", controller, StringComparison.Ordinal);
         Assert.Contains("ThinkPad X9 EC dual tachometers", controller, StringComparison.Ordinal);
-        Assert.Contains("if (_identity.IsVerifiedX9 && ecAvailable && _x9FanRpm.HasValue && _x9AuxFanRpm.HasValue)", controller, StringComparison.Ordinal);
+        Assert.Contains("bool managedX9 = _identity.IsVerifiedX9 && ecAvailable && IsThinkControlFanState(_fanControl);", controller, StringComparison.Ordinal);
+        Assert.Contains("return lhmFans.Count >= 2 ? lhmFans : Array.Empty<LenovoFanReading>();", controller, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FanStateChange_DropsStaleRpmBeforeNextSettledRead()
+    {
+        string root = FindRepositoryRoot();
+        string controller = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs"));
+
+        Assert.Contains("ManagedFanRpmPollInterval = TimeSpan.FromSeconds(6)", controller, StringComparison.Ordinal);
+        Assert.Contains("PostFanStateChangeReadDelay = TimeSpan.FromSeconds(2)", controller, StringComparison.Ordinal);
+        Assert.Contains("InvalidateFanRpmAfterStateChange(now);", controller, StringComparison.Ordinal);
+        Assert.Contains("_x9FanRpm = null;", controller, StringComparison.Ordinal);
+        Assert.Contains("_x9AuxFanRpm = null;", controller, StringComparison.Ordinal);
+        Assert.Contains("Settling after fan-state change", controller, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
