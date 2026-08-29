@@ -24,6 +24,7 @@ Keep this directory small and current. Historical alpha checklists, generated sc
 | [Visual QA](VISUAL-QA.md) | Deterministic WPF screenshot contract and review rules |
 | [Installer](../installer/README.md) | Installer/updater/uninstaller lifecycle and packaging contract |
 | [Agent workflow](../AGENTS.md) | Repository rules for contributors and coding agents |
+| [New-chat starter](CHAT_STARTER.md) | Version-agnostic bootstrap to paste before a new ThinkControl bug/improvement prompt |
 
 The executable release gates live in `.github/workflows/`, `tools/` and the test projects. If prose conflicts with an executable safety/release gate, investigate the mismatch rather than creating another checklist.
 
@@ -42,6 +43,7 @@ These files preserve evidence that still explains provider behavior. They are re
 - `PRODUCT.md` describes current behavior, not release history.
 - `RELEASE_READINESS.md` is the only tracked forward-looking release checklist/roadmap.
 - `ALPHA-TESTING.md` is the physical-device validation checklist.
+- `CHAT_STARTER.md` is reusable prompt context, not a release-state source of truth; it deliberately points a new chat back to the current repository state.
 - Published release history and checksums live with immutable GitHub Releases and Actions, not copied Markdown files.
 - Generated visual-QA screenshots remain short-lived CI artifacts; do not commit screenshot dumps under `docs/`.
 - Model-specific registers, commands and observations belong in provider research/safety documentation, not generic UI/product docs.
