@@ -20,20 +20,29 @@ A candidate must return a recognized state before writes are enabled. A requeste
 
 ## Fan telemetry versus fan control
 
-Read-only RPM has a lower risk boundary than writable fan ownership. Telemetry candidates may include real hardware-monitor providers, Lenovo WMI/CIM data where exposed, Windows `CIM_Tachometer`, and exact-model verified read-only EC tachometer fallbacks.
+Read-only RPM has a lower risk boundary than writable fan ownership. Telemetry candidates may include real hardware-monitor providers, Lenovo WMI/CIM data where exposed, Windows `CIM_Tachometer`, Lenovo `EnergyDrv` query contracts where their semantics are known, and exact-model verified read-only EC tachometer fallbacks.
 
 Writable backends are modeled separately, for example:
 
 - OEM-native thermal policy;
+- OEM semantic target-RPM control;
 - discrete EC fan states;
-- continuous percentage/PWM target;
 - telemetry-only provider.
 
-A generic `FanControl` label is not enough to infer EC or PWM semantics.
+A generic `FanControl` label is not enough to infer EC, PWM or target-RPM semantics. A native OEM telemetry path does not become writable merely because a nearby driver IOCTL exists: the write command format, rollback and readback contract must be recovered and validated independently.
 
 ## ThinkPad X9-15 Gen 1
 
-Machine types `21Q6` and `21Q7` are the current physically reviewed low-level reference. Their provider uses verified discrete fan states plus OEM Auto and an independently reviewed Lenovo thermal-policy path. Other Lenovo families do not inherit those writes.
+Machine types `21Q6` and `21Q7` are the current physically reviewed low-level reference. Physical testing has shown that the classic ThinkPad EC path can expose both fan tachometers, but its seven manual states do not reproduce Lenovo Auto's useful high-cooling range or acoustic behavior. That path is therefore investigation/fallback evidence rather than the desired product fan-control boundary.
+
+The preferred X9 hierarchy is now:
+
+1. Lenovo `LENOVO_OTHER_METHOD` target-RPM control, but only if exact-device capability data exposes at least two VALID+GET+SET channels with sane constraints and live reads;
+2. Lenovo-native fan telemetry through Other Mode or the known read-only `EnergyDrv` `QueryFanSpeed` contract;
+3. read-only EC thermal/tachometer evidence only when richer native telemetry is unavailable;
+4. writable EC steps only on machines where no native Lenovo fan surface has been established and the exact-model EC contract remains explicitly allowed.
+
+On the physically tested X9 candidate, Other Mode did not become writable. PR #71 therefore also probes `EnergyDrv` `QueryFanSpeed` (`0x83102570`) for fan indices 0/1 read-only. When two native Lenovo fan channels are present, ThinkControl prioritizes those RPMs and deliberately stops advertising the known-inferior EC writer while the exact OEM target-RPM command is recovered. Public Lenovo reverse-engineering proves a separate `ChangeFanSpeed` IOCTL (`0x8310257C`) exists, but does not define the X9 `dwFanCtrlCmd` encoding; ThinkControl must not brute-force it.
 
 Exact registers, transport observations and physical test evidence are maintained in [x9-15-gen1.md](x9-15-gen1.md).
 
@@ -55,7 +64,7 @@ Typical candidate hierarchy:
 | ThinkBook / Yoga / IdeaPad | Windows APIs, `EnergyDrv`/compatible Lenovo PM paths, read-only Lenovo telemetry |
 | Legion / LOQ | Windows APIs, Lenovo telemetry, GameZone-style providers only where validated |
 
-Family membership never authorizes X9 EC or X9 LITS writes.
+Family membership never authorizes X9 EC, X9 LITS or X9 EnergyDrv writes.
 
 ## OEM software launching
 
