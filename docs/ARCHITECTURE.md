@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.34**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
+This document describes the current architecture at **v0.1.0-alpha.35**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
 
 ## Process boundary
 
@@ -57,7 +57,7 @@ Raw HID input stays available to recognition at full rate. WPF visualization is 
 
 ## Audio lifecycle
 
-Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state, not durable application state; they must be cleared when the Audio page becomes hidden so a navigation during a drag cannot suppress later refreshes or apply a stale microphone write off-page.
+Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state, not durable application state; they are cleared when the Audio page becomes hidden so navigation during a drag cannot suppress later refreshes or apply a stale microphone write off-page.
 
 ## Status, diagnostics and discovery
 
@@ -65,8 +65,12 @@ Audio volume/microphone writes are debounced in the WPF page. Transient debounce
 
 Diagnostics are local-first. Compatibility sharing remains explicit, sanitized and separate from hardware control. Raw touch coordinates, personal file content, usernames, serial numbers and arbitrary memory/log dumps are outside the intended upload schema.
 
+Current fan-percent and fan-curve writes are classified as fan-control diagnostic operations rather than falling through to generic hardware events. Removed current-client cooling wrappers are guarded by source tests so the service-only legacy compatibility surface cannot silently leak back into the modern UI client.
+
 ## Release and compatibility boundaries
 
 The installer is a small bootstrapper plus a separately versioned payload. CI exercises build/tests, real WPF shell smoke, visual snapshots, package size, installer/service lifecycle and the legacy updater fixture.
+
+PR CI, package and installer workflows cancel superseded runs for the same PR/ref so stale branch commits do not waste Windows runners. Immutable/tag release packaging remains outside that cancellation behavior.
 
 A cleanup is not permission to remove compatibility code blindly. Current-client dead code should be deleted; server-side legacy protocol handlers stay until the minimum supported installed client no longer needs them and the updater compatibility fixture is intentionally advanced.
