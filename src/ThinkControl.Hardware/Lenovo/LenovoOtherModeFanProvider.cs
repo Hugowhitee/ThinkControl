@@ -111,7 +111,7 @@ internal sealed class LenovoOtherModeFanProvider
                 Fans: fans,
                 Channels: channels,
                 Detail: canControl
-                    ? $"Lenovo Other Mode · {channels.Length} constrained target-RPM channels"
+                    ? $"Lenovo Other Mode · {DescribeRanges(channels)}"
                     : detail);
         }
         catch (Exception ex)
@@ -173,7 +173,11 @@ internal sealed class LenovoOtherModeFanProvider
         }
         catch (Exception ex)
         {
-            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}";
+            // An exception can occur after an earlier channel was accepted. Re-open
+            // the documented method surface and request Auto for every writable fan
+            // so a partial multi-fan target cannot survive an unexpected WMI failure.
+            BestEffortRecoverAuto(channels);
+            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}. Lenovo Auto was requested for all writable channels.";
             return false;
         }
     }
@@ -262,7 +266,7 @@ internal sealed class LenovoOtherModeFanProvider
                 (channel.Capability & RequiredWriteSupport) == RequiredWriteSupport &&
                 IsSaneConstraint(channel.MinRpm, channel.MaxRpm));
             _discoveryDetail = writable == _channels.Length && writable >= 2
-                ? $"Lenovo Other Mode target-RPM control ready · {_channels.Length} channels"
+                ? $"Lenovo Other Mode target-RPM control ready · {DescribeRanges(_channels)}"
                 : $"Lenovo Other Mode fan telemetry found · {writable}/{_channels.Length} channels have OEM write constraints";
         }
         catch (Exception ex)
@@ -372,10 +376,29 @@ internal sealed class LenovoOtherModeFanProvider
     {
         foreach (LenovoOtherModeFanChannel channel in channels)
         {
+            if ((channel.Capability & RequiredWriteSupport) != RequiredWriteSupport)
+                continue;
             try { TrySetFeatureValue(method, channel.AttributeId, 0, out _); }
             catch { }
         }
     }
+
+    private static void BestEffortRecoverAuto(IReadOnlyList<LenovoOtherModeFanChannel> channels)
+    {
+        try
+        {
+            using ManagementObject? method = FindActiveMethodObject();
+            if (method is not null)
+                BestEffortReturnToAuto(method, channels);
+        }
+        catch
+        {
+        }
+    }
+
+    private static string DescribeRanges(IEnumerable<LenovoOtherModeFanChannel> channels) =>
+        string.Join(" · ", channels.Select(channel =>
+            $"Fan {channel.Index + 1} {channel.MinRpm:N0}–{channel.MaxRpm:N0} RPM"));
 
     private static int ResolveTargetRpm(LenovoOtherModeFanChannel channel, int percent)
     {
