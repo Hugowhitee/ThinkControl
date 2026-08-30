@@ -20,7 +20,6 @@ Current release candidate:
 - branch: `fix/x9-dual-fan-control-stability`
 - PR: #71 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**
 - version: `v0.1.0-alpha.36`
-- exact final PR head: `96163d647282302b00ccb2f55253dfb5c19d9f34`
 - release scope: post-alpha.35 touchpad corner completion + X9 dual-fan/native-provider hardening + bounded diagnostics/research support
 - alpha.36 remains a prerelease; physical X9 behavior is not inferred from hosted runners
 
@@ -110,11 +109,10 @@ Do not recreate a third full installer workflow. CI and Package are the current 
 - [x] EnergyDrv writer remains disabled; no `GENERIC_WRITE`/brute-force fan command was added.
 - [x] Research scripts are parser-checked in CI and are read-only/static by contract.
 - [x] `version.json`, README and active version docs are frozen at `v0.1.0-alpha.36`.
-- [x] **CI #1513 / run `33309928303` passed on exact final head `96163d647282302b00ccb2f55253dfb5c19d9f34`.**
-- [x] **Package ThinkControl #1233 / run `33309928311` passed on the same exact final head.**
-- [x] Representative final visual-QA states were manually inspected: the alpha.36 OEM target-RPM Fans fixture cleanly shows two channels and continuous OEM target semantics, while the normal fallback fixture remains discrete-EC-specific; the Touchpad right-corner live/reverse fixture remains symmetrical, stable and correctly versioned.
-- [x] Final changed-file list contains only release docs/version plus the intended fan provider/service/UI/diagnostic/research/test scope.
-- [ ] Squash-merge with the exact expected head SHA.
+- [x] Representative Fans and Touchpad visual-QA states have been manually inspected during release preparation.
+- [x] Final changed-file scope contains only release docs/version plus the intended fan provider/service/UI/diagnostic/research/test work.
+- [ ] Immediately before merge, require **CI + Package ThinkControl green on the exact same final PR head**. Record the concrete head/run IDs in the PR body so this handoff does not need another evidence-only commit that would invalidate the head.
+- [ ] Squash-merge with that exact expected head SHA.
 - [ ] Verify post-merge `main`.
 - [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.36` at the merged commit and does not move alpha.35.
 - [ ] Verify the new prerelease has exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid checksums.
