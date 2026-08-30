@@ -2,209 +2,219 @@
 
 This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
-## Current repository/release state
+## Current release state
 
-Published production prerelease:
+Last immutable published prerelease before this candidate:
 
 - `v0.1.0-alpha.35`
 - immutable tag/release SHA: `b6d2fb7a0a19d65dbac070f1c3f54fb9a662c6eb`
 - exactly four managed public assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
 
-Current `main` is intentionally ahead of that immutable release because post-release fixes/maintenance were merged without republishing or moving the alpha.35 tag.
-
-Current `main` after PR #70:
+Current `main` before the alpha.36 merge:
 
 - `aa697799319b8b942e58834649f7fed25bc33b85`
-- `version.json` still records `0.1.0-alpha.35` with `releaseReady=true`
-- PR #70 merged the touchpad corner-gesture reliability/reverse-close work after exact-head CI + Package validation
-- `Promote release-ready main` must continue treating the existing alpha.35 release as immutable; it must never retag that release to newer `main`
+- includes PR #70 touchpad corner reliability/reverse-close work
+- still points `version.json` at alpha.35 until the release-candidate branch is frozen
 
-Draft PR #71 (`fix/x9-dual-fan-control-stability`) is an exact-X9 hardware investigation and is **not release-ready**. Physical testing now gives three important facts. First, the branch can expose both physical fan RPMs on the X9, which confirms the old single-tachometer product model was incomplete. Second, the tested `dev.1191` candidate still identified the writable path as `Fallback · verified X9 discrete EC telemetry/control`, so the modern `LENOVO_OTHER_METHOD` target-RPM writer did **not** pass its capability/live-read gate on this X9. Third, EC Max Cooling remained softer than naturally hot Lenovo Auto and could still have a faint electronic/buzzy character. The legacy EC writer therefore must not be promoted as the finished X9 control solution merely because dual-fan telemetry improved.
+Current release candidate:
 
-PR #71 now treats Lenovo-native fan interfaces as the product boundary. `LENOVO_OTHER_METHOD` remains the preferred semantic target-RPM writer when a verified X9 actually exposes at least two VALID+GET+SET fan channels with sane Lenovo-reported constraints and live reads. In addition, the branch probes Lenovo `EnergyDrv` **read-only** through the publicly recovered `QueryFanSpeed` IOCTL `0x83102570` for zero-based fan indices 0/1. If two native Lenovo fan channels are available through Other Mode or EnergyDrv, those readings take priority over direct EC tachometers and the known-inferior EC fan writer is no longer advertised: Lenovo Auto keeps fan ownership until a matching OEM write contract is physically validated. EC access may remain only for the existing read-only thermal fallback when richer temperature telemetry is unavailable.
+- branch: `fix/x9-dual-fan-control-stability`
+- PR: #71 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**
+- target release: `v0.1.0-alpha.36`
+- release scope: post-alpha.35 touchpad corner completion + X9 dual-fan/native-provider hardening + bounded diagnostics/research support
+- alpha.36 remains a prerelease; physical X9 behavior is not inferred from hosted CI
 
-That native two-fan proof is now latched for the lifetime of the hardware service. Once an exact X9 has successfully exposed two native Lenovo fan channels, a later transient OEM telemetry miss or explicit provider refresh cannot silently re-authorize the EC writer. The current live RPM may temporarily fall back/be unavailable, but `FanControlKind` remains non-writable until a validated OEM writer returns. EC cleanup is also ownership-aware: merely observing another utility's manual-looking EC state no longer makes ThinkControl its owner; automatic handoff is limited to an EC/OEM provider this controller actually took ownership of.
+The release branch is now allowed to ship because risky fan behavior fails closed: a direct Lenovo target-RPM writer is exposed only when exact-X9 identity, capability data, constraints and live channel reads all agree; EnergyDrv remains read-only until its write encoding is actually recovered; and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
 
-Public Lenovo reverse-engineering establishes a separate `EnergyDrv` `ChangeFanSpeed` IOCTL `0x8310257C`, but the meaning/encoding of its `dwFanCtrlCmd` input has not yet been recovered for the X9. A decompiled Lenovo Energy Management API independently confirms the contract shape: `QueryFanSpeed` takes a zero-based fan index and returns one speed value, while `ChangeFanxSpeed` sends one `dwFanCtrlCmd` DWORD and receives one action-status DWORD. It still does **not** reveal the caller-side X9 command values, Auto/rollback semantics or whether the modern X9 uses that writer at all. Public evidence also separates this from older `EnergyDrv` maintenance/full-speed families such as dust control `0x831020C0` and a family-specific legacy ITS/Geek overlay `0x8310213C`; neither is permission to guess a smooth X9 target.
+## Alpha.36 product delta
 
-The branch therefore has a two-stage read-only recovery path. `Capture-LenovoAuto.ps1 -BundleRelevantOemBinaries` records native fan telemetry/LITSSVC/power state and can bundle bounded relevant installed Lenovo binaries. `Analyze-LenovoOemFanBinaries.ps1` then performs **offline static analysis only**: it does not open EnergyDrv, execute OEM code or send hardware commands; it scans the supplied binaries for known IOCTL constants, relevant strings, file offsets and small hex contexts around candidate call sites. Its search vocabulary now also covers the additional X9 ThinkSmartSense/LITS clues recovered from exact-machine IL.
+### Touchpad
 
-That exact X9 ThinkSmartSense IL contains more cooling-policy commands than the currently reviewed Eco/Balanced/Performance mapping: AC Cool `500/501`, DC Cool `505/506`, Improved Cooling Efficiency `510/511`, and Balanced/Performance LCM `31..34`. These are **research-only**. Their names make them relevant to explaining Lenovo Auto's smoother/higher cooling behavior, but their capability gates, lifecycle and physical effect have not been correlated. A source regression test keeps `500/501/505/506/510/511` out of the production `LenovoThermalPolicyService`; presence in Lenovo's add-in is not permission to send them.
+- unified Top-left / Top-right with the same six-zone editor used by Top/Bottom/Left/Right;
+- exact mirrored **guard → diagonal lane → rounded end-cap** geometry;
+- enabled corner guard is the recognizer's real first-frame priority area;
+- rejected corner candidates remain locked out until lift and cannot fall through into the nearby edge gesture;
+- center divider replaced by a directional arrow; rounded end-cap replaces the old flat/blob treatment;
+- enabled corner actions show Compact/Advanced semantic icon + text;
+- optional per-corner **Reverse swipe closes ThinkControl** uses the same recognizer/ownership path rather than a second overlay/worker;
+- live corner state must not cause editor reflow.
 
-The latest fully hosted-validated investigation head before the newest static-research additions was `332ccb03ff9fdf526261178811b8359eb3f3aa2f`: CI #1494 and Package #1214 both passed. The current PR head is intentionally ahead of that evidence because the offline analyzer/LITS research guards and this handoff were extended afterward. **Run CI + Package again on the exact final PR head before distributing another physical-test build.**
+### X9 fans
 
-PR #71 remains blocked until the exact X9 OEM writer is recovered and a physical candidate demonstrates Lenovo-like smoothness, useful high-cooling range, truthful dual-fan telemetry and reliable Auto handoff. The next actual product release must be prepared deliberately from current `main` with a new version/release scope; do not rewrite or republish alpha.35 for this experiment.
+Physical evidence before alpha.36 established:
 
-## Current validation ownership
+- the X9 has two physical fan channels and ThinkControl can expose both through reviewed telemetry paths;
+- the old one-fan product model was incomplete;
+- `dev.1191` still used `Fallback · verified X9 discrete EC telemetry/control`;
+- EC Max Cooling remained softer than naturally hot Lenovo Auto and could have a faint electronic/buzzy/wavy character;
+- therefore EC step 7 is **not** accepted as the finished X9 product maximum.
 
-The old standalone **Installer reliability** workflow has been consolidated into the Package path. Do not recreate a third full candidate build unless a future measured need justifies it.
+Alpha.36 architecture:
+
+1. **Lenovo Other Mode target-RPM** is the preferred writer when the exact X9 exposes at least two independently live VALID+GET+SET fan channels with sane Lenovo Fan Test constraints.
+2. Fan attributes use Lenovo's documented `0x04030001` onward IDs. `GetFeatureValue` reads current RPM; `SetFeatureValue` writes the target; target `0` returns the owned channel to Lenovo Auto; effective targets use 100-RPM granularity.
+3. Extra/phantom capability records do not make the whole provider all-or-nothing: two real live constrained writable channels are sufficient.
+4. ThinkControl records the exact channels it actually writes and returns only owned channels to Auto. Provider refresh preserves ownership evidence if an Auto handoff fails so cleanup can be retried.
+5. **Lenovo EnergyDrv** `QueryFanSpeed 0x83102570` is read-only native telemetry. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until the exact X9 `dwFanCtrlCmd` encoding and rollback/Auto semantics are recovered.
+6. Once two native Lenovo fan channels are proven during a service lifetime, transient native telemetry loss cannot silently re-authorize the EC writer.
+7. The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider only. The ambiguous `0x40` full-speed/disengaged family remains blocked after exact-X9 testing echoed `0x47` while producing 0 RPM.
+8. Fan-state changes invalidate stale RPM before a settled replacement is presented. Visible Fans-page refresh advances the canonical status pipeline without creating a high-rate EC polling loop.
+9. Bounded support diagnostics preserve active provider, control temperature, applied state and up to two fan RPM values without starting a duplicate hardware polling worker.
+
+### Research-only Lenovo evidence
+
+Do not turn these into production writes merely because the symbols exist:
+
+- EnergyDrv `0x8310257C ChangeFanSpeed` — one `dwFanCtrlCmd` DWORD in / one action-status DWORD out, but X9 command encoding still unknown;
+- EnergyDrv `0x831020C0` dust/temporary high-speed family — maintenance behavior, not a smooth target-RPM contract;
+- family-specific `0x8310213C` ITS/Geek full-speed overlay — not generalized to X9;
+- ThinkSmartSense/LITSSvc AC/DC Cool `500/501` and `505/506`;
+- Improved Cooling Efficiency `510/511`;
+- Balanced/Performance LCM `31..34`.
+
+`tools/research/Capture-LenovoAuto.ps1` remains observational. Its Lenovo Other Mode path invokes **GetFeatureValue only**, its EnergyDrv calls are read/query contracts only, and optional OEM binaries remain local until explicitly shared. `tools/research/Analyze-LenovoOemFanBinaries.ps1` is static/offline analysis only and never opens a driver or executes captured OEM binaries.
+
+## Validation ownership
 
 ### CI owns
 
 - repository hygiene;
 - solution restore/build;
 - Core tests;
-- real Compact ↔ Advanced WPF shell lifecycle smoke;
-- the deterministic WPF visual-QA matrix and artifact upload.
-
-`ThinkControl.ShellSmoke` is part of the solution build so its execution uses `--no-build --no-restore` instead of silently compiling another WPF copy.
+- real Compact ↔ Advanced WPF lifecycle smoke;
+- deterministic WPF visual-QA matrix + artifact upload.
 
 ### Package ThinkControl owns
 
-- current UI/service candidate publish;
-- compact payload-size checks and payload archive;
-- bootstrap installer compilation;
-- non-elevating UI manifest/project contract;
-- installer-owned UAC/update handoff contract;
-- sibling-payload auto-discovery;
-- custom install-location persistence;
-- service startup and named-pipe IPC v1 verification;
+- UI/service publish;
+- compact payload-size checks;
+- bootstrap installer build;
+- non-elevating UI contract;
+- sibling-payload discovery;
+- custom install-location preservation;
+- service startup and named-pipe IPC v1;
 - current in-place update path;
 - clean uninstall and ThinkControl-owned state cleanup;
-- the real immutable oldest-supported `v0.1.0-alpha.14.1` → candidate updater regression;
-- candidate checksums/development artifact.
+- immutable oldest-supported `v0.1.0-alpha.14.1` → candidate updater regression;
+- checksums and development artifact.
 
-The immutable alpha.14.1 fixture is a **support-floor regression fixture**, not the current tester version. It stays until the supported updater floor is deliberately advanced. The small immutable fixture may be cached; do not replace it with a newer release merely to make the workflow look newer.
+Do not recreate a third full installer workflow. CI and Package are the current required PR gates. Superseded PR runs cancel; immutable/tag release packaging does not.
 
-For ordinary PR Package runs, visual snapshots are not rendered a second time. CI owns PR visual QA. Tagged/versioned release packaging still owns the release overview needed for the public release asset set.
+## Alpha.36 release gate
 
-### Measured validation improvement
+Before merging PR #71:
 
-On the final PR #68 head `1c6764da774a2fea4496c722439c4e28c3b69791`:
+- [x] Work remained on one active branch / one PR.
+- [x] AGENTS, architecture, product, device support, testing and release handoff were recovered before release preparation.
+- [x] Known-good alpha.33 shell/touchpad lifecycle protections were preserved rather than rewritten casually.
+- [x] Fan provider ownership is single-owner through `FanSupervisor` / `LenovoHardwareController`; no duplicate fan worker was introduced.
+- [x] Other Mode direct-RPM writes are capability- and live-read-gated.
+- [x] EnergyDrv writer remains disabled; no `GENERIC_WRITE`/brute-force fan command was added.
+- [x] Research scripts are parser-checked in CI and are read-only/static by contract.
+- [x] Representative Fans visual QA has been manually inspected on the latest pre-freeze branch: normal EC fallback and OEM-target manual-test fixtures are visually coherent and do not mislabel OEM percentage as an EC step.
+- [ ] Freeze `version.json`, README and active version docs at `v0.1.0-alpha.36`.
+- [ ] Run **CI + Package ThinkControl on the exact final PR head** after that freeze.
+- [ ] Review final changed-file list/diff for unrelated changes and verify new provider code is reachable.
+- [ ] Check PR reviews/threads/mergeability.
+- [ ] Squash-merge with the exact expected head SHA.
+- [ ] Verify post-merge `main`.
+- [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.36` at the merged commit and does not move alpha.35.
+- [ ] Verify the new prerelease has exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid checksums.
 
-- CI 1421 / run `33260403035` passed in roughly 1m27;
-- Package 1145 / run `33260403034` passed in roughly 1m52 end-to-end on that runner, including the deep installer/IPC smoke and the real alpha.14.1 upgrade regression;
-- the two gates run concurrently, so practical PR wait is governed by the slower gate rather than the sum.
+## Physical X9 follow-up — separate evidence class
 
-The exact Package log confirmed:
+Hosted CI cannot prove these. Alpha.36 may be published with these still open because unsupported/unproven writers fail closed, but the results must remain documented honestly.
 
-- `UI stays non-elevating` contract passed;
-- sibling-payload discovery passed;
-- `Ping + GetStatus` IPC v1 passed;
-- current in-place update and clean uninstall lifecycle passed;
-- real immutable alpha.14.1 → candidate swapped UI/service and restored IPC.
-
-A NuGet cache experiment was removed after measurement showed that restoring/saving the large cache made wall-clock time worse. Performance changes must be evidence-based; do not add caches just because caching sounds faster.
-
-PR #68 was squash-merged with the expected head guard. Post-merge CI 1422 passed on `659bc1de087dade48d402814e6814bce1487a91d`, and Promote release-ready main verified the existing immutable alpha.35 release/checksums/four assets without retagging it.
+- [ ] Install alpha.36 on machine type `21Q6`/`21Q7` and record the Fans provider/detail line before changing fan state.
+- [ ] If **Lenovo Other Mode direct target-RPM** activates, verify two plausible live fan channels plus manual 25/50/75/100% settling.
+- [ ] Confirm direct OEM targets do not reproduce the earlier repeating wave/re-kick/buzzy character.
+- [ ] Compare OEM 100% with naturally hot Lenovo Auto; Lenovo Fan Test max is reference/self-test data and may not be the absolute physical ceiling, so do not infer equivalence from metadata alone.
+- [ ] Repeatedly return direct OEM ownership to Auto and confirm both owned channels release cleanly with no stale target/stall/persistent divergence.
+- [ ] If only EnergyDrv native telemetry appears, confirm Fan 1/Fan 2 plausibly track physical sound while controls stay read-only rather than silently restoring EC after native proof.
+- [ ] Confirm a provider refresh/transient OEM telemetry miss does not re-enable EC during the same hardware-service lifetime after native two-fan proof.
+- [ ] If only the EC fallback remains, treat its profiles as fallback behavior; do not claim Max Cooling equals Lenovo Auto's physical maximum.
+- [ ] Export a support bundle after the test so bounded provider/fan samples can be compared with physical observations.
+- [ ] Capture `lenovo-auto-hot` / `lenovo-auto-cool` evidence if the exact EnergyDrv writer still needs recovery.
+- [ ] Continue issue #60 field observation for `TargetParameterCountException`; source regression is guarded but issue closure needs real-world evidence.
+- [ ] Verify Touchpad corner guard/reverse-close feel on the real haptic pad, including left/right symmetry and accidental-trigger rate.
+- [ ] Verify Audio navigation mid-drag, Lenovo keyboard Auto/Fn+Space, direct keyboard effects and PawnIO repair/restart on the physical machine.
 
 ## Release workflow principles
 
-For the next coherent release:
+For future releases:
 
-- [ ] Start from current `main` and inspect open PRs/branches before creating anything new.
-- [ ] Keep one active branch / one PR for the coherent release scope.
-- [ ] Read this handoff plus `AGENTS.md`, Architecture, Product, Device Support and Alpha Testing before changing behavior.
-- [ ] Preserve current known-good architecture and safety boundaries; do not stack duplicate helpers/providers/timers/visual layers over existing owners.
-- [ ] Distinguish current-client dead code from intentionally retained service/updater compatibility before deleting old-looking paths.
-- [ ] Run the CURRENT required workflows on the exact final PR head. At present that means CI + Package; if workflow ownership changes later, follow the executable workflows rather than stale prose.
-- [ ] Inspect UI artifacts manually when UI changes; generated-success alone is not visual QA.
-- [ ] Review the final changed-file list/diff for unrelated changes and verify new code is actually referenced/reachable.
-- [ ] Freeze version/docs only when the release scope is actually ready.
-- [ ] Merge with an exact expected-head guard where supported.
-- [ ] Verify post-merge `main` and the current promotion/release workflow.
-- [ ] For a new version, verify the immutable tag points to the intended release commit and the public release has exactly the managed asset set with valid checksums.
-- [ ] Never move an existing immutable release tag to a different commit.
-- [ ] Let merged same-repository feature branches be deleted after verification.
+- start from current `main` and inspect branches/PRs/releases first;
+- keep one coherent release branch/PR;
+- preserve capability boundaries and existing owners rather than stacking duplicate providers/timers/overlays;
+- distinguish current-client dead code from intentionally retained updater/service compatibility;
+- freeze version/docs before final exact-head gates;
+- inspect UI artifacts manually when UI changes;
+- merge with an expected-head guard;
+- verify post-merge promotion and immutable tag/asset checksums;
+- never move an existing immutable release tag.
 
-The reusable version-agnostic prompt bootstrap for future coding chats lives in [`CHAT_STARTER.md`](CHAT_STARTER.md). It is **not** a release-state source of truth; it intentionally instructs new chats to recover mutable facts from GitHub and this handoff.
-
-## Physical X9 follow-up — not an automated release claim
-
-Hosted CI cannot prove the following and this document must not mark them complete without a real 21Q6/21Q7 test:
-
-- [ ] Audio output and microphone continue refreshing after navigating away mid-drag and back on the physical X9.
-- [ ] No delayed off-page Audio write causes a visible volume/microphone jump after navigation.
-- [ ] The unified six-zone Touchpad editor feels natural on the physical X9 haptic pad and corner selection does not steal ordinary edge selection outside the intended diagonal lane.
-- [ ] Top-left and top-right corner launches feel equally sized/sensitive in real touch use.
-- [ ] Live corner Candidate/Claimed/Active frames do not produce visible page movement or sluggishness under a real high-rate touch stream.
-- [ ] Lenovo OEM keyboard Auto works without ThinkControl substituting a software idle mode, and Fn+Space/readback remain in agreement through normal use/restart.
-- [ ] Breathing/Reactive/Audio on a direct provider do not produce Lenovo keyboard pop-ups; effects remain unavailable when only the Vantage fallback is active.
-- [ ] Issue #60 `TargetParameterCountException` does not recur during normal shell/notification use; keep the issue open until field evidence supports closure.
-- [ ] Clean PawnIO reinstall/repair after stale/missing kernel-service state.
-- [ ] Restart/UAC path and provider refresh after PawnIO repair.
-- [ ] Fan RPM/control recovery on the verified X9 path after repair.
-- [x] PR #71 `dev.1191`: the physical X9 displayed two real fan RPM channels under the EC investigation path; the old one-fan telemetry model is no longer sufficient.
-- [x] PR #71 `dev.1191`: the physical provider remained `Fallback · verified X9 discrete EC telemetry/control`; `LENOVO_OTHER_METHOD` did not become the writable provider on that candidate.
-- [x] PR #71 `dev.1191`: EC Max Cooling remained softer than naturally hot Lenovo Auto and could still have a faint electronic/buzzy acoustic character. Treat this as negative evidence for EC-as-product-control, not as a completed fan fix.
-- [ ] PR #71 native-telemetry candidate: verify whether `EnergyDrv` `QueryFanSpeed(0/1)` exposes the same two fan channels without direct EC tachometer reads. If it does, the Fans page must report Lenovo OEM fan telemetry and fan-control capability must remain disabled until an OEM writer passes validation.
-- [ ] PR #71 native-telemetry candidate: after native two-fan proof, temporarily losing one/both OEM reads or refreshing providers must **not** make EC fan controls reappear during the same service lifetime; the native safety boundary stays latched.
-- [ ] PR #71 native-telemetry candidate: Lenovo Auto remains smooth while the Fans page refreshes native telemetry; observation must not introduce the previous wave/re-kick behavior.
-- [ ] Recover the exact X9 OEM write semantics from installed Lenovo binaries/captured state. Public evidence proves `EnergyDrv` `ChangeFanSpeed 0x8310257C` exists and its one-DWORD request/one-DWORD action-status shape, but does **not** define the X9 `dwFanCtrlCmd` encoding or Auto lifecycle. Do not brute-force it.
-- [ ] Run `tools/research/Analyze-LenovoOemFanBinaries.ps1` on the optional binary bundle from `Capture-LenovoAuto.ps1 -BundleRelevantOemBinaries`; inspect `0x8310257C` call-site offsets/hex/string context and correlate candidate caller binaries with the hot/cool captures before adding any EnergyDrv writer.
-- [ ] Treat ThinkSmartSense AC/DC Cool (`500/501`, `505/506`), Improved Cooling Efficiency (`510/511`) and LCM (`31..34`) as research-only until their exact-X9 capability conditions, enable/disable lifecycle and physical effect are observed. Do not equate any of them with direct fan percentage/max control merely from the symbol name.
-- [ ] Keep `0x831020C0` dust/high-speed and family-specific `0x8310213C` ITS/Geek overlays separate from `0x8310257C`; do not substitute those maintenance/full-speed contracts for smooth X9 target-RPM control.
-- [ ] If a writable `LENOVO_OTHER_METHOD` target-RPM interface is ever detected on a later X9 firmware/software stack, manual 25/50/75/100% must produce plausible two-fan telemetry, smooth settling and no previous wave/re-kick behavior; targets must remain within capability-reported constraints.
-- [ ] Compare any final OEM-controlled 100%/maximum directly with a naturally hot Lenovo Auto state. Acceptance requires the useful high-cooling range to be materially equivalent; a writer that still tops out below hot Auto is **not** the finished fix.
-- [ ] Repeated return-to-Auto handoffs from the final OEM writer succeed and do not leave one fan on a stale target, stall a fan or create persistent fan-to-fan divergence.
-- [ ] Capture read-only `lenovo-auto-hot`/`lenovo-auto-cool` EnergyDrv/LITSSVC evidence with `tools/research/Capture-LenovoAuto.ps1 -BundleRelevantOemBinaries`, correlate fan values with the physical machine and inspect the selected Lenovo binaries before implementing another writer.
+The reusable version-agnostic bootstrap is [`CHAT_STARTER.md`](CHAT_STARTER.md). It is not a source of mutable release facts; GitHub + this handoff remain authoritative.
 
 ## Commercial/public release program
 
-Do **not** mix this backend/licensing program into an alpha stabilization/hardware-hardening PR. Implement it in bounded phases with a threat model and migration plan first.
+Do **not** mix commercial backend/licensing work into alpha hardware stabilization.
 
 ### Installer, updater and signing
 
-- [x] Preserve custom install location across the currently supported in-place update path.
-- [x] Exercise clean install, service start/IPC, update compatibility and uninstall cleanup in CI/Package validation.
-- [ ] Failed staged update cannot destroy the last working payload; rollback stays tested.
-- [ ] Define explicit uninstall policy for ThinkControl-owned runtime/local data before a commercial release.
+- [x] Preserve custom install location across supported in-place update.
+- [x] Exercise install, service start/IPC, update compatibility and uninstall in CI/Package.
+- [ ] Failed staged update cannot destroy the last working payload; rollback remains tested.
+- [ ] Define explicit uninstall policy for ThinkControl-owned local/runtime data.
 - [ ] Sign binaries/installer and document/test SmartScreen reputation strategy.
-- [ ] Keep intentional legacy-updater compatibility until the supported installed-client floor no longer needs it.
+- [ ] Keep legacy updater compatibility until the supported installed-client floor is deliberately advanced.
 
 ### Capability-driven hardware architecture
 
 - [x] Windows-generic UI is vendor-neutral.
-- [x] Raw X9 EC controls require the verified X9 provider path.
-- [x] Setup distinguishes installation metadata from real provider readiness.
+- [x] Raw X9 EC controls require exact-model/provider validation.
+- [x] Setup distinguishes registration metadata from real provider/device readiness.
+- [x] X9 fan semantics distinguish native target-RPM, native read-only telemetry and discrete EC fallback.
 - [ ] Continue replacing residual device-name assumptions with explicit capabilities.
-- [ ] Keep fan semantics distinct: OEM thermal policy, read-only telemetry, discrete EC states, continuous target-RPM/percentage control.
-- [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic capability.
+- [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic contract.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
 
 ### Privacy-safe diagnostics and device learning
 
 Diagnostics consent and licensing are separate. Opting out of diagnostics must never break a paid entitlement.
 
-Allowed future upload schema should be intentionally small: app/Windows version, non-unique manufacturer/product/machine type/BIOS context, capability/provider families, bounded semantic operation outcomes, sanitized crash exception/stack and anonymous installation/device identifiers.
+Allowed future upload data must stay intentionally small: app/Windows version, non-unique manufacturer/product/machine type/BIOS context, capability/provider families, bounded semantic operation outcomes, sanitized crash exception/stack and anonymous installation/device identifiers.
 
 Never upload usernames, hostnames, serial numbers, personal files/paths/content, browser content, keystrokes, touch coordinates/trails, memory dumps or arbitrary raw logs.
 
 - [ ] Shared redaction/schema layer powers preview and upload.
-- [ ] Durable local crash journal remains source of truth; mark `Reported` only after server acknowledgement of exact report/hash.
-- [ ] Upload/retry is asynchronous, bounded and never blocks startup.
+- [ ] Durable local crash journal remains source of truth; mark Reported only after server acknowledgement.
+- [ ] Upload/retry is asynchronous/bounded and never blocks startup.
 - [ ] Unknown-device learning uses passive normal-app evidence; no experimental write probing merely for telemetry.
 - [ ] Confidence states: `Observed → Candidate → Verified → Regression watch`.
-- [ ] Multiple independent consistent installations are required for promotion; risky writes use a stricter threshold than read-only detection.
-- [ ] Conflicting evidence blocks automatic promotion and creates review work.
+- [ ] Conflicting evidence blocks automatic promotion.
 - [ ] Any remote device/profile manifest is signed/versioned and cannot inject arbitrary hardware-write instructions.
 
-### Accounts and licensing
+### Accounts, licensing and backend
 
-- [ ] Define product tiers, activation limits and offline grace behavior before enforcement code.
-- [ ] Use OAuth/OIDC Authorization Code + PKCE through the system browser; never embed provider password forms.
+- [ ] Define tiers, activation limits and offline grace behavior before enforcement code.
+- [ ] Use OAuth/OIDC Authorization Code + PKCE through the system browser.
 - [ ] Store refresh/session secrets only in OS-protected storage.
 - [ ] Purchases create server-side entitlements; desktop receives short-lived signed entitlement state.
 - [ ] License/network failure never disables safety-critical restore/firmware Auto behavior.
 - [ ] Device activation/deactivation is self-service.
 - [ ] Payment/signing secrets never ship in the desktop client.
-
-### Backend/payments
-
-- [ ] Backend owns users, entitlements, device activations, sanitized telemetry ingestion, compatibility evidence and profile promotion.
 - [ ] Payment-provider webhooks are authoritative for purchase/refund/subscription state.
-- [ ] Admin/review tooling exists for compatibility candidates/conflicts.
-- [ ] Add audit logging, rate limiting, abuse controls, retention and deletion/export flows.
+- [ ] Add audit logging, rate limiting, retention and deletion/export flows.
 
 ### Source/release transition
 
-Do not make the source repository private while updater/build distribution still depends on public GitHub release URLs.
+Do not make source private while updater/build distribution still depends on public GitHub release URLs.
 
-- [ ] Decide public versus private surfaces (website/privacy/changelog/schema as appropriate).
+- [ ] Decide public versus private surfaces.
 - [ ] Move release assets/update manifest to a paid-user-compatible distribution endpoint before privatizing source.
 - [ ] Rotate credentials/tokens that were ever exposed.
 - [ ] Add commercial license/EULA/privacy policy before accepting payment.
 
 ## Release principle
 
-A green compiler is not release readiness. Promotion requires exact-head repository/build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review, and only then release publication. Physical hardware behavior remains a separate evidence class and must never be inferred from hosted CI.
+A green compiler is not release readiness. Promotion requires exact-head build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review and immutable release verification. Physical hardware behavior remains a separate evidence class and must never be invented from hosted CI.
