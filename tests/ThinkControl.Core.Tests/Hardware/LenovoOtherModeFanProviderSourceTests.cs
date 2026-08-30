@@ -17,7 +17,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("FanRpmFeatureId = 0x03", source, StringComparison.Ordinal);
         Assert.Contains("return FanDeviceId << 24 | FanRpmFeatureId << 16 | typeId;", source, StringComparison.Ordinal);
         Assert.Contains("writableLive.Length >= 2", source, StringComparison.Ordinal);
-        Assert.Contains("liveWritable.Count < 2", source, StringComparison.Ordinal);
+        Assert.Contains("liveWritable.Length < 2", source, StringComparison.Ordinal);
         Assert.Contains("IsWritableChannel(channel)", source, StringComparison.Ordinal);
         Assert.Contains("Lenovo WMI · Other Mode direct target-RPM", source, StringComparison.Ordinal);
 
@@ -44,7 +44,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
-    public void OtherModeProvider_ReturnsOnlyOwnedChannelsToAuto()
+    public void OtherModeProvider_ReturnsOnlyOwnedChannelsToAutoAndPreservesFailedHandoffEvidence()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
 
@@ -54,10 +54,14 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("if (owned.Length == 0)", source, StringComparison.Ordinal);
         Assert.Contains("foreach (LenovoOtherModeFanChannel channel in owned)", source, StringComparison.Ordinal);
         Assert.Contains("One or more ThinkControl-owned Lenovo fan channels did not accept the Auto target", source, StringComparison.Ordinal);
+        Assert.Contains("Ownership is intentionally preserved through capability refresh", source, StringComparison.Ordinal);
+        Assert.Contains("BestEffortRecoverAuto(touched)", source, StringComparison.Ordinal);
+        Assert.Contains("Only channels that actually reached the write phase", source, StringComparison.Ordinal);
 
-        // Provider refresh happens only after the controller has attempted normal
-        // ownership cleanup; the provider itself must not infer ownership from reads.
+        // Discovery/readback must never infer ownership, and a metadata-only channel
+        // must not be included in exception cleanup merely because it advertised SET.
         Assert.DoesNotContain("_ownedChannels = channels", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("BestEffortRecoverAuto(candidates)", source, StringComparison.Ordinal);
     }
 
     [Fact]
