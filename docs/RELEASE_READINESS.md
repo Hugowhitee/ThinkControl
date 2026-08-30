@@ -14,17 +14,17 @@ Current `main` before the alpha.36 merge:
 
 - `aa697799319b8b942e58834649f7fed25bc33b85`
 - includes PR #70 touchpad corner reliability/reverse-close work
-- still points `version.json` at alpha.35 until the release-candidate branch is frozen
 
 Current release candidate:
 
 - branch: `fix/x9-dual-fan-control-stability`
 - PR: #71 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**
-- target release: `v0.1.0-alpha.36`
+- version: `v0.1.0-alpha.36`
+- exact final PR head: `96163d647282302b00ccb2f55253dfb5c19d9f34`
 - release scope: post-alpha.35 touchpad corner completion + X9 dual-fan/native-provider hardening + bounded diagnostics/research support
-- alpha.36 remains a prerelease; physical X9 behavior is not inferred from hosted CI
+- alpha.36 remains a prerelease; physical X9 behavior is not inferred from hosted runners
 
-The release branch is now allowed to ship because risky fan behavior fails closed: a direct Lenovo target-RPM writer is exposed only when exact-X9 identity, capability data, constraints and live channel reads all agree; EnergyDrv remains read-only until its write encoding is actually recovered; and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
+The release branch can ship because risky fan behavior fails closed: a direct Lenovo target-RPM writer is exposed only when exact-X9 identity, capability data, constraints and live channel reads all agree; EnergyDrv remains read-only until its write encoding is actually recovered; and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
 
 ## Alpha.36 product delta
 
@@ -102,8 +102,6 @@ Do not recreate a third full installer workflow. CI and Package are the current 
 
 ## Alpha.36 release gate
 
-Before merging PR #71:
-
 - [x] Work remained on one active branch / one PR.
 - [x] AGENTS, architecture, product, device support, testing and release handoff were recovered before release preparation.
 - [x] Known-good alpha.33 shell/touchpad lifecycle protections were preserved rather than rewritten casually.
@@ -111,11 +109,11 @@ Before merging PR #71:
 - [x] Other Mode direct-RPM writes are capability- and live-read-gated.
 - [x] EnergyDrv writer remains disabled; no `GENERIC_WRITE`/brute-force fan command was added.
 - [x] Research scripts are parser-checked in CI and are read-only/static by contract.
-- [x] Representative Fans visual QA has been manually inspected on the latest pre-freeze branch: normal EC fallback and OEM-target manual-test fixtures are visually coherent and do not mislabel OEM percentage as an EC step.
-- [ ] Freeze `version.json`, README and active version docs at `v0.1.0-alpha.36`.
-- [ ] Run **CI + Package ThinkControl on the exact final PR head** after that freeze.
-- [ ] Review final changed-file list/diff for unrelated changes and verify new provider code is reachable.
-- [ ] Check PR reviews/threads/mergeability.
+- [x] `version.json`, README and active version docs are frozen at `v0.1.0-alpha.36`.
+- [x] **CI #1513 / run `33309928303` passed on exact final head `96163d647282302b00ccb2f55253dfb5c19d9f34`.**
+- [x] **Package ThinkControl #1233 / run `33309928311` passed on the same exact final head.**
+- [x] Representative final visual-QA states were manually inspected: the alpha.36 OEM target-RPM Fans fixture cleanly shows two channels and continuous OEM target semantics, while the normal fallback fixture remains discrete-EC-specific; the Touchpad right-corner live/reverse fixture remains symmetrical, stable and correctly versioned.
+- [x] Final changed-file list contains only release docs/version plus the intended fan provider/service/UI/diagnostic/research/test scope.
 - [ ] Squash-merge with the exact expected head SHA.
 - [ ] Verify post-merge `main`.
 - [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.36` at the merged commit and does not move alpha.35.
