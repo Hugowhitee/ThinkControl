@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Hardware;
 public sealed class LenovoOtherModeFanProviderSourceTests
 {
     [Fact]
-    public void OtherModeProvider_RequiresCapabilityReportedConstrainedFanChannelsAndLiveReads()
+    public void OtherModeProvider_UsesLenovoDirectTargetRpmContractWithPerChannelLiveGates()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
 
@@ -13,28 +13,63 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("LENOVO_CAPABILITY_DATA_00", source, StringComparison.Ordinal);
         Assert.Contains("LENOVO_FAN_TEST_DATA", source, StringComparison.Ordinal);
         Assert.Contains("RequiredWriteSupport = SupportValid | SupportGet | SupportSet", source, StringComparison.Ordinal);
-        Assert.Contains("channels.Length >= 2", source, StringComparison.Ordinal);
-        Assert.Contains("fans.Count == channels.Length", source, StringComparison.Ordinal);
-        Assert.Contains("failed the live OEM read gate; Lenovo Auto keeps ownership", source, StringComparison.Ordinal);
-        Assert.Contains("IsSaneConstraint(channel.MinRpm, channel.MaxRpm)", source, StringComparison.Ordinal);
-        Assert.Contains("BuildFanRpmAttributeId", source, StringComparison.Ordinal);
-        Assert.Contains("DescribeRanges(channels)", source, StringComparison.Ordinal);
+        Assert.Contains("FanDeviceId = 0x04", source, StringComparison.Ordinal);
+        Assert.Contains("FanRpmFeatureId = 0x03", source, StringComparison.Ordinal);
+        Assert.Contains("return FanDeviceId << 24 | FanRpmFeatureId << 16 | typeId;", source, StringComparison.Ordinal);
+        Assert.Contains("writableLive.Length >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("liveWritable.Count < 2", source, StringComparison.Ordinal);
+        Assert.Contains("IsWritableChannel(channel)", source, StringComparison.Ordinal);
+        Assert.Contains("Lenovo WMI · Other Mode direct target-RPM", source, StringComparison.Ordinal);
+
+        // Do not make every firmware-advertised capability record a global all-or-nothing
+        // gate. Two independently live, constrained X9 fan channels are sufficient even
+        // if firmware also exposes a phantom/unused record.
+        Assert.DoesNotContain("fans.Count == channels.Length", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("channels.All(channel =>", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void OtherModeProvider_MapsPercentToOemMinMaxAndUsesZeroForAuto()
+    public void OtherModeProvider_MapsPercentToOemRpmAndUsesZeroForAuto()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
 
         Assert.Contains("ResolveTargetRpm(channel, percent)", source, StringComparison.Ordinal);
         Assert.Contains("channel.MaxRpm - channel.MinRpm", source, StringComparison.Ordinal);
         Assert.Contains("target / RpmDivisor * RpmDivisor", source, StringComparison.Ordinal);
+        Assert.Contains("RpmDivisor = 100", source, StringComparison.Ordinal);
         Assert.Contains("TrySetFeatureValue(method, channel.AttributeId, 0", source, StringComparison.Ordinal);
-        Assert.Contains("BestEffortReturnToAuto(method, channels)", source, StringComparison.Ordinal);
-        Assert.Contains("BestEffortRecoverAuto(channels)", source, StringComparison.Ordinal);
-        Assert.Contains("Lenovo Auto was requested for all writable channels", source, StringComparison.Ordinal);
+        Assert.Contains("Lenovo OEM direct target-RPM", source, StringComparison.Ordinal);
         Assert.DoesNotContain("0x831020C0", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("CleanDust", source, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void OtherModeProvider_ReturnsOnlyOwnedChannelsToAuto()
+    {
+        string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
+
+        Assert.Contains("private LenovoOtherModeFanChannel[] _ownedChannels = [];", source, StringComparison.Ordinal);
+        Assert.Contains("_ownedChannels = liveWritable.ToArray();", source, StringComparison.Ordinal);
+        Assert.Contains("owned = _ownedChannels;", source, StringComparison.Ordinal);
+        Assert.Contains("if (owned.Length == 0)", source, StringComparison.Ordinal);
+        Assert.Contains("foreach (LenovoOtherModeFanChannel channel in owned)", source, StringComparison.Ordinal);
+        Assert.Contains("One or more ThinkControl-owned Lenovo fan channels did not accept the Auto target", source, StringComparison.Ordinal);
+
+        // Provider refresh happens only after the controller has attempted normal
+        // ownership cleanup; the provider itself must not infer ownership from reads.
+        Assert.DoesNotContain("_ownedChannels = channels", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OtherModeProvider_ReportsExactCapabilityEvidenceWhenDirectWriterDoesNotActivate()
+    {
+        string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
+
+        Assert.Contains("DescribeChannelCapabilities", source, StringComparison.Ordinal);
+        Assert.Contains("id=0x{channel.AttributeId:X8}", source, StringComparison.Ordinal);
+        Assert.Contains("cap=0x{channel.Capability:X}", source, StringComparison.Ordinal);
+        Assert.Contains("no-safe-range", source, StringComparison.Ordinal);
+        Assert.Contains("checked 0x{BuildFanRpmAttributeId(0):X8}", source, StringComparison.Ordinal);
     }
 
     [Fact]
