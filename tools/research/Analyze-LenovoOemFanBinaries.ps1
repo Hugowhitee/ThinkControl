@@ -34,7 +34,15 @@ $keywords = @(
     "FanSpeed",
     "Thermal",
     "IntelligentCooling",
-    "ThinkSmartSense"
+    "ThinkSmartSense",
+    "ChangeITSsetting",
+    "com.lenovo.its.pipe.setting",
+    "ENABLE_AC_COOL",
+    "ENABLE_DC_COOL",
+    "ImprovedCoolingEfficiency",
+    "IMPROVED_COOLING_EFFICIENCY",
+    "BALANCED_MODE_LCM",
+    "PERFORMANCE_MODE_LCM"
 )
 
 $maximumFiles = 120
@@ -280,6 +288,7 @@ try {
             changeFanSpeed = "0x8310257C · one UInt32 dwFanCtrlCmd -> one UInt32 action status · X9 command encoding still unverified"
             dustRemoval = "0x831020C0/0x831020C4 · separate maintenance/query family; not a smooth target-RPM backend"
             legacyItsOverlay = "0x8310213C · family-specific overlay evidence; not generalized to X9"
+            litsPolicy = "ThinkSmartSense/LITSSvc policy strings are research evidence only; AC/DC Cool, Improved Cooling Efficiency and LCM commands are not treated as direct fan-speed contracts"
         }
         scannedFiles = $files.Count
         interestingFiles = $interesting.Count
