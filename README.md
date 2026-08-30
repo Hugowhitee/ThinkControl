@@ -139,6 +139,6 @@ dotnet build ThinkControl.slnx -c Release
 .\tools\visual-qa.ps1
 ```
 
-Packaging and installer workflows additionally validate payload construction, custom-location clean install, service start/IPC, updater compatibility and uninstall cleanup before a prerelease is promoted.
+Packaging and installer workflows additionally validate payload construction, custom-location clean install, service start/IPC, updater compatibility and uninstall cleanup before a prerelease is promoted. Current release-gate status and remaining real-device checks are tracked in **[Release readiness](docs/RELEASE_READINESS.md)**.
 
 See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUCT.md)** · **[Release readiness](docs/RELEASE_READINESS.md)** · **[X9-15 research](docs/research/x9-15-gen1.md)**.
