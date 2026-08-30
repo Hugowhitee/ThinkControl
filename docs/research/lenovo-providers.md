@@ -47,7 +47,7 @@ This separation matters because the legacy dust implementation explicitly re-iss
 
 A decompilation of Lenovo Energy Management's `LenovoEmExpandedAPI` gives stronger evidence for the `0x83102570`/`0x8310257C` pair: `CAtmDriverLibrary.QueryFanSpeed` sends a zero-based DWORD fan index to `0x83102570`, while `CAtmDriverLibrary.ChangeFanxSpeed` sends exactly one DWORD `dwFanCtrlCmd` to `0x8310257C` and receives one DWORD action status. The dual-fan getter explicitly queries indices `0` and `1`. That validates the read-side shape now used by ThinkControl, but the public decompilation does **not** expose the caller-side values placed into `dwFanCtrlCmd`; it therefore does not authorize a writer on the X9.
 
-`tools/research/Analyze-LenovoOemFanBinaries.ps1` is the offline/static next step after `Capture-LenovoAuto.ps1 -BundleRelevantOemBinaries`. It never opens a driver or executes an OEM binary. It scans only the supplied ZIP/directory for the known IOCTL DWORDs and fan-related strings, records bounded file offsets, nearby printable strings and a small hex window around each hit, and hashes the files. The purpose is to locate the exact installed X9 call sites/data around `0x8310257C` for subsequent reverse engineering without trying command values on the hardware.
+`tools/research/Analyze-LenovoOemFanBinaries.ps1` is the offline/static next step after `Capture-LenovoAuto.ps1 -BundleRelevantOemBinaries`. It never opens a driver or executes an OEM binary. It scans only the supplied ZIP/directory for the known IOCTL DWORDs and fan/LITS-related strings, records bounded file offsets, nearby printable strings and a small hex window around each hit, and hashes the files. The purpose is to locate the exact installed X9 call sites/data around `0x8310257C` and correlate them with Lenovo's thermal-policy binaries without trying command values on the hardware.
 
 ## ThinkPad X9-15 Gen 1
 
@@ -68,9 +68,23 @@ Exact registers, transport observations and physical test evidence are maintaine
 
 ## Lenovo Intelligent Thermal Solution
 
-X9 research established a Lenovo policy path through `LITSSvc`. ThinkControl exposes only semantic **Efficiency / Balanced / Performance** behavior in product UI; the service selects the reviewed source-specific command only after exact provider/identity checks.
+X9 research established a Lenovo policy path through `LITSSvc`. ThinkControl exposes only semantic **Efficiency / Balanced / Performance** behavior in product UI; the service selects the previously reviewed source-specific command only after exact provider/identity checks.
 
-This is thermal-policy coordination, not a direct fan PWM/RPM interface. Lenovo's returned integer semantics are not guessed; the implementation uses only the protocol boundary supported by observed evidence.
+Recovered IL from the exact X9 ThinkSmartSense add-in contains a wider command family than the three production modes:
+
+| Command | Recovered name | Current status |
+| ---: | --- | --- |
+| `500` / `501` | enable / disable AC Cool | research-only |
+| `502` / `503` / `504` | AC Eco / Balanced / Performance | reviewed production policy mapping |
+| `505` / `506` | enable / disable DC Cool | research-only |
+| `507` / `508` / `509` | DC Eco / Balanced / Performance | reviewed production policy mapping |
+| `510` / `511` | enable / disable Improved Cooling Efficiency | research-only |
+| `31` / `32` | enable / disable Balanced Mode LCM | research-only |
+| `33` / `34` | enable / disable Performance Mode LCM | research-only |
+
+The same add-in implements `ChangeITSsetting(UInt32)` by writing one UInt32 to `com.lenovo.its.pipe.setting` and reading one Int32 response. The names above are valuable evidence for understanding how Lenovo Auto/high-cooling policy may differ from the basic Eco/Balanced/Performance mapping, especially `Cool` and `Improved Cooling Efficiency`, but **their presence in Lenovo's add-in is not permission to send them from ThinkControl**. Their capability conditions, enable/disable lifecycle, interaction with AC/DC and actual fan behavior still need exact-X9 correlation. They remain static/read-only research clues until that evidence exists.
+
+This is thermal-policy coordination, not a direct fan PWM/RPM interface. Lenovo's returned integer semantics are not guessed; the implementation uses only the protocol boundary supported by observed evidence. A source regression test explicitly keeps the unvalidated 500/501/505/506/510/511 commands out of the production `LenovoThermalPolicyService` mapping.
 
 ## GameZone and family providers
 
