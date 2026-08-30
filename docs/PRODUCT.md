@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.35`.
+Current prerelease candidate: `v0.1.0-alpha.36`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -57,9 +57,13 @@ An OEM thermal-policy provider may coordinate with the selected Windows preferen
 
 ## Fans, PawnIO and temperatures
 
-Fans consume generic fan/control-temperature capabilities. The provider may expose discrete EC states, a percentage/PWM target, an OEM-native thermal policy, or read-only telemetry; the UI must not assume one backend merely because `FanControl` exists.
+Fans consume generic fan/control-temperature capabilities. The provider may expose discrete EC states, a continuous OEM target-RPM contract, an OEM-native thermal policy, or read-only telemetry; the UI must not assume one backend merely because `FanControl` exists.
 
-The verified X9 provider uses discrete fan states and supervised curves. ThinkControl maps user-facing targets onto verified hardware output states rather than pretending the EC exposes continuous PWM.
+On the X9 path, ThinkControl prefers Lenovo-native fan semantics. `LENOVO_OTHER_METHOD` can expose per-fan `fanX_input` and tunable `fanX_target` values: ThinkControl enables that writer only when exact-X9 identity, VALID+GET+SET capability data, sane Lenovo fan constraints and at least two live fan channels all pass. Percentages and curves then map independently across each fan's OEM-reported range, while target `0` is reserved for Lenovo Auto. Extra/phantom capability records do not block two real writable fans.
+
+Lenovo `EnergyDrv` `QueryFanSpeed 0x83102570` is a separate read-only native telemetry path. It can provide Fan 1 / Fan 2 evidence without authorizing the still-unrecovered `ChangeFanSpeed 0x8310257C` writer. Once two native Lenovo fan channels have been proven in a hardware-service lifetime, a transient native read failure does not silently re-enable the known-inferior EC writer.
+
+The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider, not the product definition of 0–100%. Raw EC steps and transactional seven-step calibration appear only when that discrete provider is actually active. EC step 7 is not labelled as Lenovo's absolute physical maximum and the unsafe/ambiguous `0x40` family remains blocked.
 
 PawnIO prerequisite state is not inferred from an uninstall registry entry alone. ThinkControl distinguishes:
 
@@ -68,13 +72,11 @@ PawnIO prerequisite state is not inferred from an uninstall registry entry alone
 - whether a demand-start driver is currently running;
 - whether the hardware provider can actually open/verify the required device/module path.
 
-A compatible registration with a missing kernel service is an incomplete installation and is presented as **repair**. A stopped demand-start kernel service can still be ready for provider probing. On the verified X9, repair is not considered a successful fan recovery until the X9 EC fan-control/readback capability itself passes again; unrelated sensor or keyboard recovery cannot unlock fan writes.
+A compatible registration with a missing kernel service is an incomplete installation and is presented as **repair**. A stopped demand-start kernel service can still be ready for provider probing. On the verified X9, repair is not considered a successful low-level recovery until the active provider path itself passes again; unrelated sensor or keyboard recovery cannot unlock fan writes.
 
 Supervised cooling uses bounded smoothing, hysteresis, dwell time, immediate meaningful cooling increases and firmware fallback. Missing control telemetry/provider state or a thermal safety handoff returns ownership to OEM firmware.
 
-Manual fan testing is temporary, restores the previous profile and falls back to firmware Auto if restoration cannot be proven. X9 raw EC stepping/calibration is shown only when the verified X9 provider path and required capabilities are actually active.
-
-Calibration is transactional: a new mapping replaces the previous one only after all seven verified X9 states have complete, plausible tachometer evidence. Failed, cancelled or unsafe runs never persist partial calibration.
+Manual fan testing is temporary, restores the previous profile and falls back to firmware Auto if restoration cannot be proven. Provider ownership is explicit: ThinkControl returns only the OEM channels/provider state it actually took over rather than inferring ownership from a readback that another utility may have created.
 
 See [Cooling Design](COOLING-DESIGN.md) for the canonical cooling/calibration contract.
 
@@ -162,11 +164,11 @@ The current desktop client uses the graph-based cooling API. Older service-side 
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.35; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.34` release remains the production baseline immediately before this release.
+No automatic cloud compatibility/crash upload is part of alpha.36; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.35` release remains the production baseline immediately before this release.
 
 ## Installation and updates
 
-Alpha.35 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.36 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior, compatibility with the legacy updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 
