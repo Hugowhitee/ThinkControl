@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.35** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.36** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -22,7 +22,7 @@ The recurring `TargetParameterCountException` dispatcher bug was fixed and guard
 
 ## Audio lifecycle regression
 
-Alpha.35 adds a specific navigation-lifecycle fix and source regression guard.
+Alpha.35 added the current Audio navigation-lifecycle guard and alpha.36 preserves it.
 
 1. Open Advanced → Audio.
 2. Drag output volume, navigate away while dragging, then return.
@@ -42,7 +42,7 @@ The expected behavior is that Audio output/microphone debounce timers and tempor
 
 ## Touchpad
 
-The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
+Alpha.36 includes the completed corner-zone integration. The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
 
 - Selecting an edge must clear a selected corner, and selecting a corner must clear the edge selection.
 - Top-left and top-right guides must be exact mirrors: same guard radius, lane size, angle, rounded end arc, boundary weight and selected/live treatment.
@@ -58,6 +58,8 @@ The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-ri
 
 ## Fans and hardware providers
 
+Alpha.36 changes the X9 fan architecture from “seven EC steps are the product fan controller” to “use the highest-capability verified Lenovo provider and fail closed when only telemetry is proven.” The old EC path remains available only when it is genuinely the active fallback provider.
+
 - Unsupported devices must remain safe/read-only.
 - On the verified X9 path, fan writes must be enabled only after a concrete provider passes its own capability gate; model identity by itself is not permission to write.
 - Test Lenovo Auto return after every ThinkControl-owned manual/custom fan state.
@@ -65,29 +67,29 @@ The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-ri
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
 - Manual percentage and graph-curve operations should appear as fan-control diagnostics rather than generic hardware events, and diagnostics should name the active provider rather than always claiming ThinkPad EC.
 
-For draft PR #71, the current physical evidence has already ruled out treating seven-step EC control as the finished X9 product path. `dev.1191` exposed both physical fan RPMs, but the writable provider stayed `Fallback · verified X9 discrete EC telemetry/control`, Max Cooling remained below naturally hot Lenovo Auto, and the EC path could still have a faint electronic/buzzy character. The next candidate therefore validates native Lenovo telemetry first and deliberately fails closed on fan writes when that native path is proven.
+Current exact-X9 physical evidence already established that `dev.1191` could expose both physical fan RPMs through the EC investigation path, but EC Max Cooling remained below naturally hot Lenovo Auto and could still sound electronically buzzy/wavy. That negative evidence is why alpha.36 does not present EC step 7 as Lenovo's physical maximum.
 
-Use this order:
+Use this order on alpha.36:
 
-1. Install the exact PR artifact and restart ThinkControl/the hardware service as the installer normally does. Start in **Lenovo Auto**. Do not select an EC profile just to make the page look active.
-2. Open Advanced → Fans and record the hardware/provider detail plus Fan 1/Fan 2 source text.
-   - The desired `EnergyDrv` result is two channels sourced from `Lenovo EnergyDrv · QueryFanSpeed 0x83102570`.
-   - If a fully constrained `LENOVO_OTHER_METHOD` writer unexpectedly appears on a newer firmware/software stack, record its target ranges and stop; that is a different writable path that needs its own physical range test.
-   - If neither native path exposes two channels, record the exact detail rather than assuming absence from one failed sample.
-3. If two native Lenovo channels are shown while no validated OEM writer exists, **fan controls must remain read-only/disabled**. The page should no longer advertise the discrete EC writer merely because PawnIO can reach `0x2F`.
-4. Keep Lenovo Auto active while the machine naturally moves between low and higher cooling. Confirm Fan 1/Fan 2 RPM changes plausibly track the physical sound and that merely observing the page does not introduce the previous wave/re-kick/buzzy behavior.
-5. With the native two-channel path successfully visible once, use the existing provider-refresh/repair action if convenient, or simply leave the page running long enough to catch a temporary query miss. During the same hardware-service lifetime, a transient native telemetry failure must **not** make EC fan controls reappear. The service deliberately latches native two-fan evidence until restart.
-6. Export a Diagnostics support bundle after the native observation. The bounded fan samples should preserve the provider/source distinction without starting another polling loop.
-7. Run `tools/research/Capture-LenovoAuto.ps1 -Label lenovo-auto-hot -BundleRelevantOemBinaries` during a naturally hot Auto state and a separate `-Label lenovo-auto-cool` capture. The script is observational: it uses ThinkControl `GetStatus`, Lenovo/LITSSVC state, read-only EnergyDrv queries and local OEM binary evidence scanning. It never invokes `ChangeFanSpeed 0x8310257C`, dust/high-speed `0x831020C0`, family-specific Geek/full-speed overlays, arbitrary EC writes or brute-forced command values.
-8. Share/review the JSON and optional OEM-binary ZIP so the exact X9 `dwFanCtrlCmd` semantics can be recovered from evidence. Public code proves that `ChangeFanSpeed 0x8310257C` exists, but does not define the X9 command encoding.
-9. Only after a native writer is recovered and gated should managed profiles be re-enabled for final validation. Then test 25/50/75/100%, Quiet/Balanced/Max Cooling, compare the maximum directly with naturally hot Lenovo Auto, and repeatedly return to Auto. Acceptance requires smooth settling, truthful two-fan telemetry, reliable handoff and materially equivalent useful high-cooling range.
-10. The classic EC path remains investigation/fallback evidence for configurations where no native Lenovo fan surface has ever been established. EC step 7 is only the highest verified normal EC state. The separate `0x40` family remains blocked after exact-X9 testing echoed `0x47` while producing 0 RPM.
+1. Install the release and restart ThinkControl/the hardware service as the installer normally does. Start in **Lenovo Auto**.
+2. Open Advanced → Fans and record the provider/detail plus Fan 1/Fan 2 source text.
+   - **Best case:** `Lenovo Other Mode direct target-RPM` appears with two live writable fan channels. This is the direct OEM RPM path: Lenovo exposes current RPM and a tunable target RPM per fan, target `0` means Auto, and ThinkControl only enables it after exact-X9 identity, VALID+GET+SET capability data, sane Lenovo fan constraints and live reads agree.
+   - **Native telemetry only:** two channels from `Lenovo EnergyDrv · QueryFanSpeed 0x83102570` may appear while controls remain disabled because the matching writer is not validated.
+   - **Fallback:** if no native Lenovo two-fan surface is proven, the exact-model discrete EC provider may remain available. Treat it as fallback, not equivalent to Lenovo's full Auto range.
+3. If direct OEM target-RPM is active, test manual **25 → 50 → 75 → 100%** with time to settle. Confirm both fans move plausibly and that the previous repeating wave/re-kick/buzzy character is absent. The target shown in UI should be an OEM percentage/RPM concept, not an EC step.
+4. Compare 100% with a naturally hot Lenovo Auto state. Lenovo Fan Test Data provides safe/reference constraints rather than proof of the absolute physical ceiling, so record whether the OEM target actually reaches the useful hot-Auto range instead of assuming that from metadata.
+5. Return to **Lenovo Auto** repeatedly. Both ThinkControl-owned target channels must be released with target `0`; no fan should remain on a stale target or diverge persistently from the other.
+6. If only EnergyDrv native telemetry is available, keep Lenovo Auto active and confirm Fan 1/Fan 2 readings plausibly track physical sound. Fan controls must stay read-only/disabled rather than silently falling back to EC after native two-fan evidence has been proven during that service lifetime.
+7. Export a Diagnostics support bundle after the observation. Bounded fan samples should preserve provider/source distinctions without starting another hardware polling loop.
+8. For deeper Lenovo Auto research, run `tools/research/Capture-LenovoAuto.ps1 -Label lenovo-auto-hot -BundleRelevantOemBinaries` during a naturally hot Auto state and a separate `-Label lenovo-auto-cool` capture. The script is observational: Lenovo Other Mode uses `GetFeatureValue` only, EnergyDrv uses read/query contracts only, and no `SetFeatureValue`, `ChangeFanSpeed 0x8310257C`, dust/high-speed write or arbitrary EC write is invoked.
+9. If the direct Other Mode writer is unavailable and EnergyDrv telemetry is confirmed, use the optional binary bundle with `tools/research/Analyze-LenovoOemFanBinaries.ps1`. Public code proves `ChangeFanSpeed 0x8310257C` exists, but its exact X9 `dwFanCtrlCmd` encoding/rollback semantics remain unverified and must not be brute-forced.
+10. The classic EC path remains investigation/fallback evidence. EC step 7 is only the highest verified normal EC state. The separate `0x40` family remains blocked after exact-X9 testing echoed `0x47` while producing 0 RPM.
 
-The service-lifetime native-telemetry latch is intentionally not persisted across reboot/service restart yet. Persisting it without a BIOS/driver-aware evidence key could make an old capability observation survive a real platform change. If physical testing confirms EnergyDrv consistently on the exact X9, durable capability evidence can be designed deliberately rather than hardcoded from one sample.
+The service-lifetime native-telemetry latch is intentionally not persisted across reboot/service restart yet. Persisting it without a BIOS/driver-aware evidence key could make an old capability observation survive a real platform change.
 
-Likewise, startup may observe an EC manual-looking value that another utility owns. ThinkControl now limits automatic EC cleanup to a state/provider it actually took ownership of; it must not reset another tool merely because the numeric register resembles one of ThinkControl's manual steps.
+Likewise, startup may observe an EC manual-looking value that another utility owns. ThinkControl limits automatic cleanup to a state/provider it actually took ownership of; it must not reset another tool merely because the numeric register resembles one of ThinkControl's manual steps.
 
-The alpha.35 cleanup removes obsolete **current-client** cooling wrappers. The service-side legacy cooling IPC remains intentionally present for installed-client compatibility and is still covered by the immutable alpha.14.1 updater fixture.
+The alpha.35 cleanup removed obsolete **current-client** cooling wrappers. The service-side legacy cooling IPC remains intentionally present for installed-client compatibility and is still covered by the immutable alpha.14.1 updater fixture.
 
 ## Diagnostics/device learning
 
