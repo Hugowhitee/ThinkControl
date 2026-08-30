@@ -23,14 +23,19 @@ $ErrorActionPreference = "Stop"
 # EnergyDrv is queried only through two historical read/query contracts:
 #   0x83102570 QueryFanSpeed(index)
 #   0x831020C4 query fan state with input 14
-# It NEVER invokes the known write contracts 0x8310257C (ChangeFanSpeed) or
-# 0x831020C0 (dust-removal/high-speed write). Binary scanning below merely looks
-# for those constants/strings in installed Lenovo files; it never executes them.
-# The optional ThinkControl pipe request is GetStatus only and cannot submit a raw
-# hardware command through the service protocol.
+# Lenovo Other Mode is inspected through capability/Fan Test data plus
+# GetFeatureValue only for the known fan-RPM attributes 0x04030001..0x04030004.
+# It NEVER invokes LENOVO_OTHER_METHOD.SetFeatureValue, the EnergyDrv write
+# contract 0x8310257C (ChangeFanSpeed), or 0x831020C0 dust/high-speed writes.
+# Binary scanning merely looks for constants/strings in installed Lenovo files;
+# it never executes them. The optional ThinkControl pipe request is GetStatus only.
 
 $pipeName = "ThinkControl.Service.v1"
 $litsRoot = "HKLM:\SYSTEM\CurrentControlSet\Services\LITSSVC\IC"
+$wmiNamespace = "root/WMI"
+$otherModeMethodClass = "LENOVO_OTHER_METHOD"
+$otherModeCapabilityClass = "LENOVO_CAPABILITY_DATA_00"
+$otherModeFanTestClass = "LENOVO_FAN_TEST_DATA"
 $started = [DateTimeOffset]::Now
 
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
@@ -48,6 +53,14 @@ function Get-ObjectPropertyString {
     $property = $InputObject.PSObject.Properties[$Name]
     if ($null -eq $property -or $null -eq $property.Value) { return "" }
     return [string]$property.Value
+}
+
+function Get-ObjectPropertyValue {
+    param([object]$InputObject, [string]$Name)
+    if ($null -eq $InputObject) { return $null }
+    $property = $InputObject.PSObject.Properties[$Name]
+    if ($null -eq $property) { return $null }
+    return $property.Value
 }
 
 function Convert-SafePath {
@@ -135,7 +148,7 @@ function Get-ThinkControlStatus {
         )
         $pipe = New-Object System.IO.Pipes.NamedPipeClientStream -ArgumentList $pipeArguments
         $pipe.Connect(900)
-        $utf8 = New-Object System.Text.UTF8Encoding -ArgumentList $false
+        $utf8 = New-Object System.UTF8Encoding -ArgumentList $false
         $writer = New-Object System.IO.StreamWriter -ArgumentList @($pipe, $utf8, 4096, $true)
         $reader = New-Object System.IO.StreamReader -ArgumentList @($pipe, $utf8, $false, 8192, $true)
         $writer.AutoFlush = $true
@@ -196,6 +209,138 @@ function Get-PowerSnapshot {
     return [pscustomobject]@{
         activeScheme = $activeScheme
         acLineStatus = [System.Windows.Forms.SystemInformation]::PowerStatus.PowerLineStatus.ToString()
+    }
+}
+
+function Convert-UInt32Array {
+    param([object]$Value)
+    if ($null -eq $Value) { return @() }
+    $result = New-Object 'System.Collections.Generic.List[uint32]'
+    foreach ($item in @($Value)) {
+        try { $result.Add([uint32]$item) } catch { }
+    }
+    return @($result)
+}
+
+function Get-OtherModeFanAttributeId {
+    param([ValidateRange(0, 3)][int]$ZeroBasedIndex)
+    return [uint32](0x04030000 -bor ($ZeroBasedIndex + 1))
+}
+
+function Get-LenovoOtherModeSnapshot {
+    # Read-only mirror of Lenovo's upstream fanX_input/fanX_target capability
+    # discovery. The only WMI method invoked here is GetFeatureValue.
+    $capabilityRows = @()
+    $fanTestRows = @()
+    $methodRows = @()
+    try {
+        $capabilityRows = @(Get-CimInstance -Namespace $wmiNamespace -ClassName $otherModeCapabilityClass -ErrorAction Stop)
+    }
+    catch {
+        return [pscustomobject]@{
+            available = $false
+            capturedLocal = [DateTimeOffset]::Now.ToString("o")
+            error = "capability-query-" + $_.Exception.GetType().Name
+            writeMethodsInvoked = $false
+        }
+    }
+
+    try { $fanTestRows = @(Get-CimInstance -Namespace $wmiNamespace -ClassName $otherModeFanTestClass -ErrorAction Stop) } catch { }
+    try { $methodRows = @(Get-CimInstance -Namespace $wmiNamespace -ClassName $otherModeMethodClass -ErrorAction Stop) } catch { }
+
+    $constraints = @{}
+    foreach ($row in $fanTestRows) {
+        $ids = @(Convert-UInt32Array (Get-ObjectPropertyValue $row "FanId"))
+        $mins = @(Convert-UInt32Array (Get-ObjectPropertyValue $row "FanMinSpeed"))
+        $maxes = @(Convert-UInt32Array (Get-ObjectPropertyValue $row "FanMaxSpeed"))
+        $count = [Math]::Min($ids.Count, [Math]::Min($mins.Count, $maxes.Count))
+        for ($i = 0; $i -lt $count; $i++) {
+            if ($ids[$i] -ge 1 -and $ids[$i] -le 4) {
+                $constraints[[uint32]$ids[$i]] = [pscustomobject]@{
+                    minRpm = [uint32]$mins[$i]
+                    maxRpm = [uint32]$maxes[$i]
+                }
+            }
+        }
+        if ($constraints.Count -gt 0) { break }
+    }
+
+    $method = $methodRows | Where-Object {
+        $active = Get-ObjectPropertyValue $_ "Active"
+        $null -eq $active -or [bool]$active
+    } | Select-Object -First 1
+
+    $channels = New-Object 'System.Collections.Generic.List[object]'
+    for ($index = 0; $index -lt 4; $index++) {
+        $attributeId = Get-OtherModeFanAttributeId $index
+        $capRow = $capabilityRows | Where-Object {
+            try { [uint32](Get-ObjectPropertyValue $_ "IDs") -eq $attributeId } catch { $false }
+        } | Select-Object -First 1
+
+        $capability = [uint32]0
+        $defaultValue = $null
+        if ($null -ne $capRow) {
+            try { $capability = [uint32](Get-ObjectPropertyValue $capRow "Capability") } catch { }
+            try { $defaultValue = [uint32](Get-ObjectPropertyValue $capRow "DefaultValue") } catch { }
+        }
+
+        $fanId = [uint32]($index + 1)
+        $range = $constraints[$fanId]
+        $minRpm = if ($null -ne $range) { [uint32]$range.minRpm } else { $null }
+        $maxRpm = if ($null -ne $range) { [uint32]$range.maxRpm } else { $null }
+        $valid = ($capability -band 0x1) -ne 0
+        $canGet = ($capability -band 0x2) -ne 0
+        $canSet = ($capability -band 0x4) -ne 0
+        $liveValue = $null
+        $liveError = $null
+
+        if ($null -ne $method -and $valid -and $canGet) {
+            try {
+                $methodResult = Invoke-CimMethod -InputObject $method -MethodName "GetFeatureValue" -Arguments @{ IDs = [uint32]$attributeId } -ErrorAction Stop
+                $valueProperty = $methodResult.PSObject.Properties | Where-Object { $_.Name -ieq "value" } | Select-Object -First 1
+                if ($null -ne $valueProperty -and $null -ne $valueProperty.Value) {
+                    $liveValue = [uint32]$valueProperty.Value
+                }
+                else {
+                    $liveError = "GetFeatureValue returned no value property"
+                }
+            }
+            catch {
+                $liveError = $_.Exception.GetType().Name
+            }
+        }
+
+        $saneRange = $null -ne $minRpm -and $null -ne $maxRpm -and $minRpm -ge 100 -and $maxRpm -gt $minRpm -and $maxRpm -le 20000
+        $liveSane = $null -ne $liveValue -and $liveValue -le 20000
+        $channels.Add([pscustomobject]@{
+            fan = $index + 1
+            attributeId = ("0x{0:X8}" -f $attributeId)
+            capability = ("0x{0:X8}" -f $capability)
+            valid = $valid
+            canGet = $canGet
+            canSetTargetRpm = $canSet
+            defaultValue = $defaultValue
+            minRpm = $minRpm
+            maxRpm = $maxRpm
+            liveRpm = $liveValue
+            liveReadSuccess = $liveSane
+            liveReadError = $liveError
+            directTargetRpmCandidate = ($valid -and $canGet -and $canSet -and $saneRange -and $liveSane)
+        })
+    }
+
+    $writableLive = @($channels | Where-Object { $_.directTargetRpmCandidate }).Count
+    return [pscustomobject]@{
+        available = ($channels | Where-Object { $_.valid }).Count -gt 0
+        capturedLocal = [DateTimeOffset]::Now.ToString("o")
+        methodAvailable = $null -ne $method
+        capabilityRecordCount = $capabilityRows.Count
+        fanTestRecordCount = $fanTestRows.Count
+        writableLiveChannels = $writableLive
+        directTargetRpmCandidate = $writableLive -ge 2
+        targetSemantics = "SetFeatureValue on 0x0403000N writes target RPM; 0 means Lenovo Auto; effective targets are 100-RPM granularity. This capture invokes GetFeatureValue only."
+        writeMethodsInvoked = $false
+        channels = @($channels)
     }
 }
 
@@ -520,6 +665,7 @@ function Get-OemBinaryEvidence {
     $keywords = @(
         "FanSpeed", "ChangeFan", "QueryFan", "FanCtrl", "CleanDust", "EnergyDrv",
         "Thermal", "Cooling", "IntelligentCooling", "ThinkSmartSense", "Dynamic App Tuning",
+        "LENOVO_OTHER_METHOD", "LENOVO_CAPABILITY_DATA_00", "LENOVO_FAN_TEST_DATA",
         "DTT", "IPF"
     )
     $knownIoctls = [ordered]@{
@@ -631,9 +777,10 @@ Write-Host "Inspecting installed Lenovo OEM fan interfaces read-only..."
 $oemCandidates = @(Get-OemBinaryCandidates $litsExecutable)
 $oemBinaryEvidence = @(Get-OemBinaryEvidence $oemCandidates)
 $initialEnergyDrv = Get-EnergyDrvSnapshot
+$initialOtherMode = Get-LenovoOtherModeSnapshot
 
 $meta = [pscustomobject]@{
-    schemaVersion = 2
+    schemaVersion = 3
     captureLabel = $Label
     startedLocal = $started.ToString("o")
     durationSeconds = $DurationSeconds
@@ -648,28 +795,31 @@ $meta = [pscustomobject]@{
     litsServiceVersion = $litsVersion
     litsExecutable = $(Convert-SafePath $litsExecutable)
     powerAtStart = $(Get-PowerSnapshot)
-    note = "Observational capture only. Known fan-write IOCTLs are scanned as byte constants but never invoked. EnergyDrv calls are limited to QueryFanSpeed 0x83102570 and fan-state query 0x831020C4."
+    note = "Observational capture only. Lenovo Other Mode calls are GetFeatureValue only; SetFeatureValue is never invoked. Known EnergyDrv fan-write IOCTLs are scanned as byte constants but never invoked. EnergyDrv calls are limited to QueryFanSpeed 0x83102570 and fan-state query 0x831020C4."
 }
 
 $samples = New-Object 'System.Collections.Generic.List[object]'
 $deadline = [DateTimeOffset]::Now.AddSeconds($DurationSeconds)
 $lastEnergyDrv = $initialEnergyDrv
-$lastEnergyDrvAt = [DateTimeOffset]::Now
+$lastOtherMode = $initialOtherMode
+$lastOemQueryAt = [DateTimeOffset]::Now
 Write-Host "Capturing Lenovo Auto evidence for $DurationSeconds seconds..."
 Write-Host "Do not change fan settings just for the script. Reproduce the state you want to compare naturally."
 Write-Host "Output: $OutputPath"
 
 while ([DateTimeOffset]::Now -lt $deadline) {
     $sampleStarted = [DateTimeOffset]::Now
-    if (($sampleStarted - $lastEnergyDrvAt).TotalSeconds -ge $OemQueryIntervalSeconds) {
+    if (($sampleStarted - $lastOemQueryAt).TotalSeconds -ge $OemQueryIntervalSeconds) {
         $lastEnergyDrv = Get-EnergyDrvSnapshot
-        $lastEnergyDrvAt = $sampleStarted
+        $lastOtherMode = Get-LenovoOtherModeSnapshot
+        $lastOemQueryAt = $sampleStarted
     }
 
     $samples.Add([pscustomobject]@{
         timestampLocal = $sampleStarted.ToString("o")
         thinkControl = $(Get-ThinkControlStatus)
         energyDrv = $lastEnergyDrv
+        lenovoOtherMode = $lastOtherMode
         lits = $(Get-LitsSnapshot)
     })
 
@@ -682,6 +832,7 @@ while ([DateTimeOffset]::Now -lt $deadline) {
 $document = [pscustomobject]@{
     meta = $meta
     energyDrvInitial = $initialEnergyDrv
+    lenovoOtherModeInitial = $initialOtherMode
     oemBinaryEvidence = $oemBinaryEvidence
     powerAtEnd = $(Get-PowerSnapshot)
     samples = $samples
