@@ -27,17 +27,21 @@ internal sealed record LenovoOtherModeFanStatus(
 /// <summary>
 /// Lenovo OEM fan provider coordinator.
 ///
-/// The preferred writable transport is Lenovo's modern "Other Mode" WMI
-/// contract, which exposes semantic target RPM plus capability metadata and
-/// per-fan constraints. Some Lenovo families (including the X9 under current
-/// investigation) may not expose those WMI classes even though Lenovo's own
-/// Windows stack still exposes fan telemetry through EnergyDrv. In that case
-/// EnergyDrv is used read-only so ThinkControl can stop touching EC tachometers
-/// just to observe fan speed while the exact OEM writer is recovered.
+/// Lenovo's upstream Other Mode contract exposes fanX_input plus a directly
+/// tunable fanX_target through LENOVO_OTHER_METHOD. The fan attribute ID is
+/// 0x04/0x03/0x00/<fan id>, SetFeatureValue writes a target RPM, firmware rounds
+/// targets to its 100-RPM divisor, and target 0 hands the fan back to Auto.
 ///
-/// EnergyDrv writes are intentionally absent here: public Lenovo code proves a
-/// separate ChangeFanSpeed IOCTL exists, but its command encoding is not yet
-/// physically validated on the X9. Missing write semantics must fail closed.
+/// ThinkControl only exposes that writer on the verified X9 when at least two
+/// independently live fan channels also advertise VALID+GET+SET and have sane
+/// Lenovo Fan Test Data bounds. Extra/phantom capability records do not block two
+/// real writable fans, and ThinkControl only returns channels to Auto that it
+/// actually took ownership of.
+///
+/// Some Lenovo families (including the X9 under current investigation) may not
+/// expose those WMI classes even though Lenovo's Windows stack still exposes fan
+/// telemetry through EnergyDrv. In that case EnergyDrv remains read-only while
+/// the exact matching OEM writer is recovered.
 /// </summary>
 internal sealed class LenovoOtherModeFanProvider
 {
@@ -63,6 +67,7 @@ internal sealed class LenovoOtherModeFanProvider
     private readonly LenovoEnergyDrvFanProvider _energyDrv = new();
     private bool _discoveryComplete;
     private LenovoOtherModeFanChannel[] _channels = [];
+    private LenovoOtherModeFanChannel[] _ownedChannels = [];
     private string _discoveryDetail = "Lenovo Other Mode fan capability not probed";
 
     internal void Refresh()
@@ -71,6 +76,7 @@ internal sealed class LenovoOtherModeFanProvider
         {
             _discoveryComplete = false;
             _channels = [];
+            _ownedChannels = [];
             _discoveryDetail = "Lenovo Other Mode fan capability not probed";
             _energyDrv.Refresh();
         }
@@ -97,6 +103,7 @@ internal sealed class LenovoOtherModeFanProvider
                 return BuildReadOnlyEnergyDrvFallback("LENOVO_OTHER_METHOD is unavailable");
 
             var fans = new List<LenovoFanReading>(channels.Length);
+            var liveChannelIndexes = new HashSet<int>();
             foreach (LenovoOtherModeFanChannel channel in channels)
             {
                 if ((channel.Capability & RequiredReadSupport) != RequiredReadSupport)
@@ -104,39 +111,39 @@ internal sealed class LenovoOtherModeFanProvider
                 if (!TryGetFeatureValue(method, channel.AttributeId, out uint raw) || raw > MaximumPlausibleRpm)
                     continue;
 
+                liveChannelIndexes.Add(channel.Index);
                 fans.Add(new LenovoFanReading(
                     $"lenovo-other-mode-{channel.Index + 1}",
                     (int)raw,
                     $"Fan {channel.Index + 1}",
-                    "Lenovo WMI · Other Mode target-RPM provider"));
+                    "Lenovo WMI · Other Mode direct target-RPM"));
             }
 
-            bool canControl = channels.Length >= 2 &&
-                              fans.Count == channels.Length &&
-                              channels.All(channel =>
-                                  (channel.Capability & RequiredWriteSupport) == RequiredWriteSupport &&
-                                  IsSaneConstraint(channel.MinRpm, channel.MaxRpm));
+            LenovoOtherModeFanChannel[] writableLive = channels
+                .Where(channel => liveChannelIndexes.Contains(channel.Index) && IsWritableChannel(channel))
+                .ToArray();
+            bool canControl = writableLive.Length >= 2;
+
             if (fans.Count == 0)
             {
                 return BuildReadOnlyEnergyDrvFallback(
-                    $"Lenovo Other Mode metadata found, but 0/{channels.Length} fan channels passed live GET validation");
+                    $"Lenovo Other Mode metadata found, but 0/{channels.Length} fan channels passed live GET validation · {DescribeChannelCapabilities(channels)}");
             }
 
+            string liveSummary = $"{fans.Count}/{channels.Length} live · {writableLive.Length} live writable";
             return new LenovoOtherModeFanStatus(
                 Available: true,
                 CanControl: canControl,
                 Fans: fans,
                 Channels: channels,
                 Detail: canControl
-                    ? $"Lenovo Other Mode · {DescribeRanges(channels)}"
-                    : fans.Count != channels.Length
-                        ? $"Lenovo Other Mode metadata found, but only {fans.Count}/{channels.Length} fan channels passed live GET validation"
-                        : detail);
+                    ? $"Lenovo Other Mode direct target-RPM · {liveSummary} · {DescribeRanges(writableLive)}"
+                    : $"Lenovo Other Mode fan telemetry · {liveSummary} · {detail} · {DescribeChannelCapabilities(channels)}");
         }
         catch (Exception ex)
         {
             return BuildReadOnlyEnergyDrvFallback(
-                $"Lenovo Other Mode fan read failed: {ex.GetType().Name}");
+                $"Lenovo Other Mode fan read failed: {DescribeManagementFailure(ex)}");
         }
     }
 
@@ -157,11 +164,10 @@ internal sealed class LenovoOtherModeFanProvider
             channels = _channels;
         }
 
-        if (channels.Length < 2 || channels.Any(channel =>
-                (channel.Capability & RequiredWriteSupport) != RequiredWriteSupport ||
-                !IsSaneConstraint(channel.MinRpm, channel.MaxRpm)))
+        LenovoOtherModeFanChannel[] candidates = channels.Where(IsWritableChannel).ToArray();
+        if (candidates.Length < 2)
         {
-            error = "Lenovo Other Mode did not expose two fully constrained writable fan channels. EnergyDrv is telemetry-only until the exact X9 ChangeFanSpeed command is recovered.";
+            error = $"Lenovo Other Mode exposed only {candidates.Length} constrained VALID+GET+SET fan channel(s). Two live OEM target-RPM channels are required; Lenovo Auto keeps ownership.";
             return false;
         }
 
@@ -176,38 +182,52 @@ internal sealed class LenovoOtherModeFanProvider
 
             // Re-prove the read side immediately before taking ownership. Capability
             // metadata by itself is not sufficient permission for a hardware write.
-            foreach (LenovoOtherModeFanChannel channel in channels)
+            var liveWritable = new List<LenovoOtherModeFanChannel>(candidates.Length);
+            foreach (LenovoOtherModeFanChannel channel in candidates)
             {
                 if (!TryGetFeatureValue(method, channel.AttributeId, out uint current) || current > MaximumPlausibleRpm)
-                {
-                    error = $"Fan {channel.Index + 1} failed the live OEM read gate; Lenovo Auto keeps ownership.";
-                    return false;
-                }
+                    continue;
+                liveWritable.Add(channel);
             }
 
-            var targets = new List<string>(channels.Length);
-            foreach (LenovoOtherModeFanChannel channel in channels)
+            if (liveWritable.Count < 2)
+            {
+                error = $"Only {liveWritable.Count}/{candidates.Length} constrained OEM fan channels passed the live read gate. Lenovo Auto keeps ownership.";
+                return false;
+            }
+
+            var targets = new List<string>(liveWritable.Count);
+            var touched = new List<LenovoOtherModeFanChannel>(liveWritable.Count);
+            foreach (LenovoOtherModeFanChannel channel in liveWritable)
             {
                 int target = ResolveTargetRpm(channel, percent);
+                touched.Add(channel);
                 if (!TrySetFeatureValue(method, channel.AttributeId, (uint)target, out string? setError))
                 {
-                    BestEffortReturnToAuto(method, channels);
-                    error = $"Fan {channel.Index + 1} target-RPM write failed: {setError ?? "OEM method rejected the request"}. Lenovo Auto was requested for all channels.";
+                    BestEffortReturnToAuto(method, touched);
+                    lock (_gate)
+                        _ownedChannels = [];
+                    error = $"Fan {channel.Index + 1} target-RPM write failed: {setError ?? "OEM method rejected the request"}. Lenovo Auto was requested for every touched channel.";
                     return false;
                 }
                 targets.Add($"Fan {channel.Index + 1} {target:N0} RPM");
             }
 
-            detail = $"Lenovo OEM target-RPM · {string.Join(" · ", targets)}";
+            lock (_gate)
+                _ownedChannels = liveWritable.ToArray();
+
+            detail = $"Lenovo OEM direct target-RPM · {string.Join(" · ", targets)}";
             return true;
         }
         catch (Exception ex)
         {
             // An exception can occur after an earlier channel was accepted. Re-open
-            // the documented method surface and request Auto for every writable fan
-            // so a partial multi-fan target cannot survive an unexpected WMI failure.
-            BestEffortRecoverAuto(channels);
-            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}. Lenovo Auto was requested for all writable channels.";
+            // the documented method surface and request Auto for every channel that
+            // passed the live writable gate so a partial multi-fan target cannot survive.
+            BestEffortRecoverAuto(candidates);
+            lock (_gate)
+                _ownedChannels = [];
+            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}. Lenovo Auto was requested for the writable candidate channels.";
             return false;
         }
     }
@@ -215,42 +235,35 @@ internal sealed class LenovoOtherModeFanProvider
     internal bool ReturnToAuto(out string? error)
     {
         error = null;
-        LenovoOtherModeFanChannel[] channels;
+        LenovoOtherModeFanChannel[] owned;
         lock (_gate)
-        {
-            EnsureDiscoveredLocked();
-            channels = _channels;
-        }
+            owned = _ownedChannels;
 
-        if (channels.Length == 0)
-        {
-            // EnergyDrv has no validated write/handoff contract in ThinkControl yet.
-            // With no Other Mode writer active there is nothing for this provider to
-            // release; firmware already owns the EnergyDrv-observed fans.
-            error = null;
+        if (owned.Length == 0)
             return true;
-        }
 
         try
         {
             using ManagementObject? method = FindActiveMethodObject();
             if (method is null)
             {
-                error = "LENOVO_OTHER_METHOD is unavailable.";
+                error = "LENOVO_OTHER_METHOD is unavailable while returning owned fan targets to Auto.";
                 return false;
             }
 
             bool ok = true;
-            foreach (LenovoOtherModeFanChannel channel in channels)
-            {
-                if ((channel.Capability & RequiredWriteSupport) != RequiredWriteSupport)
-                    continue;
+            foreach (LenovoOtherModeFanChannel channel in owned)
                 ok &= TrySetFeatureValue(method, channel.AttributeId, 0, out _);
-            }
 
             if (!ok)
-                error = "One or more Lenovo fan channels did not accept the Auto target.";
-            return ok;
+            {
+                error = "One or more ThinkControl-owned Lenovo fan channels did not accept the Auto target.";
+                return false;
+            }
+
+            lock (_gate)
+                _ownedChannels = [];
+            return true;
         }
         catch (Exception ex)
         {
@@ -315,16 +328,14 @@ internal sealed class LenovoOtherModeFanProvider
             _channels = channels.ToArray();
             if (_channels.Length == 0)
             {
-                _discoveryDetail = "Lenovo Other Mode exposes no valid fan-RPM capabilities";
+                _discoveryDetail = $"Lenovo Other Mode exposes no valid fan-RPM capabilities (checked 0x{BuildFanRpmAttributeId(0):X8}..0x{BuildFanRpmAttributeId(MaximumFanChannels - 1):X8}; capdata records {capabilities.Count})";
                 return;
             }
 
-            int writable = _channels.Count(channel =>
-                (channel.Capability & RequiredWriteSupport) == RequiredWriteSupport &&
-                IsSaneConstraint(channel.MinRpm, channel.MaxRpm));
-            _discoveryDetail = writable == _channels.Length && writable >= 2
-                ? $"Lenovo Other Mode target-RPM metadata ready · {DescribeRanges(_channels)} · live GET still required"
-                : $"Lenovo Other Mode fan telemetry found · {writable}/{_channels.Length} channels have OEM write constraints";
+            int constrainedWritable = _channels.Count(IsWritableChannel);
+            _discoveryDetail = constrainedWritable >= 2
+                ? $"Lenovo Other Mode direct target-RPM metadata found · {constrainedWritable}/{_channels.Length} constrained writable · live GET still required"
+                : $"Lenovo Other Mode fan metadata found · {constrainedWritable}/{_channels.Length} constrained writable · {DescribeChannelCapabilities(_channels)}";
         }
         catch (Exception ex)
         {
@@ -416,9 +427,9 @@ internal sealed class LenovoOtherModeFanProvider
             input["value"] = value;
             using ManagementBaseObject? output = method.InvokeMethod("SetFeatureValue", input, null);
 
-            // The decoded Lenovo MOF declares SetFeatureValue as void. Successful
-            // WMI invocation is therefore the protocol acknowledgement; no invented
-            // ReturnValue==0 rule is applied here.
+            // Lenovo's decoded MOF declares SetFeatureValue as void. Successful
+            // System.Management invocation is the Windows-side acknowledgement;
+            // no invented ReturnValue rule is applied where WMI does not expose one.
             _ = output;
             return true;
         }
@@ -433,7 +444,7 @@ internal sealed class LenovoOtherModeFanProvider
     {
         foreach (LenovoOtherModeFanChannel channel in channels)
         {
-            if ((channel.Capability & RequiredWriteSupport) != RequiredWriteSupport)
+            if (!IsWritableChannel(channel))
                 continue;
             try { TrySetFeatureValue(method, channel.AttributeId, 0, out _); }
             catch { }
@@ -453,9 +464,23 @@ internal sealed class LenovoOtherModeFanProvider
         }
     }
 
+    private static bool IsWritableChannel(LenovoOtherModeFanChannel channel) =>
+        (channel.Capability & RequiredWriteSupport) == RequiredWriteSupport &&
+        IsSaneConstraint(channel.MinRpm, channel.MaxRpm);
+
     private static string DescribeRanges(IEnumerable<LenovoOtherModeFanChannel> channels) =>
         string.Join(" · ", channels.Select(channel =>
             $"Fan {channel.Index + 1} {channel.MinRpm:N0}–{channel.MaxRpm:N0} RPM"));
+
+    private static string DescribeChannelCapabilities(IEnumerable<LenovoOtherModeFanChannel> channels) =>
+        string.Join(" · ", channels.Select(channel =>
+        {
+            string flags = $"{(((channel.Capability & SupportValid) != 0) ? "V" : "-")}{(((channel.Capability & SupportGet) != 0) ? "R" : "-")}{(((channel.Capability & SupportSet) != 0) ? "W" : "-")}";
+            string range = IsSaneConstraint(channel.MinRpm, channel.MaxRpm)
+                ? $"{channel.MinRpm}-{channel.MaxRpm}RPM"
+                : "no-safe-range";
+            return $"Fan {channel.Index + 1} id=0x{channel.AttributeId:X8} cap=0x{channel.Capability:X}({flags}) {range}";
+        }));
 
     private static string DescribeManagementFailure(Exception ex)
     {
