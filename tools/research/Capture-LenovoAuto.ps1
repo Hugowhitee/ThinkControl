@@ -148,7 +148,7 @@ function Get-ThinkControlStatus {
         )
         $pipe = New-Object System.IO.Pipes.NamedPipeClientStream -ArgumentList $pipeArguments
         $pipe.Connect(900)
-        $utf8 = New-Object System.UTF8Encoding -ArgumentList $false
+        $utf8 = New-Object System.Text.UTF8Encoding -ArgumentList $false
         $writer = New-Object System.IO.StreamWriter -ArgumentList @($pipe, $utf8, 4096, $true)
         $reader = New-Object System.IO.StreamReader -ArgumentList @($pipe, $utf8, $false, 8192, $true)
         $writer.AutoFlush = $true
@@ -256,7 +256,8 @@ function Get-LenovoOtherModeSnapshot {
         $count = [Math]::Min($ids.Count, [Math]::Min($mins.Count, $maxes.Count))
         for ($i = 0; $i -lt $count; $i++) {
             if ($ids[$i] -ge 1 -and $ids[$i] -le 4) {
-                $constraints[[uint32]$ids[$i]] = [pscustomobject]@{
+                $fanKey = [uint32]$ids[$i]
+                $constraints[$fanKey] = [pscustomobject]@{
                     minRpm = [uint32]$mins[$i]
                     maxRpm = [uint32]$maxes[$i]
                 }
@@ -331,7 +332,7 @@ function Get-LenovoOtherModeSnapshot {
 
     $writableLive = @($channels | Where-Object { $_.directTargetRpmCandidate }).Count
     return [pscustomobject]@{
-        available = ($channels | Where-Object { $_.valid }).Count -gt 0
+        available = @($channels | Where-Object { $_.valid }).Count -gt 0
         capturedLocal = [DateTimeOffset]::Now.ToString("o")
         methodAvailable = $null -ne $method
         capabilityRecordCount = $capabilityRows.Count
@@ -439,13 +440,13 @@ namespace ThinkControlResearch
                     sizeof(uint),
                     out output,
                     sizeof(uint),
-                    out returned,
+                    out uint bytesReturned,
                     IntPtr.Zero);
                 return new EnergyDrvQueryResult
                 {
-                    Success = ok && returned >= sizeof(uint),
+                    Success = ok && bytesReturned >= sizeof(uint),
                     Value = output,
-                    BytesReturned = returned,
+                    BytesReturned = bytesReturned,
                     Win32Error = ok ? 0 : Marshal.GetLastWin32Error(),
                     OpenAccess = access
                 };
@@ -621,7 +622,7 @@ function Get-OemBinaryCandidates {
 
     $files = New-Object 'System.Collections.Generic.List[string]'
     if (-not [string]::IsNullOrWhiteSpace($LitsExecutable) -and (Test-Path -LiteralPath $LitsExecutable -PathType Leaf)) {
-        $files.Add((Resolve-Path -LiteralPath $LitsExecutable).Path)
+        $files.Add((Resolve-Path -LiteralPath $litsExecutable).Path)
     }
 
     $energyService = Get-CimInstance Win32_SystemDriver -Filter "Name='EnergyDrv'" -ErrorAction SilentlyContinue
