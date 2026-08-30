@@ -76,7 +76,9 @@ internal sealed class LenovoOtherModeFanProvider
         {
             _discoveryComplete = false;
             _channels = [];
-            _ownedChannels = [];
+            // Ownership is intentionally preserved through capability refresh. The
+            // controller asks for Auto before refreshing, but if that handoff fails
+            // we must retain the exact attribute IDs so a later cleanup can retry.
             _discoveryDetail = "Lenovo Other Mode fan capability not probed";
             _energyDrv.Refresh();
         }
@@ -171,6 +173,8 @@ internal sealed class LenovoOtherModeFanProvider
             return false;
         }
 
+        LenovoOtherModeFanChannel[] liveWritable = [];
+        var touched = new List<LenovoOtherModeFanChannel>(candidates.Length);
         try
         {
             using ManagementObject? method = FindActiveMethodObject();
@@ -182,22 +186,17 @@ internal sealed class LenovoOtherModeFanProvider
 
             // Re-prove the read side immediately before taking ownership. Capability
             // metadata by itself is not sufficient permission for a hardware write.
-            var liveWritable = new List<LenovoOtherModeFanChannel>(candidates.Length);
-            foreach (LenovoOtherModeFanChannel channel in candidates)
-            {
-                if (!TryGetFeatureValue(method, channel.AttributeId, out uint current) || current > MaximumPlausibleRpm)
-                    continue;
-                liveWritable.Add(channel);
-            }
+            liveWritable = candidates
+                .Where(channel => TryGetFeatureValue(method, channel.AttributeId, out uint current) && current <= MaximumPlausibleRpm)
+                .ToArray();
 
-            if (liveWritable.Count < 2)
+            if (liveWritable.Length < 2)
             {
-                error = $"Only {liveWritable.Count}/{candidates.Length} constrained OEM fan channels passed the live read gate. Lenovo Auto keeps ownership.";
+                error = $"Only {liveWritable.Length}/{candidates.Length} constrained OEM fan channels passed the live read gate. Lenovo Auto keeps ownership.";
                 return false;
             }
 
-            var targets = new List<string>(liveWritable.Count);
-            var touched = new List<LenovoOtherModeFanChannel>(liveWritable.Count);
+            var targets = new List<string>(liveWritable.Length);
             foreach (LenovoOtherModeFanChannel channel in liveWritable)
             {
                 int target = ResolveTargetRpm(channel, percent);
@@ -221,13 +220,12 @@ internal sealed class LenovoOtherModeFanProvider
         }
         catch (Exception ex)
         {
-            // An exception can occur after an earlier channel was accepted. Re-open
-            // the documented method surface and request Auto for every channel that
-            // passed the live writable gate so a partial multi-fan target cannot survive.
-            BestEffortRecoverAuto(candidates);
+            // Only channels that actually reached the write phase can require an
+            // Auto recovery. Do not widen a failure cleanup to metadata-only peers.
+            BestEffortRecoverAuto(touched);
             lock (_gate)
                 _ownedChannels = [];
-            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}. Lenovo Auto was requested for the writable candidate channels.";
+            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}. Lenovo Auto was requested for every touched channel.";
             return false;
         }
     }
@@ -453,6 +451,9 @@ internal sealed class LenovoOtherModeFanProvider
 
     private static void BestEffortRecoverAuto(IReadOnlyList<LenovoOtherModeFanChannel> channels)
     {
+        if (channels.Count == 0)
+            return;
+
         try
         {
             using ManagementObject? method = FindActiveMethodObject();
