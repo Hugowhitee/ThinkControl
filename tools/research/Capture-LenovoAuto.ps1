@@ -440,13 +440,13 @@ namespace ThinkControlResearch
                     sizeof(uint),
                     out output,
                     sizeof(uint),
-                    out uint bytesReturned,
+                    out returned,
                     IntPtr.Zero);
                 return new EnergyDrvQueryResult
                 {
-                    Success = ok && bytesReturned >= sizeof(uint),
+                    Success = ok && returned >= sizeof(uint),
                     Value = output,
-                    BytesReturned = bytesReturned,
+                    BytesReturned = returned,
                     Win32Error = ok ? 0 : Marshal.GetLastWin32Error(),
                     OpenAccess = access
                 };
@@ -622,7 +622,7 @@ function Get-OemBinaryCandidates {
 
     $files = New-Object 'System.Collections.Generic.List[string]'
     if (-not [string]::IsNullOrWhiteSpace($LitsExecutable) -and (Test-Path -LiteralPath $LitsExecutable -PathType Leaf)) {
-        $files.Add((Resolve-Path -LiteralPath $litsExecutable).Path)
+        $files.Add((Resolve-Path -LiteralPath $LitsExecutable).Path)
     }
 
     $energyService = Get-CimInstance Win32_SystemDriver -Filter "Name='EnergyDrv'" -ErrorAction SilentlyContinue
