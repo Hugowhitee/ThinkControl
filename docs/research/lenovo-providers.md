@@ -45,6 +45,10 @@ Public Lenovo reverse-engineering exposes several **different** `\\.\EnergyDrv` 
 
 This separation matters because the legacy dust implementation explicitly re-issues its fast request as the driver times out/reverts; that behavior matches a temporary maintenance action, not stable target-RPM ownership. The X9 product goal is smooth Lenovo-like control, so a maintenance/full-speed overlay cannot be renamed into a percentage curve.
 
+A decompilation of Lenovo Energy Management's `LenovoEmExpandedAPI` gives stronger evidence for the `0x83102570`/`0x8310257C` pair: `CAtmDriverLibrary.QueryFanSpeed` sends a zero-based DWORD fan index to `0x83102570`, while `CAtmDriverLibrary.ChangeFanxSpeed` sends exactly one DWORD `dwFanCtrlCmd` to `0x8310257C` and receives one DWORD action status. The dual-fan getter explicitly queries indices `0` and `1`. That validates the read-side shape now used by ThinkControl, but the public decompilation does **not** expose the caller-side values placed into `dwFanCtrlCmd`; it therefore does not authorize a writer on the X9.
+
+`tools/research/Analyze-LenovoOemFanBinaries.ps1` is the offline/static next step after `Capture-LenovoAuto.ps1 -BundleRelevantOemBinaries`. It never opens a driver or executes an OEM binary. It scans only the supplied ZIP/directory for the known IOCTL DWORDs and fan-related strings, records bounded file offsets, nearby printable strings and a small hex window around each hit, and hashes the files. The purpose is to locate the exact installed X9 call sites/data around `0x8310257C` for subsequent reverse engineering without trying command values on the hardware.
+
 ## ThinkPad X9-15 Gen 1
 
 Machine types `21Q6` and `21Q7` are the current physically reviewed low-level reference. Physical testing has shown that the classic ThinkPad EC path can expose both fan tachometers, but its seven manual states do not reproduce Lenovo Auto's useful high-cooling range or acoustic behavior. That path is therefore investigation/fallback evidence rather than the desired product fan-control boundary.
