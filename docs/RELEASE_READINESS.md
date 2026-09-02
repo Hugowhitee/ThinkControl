@@ -23,7 +23,7 @@ Current release candidate:
 - release scope: post-alpha.35 touchpad corner completion + X9 dual-fan/native-provider hardening + bounded diagnostics/research support
 - alpha.36 remains a prerelease; physical X9 behavior is not inferred from hosted runners
 
-The release branch can ship because risky fan behavior fails closed: a direct Lenovo target-RPM writer is exposed only when exact-X9 identity, capability data, constraints and live channel reads all agree; EnergyDrv remains read-only until its write encoding is actually recovered; and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
+The release branch is designed to fail closed. The direct Lenovo target-RPM writer remains externally gated to the exact X9 identity. Canonical Lenovo Capability Data is preferred; when firmware omits a fan capability record, the narrow direct-ID fallback requires a sane Lenovo Fan Test range plus a plausible live `GetFeatureValue` from the documented `0x0403000N` fan attribute immediately before writing. An explicitly present invalid/readonly capability is never overridden. EnergyDrv remains read-only until its write encoding is actually recovered, and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
 
 ## Alpha.36 product delta
 
@@ -50,15 +50,16 @@ Physical evidence before alpha.36 established:
 
 Alpha.36 architecture:
 
-1. **Lenovo Other Mode target-RPM** is the preferred writer when the exact X9 exposes at least two independently live VALID+GET+SET fan channels with sane Lenovo Fan Test constraints.
+1. **Lenovo Other Mode target-RPM** is the preferred writer. Canonical channels use VALID+GET+SET Capability Data plus sane Lenovo Fan Test constraints and live reads. If Capability Data omits a fan ID, the exact-X9 direct-ID fallback may still consider documented `0x0403000N` channels only when Fan Test supplies a sane range and the channel answers a plausible live RPM immediately before the write. Explicitly present invalid/readonly capability records are never bypassed.
 2. Fan attributes use Lenovo's documented `0x04030001` onward IDs. `GetFeatureValue` reads current RPM; `SetFeatureValue` writes the target; target `0` returns the owned channel to Lenovo Auto; effective targets use 100-RPM granularity.
-3. Extra/phantom capability records do not make the whole provider all-or-nothing: two real live constrained writable channels are sufficient.
+3. Extra/phantom capability records do not make the whole provider all-or-nothing: two real independently live safe writable channels are sufficient. Missing metadata can be diagnosed through the direct-ID path; explicit negative metadata still fails closed.
 4. ThinkControl records the exact channels it actually writes and returns only owned channels to Auto. Provider refresh preserves ownership evidence if an Auto handoff fails so cleanup can be retried.
 5. **Lenovo EnergyDrv** `QueryFanSpeed 0x83102570` is read-only native telemetry. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until the exact X9 `dwFanCtrlCmd` encoding and rollback/Auto semantics are recovered.
 6. Once two native Lenovo fan channels are proven during a service lifetime, transient native telemetry loss cannot silently re-authorize the EC writer.
 7. The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider only. The ambiguous `0x40` full-speed/disengaged family remains blocked after exact-X9 testing echoed `0x47` while producing 0 RPM.
 8. Fan-state changes invalidate stale RPM before a settled replacement is presented. Visible Fans-page refresh advances the canonical status pipeline without creating a high-rate EC polling loop.
 9. Bounded support diagnostics preserve active provider, control temperature, applied state and up to two fan RPM values without starting a duplicate hardware polling worker.
+10. Lenovo Fan Test min/max values are treated as the safe direct-target **reference range**, not proof of the absolute physical ceiling. Lenovo's own upstream driver notes healthy firmware may run outside those self-test reference values, so hot Auto remains the physical comparison target.
 
 ### Research-only Lenovo evidence
 
@@ -67,6 +68,7 @@ Do not turn these into production writes merely because the symbols exist:
 - EnergyDrv `0x8310257C ChangeFanSpeed` — one `dwFanCtrlCmd` DWORD in / one action-status DWORD out, but X9 command encoding still unknown;
 - EnergyDrv `0x831020C0` dust/temporary high-speed family — maintenance behavior, not a smooth target-RPM contract;
 - family-specific `0x8310213C` ITS/Geek full-speed overlay — not generalized to X9;
+- Lenovo Other Mode `0x04020000` full-speed feature observed on some newer Lenovo gaming/ThinkBook systems — not generalized to X9 until exact-machine evidence exists;
 - ThinkSmartSense/LITSSvc AC/DC Cool `500/501` and `505/506`;
 - Improved Cooling Efficiency `510/511`;
 - Balanced/Performance LCM `31..34`.
@@ -105,7 +107,8 @@ Do not recreate a third full installer workflow. CI and Package are the current 
 - [x] AGENTS, architecture, product, device support, testing and release handoff were recovered before release preparation.
 - [x] Known-good alpha.33 shell/touchpad lifecycle protections were preserved rather than rewritten casually.
 - [x] Fan provider ownership is single-owner through `FanSupervisor` / `LenovoHardwareController`; no duplicate fan worker was introduced.
-- [x] Other Mode direct-RPM writes are capability- and live-read-gated.
+- [x] Other Mode direct-RPM writes use the exact-X9 controller gate plus either canonical capability metadata or the narrow missing-capdata direct-ID path; both require safe Fan Test bounds and a live channel read before writes.
+- [x] Explicitly invalid/readonly Lenovo capability records are never overridden by the direct-ID fallback.
 - [x] EnergyDrv writer remains disabled; no `GENERIC_WRITE`/brute-force fan command was added.
 - [x] Research scripts are parser-checked in CI and are read-only/static by contract.
 - [x] `version.json`, README and active version docs are frozen at `v0.1.0-alpha.36`.
@@ -119,10 +122,10 @@ Do not recreate a third full installer workflow. CI and Package are the current 
 
 ## Physical X9 follow-up — separate evidence class
 
-Hosted CI cannot prove these. Alpha.36 may be published with these still open because unsupported/unproven writers fail closed, but the results must remain documented honestly.
+Hosted CI cannot prove these. Alpha.36 may be published with these still open because unsupported/unproven paths fail closed or are deliberately bounded to documented OEM semantics, but the results must remain documented honestly.
 
 - [ ] Install alpha.36 on machine type `21Q6`/`21Q7` and record the Fans provider/detail line before changing fan state.
-- [ ] If **Lenovo Other Mode direct target-RPM** activates, verify two plausible live fan channels plus manual 25/50/75/100% settling.
+- [ ] If **Lenovo Other Mode direct target-RPM** activates, record whether it used canonical Capability Data or `exact-X9 direct-ID fallback`, then verify two plausible live fan channels plus manual 25/50/75/100% settling.
 - [ ] Confirm direct OEM targets do not reproduce the earlier repeating wave/re-kick/buzzy character.
 - [ ] Compare OEM 100% with naturally hot Lenovo Auto; Lenovo Fan Test max is reference/self-test data and may not be the absolute physical ceiling, so do not infer equivalence from metadata alone.
 - [ ] Repeatedly return direct OEM ownership to Auto and confirm both owned channels release cleanly with no stale target/stall/persistent divergence.
