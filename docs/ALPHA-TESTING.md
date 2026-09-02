@@ -61,7 +61,7 @@ Alpha.36 includes the completed corner-zone integration. The editor has one six-
 Alpha.36 changes the X9 fan architecture from “seven EC steps are the product fan controller” to “use the highest-capability verified Lenovo provider and fail closed when only telemetry is proven.” The old EC path remains available only when it is genuinely the active fallback provider.
 
 - Unsupported devices must remain safe/read-only.
-- On the verified X9 path, fan writes must be enabled only after a concrete provider passes its own capability gate; model identity by itself is not permission to write.
+- On the verified X9 path, fan writes must be enabled only after a concrete provider passes its own safety gate; model identity by itself is not permission to write.
 - Test Lenovo Auto return after every ThinkControl-owned manual/custom fan state.
 - Do not interpret a UI control being visible as proof that a hardware write succeeded; verify status and physical response.
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
@@ -73,7 +73,7 @@ Use this order on alpha.36:
 
 1. Install the release and restart ThinkControl/the hardware service as the installer normally does. Start in **Lenovo Auto**.
 2. Open Advanced → Fans and record the provider/detail plus Fan 1/Fan 2 source text.
-   - **Best case:** `Lenovo Other Mode direct target-RPM` appears with two live writable fan channels. This is the direct OEM RPM path: Lenovo exposes current RPM and a tunable target RPM per fan, target `0` means Auto, and ThinkControl only enables it after exact-X9 identity, VALID+GET+SET capability data, sane Lenovo fan constraints and live reads agree.
+   - **Best case:** `Lenovo Other Mode direct target-RPM` appears with two live writable fan channels. Canonical channels use VALID+GET+SET Capability Data. If the detail says `direct-ID fallback`, Lenovo omitted the matching Capability Data record; ThinkControl still requires the exact-X9 controller gate, a sane Fan Test reference range and a plausible live `GetFeatureValue` from the documented fan ID immediately before writing. An explicitly present invalid/readonly capability is never bypassed.
    - **Native telemetry only:** two channels from `Lenovo EnergyDrv · QueryFanSpeed 0x83102570` may appear while controls remain disabled because the matching writer is not validated.
    - **Fallback:** if no native Lenovo two-fan surface is proven, the exact-model discrete EC provider may remain available. Treat it as fallback, not equivalent to Lenovo's full Auto range.
 3. If direct OEM target-RPM is active, test manual **25 → 50 → 75 → 100%** with time to settle. Confirm both fans move plausibly and that the previous repeating wave/re-kick/buzzy character is absent. The target shown in UI should be an OEM percentage/RPM concept, not an EC step.
