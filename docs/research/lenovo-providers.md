@@ -31,6 +31,24 @@ Writable backends are modeled separately, for example:
 
 A generic `FanControl` label is not enough to infer EC, PWM or target-RPM semantics. A native OEM telemetry path does not become writable merely because a nearby driver IOCTL exists: the write command format, rollback and readback contract must be recovered and validated independently.
 
+## Lenovo Other Mode direct target-RPM
+
+Current upstream Lenovo WMI support exposes a real semantic fan interface through `LENOVO_OTHER_METHOD`:
+
+- fan RPM attributes are `0x04030001`, `0x04030002`, ... (`device 0x04`, feature `0x03`, fan type id 1..4);
+- `GetFeatureValue(attribute)` returns current fan RPM;
+- `SetFeatureValue(attribute, rpm)` sets the target RPM;
+- target `0` returns that fan to firmware Auto;
+- the effective target uses Lenovo's internal 100-RPM divisor;
+- `LENOVO_CAPABILITY_DATA_00` carries per-attribute VALID/GET/SET flags;
+- `LENOVO_FAN_TEST_DATA` carries per-fan reference min/max RPM data.
+
+The upstream Linux driver explicitly describes Fan Test min/max as **self-test reference data**, not a guaranteed physical ceiling: healthy firmware may spin a fan above the reported max or below the reported min. ThinkControl therefore uses those values as the safe direct-target range, not as proof that `100%` equals the highest RPM Lenovo Auto can ever request.
+
+Independent Windows tooling for a modern ThinkBook uses the same direct IDs (`0x04030001`/`0x04030002`) and calls `GetFeatureValue`/`SetFeatureValue` directly for per-fan RPM control, restoring Auto with target `0`. That implementation does not depend on a matching Capability Data record before trying the known fan IDs. Combined with upstream Lenovo/Linux support for imperfect fan metadata, this is evidence that Capability Data omissions can be a firmware-description problem rather than proof that the semantic method is absent.
+
+ThinkControl's fallback is deliberately narrower than simply trusting those IDs everywhere: the production hardware controller still gates fan writes to the exact verified X9 identity; a missing capability record is tolerated only when Fan Test data supplies a sane range and the known attribute returns a plausible live RPM immediately before the write. An explicitly present invalid/readonly capability is never overridden. A partial multi-fan write requests target `0` for every channel that actually reached the write phase.
+
 ## EnergyDrv fan contracts are not interchangeable
 
 Public Lenovo reverse-engineering exposes several **different** `\\.\EnergyDrv` fan-related contracts. Similar names or the fact that all of them reach the same driver are not evidence that their payloads can be mixed:
@@ -55,14 +73,18 @@ Machine types `21Q6` and `21Q7` are the current physically reviewed low-level re
 
 The preferred X9 hierarchy is now:
 
-1. Lenovo `LENOVO_OTHER_METHOD` target-RPM control, but only if exact-device capability data exposes at least two VALID+GET+SET channels with sane constraints and live reads;
+1. Lenovo `LENOVO_OTHER_METHOD` direct target-RPM control when at least two physical fan IDs have sane Fan Test ranges and live RPM reads, with canonical VALID+GET+SET capability data preferred and a narrowly gated direct-ID fallback only for omitted capability records;
 2. Lenovo-native fan telemetry through Other Mode or the known read-only `EnergyDrv` `QueryFanSpeed` contract;
 3. read-only EC thermal/tachometer evidence only when richer native telemetry is unavailable;
 4. writable EC steps only on machines where no native Lenovo fan surface has been established and the exact-model EC contract remains explicitly allowed.
 
-On the physically tested X9 candidate, Other Mode did not become writable. PR #71 therefore also probes `EnergyDrv` `QueryFanSpeed` (`0x83102570`) for fan indices 0/1 read-only. When two native Lenovo fan channels are present, ThinkControl prioritizes those RPMs and deliberately stops advertising the known-inferior EC writer while the exact OEM target-RPM command is recovered. Public Lenovo reverse-engineering proves a separate `ChangeFanSpeed` IOCTL (`0x8310257C`) exists, but does not define the X9 `dwFanCtrlCmd` encoding; ThinkControl must not brute-force it.
+The earlier physical X9 candidate did not become writable through the original strict Other Mode gate. PR #71 now tests whether that was caused by incomplete Capability Data rather than absence of the semantic WMI method. If the exact X9 exposes sane Fan Test ranges and both known direct fan IDs answer live `GetFeatureValue`, the current candidate may use those semantic RPM targets even when Capability Data omitted the IDs. The external controller still refuses OEM writes on any non-X9 identity.
+
+PR #71 also probes `EnergyDrv` `QueryFanSpeed` (`0x83102570`) for fan indices 0/1 read-only. When two native Lenovo fan channels are present, ThinkControl prioritizes those RPMs and deliberately stops advertising the known-inferior EC writer while the exact OEM target-RPM command is recovered. Public Lenovo reverse-engineering proves a separate `ChangeFanSpeed` IOCTL (`0x8310257C`) exists, but does not define the X9 `dwFanCtrlCmd` encoding; ThinkControl must not brute-force it.
 
 That native two-fan proof is a **safety boundary**, not just a momentary UI result. Within a service lifetime, once the exact X9 has successfully exposed two native Lenovo fan channels, ThinkControl latches that evidence. A later transient EnergyDrv/Other Mode read failure may make live RPM temporarily unavailable, but it must not silently re-authorize the known-inferior EC writer. Provider refresh preserves the latch. Likewise, merely reading an EC manual-looking value does not make ThinkControl the owner of another utility's EC state; automatic cleanup is restricted to the provider this controller actually took ownership of.
+
+A separate Lenovo Other Mode feature `0x04020000` is used as a global full-speed switch on some newer Lenovo gaming/ThinkBook implementations. That is **not** generalized to the X9. It remains research-only until the X9 itself exposes/correlates the feature and its Auto/rollback behavior; ThinkControl does not use it to inflate the current 100% target.
 
 Exact registers, transport observations and physical test evidence are maintained in [x9-15-gen1.md](x9-15-gen1.md).
 
