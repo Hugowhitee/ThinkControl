@@ -29,6 +29,27 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
+    public void OtherModeProvider_AllowsNarrowDirectIdFallbackButNeverOverridesExplicitRejection()
+    {
+        string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
+        string controller = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
+
+        Assert.Contains("bool CapabilityPresent", source, StringComparison.Ordinal);
+        Assert.Contains("allowExactModelDirectIdFallback = true", source, StringComparison.Ordinal);
+        Assert.Contains("capabilities = [];", source, StringComparison.Ordinal);
+        Assert.Contains("!IsSaneConstraint(range.MinRpm, range.MaxRpm)", source, StringComparison.Ordinal);
+        Assert.Contains("if ((capability & SupportValid) == 0)", source, StringComparison.Ordinal);
+        Assert.Contains("only fills an omitted record; it never overrides an invalid one", source, StringComparison.Ordinal);
+        Assert.Contains("TryGetFeatureValue(method, channel.AttributeId", source, StringComparison.Ordinal);
+        Assert.Contains("cap=missing(direct-ID)", source, StringComparison.Ordinal);
+
+        // The tolerant read/discovery path does not weaken the production write
+        // boundary: only the exact X9 controller can call SetFanPercent.
+        Assert.Contains("if (!_identity.IsVerifiedX9)", controller, StringComparison.Ordinal);
+        Assert.Contains("OEM target-RPM fan control is not enabled for this device identity", controller, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OtherModeProvider_MapsPercentToOemRpmAndUsesZeroForAuto()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
