@@ -33,11 +33,12 @@ internal sealed record LenovoOtherModeFanStatus(
 /// 0x04/0x03/0x00/<fan id>, SetFeatureValue writes a target RPM, firmware rounds
 /// targets to its 100-RPM divisor, and target 0 hands the fan back to Auto.
 ///
-/// Canonical discovery uses Capability Data 00 plus Fan Test Data. Exact X9
-/// firmware is additionally allowed a narrow direct-ID fallback when Capability
-/// Data omits a fan attribute: the known 0x0403000N ID must still answer a live
-/// GetFeatureValue and that physical fan must have a sane Fan Test RPM range.
-/// An explicitly present but invalid/readonly capability is never overridden.
+/// Canonical discovery uses Capability Data 00 plus Fan Test Data. The provider
+/// can additionally use a narrow direct-ID fallback when Capability Data omits a
+/// fan attribute: the known 0x0403000N ID must still answer a live GetFeatureValue
+/// and that physical fan must have a sane Fan Test RPM range. An explicitly
+/// present but invalid/readonly capability is never overridden. ThinkControl's
+/// parent hardware controller still gates all writes to the exact verified X9.
 ///
 /// Some Lenovo families may expose fan telemetry only through EnergyDrv. In that
 /// case EnergyDrv remains read-only while the exact matching OEM writer is
@@ -71,7 +72,11 @@ internal sealed class LenovoOtherModeFanProvider
     private LenovoOtherModeFanChannel[] _ownedChannels = [];
     private string _discoveryDetail = "Lenovo Other Mode fan capability not probed";
 
-    internal LenovoOtherModeFanProvider(bool allowExactModelDirectIdFallback = false)
+    // Only LenovoHardwareController owns this provider in production, and that
+    // controller performs the exact 21Q6/21Q7 identity gate before any SetPercent
+    // call. Keeping the read-side direct-ID probe enabled lets incomplete Lenovo
+    // capdata be diagnosed without weakening the external write boundary.
+    internal LenovoOtherModeFanProvider(bool allowExactModelDirectIdFallback = true)
     {
         _allowExactModelDirectIdFallback = allowExactModelDirectIdFallback;
     }
@@ -341,7 +346,7 @@ internal sealed class LenovoOtherModeFanProvider
 
                 if (capabilityPresent)
                 {
-                    // Explicit firmware rejection always wins. The exact-model fallback
+                    // Explicit firmware rejection always wins. The direct-ID fallback
                     // only fills an omitted record; it never overrides an invalid one.
                     if ((capability & SupportValid) == 0)
                         continue;
@@ -373,7 +378,7 @@ internal sealed class LenovoOtherModeFanProvider
             int writableCandidates = _channels.Count(IsWritableChannel);
             int directIdCandidates = _channels.Count(channel => !channel.CapabilityPresent);
             string directIdDetail = directIdCandidates > 0
-                ? $" · {directIdCandidates} exact-X9 direct-ID candidate(s) from Fan Test Data"
+                ? $" · {directIdCandidates} direct-ID candidate(s) from Fan Test Data"
                 : string.Empty;
             string capFailureDetail = capabilityFailure is null ? string.Empty : $" · capdata query failed: {capabilityFailure}";
             _discoveryDetail = writableCandidates >= 2
@@ -535,7 +540,7 @@ internal sealed class LenovoOtherModeFanProvider
         {
             string capability = channel.CapabilityPresent
                 ? $"cap=0x{channel.Capability:X}({(((channel.Capability & SupportValid) != 0) ? "V" : "-")}{(((channel.Capability & SupportGet) != 0) ? "R" : "-")}{(((channel.Capability & SupportSet) != 0) ? "W" : "-")})"
-                : "cap=missing(exact-X9-direct-ID)";
+                : "cap=missing(direct-ID)";
             string range = IsSaneConstraint(channel.MinRpm, channel.MaxRpm)
                 ? $"{channel.MinRpm}-{channel.MaxRpm}RPM"
                 : "no-safe-range";
