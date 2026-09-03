@@ -76,12 +76,15 @@ internal sealed class FanCurveEditorWindow : Window
 
         var heading = new StackPanel { Margin = new Thickness(0, 0, 0, 16) };
         heading.Children.Add(new TextBlock { Text = "Fan curves", FontSize = TypographyScale.PageTitle, FontWeight = FontWeights.SemiBold });
-        bool x9Ec = DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType);
+        bool oemTargetRpm = string.Equals(_app.State.FanControlKind, FanControlKinds.OemTargetRpm, StringComparison.OrdinalIgnoreCase);
+        bool x9Ec = string.Equals(_app.State.FanControlKind, FanControlKinds.DiscreteEc, StringComparison.OrdinalIgnoreCase);
         var subtitle = new TextBlock
         {
-            Text = x9Ec
-                ? "Tune temperature against a real 0–100% target. ThinkControl maps the graph to measured X9 EC states after calibration; 100% uses the physically verified maximum, EC step 7."
-                : "Tune temperature against the active fan provider's verified 0–100% target range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.",
+            Text = oemTargetRpm
+                ? "Tune temperature against Lenovo OEM target-RPM control. The graph sends continuous per-fan RPM targets across Lenovo's verified reference range; Auto returns ownership to Lenovo firmware."
+                : x9Ec
+                    ? "Tune temperature against the verified X9 EC fallback. ThinkControl maps the graph to calibrated discrete EC states; this fallback is not treated as Lenovo Auto's absolute fan ceiling."
+                    : "Tune temperature against the active fan provider's verified 0–100% target range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.",
             FontSize = TypographyScale.Secondary,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
