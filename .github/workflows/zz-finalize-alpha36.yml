@@ -1,0 +1,160 @@
+name: Finalize alpha.36 fan safety fixes
+
+on:
+  push:
+    branches:
+      - fix/x9-dual-fan-control-stability
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: ${{ !contains(github.event.head_commit.message, '[fan-finalize]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: fix/x9-dual-fan-control-stability
+          fetch-depth: 1
+
+      - name: Apply bounded source fixes
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{path}: expected exactly one match, found {count}: {old[:100]!r}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+
+          other = 'src/ThinkControl.Hardware/Lenovo/LenovoOtherModeFanProvider.cs'
+          replace_once(
+              other,
+              '    private static readonly TimeSpan LiveProbeFailureBackoff = TimeSpan.FromSeconds(10);\n',
+              '    private static readonly TimeSpan LiveProbeFailureBackoff = TimeSpan.FromSeconds(10);\n'
+              '    private static readonly TimeSpan DiscoveryFailureBackoff = TimeSpan.FromSeconds(10);\n')
+          replace_once(
+              other,
+              '    private string _discoveryDetail = "Lenovo Other Mode fan capability not probed";\n'
+              '    private DateTimeOffset _liveProbeRetryAfter = DateTimeOffset.MinValue;\n'
+              '    private string? _lastLiveProbeFailure;\n',
+              '    private string _discoveryDetail = "Lenovo Other Mode fan capability not probed";\n'
+              '    private DateTimeOffset _discoveryRetryAfter = DateTimeOffset.MinValue;\n'
+              '    private string? _lastDiscoveryFailure;\n'
+              '    private DateTimeOffset _liveProbeRetryAfter = DateTimeOffset.MinValue;\n'
+              '    private string? _lastLiveProbeFailure;\n')
+          replace_once(
+              other,
+              '            _discoveryComplete = false;\n'
+              '            _channels = [];\n'
+              '            _liveProbeRetryAfter = DateTimeOffset.MinValue;\n',
+              '            _discoveryComplete = false;\n'
+              '            _channels = [];\n'
+              '            _discoveryRetryAfter = DateTimeOffset.MinValue;\n'
+              '            _lastDiscoveryFailure = null;\n'
+              '            _liveProbeRetryAfter = DateTimeOffset.MinValue;\n')
+          replace_once(
+              other,
+              '    internal LenovoOtherModeFanStatus ReadStatus()\n',
+              '    internal bool HasOwnedChannels\n'
+              '    {\n'
+              '        get\n'
+              '        {\n'
+              '            lock (_gate)\n'
+              '                return _ownedChannels.Length > 0;\n'
+              '        }\n'
+              '    }\n\n'
+              '    internal LenovoOtherModeFanStatus ReadStatus()\n')
+          replace_once(
+              other,
+              '    private void EnsureDiscoveredLocked()\n'
+              '    {\n'
+              '        if (_discoveryComplete)\n'
+              '            return;\n\n'
+              '        _discoveryComplete = true;\n'
+              '        _channels = [];\n'
+              '        try\n'
+              '        {\n',
+              '    private void EnsureDiscoveredLocked()\n'
+              '    {\n'
+              '        if (_discoveryComplete)\n'
+              '            return;\n\n'
+              '        DateTimeOffset now = DateTimeOffset.UtcNow;\n'
+              '        if (now < _discoveryRetryAfter)\n'
+              '        {\n'
+              '            string lastFailure = _lastDiscoveryFailure ?? "previous discovery failure";\n'
+              '            _discoveryDetail = $"Lenovo Other Mode discovery retry deferred after {lastFailure}";\n'
+              '            return;\n'
+              '        }\n\n'
+              '        _discoveryComplete = true;\n'
+              '        _channels = [];\n'
+              '        try\n'
+              '        {\n')
+          replace_once(
+              other,
+              '            _channels = channels.ToArray();\n'
+              '            if (_channels.Length == 0)\n',
+              '            _channels = channels.ToArray();\n'
+              '            _discoveryRetryAfter = DateTimeOffset.MinValue;\n'
+              '            _lastDiscoveryFailure = null;\n'
+              '            if (_channels.Length == 0)\n')
+          replace_once(
+              other,
+              '        catch (Exception ex)\n'
+              '        {\n'
+              '            _channels = [];\n'
+              '            _discoveryDetail = $"Lenovo Other Mode capability discovery failed: {DescribeManagementFailure(ex)}";\n'
+              '        }\n'
+              '    }\n\n'
+              '    private static Dictionary<uint, uint> ReadCapabilities()\n',
+              '        catch (Exception ex)\n'
+              '        {\n'
+              '            _channels = [];\n'
+              '            string failure = $"Lenovo Other Mode capability discovery failed: {DescribeManagementFailure(ex)}";\n'
+              '            _lastDiscoveryFailure = failure;\n'
+              '            _discoveryRetryAfter = DateTimeOffset.UtcNow + DiscoveryFailureBackoff;\n'
+              '            _discoveryComplete = false;\n'
+              '            _discoveryDetail = $"{failure} · retry after bounded backoff";\n'
+              '        }\n'
+              '    }\n\n'
+              '    private static Dictionary<uint, uint> ReadCapabilities()\n')
+
+          controller = 'src/ThinkControl.Hardware/Lenovo/LenovoHardwareController.cs'
+          replace_once(
+              controller,
+              '            if (!_otherModeFans.SetPercent(percent, out detail, out error))\n'
+              '                return false;\n\n'
+              '            _activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;\n',
+              '            if (!_otherModeFans.SetPercent(percent, out detail, out error))\n'
+              '            {\n'
+              '                // SetPercent can fail after one or more OEM targets were accepted and\n'
+              '                // their target-0 rollback also failed. Preserve provider ownership in\n'
+              '                // the controller so refresh/disposal will retry that cleanup instead\n'
+              '                // of forgetting a potentially live manual target.\n'
+              '                if (_otherModeFans.HasOwnedChannels)\n'
+              '                    _activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;\n'
+              '                return false;\n'
+              '            }\n\n'
+              '            _activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;\n')
+
+          readiness = 'docs/RELEASE_READINESS.md'
+          replace_once(
+              readiness,
+              '- PR: #71 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**',
+              '- PR: #72 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**')
+
+      - name: Remove temporary workflow and commit
+        shell: bash
+        run: |
+          git rm .github/workflows/zz-finalize-alpha36.yml
+          git config user.name "ThinkControl Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/ThinkControl.Hardware/Lenovo/LenovoOtherModeFanProvider.cs \
+                  src/ThinkControl.Hardware/Lenovo/LenovoHardwareController.cs \
+                  docs/RELEASE_READINESS.md
+          git commit -m "Finalize OEM fan ownership and retry safety [fan-finalize]"
+          git push origin HEAD:fix/x9-dual-fan-control-stability
