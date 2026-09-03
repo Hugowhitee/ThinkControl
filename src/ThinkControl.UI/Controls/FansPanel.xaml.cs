@@ -1,7 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Threading;
 using ThinkControl.Core.Cooling;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
@@ -14,14 +13,9 @@ public partial class FansPanel : UserControl
     private readonly ObservableCollection<CalibrationRow> _calibrationRows = [];
     private readonly ObservableCollection<FanProfileChoice> _profileChoices = [];
     private readonly FanCurveGraph _activeCurveGraph = new() { IsReadOnly = true, ShowLiveLabel = false };
-    private readonly DispatcherTimer _statusRefreshTimer = new(DispatcherPriority.Background)
-    {
-        Interval = TimeSpan.FromSeconds(2)
-    };
     private App? _app;
     private bool _resetAdded;
     private bool _statusSubscribed;
-    private bool _statusRefreshInFlight;
     private bool _snapshotMode;
     private bool _syncingProfileSelection;
     private string _currentProfileId = "Lenovo Auto";
@@ -33,7 +27,6 @@ public partial class FansPanel : UserControl
         ActiveCurvePreviewHost.Content = _activeCurveGraph;
         CalibrationResults.ItemsSource = _calibrationRows;
         ProfileComboBox.ItemsSource = _profileChoices;
-        _statusRefreshTimer.Tick += async (_, _) => await RefreshVisibleStatusAsync();
         Loaded += (_, _) => SyncStatusSubscription();
         Unloaded += (_, _) => UnsubscribeStatus();
         IsVisibleChanged += (_, _) => SyncStatusSubscription();
@@ -49,7 +42,9 @@ public partial class FansPanel : UserControl
             DataContext = app.State;
         }
 
-        _fanControlKind = ResolveFanControlKind(null, app.State.HardwareAccess, app.State.CanFanControl);
+        _fanControlKind = app.State.FanControlKind;
+        if (_fanControlKind == FanControlKinds.None)
+            _fanControlKind = ResolveFanControlKind(null, app.State.HardwareAccess, app.State.CanFanControl);
         SyncProfileSelector(app.State.CoolingProfile, CurrentProfileIdForDisplay(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile));
         ApplyProviderCopy(app.State, app.State.CanFanControl, _fanControlKind);
         SyncStatusSubscription();
@@ -61,7 +56,9 @@ public partial class FansPanel : UserControl
         UnsubscribeStatus();
         EnsureResetButton();
         DataContext = state;
-        _fanControlKind = ResolveFanControlKind(null, state.HardwareAccess, state.CanFanControl);
+        _fanControlKind = state.FanControlKind;
+        if (_fanControlKind == FanControlKinds.None)
+            _fanControlKind = ResolveFanControlKind(null, state.HardwareAccess, state.CanFanControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
         ProfileComboBox.IsEnabled = state.CanFanControl;
         ApplyProviderCopy(state, state.CanFanControl, _fanControlKind);
@@ -85,17 +82,15 @@ public partial class FansPanel : UserControl
     {
         bool shouldSubscribe = !_snapshotMode && _app is not null && IsLoaded && IsVisible;
         if (shouldSubscribe == _statusSubscribed)
-        {
-            if (shouldSubscribe && !_statusRefreshTimer.IsEnabled)
-                _statusRefreshTimer.Start();
             return;
-        }
 
         if (shouldSubscribe)
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
             _statusSubscribed = true;
-            _statusRefreshTimer.Start();
+            // One immediate refresh is enough when entering the page. Ongoing status
+            // cadence is owned centrally by App.RuntimeRefresh so the Fans page cannot
+            // create a second hardware/IPC polling loop.
             _ = _app.HardwareClient.GetStatusAsync();
         }
         else
@@ -106,28 +101,10 @@ public partial class FansPanel : UserControl
 
     private void UnsubscribeStatus()
     {
-        _statusRefreshTimer.Stop();
-        _statusRefreshInFlight = false;
         if (!_statusSubscribed || _app is null)
             return;
         _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
         _statusSubscribed = false;
-    }
-
-    private async Task RefreshVisibleStatusAsync()
-    {
-        if (_snapshotMode || _statusRefreshInFlight || _app is null || !IsLoaded || !IsVisible)
-            return;
-
-        _statusRefreshInFlight = true;
-        try
-        {
-            _ = await _app.HardwareClient.GetStatusAsync();
-        }
-        finally
-        {
-            _statusRefreshInFlight = false;
-        }
     }
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
