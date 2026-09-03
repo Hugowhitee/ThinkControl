@@ -313,34 +313,41 @@ internal sealed class ThinkPadEc : IDisposable
 
     private void TryReturnToBiosAfterFailedManualWrite()
     {
+        bool restored = false;
         try
         {
-            WithEcLock(() =>
-            {
-                BestEffortWriteFanControlUnlocked(ThinkPadRegisters.BiosControl);
-                return 0;
-            });
+            restored = WithEcLock(() => BestEffortWriteFanControlUnlocked(ThinkPadRegisters.BiosControl));
         }
         catch
         {
         }
-        finally
+
+        // Do not erase ownership merely because a best-effort rollback was attempted.
+        // If Lenovo Auto could not be read back, keep the ownership marker so Dispose
+        // or the controller's later cleanup path gets another chance to restore 0x80.
+        if (restored)
         {
             _manualControlEngaged = false;
             _lastManualControl = null;
         }
     }
 
-    private void BestEffortWriteFanControlUnlocked(byte value)
+    private bool BestEffortWriteFanControlUnlocked(byte value)
     {
-        try
+        for (int attempt = 1; attempt <= 2; attempt++)
         {
-            WriteByteUnlocked(ThinkPadRegisters.FanControl, value);
-            Thread.Sleep(FanControlSettleMs);
+            try
+            {
+                WriteByteUnlocked(ThinkPadRegisters.FanControl, value);
+                Thread.Sleep(FanControlSettleMs);
+                if (ReadByteUnlocked(ThinkPadRegisters.FanControl) == value)
+                    return true;
+            }
+            catch
+            {
+            }
         }
-        catch
-        {
-        }
+        return false;
     }
 
     private byte ReadByteUnlocked(byte register)
