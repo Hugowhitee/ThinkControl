@@ -63,6 +63,11 @@ internal sealed class LenovoOtherModeFanProvider
     private const int MaximumFanChannels = 4;
     private const int RpmDivisor = 100;
     private const int MaximumPlausibleRpm = 20_000;
+    private const int TargetVerificationToleranceRpm = 200;
+    private const int TargetVerificationMinimumMovementRpm = 100;
+    private const int TargetVerificationDelayMs = 450;
+    private const int TargetVerificationAttempts = 2;
+    private static readonly TimeSpan LiveProbeFailureBackoff = TimeSpan.FromSeconds(10);
 
     private readonly object _gate = new();
     private readonly LenovoEnergyDrvFanProvider _energyDrv = new();
@@ -71,6 +76,8 @@ internal sealed class LenovoOtherModeFanProvider
     private LenovoOtherModeFanChannel[] _channels = [];
     private LenovoOtherModeFanChannel[] _ownedChannels = [];
     private string _discoveryDetail = "Lenovo Other Mode fan capability not probed";
+    private DateTimeOffset _liveProbeRetryAfter = DateTimeOffset.MinValue;
+    private string? _lastLiveProbeFailure;
 
     // Only LenovoHardwareController owns this provider in production, and that
     // controller performs the exact 21Q6/21Q7 identity gate before any SetPercent
@@ -87,6 +94,8 @@ internal sealed class LenovoOtherModeFanProvider
         {
             _discoveryComplete = false;
             _channels = [];
+            _liveProbeRetryAfter = DateTimeOffset.MinValue;
+            _lastLiveProbeFailure = null;
             // Ownership is intentionally preserved through capability refresh. The
             // controller asks for Auto before refreshing, but if that handoff fails
             // we must retain the exact attribute IDs so a later cleanup can retry.
@@ -109,11 +118,17 @@ internal sealed class LenovoOtherModeFanProvider
         if (channels.Length == 0)
             return BuildReadOnlyEnergyDrvFallback(detail);
 
+        if (ShouldBackOffLiveProbe(out string? backoffDetail))
+            return BuildReadOnlyEnergyDrvFallback($"{detail} · {backoffDetail}");
+
         try
         {
             using ManagementObject? method = FindActiveMethodObject();
             if (method is null)
+            {
+                RecordLiveProbeFailure("LENOVO_OTHER_METHOD is unavailable");
                 return BuildReadOnlyEnergyDrvFallback("LENOVO_OTHER_METHOD is unavailable");
+            }
 
             var fans = new List<LenovoFanReading>(channels.Length);
             var liveChannelIndexes = new HashSet<int>();
@@ -141,10 +156,13 @@ internal sealed class LenovoOtherModeFanProvider
 
             if (fans.Count == 0)
             {
+                string failure = $"0/{channels.Length} fan channels passed live GET validation";
+                RecordLiveProbeFailure(failure);
                 return BuildReadOnlyEnergyDrvFallback(
-                    $"Lenovo Other Mode metadata found, but 0/{channels.Length} fan channels passed live GET validation · {DescribeChannelCapabilities(channels)}");
+                    $"Lenovo Other Mode metadata found, but {failure} · {DescribeChannelCapabilities(channels)}");
             }
 
+            ClearLiveProbeFailure();
             string liveSummary = $"{fans.Count}/{channels.Length} live · {writableLive.Length} live writable";
             string fallbackSummary = writableLive.Any(channel => !channel.CapabilityPresent)
                 ? " · exact-X9 direct-ID fallback active because Capability Data omitted a live fan attribute"
@@ -160,8 +178,9 @@ internal sealed class LenovoOtherModeFanProvider
         }
         catch (Exception ex)
         {
-            return BuildReadOnlyEnergyDrvFallback(
-                $"Lenovo Other Mode fan read failed: {DescribeManagementFailure(ex)}");
+            string failure = $"Lenovo Other Mode fan read failed: {DescribeManagementFailure(ex)}";
+            RecordLiveProbeFailure(failure);
+            return BuildReadOnlyEnergyDrvFallback(failure);
         }
     }
 
@@ -189,7 +208,6 @@ internal sealed class LenovoOtherModeFanProvider
             return false;
         }
 
-        LenovoOtherModeFanChannel[] liveWritable = [];
         var touched = new List<LenovoOtherModeFanChannel>(candidates.Length);
         try
         {
@@ -203,8 +221,9 @@ internal sealed class LenovoOtherModeFanProvider
             // Re-prove the read side immediately before taking ownership. Capability
             // metadata by itself is not sufficient permission for a hardware write;
             // the exact-X9 direct-ID fallback also requires this live read.
-            liveWritable = candidates
-                .Where(channel => TryGetFeatureValue(method, channel.AttributeId, out uint current) && current <= MaximumPlausibleRpm)
+            var before = new Dictionary<int, uint>();
+            LenovoOtherModeFanChannel[] liveWritable = candidates
+                .Where(channel => TryCaptureLiveRpm(method, channel, before))
                 .ToArray();
 
             if (liveWritable.Length < 2)
@@ -213,20 +232,33 @@ internal sealed class LenovoOtherModeFanProvider
                 return false;
             }
 
-            var targets = new List<string>(liveWritable.Length);
+            var targets = new Dictionary<int, int>();
             foreach (LenovoOtherModeFanChannel channel in liveWritable)
             {
                 int target = ResolveTargetRpm(channel, percent);
+                targets[channel.Index] = target;
                 touched.Add(channel);
                 if (!TrySetFeatureValue(method, channel.AttributeId, (uint)target, out string? setError))
                 {
-                    BestEffortReturnToAuto(method, touched);
-                    lock (_gate)
-                        _ownedChannels = [];
-                    error = $"Fan {channel.Index + 1} target-RPM write failed: {setError ?? "OEM method rejected the request"}. Lenovo Auto was requested for every touched channel.";
+                    LenovoOtherModeFanChannel[] failedAuto = ReturnChannelsToAuto(method, touched);
+                    PreserveFailedAutoOwnership(failedAuto);
+                    error = $"Fan {channel.Index + 1} target-RPM write failed: {setError ?? "OEM method rejected the request"}. " +
+                            AutoRecoveryText(failedAuto);
                     return false;
                 }
-                targets.Add($"Fan {channel.Index + 1} {target:N0} RPM");
+            }
+
+            // The WMI MOF declares SetFeatureValue as void, so a non-throwing call is
+            // not enough evidence that firmware accepted a target. Verify the real
+            // fanX_input response after one bounded settle window. We only require
+            // meaningful movement toward the target (or already-near-target state),
+            // not instantaneous equality while the fan is still ramping.
+            if (!VerifyTargetResponse(method, liveWritable, before, targets, out string verificationError))
+            {
+                LenovoOtherModeFanChannel[] failedAuto = ReturnChannelsToAuto(method, touched);
+                PreserveFailedAutoOwnership(failedAuto);
+                error = $"Lenovo OEM target did not verify from live RPM response: {verificationError}. {AutoRecoveryText(failedAuto)}";
+                return false;
             }
 
             lock (_gate)
@@ -235,17 +267,18 @@ internal sealed class LenovoOtherModeFanProvider
             string fallback = liveWritable.Any(channel => !channel.CapabilityPresent)
                 ? " · exact-X9 direct-ID fallback"
                 : string.Empty;
-            detail = $"Lenovo OEM direct target-RPM · {string.Join(" · ", targets)}{fallback}";
+            string targetText = string.Join(" · ", liveWritable.Select(channel =>
+                $"Fan {channel.Index + 1} {targets[channel.Index]:N0} RPM"));
+            detail = $"Lenovo OEM direct target-RPM · {targetText} · live response verified{fallback}";
             return true;
         }
         catch (Exception ex)
         {
             // Only channels that actually reached the write phase can require an
             // Auto recovery. Do not widen a failure cleanup to metadata-only peers.
-            BestEffortRecoverAuto(touched);
-            lock (_gate)
-                _ownedChannels = [];
-            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}. Lenovo Auto was requested for every touched channel.";
+            LenovoOtherModeFanChannel[] failedAuto = RecoverAuto(touched);
+            PreserveFailedAutoOwnership(failedAuto);
+            error = $"Lenovo Other Mode fan write failed safely: {ex.Message}. {AutoRecoveryText(failedAuto)}";
             return false;
         }
     }
@@ -269,18 +302,15 @@ internal sealed class LenovoOtherModeFanProvider
                 return false;
             }
 
-            bool ok = true;
-            foreach (LenovoOtherModeFanChannel channel in owned)
-                ok &= TrySetFeatureValue(method, channel.AttributeId, 0, out _);
-
-            if (!ok)
+            LenovoOtherModeFanChannel[] failed = ReturnChannelsToAuto(method, owned);
+            lock (_gate)
+                _ownedChannels = failed;
+            if (failed.Length > 0)
             {
-                error = "One or more ThinkControl-owned Lenovo fan channels did not accept the Auto target.";
+                error = "One or more ThinkControl-owned Lenovo fan channels did not accept the Auto target; failed ownership was retained for a later cleanup retry.";
                 return false;
             }
 
-            lock (_gate)
-                _ownedChannels = [];
             return true;
         }
         catch (Exception ex)
@@ -332,16 +362,12 @@ internal sealed class LenovoOtherModeFanProvider
                 return false;
             }
 
-            var failures = new List<string>();
-            foreach (LenovoOtherModeFanChannel channel in liveWritable)
+            LenovoOtherModeFanChannel[] failed = ReturnChannelsToAuto(method, liveWritable);
+            if (failed.Length > 0)
             {
-                if (!TrySetFeatureValue(method, channel.AttributeId, 0, out string? setError))
-                    failures.Add($"Fan {channel.Index + 1}: {setError ?? "OEM method rejected target 0"}");
-            }
-
-            if (failures.Count > 0)
-            {
-                error = "Lenovo Auto reassertion failed on " + string.Join(" · ", failures);
+                PreserveFailedAutoOwnership(failed);
+                error = "Lenovo Auto reassertion failed on " + string.Join(" · ", failed.Select(channel => $"Fan {channel.Index + 1}")) +
+                        "; failed channels were retained as owned so cleanup can retry.";
                 return false;
             }
 
@@ -542,10 +568,16 @@ internal sealed class LenovoOtherModeFanProvider
             input["value"] = value;
             using ManagementBaseObject? output = method.InvokeMethod("SetFeatureValue", input, null);
 
-            // Lenovo's decoded MOF declares SetFeatureValue as void. Successful
-            // System.Management invocation is the Windows-side acknowledgement;
-            // no invented ReturnValue rule is applied where WMI does not expose one.
-            _ = output;
+            // The decoded MOF declares SetFeatureValue as void, but some firmware/
+            // WMI providers still surface a ReturnValue. When present, Lenovo's
+            // upstream implementation accepts 0 (no error) and 1 (done).
+            if (output?.Properties["ReturnValue"]?.Value is object statusValue &&
+                TryUInt32(statusValue, out uint status) && status is not 0 and not 1)
+            {
+                error = $"OEM method returned status {status}.";
+                return false;
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -555,30 +587,145 @@ internal sealed class LenovoOtherModeFanProvider
         }
     }
 
-    private void BestEffortReturnToAuto(ManagementObject method, IEnumerable<LenovoOtherModeFanChannel> channels)
+    private static bool TryCaptureLiveRpm(
+        ManagementObject method,
+        LenovoOtherModeFanChannel channel,
+        IDictionary<int, uint> values)
     {
-        foreach (LenovoOtherModeFanChannel channel in channels)
-        {
-            if (!IsWritableChannel(channel))
-                continue;
-            try { TrySetFeatureValue(method, channel.AttributeId, 0, out _); }
-            catch { }
-        }
+        if (!TryGetFeatureValue(method, channel.AttributeId, out uint current) || current > MaximumPlausibleRpm)
+            return false;
+        values[channel.Index] = current;
+        return true;
     }
 
-    private void BestEffortRecoverAuto(IReadOnlyList<LenovoOtherModeFanChannel> channels)
+    private static bool VerifyTargetResponse(
+        ManagementObject method,
+        IReadOnlyList<LenovoOtherModeFanChannel> channels,
+        IReadOnlyDictionary<int, uint> before,
+        IReadOnlyDictionary<int, int> targets,
+        out string detail)
+    {
+        detail = string.Empty;
+        var pending = new HashSet<int>(channels.Select(channel => channel.Index));
+        var last = new Dictionary<int, uint>();
+
+        for (int attempt = 0; attempt < TargetVerificationAttempts && pending.Count > 0; attempt++)
+        {
+            Thread.Sleep(TargetVerificationDelayMs);
+            foreach (LenovoOtherModeFanChannel channel in channels.Where(channel => pending.Contains(channel.Index)))
+            {
+                if (!TryGetFeatureValue(method, channel.AttributeId, out uint current) || current > MaximumPlausibleRpm)
+                    continue;
+                last[channel.Index] = current;
+                if (HasVerifiedTargetProgress(before[channel.Index], targets[channel.Index], current))
+                    pending.Remove(channel.Index);
+            }
+        }
+
+        if (pending.Count == 0)
+            return true;
+
+        detail = string.Join(" · ", pending.Select(index =>
+        {
+            uint original = before[index];
+            int target = targets[index];
+            string observed = last.TryGetValue(index, out uint current) ? current.ToString("N0") : "unavailable";
+            return $"Fan {index + 1} before {original:N0}, target {target:N0}, observed {observed} RPM";
+        }));
+        return false;
+    }
+
+    private static bool HasVerifiedTargetProgress(uint before, int target, uint current)
+    {
+        int start = (int)before;
+        int observed = (int)current;
+        if (Math.Abs(start - target) <= TargetVerificationToleranceRpm)
+            return Math.Abs(observed - target) <= TargetVerificationToleranceRpm;
+        if (Math.Abs(observed - target) <= TargetVerificationToleranceRpm)
+            return true;
+        if (target > start)
+            return observed >= start + TargetVerificationMinimumMovementRpm;
+        return observed <= start - TargetVerificationMinimumMovementRpm;
+    }
+
+    private static LenovoOtherModeFanChannel[] ReturnChannelsToAuto(
+        ManagementObject method,
+        IEnumerable<LenovoOtherModeFanChannel> channels)
+    {
+        var failed = new List<LenovoOtherModeFanChannel>();
+        foreach (LenovoOtherModeFanChannel channel in channels.DistinctBy(channel => channel.Index))
+        {
+            try
+            {
+                if (!TrySetFeatureValue(method, channel.AttributeId, 0, out _))
+                    failed.Add(channel);
+            }
+            catch
+            {
+                failed.Add(channel);
+            }
+        }
+        return failed.ToArray();
+    }
+
+    private static LenovoOtherModeFanChannel[] RecoverAuto(IReadOnlyList<LenovoOtherModeFanChannel> channels)
     {
         if (channels.Count == 0)
-            return;
+            return [];
 
         try
         {
             using ManagementObject? method = FindActiveMethodObject();
-            if (method is not null)
-                BestEffortReturnToAuto(method, channels);
+            return method is null ? channels.ToArray() : ReturnChannelsToAuto(method, channels);
         }
         catch
         {
+            return channels.ToArray();
+        }
+    }
+
+    private void PreserveFailedAutoOwnership(IReadOnlyList<LenovoOtherModeFanChannel> failed)
+    {
+        lock (_gate)
+            _ownedChannels = failed.DistinctBy(channel => channel.Index).ToArray();
+    }
+
+    private static string AutoRecoveryText(IReadOnlyList<LenovoOtherModeFanChannel> failed) =>
+        failed.Count == 0
+            ? "Lenovo Auto was verified for every touched channel."
+            : $"Auto recovery did not verify for {failed.Count} touched channel(s); ownership was retained so cleanup can retry.";
+
+    private bool ShouldBackOffLiveProbe(out string? detail)
+    {
+        lock (_gate)
+        {
+            if (DateTimeOffset.UtcNow >= _liveProbeRetryAfter)
+            {
+                detail = null;
+                return false;
+            }
+
+            int seconds = Math.Max(1, (int)Math.Ceiling((_liveProbeRetryAfter - DateTimeOffset.UtcNow).TotalSeconds));
+            detail = $"Other Mode live probe backoff ({_lastLiveProbeFailure ?? "previous failure"}; retry in ~{seconds}s)";
+            return true;
+        }
+    }
+
+    private void RecordLiveProbeFailure(string detail)
+    {
+        lock (_gate)
+        {
+            _lastLiveProbeFailure = detail;
+            _liveProbeRetryAfter = DateTimeOffset.UtcNow + LiveProbeFailureBackoff;
+        }
+    }
+
+    private void ClearLiveProbeFailure()
+    {
+        lock (_gate)
+        {
+            _lastLiveProbeFailure = null;
+            _liveProbeRetryAfter = DateTimeOffset.MinValue;
         }
     }
 
