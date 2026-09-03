@@ -279,15 +279,17 @@ function Get-FileAnalysis {
     $version = $null
     try { $version = $File.VersionInfo } catch { }
 
-    return New-AnalysisRow \
-        -File $relative \
-        -SizeBytes ([long]$File.Length) \
-        -Sha256 ((Get-FileHash -LiteralPath $File.FullName -Algorithm SHA256).Hash) \
-        -FileVersion $(if ($null -ne $version) { [string]$version.FileVersion } else { "" }) \
-        -ProductName $(if ($null -ne $version) { [string]$version.ProductName } else { "" }) \
-        -CompanyName $(if ($null -ne $version) { [string]$version.CompanyName } else { "" }) \
-        -KnownIoctls ([pscustomobject]$ioctlHits) \
-        -RelevantStrings $wholeFileStrings
+    $rowArgs = @{
+        File = $relative
+        SizeBytes = [long]$File.Length
+        Sha256 = (Get-FileHash -LiteralPath $File.FullName -Algorithm SHA256).Hash
+        FileVersion = if ($null -ne $version) { [string]$version.FileVersion } else { "" }
+        ProductName = if ($null -ne $version) { [string]$version.ProductName } else { "" }
+        CompanyName = if ($null -ne $version) { [string]$version.CompanyName } else { "" }
+        KnownIoctls = [pscustomobject]$ioctlHits
+        RelevantStrings = $wholeFileStrings
+    }
+    return New-AnalysisRow @rowArgs
 }
 
 try {
@@ -301,10 +303,12 @@ try {
     foreach ($file in $files) {
         try { $analyses.Add((Get-FileAnalysis $file $root)) }
         catch {
-            $analyses.Add((New-AnalysisRow \
-                -File (Get-CompatibleRelativePath $root $file.FullName) \
-                -SizeBytes ([long]$file.Length) \
-                -Error $_.Exception.GetType().Name))
+            $failureArgs = @{
+                File = Get-CompatibleRelativePath $root $file.FullName
+                SizeBytes = [long]$file.Length
+                Error = $_.Exception.GetType().Name
+            }
+            $analyses.Add((New-AnalysisRow @failureArgs))
         }
     }
 
