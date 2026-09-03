@@ -245,7 +245,7 @@ public partial class FansPanel : UserControl
         _currentProfileId = manual
             ? profileName!.Trim()
             : string.IsNullOrWhiteSpace(profileId) ? "Lenovo Auto" : profileId;
-        RebuildProfileChoices();
+        RebuildProfileChoices(manual ? _currentProfileId : null);
 
         _syncingProfileSelection = true;
         try
@@ -257,9 +257,9 @@ public partial class FansPanel : UserControl
                 selected = _profileChoices.FirstOrDefault(choice => string.Equals(choice.Name, display, StringComparison.OrdinalIgnoreCase));
             }
 
-            // Never fall back to the first item (Auto) for a manual or otherwise
-            // unknown hardware state. A blank selector is truthful and, critically,
-            // makes a subsequent Auto choice a real SelectionChanged event.
+            // A manual target is shown explicitly as a transient, non-profile choice.
+            // It must never impersonate Auto; selecting Auto afterwards must be a real
+            // SelectionChanged event that reaches the hardware handoff path.
             ProfileComboBox.SelectedItem = selected;
             UpdateActiveCurvePreview(selected, _app?.State.ControlTemperatureC, _app?.State.FanRpm);
         }
@@ -271,7 +271,7 @@ public partial class FansPanel : UserControl
 
     private void UpdateActiveCurvePreview(FanProfileChoice? choice, double? temperatureC, int? rpm)
     {
-        FanCurveDefinition? curve = choice is null ? null : _app?.FanProfiles.Find(choice.Id);
+        FanCurveDefinition? curve = choice is null || !choice.Selectable ? null : _app?.FanProfiles.Find(choice.Id);
         if (curve is null)
         {
             ActiveCurvePreview.Visibility = Visibility.Collapsed;
@@ -291,16 +291,16 @@ public partial class FansPanel : UserControl
         ActiveCurvePreview.Visibility = Visibility.Visible;
     }
 
-    private void RebuildProfileChoices()
+    private void RebuildProfileChoices(string? manualState)
     {
         if (_app is null)
             return;
 
-        FanProfileChoice[] desired =
-        [
-            new("Lenovo Auto", "Auto"),
-            .. _app.FanProfiles.GetProfiles().Select(profile => new FanProfileChoice(profile.Id, profile.Name))
-        ];
+        var desired = new List<FanProfileChoice>();
+        if (IsManualProfile(manualState))
+            desired.Add(new FanProfileChoice(manualState!.Trim(), manualState.Trim(), Selectable: false));
+        desired.Add(new FanProfileChoice("Lenovo Auto", "Auto"));
+        desired.AddRange(_app.FanProfiles.GetProfiles().Select(profile => new FanProfileChoice(profile.Id, profile.Name)));
 
         if (_profileChoices.SequenceEqual(desired))
             return;
@@ -344,7 +344,7 @@ public partial class FansPanel : UserControl
     {
         if (_syncingProfileSelection || _app is null || ProfileComboBox.SelectedItem is not FanProfileChoice choice)
             return;
-        if (ProfileIdsEqual(choice.Id, _currentProfileId))
+        if (!choice.Selectable || ProfileIdsEqual(choice.Id, _currentProfileId))
             return;
 
         ProfileComboBox.IsEnabled = false;
@@ -532,5 +532,5 @@ public partial class FansPanel : UserControl
     }
 
     private sealed record CalibrationRow(string LevelText, string RpmText, string StabilityText);
-    private sealed record FanProfileChoice(string Id, string Name);
+    private sealed record FanProfileChoice(string Id, string Name, bool Selectable = true);
 }

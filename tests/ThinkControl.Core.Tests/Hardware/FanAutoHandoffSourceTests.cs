@@ -55,14 +55,16 @@ public sealed class FanAutoHandoffSourceTests
         string compact = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
 
         Assert.Contains("bool manual = IsManualProfile(profileName);", fans, StringComparison.Ordinal);
-        Assert.Contains("ProfileComboBox.SelectedItem = selected;", fans, StringComparison.Ordinal);
+        Assert.Contains("RebuildProfileChoices(manual ? _currentProfileId : null);", fans, StringComparison.Ordinal);
+        Assert.Contains("new FanProfileChoice(manualState!.Trim(), manualState.Trim(), Selectable: false)", fans, StringComparison.Ordinal);
+        Assert.Contains("if (!choice.Selectable || ProfileIdsEqual(choice.Id, _currentProfileId))", fans, StringComparison.Ordinal);
+        Assert.Contains("selecting Auto afterwards must be a real", fans, StringComparison.Ordinal);
         Assert.DoesNotContain("ProfileComboBox.SelectedItem = selected ?? _profileChoices.FirstOrDefault();", fans, StringComparison.Ordinal);
-        Assert.Contains("CurrentProfileIdForDisplay(_app.State.CoolingProfile", fans, StringComparison.Ordinal);
-        Assert.Contains("makes a subsequent Auto choice a real SelectionChanged event", fans, StringComparison.Ordinal);
 
-        Assert.Contains("value.StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => value", compact, StringComparison.Ordinal);
-        Assert.DoesNotContain("value.StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => \"Auto\"", compact, StringComparison.Ordinal);
-        Assert.Contains("choosing Auto is a real selection change", compact, StringComparison.Ordinal);
+        Assert.Contains("if (IsManualFanState(current))", compact, StringComparison.Ordinal);
+        Assert.Contains("values.Add(current);", compact, StringComparison.Ordinal);
+        Assert.Contains("if (IsManualFanState(raw))", compact, StringComparison.Ordinal);
+        Assert.DoesNotContain("StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => \"Auto\"", compact, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
