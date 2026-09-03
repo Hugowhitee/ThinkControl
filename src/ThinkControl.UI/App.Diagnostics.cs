@@ -65,6 +65,7 @@ public partial class App
                     State.CanSensorTelemetry = capabilities.SensorTelemetry;
                     State.CanFanTelemetry = capabilities.FanTelemetry;
                     State.CanFanControl = capabilities.FanControl;
+                    State.FanControlKind = capabilities.FanControlKind;
                     State.CanKeyboardBacklight = capabilities.KeyboardBacklight;
                     State.CanCpuTemperature = capabilities.CpuTemperature;
                 }
@@ -72,6 +73,7 @@ public partial class App
                 {
                     State.CanSensorTelemetry = State.Sensors.Count > 0;
                     State.CanFanTelemetry = State.Fans.Count > 0;
+                    State.FanControlKind = FanControlKinds.None;
                 }
 
                 RecordFanTelemetrySample(telemetry);
@@ -79,7 +81,7 @@ public partial class App
                 string profile = telemetry.CoolingProfile;
                 if (!string.IsNullOrWhiteSpace(profile) && !profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase))
                 {
-                    State.FanStateText = telemetry.CoolingAppliedLevel is int level
+                    State.FanStateText = State.FanControlKind == FanControlKinds.DiscreteEc && telemetry.CoolingAppliedLevel is int level
                         ? $"{profile} · EC level {level}"
                         : profile;
                 }
@@ -95,6 +97,7 @@ public partial class App
             State.CanSensorTelemetry = false;
             State.CanFanTelemetry = false;
             State.CanFanControl = false;
+            State.FanControlKind = FanControlKinds.None;
             State.CanKeyboardBacklight = false;
             State.CanCpuTemperature = false;
             State.ClearHardwareTelemetry();
@@ -127,10 +130,12 @@ public partial class App
 
     private void HardwareClient_HardwareOperationCompleted(object? sender, HardwareOperationResult operation)
     {
-        string fanProvider = State.HardwareAccess.Contains("OEM target-RPM", StringComparison.OrdinalIgnoreCase) ||
-                             State.HardwareAccess.Contains("Other Mode", StringComparison.OrdinalIgnoreCase)
-            ? "LenovoOtherMode"
-            : "ThinkPadEC";
+        string fanProvider = State.FanControlKind switch
+        {
+            FanControlKinds.OemTargetRpm => "LenovoOtherMode",
+            FanControlKinds.DiscreteEc => "ThinkPadEC",
+            _ => State.HardwareAccess.Contains("OEM", StringComparison.OrdinalIgnoreCase) ? "LenovoOEM" : "ThinkPadEC"
+        };
 
         (string eventName, string capability, string provider) = operation.Operation switch
         {
