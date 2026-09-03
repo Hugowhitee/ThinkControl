@@ -50,7 +50,7 @@ public partial class FansPanel : UserControl
         }
 
         _fanControlKind = ResolveFanControlKind(null, app.State.HardwareAccess, app.State.CanFanControl);
-        SyncProfileSelector(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile);
+        SyncProfileSelector(app.State.CoolingProfile, CurrentProfileIdForDisplay(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile));
         ApplyProviderCopy(app.State, app.State.CanFanControl, _fanControlKind);
         SyncStatusSubscription();
     }
@@ -241,20 +241,27 @@ public partial class FansPanel : UserControl
 
     private void SyncProfileSelector(string? profileName, string? profileId)
     {
-        _currentProfileId = string.IsNullOrWhiteSpace(profileId) ? "Lenovo Auto" : profileId;
+        bool manual = IsManualProfile(profileName);
+        _currentProfileId = manual
+            ? profileName!.Trim()
+            : string.IsNullOrWhiteSpace(profileId) ? "Lenovo Auto" : profileId;
         RebuildProfileChoices();
 
         _syncingProfileSelection = true;
         try
         {
             FanProfileChoice? selected = _profileChoices.FirstOrDefault(choice => ProfileIdsEqual(choice.Id, _currentProfileId));
-            if (selected is null)
+            if (selected is null && !manual)
             {
                 string display = DisplayProfile(profileName);
                 selected = _profileChoices.FirstOrDefault(choice => string.Equals(choice.Name, display, StringComparison.OrdinalIgnoreCase));
             }
-            ProfileComboBox.SelectedItem = selected ?? _profileChoices.FirstOrDefault();
-            UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, _app?.State.ControlTemperatureC, _app?.State.FanRpm);
+
+            // Never fall back to the first item (Auto) for a manual or otherwise
+            // unknown hardware state. A blank selector is truthful and, critically,
+            // makes a subsequent Auto choice a real SelectionChanged event.
+            ProfileComboBox.SelectedItem = selected;
+            UpdateActiveCurvePreview(selected, _app?.State.ControlTemperatureC, _app?.State.FanRpm);
         }
         finally
         {
@@ -308,6 +315,12 @@ public partial class FansPanel : UserControl
         (string.Equals(left, "Lenovo Auto", StringComparison.OrdinalIgnoreCase) && string.Equals(right, "Auto", StringComparison.OrdinalIgnoreCase)) ||
         (string.Equals(right, "Lenovo Auto", StringComparison.OrdinalIgnoreCase) && string.Equals(left, "Auto", StringComparison.OrdinalIgnoreCase));
 
+    private static bool IsManualProfile(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && value.Trim().StartsWith("Manual ", StringComparison.OrdinalIgnoreCase);
+
+    private static string CurrentProfileIdForDisplay(string? profileName, string? persistedProfileId) =>
+        IsManualProfile(profileName) ? profileName!.Trim() : persistedProfileId ?? "Lenovo Auto";
+
     private static string DisplayProfile(string? raw) => raw?.Trim() switch
     {
         null or "" or "Lenovo Auto" or "Auto" => "Auto",
@@ -321,7 +334,9 @@ public partial class FansPanel : UserControl
     {
         if (_app is null)
             return;
-        SyncProfileSelector(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile);
+        SyncProfileSelector(
+            _app.State.CoolingProfile,
+            CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
         ProfileComboBox.IsDropDownOpen = true;
     }
 
@@ -338,11 +353,15 @@ public partial class FansPanel : UserControl
             if (!await _app.SetCoolingProfileAsync(choice.Id))
             {
                 CoolingDetailText.Text = _app.State.HardwareAccess;
-                SyncProfileSelector(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile);
+                SyncProfileSelector(
+                    _app.State.CoolingProfile,
+                    CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
                 return;
             }
 
-            SyncProfileSelector(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile);
+            SyncProfileSelector(
+                _app.State.CoolingProfile,
+                CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
         }
         finally
         {
@@ -357,7 +376,9 @@ public partial class FansPanel : UserControl
         ProfileComboBox.IsDropDownOpen = false;
         var editor = new FanCurveEditorWindow(_app) { Owner = Window.GetWindow(this) };
         editor.ShowDialog();
-        SyncProfileSelector(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile);
+        SyncProfileSelector(
+            _app.State.CoolingProfile,
+            CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
         if (IsVisible)
             _ = _app.HardwareClient.GetStatusAsync();
     }
