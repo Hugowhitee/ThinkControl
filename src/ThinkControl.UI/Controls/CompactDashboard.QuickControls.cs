@@ -95,7 +95,10 @@ public partial class CompactDashboard
         "Silent" => "Quiet",
         "Normal" => "Balanced",
         "Cool" => "Max cooling",
-        string value when value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase) => "Auto",
+        // A manual output is not Lenovo Auto. Returning the raw value intentionally
+        // leaves the profile ComboBox with no matching selected item, so choosing
+        // Auto is a real selection change that reaches the hardware handoff path.
+        string value when value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase) => value,
         string value => value
     };
 
