@@ -19,6 +19,7 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
         Assert.Contains("private DateTimeOffset _retryAfter", source, StringComparison.Ordinal);
         Assert.Contains("if (now < _retryAfter)", source, StringComparison.Ordinal);
         Assert.Contains("now + FailureRetryInterval", source, StringComparison.Ordinal);
+        Assert.Contains("_retryAfter = DateTimeOffset.MinValue;", source, StringComparison.Ordinal);
 
         Assert.DoesNotContain("GenericWrite", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ChangeFanSpeedIoctl", source, StringComparison.Ordinal);
