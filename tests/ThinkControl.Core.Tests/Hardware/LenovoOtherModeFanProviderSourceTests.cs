@@ -65,7 +65,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
-    public void OtherModeProvider_ReturnsOnlyOwnedChannelsToAutoAndPreservesFailedHandoffEvidence()
+    public void OtherModeProvider_VerifiesLiveResponseAndRetainsFailedAutoOwnership()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
 
@@ -73,16 +73,30 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("_ownedChannels = liveWritable.ToArray();", source, StringComparison.Ordinal);
         Assert.Contains("owned = _ownedChannels;", source, StringComparison.Ordinal);
         Assert.Contains("if (owned.Length == 0)", source, StringComparison.Ordinal);
-        Assert.Contains("foreach (LenovoOtherModeFanChannel channel in owned)", source, StringComparison.Ordinal);
-        Assert.Contains("One or more ThinkControl-owned Lenovo fan channels did not accept the Auto target", source, StringComparison.Ordinal);
+        Assert.Contains("VerifyTargetResponse(method, liveWritable, before, targets", source, StringComparison.Ordinal);
+        Assert.Contains("HasVerifiedTargetProgress", source, StringComparison.Ordinal);
+        Assert.Contains("ReturnChannelsToAuto(method, touched)", source, StringComparison.Ordinal);
+        Assert.Contains("PreserveFailedAutoOwnership(failedAuto)", source, StringComparison.Ordinal);
+        Assert.Contains("failed ownership was retained for a later cleanup retry", source, StringComparison.Ordinal);
         Assert.Contains("Ownership is intentionally preserved through capability refresh", source, StringComparison.Ordinal);
-        Assert.Contains("BestEffortRecoverAuto(touched)", source, StringComparison.Ordinal);
         Assert.Contains("Only channels that actually reached the write phase", source, StringComparison.Ordinal);
 
         // Discovery/readback must never infer ownership, and a metadata-only channel
         // must not be included in exception cleanup merely because it advertised SET.
         Assert.DoesNotContain("_ownedChannels = channels", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("BestEffortRecoverAuto(candidates)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("RecoverAuto(candidates)", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OtherModeProvider_BacksOffFailedLiveWmiProbesUntilRefreshOrDeadline()
+    {
+        string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
+
+        Assert.Contains("LiveProbeFailureBackoff = TimeSpan.FromSeconds(10)", source, StringComparison.Ordinal);
+        Assert.Contains("ShouldBackOffLiveProbe", source, StringComparison.Ordinal);
+        Assert.Contains("RecordLiveProbeFailure", source, StringComparison.Ordinal);
+        Assert.Contains("_liveProbeRetryAfter = DateTimeOffset.MinValue", source, StringComparison.Ordinal);
+        Assert.Contains("_energyDrv.Refresh();", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -107,6 +121,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("if (oem.CanControl)", source, StringComparison.Ordinal);
         Assert.Contains("Raw EC steps are disabled while the X9 exposes Lenovo's constrained OEM target-RPM provider", source, StringComparison.Ordinal);
         Assert.Contains("_activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm", source, StringComparison.Ordinal);
+        Assert.Contains("ownsDiscreteEc = _activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete", source, StringComparison.Ordinal);
+        Assert.Contains("An explicitly owned EC state must be released through 0x2F/0x80 before", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -128,10 +144,12 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         string service = ReadSource("src", "ThinkControl.Service", "ServiceEngine.cs");
         string ui = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs");
         string xaml = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.xaml");
+        string appState = ReadSource("src", "ThinkControl.UI", "ViewModels", "AppState.cs");
 
         Assert.Contains("ToFanControlKind(status.FanControlKind)", service, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", service, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.DiscreteEc", service, StringComparison.Ordinal);
+        Assert.Contains("public string FanControlKind", appState, StringComparison.Ordinal);
 
         Assert.Contains("100% requests each fan's Lenovo-reported maximum target RPM", ui, StringComparison.Ordinal);
         Assert.Contains("RawEcStepsExpander.Visibility = x9EcWriter", ui, StringComparison.Ordinal);
