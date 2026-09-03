@@ -8,8 +8,8 @@ public sealed class FanAutoHandoffSourceTests
     public void ExplicitAuto_ReassertsFirmwareOwnershipBeyondInMemoryOwnerTracking()
     {
         string root = FindRepositoryRoot();
-        string controller = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs"));
-        string otherMode = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs"));
+        string controller = ReadNormalized(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs"));
+        string otherMode = ReadNormalized(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs"));
 
         Assert.Contains("This method represents an explicit user/safety request for Lenovo Auto", controller, StringComparison.Ordinal);
         Assert.Contains("_otherModeFans.RequestFirmwareAuto(out _, out error)", controller, StringComparison.Ordinal);
@@ -34,7 +34,7 @@ public sealed class FanAutoHandoffSourceTests
     public void SavedAutoPreference_IsActuallyAppliedOnX9Startup()
     {
         string root = FindRepositoryRoot();
-        string cooling = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.Cooling.cs"));
+        string cooling = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "App.Cooling.cs"));
 
         Assert.Contains("bool wantsAuto = selected.Equals(\"Lenovo Auto\"", cooling, StringComparison.Ordinal);
         Assert.Contains("DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType)", cooling, StringComparison.Ordinal);
@@ -51,9 +51,9 @@ public sealed class FanAutoHandoffSourceTests
     public void ManualOutput_NeverMakesFanSelectorsPretendAutoIsSelected()
     {
         string root = FindRepositoryRoot();
-        string fans = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs"));
-        string compact = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
-        string home = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
+        string fans = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs"));
+        string compact = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
+        string home = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
 
         Assert.Contains("bool manual = IsManualProfile(profileName);", fans, StringComparison.Ordinal);
         Assert.Contains("RebuildProfileChoices(manual ? _currentProfileId : null);", fans, StringComparison.Ordinal);
@@ -72,6 +72,9 @@ public sealed class FanAutoHandoffSourceTests
         Assert.Contains("IsManualHomeFanState(profile)", home, StringComparison.Ordinal);
         Assert.Contains("manual target is shown truthfully", home, StringComparison.Ordinal);
     }
+
+    private static string ReadNormalized(string path) =>
+        File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
     private static string FindRepositoryRoot()
     {
