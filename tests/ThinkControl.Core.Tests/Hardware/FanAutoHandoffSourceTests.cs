@@ -26,8 +26,22 @@ public sealed class FanAutoHandoffSourceTests
         // Automatic refresh/dispose cleanup remains ownership-aware. The wider
         // reassertion path is reserved for an explicit Auto/safety request.
         Assert.Contains("if (_activeFanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm)", controller, StringComparison.Ordinal);
-        Assert.Contains("try { _otherModeFans.ReturnToAuto(out _); }", controller, StringComparison.Ordinal);
+        Assert.Contains("if (_otherModeFans.ReturnToAuto(out _))", controller, StringComparison.Ordinal);
+        Assert.Contains("_activeFanControlKind = LenovoFanControlKind.None;", controller, StringComparison.Ordinal);
         Assert.DoesNotContain("TryReturnAllFanProvidersToAutoUnlocked();\n            _otherModeFans.RequestFirmwareAuto", controller, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void FailedOemWrite_KeepsControllerOwnershipWhenProviderStillNeedsCleanup()
+    {
+        string root = FindRepositoryRoot();
+        string controller = ReadNormalized(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs"));
+        string otherMode = ReadNormalized(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs"));
+
+        Assert.Contains("internal bool HasOwnedChannels", otherMode, StringComparison.Ordinal);
+        Assert.Contains("if (_otherModeFans.HasOwnedChannels)", controller, StringComparison.Ordinal);
+        Assert.Contains("_activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;", controller, StringComparison.Ordinal);
+        Assert.Contains("failed ownership was retained for a later cleanup retry", otherMode, StringComparison.Ordinal);
     }
 
     [Fact]
