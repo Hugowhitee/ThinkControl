@@ -13,12 +13,14 @@ public sealed class X9FanDiagnosticsSourceTests
         string contracts = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Core", "Diagnostics", "DiagnosticsContracts.cs"));
 
         Assert.Contains("RecordFanTelemetrySample(telemetry);", appDiagnostics, StringComparison.Ordinal);
-        Assert.Contains("FanDiagnosticSampleInterval = TimeSpan.FromSeconds(6)", fanDiagnostics, StringComparison.Ordinal);
+        Assert.Contains("FanDiagnosticSampleInterval = TimeSpan.FromSeconds(30)", fanDiagnostics, StringComparison.Ordinal);
+        Assert.Contains("FanDiagnosticRpmBucket = 250", fanDiagnostics, StringComparison.Ordinal);
         Assert.Contains("State.MachineType, \"21Q6\"", fanDiagnostics, StringComparison.Ordinal);
         Assert.Contains("State.MachineType, \"21Q7\"", fanDiagnostics, StringComparison.Ordinal);
         Assert.Contains("fan.telemetry_sample", fanDiagnostics, StringComparison.Ordinal);
-        Assert.Contains("[\"fan1Rpm\"]", fanDiagnostics, StringComparison.Ordinal);
-        Assert.Contains("[\"fan2Rpm\"]", fanDiagnostics, StringComparison.Ordinal);
+        Assert.Contains("[\"fan1RpmBucket\"]", fanDiagnostics, StringComparison.Ordinal);
+        Assert.Contains("[\"fan2RpmBucket\"]", fanDiagnostics, StringComparison.Ordinal);
+        Assert.Contains("FanRpm: fans.FirstOrDefault()?.Rpm", fanDiagnostics, StringComparison.Ordinal);
         Assert.Contains("\"fan1Rpm\"", contracts, StringComparison.Ordinal);
         Assert.Contains("\"fan2Rpm\"", contracts, StringComparison.Ordinal);
 
