@@ -38,6 +38,16 @@ public partial class AdvancedWindow
 
     private void HomeQuickState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(ViewModels.AppState.CoolingProfile))
+        {
+            // AdvancedWindow.SyncControls is subscribed earlier and historically
+            // fell back to Auto when its fixed item list did not contain a manual
+            // state. Rebuild the Home fan choices on the next dispatcher turn so a
+            // manual target is shown truthfully and Auto remains a distinct action.
+            Dispatcher.BeginInvoke(new Action(RefreshHomeFanProfiles));
+            return;
+        }
+
         if (e.PropertyName != nameof(ViewModels.AppState.SelectedMode))
             return;
 
@@ -89,6 +99,7 @@ public partial class AdvancedWindow
             return;
 
         string selected = _app.State.CoolingProfileDisplay;
+        bool manual = IsManualHomeFanState(selected);
         _syncing = true;
         try
         {
@@ -97,7 +108,11 @@ public partial class AdvancedWindow
             HomeFanBalanced.IsChecked = selected.Equals("Balanced", StringComparison.OrdinalIgnoreCase);
             HomeFanMax.IsChecked = selected.Equals("Max cooling", StringComparison.OrdinalIgnoreCase);
 
-            var values = new List<string> { MoreFanProfilesLabel, "Auto" };
+            var values = new List<string>();
+            if (manual)
+                values.Add(selected);
+            values.Add(MoreFanProfilesLabel);
+            values.Add("Auto");
             values.AddRange(_app.FanProfiles.GetProfiles()
                 .Where(profile => !_app.FanProfiles.IsBuiltIn(profile.Id))
                 .Select(profile => profile.Name));
@@ -115,12 +130,16 @@ public partial class AdvancedWindow
         }
     }
 
+    private static bool IsManualHomeFanState(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase);
+
     private void HomeFanProfile_DropDownOpened(object sender, EventArgs e) => RefreshHomeFanProfiles();
 
     private async void HomeFanProfile_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncing || HomeFanProfileCombo.SelectedItem is not string profile ||
-            profile.Equals(MoreFanProfilesLabel, StringComparison.OrdinalIgnoreCase))
+            profile.Equals(MoreFanProfilesLabel, StringComparison.OrdinalIgnoreCase) ||
+            IsManualHomeFanState(profile))
             return;
 
         HomeFanProfileCombo.IsEnabled = false;
