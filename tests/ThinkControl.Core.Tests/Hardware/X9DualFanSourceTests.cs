@@ -34,7 +34,10 @@ public sealed class X9DualFanSourceTests
             ec,
             StringComparison.Ordinal);
         Assert.Contains("internal int ReadFanRpm() => WithEcLock(ReadFanRpmUnlocked);", ec, StringComparison.Ordinal);
-        Assert.Contains("if (IsThinkControlFanState(_fanControl))", controller, StringComparison.Ordinal);
+        Assert.Contains("bool ownsDiscreteEc =", controller, StringComparison.Ordinal);
+        Assert.Contains("_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete", controller, StringComparison.Ordinal);
+        Assert.Contains("IsThinkControlFanState(_fanControl);", controller, StringComparison.Ordinal);
+        Assert.Contains("if (ownsDiscreteEc)", controller, StringComparison.Ordinal);
         Assert.Contains("_x9FanRpm = _ec.ReadFanRpm();", controller, StringComparison.Ordinal);
         Assert.Contains("FirmwareFanRpmPollInterval = TimeSpan.FromSeconds(10)", controller, StringComparison.Ordinal);
     }
