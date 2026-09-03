@@ -15,6 +15,10 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
         Assert.Contains("TryQueryFanSpeed(handle, index", source, StringComparison.Ordinal);
         Assert.Contains("lenovo-energydrv-", source, StringComparison.Ordinal);
         Assert.Contains("ReadInterval = TimeSpan.FromSeconds(2)", source, StringComparison.Ordinal);
+        Assert.Contains("FailureRetryInterval = TimeSpan.FromSeconds(10)", source, StringComparison.Ordinal);
+        Assert.Contains("private DateTimeOffset _retryAfter", source, StringComparison.Ordinal);
+        Assert.Contains("if (now < _retryAfter)", source, StringComparison.Ordinal);
+        Assert.Contains("now + FailureRetryInterval", source, StringComparison.Ordinal);
 
         Assert.DoesNotContain("GenericWrite", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ChangeFanSpeedIoctl", source, StringComparison.Ordinal);
@@ -81,10 +85,11 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
 
         Assert.Contains("_activeFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;", controller, StringComparison.Ordinal);
         Assert.Contains(
-            "if (_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete &&\n                IsThinkControlFanState(_fanControl) && _ec is not null)",
+            "if (_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete && _ec is not null)",
             normalized,
             StringComparison.Ordinal);
         Assert.Contains("merely reading\n            // an external/manual EC state does not make ThinkControl its owner", normalized, StringComparison.Ordinal);
+        Assert.Contains("_ec.ReturnToBios();", controller, StringComparison.Ordinal);
 
         // Startup/status probing may observe another tool's EC state. Cleanup must not
         // claim that state merely because the numeric register resembles a manual step.
