@@ -77,6 +77,20 @@ elseif (-not (Test-Path -LiteralPath $resolvedInput -PathType Container)) {
     throw "InputPath must be a capture evidence ZIP or a directory."
 }
 
+function Get-CompatibleRelativePath {
+    param([string]$Root, [string]$Path)
+
+    # Windows PowerShell 5.1 runs on .NET Framework, where
+    # System.IO.Path.GetRelativePath does not exist. Keep the analyzer compatible
+    # with the same inbox PowerShell that the capture script targets.
+    $rootFull = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+    $pathFull = [IO.Path]::GetFullPath($Path)
+    if ($pathFull.StartsWith($rootFull, [StringComparison]::OrdinalIgnoreCase)) {
+        return $pathFull.Substring($rootFull.Length)
+    }
+    return [IO.Path]::GetFileName($pathFull)
+}
+
 function Find-BytePatternOffsets {
     param(
         [byte[]]$Data,
@@ -203,16 +217,42 @@ function Get-NearbyRelevantStrings {
     return @(Get-PrintableStrings $Data $start ($endExclusive - $start) $keywords $maximumNearbyStrings)
 }
 
+function New-AnalysisRow {
+    param(
+        [string]$File,
+        [long]$SizeBytes,
+        [string]$Skipped = "",
+        [string]$Error = "",
+        [string]$Sha256 = "",
+        [string]$FileVersion = "",
+        [string]$ProductName = "",
+        [string]$CompanyName = "",
+        [object]$KnownIoctls = $null,
+        [object[]]$RelevantStrings = @()
+    )
+
+    # Every row has the same shape so Set-StrictMode cannot fail later merely
+    # because a file was oversized or one static read failed.
+    return [pscustomobject]@{
+        file = $File
+        sizeBytes = $SizeBytes
+        skipped = $Skipped
+        error = $Error
+        sha256 = $Sha256
+        fileVersion = $FileVersion
+        productName = $ProductName
+        companyName = $CompanyName
+        knownIoctls = $KnownIoctls
+        relevantStrings = @($RelevantStrings)
+    }
+}
+
 function Get-FileAnalysis {
     param([IO.FileInfo]$File, [string]$Root)
 
-    $relative = [IO.Path]::GetRelativePath($Root, $File.FullName)
+    $relative = Get-CompatibleRelativePath $Root $File.FullName
     if ($File.Length -gt $maximumFileBytes) {
-        return [pscustomobject]@{
-            file = $relative
-            sizeBytes = [long]$File.Length
-            skipped = "file exceeds 32 MiB static-analysis limit"
-        }
+        return New-AnalysisRow -File $relative -SizeBytes ([long]$File.Length) -Skipped "file exceeds 32 MiB static-analysis limit"
     }
 
     $data = [IO.File]::ReadAllBytes($File.FullName)
@@ -239,16 +279,15 @@ function Get-FileAnalysis {
     $version = $null
     try { $version = $File.VersionInfo } catch { }
 
-    return [pscustomobject]@{
-        file = $relative
-        sizeBytes = [long]$File.Length
-        sha256 = (Get-FileHash -LiteralPath $File.FullName -Algorithm SHA256).Hash
-        fileVersion = if ($null -ne $version) { [string]$version.FileVersion } else { "" }
-        productName = if ($null -ne $version) { [string]$version.ProductName } else { "" }
-        companyName = if ($null -ne $version) { [string]$version.CompanyName } else { "" }
-        knownIoctls = [pscustomobject]$ioctlHits
-        relevantStrings = $wholeFileStrings
-    }
+    return New-AnalysisRow \
+        -File $relative \
+        -SizeBytes ([long]$File.Length) \
+        -Sha256 ((Get-FileHash -LiteralPath $File.FullName -Algorithm SHA256).Hash) \
+        -FileVersion $(if ($null -ne $version) { [string]$version.FileVersion } else { "" }) \
+        -ProductName $(if ($null -ne $version) { [string]$version.ProductName } else { "" }) \
+        -CompanyName $(if ($null -ne $version) { [string]$version.CompanyName } else { "" }) \
+        -KnownIoctls ([pscustomobject]$ioctlHits) \
+        -RelevantStrings $wholeFileStrings
 }
 
 try {
@@ -262,18 +301,19 @@ try {
     foreach ($file in $files) {
         try { $analyses.Add((Get-FileAnalysis $file $root)) }
         catch {
-            $analyses.Add([pscustomobject]@{
-                file = [IO.Path]::GetRelativePath($root, $file.FullName)
-                error = $_.Exception.GetType().Name
-            })
+            $analyses.Add((New-AnalysisRow \
+                -File (Get-CompatibleRelativePath $root $file.FullName) \
+                -SizeBytes ([long]$file.Length) \
+                -Error $_.Exception.GetType().Name))
         }
     }
 
     $interesting = @($analyses | Where-Object {
         $row = $_
-        if ($null -eq $row.knownIoctls) { return $false }
-        foreach ($property in $row.knownIoctls.PSObject.Properties) {
-            if ($null -ne $property.Value -and $property.Value.countCaptured -gt 0) { return $true }
+        if ($null -ne $row.knownIoctls) {
+            foreach ($property in $row.knownIoctls.PSObject.Properties) {
+                if ($null -ne $property.Value -and $property.Value.countCaptured -gt 0) { return $true }
+            }
         }
         return @($row.relevantStrings).Count -gt 0
     })
