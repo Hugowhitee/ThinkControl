@@ -31,9 +31,11 @@ internal sealed class LenovoEnergyDrvFanProvider
     private const int ExpectedFanCount = 2;
     private const int MaximumPlausibleRpm = 20_000;
     private static readonly TimeSpan ReadInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan FailureRetryInterval = TimeSpan.FromSeconds(10);
 
     private readonly object _gate = new();
     private DateTimeOffset _lastRead = DateTimeOffset.MinValue;
+    private DateTimeOffset _retryAfter = DateTimeOffset.MinValue;
     private LenovoEnergyDrvFanStatus _cached = new(
         false,
         false,
@@ -45,6 +47,7 @@ internal sealed class LenovoEnergyDrvFanProvider
         lock (_gate)
         {
             _lastRead = DateTimeOffset.MinValue;
+            _retryAfter = DateTimeOffset.MinValue;
             _cached = new LenovoEnergyDrvFanStatus(
                 false,
                 false,
@@ -57,11 +60,16 @@ internal sealed class LenovoEnergyDrvFanProvider
     {
         lock (_gate)
         {
+            if (now < _retryAfter)
+                return _cached;
             if (now - _lastRead < ReadInterval)
                 return _cached;
 
             _lastRead = now;
             _cached = ReadUncached();
+            _retryAfter = _cached.Available
+                ? DateTimeOffset.MinValue
+                : now + FailureRetryInterval;
             return _cached;
         }
     }
