@@ -18,7 +18,7 @@ Current `main` before the alpha.36 merge:
 Current release candidate:
 
 - branch: `fix/x9-dual-fan-control-stability`
-- PR: #71 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**
+- PR: #72 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**
 - version: `v0.1.0-alpha.36`
 - release scope: post-alpha.35 touchpad corner completion + X9 dual-fan/native-provider hardening + bounded diagnostics/research support
 - alpha.36 remains a prerelease; physical X9 behavior is not inferred from hosted runners

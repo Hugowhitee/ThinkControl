@@ -357,7 +357,15 @@ public sealed class LenovoHardwareController : IDisposable
             }
 
             if (!_otherModeFans.SetPercent(percent, out detail, out error))
+            {
+                // SetPercent can fail after one or more OEM targets were accepted and
+                // their target-0 rollback also failed. Preserve provider ownership in
+                // the controller so refresh/disposal will retry that cleanup instead
+                // of forgetting a potentially live manual target.
+                if (_otherModeFans.HasOwnedChannels)
+                    _activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;
                 return false;
+            }
 
             _activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;
             _x9FanRpm = null;

@@ -68,6 +68,7 @@ internal sealed class LenovoOtherModeFanProvider
     private const int TargetVerificationDelayMs = 450;
     private const int TargetVerificationAttempts = 2;
     private static readonly TimeSpan LiveProbeFailureBackoff = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan DiscoveryFailureBackoff = TimeSpan.FromSeconds(10);
 
     private readonly object _gate = new();
     private readonly LenovoEnergyDrvFanProvider _energyDrv = new();
@@ -76,6 +77,8 @@ internal sealed class LenovoOtherModeFanProvider
     private LenovoOtherModeFanChannel[] _channels = [];
     private LenovoOtherModeFanChannel[] _ownedChannels = [];
     private string _discoveryDetail = "Lenovo Other Mode fan capability not probed";
+    private DateTimeOffset _discoveryRetryAfter = DateTimeOffset.MinValue;
+    private string? _lastDiscoveryFailure;
     private DateTimeOffset _liveProbeRetryAfter = DateTimeOffset.MinValue;
     private string? _lastLiveProbeFailure;
 
@@ -94,6 +97,8 @@ internal sealed class LenovoOtherModeFanProvider
         {
             _discoveryComplete = false;
             _channels = [];
+            _discoveryRetryAfter = DateTimeOffset.MinValue;
+            _lastDiscoveryFailure = null;
             _liveProbeRetryAfter = DateTimeOffset.MinValue;
             _lastLiveProbeFailure = null;
             // Ownership is intentionally preserved through capability refresh. The
@@ -101,6 +106,15 @@ internal sealed class LenovoOtherModeFanProvider
             // we must retain the exact attribute IDs so a later cleanup can retry.
             _discoveryDetail = "Lenovo Other Mode fan capability not probed";
             _energyDrv.Refresh();
+        }
+    }
+
+    internal bool HasOwnedChannels
+    {
+        get
+        {
+            lock (_gate)
+                return _ownedChannels.Length > 0;
         }
     }
 
@@ -412,6 +426,14 @@ internal sealed class LenovoOtherModeFanProvider
         if (_discoveryComplete)
             return;
 
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        if (now < _discoveryRetryAfter)
+        {
+            string lastFailure = _lastDiscoveryFailure ?? "previous discovery failure";
+            _discoveryDetail = $"Lenovo Other Mode discovery retry deferred after {lastFailure}";
+            return;
+        }
+
         _discoveryComplete = true;
         _channels = [];
         try
@@ -459,6 +481,8 @@ internal sealed class LenovoOtherModeFanProvider
             }
 
             _channels = channels.ToArray();
+            _discoveryRetryAfter = DateTimeOffset.MinValue;
+            _lastDiscoveryFailure = null;
             if (_channels.Length == 0)
             {
                 string capDetail = capabilityFailure is null
@@ -481,7 +505,11 @@ internal sealed class LenovoOtherModeFanProvider
         catch (Exception ex)
         {
             _channels = [];
-            _discoveryDetail = $"Lenovo Other Mode capability discovery failed: {DescribeManagementFailure(ex)}";
+            string failure = $"Lenovo Other Mode capability discovery failed: {DescribeManagementFailure(ex)}";
+            _lastDiscoveryFailure = failure;
+            _discoveryRetryAfter = DateTimeOffset.UtcNow + DiscoveryFailureBackoff;
+            _discoveryComplete = false;
+            _discoveryDetail = $"{failure} · retry after bounded backoff";
         }
     }
 
