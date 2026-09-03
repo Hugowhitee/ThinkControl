@@ -379,39 +379,64 @@ public sealed class LenovoHardwareController : IDisposable
 
         lock (_gate)
         {
-            bool success = true;
-            var failures = new List<string>(2);
-
+            // This method represents an explicit user/safety request for Lenovo Auto,
+            // not passive cleanup. Reassert firmware ownership even if an app/service
+            // restart or provider refresh lost the in-memory ownership marker.
             if (_activeFanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm)
             {
-                if (!_otherModeFans.ReturnToAuto(out string? oemError))
-                {
-                    success = false;
-                    failures.Add(oemError ?? "Lenovo OEM fan Auto handoff failed");
-                }
+                if (!_otherModeFans.ReturnToAuto(out error))
+                    return false;
+                _activeFanControlKind = LenovoFanControlKind.None;
+                return true;
             }
 
-            if (_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete &&
-                IsThinkControlFanState(_fanControl) && _ec is not null)
+            LenovoOtherModeFanStatus oem = _otherModeFans.ReadStatus();
+            if (HasNativeOemFanTelemetry(oem))
+                _nativeOemFanTelemetryConfirmed = true;
+            if (oem.CanControl)
             {
-                DateTimeOffset now = DateTimeOffset.UtcNow;
-                try
+                if (!_otherModeFans.RequestFirmwareAuto(out _, out error))
+                    return false;
+                _activeFanControlKind = LenovoFanControlKind.None;
+                return true;
+            }
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            if (!EnsureX9Ec(now) || _ec is null)
+            {
+                error = _lastEcError ?? "Lenovo Auto could not be verified because neither the OEM target-RPM writer nor the X9 EC release path is available.";
+                return false;
+            }
+
+            try
+            {
+                // Read the real EC state immediately before the explicit Auto request.
+                // Do not trust _activeFanControlKind here: it is intentionally
+                // service-lifetime state and can be lost across a restart while the EC
+                // remains in a manual level left by an earlier process.
+                byte control = _ec.ReadFanControl();
+                _fanControl = control;
+                if (IsThinkControlFanState(control))
                 {
                     _ec.ReturnToBios();
                     _fanControl = ThinkPadRegisters.BiosControl;
                     InvalidateFanRpmAfterStateChange(now);
                 }
-                catch (Exception ex)
+                else if (control != ThinkPadRegisters.BiosControl)
                 {
-                    success = false;
-                    failures.Add($"Legacy EC Auto handoff failed: {ex.Message}");
+                    error = $"EC Auto handoff refused an unexpected fan state 0x{control:X2}.";
+                    return false;
                 }
-            }
 
-            if (success)
                 _activeFanControlKind = LenovoFanControlKind.None;
-            error = failures.Count == 0 ? null : string.Join(" · ", failures);
-            return success;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                MarkEcFailed(ex, now);
+                error = $"Lenovo Auto could not be verified: {ex.Message}";
+                return false;
+            }
         }
     }
 

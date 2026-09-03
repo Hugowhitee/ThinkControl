@@ -116,13 +116,33 @@ public partial class App
 
     private async Task TryRestoreCoolingPreferenceAsync(ServiceResponse response)
     {
-        if (_coolingPreferenceRestoreAttempted || response.Capabilities?.FanControl != true)
+        if (_coolingPreferenceRestoreAttempted)
+            return;
+
+        string selected = UserSettings.Current.CoolingProfile;
+        bool wantsAuto = selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
+                         selected.Equals("Auto", StringComparison.OrdinalIgnoreCase);
+        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType);
+
+        // A saved Auto preference is itself an explicit request to give the X9
+        // firmware ownership. Reassert it once on startup even when the current
+        // status snapshot reports fan control unavailable: a previous UI/service
+        // crash or provider refresh can lose ThinkControl's in-memory ownership
+        // marker while the EC/OEM target remains manual. Other profiles still need
+        // an actively verified writable provider before they are restored.
+        if (response.Capabilities?.FanControl != true && !(wantsAuto && verifiedX9))
             return;
 
         _coolingPreferenceRestoreAttempted = true;
-        string selected = UserSettings.Current.CoolingProfile;
-        if (selected == "Lenovo Auto")
+        if (wantsAuto)
         {
+            ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+            if (auto?.Success != true)
+            {
+                State.HardwareAccess = auto?.Error ?? "Saved Lenovo Auto preference could not be reasserted";
+                return;
+            }
+
             State.CoolingProfile = "Lenovo Auto";
             return;
         }
@@ -131,6 +151,12 @@ public partial class App
         if (definition is null)
         {
             UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
+            ServiceResponse? auto = verifiedX9 ? await HardwareClient.ReturnFanToAutoAsync() : null;
+            if (verifiedX9 && auto?.Success != true)
+            {
+                State.HardwareAccess = auto?.Error ?? "Lenovo Auto fallback could not be reasserted";
+                return;
+            }
             State.CoolingProfile = "Lenovo Auto";
             return;
         }

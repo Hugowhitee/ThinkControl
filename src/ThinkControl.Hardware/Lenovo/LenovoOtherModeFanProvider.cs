@@ -290,6 +290,73 @@ internal sealed class LenovoOtherModeFanProvider
         }
     }
 
+    // This is deliberately different from ReturnToAuto(). ReturnToAuto() is used
+    // by automatic cleanup and touches only channels this provider knows it owns.
+    // RequestFirmwareAuto() is for an explicit user/safety request to reassert
+    // Lenovo firmware ownership even after a UI/service restart lost that in-memory
+    // ownership record. It still requires two independently live safe channels.
+    internal bool RequestFirmwareAuto(out string? detail, out string? error)
+    {
+        detail = null;
+        error = null;
+
+        LenovoOtherModeFanChannel[] channels;
+        lock (_gate)
+        {
+            EnsureDiscoveredLocked();
+            channels = _channels;
+        }
+
+        LenovoOtherModeFanChannel[] candidates = channels.Where(IsWritableChannel).ToArray();
+        if (candidates.Length < 2)
+        {
+            error = $"Lenovo Other Mode exposed only {candidates.Length} safe writable fan channel(s); direct Auto reassertion needs two live channels.";
+            return false;
+        }
+
+        try
+        {
+            using ManagementObject? method = FindActiveMethodObject();
+            if (method is null)
+            {
+                error = "LENOVO_OTHER_METHOD is unavailable while reasserting Lenovo Auto.";
+                return false;
+            }
+
+            LenovoOtherModeFanChannel[] liveWritable = candidates
+                .Where(channel => TryGetFeatureValue(method, channel.AttributeId, out uint current) && current <= MaximumPlausibleRpm)
+                .ToArray();
+            if (liveWritable.Length < 2)
+            {
+                error = $"Only {liveWritable.Length}/{candidates.Length} OEM fan channels passed the live read gate; Lenovo Auto could not be reasserted safely.";
+                return false;
+            }
+
+            var failures = new List<string>();
+            foreach (LenovoOtherModeFanChannel channel in liveWritable)
+            {
+                if (!TrySetFeatureValue(method, channel.AttributeId, 0, out string? setError))
+                    failures.Add($"Fan {channel.Index + 1}: {setError ?? "OEM method rejected target 0"}");
+            }
+
+            if (failures.Count > 0)
+            {
+                error = "Lenovo Auto reassertion failed on " + string.Join(" · ", failures);
+                return false;
+            }
+
+            lock (_gate)
+                _ownedChannels = [];
+            detail = $"Lenovo Auto reasserted through OEM target 0 on {liveWritable.Length} live fan channels";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"Lenovo Other Mode Auto reassertion failed: {ex.Message}";
+            return false;
+        }
+    }
+
     private LenovoOtherModeFanStatus BuildReadOnlyEnergyDrvFallback(string otherModeDetail)
     {
         LenovoEnergyDrvFanStatus energy = _energyDrv.ReadStatus(DateTimeOffset.UtcNow);
