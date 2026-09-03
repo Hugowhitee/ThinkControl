@@ -48,11 +48,12 @@ public sealed class FanAutoHandoffSourceTests
     }
 
     [Fact]
-    public void ManualOutput_NeverMakesFullOrCompactSelectorsPretendAutoIsSelected()
+    public void ManualOutput_NeverMakesFanSelectorsPretendAutoIsSelected()
     {
         string root = FindRepositoryRoot();
         string fans = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs"));
         string compact = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
+        string home = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
 
         Assert.Contains("bool manual = IsManualProfile(profileName);", fans, StringComparison.Ordinal);
         Assert.Contains("RebuildProfileChoices(manual ? _currentProfileId : null);", fans, StringComparison.Ordinal);
@@ -65,6 +66,11 @@ public sealed class FanAutoHandoffSourceTests
         Assert.Contains("values.Add(current);", compact, StringComparison.Ordinal);
         Assert.Contains("if (IsManualFanState(raw))", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => \"Auto\"", compact, StringComparison.Ordinal);
+
+        Assert.Contains("if (e.PropertyName == nameof(ViewModels.AppState.CoolingProfile))", home, StringComparison.Ordinal);
+        Assert.Contains("if (manual)\n                values.Add(selected);", home, StringComparison.Ordinal);
+        Assert.Contains("IsManualHomeFanState(profile)", home, StringComparison.Ordinal);
+        Assert.Contains("manual target is shown truthfully", home, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
