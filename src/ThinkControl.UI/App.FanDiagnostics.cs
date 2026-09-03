@@ -5,7 +5,8 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
-    private static readonly TimeSpan FanDiagnosticSampleInterval = TimeSpan.FromSeconds(6);
+    private static readonly TimeSpan FanDiagnosticSampleInterval = TimeSpan.FromSeconds(30);
+    private const int FanDiagnosticRpmBucket = 250;
     private DateTimeOffset _lastFanDiagnosticSampleAt = DateTimeOffset.MinValue;
     private string _lastFanDiagnosticMode = string.Empty;
 
@@ -31,15 +32,19 @@ public partial class App
         _lastFanDiagnosticSampleAt = now;
         _lastFanDiagnosticMode = mode;
 
+        // DiagnosticEvent.FanRpm retains an exact representative value, while the
+        // compacting signature only sees coarse RPM buckets. Normal tachometer jitter
+        // therefore cannot occupy all 240 exported events and evict failures/lifecycle
+        // evidence from a long support session.
         var tags = new Dictionary<string, string>
         {
             ["profile"] = string.IsNullOrWhiteSpace(telemetry.CoolingProfile) ? "unknown" : telemetry.CoolingProfile,
             ["state"] = telemetry.FanState
         };
         if (fans.Length > 0)
-            tags["fan1Rpm"] = fans[0].Rpm.ToString();
+            tags["fan1RpmBucket"] = BucketRpm(fans[0].Rpm).ToString();
         if (fans.Length > 1)
-            tags["fan2Rpm"] = fans[1].Rpm.ToString();
+            tags["fan2RpmBucket"] = BucketRpm(fans[1].Rpm).ToString();
 
         RecordDiagnostic(new DiagnosticEvent(
             now,
@@ -53,4 +58,7 @@ public partial class App
             TemperatureC: telemetry.ControlTemperatureC,
             Tags: tags));
     }
+
+    private static int BucketRpm(int rpm) =>
+        Math.Clamp((int)Math.Round(rpm / (double)FanDiagnosticRpmBucket) * FanDiagnosticRpmBucket, 0, 20_000);
 }
