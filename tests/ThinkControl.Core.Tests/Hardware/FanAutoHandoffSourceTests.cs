@@ -47,6 +47,24 @@ public sealed class FanAutoHandoffSourceTests
         Assert.DoesNotContain("if (selected == \"Lenovo Auto\")\n        {\n            State.CoolingProfile = \"Lenovo Auto\";\n            return;", cooling, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ManualOutput_NeverMakesFullOrCompactSelectorsPretendAutoIsSelected()
+    {
+        string root = FindRepositoryRoot();
+        string fans = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs"));
+        string compact = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
+
+        Assert.Contains("bool manual = IsManualProfile(profileName);", fans, StringComparison.Ordinal);
+        Assert.Contains("ProfileComboBox.SelectedItem = selected;", fans, StringComparison.Ordinal);
+        Assert.DoesNotContain("ProfileComboBox.SelectedItem = selected ?? _profileChoices.FirstOrDefault();", fans, StringComparison.Ordinal);
+        Assert.Contains("CurrentProfileIdForDisplay(_app.State.CoolingProfile", fans, StringComparison.Ordinal);
+        Assert.Contains("makes a subsequent Auto choice a real SelectionChanged event", fans, StringComparison.Ordinal);
+
+        Assert.Contains("value.StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => value", compact, StringComparison.Ordinal);
+        Assert.DoesNotContain("value.StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => \"Auto\"", compact, StringComparison.Ordinal);
+        Assert.Contains("choosing Auto is a real selection change", compact, StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         foreach (string start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })
