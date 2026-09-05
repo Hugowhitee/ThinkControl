@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.37**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
+This document describes the support model at **v0.1.0-alpha.38**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access or decide which setup/calibration/effect workflows appear.
 
 ## Support levels
 
@@ -27,7 +27,7 @@ A write control is enabled only when the active provider advertises the exact se
 
 ## ThinkPad X9 15 Gen 1
 
-Machine types `21Q6` / `21Q7` are the current verified X9 development path. That identity is only one part of the gate: the relevant low-level provider must also initialize and validate the expected hardware behavior before writes become available.
+Machine types `21Q6` / `21Q7` are the current verified X9 development path. That identity is only one part of the gate: the relevant low-level provider must also initialize and validate the expected hardware behavior before writes become available. The X9 is a reference implementation, not the product boundary.
 
 Current X9-oriented areas include:
 
@@ -46,11 +46,14 @@ If two native Lenovo fan channels have been proven during a hardware-service lif
 
 Fan features are kept semantically distinct:
 
-- **Lenovo Auto / firmware Auto**: firmware owns cooling;
+- **Firmware/OEM Auto**: firmware owns cooling;
 - **OEM target RPM**: a provider accepts a real per-fan RPM target and exposes its own capability/range contract; target `0` is reserved for Auto on Lenovo Other Mode;
 - **named fan curves**: ThinkControl's graph-based curve model, routed through the active provider's semantic output contract;
-- **discrete EC output**: model/provider-specific fallback states, not fake continuous PWM;
+- **discrete output**: provider/model-specific states, not fake continuous PWM;
+- **calibration**: a provider-advertised mapping workflow used only when that provider requires measured evidence before translating semantic percentages;
 - **telemetry-only**: RPM/state can be shown without enabling writes.
+
+The generic service/UI contract carries `FanCalibrationSupported` and `FanCalibrationRequired`. The Fans page must not recreate those decisions from `21Q6`, `21Q7`, X9, Lenovo or provider-detail strings. A future fan provider can advertise no calibration, optional calibration or a required mapping without adding a model-specific page branch.
 
 On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. ThinkControl requires at least two independently live, constrained writable channels before exposing direct target-RPM control; extra/phantom firmware records do not make the whole provider all-or-nothing. ThinkControl records which channels it actually owns and returns those owned channels to Auto on handoff/failure where the provider remains reachable.
 
@@ -61,11 +64,12 @@ The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto`. Th
 ## Keyboard semantics
 
 - Off / Low / High are static hardware states when available.
-- Auto means a verified Lenovo/OEM firmware mode. ThinkControl no longer substitutes a software idle-dimming loop and calls it Auto.
+- Auto means a verified firmware/OEM mode where supported. ThinkControl does not substitute a software idle-dimming loop and call it Auto.
 - Breathing / Reactive / Audio are separate ThinkControl user-session effects.
-- Effects require the direct keyboard provider; the Vantage fallback is intentionally excluded from repeated effect writes so Lenovo brightness pop-ups are not generated continuously.
+- Effects appear only when the active provider advertises `KeyboardEffects`; generic UI does not infer support from a Lenovo/Vantage/backend-name string.
+- A saved effect is restored only after that capability has been observed.
 
-A machine with only basic/Vantage-mediated brightness support may therefore expose static/firmware behavior without exposing Effects.
+The current Lenovo Vantage fallback intentionally does not advertise repeated user-session effects because repeated writes can show Lenovo brightness pop-ups. A machine may therefore expose static/firmware behavior without exposing Effects. Other OEMs can advertise the same semantic capability from their own provider without creating vendor-specific Keyboard pages.
 
 ## Touchpad semantics
 
@@ -73,13 +77,15 @@ The Touchpad editor exposes six selectable zones: Top, Bottom, Left, Right, Top-
 
 An enabled top-corner launch uses one canonical physical **guard → diagonal lane → rounded end-cap** shape. The visible quarter-circle corner guard is also the recognizer's real first-frame priority area: a finger that begins there belongs to the enabled corner before the adjacent top/side edge can claim it. The lane and rounded cap are real usable areas too, not decorative hit targets. Disabled corner launches do not reserve that runtime input, so normal edge gestures remain available.
 
-Both corner visuals are generated from the same left-local physical geometry; the right corner is an exact horizontal mirror. The center visual is a directional arrow rather than a neutral divider, the end is a semicircular arc rather than a flat 90-degree cross-line, and an enabled action shows its Compact/Advanced semantic icon and label.
+Both corner visuals are generated from the same left-local physical geometry; the right corner is an exact horizontal mirror. Edge visual bands are clipped around corner geometry and the same fill/boundary state grammar is used for edges and corners, so a corner does not behave or look like a separate overlay. The center visual is a directional arrow, the end is a semicircular arc, and an enabled action shows its Compact/Advanced semantic icon and label.
 
 Per corner, **Reverse swipe closes ThinkControl** can be enabled independently. With that option on, starting in the rounded inner cap and swiping deliberately back toward the physical corner is classified as an outward corner gesture and hides whichever ThinkControl surface is visible. With it off, the same end-cap remains part of the normal inward launch area. Wrong-direction/rejected corner candidates stay locked out until lift and never fall through into a nearby edge gesture.
 
 The reverse-close action reuses the canonical application hide-to-tray transition. Compact completes the transition-owned synchronous hide before shell-state verification; this does not change the separate animated tray-toggle path. The mirrored reverse visual fixture is built from a clean non-live corner baseline so its trail contains only the outward gesture being validated.
 
-Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream. Track-center behavior remains a separate optional affordance and does not create a second corner-selection system.
+Track control can optionally expose a small visible center Play/Pause target inside the active edge lane. That target accepts only a short low-travel tap; the surrounding edge remains Previous/Next swipe space. It does not add a second overlay/recognizer or hidden hold gesture.
+
+Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream.
 
 ## Unknown/new hardware
 
@@ -100,10 +106,12 @@ Hosted CI can prove source/build/lifecycle behavior but not physical hardware fe
 - actual X9 direct Lenovo target-RPM activation/range, two-fan response and repeated Auto recovery on the installed firmware/software stack;
 - EnergyDrv/native telemetry correlation when Other Mode does not expose a writable contract;
 - final maximum-cooling comparison with naturally hot Lenovo Auto;
+- provider-driven fan calibration behavior on the discrete X9 fallback and future devices;
 - Lenovo keyboard Auto/Fn+Space/readback agreement;
 - direct-provider effect behavior without Lenovo pop-ups;
 - haptic Touchpad corner sensitivity/symmetry and high-rate responsiveness;
 - corner guard reliability against nearby top/side gestures on real finger contact;
+- center Play/Pause tap reliability versus surrounding Previous/Next swipes;
 - reverse-close feel and accidental-trigger rate for both mirrored corners;
 - Audio volume/microphone behavior across real navigation during a drag;
 - provider repair/restart behavior after real PawnIO/service failure states.
