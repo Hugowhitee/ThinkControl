@@ -17,16 +17,12 @@ internal sealed record CoolingSupervisorSnapshot(
 
 /// <summary>
 /// Sole owner of ThinkControl fan writes. Graph curves, manual requests and fan
-/// characterization are serialized here so two callers can never fight over EC.
-/// Lenovo Auto is the fail-safe for missing telemetry, unsafe heat, cancellation
-/// and service shutdown.
+/// characterization are serialized here so two callers can never fight over a
+/// hardware provider. Lenovo Auto is the fail-safe for missing telemetry, unsafe
+/// heat, provider changes, cancellation and service shutdown.
 /// </summary>
 internal sealed class FanSupervisor : IDisposable
 {
-    // Managed curves intentionally run at a low cadence. EC/telemetry access is not
-    // a real-time servo API; polling it aggressively only adds low-level I/O and can
-    // make adjacent graph states hunt audibly. Safety still evaluates raw temperature
-    // on every tick and immediately hands cooling back to Lenovo at the safety limit.
     private static readonly TimeSpan TickInterval = TimeSpan.FromSeconds(4);
     private static readonly TimeSpan MinimumUpshiftDwell = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan MinimumDownshiftDwell = TimeSpan.FromSeconds(14);
@@ -55,11 +51,14 @@ internal sealed class FanSupervisor : IDisposable
     private int? _appliedPercent;
     private int? _curveTargetPercent;
     private double? _smoothedTemperatureC;
+    private LenovoFanControlKind _managedFanControlKind = LenovoFanControlKind.None;
     private bool _safetyOverride;
     private string _status = "Lenovo firmware owns fan control";
     private DateTimeOffset _lastOutputChange = DateTimeOffset.MinValue;
     private int? _pendingLevel;
+    private int? _pendingPercent;
     private DateTimeOffset _pendingLevelSince = DateTimeOffset.MinValue;
+    private DateTimeOffset _pendingPercentSince = DateTimeOffset.MinValue;
 
     private bool _characterizationRunning;
     private int? _characterizationLevel;
@@ -175,8 +174,11 @@ internal sealed class FanSupervisor : IDisposable
             _appliedPercent = null;
             _curveTargetPercent = null;
             _smoothedTemperatureC = status.ControlTemperatureC!.Value;
+            _managedFanControlKind = status.FanControlKind;
             _safetyOverride = false;
-            _status = $"{name} fan curve active · targets map to verified X9 fan states";
+            _status = status.FanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm
+                ? $"{name} fan curve active · continuous targets use Lenovo OEM target-RPM control"
+                : $"{name} fan curve active · targets map to verified X9 EC fan states";
             _lastOutputChange = DateTimeOffset.MinValue;
             ClearPendingTransitionLocked();
         }
@@ -217,9 +219,9 @@ internal sealed class FanSupervisor : IDisposable
         }
 
         status = _hardware.ReadStatus();
-        if (!status.CanFanControl || !status.ControlTemperatureC.HasValue)
+        if (!status.CanFanControl || status.FanControlKind == LenovoFanControlKind.None || !status.ControlTemperatureC.HasValue)
         {
-            error = "Managed cooling requires the verified fan-control provider and a valid control-temperature sensor.";
+            error = "Managed cooling requires a verified fan-control provider and a valid control-temperature sensor.";
             return false;
         }
         if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(status.ControlTemperatureC.Value))
@@ -241,6 +243,11 @@ internal sealed class FanSupervisor : IDisposable
         }
         if (!CanEnterManagedCooling(out LenovoHardwareStatus? preflight, out error) || preflight is null)
             return false;
+        if (preflight.FanControlKind != LenovoFanControlKind.ThinkPadEcDiscrete)
+        {
+            error = "Raw EC steps are diagnostic controls for the discrete X9 EC fallback only. The active Lenovo OEM provider uses target RPM instead.";
+            return false;
+        }
         if (!SetHardwareLevelSerialized(level, out error))
             return false;
 
@@ -254,8 +261,9 @@ internal sealed class FanSupervisor : IDisposable
             _appliedPercent = estimated;
             _curveTargetPercent = null;
             _smoothedTemperatureC = preflight.ControlTemperatureC!.Value;
+            _managedFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;
             _safetyOverride = false;
-            _status = $"Manual EC step {level} · ~{estimated}% of verified maximum · {preflight.ControlTemperatureC.Value:0.#} °C";
+            _status = $"Manual EC step {level} · ~{estimated}% of verified EC range · {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
             ClearPendingTransitionLocked();
         }
@@ -274,19 +282,36 @@ internal sealed class FanSupervisor : IDisposable
         if (!CanEnterManagedCooling(out LenovoHardwareStatus? preflight, out error) || preflight is null)
             return false;
 
-        FanOutputMapping.State output = ResolveOutputState(percent);
-        if (!ApplyOutputStateSerialized(output, out string? hardwareDetail, out error))
-            return false;
+        int? appliedLevel;
+        int appliedPercent;
+        string? hardwareDetail;
+
+        if (preflight.FanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm)
+        {
+            if (!SetHardwarePercentSerialized(percent, out hardwareDetail, out error))
+                return false;
+            appliedLevel = null;
+            appliedPercent = percent;
+        }
+        else
+        {
+            FanOutputMapping.State output = ResolveOutputState(percent);
+            if (!ApplyOutputStateSerialized(output, out hardwareDetail, out error))
+                return false;
+            appliedLevel = output.HardwareState;
+            appliedPercent = output.EstimatedPercent;
+        }
 
         lock (_gate)
         {
             _activeCurve = null;
             _manualLevel = null;
             _manualPercent = percent;
-            _appliedLevel = output.HardwareState;
-            _appliedPercent = output.EstimatedPercent;
+            _appliedLevel = appliedLevel;
+            _appliedPercent = appliedPercent;
             _curveTargetPercent = null;
             _smoothedTemperatureC = preflight.ControlTemperatureC!.Value;
+            _managedFanControlKind = preflight.FanControlKind;
             _safetyOverride = false;
             _status = $"Manual {percent}% target · {hardwareDetail} · {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
@@ -316,6 +341,7 @@ internal sealed class FanSupervisor : IDisposable
                 _appliedPercent = null;
                 _curveTargetPercent = null;
                 _smoothedTemperatureC = null;
+                _managedFanControlKind = LenovoFanControlKind.None;
                 _safetyOverride = false;
                 _status = "Lenovo firmware owns fan control";
                 ClearPendingTransitionLocked();
@@ -343,10 +369,17 @@ internal sealed class FanSupervisor : IDisposable
         }
 
         LenovoHardwareStatus preflight = _hardware.ReadStatus();
+        if (preflight.FanControlKind != LenovoFanControlKind.ThinkPadEcDiscrete)
+        {
+            error = preflight.FanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm
+                ? "The active X9 provider already exposes Lenovo OEM target-RPM control, so seven-step EC calibration is not used."
+                : "Fan calibration requires the verified X9 discrete-EC fallback provider.";
+            return false;
+        }
         if (!preflight.CanFanControl || !preflight.ControlTemperatureC.HasValue ||
             !preflight.CanFanTelemetry || preflight.Fans.Count == 0)
         {
-            error = "Calibration needs verified fan writes, control-temperature telemetry and a real fan tachometer.";
+            error = "Calibration needs verified EC fan writes, control-temperature telemetry and a real fan tachometer.";
             return false;
         }
         if (preflight.ControlTemperatureC.Value >= 75)
@@ -366,6 +399,7 @@ internal sealed class FanSupervisor : IDisposable
             _appliedPercent = null;
             _curveTargetPercent = null;
             _smoothedTemperatureC = null;
+            _managedFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;
             _safetyOverride = false;
             ClearPendingTransitionLocked();
             _characterizationRunning = true;
@@ -394,7 +428,7 @@ internal sealed class FanSupervisor : IDisposable
 
             _audibleFromLevel = _characterizationLevel.Value;
             _characterizationStatus = _characterizationLevel.Value == 7
-                ? "Verified maximum marked as clearly audible"
+                ? "Verified EC maximum marked as clearly audible"
                 : $"EC step {_characterizationLevel.Value} marked as clearly audible";
         }
         SaveCalibration();
@@ -427,6 +461,7 @@ internal sealed class FanSupervisor : IDisposable
                 _appliedPercent = null;
                 _curveTargetPercent = null;
                 _smoothedTemperatureC = null;
+                _managedFanControlKind = LenovoFanControlKind.None;
                 _safetyOverride = false;
                 ClearPendingTransitionLocked();
             }
@@ -444,8 +479,6 @@ internal sealed class FanSupervisor : IDisposable
 
             if (!active)
             {
-                // Firmware Auto stays truly idle. ThinkControl wakes this loop only
-                // while it actually owns a manual/curve state.
                 try { await _controlWake.WaitAsync(token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { break; }
                 continue;
@@ -474,12 +507,14 @@ internal sealed class FanSupervisor : IDisposable
         int? manualLevel;
         int? manualPercent;
         bool characterizationRunning;
+        LenovoFanControlKind managedKind;
         lock (_gate)
         {
             curve = _activeCurve;
             manualLevel = _manualLevel;
             manualPercent = _manualPercent;
             characterizationRunning = _characterizationRunning;
+            managedKind = _managedFanControlKind;
         }
 
         if (characterizationRunning)
@@ -488,9 +523,18 @@ internal sealed class FanSupervisor : IDisposable
             return;
 
         LenovoHardwareStatus status = _hardware.ReadStatus();
-        if (!status.CanFanControl || !status.ControlTemperatureC.HasValue)
+        if (!status.CanFanControl || status.FanControlKind == LenovoFanControlKind.None || !status.ControlTemperatureC.HasValue)
         {
-            await SafeAutoHandoffAsync("Sensor or verified fan-control provider became unavailable", token).ConfigureAwait(false);
+            await SafeAutoHandoffAsync("Sensor or verified fan-control provider became unavailable", token, preserveCurve: curve is not null).ConfigureAwait(false);
+            return;
+        }
+
+        if (managedKind != LenovoFanControlKind.None && status.FanControlKind != managedKind)
+        {
+            await SafeAutoHandoffAsync(
+                $"Fan provider changed from {managedKind} to {status.FanControlKind}",
+                token,
+                preserveCurve: curve is not null).ConfigureAwait(false);
             return;
         }
 
@@ -506,9 +550,18 @@ internal sealed class FanSupervisor : IDisposable
             lock (_gate)
             {
                 _smoothedTemperatureC = raw;
-                _status = manualPercent.HasValue
-                    ? $"Manual {manualPercent.Value}% target · {_appliedPercent ?? 0}% calibrated output · {raw:0.#} °C"
-                    : $"Manual EC step {manualLevel!.Value} · ~{_appliedPercent ?? 0}% of verified maximum · {raw:0.#} °C";
+                if (manualPercent.HasValue && _managedFanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm)
+                {
+                    _status = $"Manual {manualPercent.Value}% target · Lenovo OEM target-RPM control · {raw:0.#} °C";
+                }
+                else if (manualPercent.HasValue)
+                {
+                    _status = $"Manual {manualPercent.Value}% target · {_appliedPercent ?? 0}% calibrated EC output · {raw:0.#} °C";
+                }
+                else
+                {
+                    _status = $"Manual EC step {manualLevel!.Value} · ~{_appliedPercent ?? 0}% of verified EC range · {raw:0.#} °C";
+                }
             }
             return;
         }
@@ -529,17 +582,20 @@ internal sealed class FanSupervisor : IDisposable
                 _appliedPercent = null;
                 _curveTargetPercent = null;
                 _smoothedTemperatureC = raw;
+                _managedFanControlKind = status.FanControlKind;
                 ClearPendingTransitionLocked();
-                _status = $"{curve!.Name} resumed after safety handoff";
+                _status = $"{curve!.Name} resumed through {DescribeControlKind(status.FanControlKind)}";
             }
+        }
+        else if (managedKind == LenovoFanControlKind.None)
+        {
+            lock (_gate) _managedFanControlKind = status.FanControlKind;
         }
 
         int? currentTarget;
         double smooth;
         lock (_gate)
         {
-            // Preserve approximately the same thermal time constant as alpha.19's
-            // 0.18/2s EMA while sampling only every four seconds.
             _smoothedTemperatureC = _smoothedTemperatureC.HasValue
                 ? _smoothedTemperatureC.Value + 0.30 * (raw - _smoothedTemperatureC.Value)
                 : raw;
@@ -548,8 +604,81 @@ internal sealed class FanSupervisor : IDisposable
         }
 
         int requestedPercent = FanCurveGraphPolicy.ResolvePercent(curve!.Points, smooth, currentTarget);
-        FanOutputMapping.State desired = ResolveOutputState(requestedPercent);
+        if (status.FanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm)
+        {
+            await ApplyOemCurveTargetAsync(curve, requestedPercent, smooth, raw, token).ConfigureAwait(false);
+            return;
+        }
 
+        await ApplyDiscreteCurveTargetAsync(curve, requestedPercent, smooth, raw, token).ConfigureAwait(false);
+    }
+
+    private async Task ApplyOemCurveTargetAsync(
+        FanCurveDefinition curve,
+        int requestedPercent,
+        double smooth,
+        double raw,
+        CancellationToken token)
+    {
+        int? currentPercent;
+        lock (_gate) currentPercent = _appliedPercent;
+
+        if (currentPercent == requestedPercent)
+        {
+            lock (_gate)
+            {
+                ClearPendingTransitionLocked();
+                _curveTargetPercent = requestedPercent;
+                _status = DescribeOemCurveOutput(curve.Name, requestedPercent, smooth);
+            }
+            return;
+        }
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        bool shouldWrite;
+        lock (_gate)
+        {
+            shouldWrite = ShouldCommitOemPercentTransitionLocked(currentPercent, requestedPercent, raw, now);
+            _curveTargetPercent = requestedPercent;
+            if (!shouldWrite)
+                _status = DescribeOemCurveOutput(curve.Name, requestedPercent, smooth) + " · stabilizing";
+        }
+        if (!shouldWrite)
+            return;
+
+        bool writeSuccess;
+        string? detail;
+        string? writeError;
+        await _writeGate.WaitAsync(token).ConfigureAwait(false);
+        try { writeSuccess = _hardware.SetFanPercent(requestedPercent, out detail, out writeError); }
+        finally { _writeGate.Release(); }
+
+        if (!writeSuccess)
+        {
+            await SafeAutoHandoffAsync(writeError ?? "Lenovo OEM fan target write failed", token, preserveCurve: true).ConfigureAwait(false);
+            return;
+        }
+
+        lock (_gate)
+        {
+            _appliedLevel = null;
+            _appliedPercent = requestedPercent;
+            _curveTargetPercent = requestedPercent;
+            _managedFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;
+            _lastOutputChange = now;
+            ClearPendingTransitionLocked();
+            _status = $"{DescribeOemCurveOutput(curve.Name, requestedPercent, smooth)} · {detail}";
+        }
+    }
+
+    private async Task ApplyDiscreteCurveTargetAsync(
+        FanCurveDefinition curve,
+        int requestedPercent,
+        double smooth,
+        double raw,
+        CancellationToken token)
+    {
+        FanOutputMapping.State desired = ResolveOutputState(requestedPercent);
         int? currentState;
         lock (_gate) currentState = _appliedLevel;
         if (currentState == desired.HardwareState)
@@ -559,7 +688,7 @@ internal sealed class FanSupervisor : IDisposable
                 ClearPendingTransitionLocked();
                 _curveTargetPercent = requestedPercent;
                 _appliedPercent = desired.EstimatedPercent;
-                _status = DescribeCurveOutput(curve.Name, requestedPercent, desired, smooth);
+                _status = DescribeDiscreteCurveOutput(curve.Name, requestedPercent, desired, smooth);
             }
             return;
         }
@@ -568,11 +697,9 @@ internal sealed class FanSupervisor : IDisposable
         bool shouldWrite;
         lock (_gate)
         {
-            shouldWrite = ShouldCommitTransitionLocked(currentState, desired.HardwareState, raw, now);
+            shouldWrite = ShouldCommitDiscreteTransitionLocked(currentState, desired.HardwareState, raw, now);
             if (!shouldWrite)
-            {
-                _status = $"{DescribeCurveOutput(curve.Name, requestedPercent, desired, smooth)} · stabilizing";
-            }
+                _status = $"{DescribeDiscreteCurveOutput(curve.Name, requestedPercent, desired, smooth)} · stabilizing";
         }
         if (!shouldWrite)
             return;
@@ -595,24 +722,21 @@ internal sealed class FanSupervisor : IDisposable
             _appliedLevel = desired.HardwareState;
             _appliedPercent = desired.EstimatedPercent;
             _curveTargetPercent = requestedPercent;
+            _managedFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;
             _lastOutputChange = now;
             ClearPendingTransitionLocked();
-            _status = DescribeCurveOutput(curve.Name, requestedPercent, desired, smooth);
+            _status = DescribeDiscreteCurveOutput(curve.Name, requestedPercent, desired, smooth);
         }
     }
 
-    private bool ShouldCommitTransitionLocked(int? currentState, int desiredState, double rawTemperatureC, DateTimeOffset now)
+    private bool ShouldCommitDiscreteTransitionLocked(int? currentState, int desiredState, double rawTemperatureC, DateTimeOffset now)
     {
         if (!currentState.HasValue)
             return true;
 
         int delta = desiredState - currentState.Value;
         if (delta > 0 && (delta >= 2 || rawTemperatureC >= 82))
-        {
-            // Never make a meaningful cooling increase wait behind comfort-oriented
-            // anti-hunting logic. Raw temperature, not the EMA, controls this escape.
             return true;
-        }
 
         if (_pendingLevel != desiredState)
         {
@@ -625,19 +749,59 @@ internal sealed class FanSupervisor : IDisposable
         if (now - _pendingLevelSince < dwell)
             return false;
 
-        // The transition target survived the full dwell. _lastOutputChange is still
-        // checked for downshifts so two cooling reductions cannot occur back-to-back.
+        return delta > 0 || now - _lastOutputChange >= MinimumDownshiftDwell;
+    }
+
+    private bool ShouldCommitOemPercentTransitionLocked(int? currentPercent, int desiredPercent, double rawTemperatureC, DateTimeOffset now)
+    {
+        if (!currentPercent.HasValue)
+            return true;
+
+        int delta = desiredPercent - currentPercent.Value;
+        if (Math.Abs(delta) < 2)
+        {
+            _pendingPercent = null;
+            _pendingPercentSince = DateTimeOffset.MinValue;
+            return false;
+        }
+
+        if (delta > 0 && (delta >= 10 || rawTemperatureC >= 82))
+            return true;
+
+        if (_pendingPercent != desiredPercent)
+        {
+            _pendingPercent = desiredPercent;
+            _pendingPercentSince = now;
+            return false;
+        }
+
+        TimeSpan dwell = delta > 0 ? MinimumUpshiftDwell : MinimumDownshiftDwell;
+        if (now - _pendingPercentSince < dwell)
+            return false;
+
         return delta > 0 || now - _lastOutputChange >= MinimumDownshiftDwell;
     }
 
     private void ClearPendingTransitionLocked()
     {
         _pendingLevel = null;
+        _pendingPercent = null;
         _pendingLevelSince = DateTimeOffset.MinValue;
+        _pendingPercentSince = DateTimeOffset.MinValue;
     }
 
-    private static string DescribeCurveOutput(string name, int target, FanOutputMapping.State state, double temperature) =>
-        $"{name} · {target}% target · ~{state.EstimatedPercent}% verified output · EC step {state.HardwareState} · {temperature:0.#} °C";
+    private static string DescribeDiscreteCurveOutput(string name, int target, FanOutputMapping.State state, double temperature) =>
+        $"{name} · {target}% target · ~{state.EstimatedPercent}% verified EC output · EC step {state.HardwareState} · {temperature:0.#} °C";
+
+    private static string DescribeOemCurveOutput(string name, int target, double temperature) =>
+        $"{name} · {target}% target · Lenovo OEM target-RPM control · {temperature:0.#} °C";
+
+    private static string DescribeControlKind(LenovoFanControlKind kind) => kind switch
+    {
+        LenovoFanControlKind.LenovoOtherModeTargetRpm => "Lenovo OEM target-RPM control",
+        LenovoFanControlKind.ThinkPadEcDiscrete => "verified X9 EC fallback",
+        _ => "Lenovo firmware control"
+    };
 
     private async Task SafeAutoHandoffAsync(string reason, CancellationToken token, bool preserveCurve = false)
     {
@@ -652,6 +816,7 @@ internal sealed class FanSupervisor : IDisposable
             _appliedLevel = null;
             _appliedPercent = null;
             _curveTargetPercent = null;
+            _managedFanControlKind = LenovoFanControlKind.None;
             ClearPendingTransitionLocked();
             if (preserveCurve && _activeCurve is not null)
             {
@@ -773,6 +938,7 @@ internal sealed class FanSupervisor : IDisposable
                 _appliedPercent = null;
                 _curveTargetPercent = null;
                 _smoothedTemperatureC = null;
+                _managedFanControlKind = LenovoFanControlKind.None;
                 _safetyOverride = false;
                 ClearPendingTransitionLocked();
             }
@@ -782,8 +948,8 @@ internal sealed class FanSupervisor : IDisposable
     private LenovoHardwareStatus ReadCalibrationSampleOrThrow()
     {
         LenovoHardwareStatus sample = _hardware.ReadStatus();
-        if (!sample.CanFanControl || !sample.ControlTemperatureC.HasValue)
-            throw new InvalidOperationException("Verified fan control or temperature telemetry disappeared during calibration.");
+        if (!sample.CanFanControl || sample.FanControlKind != LenovoFanControlKind.ThinkPadEcDiscrete || !sample.ControlTemperatureC.HasValue)
+            throw new InvalidOperationException("Verified X9 discrete EC control or temperature telemetry disappeared during calibration.");
         if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(sample.ControlTemperatureC.Value))
             throw new InvalidOperationException($"Temperature reached {sample.ControlTemperatureC.Value:0.#} °C; Lenovo firmware takes cooling ownership.");
         if (!sample.CanFanTelemetry || sample.Fans.Count == 0)
@@ -797,16 +963,12 @@ internal sealed class FanSupervisor : IDisposable
         IReadOnlyList<FanOutputMapping.State> states = FanOutputMapping.BuildStates(rpm);
         FanOutputMapping.State selected = states.First(state => state.EstimatedPercent >= Math.Clamp(targetPercent, 0, 100));
 
-        // A variable normal state is avoided by moving upward, never downward. This
-        // preserves the requested cooling floor while avoiding fan pulsing where the
-        // characterization run proved a step unstable.
         HashSet<int> unstable;
         lock (_gate) unstable = new HashSet<int>(_unstableLevels);
         int index = selected.HardwareState - 1;
         while (index < states.Count - 1 && unstable.Contains(states[index].HardwareState))
             index++;
-        selected = states[index];
-        return selected;
+        return states[index];
     }
 
     private int EstimatePercentForState(int state)
@@ -849,9 +1011,22 @@ internal sealed class FanSupervisor : IDisposable
     {
         bool levelSuccess = _hardware.SetFanLevel(state.HardwareState, out error);
         detail = levelSuccess
-            ? $"~{state.EstimatedPercent}% calibrated output · EC step {state.HardwareState}"
+            ? $"~{state.EstimatedPercent}% calibrated EC output · EC step {state.HardwareState}"
             : null;
         return levelSuccess;
+    }
+
+    private bool SetHardwarePercentSerialized(int percent, out string? detail, out string? error)
+    {
+        detail = null;
+        error = null;
+        if (!_writeGate.Wait(SyncWriteTimeout))
+        {
+            error = "Fan-control writer is busy.";
+            return false;
+        }
+        try { return _hardware.SetFanPercent(percent, out detail, out error); }
+        finally { _writeGate.Release(); }
     }
 
     private bool SetHardwareLevelSerialized(int level, out string? error)
@@ -992,11 +1167,11 @@ internal sealed class FanSupervisor : IDisposable
             _unstableLevels.Clear();
             foreach (FanLevelCalibrationSnapshot level in _calibration.Where(level => !level.Stable))
                 _unstableLevels.Add(level.Level);
-            _characterizationStatus = $"Loaded {_calibration.Count}/7 verified fan states";
+            _characterizationStatus = $"Loaded {_calibration.Count}/7 verified EC fan states";
         }
         catch
         {
-            _characterizationStatus = "Stored fan calibration could not be read; default verified mapping remains active";
+            _characterizationStatus = "Stored fan calibration could not be read; default verified EC mapping remains active";
         }
     }
 
@@ -1012,8 +1187,6 @@ internal sealed class FanSupervisor : IDisposable
                 audible = _audibleFromLevel;
             }
 
-            // Never persist a half-finished or internally inconsistent calibration.
-            // A failed new run therefore cannot replace the last known-good file.
             if (!TryValidateCalibration(levels, out _))
                 return;
 

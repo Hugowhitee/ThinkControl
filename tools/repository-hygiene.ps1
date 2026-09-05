@@ -69,6 +69,23 @@ try {
         }
     }
 
+    # Research scripts are part of the hardware-validation workflow and are often
+    # executed only on a physical Windows device. Parse them in hosted CI so a
+    # research-only syntax error cannot reach a tester just because normal product
+    # compilation does not load PowerShell files.
+    $researchScripts = @(& git ls-files -- 'tools/research/*.ps1')
+    foreach ($script in $researchScripts) {
+        $tokens = $null
+        $parseErrors = $null
+        [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $repoRoot $script),
+            [ref]$tokens,
+            [ref]$parseErrors)
+        foreach ($parseError in @($parseErrors)) {
+            $failures.Add("PowerShell parse error in $script -> $($parseError.Message)")
+        }
+    }
+
     # These are the active product/release documents, so all of them must follow
     # version.json rather than silently describing an older alpha as current.
     $metadata = Get-Content 'version.json' -Raw | ConvertFrom-Json

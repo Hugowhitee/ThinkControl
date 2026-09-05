@@ -65,6 +65,7 @@ public partial class App
                     State.CanSensorTelemetry = capabilities.SensorTelemetry;
                     State.CanFanTelemetry = capabilities.FanTelemetry;
                     State.CanFanControl = capabilities.FanControl;
+                    State.FanControlKind = capabilities.FanControlKind;
                     State.CanKeyboardBacklight = capabilities.KeyboardBacklight;
                     State.CanCpuTemperature = capabilities.CpuTemperature;
                 }
@@ -72,12 +73,15 @@ public partial class App
                 {
                     State.CanSensorTelemetry = State.Sensors.Count > 0;
                     State.CanFanTelemetry = State.Fans.Count > 0;
+                    State.FanControlKind = FanControlKinds.None;
                 }
+
+                RecordFanTelemetrySample(telemetry);
 
                 string profile = telemetry.CoolingProfile;
                 if (!string.IsNullOrWhiteSpace(profile) && !profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase))
                 {
-                    State.FanStateText = telemetry.CoolingAppliedLevel is int level
+                    State.FanStateText = State.FanControlKind == FanControlKinds.DiscreteEc && telemetry.CoolingAppliedLevel is int level
                         ? $"{profile} · EC level {level}"
                         : profile;
                 }
@@ -93,6 +97,7 @@ public partial class App
             State.CanSensorTelemetry = false;
             State.CanFanTelemetry = false;
             State.CanFanControl = false;
+            State.FanControlKind = FanControlKinds.None;
             State.CanKeyboardBacklight = false;
             State.CanCpuTemperature = false;
             State.ClearHardwareTelemetry();
@@ -125,11 +130,18 @@ public partial class App
 
     private void HardwareClient_HardwareOperationCompleted(object? sender, HardwareOperationResult operation)
     {
+        string fanProvider = State.FanControlKind switch
+        {
+            FanControlKinds.OemTargetRpm => "LenovoOtherMode",
+            FanControlKinds.DiscreteEc => "ThinkPadEC",
+            _ => State.HardwareAccess.Contains("OEM", StringComparison.OrdinalIgnoreCase) ? "LenovoOEM" : "ThinkPadEC"
+        };
+
         (string eventName, string capability, string provider) = operation.Operation switch
         {
             "SetFanLevel" => ("fan.level_set", "FanControl", "ThinkPadEC"),
-            "SetFanPercent" => ("fan.percent_set", "FanControl", "ThinkPadEC"),
-            "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", "ThinkPadEC"),
+            "SetFanPercent" => ("fan.percent_set", "FanControl", fanProvider),
+            "ReturnFanToAuto" => ("fan.returned_to_auto", "FanControl", fanProvider),
             "SetCoolingCurve" => ("fan.cooling_curve_set", "FanControl", "FanSupervisor"),
             "StartFanCharacterization" => ("fan.characterization_started", "FanControl", "FanSupervisor"),
             "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),

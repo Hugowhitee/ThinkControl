@@ -6,7 +6,11 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
+    private static readonly TimeSpan CoolingAutoRestoreRetryInterval = TimeSpan.FromSeconds(15);
+
     private bool _coolingPreferenceRestoreAttempted;
+    private bool _coolingPreferenceRestoreInFlight;
+    private DateTimeOffset _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
     private FanProfileCatalog? _fanProfiles;
 
     public FanProfileCatalog FanProfiles => _fanProfiles ??= new FanProfileCatalog(UserSettings);
@@ -44,6 +48,7 @@ public partial class App
             // must not remain visually stuck on the previous profile meanwhile.
             State.CoolingProfile = "Lenovo Auto";
             _coolingPreferenceRestoreAttempted = true;
+            _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
             return true;
         }
 
@@ -84,6 +89,7 @@ public partial class App
         // selection made in Advanced (and vice versa) without waiting for polling.
         State.CoolingProfile = normalized.Name;
         _coolingPreferenceRestoreAttempted = true;
+        _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
         return true;
     }
 
@@ -116,30 +122,81 @@ public partial class App
 
     private async Task TryRestoreCoolingPreferenceAsync(ServiceResponse response)
     {
-        if (_coolingPreferenceRestoreAttempted || response.Capabilities?.FanControl != true)
+        if (_coolingPreferenceRestoreAttempted || _coolingPreferenceRestoreInFlight ||
+            DateTimeOffset.UtcNow < _coolingPreferenceRetryAfter)
+        {
             return;
+        }
 
-        _coolingPreferenceRestoreAttempted = true;
         string selected = UserSettings.Current.CoolingProfile;
-        if (selected == "Lenovo Auto")
-        {
-            State.CoolingProfile = "Lenovo Auto";
-            return;
-        }
+        bool wantsAuto = selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
+                         selected.Equals("Auto", StringComparison.OrdinalIgnoreCase);
+        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType);
 
-        FanCurveDefinition? definition = FanProfiles.Find(selected);
-        if (definition is null)
-        {
-            UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
-            State.CoolingProfile = "Lenovo Auto";
+        // A saved Auto preference is itself an explicit request to give the X9
+        // firmware ownership. Reassert it even when fan-control capability is not
+        // currently advertised: an earlier crashed process can leave an OEM/EC
+        // target manual while this UI has lost the in-memory ownership marker.
+        // A transient startup failure is retried with bounded backoff; we mark the
+        // restore complete only after Lenovo Auto actually succeeds.
+        if (response.Capabilities?.FanControl != true && !(wantsAuto && verifiedX9))
             return;
-        }
 
-        ServiceResponse? applied = await HardwareClient.SetCoolingCurveAsync(definition);
-        if (applied?.Success != true)
-            State.HardwareAccess = applied?.Error ?? "Saved fan profile could not be restored";
-        else
-            State.CoolingProfile = definition.Name;
+        _coolingPreferenceRestoreInFlight = true;
+        try
+        {
+            if (wantsAuto)
+            {
+                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                if (auto?.Success != true)
+                {
+                    _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
+                    State.HardwareAccess = auto?.Error ?? "Saved Lenovo Auto preference could not be reasserted";
+                    return;
+                }
+
+                State.CoolingProfile = "Lenovo Auto";
+                _coolingPreferenceRestoreAttempted = true;
+                _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
+                return;
+            }
+
+            // Non-Auto saved profiles still get one startup restore attempt. Their
+            // normal UI action remains available if a provider rejects the profile.
+            _coolingPreferenceRestoreAttempted = true;
+            FanCurveDefinition? definition = FanProfiles.Find(selected);
+            if (definition is null)
+            {
+                UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
+                if (!verifiedX9)
+                {
+                    State.CoolingProfile = "Lenovo Auto";
+                    return;
+                }
+
+                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                if (auto?.Success != true)
+                {
+                    _coolingPreferenceRestoreAttempted = false;
+                    _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
+                    State.HardwareAccess = auto?.Error ?? "Lenovo Auto fallback could not be reasserted";
+                    return;
+                }
+
+                State.CoolingProfile = "Lenovo Auto";
+                return;
+            }
+
+            ServiceResponse? applied = await HardwareClient.SetCoolingCurveAsync(definition);
+            if (applied?.Success != true)
+                State.HardwareAccess = applied?.Error ?? "Saved fan profile could not be restored";
+            else
+                State.CoolingProfile = definition.Name;
+        }
+        finally
+        {
+            _coolingPreferenceRestoreInFlight = false;
+        }
     }
 
     private static string NormalizeProfileId(string profile) => profile switch

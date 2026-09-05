@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.35**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
+This document describes the support model at **v0.1.0-alpha.36**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
 
 ## Support levels
 
@@ -27,29 +27,36 @@ A write control is enabled only when the active provider advertises the exact se
 
 ## ThinkPad X9 15 Gen 1
 
-Machine types `21Q6` / `21Q7` are the current verified X9 development path. That identity is only one part of the gate: the relevant low-level provider must also initialize and validate the expected hardware behavior before EC writes become available.
+Machine types `21Q6` / `21Q7` are the current verified X9 development path. That identity is only one part of the gate: the relevant low-level provider must also initialize and validate the expected hardware behavior before writes become available.
 
 Current X9-oriented areas include:
 
 - sensor discovery and CPU/control temperature sources;
-- fan RPM/telemetry where available;
-- verified fan EC control with Lenovo Auto fallback;
+- independent Fan 1 / Fan 2 telemetry where Lenovo-native or reviewed EC providers expose it;
+- Lenovo `LENOVO_OTHER_METHOD` direct target-RPM control when at least two exact-X9 channels independently pass VALID+GET+SET, safe-range and live-read gates;
+- read-only Lenovo `EnergyDrv` `QueryFanSpeed` telemetry where the matching write contract is not verified;
+- seven-step ThinkPad EC fan control only as the explicitly gated fallback/investigation provider, with Lenovo Auto recovery;
 - Lenovo keyboard backlight provider/readback;
 - Lenovo/OEM keyboard Auto where verified;
 - haptic/raw-touchpad discovery and the shared Touchpad gesture editor.
 
-If PawnIO is missing, stale or inaccessible, ThinkControl should present the existing repair path instead of silently attempting another low-level write backend.
+If two native Lenovo fan channels have been proven during a hardware-service lifetime, a transient native read failure does not silently re-authorize the EC writer. If PawnIO is missing, stale or inaccessible, ThinkControl presents the existing repair path rather than treating provider failure as permission to guess another low-level backend.
 
 ## Fan semantics
 
 Fan features are kept semantically distinct:
 
 - **Lenovo Auto / firmware Auto**: firmware owns cooling;
-- **named fan curves**: ThinkControl's current graph-based curve model;
-- **manual percent/output**: only where the provider explicitly supports that meaning;
+- **OEM target RPM**: a provider accepts a real per-fan RPM target and exposes its own capability/range contract; target `0` is reserved for Auto on Lenovo Other Mode;
+- **named fan curves**: ThinkControl's graph-based curve model, routed through the active provider's semantic output contract;
+- **discrete EC output**: model/provider-specific fallback states, not fake continuous PWM;
 - **telemetry-only**: RPM/state can be shown without enabling writes.
 
-The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto`. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls. Alpha.35 removes the obsolete current-client wrappers while intentionally preserving those server-side compatibility handlers and the legacy updater fixture.
+On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. ThinkControl requires at least two independently live, constrained writable channels before exposing direct target-RPM control; extra/phantom firmware records do not make the whole provider all-or-nothing. ThinkControl records which channels it actually owns and returns those owned channels to Auto on handoff/failure where the provider remains reachable.
+
+`EnergyDrv` `QueryFanSpeed 0x83102570` is currently read-only evidence. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until its exact X9 command encoding and rollback semantics are recovered; maintenance/high-speed IOCTL families are not substituted for smooth percentage control.
+
+The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto`. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls.
 
 ## Keyboard semantics
 
@@ -88,7 +95,9 @@ ThinkControl should never learn a new device by experimentally writing arbitrary
 
 Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device validation is still required for:
 
-- actual X9 fan RPM/control and Auto recovery;
+- actual X9 direct Lenovo target-RPM activation/range, two-fan response and repeated Auto recovery on the installed firmware/software stack;
+- EnergyDrv/native telemetry correlation when Other Mode does not expose a writable contract;
+- final maximum-cooling comparison with naturally hot Lenovo Auto;
 - Lenovo keyboard Auto/Fn+Space/readback agreement;
 - direct-provider effect behavior without Lenovo pop-ups;
 - haptic Touchpad corner sensitivity/symmetry and high-rate responsiveness;

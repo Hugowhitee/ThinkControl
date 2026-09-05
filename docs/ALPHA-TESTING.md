@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.35** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.36** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -22,7 +22,7 @@ The recurring `TargetParameterCountException` dispatcher bug was fixed and guard
 
 ## Audio lifecycle regression
 
-Alpha.35 adds a specific navigation-lifecycle fix and source regression guard.
+Alpha.35 added the current Audio navigation-lifecycle guard and alpha.36 preserves it.
 
 1. Open Advanced → Audio.
 2. Drag output volume, navigate away while dragging, then return.
@@ -42,7 +42,7 @@ The expected behavior is that Audio output/microphone debounce timers and tempor
 
 ## Touchpad
 
-The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
+Alpha.36 includes the completed corner-zone integration. The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
 
 - Selecting an edge must clear a selected corner, and selecting a corner must clear the edge selection.
 - Top-left and top-right guides must be exact mirrors: same guard radius, lane size, angle, rounded end arc, boundary weight and selected/live treatment.
@@ -58,14 +58,38 @@ The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-ri
 
 ## Fans and hardware providers
 
-- Unsupported devices must remain safe/read-only.
-- On the verified X9 path, confirm fan telemetry/control is enabled only after the EC provider passes its existing read-only validation gate.
-- Test Lenovo Auto return after a manual/custom fan state.
-- Do not interpret a UI control being visible as proof that a hardware write succeeded; verify readback/status.
-- If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
-- Manual percentage and graph-curve operations should appear as fan-control diagnostics rather than generic hardware events.
+Alpha.36 changes the X9 fan architecture from “seven EC steps are the product fan controller” to “use the highest-capability verified Lenovo provider and fail closed when only telemetry is proven.” The old EC path remains available only when it is genuinely the active fallback provider.
 
-The alpha.35 cleanup removes obsolete **current-client** cooling wrappers. The service-side legacy cooling IPC remains intentionally present for installed-client compatibility and is still covered by the immutable alpha.14.1 updater fixture.
+- Unsupported devices must remain safe/read-only.
+- On the verified X9 path, fan writes must be enabled only after a concrete provider passes its own safety gate; model identity by itself is not permission to write.
+- Test Lenovo Auto return after every ThinkControl-owned manual/custom fan state.
+- Do not interpret a UI control being visible as proof that a hardware write succeeded; verify status and physical response.
+- If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
+- Manual percentage and graph-curve operations should appear as fan-control diagnostics rather than generic hardware events, and diagnostics should name the active provider rather than always claiming ThinkPad EC.
+
+Current exact-X9 physical evidence already established that `dev.1191` could expose both physical fan RPMs through the EC investigation path, but EC Max Cooling remained below naturally hot Lenovo Auto and could still sound electronically buzzy/wavy. That negative evidence is why alpha.36 does not present EC step 7 as Lenovo's physical maximum.
+
+Use this order on alpha.36:
+
+1. Install the release and restart ThinkControl/the hardware service as the installer normally does. Start in **Lenovo Auto**.
+2. Open Advanced → Fans and record the provider/detail plus Fan 1/Fan 2 source text.
+   - **Best case:** `Lenovo Other Mode direct target-RPM` appears with two live writable fan channels. Canonical channels use VALID+GET+SET Capability Data. If the detail says `direct-ID fallback`, Lenovo omitted the matching Capability Data record; ThinkControl still requires the exact-X9 controller gate, a sane Fan Test reference range and a plausible live `GetFeatureValue` from the documented fan ID immediately before writing. An explicitly present invalid/readonly capability is never bypassed.
+   - **Native telemetry only:** two channels from `Lenovo EnergyDrv · QueryFanSpeed 0x83102570` may appear while controls remain disabled because the matching writer is not validated.
+   - **Fallback:** if no native Lenovo two-fan surface is proven, the exact-model discrete EC provider may remain available. Treat it as fallback, not equivalent to Lenovo's full Auto range.
+3. If direct OEM target-RPM is active, test manual **25 → 50 → 75 → 100%** with time to settle. Confirm both fans move plausibly and that the previous repeating wave/re-kick/buzzy character is absent. The target shown in UI should be an OEM percentage/RPM concept, not an EC step.
+4. Compare 100% with a naturally hot Lenovo Auto state. Lenovo Fan Test Data provides safe/reference constraints rather than proof of the absolute physical ceiling, so record whether the OEM target actually reaches the useful hot-Auto range instead of assuming that from metadata.
+5. Return to **Lenovo Auto** repeatedly. Both ThinkControl-owned target channels must be released with target `0`; no fan should remain on a stale target or diverge persistently from the other.
+6. If only EnergyDrv native telemetry is available, keep Lenovo Auto active and confirm Fan 1/Fan 2 readings plausibly track physical sound. Fan controls must stay read-only/disabled rather than silently falling back to EC after native two-fan evidence has been proven during that service lifetime.
+7. Export a Diagnostics support bundle after the observation. Bounded fan samples should preserve provider/source distinctions without starting another hardware polling loop.
+8. For deeper Lenovo Auto research, run `tools/research/Capture-LenovoAuto.ps1 -Label lenovo-auto-hot -BundleRelevantOemBinaries` during a naturally hot Auto state and a separate `-Label lenovo-auto-cool` capture. The script is observational: Lenovo Other Mode uses `GetFeatureValue` only, EnergyDrv uses read/query contracts only, and no `SetFeatureValue`, `ChangeFanSpeed 0x8310257C`, dust/high-speed write or arbitrary EC write is invoked.
+9. If the direct Other Mode writer is unavailable and EnergyDrv telemetry is confirmed, use the optional binary bundle with `tools/research/Analyze-LenovoOemFanBinaries.ps1`. Public code proves `ChangeFanSpeed 0x8310257C` exists, but its exact X9 `dwFanCtrlCmd` encoding/rollback semantics remain unverified and must not be brute-forced.
+10. The classic EC path remains investigation/fallback evidence. EC step 7 is only the highest verified normal EC state. The separate `0x40` family remains blocked after exact-X9 testing echoed `0x47` while producing 0 RPM.
+
+The service-lifetime native-telemetry latch is intentionally not persisted across reboot/service restart yet. Persisting it without a BIOS/driver-aware evidence key could make an old capability observation survive a real platform change.
+
+Likewise, startup may observe an EC manual-looking value that another utility owns. ThinkControl limits automatic cleanup to a state/provider it actually took ownership of; it must not reset another tool merely because the numeric register resembles one of ThinkControl's manual steps.
+
+The alpha.35 cleanup removed obsolete **current-client** cooling wrappers. The service-side legacy cooling IPC remains intentionally present for installed-client compatibility and is still covered by the immutable alpha.14.1 updater fixture.
 
 ## Diagnostics/device learning
 
@@ -80,7 +104,7 @@ Current validation is intentionally split by ownership rather than duplicated ac
 
 - **CI** owns repository hygiene, solution build/tests, real Compact ↔ Advanced ShellSmoke and the WPF visual-QA matrix;
 - **Package ThinkControl** owns candidate publish/payload/bootstrap plus the deep installer/service/IPC lifecycle, non-elevating UI contract, custom-location update behavior, clean uninstall and real oldest-supported alpha.14.1 → candidate updater regression;
-- ordinary PR Package runs do not render a duplicate copy of the 85-snapshot visual matrix; tagged/versioned release packaging still renders the public release overview;
+- ordinary PR Package runs do not render a duplicate copy of the visual matrix; tagged/versioned release packaging still renders the public release overview;
 - superseded PR CI/Package runs should cancel rather than consume stale Windows runner time;
 - immutable/tag release packaging must remain non-cancellable by that PR/ref optimization.
 

@@ -284,9 +284,17 @@ internal sealed class ServiceEngine : IDisposable
             status.CanKeyboardBacklight,
             status.CanCpuTemperature,
             status.CanSensorTelemetry,
-            fans.Length);
+            fans.Length,
+            ToFanControlKind(status.FanControlKind));
         return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
     }
+
+    private static string ToFanControlKind(LenovoFanControlKind kind) => kind switch
+    {
+        LenovoFanControlKind.LenovoOtherModeTargetRpm => FanControlKinds.OemTargetRpm,
+        LenovoFanControlKind.ThinkPadEcDiscrete => FanControlKinds.DiscreteEc,
+        _ => FanControlKinds.None
+    };
 
     private ServiceResponse RefreshAndReturnStatus()
     {
@@ -309,7 +317,7 @@ internal sealed class ServiceEngine : IDisposable
             ThinkControlProtocol.Version,
             true,
             Telemetry: telemetry,
-            Capabilities: new HardwareCapabilitySnapshot(false, false, false, false, false, 0));
+            Capabilities: new HardwareCapabilitySnapshot(false, false, false, false, false, 0, FanControlKinds.None));
     }
 
     private ServiceResponse SetFanLevel(string? raw)

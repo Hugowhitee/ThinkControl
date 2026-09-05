@@ -58,6 +58,7 @@ public sealed class AppState : INotifyPropertyChanged
     private string _updateStatus = "Checking automatically…";
     private bool _canFanControl;
     private bool _canFanTelemetry;
+    private string _fanControlKind = FanControlKinds.None;
     private bool _canKeyboardBacklight;
     private bool _canCpuTemperature;
     private bool _canSensorTelemetry;
@@ -120,6 +121,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string UpdateStatus { get => _updateStatus; set => Set(ref _updateStatus, value); }
     public bool CanFanControl { get => _canFanControl; set => Set(ref _canFanControl, value); }
     public bool CanFanTelemetry { get => _canFanTelemetry; set => Set(ref _canFanTelemetry, value); }
+    public string FanControlKind { get => _fanControlKind; set => Set(ref _fanControlKind, string.IsNullOrWhiteSpace(value) ? FanControlKinds.None : value); }
     public bool CanKeyboardBacklight { get => _canKeyboardBacklight; set => Set(ref _canKeyboardBacklight, value); }
     public bool CanCpuTemperature { get => _canCpuTemperature; set => Set(ref _canCpuTemperature, value); }
     public bool CanSensorTelemetry { get => _canSensorTelemetry; set => Set(ref _canSensorTelemetry, value); }
@@ -152,8 +154,9 @@ public sealed class AppState : INotifyPropertyChanged
         "Silent" or "Quiet" => "Quiet",
         "Normal" or "Balanced" => "Balanced",
         "Cool" or "Max cooling" => "Max cooling",
+        "Lenovo Auto" or "Auto" => "Auto",
         "Custom" => "Custom",
-        _ => "Auto"
+        _ => CoolingProfile
     };
     public string BatteryPercentText => $"{BatteryPercent}%";
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";

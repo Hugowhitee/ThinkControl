@@ -35,7 +35,12 @@ public partial class CompactDashboard
     {
         if (_app is null)
             return ["Auto"];
-        var values = new List<string> { "Auto" };
+
+        var values = new List<string>();
+        string current = DisplayFanName(_app.State.CoolingProfile);
+        if (IsManualFanState(current))
+            values.Add(current);
+        values.Add("Auto");
         values.AddRange(_app.FanProfiles.GetProfiles().Select(profile => profile.Name));
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
@@ -95,9 +100,11 @@ public partial class CompactDashboard
         "Silent" => "Quiet",
         "Normal" => "Balanced",
         "Cool" => "Max cooling",
-        string value when value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase) => "Auto",
         string value => value
     };
+
+    private static bool IsManualFanState(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase);
 
     private void CompactPerformance_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -122,6 +129,12 @@ public partial class CompactDashboard
     {
         if (_syncingQuickControls || _app is null || CompactFanCombo.SelectedItem is not string raw)
             return;
+        if (IsManualFanState(raw))
+        {
+            SyncQuickControls();
+            return;
+        }
+
         CompactFanCombo.IsEnabled = false;
         try { await _app.SetCoolingProfileAsync(raw); }
         finally { SyncQuickControls(); }

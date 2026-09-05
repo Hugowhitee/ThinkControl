@@ -63,6 +63,9 @@ public static class DiagnosticsPolicy
         "dependencyVersion",
         "resumeState",
         "conflict",
-        "windowsBuild"
+        "windowsBuild",
+        "profile",
+        "fan1Rpm",
+        "fan2Rpm"
     };
 }

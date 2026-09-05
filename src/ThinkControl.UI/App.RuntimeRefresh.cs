@@ -13,7 +13,7 @@ namespace ThinkControl.UI;
 /// </summary>
 public partial class App
 {
-    private static readonly TimeSpan RuntimeBatteryVisibleInterval = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan RuntimeBatteryVisibleInterval = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan RuntimeBatteryTrayInterval = TimeSpan.FromMinutes(1);
 
     private readonly WindowsBatteryStateService _runtimeBattery = new();
