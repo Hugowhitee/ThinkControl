@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.38`.
+Current prerelease candidate: `v0.1.0-alpha.39`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -59,11 +59,11 @@ An OEM thermal-policy provider may coordinate with the selected Windows preferen
 
 Fans consume generic fan/control-temperature capabilities. The provider may expose discrete states, a continuous target-RPM contract, an OEM-native thermal policy, or read-only telemetry; the UI must not assume one backend merely because `FanControl` exists. Calibration is also an explicit capability: generic UI shows or requires it only when the active provider reports `FanCalibrationSupported` / `FanCalibrationRequired`, rather than deriving the product workflow from a laptop model name.
 
-On the current X9 reference path, ThinkControl prefers Lenovo-native fan semantics. `LENOVO_OTHER_METHOD` can expose per-fan `fanX_input` and tunable `fanX_target` values: ThinkControl enables that writer only when exact-X9 identity, VALID+GET+SET capability data, sane Lenovo fan constraints and at least two live fan channels all pass. Percentages and curves then map independently across each fan's OEM-reported range, while target `0` is reserved for Lenovo Auto. Extra/phantom capability records do not block two real writable fans.
+On the current X9 reference path, Lenovo `LENOVO_OTHER_METHOD` can still provide real per-fan `fanX_input` telemetry when two channels pass the read gate. Its experimental `fanX_target` writer is **not a product control in alpha.39**. Physical alpha.38 testing reproduced repeated speed cycling/re-kick under a fixed target and showed the nominal 100% target below naturally hot firmware Auto. Those were explicit rejection criteria for the writer, so metadata such as VALID+GET+SET and Fan Test min/max values is no longer sufficient to advertise `FanControl`. Target `0` remains available only for cleanup/reassertion of Lenovo firmware Auto after previously owned state.
 
-Lenovo `EnergyDrv` `QueryFanSpeed 0x83102570` is a separate read-only native telemetry path. It can provide Fan 1 / Fan 2 evidence without authorizing the still-unrecovered `ChangeFanSpeed 0x8310257C` writer. Once two native Lenovo fan channels have been proven in a hardware-service lifetime, a transient native read failure does not silently re-enable the known-inferior EC writer.
+Lenovo `EnergyDrv` `QueryFanSpeed 0x83102570` is a separate read-only native telemetry path. It can provide Fan 1 / Fan 2 evidence without authorizing the still-unrecovered `ChangeFanSpeed 0x8310257C` writer. Once two native Lenovo fan channels have been proven in a hardware-service lifetime, a transient native read failure does not silently re-enable the known-inferior EC writer. The same native-telemetry safety latch also applies when Other Mode telemetry is live but its writer remains physically rejected.
 
-The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider, not the product definition of 0–100%. Raw EC steps appear only when that discrete provider is actually active. Its percentage translation requires a measured tachometer mapping; that requirement belongs to the provider capability and is not a global rule for other laptops or future fan providers. EC step 7 is not labelled as Lenovo's absolute physical maximum and the unsafe/ambiguous `0x40` family remains blocked.
+The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider, not the product definition of 0–100%. Raw EC diagnostics appear only when a discrete-EC provider is actually active and explicitly exposes that semantic contract. Its percentage translation requires a measured tachometer mapping; that requirement belongs to the provider capability and is not a global rule for other laptops or future fan providers. EC step 7 is not labelled as Lenovo's absolute physical maximum and the unsafe/ambiguous `0x40` family remains blocked.
 
 PawnIO prerequisite state is not inferred from an uninstall registry entry alone. ThinkControl distinguishes:
 
@@ -76,7 +76,9 @@ A compatible registration with a missing kernel service is an incomplete install
 
 Supervised cooling uses bounded smoothing, hysteresis, dwell time, immediate meaningful cooling increases and firmware fallback. Missing control telemetry/provider state or a thermal safety handoff returns ownership to OEM firmware.
 
-Manual fan testing is temporary, restores the previous profile and falls back to firmware Auto if restoration cannot be proven. Provider ownership is explicit: ThinkControl returns only the OEM channels/provider state it actually took ownership of rather than inferring ownership from a readback that another utility may have created.
+Manual fan testing is explicitly temporary. A percentage target or provider-specific raw state starts the same 30-second test window, restores the previous profile automatically and falls back to firmware Auto if restoration cannot be proven. The test surface is hidden when no physically accepted writable provider is active. Provider ownership is explicit: ThinkControl returns only the OEM channels/provider state it actually took ownership of rather than inferring ownership from a readback that another utility may have created.
+
+A completed calibration is durable provider state, not a permanent attention card. The Fans page shows the calibration task only while calibration is required or running; once the mapping is ready, normal fan controls become primary again.
 
 See [Cooling Design](COOLING-DESIGN.md) for the canonical cooling/calibration contract.
 
@@ -116,7 +118,7 @@ The Touchpad page shows real contact points, bounded recent trails, configurable
 
 A finger lift ends a visual trail segment. New contacts and implausibly large physical jumps do not draw fake connecting lines.
 
-Track control prefers the active Windows media session and falls back safely where needed. Optional center Play/Pause is a visible bounded tap target inside the canonical visualizer; a short low-travel tap inside that target toggles playback, while the surrounding edge lane keeps Previous/Next swipe ownership.
+Track control is one coherent three-part edge affordance inside the canonical visualizer: **Previous | Play/Pause | Next**. Previous and Next remain deliberate swipes along the selected edge lane; Play/Pause is the visibly bounded center segment and commits only on a short low-travel tap. The center segment spans 20% of the lane, while its movement tolerance remains below the general edge-claim threshold so a slightly moving tap cannot enter a claimed-but-actionless state. There is no separate Center play/pause menu toggle or second overlay owner.
 
 The editor/visualizer uses one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. Edges and corners share one rendering owner and one idle/selected/hover/candidate/live visual grammar. The former auxiliary corner overlay is non-interactive and does not own mouse selection.
 
@@ -168,11 +170,11 @@ The current desktop client uses the graph-based cooling API. Older service-side 
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.38; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.37` release is the production baseline immediately before this candidate.
+No automatic cloud compatibility/crash upload is part of alpha.39; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.38` release is the production baseline immediately before this candidate.
 
 ## Installation and updates
 
-Alpha.38 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.39 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is also persisted for the next session.
 
