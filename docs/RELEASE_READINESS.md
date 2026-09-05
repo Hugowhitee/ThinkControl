@@ -105,13 +105,14 @@ Do not recreate a third full installer workflow. CI and Package are the required
 - [x] Unified manual update-check Last-checked state.
 - [x] Preserved existing low-level write authorization/safety boundaries.
 - [x] `version.json`, README and product docs identify `v0.1.0-alpha.38` as this candidate.
-- [ ] Final changed-file review confirms no accidental feature/provider expansion.
-- [ ] Final exact PR-head CI passes build, all tests, ShellSmoke and visual-QA matrix.
-- [ ] Inspect final `advanced-touchpad.png`, wide Touchpad, left/right selected and left/right live corner screenshots; verify symmetry, identical idle grammar, no edge overlap and visible center tap target.
-- [ ] Inspect final Fans screenshots; verify calibration wording is provider-neutral and unavailable/manual states remain truthful.
-- [ ] Inspect final Keyboard screenshots; verify Effects availability follows fixture capability and layout remains clean.
-- [ ] Inspect final Updates screenshot; verify Last checked is current in the deterministic fixture.
-- [ ] Final exact PR-head Package ThinkControl passes publish/installer/service/IPC/update/uninstall/alpha.14.1 regression checks.
+- [x] Final changed-file review against alpha.37 confirms the intended UI/Core/service-capability/test/docs scope only; no new hardware provider or low-level writer implementation was added.
+- [x] Exact implementation head `de148572c3f04af6ab797ad6d40b8fa8ed982386` passed CI run #1611: repository hygiene, Release build with 0 warnings/0 errors, 147/147 Core tests, ShellSmoke and 85 WPF snapshots.
+- [x] Inspected `advanced-touchpad.png`, wide Touchpad, left/right selected and left/right live corner screenshots from CI artifact `9973432749` (`sha256:647506d24dce4a625ebb6d05c8f6139fec5f2e4359e6e9fff8fcdc74bd22161a`): mirrored corner geometry/state treatment is consistent, edge-band overlap is gone, the center Play/Pause target is visible, and reverse live direction remains isolated.
+- [x] Inspected final Fans screenshots: calibration wording is provider-neutral, the calibration-required fixture truthfully shows `Firmware Auto` as applied output, and competing controls are visibly locked while calibration is required.
+- [x] Inspected final Keyboard screenshots: generic Auto copy is provider-neutral (`Firmware Auto · provider managed`) and Effects availability follows the explicit fixture capability.
+- [x] Inspected final Updates screenshot: the deterministic Last checked value is rendered immediately alongside the shared up-to-date state and disabled Install action.
+- [x] Exact implementation head passed Package ThinkControl run #1329: 56.86 MB combined installed payload, 15.79 MB compressed payload, 2.3 MB bootstrap, deep install/service/IPC/update/uninstall smoke and real immutable alpha.14.1 → alpha.38 compatibility all passed.
+- [ ] This release-readiness freeze is docs-only; require CI + Package to pass again on its exact resulting PR head before merge. No implementation change is permitted after that without repeating the same gate/inspection cycle.
 - [ ] Review PR checks/comments and merge #74 with the exact expected final head SHA.
 - [ ] Verify post-merge `main` equals the merged alpha.38 commit and alpha.37 remains unchanged.
 - [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.38` at the merged commit.
