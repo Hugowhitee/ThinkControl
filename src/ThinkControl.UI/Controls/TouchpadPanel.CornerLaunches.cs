@@ -18,7 +18,6 @@ public partial class TouchpadPanel
         new(GestureActionKind.OpenAdvanced, "Advanced")
     ];
 
-    private TouchpadGestureZoneOverlay? _gestureZoneOverlay;
     private ComboBox? _cornerLaunchCombo;
     private CheckBox? _cornerReverseCloseCheckBox;
     private FrameworkElement? _edgeEditorCard;
@@ -34,8 +33,8 @@ public partial class TouchpadPanel
         _cornerLaunchUiConfigured = true;
 
         // Surface launches are owned by the two deliberate diagonal corner zones,
-        // not by the four edge bindings. Runtime recognition remains separate, but
-        // editor selection/rendering is one six-zone model in TouchpadVisualizer.
+        // not by the four edge bindings. Rendering, selection and all selectable or
+        // tappable touchpad targets now share the single TouchpadVisualizer owner.
         ActionCombo.ItemsSource = ActionCombo.Items.Cast<ActionOption>()
             .Where(option => option.Action != GestureActionKind.OpenThinkControl &&
                              option.Action != GestureActionKind.OpenAdvanced)
@@ -44,19 +43,6 @@ public partial class TouchpadPanel
         _edgeEditorCard = SettingsStack.Children.Count > 0
             ? SettingsStack.Children[0] as FrameworkElement
             : null;
-
-        if (Visualizer.Parent is Grid visualizerHost)
-        {
-            _gestureZoneOverlay = new TouchpadGestureZoneOverlay
-            {
-                Configuration = _configuration,
-                Geometry = _host?.Geometry ?? DefaultGeometry(),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch
-            };
-            Panel.SetZIndex(_gestureZoneOverlay, 7);
-            visualizerHost.Children.Add(_gestureZoneOverlay);
-        }
 
         _cornerEditorCard = new Border
         {
@@ -138,8 +124,6 @@ public partial class TouchpadPanel
             else
             {
                 SetCornerLiveEmphasis(false);
-                if (_gestureZoneOverlay is not null)
-                    _gestureZoneOverlay.Signal = null;
             }
         };
     }
@@ -184,7 +168,6 @@ public partial class TouchpadPanel
         _configuration = (_configuration with { CornerLaunches = launches }).Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
-        SyncGestureZoneOverlay();
     }
 
     private void SyncCornerLaunchControls()
@@ -226,8 +209,6 @@ public partial class TouchpadPanel
         {
             _syncing = false;
         }
-
-        SyncGestureZoneOverlay();
     }
 
     private void ApplySelectedZoneEditor()
@@ -267,7 +248,6 @@ public partial class TouchpadPanel
         bool live = signal.Corner is not null &&
                     signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active;
         SetCornerLiveEmphasis(live);
-        SyncGestureZoneOverlay();
 
         if (signal.Corner is not TouchpadCorner corner)
             return;
@@ -304,23 +284,8 @@ public partial class TouchpadPanel
         selectedEditor.IsHitTestVisible = !live;
     }
 
-    private void SyncGestureZoneOverlay()
-    {
-        if (_gestureZoneOverlay is null)
-            return;
-        _gestureZoneOverlay.Configuration = _configuration;
-        _gestureZoneOverlay.Geometry = _host?.Geometry ?? DefaultGeometry();
-        _gestureZoneOverlay.Signal = _signal;
-    }
-
     private void RefreshGestureZoneVisuals(GestureSignal? signal)
     {
-        if (_gestureZoneOverlay is not null)
-        {
-            _gestureZoneOverlay.Configuration = _configuration;
-            _gestureZoneOverlay.Geometry = _host?.Geometry ?? DefaultGeometry();
-            _gestureZoneOverlay.Signal = signal;
-        }
         SetCornerLiveEmphasis(signal?.Corner is not null &&
                               signal.Phase is GesturePhase.Candidate or GesturePhase.Claimed or GesturePhase.Active);
     }
