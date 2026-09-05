@@ -67,7 +67,11 @@ public partial class FansPanel : UserControl
             : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
         AppliedLevelText.Text = state.CanFanControl ? state.FanStateText : "Unavailable";
 
-        bool canCalibrate = IsVerifiedX9DiscreteEc(state, state.CanFanControl, _fanControlKind) && state.CanFanTelemetry;
+        // Snapshot fixtures do not have a live service capability object. Model the
+        // current discrete-provider fixture as calibration-capable without teaching
+        // the production UI anything about a particular OEM or machine type.
+        bool canCalibrate = state.CanFanControl && state.CanFanTelemetry &&
+                            string.Equals(_fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
         FanCalibrationUiState calibration = canCalibrate
             ? new FanCalibrationUiState(
                 Relevant: true,
@@ -92,9 +96,6 @@ public partial class FansPanel : UserControl
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
             _statusSubscribed = true;
-            // One immediate refresh is enough when entering the page. Ongoing status
-            // cadence is owned centrally by App.RuntimeRefresh so the Fans page cannot
-            // create a second hardware/IPC polling loop.
             _ = _app.HardwareClient.GetStatusAsync();
         }
         else
@@ -146,19 +147,15 @@ public partial class FansPanel : UserControl
         if (telemetry?.CoolingAppliedPercent is int percent)
         {
             if (_fanControlKind == FanControlKinds.OemTargetRpm && telemetry.CoolingAppliedLevel is null)
-            {
                 AppliedLevelText.Text = $"{percent}% OEM target";
-            }
             else
-            {
                 AppliedLevelText.Text = telemetry.CoolingAppliedLevel is int step
-                    ? $"{percent}% · Step {Math.Min(step, 7)}"
+                    ? $"{percent}% · State {step}"
                     : $"{percent}%";
-            }
         }
         else if (telemetry?.CoolingAppliedLevel is int legacyLevel)
         {
-            AppliedLevelText.Text = $"Step {Math.Min(legacyLevel, 7)}";
+            AppliedLevelText.Text = $"State {legacyLevel}";
         }
         else
         {
@@ -188,10 +185,9 @@ public partial class FansPanel : UserControl
             return;
         }
 
-        bool locked = calibration.Required;
         bool running = calibration.Running;
         bool ready = calibration.Ready;
-        bool attention = locked || running;
+        bool attention = calibration.Required || running;
         CalibrationCard.SetResourceReference(Border.BorderBrushProperty, attention ? "Tc.Accent" : "Tc.Border");
         CalibrationCard.BorderThickness = new Thickness(1);
 
@@ -201,10 +197,10 @@ public partial class FansPanel : UserControl
                 ? "Fan calibration complete"
                 : "Fan calibration required";
         CalibrationDescriptionText.Text = running
-            ? "ThinkControl temporarily owns the verified EC fan states while each level settles and real tachometer samples are measured. Other fan controls are locked until calibration finishes or is stopped; Lenovo Auto is restored automatically."
+            ? "ThinkControl temporarily owns the active provider's calibration states while each state settles and real tachometer samples are measured. Other fan controls are locked until calibration finishes or is stopped; firmware Auto is restored automatically."
             : ready
-                ? "All seven verified X9 EC states have a measured tachometer mapping. Percentage profiles and manual targets can now use the calibrated discrete range."
-                : "ThinkControl must measure all seven verified X9 EC fan states before percentage profiles and manual targets are enabled. Lenovo Auto remains the safe default until calibration starts.";
+                ? $"The active provider has a complete measured mapping for all {calibration.TotalLevels} calibration states. Percentage profiles and manual targets can use that calibrated range."
+                : "The active fan provider requires a measured output mapping before it can safely translate percentage profiles or manual percentage targets. Firmware Auto remains the safe default until calibration completes.";
         CharacterizationStatusText.Text = calibration.Status;
 
         CharacterizeButton.Content = ready ? "Recalibrate" : "Calibrate now";
@@ -232,7 +228,7 @@ public partial class FansPanel : UserControl
         {
             CoolingDetailText.Text = running
                 ? "Calibration currently owns fan output. Profile controls return after the run finishes or is stopped."
-                : "Lenovo Auto remains active until fan calibration completes.";
+                : "Firmware Auto remains active until the provider's calibration requirement is satisfied.";
         }
     }
 
@@ -242,12 +238,12 @@ public partial class FansPanel : UserControl
         if (characterization is null)
             return;
 
-        FanLevelCalibrationSnapshot? maximum = characterization.Levels.FirstOrDefault(level => level.Level == 7);
+        FanLevelCalibrationSnapshot? maximum = characterization.Levels.MaxBy(static level => level.Level);
         double? maximumRpm = maximum?.Fans.Count > 0 ? maximum.Fans.Average(fan => fan.MedianRpm) : null;
 
         foreach (FanLevelCalibrationSnapshot point in characterization.Levels.OrderBy(level => level.Level))
         {
-            string label = $"EC step {point.Level}";
+            string label = $"Output state {point.Level}";
             string rpm;
             if (point.Fans.Count == 0)
             {
@@ -257,10 +253,10 @@ public partial class FansPanel : UserControl
             {
                 double average = point.Fans.Average(fan => fan.MedianRpm);
                 string values = string.Join(" · ", point.Fans.Select(fan => $"{fan.Label} {fan.MedianRpm:N0} RPM"));
-                if (maximumRpm is > 0)
+                if (maximumRpm is > 0 && maximum is not null)
                 {
-                    int relative = point.Level == 7 ? 100 : (int)Math.Round(Math.Clamp(average / maximumRpm.Value * 100.0, 0, 99));
-                    rpm = $"{values} · ~{relative}% of calibrated step 7";
+                    int relative = point.Level == maximum.Level ? 100 : (int)Math.Round(Math.Clamp(average / maximumRpm.Value * 100.0, 0, 99));
+                    rpm = $"{values} · ~{relative}% of calibrated maximum state";
                 }
                 else
                 {
@@ -356,7 +352,7 @@ public partial class FansPanel : UserControl
         null or "" or "Lenovo Auto" or "Auto" => "Auto",
         "Silent" => "Quiet",
         "Normal" => "Balanced",
-        "Cool" => "Max cooling",
+        "Cool" or "Max cooling" => "Max cooling",
         string value => value
     };
 
@@ -471,7 +467,6 @@ public partial class FansPanel : UserControl
         bool x9Model = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
         bool oemTargetRpm = canControl && string.Equals(fanControlKind, FanControlKinds.OemTargetRpm, StringComparison.Ordinal);
         bool x9EcWriter = x9Model && canControl && string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
-        bool x9Calibration = x9EcWriter && state.CanFanTelemetry;
 
         FansIntroText.Text = x9Model
             ? "Fan behavior is independent from Windows performance mode. ThinkControl keeps Lenovo Auto as the fail-safe and uses the highest-capability verified X9 fan provider available."
@@ -480,24 +475,21 @@ public partial class FansPanel : UserControl
         FanMappingDetailText.Text = oemTargetRpm
             ? "Built-in and custom curves send continuous 0–100% targets through Lenovo's capability-reported target-RPM interface. Each fan is mapped independently across its OEM-provided minimum and maximum RPM range."
             : x9EcWriter
-                ? "The verified X9 EC fallback has seven discrete output states. ThinkControl enables percentage-based profiles only after those states have a complete real tachometer calibration."
-                : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.";
+                ? "This provider exposes seven discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
+                : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps, PWM or target RPM unless that provider exposes the semantic contract.";
         FanProviderDetailText.ToolTip = null;
 
-        CalibrationCard.Visibility = x9Calibration ? Visibility.Visible : Visibility.Collapsed;
+        // CalibrationCard visibility is owned solely by the provider capability state
+        // in ApplyCalibrationUi. Model/provider-specific copy must not decide whether
+        // calibration exists as a product feature.
         RawEcStepsExpander.Visibility = x9EcWriter ? Visibility.Visible : Visibility.Collapsed;
         ManualControlDescriptionText.Text = oemTargetRpm
             ? "0% requests the Lenovo-reported minimum running target for each fan. 100% requests each fan's Lenovo-reported maximum target RPM. Auto is a separate firmware-owned mode; returning to Auto releases the OEM targets instead of pretending 100% and Auto are the same state."
             : x9EcWriter
-                ? "0% means the lowest verified running EC state, not fan-off. 100% requests the highest verified standard X9 EC step (step 7) in the calibrated fallback range. The unverified 0x40 full-speed/disengaged family remains blocked."
-                : "The manual target uses only the active provider's verified output range. ThinkControl does not expose raw EC steps unless the active provider explicitly supports the verified X9 EC contract.";
+                ? "0% means the lowest verified running output state, not fan-off. 100% requests the highest verified standard state in this provider's calibrated range. The unverified 0x40 full-speed/disengaged family remains blocked."
+                : "The manual target uses only the active provider's verified output range. Provider-specific raw controls appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = canControl;
     }
-
-    private static bool IsVerifiedX9DiscreteEc(AppState state, bool canControl, string fanControlKind) =>
-        canControl &&
-        DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType) &&
-        string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
 
     private static string ResolveFanControlKind(string? explicitKind, string? hardwareAccess, bool canControl)
     {
@@ -555,7 +547,7 @@ public partial class FansPanel : UserControl
         if (_app is null)
             return;
         StopCharacterizationButton.IsEnabled = false;
-        CharacterizationStatusText.Text = "Stopping calibration and returning fan ownership to Lenovo Auto…";
+        CharacterizationStatusText.Text = "Stopping calibration and returning fan ownership to firmware Auto…";
         if (!await _app.StopFanCharacterizationAsync())
         {
             CharacterizationStatusText.Text = _app.State.HardwareAccess;
