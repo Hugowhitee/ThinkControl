@@ -8,12 +8,12 @@ public partial class TouchpadPanel
     protected override void OnInitialized(EventArgs e)
     {
         base.OnInitialized(e);
-        ActionCombo.SelectionChanged += (_, _) => SyncTrackControlCopy();
+        ActionCombo.SelectionChanged += (_, _) => SyncTrackCenterOption();
         Loaded += (_, _) =>
         {
             ConfigureCornerLaunchUi();
             ApplyTouchpadLayout();
-            SyncTrackControlCopy();
+            SyncTrackCenterOption();
             SyncCornerLaunchControls();
             ApplySelectedZoneEditor();
         };
@@ -37,7 +37,7 @@ public partial class TouchpadPanel
         EnsureValueColumnWidth(ToleranceValue, 92);
     }
 
-    private void SyncTrackControlCopy()
+    private void SyncTrackCenterOption()
     {
         bool tracks = ActionCombo.SelectedItem is ActionOption option &&
                       option.Action == GestureActionKind.PreviousNextTrack;
