@@ -9,7 +9,7 @@ namespace ThinkControl.Core.Touchpad;
 public static class TrackCenterGesturePolicy
 {
     public const double MaximumTapMs = 460;
-    public const double MovementToleranceMm = 2.4;
+    public const double MovementToleranceMm = 1.9;
     public const double CenterZoneStart = 0.40;
     public const double CenterZoneEnd = 0.60;
 
