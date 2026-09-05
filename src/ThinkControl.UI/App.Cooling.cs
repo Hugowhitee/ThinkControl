@@ -4,6 +4,18 @@ using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
 
+internal sealed record FanCalibrationUiState(
+    bool Relevant,
+    bool Running,
+    bool Ready,
+    int CompletedLevels,
+    int TotalLevels,
+    string Status)
+{
+    internal static FanCalibrationUiState None { get; } = new(false, false, false, 0, 7, string.Empty);
+    internal bool Required => Relevant && !Ready;
+}
+
 public partial class App
 {
     private static readonly TimeSpan CoolingAutoRestoreRetryInterval = TimeSpan.FromSeconds(15);
@@ -12,13 +24,18 @@ public partial class App
     private bool _coolingPreferenceRestoreInFlight;
     private DateTimeOffset _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
     private FanProfileCatalog? _fanProfiles;
+    private FanCalibrationUiState _fanCalibrationState = FanCalibrationUiState.None;
 
     public FanProfileCatalog FanProfiles => _fanProfiles ??= new FanProfileCatalog(UserSettings);
+    internal FanCalibrationUiState FanCalibrationState => _fanCalibrationState;
+    internal event EventHandler? FanCalibrationStateChanged;
 
     private void InitializeCoolingCoordinator()
     {
+        HardwareClient.StatusObserved += CoolingStatusObserved;
         Exit += (_, _) =>
         {
+            HardwareClient.StatusObserved -= CoolingStatusObserved;
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(900));
@@ -28,6 +45,44 @@ public partial class App
             {
             }
         };
+    }
+
+    private void CoolingStatusObserved(object? sender, ServiceResponse? response)
+    {
+        void Apply()
+        {
+            FanCalibrationUiState next = ResolveFanCalibrationState(response);
+            if (Equals(next, _fanCalibrationState))
+                return;
+            _fanCalibrationState = next;
+            FanCalibrationStateChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        if (Dispatcher.CheckAccess())
+            Apply();
+        else
+            Dispatcher.BeginInvoke(Apply);
+    }
+
+    private FanCalibrationUiState ResolveFanCalibrationState(ServiceResponse? response)
+    {
+        if (response?.Success != true || response.Capabilities is not HardwareCapabilitySnapshot capabilities)
+            return FanCalibrationUiState.None;
+
+        bool relevant = DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType) &&
+                        capabilities.FanControl &&
+                        capabilities.FanTelemetry &&
+                        string.Equals(capabilities.FanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
+        if (!relevant)
+            return FanCalibrationUiState.None;
+
+        FanCharacterizationSnapshot? characterization = response.Telemetry?.FanCharacterization;
+        bool running = characterization?.Running == true;
+        int completed = characterization?.CompletedLevels ?? 0;
+        int total = Math.Max(1, characterization?.TotalLevels ?? 7);
+        bool ready = !running && characterization?.Levels.Count == total;
+        string status = characterization?.Status ?? "Fan calibration is required before percentage targets and curves are enabled.";
+        return new FanCalibrationUiState(true, running, ready, completed, total, status);
     }
 
     internal async Task<bool> SetCoolingProfileAsync(string profile)
@@ -52,6 +107,14 @@ public partial class App
             return true;
         }
 
+        if (FanCalibrationState.Required)
+        {
+            State.HardwareAccess = FanCalibrationState.Running
+                ? "Fan calibration currently owns the discrete EC fan provider. Finish or stop calibration before selecting a profile."
+                : "Calibrate the verified X9 EC fan states before using percentage-based fan profiles.";
+            return false;
+        }
+
         string id = NormalizeProfileId(raw);
         FanCurveDefinition? definition = FanProfiles.Find(id) ??
             FanProfiles.GetProfiles().FirstOrDefault(candidate =>
@@ -67,6 +130,14 @@ public partial class App
 
     internal async Task<bool> ApplyFanCurveAsync(FanCurveDefinition definition, bool persistSelection)
     {
+        if (FanCalibrationState.Required)
+        {
+            State.HardwareAccess = FanCalibrationState.Running
+                ? "Fan calibration currently owns the discrete EC fan provider. Finish or stop calibration before applying a curve."
+                : "Calibrate the verified X9 EC fan states before applying percentage-based curves.";
+            return false;
+        }
+
         if (!FanCurveGraphPolicy.TryNormalize(definition.Points, out FanCurvePoint[] points, out string? validation))
         {
             State.HardwareAccess = validation ?? "Fan curve is invalid";
@@ -95,6 +166,14 @@ public partial class App
 
     internal async Task<bool> SetManualFanPercentAsync(int percent)
     {
+        if (FanCalibrationState.Required)
+        {
+            State.HardwareAccess = FanCalibrationState.Running
+                ? "Fan calibration currently owns the discrete EC fan provider."
+                : "Calibrate the verified X9 EC fan states before using percentage-based manual targets.";
+            return false;
+        }
+
         ServiceResponse? response = await HardwareClient.SetFanPercentAsync(percent);
         if (response?.Success == true)
             return true;
@@ -106,7 +185,10 @@ public partial class App
     {
         ServiceResponse? response = await HardwareClient.StartFanCharacterizationAsync();
         if (response?.Success == true)
+        {
+            _ = HardwareClient.GetStatusAsync();
             return true;
+        }
         State.HardwareAccess = response?.Error ?? "Fan characterization unavailable";
         return false;
     }
@@ -115,7 +197,10 @@ public partial class App
     {
         ServiceResponse? response = await HardwareClient.StopFanCharacterizationAsync();
         if (response?.Success == true)
+        {
+            _ = HardwareClient.GetStatusAsync();
             return true;
+        }
         State.HardwareAccess = response?.Error ?? "Fan characterization could not stop";
         return false;
     }
@@ -158,6 +243,19 @@ public partial class App
                 State.CoolingProfile = "Lenovo Auto";
                 _coolingPreferenceRestoreAttempted = true;
                 _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
+                return;
+            }
+
+            // Percentage-based curves on the discrete EC fallback are meaningful
+            // only after the seven real fan states have been measured. Keep Lenovo
+            // Auto in charge rather than restoring a guessed mapping at startup.
+            if (FanCalibrationState.Required)
+            {
+                _coolingPreferenceRestoreAttempted = true;
+                State.HardwareAccess = "Fan calibration is required before the saved percentage-based fan profile can be restored.";
+                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                if (auto?.Success == true)
+                    State.CoolingProfile = "Lenovo Auto";
                 return;
             }
 
