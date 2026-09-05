@@ -63,9 +63,6 @@ public partial class AdvancedWindow
 
     private static void ResetTransientPageUi(DependencyObject root)
     {
-        // Page-local disclosure state is transient UI, not a user setting. Returning
-        // to a page starts clean while actual switches/sliders/settings stay exactly
-        // as the user left them.
         foreach (ComboBox combo in FindVisualChildren<ComboBox>(root))
             combo.IsDropDownOpen = false;
         foreach (Expander expander in FindVisualChildren<Expander>(root))
@@ -178,9 +175,7 @@ public partial class AdvancedWindow
         }
         finally
         {
-            DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
-            UpdateCheckHistoryService.Record(checkedAt);
-            RefreshLastChecked(checkedAt);
+            RecordUpdateCheckCompleted(DateTimeOffset.UtcNow);
             SetUpdateCheckingVisual(false);
         }
     }
@@ -199,9 +194,7 @@ public partial class AdvancedWindow
                 SetUpdateCheckingVisual(true);
                 _lastUpdate = await _app.UpdateService.CheckAsync();
                 _app.PublishUpdateCheckResult(_lastUpdate);
-                DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
-                UpdateCheckHistoryService.Record(checkedAt);
-                RefreshLastChecked(checkedAt);
+                RecordUpdateCheckCompleted(DateTimeOffset.UtcNow);
                 SetUpdateCheckingVisual(false);
             }
 
