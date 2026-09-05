@@ -25,7 +25,7 @@ Current release candidate:
 
 The release branch is designed to fail closed. The direct Lenovo target-RPM writer remains externally gated to the exact X9 identity. Canonical Lenovo Capability Data is preferred; when firmware omits a fan capability record, the narrow direct-ID fallback requires a sane Lenovo Fan Test range plus a plausible live `GetFeatureValue` from the documented `0x0403000N` fan attribute immediately before writing. An explicitly present invalid/readonly capability is never overridden. EnergyDrv remains read-only until its write encoding is actually recovered, and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
 
-The final release-prep delta after the earlier fully green candidate is intentional and stays inside the same fan-control scope: Lenovo Auto can be explicitly reasserted after in-memory ownership is lost, Compact/Home controls no longer show a false Auto state while managed cooling is active, direct OEM targets require bounded live-RPM response evidence after `SetFeatureValue`, EnergyDrv retry/backoff survives provider refresh correctly, and the fan-curve editor/diagnostics import the active provider contract instead of assuming EC semantics. These follow-up changes are part of alpha.36 and therefore require one final CI + Package pass on the exact release head before merge.
+The final release-prep delta after the earlier fully green candidate is intentional and stays inside the same fan-control scope: Lenovo Auto can be explicitly reasserted after in-memory ownership is lost, Compact/Home controls no longer show a false Auto state while managed cooling is active, direct OEM targets require bounded live-RPM response evidence after `SetFeatureValue`, EnergyDrv retry/backoff survives provider refresh correctly, and the fan-curve editor/diagnostics import the active provider contract instead of assuming EC semantics. These follow-up changes are part of alpha.36.
 
 ## Alpha.36 product delta
 
@@ -114,9 +114,10 @@ Do not recreate a third full installer workflow. CI and Package are the current 
 - [x] EnergyDrv writer remains disabled; no `GENERIC_WRITE`/brute-force fan command was added.
 - [x] Research scripts are parser-checked in CI and are read-only/static by contract.
 - [x] `version.json`, README and active version docs are frozen at `v0.1.0-alpha.36`.
-- [x] Representative Fans and Touchpad visual-QA states have been manually inspected during release preparation.
+- [x] Representative Fans and Touchpad visual-QA states were manually inspected on the final candidate: OEM manual, EC active-curve, unavailable, min/wide Fans, plus left/right selected/live Touchpad states. No release-blocking visual regression was found.
 - [x] Final changed-file scope contains only release docs/version plus the intended fan provider/service/UI/diagnostic/research/test work.
-- [ ] Immediately before merge, require **CI + Package ThinkControl green on the exact same final PR head**. Record the concrete head/run IDs in the PR body so this handoff does not need another evidence-only commit that would invalidate the head.
+- [x] Exact-head CI and Package passed together on release-prep head `798b2ace9ab2d7236f2fda88604e8f6a887e8239`: CI #1558 / run `33969258159` passed with 0 warnings, 0 errors, 144/144 tests, shell smoke and 85 WPF snapshots; visual artifact digest `sha256:f46e9dfe8da5de67025d7be6c292b93734cb827d3b8da554b9eddfab2653bbe9`. Package #1278 / run `33969258158` passed publish, 56.85 MB installed-payload budget, 15.79 MB compressed payload, 2.3 MB bootstrap installer, deep installer/service/IPC smoke, clean uninstall and real alpha.14.1 → alpha.36-dev.1278 upgrade regression. Development artifact digest `sha256:b481ed1bc7f1b8efca8d4151490485e816fc956a5b6a9cece79efa46239e8d86`.
+- [ ] Because recording exact-head evidence in this tracked handoff creates one final documentation-only commit, require CI + Package green once more on that exact final documentation head before merge.
 - [ ] Squash-merge with that exact expected head SHA.
 - [ ] Verify post-merge `main`.
 - [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.36` at the merged commit and does not move alpha.35.
