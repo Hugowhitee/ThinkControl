@@ -165,12 +165,14 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("FanCalibrationRequired: fanCalibrationRequired", service, StringComparison.Ordinal);
         Assert.Contains("public string FanControlKind", appState, StringComparison.Ordinal);
 
-        Assert.Contains("100% requests each fan's Lenovo-reported maximum target RPM", ui, StringComparison.Ordinal);
-        Assert.Contains("RawEcStepsExpander.Visibility = x9EcWriter", ui, StringComparison.Ordinal);
+        Assert.Contains("provider-reported maximum target RPM", ui, StringComparison.Ordinal);
+        Assert.Contains("RawEcStepsExpander.Visibility = discreteEcWriter", ui, StringComparison.Ordinal);
         Assert.Contains("CalibrationCard.Visibility = calibration.Relevant", ui, StringComparison.Ordinal);
-        Assert.Contains("visibility is owned solely by the provider capability state", ui, StringComparison.Ordinal);
+        Assert.Contains("Calibration visibility is owned solely by provider capability state", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
+        Assert.DoesNotContain("DeviceCapabilityExpectations.IsVerifiedX9", ui, StringComparison.Ordinal);
+        Assert.DoesNotContain("HardwareAccess", ui.Split("private static string DescribeUnavailable", StringSplitOptions.None)[0].Split("private void ApplyProviderCopy", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.Contains("% OEM target", ui, StringComparison.Ordinal);
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", editor, StringComparison.Ordinal);
@@ -186,9 +188,9 @@ public sealed class LenovoOtherModeFanProviderSourceTests
 
         Assert.Contains("PrepareOemTargetRpmForSnapshot(72)", snapshot, StringComparison.Ordinal);
         Assert.Contains("_fanControlKind = FanControlKinds.OemTargetRpm", snapshot, StringComparison.Ordinal);
-        Assert.Contains("lenovo-other-mode-1", snapshot, StringComparison.Ordinal);
-        Assert.Contains("lenovo-other-mode-2", snapshot, StringComparison.Ordinal);
-        Assert.Contains("ApplyProviderCopy(state, true, FanControlKinds.OemTargetRpm)", snapshot, StringComparison.Ordinal);
+        Assert.Contains("oem-target-rpm-1", snapshot, StringComparison.Ordinal);
+        Assert.Contains("oem-target-rpm-2", snapshot, StringComparison.Ordinal);
+        Assert.Contains("ApplyProviderCopy(true, FanControlKinds.OemTargetRpm)", snapshot, StringComparison.Ordinal);
         Assert.Contains("% OEM target", snapshot, StringComparison.Ordinal);
         Assert.DoesNotContain("GetStatusAsync", snapshot, StringComparison.Ordinal);
         Assert.DoesNotContain("SetFanPercent", snapshot, StringComparison.Ordinal);
