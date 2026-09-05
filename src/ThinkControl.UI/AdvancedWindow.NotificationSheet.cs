@@ -306,10 +306,10 @@ public partial class AdvancedWindow
                 messages.Add(new(
                     calibration.Running ? "Fan calibration in progress" : calibration.Ready ? "Fan calibration complete" : "Fan calibration required",
                     calibration.Running
-                        ? $"ThinkControl is measuring the verified X9 EC fan states ({calibration.CompletedLevels}/{calibration.TotalLevels}). Other fan controls stay locked and Lenovo Auto is restored when the run finishes or is stopped."
+                        ? $"The active fan provider is measuring its calibration states ({calibration.CompletedLevels}/{calibration.TotalLevels}). Other fan controls stay locked until the run finishes or is stopped, then firmware Auto is restored."
                         : calibration.Ready
-                            ? "The seven verified X9 EC states have a complete measured tachometer mapping. You can review the calibration and fan controls on the Fans page."
-                            : "The active X9 fallback exposes seven discrete EC fan states. A complete measured calibration is required before ThinkControl enables percentage profiles or manual percentage targets.",
+                            ? $"The active fan provider has a complete measured mapping for all {calibration.TotalLevels} calibration states. You can review the mapping and fan controls on the Fans page."
+                            : "The active fan provider requires a measured output mapping before ThinkControl can safely enable percentage profiles or manual percentage targets.",
                     "Open Fans",
                     SheetAction.Fans,
                     calibration.Required && !calibration.Running));
