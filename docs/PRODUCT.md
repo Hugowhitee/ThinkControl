@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.37`.
+Current prerelease candidate: `v0.1.0-alpha.38`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -57,13 +57,13 @@ An OEM thermal-policy provider may coordinate with the selected Windows preferen
 
 ## Fans, PawnIO and temperatures
 
-Fans consume generic fan/control-temperature capabilities. The provider may expose discrete EC states, a continuous OEM target-RPM contract, an OEM-native thermal policy, or read-only telemetry; the UI must not assume one backend merely because `FanControl` exists.
+Fans consume generic fan/control-temperature capabilities. The provider may expose discrete states, a continuous target-RPM contract, an OEM-native thermal policy, or read-only telemetry; the UI must not assume one backend merely because `FanControl` exists. Calibration is also an explicit capability: generic UI shows or requires it only when the active provider reports `FanCalibrationSupported` / `FanCalibrationRequired`, rather than deriving the product workflow from a laptop model name.
 
-On the X9 path, ThinkControl prefers Lenovo-native fan semantics. `LENOVO_OTHER_METHOD` can expose per-fan `fanX_input` and tunable `fanX_target` values: ThinkControl enables that writer only when exact-X9 identity, VALID+GET+SET capability data, sane Lenovo fan constraints and at least two live fan channels all pass. Percentages and curves then map independently across each fan's OEM-reported range, while target `0` is reserved for Lenovo Auto. Extra/phantom capability records do not block two real writable fans.
+On the current X9 reference path, ThinkControl prefers Lenovo-native fan semantics. `LENOVO_OTHER_METHOD` can expose per-fan `fanX_input` and tunable `fanX_target` values: ThinkControl enables that writer only when exact-X9 identity, VALID+GET+SET capability data, sane Lenovo fan constraints and at least two live fan channels all pass. Percentages and curves then map independently across each fan's OEM-reported range, while target `0` is reserved for Lenovo Auto. Extra/phantom capability records do not block two real writable fans.
 
 Lenovo `EnergyDrv` `QueryFanSpeed 0x83102570` is a separate read-only native telemetry path. It can provide Fan 1 / Fan 2 evidence without authorizing the still-unrecovered `ChangeFanSpeed 0x8310257C` writer. Once two native Lenovo fan channels have been proven in a hardware-service lifetime, a transient native read failure does not silently re-enable the known-inferior EC writer.
 
-The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider, not the product definition of 0–100%. Raw EC steps and transactional seven-step calibration appear only when that discrete provider is actually active. EC step 7 is not labelled as Lenovo's absolute physical maximum and the unsafe/ambiguous `0x40` family remains blocked.
+The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider, not the product definition of 0–100%. Raw EC steps appear only when that discrete provider is actually active. Its percentage translation requires a measured tachometer mapping; that requirement belongs to the provider capability and is not a global rule for other laptops or future fan providers. EC step 7 is not labelled as Lenovo's absolute physical maximum and the unsafe/ambiguous `0x40` family remains blocked.
 
 PawnIO prerequisite state is not inferred from an uninstall registry entry alone. ThinkControl distinguishes:
 
@@ -100,13 +100,15 @@ Dolby controls are provider-driven rather than Lenovo-specific. Direct controls 
 
 Hardware backlight states and optional user-session effects are separate concepts. A backend must pass its read/probe contract before writes are enabled. Direct static changes and effects share serialized hardware ownership so one cannot silently overwrite/drop the other.
 
+Generic Keyboard UI consumes an explicit `KeyboardEffects` provider capability. It does not decide effect support from a Lenovo/Vantage label, and a saved effect is restored only after the active provider has advertised that capability.
+
 On a Lenovo backend that exposes the reviewed Vantage keyboard contract, `FirmwareAuto = 3` is treated as an observed OEM state, not a guessed direct-driver command. The normal keyboard-mode row exposes Off / Low / High / Auto. Selecting Auto requests Lenovo firmware Auto and requires readback verification.
 
 Auto is **not** a ThinkControl effect and there is no software idle-dimming fallback. If Lenovo/OEM Auto cannot be set and verified, ThinkControl does not silently substitute a High → Low → Off policy while still labelling the result Auto.
 
-Breathing, Reactive and Audio are separate bounded user-session effects. They require the stricter direct backlight provider and are deliberately unavailable through the Lenovo Vantage fallback because repeated Vantage writes can show Lenovo's own keyboard-brightness pop-up. Effects remain local, rate-limited and deduplicated; Reactive listens only while selected and Audio uses local loopback level data without storing audio.
+Breathing, Reactive and Audio are separate bounded user-session effects. They require a provider that explicitly supports safe repeated backlight changes; the current Lenovo Vantage fallback does not advertise that capability because repeated Vantage writes can show Lenovo's own keyboard-brightness pop-up. Effects remain local, rate-limited and deduplicated; Reactive listens only while selected and Audio uses local loopback level data without storing audio.
 
-Other OEMs should provide their own backend behind the same keyboard capability rather than adding vendor-specific page copies.
+Other OEMs should provide their own backend behind the same keyboard capabilities rather than adding vendor-specific page copies.
 
 ## Touchpad
 
@@ -114,13 +116,13 @@ The Touchpad page shows real contact points, bounded recent trails, configurable
 
 A finger lift ends a visual trail segment. New contacts and implausibly large physical jumps do not draw fake connecting lines.
 
-Track control prefers the active Windows media session and falls back safely where needed. Optional center Play/Pause uses a visible bounded center zone and deliberate low-travel hold/release; normal swipes still own Previous/Next.
+Track control prefers the active Windows media session and falls back safely where needed. Optional center Play/Pause is a visible bounded tap target inside the canonical visualizer; a short low-travel tap inside that target toggles playback, while the surrounding edge lane keeps Previous/Next swipe ownership.
 
 The editor/visualizer uses one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. Edges and corners share one rendering owner and one idle/selected/hover/candidate/live visual grammar. The former auxiliary corner overlay is non-interactive and does not own mouse selection.
 
 Each enabled corner launch uses one canonical physical **guard → diagonal lane → rounded end-cap** shape. The visible quarter-circle guard is also the recognizer's real first-frame priority area, so slightly imperfect finger placement near the physical corner cannot accidentally become the neighboring top/side gesture. The lane and rounded end-cap are real usable areas too, not decorative overlays. If a corner launch is Off, it does not reserve runtime input from the edge recognizer.
 
-The final right-corner geometry is mirrored from the canonical left-corner geometry rather than independently approximated. The center guide is a directional arrow, the inner end is a semicircular arc rather than a flat 90-degree cross-line/filled blob, and enabled Compact/Advanced actions show their semantic icon and text.
+The final right-corner geometry is an exact horizontal mirror transform of the canonical left-corner geometry rather than an independently approximated shape. The same fill/boundary grammar is used by edges and corners, and the edge visual bands are clipped around enabled corner regions so the corner does not look like a separate overlay stacked on top of an edge. The center guide is a directional arrow, the inner end is a semicircular arc rather than a flat 90-degree cross-line/filled blob, and enabled Compact/Advanced actions show their semantic icon and text.
 
 Runtime corner recognition remains intentionally separate from edge recognition and preserves the alpha.33 safety contract: corner launches and edge gestures are mutually exclusive per contact. A configured top corner owns a contact from the first candidate frame when the finger begins anywhere inside its visible guard/lane/cap area. If that corner candidate is rejected, the same still-down contact is locked out until lift and cannot be reinterpreted as an edge gesture.
 
@@ -128,7 +130,7 @@ Each corner can independently enable **Reverse swipe closes ThinkControl**. With
 
 The gesture-owned hide-to-tray operation uses the canonical shell-transition owner. Compact is hidden synchronously for that transition before shell-state verification/diagnostics are recorded; the separate normal tray-toggle path may still animate. This keeps reverse-close lifecycle diagnostics aligned with the state the user actually sees.
 
-Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners, covers the normal inward state on the left and the opt-in reverse-close state on the mirrored right, and asserts mirrored final geometry plus unchanged editor layout across live frames. The reverse fixture starts from a clean non-live corner baseline so its trail represents only the outward close gesture.
+Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners and asserts mirrored final geometry plus unchanged editor layout across live frames.
 
 Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence and publishes all-up frames immediately. Raw-input/HID registration is deferred until after the visible shell/page has painted. UI-only corner/gesture listeners attach only while the Touchpad page is visible so leaving the page cannot keep high-rate dispatcher work alive elsewhere in Advanced.
 
@@ -156,7 +158,7 @@ ThinkControl grows support from broad to specific:
 Windows generic → OEM generic → product family → exact model
 ```
 
-Profiles select reasonable provider candidates. Providers own implementation, readback, lifecycle and write safety. Profiles cannot authorize arbitrary low-level writes by themselves.
+Profiles select reasonable provider candidates. Providers own implementation, readback, lifecycle and write safety. Profiles cannot authorize arbitrary low-level writes by themselves. Generic pages consume semantic capability fields rather than parsing model names or diagnostic provider strings.
 
 Unknown/unverified laptops remain capability-driven and conservative. Windows-safe features may work, read-only providers may surface real telemetry, and hardware-specific writes remain unavailable until the relevant provider/device contract is verified.
 
@@ -166,11 +168,13 @@ The current desktop client uses the graph-based cooling API. Older service-side 
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.37; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.36` release is the production baseline immediately before this candidate.
+No automatic cloud compatibility/crash upload is part of alpha.38; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.37` release is the production baseline immediately before this candidate.
 
 ## Installation and updates
 
-Alpha.37 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.38 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+
+Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is also persisted for the next session.
 
 Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior, compatibility with the legacy updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 
