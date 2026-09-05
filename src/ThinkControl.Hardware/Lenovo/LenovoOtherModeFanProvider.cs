@@ -28,17 +28,19 @@ internal sealed record LenovoOtherModeFanStatus(
 /// <summary>
 /// Lenovo OEM fan provider coordinator.
 ///
-/// Lenovo's upstream Other Mode contract exposes fanX_input plus a directly
-/// tunable fanX_target through LENOVO_OTHER_METHOD. The fan attribute ID is
-/// 0x04/0x03/0x00/<fan id>, SetFeatureValue writes a target RPM, firmware rounds
-/// targets to its 100-RPM divisor, and target 0 hands the fan back to Auto.
+/// Lenovo's upstream Other Mode contract exposes fanX_input plus a fanX_target
+/// through LENOVO_OTHER_METHOD. The read side remains useful for native dual-fan
+/// telemetry. The target-RPM write path is currently held read-only: physical X9
+/// validation after alpha.38 reproduced repeated speed cycling/re-kick and a useful
+/// high-cooling ceiling below naturally hot firmware Auto, failing the acceptance
+/// gate that originally accompanied this experimental writer.
 ///
 /// Canonical discovery uses Capability Data 00 plus Fan Test Data. The provider
 /// can additionally use a narrow direct-ID fallback when Capability Data omits a
 /// fan attribute: the known 0x0403000N ID must still answer a live GetFeatureValue
 /// and that physical fan must have a sane Fan Test RPM range. An explicitly
-/// present but invalid/readonly capability is never overridden. ThinkControl's
-/// parent hardware controller still gates all writes to the exact verified X9.
+/// present but invalid/readonly capability is never overridden. ThinkControl keeps
+/// target 0 available only for Auto cleanup/reassertion of previously owned state.
 ///
 /// Some Lenovo families may expose fan telemetry only through EnergyDrv. In that
 /// case EnergyDrv remains read-only while the exact matching OEM writer is
@@ -70,6 +72,11 @@ internal sealed class LenovoOtherModeFanProvider
     private static readonly TimeSpan LiveProbeFailureBackoff = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan DiscoveryFailureBackoff = TimeSpan.FromSeconds(10);
 
+    // Do not re-enable from hosted tests alone. The original acceptance contract
+    // requires smooth physical settling and a useful ceiling comparable with hot
+    // firmware Auto. The current X9 evidence fails both checks.
+    private static readonly bool DirectTargetRpmWritesPhysicallyAccepted = false;
+
     private readonly object _gate = new();
     private readonly LenovoEnergyDrvFanProvider _energyDrv = new();
     private readonly bool _allowExactModelDirectIdFallback;
@@ -82,10 +89,9 @@ internal sealed class LenovoOtherModeFanProvider
     private DateTimeOffset _liveProbeRetryAfter = DateTimeOffset.MinValue;
     private string? _lastLiveProbeFailure;
 
-    // Only LenovoHardwareController owns this provider in production, and that
-    // controller performs the exact 21Q6/21Q7 identity gate before any SetPercent
-    // call. Keeping the read-side direct-ID probe enabled lets incomplete Lenovo
-    // capdata be diagnosed without weakening the external write boundary.
+    // Only LenovoHardwareController owns this provider in production. Keeping the
+    // read-side direct-ID probe enabled lets incomplete Lenovo capdata be diagnosed
+    // without authorizing the physically rejected target-RPM writer.
     internal LenovoOtherModeFanProvider(bool allowExactModelDirectIdFallback = true)
     {
         _allowExactModelDirectIdFallback = allowExactModelDirectIdFallback;
@@ -159,14 +165,14 @@ internal sealed class LenovoOtherModeFanProvider
                     (int)raw,
                     $"Fan {channel.Index + 1}",
                     channel.CapabilityPresent
-                        ? "Lenovo WMI · Other Mode direct target-RPM"
-                        : "Lenovo WMI · Other Mode direct target-RPM · exact-X9 direct-ID fallback"));
+                        ? "Lenovo WMI · Other Mode fan telemetry"
+                        : "Lenovo WMI · Other Mode fan telemetry · exact-X9 direct-ID fallback"));
             }
 
             LenovoOtherModeFanChannel[] writableLive = channels
                 .Where(channel => liveChannelIndexes.Contains(channel.Index) && IsWritableChannel(channel))
                 .ToArray();
-            bool canControl = writableLive.Length >= 2;
+            bool canControl = DirectTargetRpmWritesPhysicallyAccepted && writableLive.Length >= 2;
 
             if (fans.Count == 0)
             {
@@ -177,9 +183,12 @@ internal sealed class LenovoOtherModeFanProvider
             }
 
             ClearLiveProbeFailure();
-            string liveSummary = $"{fans.Count}/{channels.Length} live · {writableLive.Length} live writable";
+            string liveSummary = $"{fans.Count}/{channels.Length} live · {writableLive.Length} write-capable by metadata";
             string fallbackSummary = writableLive.Any(channel => !channel.CapabilityPresent)
-                ? " · exact-X9 direct-ID fallback active because Capability Data omitted a live fan attribute"
+                ? " · exact-X9 direct-ID fallback present because Capability Data omitted a live fan attribute"
+                : string.Empty;
+            string writeValidation = !DirectTargetRpmWritesPhysicallyAccepted && writableLive.Length >= 2
+                ? " · target-RPM writes held read-only after physical X9 validation found repeated speed cycling and a lower useful ceiling than hot firmware Auto"
                 : string.Empty;
             return new LenovoOtherModeFanStatus(
                 Available: true,
@@ -188,7 +197,7 @@ internal sealed class LenovoOtherModeFanProvider
                 Channels: channels,
                 Detail: canControl
                     ? $"Lenovo Other Mode direct target-RPM · {liveSummary} · {DescribeRanges(writableLive)}{fallbackSummary}"
-                    : $"Lenovo Other Mode fan telemetry · {liveSummary} · {detail} · {DescribeChannelCapabilities(channels)}");
+                    : $"Lenovo Other Mode fan telemetry · {liveSummary}{writeValidation} · {detail} · {DescribeChannelCapabilities(channels)}");
         }
         catch (Exception ex)
         {
@@ -205,6 +214,12 @@ internal sealed class LenovoOtherModeFanProvider
         if (percent is < 0 or > 100)
         {
             error = "OEM fan target must be between 0% and 100%.";
+            return false;
+        }
+
+        if (!DirectTargetRpmWritesPhysicallyAccepted)
+        {
+            error = "Lenovo Other Mode target-RPM writes are held read-only because physical X9 validation failed: the fans repeatedly sped up and slowed down under a fixed target, and the useful 100% ceiling remained below naturally hot firmware Auto. Lenovo Auto keeps ownership.";
             return false;
         }
 
@@ -499,8 +514,8 @@ internal sealed class LenovoOtherModeFanProvider
                 : string.Empty;
             string capFailureDetail = capabilityFailure is null ? string.Empty : $" · capdata query failed: {capabilityFailure}";
             _discoveryDetail = writableCandidates >= 2
-                ? $"Lenovo Other Mode direct target-RPM candidates found · {writableCandidates}/{_channels.Length} safe writable · live GET still required{directIdDetail}{capFailureDetail}"
-                : $"Lenovo Other Mode fan metadata found · {writableCandidates}/{_channels.Length} safe writable · {DescribeChannelCapabilities(_channels)}{capFailureDetail}";
+                ? $"Lenovo Other Mode target-RPM metadata found · {writableCandidates}/{_channels.Length} write-capable by metadata · live GET still required; product writes remain physically gated{directIdDetail}{capFailureDetail}"
+                : $"Lenovo Other Mode fan metadata found · {writableCandidates}/{_channels.Length} write-capable by metadata · {DescribeChannelCapabilities(_channels)}{capFailureDetail}";
         }
         catch (Exception ex)
         {

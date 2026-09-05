@@ -167,13 +167,19 @@ public partial class FansPanel : UserControl
 
     private void ApplyCalibrationUi(FanCalibrationUiState calibration, bool canControl)
     {
-        CalibrationCard.Visibility = calibration.Relevant ? Visibility.Visible : Visibility.Collapsed;
+        bool running = calibration.Running;
+        bool ready = calibration.Ready;
+        bool attention = calibration.Required || running;
+        bool showCalibrationTask = calibration.Relevant && attention;
+        CalibrationCard.Visibility = showCalibrationTask ? Visibility.Visible : Visibility.Collapsed;
+
         if (!calibration.Relevant)
         {
             ProfileComboBox.IsEnabled = canControl;
             EditCurvesButton.IsEnabled = canControl;
             ProfileCard.Opacity = 1;
             ManualControlExpander.IsEnabled = canControl;
+            ManualControlExpander.Visibility = canControl ? Visibility.Visible : Visibility.Collapsed;
             ManualControlExpander.Opacity = 1;
             ManualPercentSlider.IsEnabled = canControl;
             ManualPercentApplyButton.IsEnabled = canControl;
@@ -181,32 +187,25 @@ public partial class FansPanel : UserControl
             return;
         }
 
-        bool running = calibration.Running;
-        bool ready = calibration.Ready;
-        bool attention = calibration.Required || running;
-        CalibrationCard.SetResourceReference(Border.BorderBrushProperty, attention ? "Tc.Accent" : "Tc.Border");
+        CalibrationCard.SetResourceReference(Border.BorderBrushProperty, "Tc.Accent");
         CalibrationCard.BorderThickness = new Thickness(1);
 
         CharacterizationTitleText.Text = running
             ? "Fan calibration in progress"
-            : ready
-                ? "Fan calibration complete"
-                : "Fan calibration required";
+            : "Fan calibration required";
         CalibrationDescriptionText.Text = running
             ? "ThinkControl temporarily owns the active provider's calibration states while each state settles and real tachometer samples are measured. Other fan controls are locked until calibration finishes or is stopped; firmware Auto is restored automatically."
-            : ready
-                ? $"The active provider has a complete measured mapping for all {calibration.TotalLevels} calibration states. Percentage profiles and manual targets can use that calibrated range."
-                : "The active fan provider requires a measured output mapping before it can safely translate percentage profiles or manual percentage targets. Firmware Auto remains the safe default until calibration completes.";
+            : "The active fan provider requires a measured output mapping before it can safely translate percentage profiles or temporary percentage tests. Firmware Auto remains the safe default until calibration completes.";
         CharacterizationStatusText.Text = calibration.Status;
 
-        CharacterizeButton.Content = ready ? "Recalibrate" : "Calibrate now";
+        CharacterizeButton.Content = "Calibrate now";
         CharacterizeButton.IsEnabled = canControl && !running;
         CharacterizeButton.Visibility = running ? Visibility.Collapsed : Visibility.Visible;
         StopCharacterizationButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
         StopCharacterizationButton.IsEnabled = running;
         CharacterizationProgress.Maximum = Math.Max(1, calibration.TotalLevels);
         CharacterizationProgress.Value = Math.Clamp(calibration.CompletedLevels, 0, calibration.TotalLevels);
-        CharacterizationProgress.Visibility = running || calibration.CompletedLevels > 0 || ready
+        CharacterizationProgress.Visibility = running || calibration.CompletedLevels > 0
             ? Visibility.Visible
             : Visibility.Collapsed;
 
@@ -215,7 +214,8 @@ public partial class FansPanel : UserControl
         EditCurvesButton.IsEnabled = semanticControlsEnabled;
         ProfileCard.Opacity = semanticControlsEnabled ? 1 : 0.42;
         ManualControlExpander.IsEnabled = semanticControlsEnabled;
-        ManualControlExpander.Opacity = semanticControlsEnabled ? 1 : 0.42;
+        ManualControlExpander.Visibility = semanticControlsEnabled ? Visibility.Visible : Visibility.Collapsed;
+        ManualControlExpander.Opacity = 1;
         ManualPercentSlider.IsEnabled = semanticControlsEnabled;
         ManualPercentApplyButton.IsEnabled = semanticControlsEnabled;
         RawEcStepsExpander.IsEnabled = semanticControlsEnabled;
@@ -465,22 +465,24 @@ public partial class FansPanel : UserControl
 
         FansIntroText.Text = "Fan behavior is independent from Windows performance mode. ThinkControl uses only capabilities exposed by the active verified fan provider; firmware Auto remains the fail-safe whenever no writable provider is active.";
 
-        FanMappingDetailText.Text = oemTargetRpm
-            ? "Built-in and custom curves send continuous 0–100% targets through the active provider's target-RPM contract. Each fan is mapped independently across the minimum and maximum RPM range reported by that provider."
-            : discreteEcWriter
-                ? "This provider exposes discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
-                : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps, PWM or target RPM unless that provider exposes the semantic contract.";
+        FanMappingDetailText.Text = !canControl
+            ? "Firmware Auto keeps fan ownership. Native telemetry can still be shown when available, but profiles and temporary tests stay unavailable until a writer passes both provider validation and the required physical-device checks."
+            : oemTargetRpm
+                ? "Built-in and custom curves send continuous 0–100% targets through the active provider's target-RPM contract. Each fan is mapped independently across the minimum and maximum RPM range reported by that provider."
+                : discreteEcWriter
+                    ? "This provider exposes discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
+                    : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps, PWM or target RPM unless that provider exposes the semantic contract.";
         FanProviderDetailText.ToolTip = null;
 
-        // Calibration visibility is owned solely by provider capability state in
-        // ApplyCalibrationUi. Discrete raw controls are exposed only when the active
-        // provider explicitly advertises the corresponding discrete-EC contract.
+        // Raw EC diagnostics exist only for a provider that explicitly advertises
+        // the discrete-EC semantic contract. They are never a generic laptop option.
         RawEcStepsExpander.Visibility = discreteEcWriter ? Visibility.Visible : Visibility.Collapsed;
+        ManualControlExpander.Visibility = canControl ? Visibility.Visible : Visibility.Collapsed;
         ManualControlDescriptionText.Text = oemTargetRpm
-            ? "0% requests the provider-reported minimum running target for each fan. 100% requests each fan's provider-reported maximum target RPM. Auto is a separate firmware-owned mode; returning to Auto releases manual targets instead of pretending 100% and Auto are the same state."
+            ? "Temporary 30-second test. 0% requests the provider-reported minimum running target and 100% its reported maximum target RPM; the previous profile is restored automatically. Firmware Auto remains a separate ownership state."
             : discreteEcWriter
-                ? "0% means the lowest verified running output state, not fan-off. 100% requests the highest verified standard state in this provider's calibrated range. Unverified vendor-specific override states remain blocked."
-                : "The manual target uses only the active provider's verified output range. Provider-specific raw controls appear only when that exact semantic contract is exposed.";
+                ? "Temporary 30-second test. The percentage target maps onto the provider's calibrated discrete states; raw EC diagnostics remain available below for this provider only. The previous profile is restored automatically."
+                : "Temporary tests use only the active provider's verified output range and restore the previous profile automatically. Provider-specific raw diagnostics appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = canControl;
     }
 

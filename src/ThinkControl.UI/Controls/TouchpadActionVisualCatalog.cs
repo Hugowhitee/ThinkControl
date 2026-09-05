@@ -96,10 +96,10 @@ internal static class TouchpadActionVisualCatalog
 
             [GestureActionKind.PreviousNextTrack] = new(
                 GestureActionKind.PreviousNextTrack,
-                // The optional center action is a real bounded target drawn by the
-                // gesture-zone overlay. Keeping a combined play/pause material icon
-                // here made it look like a third skip action and left a stray dot
-                // when the center option was disabled.
+                // Track control is rendered as one integrated three-part lane by
+                // TouchpadVisualizer: Previous | Play/Pause | Next. The catalog owns
+                // only the two directional semantic cues so no second center overlay
+                // can drift away from the canonical edge geometry.
                 TouchpadVisualCue.None,
                 TouchpadVisualCue.Icon(SemanticIconKeys.Previous),
                 TouchpadVisualCue.Icon(SemanticIconKeys.Next),

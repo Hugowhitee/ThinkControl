@@ -37,14 +37,13 @@ public partial class FansPanel
 
         if (ManualPercentSlider.Parent is Grid row)
         {
-            Button? apply = row.Children.OfType<Button>()
-                .FirstOrDefault(button => string.Equals(button.Content?.ToString(), "Apply", StringComparison.Ordinal));
-            if (apply is not null)
-            {
-                apply.Click -= ManualPercentApply_Click;
-                apply.Click += ManualPercentTestApply_Click;
-                _manualFanApplyButton = apply;
+            Button apply = ManualPercentApplyButton;
+            apply.Click -= ManualPercentApply_Click;
+            apply.Click += ManualPercentTestApply_Click;
+            _manualFanApplyButton = apply;
 
+            if (row.Children.Contains(apply))
+            {
                 row.Children.Remove(apply);
                 var actions = new StackPanel
                 {
@@ -85,9 +84,9 @@ public partial class FansPanel
             row.Children.Add(_manualFanTestStatus);
         }
 
-        // These controls live inside a collapsed Expander, so walk the logical tree
-        // rather than the generated visual tree. This wires the safety handler even
-        // before the user expands Raw verified EC steps for the first time.
+        // Raw EC diagnostics live inside a collapsed Expander, so walk the logical
+        // tree rather than the generated visual tree. Every raw state uses the same
+        // bounded temporary-test/auto-restore contract as the percentage target.
         foreach (Button button in FindLogicalDescendants<Button>(RawEcStepsExpander))
         {
             if (button.Tag is not string raw || !int.TryParse(raw, out int level) || level is < 1 or > 7)
@@ -130,7 +129,7 @@ public partial class FansPanel
         finally
         {
             if (_manualFanApplyButton is not null)
-                _manualFanApplyButton.IsEnabled = _app.State.CanFanControl;
+                _manualFanApplyButton.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
         }
     }
 
@@ -257,7 +256,7 @@ public partial class FansPanel
                     ? $"{reason} · restored {restoreName}"
                     : $"{reason} · restore failed; use the profile selector or Auto";
             }
-            ProfileComboBox.IsEnabled = _app.State.CanFanControl;
+            ProfileComboBox.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
             _ = _app.HardwareClient.GetStatusAsync();
         }
     }

@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.38**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access or decide which setup/calibration/effect workflows appear.
+This document describes the support model at **v0.1.0-alpha.39**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access or decide which setup/calibration/effect workflows appear.
 
 ## Support levels
 
@@ -15,7 +15,7 @@ Available without vendor-specific write access where Windows exposes the informa
 - battery and generic telemetry that Windows/providers expose;
 - diagnostics/report preview and explicit sharing controls.
 
-Unsupported vendor controls stay visible as unavailable rather than disappearing or pretending to work.
+Unsupported vendor controls stay visible as unavailable rather than pretending to work. Provider-specific diagnostics may disappear entirely when their semantic capability does not exist.
 
 ### Provider-backed read-only
 
@@ -23,7 +23,7 @@ ThinkControl can expose telemetry from a reviewed provider without implying that
 
 ### Verified write support
 
-A write control is enabled only when the active provider advertises the exact semantic capability and passes its provider/device validation gate. A failed or unknown write path must fall back to safe firmware/OEM ownership rather than guessing addresses, EC commands or vendor APIs.
+A write control is enabled only when the active provider advertises the exact semantic capability and passes its provider/device validation gate **and any required physical acceptance gate**. A failed or unknown write path must fall back to safe firmware/OEM ownership rather than guessing addresses, EC commands, vendor APIs or a larger numeric ceiling.
 
 ## ThinkPad X9 15 Gen 1
 
@@ -33,33 +33,36 @@ Current X9-oriented areas include:
 
 - sensor discovery and CPU/control temperature sources;
 - independent Fan 1 / Fan 2 telemetry where Lenovo-native or reviewed EC providers expose it;
-- Lenovo `LENOVO_OTHER_METHOD` direct target-RPM control when at least two exact-X9 channels independently pass VALID+GET+SET, safe-range and live-read gates;
+- Lenovo `LENOVO_OTHER_METHOD` native dual-fan telemetry where real `fanX_input` channels pass the live-read gate;
+- the experimental Lenovo Other Mode `fanX_target` writer held **read-only in alpha.39** after real alpha.38 testing reproduced repeated speed cycling/re-kick and a nominal 100% target below naturally hot firmware Auto;
 - read-only Lenovo `EnergyDrv` `QueryFanSpeed` telemetry where the matching write contract is not verified;
-- seven-step ThinkPad EC fan control only as the explicitly gated fallback/investigation provider, with Lenovo Auto recovery;
+- the seven-step ThinkPad EC provider retained as an explicitly gated provider-specific diagnostic/fallback implementation, but not silently re-authorized once native OEM fan telemetry has been confirmed;
 - Lenovo keyboard backlight provider/readback;
 - Lenovo/OEM keyboard Auto where verified;
 - haptic/raw-touchpad discovery and the shared Touchpad gesture editor.
 
-If two native Lenovo fan channels have been proven during a hardware-service lifetime, a transient native read failure does not silently re-authorize the EC writer. If PawnIO is missing, stale or inaccessible, ThinkControl presents the existing repair path rather than treating provider failure as permission to guess another low-level backend.
+If two native Lenovo fan channels have been proven during a hardware-service lifetime, a transient native read failure—or a native writer that remains physically rejected—does not silently re-authorize the EC writer. If PawnIO is missing, stale or inaccessible, ThinkControl presents the existing repair path rather than treating provider failure as permission to guess another low-level backend.
 
 ## Fan semantics
 
 Fan features are kept semantically distinct:
 
 - **Firmware/OEM Auto**: firmware owns cooling;
-- **OEM target RPM**: a provider accepts a real per-fan RPM target and exposes its own capability/range contract; target `0` is reserved for Auto on Lenovo Other Mode;
-- **named fan curves**: ThinkControl's graph-based curve model, routed through the active provider's semantic output contract;
+- **OEM target RPM**: a provider may advertise a real per-fan RPM target only after its capability/range contract and required physical behavior have both been accepted; target `0` is reserved for Auto on Lenovo Other Mode;
+- **named fan curves**: ThinkControl's graph-based curve model, routed through the active provider's semantic output contract only when a verified writer exists;
 - **discrete output**: provider/model-specific states, not fake continuous PWM;
 - **calibration**: a provider-advertised mapping workflow used only when that provider requires measured evidence before translating semantic percentages;
 - **telemetry-only**: RPM/state can be shown without enabling writes.
 
 The generic service/UI contract carries `FanCalibrationSupported` and `FanCalibrationRequired`. The Fans page must not recreate those decisions from `21Q6`, `21Q7`, X9, Lenovo or provider-detail strings. A future fan provider can advertise no calibration, optional calibration or a required mapping without adding a model-specific page branch.
 
-On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. ThinkControl requires at least two independently live, constrained writable channels before exposing direct target-RPM control; extra/phantom firmware records do not make the whole provider all-or-nothing. ThinkControl records which channels it actually owns and returns those owned channels to Auto on handoff/failure where the provider remains reachable.
+On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. Alpha.39 can still use independently live channels as native telemetry evidence, but VALID+GET+SET metadata plus sane Fan Test ranges no longer authorizes the X9 writer after its physical rejection. The write gate remains false until a future implementation again proves stable fixed-target behavior and a useful high-cooling range against naturally hot firmware Auto. ThinkControl still records previously owned channels and keeps target `0` available for cleanup/reassertion of Auto.
 
 `EnergyDrv` `QueryFanSpeed 0x83102570` is currently read-only evidence. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until its exact X9 command encoding and rollback semantics are recovered; maintenance/high-speed IOCTL families are not substituted for smooth percentage control.
 
-The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto`. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls.
+The classic EC states are not a generic laptop control. **Raw EC diagnostics** appear only if an active provider explicitly exposes the verified discrete-EC semantic contract. When available, percentage/raw-state interactions use the same bounded temporary-test safety model rather than acting as persistent everyday controls.
+
+The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto` only when provider capability allows them. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls.
 
 ## Keyboard semantics
 
@@ -83,7 +86,7 @@ Per corner, **Reverse swipe closes ThinkControl** can be enabled independently. 
 
 The reverse-close action reuses the canonical application hide-to-tray transition. Compact completes the transition-owned synchronous hide before shell-state verification; this does not change the separate animated tray-toggle path. The mirrored reverse visual fixture is built from a clean non-live corner baseline so its trail contains only the outward gesture being validated.
 
-Track control can optionally expose a small visible center Play/Pause target inside the active edge lane. That target accepts only a short low-travel tap; the surrounding edge remains Previous/Next swipe space. It does not add a second overlay/recognizer or hidden hold gesture.
+Track control is one continuous visible edge lane: **Previous | Play/Pause | Next**. The center Play/Pause segment occupies 20% of the selected lane and accepts only a short low-travel tap; Previous/Next remain deliberate surrounding swipes. Assigning Track control automatically owns all three segments—there is no separate Center play/pause menu option, floating pill, second overlay/recognizer or hidden hold gesture.
 
 Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream.
 
@@ -101,17 +104,19 @@ ThinkControl should never learn a new device by experimentally writing arbitrary
 
 ## Physical validation
 
-Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device validation is still required for:
+Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device evidence currently establishes one **negative** X9 fan result: the alpha.38 Lenovo Other Mode target-RPM writer does not meet the finished-product acceptance gate because a fixed target repeatedly speeds up/slows down and its nominal 100% remains below naturally hot firmware Auto. It therefore remains read-only in alpha.39.
 
-- actual X9 direct Lenovo target-RPM activation/range, two-fan response and repeated Auto recovery on the installed firmware/software stack;
-- EnergyDrv/native telemetry correlation when Other Mode does not expose a writable contract;
-- final maximum-cooling comparison with naturally hot Lenovo Auto;
-- provider-driven fan calibration behavior on the discrete X9 fallback and future devices;
+Real-device validation is still required for:
+
+- any future recovered X9 writer before `FanControl` is re-advertised; it must settle smoothly at fixed targets, operate both real fan channels and provide a useful high-cooling range comparable with naturally hot Auto;
+- repeated Auto cleanup/reassertion after stale previously owned target state;
+- EnergyDrv/native telemetry correlation while the writer remains read-only;
+- provider-driven fan calibration behavior on any active discrete provider and future devices;
 - Lenovo keyboard Auto/Fn+Space/readback agreement;
 - direct-provider effect behavior without Lenovo pop-ups;
 - haptic Touchpad corner sensitivity/symmetry and high-rate responsiveness;
 - corner guard reliability against nearby top/side gestures on real finger contact;
-- center Play/Pause tap reliability versus surrounding Previous/Next swipes;
+- integrated center Play/Pause tap reliability versus surrounding Previous/Next swipes;
 - reverse-close feel and accidental-trigger rate for both mirrored corners;
 - Audio volume/microphone behavior across real navigation during a drag;
 - provider repair/restart behavior after real PawnIO/service failure states.
