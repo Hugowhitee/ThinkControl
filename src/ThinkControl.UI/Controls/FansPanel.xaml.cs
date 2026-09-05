@@ -44,9 +44,9 @@ public partial class FansPanel : UserControl
 
         _fanControlKind = app.State.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = ResolveFanControlKind(null, app.State.HardwareAccess, app.State.CanFanControl);
+            _fanControlKind = ResolveFanControlKind(null, app.State.CanFanControl);
         SyncProfileSelector(app.State.CoolingProfile, CurrentProfileIdForDisplay(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile));
-        ApplyProviderCopy(app.State, app.State.CanFanControl, _fanControlKind);
+        ApplyProviderCopy(app.State.CanFanControl, _fanControlKind);
         ApplyCalibrationUi(app.FanCalibrationState, app.State.CanFanControl);
         SyncStatusSubscription();
     }
@@ -59,12 +59,12 @@ public partial class FansPanel : UserControl
         DataContext = state;
         _fanControlKind = state.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = ResolveFanControlKind(null, state.HardwareAccess, state.CanFanControl);
+            _fanControlKind = ResolveFanControlKind(null, state.CanFanControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
-        ApplyProviderCopy(state, state.CanFanControl, _fanControlKind);
+        ApplyProviderCopy(state.CanFanControl, _fanControlKind);
         CoolingDetailText.Text = state.CanFanControl
             ? $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
-            : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
+            : DescribeUnavailable(state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
         AppliedLevelText.Text = state.CanFanControl ? state.FanStateText : "Unavailable";
 
         // Snapshot fixtures do not have a live service capability object. Model the
@@ -129,20 +129,16 @@ public partial class FansPanel : UserControl
         bool canControl = response?.Capabilities?.FanControl == true;
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
-        _fanControlKind = ResolveFanControlKind(
-            response?.Capabilities?.FanControlKind,
-            telemetry?.HardwareAccess ?? _app?.State.HardwareAccess,
-            canControl);
+        _fanControlKind = ResolveFanControlKind(response?.Capabilities?.FanControlKind, canControl);
 
         string profileName = telemetry?.CoolingProfile ?? "Lenovo Auto";
         string profileId = telemetry?.CoolingProfileId ?? (profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Lenovo Auto" : profileName);
         SyncProfileSelector(profileName, profileId);
-        if (_app is not null)
-            ApplyProviderCopy(_app.State, canControl, _fanControlKind);
+        ApplyProviderCopy(canControl, _fanControlKind);
 
         CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
             ? "Choose a fan profile or open the curve editor."
-            : DescribeUnavailable(_app?.State.MachineType, telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
+            : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
 
         if (telemetry?.CoolingAppliedPercent is int percent)
         {
@@ -462,36 +458,33 @@ public partial class FansPanel : UserControl
         finally { button.IsEnabled = true; }
     }
 
-    private void ApplyProviderCopy(AppState state, bool canControl, string fanControlKind)
+    private void ApplyProviderCopy(bool canControl, string fanControlKind)
     {
-        bool x9Model = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
         bool oemTargetRpm = canControl && string.Equals(fanControlKind, FanControlKinds.OemTargetRpm, StringComparison.Ordinal);
-        bool x9EcWriter = x9Model && canControl && string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
+        bool discreteEcWriter = canControl && string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
 
-        FansIntroText.Text = x9Model
-            ? "Fan behavior is independent from Windows performance mode. ThinkControl keeps Lenovo Auto as the fail-safe and uses the highest-capability verified X9 fan provider available."
-            : "Fan behavior is independent from Windows performance mode. ThinkControl uses only fan telemetry and control states exposed by the active provider; firmware stays in charge when no writable provider is verified.";
+        FansIntroText.Text = "Fan behavior is independent from Windows performance mode. ThinkControl uses only capabilities exposed by the active verified fan provider; firmware Auto remains the fail-safe whenever no writable provider is active.";
 
         FanMappingDetailText.Text = oemTargetRpm
-            ? "Built-in and custom curves send continuous 0–100% targets through Lenovo's capability-reported target-RPM interface. Each fan is mapped independently across its OEM-provided minimum and maximum RPM range."
-            : x9EcWriter
-                ? "This provider exposes seven discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
+            ? "Built-in and custom curves send continuous 0–100% targets through the active provider's target-RPM contract. Each fan is mapped independently across the minimum and maximum RPM range reported by that provider."
+            : discreteEcWriter
+                ? "This provider exposes discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
                 : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps, PWM or target RPM unless that provider exposes the semantic contract.";
         FanProviderDetailText.ToolTip = null;
 
-        // CalibrationCard visibility is owned solely by the provider capability state
-        // in ApplyCalibrationUi. Model/provider-specific copy must not decide whether
-        // calibration exists as a product feature.
-        RawEcStepsExpander.Visibility = x9EcWriter ? Visibility.Visible : Visibility.Collapsed;
+        // Calibration visibility is owned solely by provider capability state in
+        // ApplyCalibrationUi. Discrete raw controls are exposed only when the active
+        // provider explicitly advertises the corresponding discrete-EC contract.
+        RawEcStepsExpander.Visibility = discreteEcWriter ? Visibility.Visible : Visibility.Collapsed;
         ManualControlDescriptionText.Text = oemTargetRpm
-            ? "0% requests the Lenovo-reported minimum running target for each fan. 100% requests each fan's Lenovo-reported maximum target RPM. Auto is a separate firmware-owned mode; returning to Auto releases the OEM targets instead of pretending 100% and Auto are the same state."
-            : x9EcWriter
-                ? "0% means the lowest verified running output state, not fan-off. 100% requests the highest verified standard state in this provider's calibrated range. The unverified 0x40 full-speed/disengaged family remains blocked."
+            ? "0% requests the provider-reported minimum running target for each fan. 100% requests each fan's provider-reported maximum target RPM. Auto is a separate firmware-owned mode; returning to Auto releases manual targets instead of pretending 100% and Auto are the same state."
+            : discreteEcWriter
+                ? "0% means the lowest verified running output state, not fan-off. 100% requests the highest verified standard state in this provider's calibrated range. Unverified vendor-specific override states remain blocked."
                 : "The manual target uses only the active provider's verified output range. Provider-specific raw controls appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = canControl;
     }
 
-    private static string ResolveFanControlKind(string? explicitKind, string? hardwareAccess, bool canControl)
+    private static string ResolveFanControlKind(string? explicitKind, bool canControl)
     {
         if (!canControl)
             return FanControlKinds.None;
@@ -500,33 +493,15 @@ public partial class FansPanel : UserControl
         {
             return explicitKind!;
         }
-
-        string access = hardwareAccess ?? string.Empty;
-        if (access.Contains("OEM target-RPM", StringComparison.OrdinalIgnoreCase) ||
-            access.Contains("Other Mode", StringComparison.OrdinalIgnoreCase))
-            return FanControlKinds.OemTargetRpm;
-        if (access.Contains("discrete EC", StringComparison.OrdinalIgnoreCase) ||
-            access.Contains("verified X9 EC", StringComparison.OrdinalIgnoreCase))
-            return FanControlKinds.DiscreteEc;
         return FanControlKinds.None;
     }
 
-    private static string DescribeUnavailable(string? machineType, string? hardwareAccess, bool telemetryReady)
+    private static string DescribeUnavailable(string? hardwareAccess, bool telemetryReady)
     {
         string detail = string.IsNullOrWhiteSpace(hardwareAccess) ? "provider status unavailable" : hardwareAccess;
-        bool x9 = string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
-                  string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase);
-
-        if (x9)
-        {
-            return telemetryReady
-                ? $"Read-only telemetry is active. Direct fan writes stay firmware-managed until a verified X9 provider passes. {detail}"
-                : $"Firmware currently owns cooling. ThinkControl retries verified X9 providers with bounded backoff. {detail}";
-        }
-
         return telemetryReady
-            ? $"Read-only telemetry is active. No verified writable fan provider is active for this model, so firmware keeps cooling ownership. {detail}"
-            : $"Cooling stays firmware-managed until a compatible fan provider is detected for this model. {detail}";
+            ? $"Read-only telemetry is active. No verified writable fan provider is active, so firmware keeps cooling ownership. {detail}"
+            : $"Cooling stays firmware-managed until a compatible fan provider is detected. {detail}";
     }
 
     private async void Characterize_Click(object sender, RoutedEventArgs e)
