@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.36**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
+This document describes the support model at **v0.1.0-alpha.37**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access.
 
 ## Support levels
 
@@ -76,6 +76,8 @@ An enabled top-corner launch uses one canonical physical **guard → diagonal la
 Both corner visuals are generated from the same left-local physical geometry; the right corner is an exact horizontal mirror. The center visual is a directional arrow rather than a neutral divider, the end is a semicircular arc rather than a flat 90-degree cross-line, and an enabled action shows its Compact/Advanced semantic icon and label.
 
 Per corner, **Reverse swipe closes ThinkControl** can be enabled independently. With that option on, starting in the rounded inner cap and swiping deliberately back toward the physical corner is classified as an outward corner gesture and hides whichever ThinkControl surface is visible. With it off, the same end-cap remains part of the normal inward launch area. Wrong-direction/rejected corner candidates stay locked out until lift and never fall through into a nearby edge gesture.
+
+The reverse-close action reuses the canonical application hide-to-tray transition. Compact completes the transition-owned synchronous hide before shell-state verification; this does not change the separate animated tray-toggle path. The mirrored reverse visual fixture is built from a clean non-live corner baseline so its trail contains only the outward gesture being validated.
 
 Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream. Track-center behavior remains a separate optional affordance and does not create a second corner-selection system.
 
