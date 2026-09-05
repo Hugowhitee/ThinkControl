@@ -319,13 +319,20 @@ public sealed class TouchpadVisualizer : FrameworkElement
         if (Math.Abs(leftAngle - (Math.PI - rightAngle)) > 0.0001)
             throw new InvalidOperationException("Touchpad corner guide angles are not mirrored.");
 
-        Rect leftFill = CornerZoneGeometry(pad, TouchpadCorner.TopLeft).Bounds;
-        Rect rightFill = CornerZoneGeometry(pad, TouchpadCorner.TopRight).Bounds;
-        if (Math.Abs(leftFill.Width - rightFill.Width) > 0.01 ||
-            Math.Abs(leftFill.Height - rightFill.Height) > 0.01 ||
-            Math.Abs((leftFill.Left + rightFill.Right) - (pad.Left + pad.Right)) > 0.01)
+        Geometry leftFill = CornerZoneGeometry(pad, TouchpadCorner.TopLeft);
+        Geometry rightFill = CornerZoneGeometry(pad, TouchpadCorner.TopRight);
+        const int samples = 12;
+        for (int ix = 0; ix <= samples; ix++)
         {
-            throw new InvalidOperationException("Touchpad corner fill geometry is not an exact horizontal mirror.");
+            for (int iy = 0; iy <= samples; iy++)
+            {
+                WpfPoint leftSample = new(
+                    pad.Left + leftFill.Bounds.Width * ix / samples,
+                    pad.Top + leftFill.Bounds.Height * iy / samples);
+                WpfPoint rightSample = new(pad.Left + pad.Right - leftSample.X, leftSample.Y);
+                if (leftFill.FillContains(leftSample) != rightFill.FillContains(rightSample))
+                    throw new InvalidOperationException("Touchpad corner fill occupancy is not an exact horizontal mirror.");
+            }
         }
     }
 
@@ -988,13 +995,18 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
     private Geometry CornerZoneGeometry(Rect pad, TouchpadCorner corner)
     {
-        CornerGuide guide = CornerGuideFor(pad, corner);
-        WpfPoint origin = CornerOrigin(pad, corner);
+        Geometry left = BuildLeftCornerZoneGeometry(pad);
+        return corner == TouchpadCorner.TopLeft
+            ? left
+            : MirrorCornerGeometry(left, pad);
+    }
+
+    private Geometry BuildLeftCornerZoneGeometry(Rect pad)
+    {
+        CornerGuide guide = CornerGuideFor(pad, TouchpadCorner.TopLeft);
+        WpfPoint origin = CornerOrigin(pad, TouchpadCorner.TopLeft);
         double guardRadius = CornerPhysicalPixels(pad, TouchpadCornerZonePolicy.OuterGuardRadiusMm);
         double capRadius = CornerPhysicalPixels(pad, TouchpadCornerZonePolicy.HalfWidthMm);
-        SweepDirection sweep = corner == TouchpadCorner.TopLeft
-            ? SweepDirection.Clockwise
-            : SweepDirection.Counterclockwise;
 
         var geometry = new StreamGeometry { FillRule = FillRule.Nonzero };
         using (StreamGeometryContext context = geometry.Open())
@@ -1006,7 +1018,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 new Size(guardRadius, guardRadius),
                 rotationAngle: 0,
                 isLargeArc: false,
-                sweepDirection: sweep,
+                sweepDirection: SweepDirection.Clockwise,
                 isStroked: false,
                 isSmoothJoin: true);
             context.LineTo(guide.InnerA, isStroked: false, isSmoothJoin: true);
@@ -1015,7 +1027,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 new Size(capRadius, capRadius),
                 rotationAngle: 0,
                 isLargeArc: false,
-                sweepDirection: sweep,
+                sweepDirection: SweepDirection.Clockwise,
                 isStroked: false,
                 isSmoothJoin: true);
             context.LineTo(guide.OuterB, isStroked: false, isSmoothJoin: true);
@@ -1024,7 +1036,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 new Size(guardRadius, guardRadius),
                 rotationAngle: 0,
                 isLargeArc: false,
-                sweepDirection: sweep,
+                sweepDirection: SweepDirection.Clockwise,
                 isStroked: false,
                 isSmoothJoin: true);
             context.LineTo(origin, isStroked: false, isSmoothJoin: false);
@@ -1035,12 +1047,17 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
     private Geometry CornerBoundaryGeometry(Rect pad, TouchpadCorner corner)
     {
-        CornerGuide guide = CornerGuideFor(pad, corner);
+        Geometry left = BuildLeftCornerBoundaryGeometry(pad);
+        return corner == TouchpadCorner.TopLeft
+            ? left
+            : MirrorCornerGeometry(left, pad);
+    }
+
+    private Geometry BuildLeftCornerBoundaryGeometry(Rect pad)
+    {
+        CornerGuide guide = CornerGuideFor(pad, TouchpadCorner.TopLeft);
         double guardRadius = CornerPhysicalPixels(pad, TouchpadCornerZonePolicy.OuterGuardRadiusMm);
         double capRadius = CornerPhysicalPixels(pad, TouchpadCornerZonePolicy.HalfWidthMm);
-        SweepDirection sweep = corner == TouchpadCorner.TopLeft
-            ? SweepDirection.Clockwise
-            : SweepDirection.Counterclockwise;
 
         var geometry = new StreamGeometry();
         using (StreamGeometryContext context = geometry.Open())
@@ -1051,7 +1068,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 new Size(guardRadius, guardRadius),
                 rotationAngle: 0,
                 isLargeArc: false,
-                sweepDirection: sweep,
+                sweepDirection: SweepDirection.Clockwise,
                 isStroked: true,
                 isSmoothJoin: true);
             context.LineTo(guide.InnerA, isStroked: true, isSmoothJoin: true);
@@ -1060,7 +1077,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 new Size(capRadius, capRadius),
                 rotationAngle: 0,
                 isLargeArc: false,
-                sweepDirection: sweep,
+                sweepDirection: SweepDirection.Clockwise,
                 isStroked: true,
                 isSmoothJoin: true);
             context.LineTo(guide.OuterB, isStroked: true, isSmoothJoin: true);
@@ -1069,12 +1086,20 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 new Size(guardRadius, guardRadius),
                 rotationAngle: 0,
                 isLargeArc: false,
-                sweepDirection: sweep,
+                sweepDirection: SweepDirection.Clockwise,
                 isStroked: true,
                 isSmoothJoin: true);
         }
         geometry.Freeze();
         return geometry;
+    }
+
+    private static Geometry MirrorCornerGeometry(Geometry source, Rect pad)
+    {
+        Geometry mirrored = source.CloneCurrentValue();
+        mirrored.Transform = new ScaleTransform(-1, 1, pad.Left + pad.Width / 2, pad.Top);
+        mirrored.Freeze();
+        return mirrored;
     }
 
     private WpfPoint CornerOrigin(Rect pad, TouchpadCorner corner) =>
