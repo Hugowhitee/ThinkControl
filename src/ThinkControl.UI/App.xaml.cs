@@ -241,9 +241,13 @@ public partial class App : System.Windows.Application
                     State.CanFanControl = service.Capabilities.FanControl;
                     State.CanFanTelemetry = service.Capabilities.FanTelemetry;
                     State.CanKeyboardBacklight = service.Capabilities.KeyboardBacklight;
+                    State.CanKeyboardEffects = service.Capabilities.KeyboardEffects;
                     State.CanCpuTemperature = service.Capabilities.CpuTemperature;
                 }
 
+                // Restore an effect preference only after the same status snapshot
+                // has published its explicit repeated-write capability. Otherwise a
+                // direct provider can be incorrectly downgraded to Static at startup.
                 if (State.CanKeyboardBacklight && !_keyboardPreferenceRestored)
                 {
                     await RestoreKeyboardPreferenceAsync();
@@ -266,6 +270,7 @@ public partial class App : System.Windows.Application
                 State.CanFanControl = false;
                 State.CanFanTelemetry = false;
                 State.CanKeyboardBacklight = false;
+                State.CanKeyboardEffects = false;
                 State.CanCpuTemperature = false;
             }
 

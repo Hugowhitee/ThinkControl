@@ -44,9 +44,10 @@ public partial class FansPanel : UserControl
 
         _fanControlKind = app.State.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = ResolveFanControlKind(null, app.State.HardwareAccess, app.State.CanFanControl);
+            _fanControlKind = ResolveFanControlKind(null, app.State.CanFanControl);
         SyncProfileSelector(app.State.CoolingProfile, CurrentProfileIdForDisplay(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile));
-        ApplyProviderCopy(app.State, app.State.CanFanControl, _fanControlKind);
+        ApplyProviderCopy(app.State.CanFanControl, _fanControlKind);
+        ApplyCalibrationUi(app.FanCalibrationState, app.State.CanFanControl);
         SyncStatusSubscription();
     }
 
@@ -58,22 +59,29 @@ public partial class FansPanel : UserControl
         DataContext = state;
         _fanControlKind = state.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = ResolveFanControlKind(null, state.HardwareAccess, state.CanFanControl);
+            _fanControlKind = ResolveFanControlKind(null, state.CanFanControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
-        ProfileComboBox.IsEnabled = state.CanFanControl;
-        ApplyProviderCopy(state, state.CanFanControl, _fanControlKind);
+        ApplyProviderCopy(state.CanFanControl, _fanControlKind);
         CoolingDetailText.Text = state.CanFanControl
             ? $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
-            : DescribeUnavailable(state.MachineType, state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
+            : DescribeUnavailable(state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
         AppliedLevelText.Text = state.CanFanControl ? state.FanStateText : "Unavailable";
-        bool canCalibrate = IsVerifiedX9DiscreteEc(state, state.CanFanControl, _fanControlKind) && state.CanFanTelemetry;
-        CharacterizeButton.IsEnabled = canCalibrate;
-        StopCharacterizationButton.Visibility = Visibility.Collapsed;
-        CharacterizationProgress.Visibility = Visibility.Collapsed;
-        CharacterizationStatusText.Text = canCalibrate
-            ? "Ready for a transactional seven-step tachometer calibration"
-            : "Calibration appears only with the verified X9 EC fallback and real fan tachometer telemetry";
-        ManualPercentSlider.IsEnabled = state.CanFanControl;
+
+        // Snapshot fixtures do not have a live service capability object. Model the
+        // current discrete-provider fixture as calibration-capable without teaching
+        // the production UI anything about a particular OEM or machine type.
+        bool canCalibrate = state.CanFanControl && state.CanFanTelemetry &&
+                            string.Equals(_fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
+        FanCalibrationUiState calibration = canCalibrate
+            ? new FanCalibrationUiState(
+                Relevant: true,
+                Running: false,
+                Ready: false,
+                CompletedLevels: 0,
+                TotalLevels: 7,
+                Status: "Calibration required before percentage fan profiles and manual targets are enabled.")
+            : FanCalibrationUiState.None;
+        ApplyCalibrationUi(calibration, state.CanFanControl);
         _calibrationRows.Clear();
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, state.ControlTemperatureC, state.FanRpm);
     }
@@ -88,9 +96,6 @@ public partial class FansPanel : UserControl
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
             _statusSubscribed = true;
-            // One immediate refresh is enough when entering the page. Ongoing status
-            // cadence is owned centrally by App.RuntimeRefresh so the Fans page cannot
-            // create a second hardware/IPC polling loop.
             _ = _app.HardwareClient.GetStatusAsync();
         }
         else
@@ -124,38 +129,29 @@ public partial class FansPanel : UserControl
         bool canControl = response?.Capabilities?.FanControl == true;
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
-        _fanControlKind = ResolveFanControlKind(
-            response?.Capabilities?.FanControlKind,
-            telemetry?.HardwareAccess ?? _app?.State.HardwareAccess,
-            canControl);
+        _fanControlKind = ResolveFanControlKind(response?.Capabilities?.FanControlKind, canControl);
 
         string profileName = telemetry?.CoolingProfile ?? "Lenovo Auto";
         string profileId = telemetry?.CoolingProfileId ?? (profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Lenovo Auto" : profileName);
         SyncProfileSelector(profileName, profileId);
-        ProfileComboBox.IsEnabled = canControl;
-        if (_app is not null)
-            ApplyProviderCopy(_app.State, canControl, _fanControlKind);
+        ApplyProviderCopy(canControl, _fanControlKind);
 
         CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
             ? "Choose a fan profile or open the curve editor."
-            : DescribeUnavailable(_app?.State.MachineType, telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
+            : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
 
         if (telemetry?.CoolingAppliedPercent is int percent)
         {
             if (_fanControlKind == FanControlKinds.OemTargetRpm && telemetry.CoolingAppliedLevel is null)
-            {
                 AppliedLevelText.Text = $"{percent}% OEM target";
-            }
             else
-            {
                 AppliedLevelText.Text = telemetry.CoolingAppliedLevel is int step
-                    ? $"{percent}% · Step {Math.Min(step, 7)}"
+                    ? $"{percent}% · State {step}"
                     : $"{percent}%";
-            }
         }
         else if (telemetry?.CoolingAppliedLevel is int legacyLevel)
         {
-            AppliedLevelText.Text = $"Step {Math.Min(legacyLevel, 7)}";
+            AppliedLevelText.Text = $"State {legacyLevel}";
         }
         else
         {
@@ -163,21 +159,73 @@ public partial class FansPanel : UserControl
         }
 
         FanCharacterizationSnapshot? characterization = telemetry?.FanCharacterization;
-        bool running = characterization?.Running == true;
-        bool x9Calibration = _app is not null && IsVerifiedX9DiscreteEc(_app.State, canControl, _fanControlKind) && canFanTelemetry;
-        CharacterizeButton.IsEnabled = x9Calibration && !running;
-        StopCharacterizationButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
-        CharacterizationProgress.Maximum = Math.Max(1, characterization?.TotalLevels ?? 7);
-        CharacterizationProgress.Visibility = running || (characterization?.Levels.Count ?? 0) > 0
-            ? Visibility.Visible : Visibility.Collapsed;
-        CharacterizationProgress.Value = characterization?.CompletedLevels ?? 0;
-        CharacterizationStatusText.Text = characterization?.Status ?? (x9Calibration
-            ? "Not calibrated yet"
-            : "Calibration requires the verified X9 EC fallback and fan tachometer telemetry");
-
-        ManualPercentSlider.IsEnabled = canControl;
+        FanCalibrationUiState calibration = _app?.FanCalibrationState ?? FanCalibrationUiState.None;
+        ApplyCalibrationUi(calibration, canControl);
         BuildCalibrationRows(characterization);
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, telemetry?.ControlTemperatureC, telemetry?.FanRpm);
+    }
+
+    private void ApplyCalibrationUi(FanCalibrationUiState calibration, bool canControl)
+    {
+        CalibrationCard.Visibility = calibration.Relevant ? Visibility.Visible : Visibility.Collapsed;
+        if (!calibration.Relevant)
+        {
+            ProfileComboBox.IsEnabled = canControl;
+            EditCurvesButton.IsEnabled = canControl;
+            ProfileCard.Opacity = 1;
+            ManualControlExpander.IsEnabled = canControl;
+            ManualControlExpander.Opacity = 1;
+            ManualPercentSlider.IsEnabled = canControl;
+            ManualPercentApplyButton.IsEnabled = canControl;
+            RawEcStepsExpander.IsEnabled = canControl;
+            return;
+        }
+
+        bool running = calibration.Running;
+        bool ready = calibration.Ready;
+        bool attention = calibration.Required || running;
+        CalibrationCard.SetResourceReference(Border.BorderBrushProperty, attention ? "Tc.Accent" : "Tc.Border");
+        CalibrationCard.BorderThickness = new Thickness(1);
+
+        CharacterizationTitleText.Text = running
+            ? "Fan calibration in progress"
+            : ready
+                ? "Fan calibration complete"
+                : "Fan calibration required";
+        CalibrationDescriptionText.Text = running
+            ? "ThinkControl temporarily owns the active provider's calibration states while each state settles and real tachometer samples are measured. Other fan controls are locked until calibration finishes or is stopped; firmware Auto is restored automatically."
+            : ready
+                ? $"The active provider has a complete measured mapping for all {calibration.TotalLevels} calibration states. Percentage profiles and manual targets can use that calibrated range."
+                : "The active fan provider requires a measured output mapping before it can safely translate percentage profiles or manual percentage targets. Firmware Auto remains the safe default until calibration completes.";
+        CharacterizationStatusText.Text = calibration.Status;
+
+        CharacterizeButton.Content = ready ? "Recalibrate" : "Calibrate now";
+        CharacterizeButton.IsEnabled = canControl && !running;
+        CharacterizeButton.Visibility = running ? Visibility.Collapsed : Visibility.Visible;
+        StopCharacterizationButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
+        StopCharacterizationButton.IsEnabled = running;
+        CharacterizationProgress.Maximum = Math.Max(1, calibration.TotalLevels);
+        CharacterizationProgress.Value = Math.Clamp(calibration.CompletedLevels, 0, calibration.TotalLevels);
+        CharacterizationProgress.Visibility = running || calibration.CompletedLevels > 0 || ready
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+        bool semanticControlsEnabled = canControl && ready;
+        ProfileComboBox.IsEnabled = semanticControlsEnabled;
+        EditCurvesButton.IsEnabled = semanticControlsEnabled;
+        ProfileCard.Opacity = semanticControlsEnabled ? 1 : 0.42;
+        ManualControlExpander.IsEnabled = semanticControlsEnabled;
+        ManualControlExpander.Opacity = semanticControlsEnabled ? 1 : 0.42;
+        ManualPercentSlider.IsEnabled = semanticControlsEnabled;
+        ManualPercentApplyButton.IsEnabled = semanticControlsEnabled;
+        RawEcStepsExpander.IsEnabled = semanticControlsEnabled;
+
+        if (!semanticControlsEnabled)
+        {
+            CoolingDetailText.Text = running
+                ? "Calibration currently owns fan output. Profile controls return after the run finishes or is stopped."
+                : "Firmware Auto remains active until the provider's calibration requirement is satisfied.";
+        }
     }
 
     private void BuildCalibrationRows(FanCharacterizationSnapshot? characterization)
@@ -186,12 +234,12 @@ public partial class FansPanel : UserControl
         if (characterization is null)
             return;
 
-        FanLevelCalibrationSnapshot? maximum = characterization.Levels.FirstOrDefault(level => level.Level == 7);
+        FanLevelCalibrationSnapshot? maximum = characterization.Levels.MaxBy(static level => level.Level);
         double? maximumRpm = maximum?.Fans.Count > 0 ? maximum.Fans.Average(fan => fan.MedianRpm) : null;
 
         foreach (FanLevelCalibrationSnapshot point in characterization.Levels.OrderBy(level => level.Level))
         {
-            string label = $"EC step {point.Level}";
+            string label = $"Output state {point.Level}";
             string rpm;
             if (point.Fans.Count == 0)
             {
@@ -201,10 +249,10 @@ public partial class FansPanel : UserControl
             {
                 double average = point.Fans.Average(fan => fan.MedianRpm);
                 string values = string.Join(" · ", point.Fans.Select(fan => $"{fan.Label} {fan.MedianRpm:N0} RPM"));
-                if (maximumRpm is > 0)
+                if (maximumRpm is > 0 && maximum is not null)
                 {
-                    int relative = point.Level == 7 ? 100 : (int)Math.Round(Math.Clamp(average / maximumRpm.Value * 100.0, 0, 99));
-                    rpm = $"{values} · ~{relative}% of calibrated step 7";
+                    int relative = point.Level == maximum.Level ? 100 : (int)Math.Round(Math.Clamp(average / maximumRpm.Value * 100.0, 0, 99));
+                    rpm = $"{values} · ~{relative}% of calibrated maximum state";
                 }
                 else
                 {
@@ -234,9 +282,6 @@ public partial class FansPanel : UserControl
                 selected = _profileChoices.FirstOrDefault(choice => string.Equals(choice.Name, display, StringComparison.OrdinalIgnoreCase));
             }
 
-            // A manual target is shown explicitly as a transient, non-profile choice.
-            // It must never impersonate Auto; selecting Auto afterwards must be a real
-            // SelectionChanged event that reaches the hardware handoff path.
             ProfileComboBox.SelectedItem = selected;
             UpdateActiveCurvePreview(selected, _app?.State.ControlTemperatureC, _app?.State.FanRpm);
         }
@@ -303,13 +348,13 @@ public partial class FansPanel : UserControl
         null or "" or "Lenovo Auto" or "Auto" => "Auto",
         "Silent" => "Quiet",
         "Normal" => "Balanced",
-        "Cool" => "Max cooling",
+        "Cool" or "Max cooling" => "Max cooling",
         string value => value
     };
 
     private void ProfileComboBox_DropDownOpened(object sender, EventArgs e)
     {
-        if (_app is null)
+        if (_app is null || _app.FanCalibrationState.Required)
             return;
         SyncProfileSelector(
             _app.State.CoolingProfile,
@@ -342,13 +387,13 @@ public partial class FansPanel : UserControl
         }
         finally
         {
-            ProfileComboBox.IsEnabled = _app.State.CanFanControl;
+            ProfileComboBox.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
         }
     }
 
     private void EditCurves_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null)
+        if (_app is null || _app.FanCalibrationState.Required)
             return;
         ProfileComboBox.IsDropDownOpen = false;
         var editor = new FanCurveEditorWindow(_app) { Owner = Window.GetWindow(this) };
@@ -368,7 +413,7 @@ public partial class FansPanel : UserControl
 
     private async void ManualPercentApply_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null || sender is not Button button)
+        if (_app is null || sender is not Button button || _app.FanCalibrationState.Required)
             return;
         int percent = (int)Math.Round(ManualPercentSlider.Value);
         button.IsEnabled = false;
@@ -377,7 +422,7 @@ public partial class FansPanel : UserControl
             if (!await _app.SetManualFanPercentAsync(percent))
                 CoolingDetailText.Text = _app.State.HardwareAccess;
         }
-        finally { button.IsEnabled = true; }
+        finally { button.IsEnabled = !_app.FanCalibrationState.Required; }
     }
 
     private void EnsureResetButton()
@@ -413,40 +458,33 @@ public partial class FansPanel : UserControl
         finally { button.IsEnabled = true; }
     }
 
-    private void ApplyProviderCopy(AppState state, bool canControl, string fanControlKind)
+    private void ApplyProviderCopy(bool canControl, string fanControlKind)
     {
-        bool x9Model = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
         bool oemTargetRpm = canControl && string.Equals(fanControlKind, FanControlKinds.OemTargetRpm, StringComparison.Ordinal);
-        bool x9EcWriter = x9Model && canControl && string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
-        bool x9Calibration = x9EcWriter && state.CanFanTelemetry;
+        bool discreteEcWriter = canControl && string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
 
-        FansIntroText.Text = x9Model
-            ? "Fan behavior is independent from Windows performance mode. ThinkControl keeps Lenovo Auto as the fail-safe and uses the highest-capability verified X9 fan provider available."
-            : "Fan behavior is independent from Windows performance mode. ThinkControl uses only fan telemetry and control states exposed by the active provider; firmware stays in charge when no writable provider is verified.";
+        FansIntroText.Text = "Fan behavior is independent from Windows performance mode. ThinkControl uses only capabilities exposed by the active verified fan provider; firmware Auto remains the fail-safe whenever no writable provider is active.";
 
         FanMappingDetailText.Text = oemTargetRpm
-            ? "Built-in and custom curves send continuous 0–100% targets through Lenovo's capability-reported target-RPM interface. Each fan is mapped independently across its OEM-provided minimum and maximum RPM range."
-            : x9EcWriter
-                ? "Built-in and custom curves use the verified X9 discrete EC fallback mapping. Custom profiles can be created and edited in the curve editor."
-                : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.";
+            ? "Built-in and custom curves send continuous 0–100% targets through the active provider's target-RPM contract. Each fan is mapped independently across the minimum and maximum RPM range reported by that provider."
+            : discreteEcWriter
+                ? "This provider exposes discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
+                : "Profiles and curves use the active provider's verified output range. ThinkControl does not assume EC steps, PWM or target RPM unless that provider exposes the semantic contract.";
         FanProviderDetailText.ToolTip = null;
 
-        CalibrationCard.Visibility = x9Calibration ? Visibility.Visible : Visibility.Collapsed;
-        RawEcStepsExpander.Visibility = x9EcWriter ? Visibility.Visible : Visibility.Collapsed;
+        // Calibration visibility is owned solely by provider capability state in
+        // ApplyCalibrationUi. Discrete raw controls are exposed only when the active
+        // provider explicitly advertises the corresponding discrete-EC contract.
+        RawEcStepsExpander.Visibility = discreteEcWriter ? Visibility.Visible : Visibility.Collapsed;
         ManualControlDescriptionText.Text = oemTargetRpm
-            ? "0% requests the Lenovo-reported minimum running target for each fan. 100% requests each fan's Lenovo-reported maximum target RPM. Auto is a separate firmware-owned mode; returning to Auto releases the OEM targets instead of pretending 100% and Auto are the same state."
-            : x9EcWriter
-                ? "0% means the lowest verified running EC state, not fan-off. 100% requests the highest verified standard X9 EC step (step 7) in the fallback range. Intermediate targets select the safest calibrated discrete state; the unverified 0x40 full-speed/disengaged family remains blocked."
-                : "The manual target uses only the active provider's verified output range. ThinkControl does not expose raw EC steps unless the active provider explicitly supports the verified X9 EC contract.";
+            ? "0% requests the provider-reported minimum running target for each fan. 100% requests each fan's provider-reported maximum target RPM. Auto is a separate firmware-owned mode; returning to Auto releases manual targets instead of pretending 100% and Auto are the same state."
+            : discreteEcWriter
+                ? "0% means the lowest verified running output state, not fan-off. 100% requests the highest verified standard state in this provider's calibrated range. Unverified vendor-specific override states remain blocked."
+                : "The manual target uses only the active provider's verified output range. Provider-specific raw controls appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = canControl;
     }
 
-    private static bool IsVerifiedX9DiscreteEc(AppState state, bool canControl, string fanControlKind) =>
-        canControl &&
-        DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType) &&
-        string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
-
-    private static string ResolveFanControlKind(string? explicitKind, string? hardwareAccess, bool canControl)
+    private static string ResolveFanControlKind(string? explicitKind, bool canControl)
     {
         if (!canControl)
             return FanControlKinds.None;
@@ -455,51 +493,50 @@ public partial class FansPanel : UserControl
         {
             return explicitKind!;
         }
-
-        string access = hardwareAccess ?? string.Empty;
-        if (access.Contains("OEM target-RPM", StringComparison.OrdinalIgnoreCase) ||
-            access.Contains("Other Mode", StringComparison.OrdinalIgnoreCase))
-            return FanControlKinds.OemTargetRpm;
-        if (access.Contains("discrete EC", StringComparison.OrdinalIgnoreCase) ||
-            access.Contains("verified X9 EC", StringComparison.OrdinalIgnoreCase))
-            return FanControlKinds.DiscreteEc;
         return FanControlKinds.None;
     }
 
-    private static string DescribeUnavailable(string? machineType, string? hardwareAccess, bool telemetryReady)
+    private static string DescribeUnavailable(string? hardwareAccess, bool telemetryReady)
     {
         string detail = string.IsNullOrWhiteSpace(hardwareAccess) ? "provider status unavailable" : hardwareAccess;
-        bool x9 = string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
-                  string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase);
-
-        if (x9)
-        {
-            return telemetryReady
-                ? $"Read-only telemetry is active. Direct fan writes stay firmware-managed until a verified X9 provider passes. {detail}"
-                : $"Firmware currently owns cooling. ThinkControl retries verified X9 providers with bounded backoff. {detail}";
-        }
-
         return telemetryReady
-            ? $"Read-only telemetry is active. No verified writable fan provider is active for this model, so firmware keeps cooling ownership. {detail}"
-            : $"Cooling stays firmware-managed until a compatible fan provider is detected for this model. {detail}";
+            ? $"Read-only telemetry is active. No verified writable fan provider is active, so firmware keeps cooling ownership. {detail}"
+            : $"Cooling stays firmware-managed until a compatible fan provider is detected. {detail}";
     }
 
     private async void Characterize_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is not null)
-            await _app.StartFanCharacterizationAsync();
+        if (_app is null)
+            return;
+        CharacterizeButton.IsEnabled = false;
+        CharacterizationTitleText.Text = "Starting fan calibration…";
+        if (!await _app.StartFanCharacterizationAsync())
+        {
+            CharacterizationStatusText.Text = _app.State.HardwareAccess;
+            CharacterizeButton.IsEnabled = true;
+        }
     }
 
     private async void StopCharacterization_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is not null)
-            await _app.StopFanCharacterizationAsync();
+        if (_app is null)
+            return;
+        StopCharacterizationButton.IsEnabled = false;
+        CharacterizationStatusText.Text = "Stopping calibration and returning fan ownership to firmware Auto…";
+        if (!await _app.StopFanCharacterizationAsync())
+        {
+            CharacterizationStatusText.Text = _app.State.HardwareAccess;
+            StopCharacterizationButton.IsEnabled = true;
+        }
     }
 
     private async void ManualLevel_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null || sender is not FrameworkElement { Tag: string raw } || !int.TryParse(raw, out int level))
+        if (_app is null || _app.FanCalibrationState.Required ||
+            sender is not FrameworkElement { Tag: string raw } || !int.TryParse(raw, out int level))
+        {
             return;
+        }
         ServiceResponse? response = await _app.HardwareClient.SetFanLevelAsync(level);
         if (response?.Success != true)
         {

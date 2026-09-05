@@ -369,7 +369,7 @@ public partial class TouchpadPanel
         if (signal.Phase == GesturePhase.Candidate)
         {
             if (signal.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled)
-                Visualizer.ShowActiveGestureValue(signal.Edge, "Hold · Play / Pause");
+                Visualizer.ShowActiveGestureValue(signal.Edge, "Tap · Play / Pause");
             return;
         }
 

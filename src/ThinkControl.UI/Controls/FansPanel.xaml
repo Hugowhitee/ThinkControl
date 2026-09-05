@@ -47,9 +47,7 @@
                                     </ControlTemplate>
                                 </ToggleButton.Template>
                             </ToggleButton>
-                            <ContentPresenter x:Name="ExpandSite"
-                                              ContentSource="Content"
-                                              Visibility="Collapsed" />
+                            <ContentPresenter x:Name="ExpandSite" ContentSource="Content" Visibility="Collapsed" />
                         </StackPanel>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsExpanded" Value="True">
@@ -67,7 +65,38 @@
         <TextBlock x:Name="FansIntroText" Text="Fan behavior stays independent from Windows performance mode and follows only capabilities exposed by the active hardware provider."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
-        <Border Style="{StaticResource TcSection}">
+        <Border x:Name="CalibrationCard" Style="{StaticResource TcSection}" Visibility="Collapsed">
+            <StackPanel>
+                <Grid>
+                    <StackPanel Margin="0,0,210,0">
+                        <TextBlock x:Name="CharacterizationTitleText" Text="Fan calibration required" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CalibrationDescriptionText"
+                                   Text="The active fan provider requires a measured output mapping before percentage profiles and manual targets are enabled. Firmware Auto remains the safe default until calibration completes."
+                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Top">
+                        <Button x:Name="CharacterizeButton" Content="Calibrate now" Style="{StaticResource TcButton}" Padding="12,6" Click="Characterize_Click" />
+                        <Button x:Name="StopCharacterizationButton" Content="Stop and return to Auto" Style="{StaticResource TcButton}" Padding="12,6" Click="StopCharacterization_Click" Margin="8,0,0,0" Visibility="Collapsed" />
+                    </StackPanel>
+                </Grid>
+                <ProgressBar x:Name="CharacterizationProgress" Height="4" Minimum="0" Maximum="7" Margin="0,14,0,0" Visibility="Collapsed" />
+                <TextBlock x:Name="CharacterizationStatusText" Margin="0,9,0,0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" />
+                <ItemsControl x:Name="CalibrationResults" Margin="0,10,0,0">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,3,0,3">
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="105" /><ColumnDefinition /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
+                                <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                                <TextBlock Grid.Column="1" Text="{Binding RpmText}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Grid.Column="2" Text="{Binding StabilityText}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
+        <Border x:Name="ProfileCard" Style="{StaticResource TcSection}" Margin="0,14,0,0">
             <Grid>
                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -84,7 +113,7 @@
                               DisplayMemberPath="Name"
                               SelectionChanged="ProfileComboBox_SelectionChanged"
                               DropDownOpened="ProfileComboBox_DropDownOpened" />
-                    <Button Content="Edit curves" Style="{StaticResource TcButton}" Padding="11,6" Margin="8,0,0,0" Click="EditCurves_Click" />
+                    <Button x:Name="EditCurvesButton" Content="Edit curves" Style="{StaticResource TcButton}" Padding="11,6" Margin="8,0,0,0" Click="EditCurves_Click" />
                 </StackPanel>
                 <StackPanel x:Name="ActiveCurvePreview" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,0" Visibility="Collapsed">
                     <Grid Margin="0,0,0,5">
@@ -136,44 +165,13 @@
             </Border>
         </Grid>
 
-        <Border x:Name="CalibrationCard" Style="{StaticResource TcSection}" Margin="0,14,0,0">
-            <StackPanel>
-                <Grid>
-                    <StackPanel>
-                        <TextBlock Text="Fan calibration" FontWeight="SemiBold" />
-                        <TextBlock x:Name="CalibrationDescriptionText"
-                                   Text="Verified X9 EC fallback only. Each EC step settles, then uses three real tachometer samples. A new run replaces the existing mapping only after all seven states validate; cancelling or losing telemetry keeps the previous verified calibration."
-                                   Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,200,0" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                        <Button x:Name="CharacterizeButton" Content="Calibrate fan" Style="{StaticResource TcButton}" Click="Characterize_Click" />
-                        <Button x:Name="StopCharacterizationButton" Content="Stop" Style="{StaticResource TcButton}" Click="StopCharacterization_Click" Margin="8,0,0,0" Visibility="Collapsed" />
-                    </StackPanel>
-                </Grid>
-                <ProgressBar x:Name="CharacterizationProgress" Height="3" Minimum="0" Maximum="7" Margin="0,14,0,0" Visibility="Collapsed" />
-                <TextBlock x:Name="CharacterizationStatusText" Margin="0,10,0,0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" />
-                <ItemsControl x:Name="CalibrationResults" Margin="0,10,0,0">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Grid Margin="0,3,0,3">
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="105" /><ColumnDefinition /><ColumnDefinition Width="90" /></Grid.ColumnDefinitions>
-                                <TextBlock Text="{Binding LevelText}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                                <TextBlock Grid.Column="1" Text="{Binding RpmText}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Grid.Column="2" Text="{Binding StabilityText}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                            </Grid>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-        </Border>
-
         <Expander x:Name="ManualControlExpander" Header="Advanced manual control" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
             <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
                 <StackPanel>
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ManualControlDescriptionText" Text="Manual targets use only the range exposed by the active verified provider. Lenovo Auto remains a separate firmware-owned mode and is restored automatically when a temporary test ends."
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="Manual targets use only the range exposed by the active verified provider. Firmware Auto remains a separate mode and is restored automatically when a temporary test ends."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
@@ -181,12 +179,12 @@
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <Slider x:Name="ManualPercentSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" Value="50" TickFrequency="1" ValueChanged="ManualPercentSlider_ValueChanged" />
-                        <Button Grid.Column="1" Content="Apply" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
+                        <Button x:Name="ManualPercentApplyButton" Grid.Column="1" Content="Apply" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
                     </Grid>
 
                     <Expander x:Name="RawEcStepsExpander" Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Text="Diagnostic fallback only. Step 7 is the highest verified standard EC state, not a claim about Lenovo Auto's hottest or absolute physical fan ceiling."
+                            <TextBlock Text="Diagnostic fallback only. The highest exposed standard EC state is not a claim about firmware Auto's hottest or the absolute physical fan ceiling."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>

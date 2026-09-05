@@ -94,4 +94,7 @@ public sealed record HardwareCapabilitySnapshot(
     bool CpuTemperature,
     bool SensorTelemetry = false,
     int FanCount = 0,
-    string FanControlKind = FanControlKinds.None);
+    string FanControlKind = FanControlKinds.None,
+    bool FanCalibrationSupported = false,
+    bool FanCalibrationRequired = false,
+    bool KeyboardEffects = false);

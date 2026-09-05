@@ -52,11 +52,32 @@ public partial class AdvancedWindow
             if (snapshotState.CanSensorTelemetry && snapshotState.BatteryTemperatureC is null)
                 snapshotState.BatteryTemperatureC = 34.8;
 
+            // The deterministic hardware-ready fixture represents the currently
+            // reviewed direct keyboard provider. Make its effect capability explicit
+            // so Keyboard screenshots validate the capability-driven enabled state.
+            if (snapshotState.CanKeyboardBacklight &&
+                !snapshotState.KeyboardBackend.Equals("Not exposed", StringComparison.OrdinalIgnoreCase))
+            {
+                snapshotState.CanKeyboardEffects = true;
+            }
+
             // Keep the baseline fan snapshot faithful to the supplied provider/profile
             // state. Special fixtures (manual OEM target, etc.) are applied explicitly
             // by the snapshot renderer after navigation so one state cannot silently
             // replace another merely because both happen to use the Balanced profile.
             FansPanelControl.PrepareForSnapshot(snapshotState);
+
+            // The normal demo fixture starts in firmware Auto with the reviewed
+            // discrete provider available. Exercise the generic calibration-required
+            // capability in visual QA without teaching production code about X9/model
+            // names or inferring anything from the HardwareAccess display string.
+            if (snapshotState.CanFanControl &&
+                snapshotState.CanFanTelemetry &&
+                (snapshotState.CoolingProfile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
+                 snapshotState.CoolingProfile.Equals("Auto", StringComparison.OrdinalIgnoreCase)))
+            {
+                FansPanelControl.PrepareCalibrationRequiredForSnapshot();
+            }
 
             if (PageBattery?.Content is Panel batteryContent &&
                 batteryContent.Children.OfType<Controls.BatteryTelemetryPanel>().FirstOrDefault() is { } batteryPanel)

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Controls;
 
@@ -40,13 +41,20 @@ public partial class TouchpadPanel
     private void SyncTrackCenterOption()
     {
         bool tracks = ActionCombo.SelectedItem is ActionOption option &&
-                      option.Action == ThinkControl.Core.Touchpad.GestureActionKind.PreviousNextTrack;
+                      option.Action == GestureActionKind.PreviousNextTrack;
         TrackCenterRow.Visibility = tracks ? Visibility.Visible : Visibility.Collapsed;
         TrackCenterPlayPauseSwitch.IsChecked = _configuration.TrackCenterPlayPauseEnabled;
 
-        // TouchpadGestureZoneOverlay owns only the bounded, non-selectable center
-        // target. Edge/corner selection and hover/live grammar stay in Visualizer.
-        SyncGestureZoneOverlay();
+        if (tracks)
+        {
+            ActionHelpText.Text = _configuration.TrackCenterPlayPauseEnabled
+                ? "Swipe left/right for Previous / Next. Tap the small outlined center target for Play / Pause; normal swipes outside it keep track control."
+                : "Swipe left/right for Previous / Next. Enable the optional center target if you also want a direct Play / Pause tap.";
+        }
+
+        // The selectable edge/corner fills and the optional center media target now
+        // share TouchpadVisualizer as one rendering owner.
+        Visualizer.Configuration = _configuration;
     }
 
     private void TrackCenterPlayPause_Click(object sender, RoutedEventArgs e)

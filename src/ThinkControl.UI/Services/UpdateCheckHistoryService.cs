@@ -28,8 +28,6 @@ internal static class UpdateCheckHistoryService
                 return null;
             }
 
-            // Ignore obviously corrupt/future timestamps instead of surfacing
-            // misleading update information in the UI.
             return value <= DateTimeOffset.UtcNow.AddMinutes(5) ? value : null;
         }
         catch
@@ -57,13 +55,21 @@ internal static class UpdateCheckHistoryService
         }
     }
 
-    internal static string Format(DateTimeOffset? timestamp)
+    internal static string Format(DateTimeOffset? timestamp) =>
+        Format(timestamp, DateTimeOffset.Now);
+
+    internal static string Format(DateTimeOffset? timestamp, DateTimeOffset now)
     {
         if (timestamp is null)
             return "Last checked · Never";
 
         DateTimeOffset local = timestamp.Value.ToLocalTime();
-        DateTime today = DateTime.Today;
+        DateTimeOffset localNow = now.ToLocalTime();
+        TimeSpan age = localNow - local;
+        if (age >= TimeSpan.Zero && age < TimeSpan.FromMinutes(2))
+            return "Last checked · Just now";
+
+        DateTime today = localNow.Date;
         string day = local.Date == today
             ? "Today"
             : local.Date == today.AddDays(-1)

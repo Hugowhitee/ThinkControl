@@ -20,19 +20,19 @@ public partial class AdvancedWindow
             string current = text.Text ?? string.Empty;
             if (current.StartsWith("Hardware levels and ThinkControl effects are kept separate:", StringComparison.Ordinal))
             {
-                text.Text = "Hardware levels stay separate from effects: Off / Low / High are device states; Auto is Lenovo's native firmware mode when the verified backend exposes it; Breathing / Reactive / Audio are ThinkControl user-session effects.";
+                text.Text = "Hardware levels stay separate from effects: Off / Low / High are device states; Auto is the active provider's verified firmware-managed mode when available; Breathing / Reactive / Audio are ThinkControl user-session effects.";
             }
             else if (current.StartsWith("Active: High", StringComparison.Ordinal))
             {
-                text.Text = "Lenovo Auto · firmware managed";
+                text.Text = "Firmware Auto · provider managed";
             }
             else if (current.StartsWith("Auto is a ThinkControl policy", StringComparison.Ordinal))
             {
-                text.Text = "Auto requests Lenovo's native firmware state and requires verified readback. ThinkControl does not emulate Auto with an idle-dimming effect.";
+                text.Text = "Auto requests the active provider's verified firmware-managed state and requires readback. ThinkControl does not emulate Auto with an idle-dimming effect.";
             }
             else if (current.StartsWith("Auto uses normal verified Off / Low / High", StringComparison.Ordinal))
             {
-                text.Text = "Breathing, Reactive and Audio require the direct backlight provider; the Vantage fallback is excluded so repeated effect writes do not invoke Lenovo's brightness pop-up.";
+                text.Text = "Breathing, Reactive and Audio require a provider that advertises safe repeated backlight writes; fallbacks without that capability keep effects disabled.";
             }
         }
     }

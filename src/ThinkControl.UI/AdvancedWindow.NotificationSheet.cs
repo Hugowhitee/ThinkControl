@@ -184,10 +184,7 @@ public partial class AdvancedWindow
         _notificationSheet.SetResourceReference(Border.BorderBrushProperty, "Tc.BorderStrong");
         _notificationSheet.MouseLeftButtonUp += (_, e) => e.Handled = true;
 
-        _notificationOverlay = new Grid
-        {
-            Visibility = Visibility.Collapsed
-        };
+        _notificationOverlay = new Grid { Visibility = Visibility.Collapsed };
         Grid.SetColumn(_notificationOverlay, 1);
         _notificationOverlay.Children.Add(backdrop);
         _notificationOverlay.Children.Add(_notificationSheet);
@@ -301,6 +298,21 @@ public partial class AdvancedWindow
                     ecCompatibilityFailure ? string.Empty : "Review retry",
                     ecCompatibilityFailure ? SheetAction.None : SheetAction.FanControl,
                     true));
+            }
+
+            FanCalibrationUiState calibration = _app.FanCalibrationState;
+            if (calibration.Relevant && !pawnIoRepair && setup.ServiceRunning && setup.ServiceReachable)
+            {
+                messages.Add(new(
+                    calibration.Running ? "Fan calibration in progress" : calibration.Ready ? "Fan calibration complete" : "Fan calibration required",
+                    calibration.Running
+                        ? $"The active fan provider is measuring its calibration states ({calibration.CompletedLevels}/{calibration.TotalLevels}). Other fan controls stay locked until the run finishes or is stopped, then firmware Auto is restored."
+                        : calibration.Ready
+                            ? $"The active fan provider has a complete measured mapping for all {calibration.TotalLevels} calibration states. You can review the mapping and fan controls on the Fans page."
+                            : "The active fan provider requires a measured output mapping before ThinkControl can safely enable percentage profiles or manual percentage targets.",
+                    "Open Fans",
+                    SheetAction.Fans,
+                    calibration.Required && !calibration.Running));
             }
 
             if (!_app.State.CanKeyboardBacklight && !pawnIoRepair && verifiedX9 && setup.ServiceRunning && setup.ServiceReachable)
@@ -454,6 +466,10 @@ public partial class AdvancedWindow
                     HideNotificationSheet();
                     Navigate("Updates");
                     break;
+                case SheetAction.Fans:
+                    HideNotificationSheet();
+                    Navigate("Fans");
+                    break;
                 case SheetAction.Service:
                 case SheetAction.PawnIo:
                 case SheetAction.Sensors:
@@ -487,6 +503,7 @@ public partial class AdvancedWindow
     {
         None,
         Updates,
+        Fans,
         Service,
         PawnIo,
         Sensors,

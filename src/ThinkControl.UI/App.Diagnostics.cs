@@ -67,6 +67,7 @@ public partial class App
                     State.CanFanControl = capabilities.FanControl;
                     State.FanControlKind = capabilities.FanControlKind;
                     State.CanKeyboardBacklight = capabilities.KeyboardBacklight;
+                    State.CanKeyboardEffects = capabilities.KeyboardEffects;
                     State.CanCpuTemperature = capabilities.CpuTemperature;
                 }
                 else
@@ -74,6 +75,7 @@ public partial class App
                     State.CanSensorTelemetry = State.Sensors.Count > 0;
                     State.CanFanTelemetry = State.Fans.Count > 0;
                     State.FanControlKind = FanControlKinds.None;
+                    State.CanKeyboardEffects = false;
                 }
 
                 RecordFanTelemetrySample(telemetry);
@@ -99,6 +101,7 @@ public partial class App
             State.CanFanControl = false;
             State.FanControlKind = FanControlKinds.None;
             State.CanKeyboardBacklight = false;
+            State.CanKeyboardEffects = false;
             State.CanCpuTemperature = false;
             State.ClearHardwareTelemetry();
         }
