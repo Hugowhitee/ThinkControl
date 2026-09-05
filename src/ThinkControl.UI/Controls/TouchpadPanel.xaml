@@ -83,7 +83,7 @@
                         <Grid x:Name="TrackCenterRow" Margin="0,11,0,0" Visibility="Collapsed">
                             <StackPanel Margin="0,0,76,0">
                                 <TextBlock Text="Center play / pause" Foreground="{DynamicResource Tc.TextMuted}" />
-                                <TextBlock Text="When enabled, only the outlined center box toggles playback. Swipe anywhere else in the edge lane for Previous / Next." Style="{StaticResource TouchpadLabel}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                                <TextBlock Text="Tap the small outlined center target for Play / Pause. Previous / Next stays a normal swipe everywhere else in the selected edge lane." Style="{StaticResource TouchpadLabel}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
                             <CheckBox x:Name="TrackCenterPlayPauseSwitch" HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource TcSwitch}" Click="TrackCenterPlayPause_Click" />
                         </Grid>
