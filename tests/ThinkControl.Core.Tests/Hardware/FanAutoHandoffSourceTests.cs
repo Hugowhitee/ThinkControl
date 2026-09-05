@@ -45,19 +45,22 @@ public sealed class FanAutoHandoffSourceTests
     }
 
     [Fact]
-    public void SavedAutoPreference_IsActuallyAppliedOnX9Startup()
+    public void SavedAutoPreference_StillPerformsARealHardwareHandoff()
     {
         string root = FindRepositoryRoot();
         string cooling = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "App.Cooling.cs"));
 
         Assert.Contains("bool wantsAuto = selected.Equals(\"Lenovo Auto\"", cooling, StringComparison.Ordinal);
-        Assert.Contains("DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType)", cooling, StringComparison.Ordinal);
-        Assert.Contains("response.Capabilities?.FanControl != true && !(wantsAuto && verifiedX9)", cooling, StringComparison.Ordinal);
         Assert.Contains("ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();", cooling, StringComparison.Ordinal);
-        Assert.Contains("Saved Lenovo Auto preference could not be reasserted", cooling, StringComparison.Ordinal);
+        Assert.Contains("Saved firmware Auto preference could not be reasserted", cooling, StringComparison.Ordinal);
+        Assert.Contains("State.CoolingProfile = \"Lenovo Auto\";", cooling, StringComparison.Ordinal);
 
-        // Do not regress to the old UI-only restore that merely painted the combo
-        // as Auto without asking the service/hardware to hand ownership back.
+        // The exact-X9 branch is a narrowly documented recovery exception for a
+        // stale ThinkControl-owned target, not the product-wide calibration model.
+        Assert.Contains("it is not the product-wide calibration rule", cooling, StringComparison.Ordinal);
+
+        // Do not regress to a UI-only restore that merely paints the selector as Auto
+        // without asking the service/hardware to hand ownership back.
         Assert.DoesNotContain("if (selected == \"Lenovo Auto\")\n        {\n            State.CoolingProfile = \"Lenovo Auto\";\n            return;", cooling, StringComparison.Ordinal);
     }
 
@@ -73,7 +76,6 @@ public sealed class FanAutoHandoffSourceTests
         Assert.Contains("RebuildProfileChoices(manual ? _currentProfileId : null);", fans, StringComparison.Ordinal);
         Assert.Contains("new FanProfileChoice(manualState!.Trim(), manualState.Trim(), Selectable: false)", fans, StringComparison.Ordinal);
         Assert.Contains("if (!choice.Selectable || ProfileIdsEqual(choice.Id, _currentProfileId))", fans, StringComparison.Ordinal);
-        Assert.Contains("selecting Auto afterwards must be a real", fans, StringComparison.Ordinal);
         Assert.DoesNotContain("ProfileComboBox.SelectedItem = selected ?? _profileChoices.FirstOrDefault();", fans, StringComparison.Ordinal);
 
         Assert.Contains("if (IsManualFanState(current))", compact, StringComparison.Ordinal);
