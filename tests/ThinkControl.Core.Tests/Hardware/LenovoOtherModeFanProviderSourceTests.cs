@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Hardware;
 public sealed class LenovoOtherModeFanProviderSourceTests
 {
     [Fact]
-    public void OtherModeProvider_UsesLenovoDirectTargetRpmContractWithPerChannelLiveGates()
+    public void OtherModeProvider_RetainsNativeTelemetryDiscoveryButRequiresPhysicalWriteAcceptance()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
 
@@ -16,14 +16,21 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("FanDeviceId = 0x04", source, StringComparison.Ordinal);
         Assert.Contains("FanRpmFeatureId = 0x03", source, StringComparison.Ordinal);
         Assert.Contains("return FanDeviceId << 24 | FanRpmFeatureId << 16 | typeId;", source, StringComparison.Ordinal);
-        Assert.Contains("writableLive.Length >= 2", source, StringComparison.Ordinal);
-        Assert.Contains("liveWritable.Length < 2", source, StringComparison.Ordinal);
+        Assert.Contains("writableLive.Length", source, StringComparison.Ordinal);
         Assert.Contains("IsWritableChannel(channel)", source, StringComparison.Ordinal);
-        Assert.Contains("Lenovo WMI · Other Mode direct target-RPM", source, StringComparison.Ordinal);
+        Assert.Contains("Lenovo WMI · Other Mode fan telemetry", source, StringComparison.Ordinal);
+
+        // Firmware metadata/live reads are useful evidence but are not enough to
+        // authorize a product writer after the real X9 failed the acoustic/range gate.
+        Assert.Contains("DirectTargetRpmWritesPhysicallyAccepted = false", source, StringComparison.Ordinal);
+        Assert.Contains("DirectTargetRpmWritesPhysicallyAccepted && writableLive.Length >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("target-RPM writes are held read-only because physical X9 validation failed", source, StringComparison.Ordinal);
+        Assert.Contains("repeated speed cycling", source, StringComparison.Ordinal);
+        Assert.Contains("lower useful ceiling than hot firmware Auto", source, StringComparison.Ordinal);
 
         // Do not make every firmware-advertised capability record a global all-or-nothing
-        // gate. Two independently live, constrained X9 fan channels are sufficient even
-        // if firmware also exposes a phantom/unused record.
+        // read gate. Two independently live channels can still provide native telemetry
+        // even if firmware also exposes a phantom/unused record.
         Assert.DoesNotContain("fans.Count == channels.Length", source, StringComparison.Ordinal);
         Assert.DoesNotContain("channels.All(channel =>", source, StringComparison.Ordinal);
     }
@@ -44,16 +51,19 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("cap=missing(direct-ID)", source, StringComparison.Ordinal);
 
         // The tolerant read/discovery path does not weaken the production write
-        // boundary: only the exact X9 controller can call SetFanPercent.
+        // boundary: the exact-X9 controller still owns the only possible call site,
+        // and the provider now adds the independent physical-acceptance gate.
         Assert.Contains("if (!_identity.IsVerifiedX9)", controller, StringComparison.Ordinal);
         Assert.Contains("OEM target-RPM fan control is not enabled for this device identity", controller, StringComparison.Ordinal);
+        Assert.Contains("DirectTargetRpmWritesPhysicallyAccepted", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void OtherModeProvider_MapsPercentToOemRpmAndUsesZeroForAuto()
+    public void OtherModeProvider_RetainsMappedTargetAndZeroAutoCleanupBehindPhysicalGate()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
 
+        Assert.Contains("if (!DirectTargetRpmWritesPhysicallyAccepted)", source, StringComparison.Ordinal);
         Assert.Contains("ResolveTargetRpm(channel, percent)", source, StringComparison.Ordinal);
         Assert.Contains("channel.MaxRpm - channel.MinRpm", source, StringComparison.Ordinal);
         Assert.Contains("target / RpmDivisor * RpmDivisor", source, StringComparison.Ordinal);
@@ -119,24 +129,25 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("cap=0x{channel.Capability:X}", source, StringComparison.Ordinal);
         Assert.Contains("no-safe-range", source, StringComparison.Ordinal);
         Assert.Contains("checked 0x{BuildFanRpmAttributeId(0):X8}", source, StringComparison.Ordinal);
+        Assert.Contains("product writes remain physically gated", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void X9Controller_GatesOemWritesByExactIdentityAndPrefersThemOverEcFallback()
+    public void X9Controller_KeepsNativeTelemetryBoundaryFromFallingBackToEcWhenWriterIsBlocked()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
 
         Assert.Contains("bool oemFanControl = _identity.IsVerifiedX9 && oemFanStatus.CanControl;", source, StringComparison.Ordinal);
-        Assert.Contains("if (!_identity.IsVerifiedX9)", source, StringComparison.Ordinal);
-        Assert.Contains("if (oem.CanControl)", source, StringComparison.Ordinal);
-        Assert.Contains("Raw EC steps are disabled while the X9 exposes Lenovo's constrained OEM target-RPM provider", source, StringComparison.Ordinal);
-        Assert.Contains("_activeFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm", source, StringComparison.Ordinal);
+        Assert.Contains("if (_identity.IsVerifiedX9 && nativeOemSafetyBoundary)", source, StringComparison.Ordinal);
+        Assert.Contains("return LenovoFanControlKind.None;", source, StringComparison.Ordinal);
+        Assert.Contains("_nativeOemFanTelemetryConfirmed = true", source, StringComparison.Ordinal);
+        Assert.Contains("must never silently re-authorize the known-inferior EC writer", source, StringComparison.Ordinal);
+        Assert.Contains("A transient telemetry miss cannot re-enable the EC fallback", source, StringComparison.Ordinal);
         Assert.Contains("ownsDiscreteEc = _activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete", source, StringComparison.Ordinal);
-        Assert.Contains("An explicitly owned EC state must be released through 0x2F/0x80 before", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void FanSupervisor_RoutesContinuousTargetsToOemAndKeepsEcCalibrationFallbackOnly()
+    public void FanSupervisor_RoutesContinuousTargetsOnlyWhenProviderAdvertisesAWriterAndKeepsEcCalibrationFallbackOnly()
     {
         string source = ReadSource("src", "ThinkControl.Service", "FanSupervisor.cs");
 
@@ -165,16 +176,20 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("FanCalibrationRequired: fanCalibrationRequired", service, StringComparison.Ordinal);
         Assert.Contains("public string FanControlKind", appState, StringComparison.Ordinal);
 
-        Assert.Contains("provider-reported maximum target RPM", ui, StringComparison.Ordinal);
+        Assert.Contains("reported maximum target RPM", ui, StringComparison.Ordinal);
         Assert.Contains("RawEcStepsExpander.Visibility = discreteEcWriter", ui, StringComparison.Ordinal);
-        Assert.Contains("CalibrationCard.Visibility = calibration.Relevant", ui, StringComparison.Ordinal);
-        Assert.Contains("Calibration visibility is owned solely by provider capability state", ui, StringComparison.Ordinal);
+        Assert.Contains("bool showCalibrationTask = calibration.Relevant && attention", ui, StringComparison.Ordinal);
+        Assert.Contains("CalibrationCard.Visibility = showCalibrationTask", ui, StringComparison.Ordinal);
+        Assert.Contains("ManualControlExpander.Visibility = canControl", ui, StringComparison.Ordinal);
+        Assert.Contains("Temporary 30-second test", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("DeviceCapabilityExpectations.IsVerifiedX9", ui, StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareAccess", ui.Split("private static string DescribeUnavailable", StringSplitOptions.None)[0].Split("private void ApplyProviderCopy", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.Contains("% OEM target", ui, StringComparison.Ordinal);
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
+        Assert.Contains("Temporary fan test", xaml, StringComparison.Ordinal);
+        Assert.Contains("Raw EC diagnostics", xaml, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", editor, StringComparison.Ordinal);
         Assert.Contains("Lenovo OEM target-RPM", editor, StringComparison.Ordinal);
     }
