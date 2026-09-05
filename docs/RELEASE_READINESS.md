@@ -6,60 +6,67 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease before this candidate:
 
-- `v0.1.0-alpha.36`;
-- immutable tag/release SHA: `b9e194ec54d0539d5526a4acf515d6aac3a94ec3`;
+- `v0.1.0-alpha.37`;
+- immutable tag/release SHA: `752ede6365a3f2423fb2e1507af0d7cc589c803a`;
 - published 2026-09-05 as a prerelease;
 - exactly four managed public assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
-Current `main` before the alpha.37 merge:
+Current alpha.38 candidate:
 
-- `b9e194ec54d0539d5526a4acf515d6aac3a94ec3`;
-- includes PR #70 Touchpad corner reliability/reverse-close work and PR #72 X9 dual-fan/native-provider hardening;
-- matches the immutable `v0.1.0-alpha.36` tag.
+- branch: `fix/alpha38-touchpad-fan-ux`;
+- PR: #74 — **Finish touchpad visuals, update freshness and fan calibration UX**;
+- version: `v0.1.0-alpha.38`;
+- base: immutable alpha.37 / `main` at `752ede6365a3f2423fb2e1507af0d7cc589c803a`;
+- no new low-level write contract is authorized by this candidate.
 
-Current release candidate:
+Alpha.38 exists because physical UI review after alpha.37 still showed Touchpad corner-zone visual inconsistency, the optional Track-center media action still behaved like a hidden hold gesture, update-check freshness had two owners, and generic fan/keyboard UI was making provider decisions that should be explicit capabilities.
 
-- branch: `fix/touchpad-reverse-close-followup`;
-- PR: #73 — **Fix touchpad reverse-close shell and visual QA regressions**;
-- version: `v0.1.0-alpha.37`;
-- release scope: two narrow post-alpha.36 review fixes in the existing Touchpad reverse-close path and its deterministic visual fixture;
-- no fan/provider/device-support expansion and no change to the alpha.36 hardware safety model.
+## Alpha.38 product delta
 
-Alpha.37 exists because two P2 review findings on merged PR #70 remained valid on the alpha.36 source after release. The immutable alpha.36 tag is not moved or rewritten. This candidate fixes those issues through the existing shell-transition and Touchpad fixture owners instead of stacking another gesture worker, timer, overlay or shell path.
+### Touchpad visual and interaction contract
 
-## Alpha.37 product delta
+- Top-left and top-right launch regions use one canonical corner shape and the right region is an exact horizontal mirror transform of the left.
+- Edge-band fill/boundary drawing is clipped around corner regions instead of visually stacking a square edge overlay beneath the corner shape.
+- Edges and corners share the same idle/hover/selected/candidate/live fill and boundary grammar.
+- CI asserts corner guide/fill symmetry and renders left/right selected + live fixtures.
+- Optional Track-center Play/Pause is a **visible bounded tap target** inside `TouchpadVisualizer`.
+- The old hidden hold-and-release policy/copy is removed; Previous/Next remains the surrounding swipe gesture.
 
-### Touchpad reverse-close / shell lifecycle
+### Provider-driven fan calibration
 
-- `HideThinkControlToTray()` keeps ownership of the reverse-close transition.
-- When Compact is visible, the transition uses the existing synchronous `MainWindow.HideForViewTransition()` path before `VerifyPrimarySurfaceState` and `shell.transition.completed` are recorded.
-- The ordinary tray-toggle path still uses `HideAnimated()`; alpha.37 does not globally remove Compact animation.
-- This prevents a successful reverse-close from being falsely recorded as `shell.exception` while the previous 95 ms Compact fade still left `IsVisible == true`.
+Generic Fans UI must not decide calibration from a laptop model name.
 
-### Touchpad visual QA
+- service capability snapshot exposes `FanCalibrationSupported` and `FanCalibrationRequired`;
+- `App.Cooling` owns the resulting generic `FanCalibrationUiState`;
+- the calibration card/Inbox attention/control lock respond to that capability state;
+- generic Fans copy no longer says the X9 is the product rule;
+- raw provider-specific EC controls appear only when the active provider exposes the discrete-EC semantic contract;
+- the current X9 discrete EC implementation remains a physically reviewed provider implementation, not the architecture boundary;
+- future Lenovo/ASUS/Dell/HP/Acer/MSI/etc. providers may advertise their own calibration contract—or no calibration at all—without model-specific Fans-page branches.
 
-- The mirrored top-right reverse-close fixture is prepared directly instead of first composing the normal inward live fixture with the same contact ID.
-- `PrepareReverseCornerForSnapshot` establishes the selected/configured corner from a clean non-live baseline before adding outward live points.
-- The resulting deterministic trail represents only the reverse-close movement toward the physical corner.
-- Source regression tests guard both the synchronous shell handoff and clean reverse-fixture construction.
+### Provider-driven keyboard effects
 
-### Preserved alpha.36 architecture
+- capability snapshot exposes `KeyboardEffects`;
+- Keyboard Effects UI consumes that bit rather than parsing `Lenovo`, `Vantage` or other backend labels;
+- saved Breathing/Reactive/Audio state is restored only after provider capability is known;
+- current repeated-write safety rules remain unchanged: an OEM fallback that cannot safely support rapid user-session changes does not advertise effects.
 
-Alpha.37 does **not** alter the alpha.36 feature/hardware model:
+### Update-check freshness
 
-- the unified Top/Bottom/Left/Right/Top-left/Top-right Touchpad editor remains canonical;
-- corner guard → diagonal lane → rounded end-cap geometry and reject-until-lift ownership remain unchanged;
-- raw recognition still receives full-rate input while WPF visualization is coalesced;
-- Lenovo Other Mode target-RPM remains the preferred exact-X9 fan writer when its capability/safety gates pass;
-- EnergyDrv remains read-only until its X9 write encoding is proven;
-- the seven-step EC writer remains the exact-model fallback/investigation path;
-- firmware/OEM Auto handoff, provider ownership and unknown-device fail-closed rules remain unchanged.
+- Home and Updates publish one update result;
+- one in-memory/persisted Last-checked timestamp owner records a completed manual check;
+- the visible Last checked value updates immediately rather than waiting for page reconstruction.
 
-## Alpha.36 immutable baseline
+### Preserved alpha.37 safety/lifecycle baseline
 
-Alpha.36 completed the post-alpha.35 corner integration and X9 dual-fan/native-provider hardening. Its final candidate passed the required CI and Package gates before merge, then PR #72 was merged to `main` at `b9e194ec54d0539d5526a4acf515d6aac3a94ec3`. `v0.1.0-alpha.36` was subsequently created at that exact commit and published with exactly the four managed release assets. That tag/release is immutable and remains the regression baseline immediately before alpha.37.
-
-Physical X9 behavior is still a separate evidence class. Hosted CI proves source/build/lifecycle/package behavior; it does not prove real fan response, haptic feel or accidental gesture rates.
+- Compact ↔ Advanced shell-transition ownership stays canonical;
+- minimized/hidden Advanced recovery and the `TargetParameterCountException` regression guards remain intact;
+- fan writes remain behind existing exact-device/provider/readback gates;
+- Lenovo Other Mode target-RPM remains the preferred reviewed X9 writer when its gates pass;
+- EnergyDrv remains read-only until a reviewed writer contract exists;
+- the discrete EC fallback keeps its existing blocked ambiguous override states;
+- firmware/OEM Auto handoff, provider ownership and unknown-device fail-closed behavior remain unchanged;
+- no Touchpad second recognizer/worker/overlay owner is introduced.
 
 ## Validation ownership
 
@@ -67,7 +74,7 @@ Physical X9 behavior is still a separate evidence class. Hosted CI proves source
 
 - repository hygiene;
 - solution restore/build;
-- Core tests, including source regression guards;
+- Core/source regression tests;
 - real Compact ↔ Advanced WPF lifecycle smoke;
 - deterministic WPF visual-QA matrix + artifact upload.
 
@@ -85,47 +92,50 @@ Physical X9 behavior is still a separate evidence class. Hosted CI proves source
 - immutable oldest-supported `v0.1.0-alpha.14.1` → candidate updater regression;
 - checksums and development artifact.
 
-Do not recreate a third full installer workflow. CI and Package are the current required PR gates. Superseded PR runs cancel; immutable/tag release packaging does not.
+Do not recreate a third full installer workflow. CI and Package are the required PR gates. Superseded PR runs may cancel; immutable/tag release packaging does not.
 
-## Alpha.37 release gate
+## Alpha.38 release gate
 
-- [x] Recovered current `main`, immutable alpha.36 release/tag, open PRs/branches, AGENTS and the active architecture/product/device/testing/release docs before editing.
-- [x] Confirmed there was no active feature PR/branch to reuse before creating the single alpha.37 follow-up branch/PR.
-- [x] Reproduced both unresolved PR #70 P2 findings against current alpha.36 source rather than assuming the old review was stale.
-- [x] Reverse-close remains on the canonical `HideThinkControlToTray` shell owner; no new timer, callback worker or duplicate shell transition was introduced.
-- [x] Normal tray-toggle animation remains unchanged; only the transition-owned Compact hide is synchronous.
-- [x] The reverse visual fixture now starts from a clean non-live corner baseline without adding a new visualizer/trail-reset API.
-- [x] Added source regression guards for the shell handoff and reverse fixture.
-- [x] No hardware/provider/service write paths changed; alpha.36 fan safety gates remain intact.
-- [x] `version.json`, README and active docs are being frozen at `v0.1.0-alpha.37` for the final candidate.
-- [ ] Final changed-file review confirms only intended reverse-close/tests/version/docs changes.
-- [ ] Final exact PR-head CI passes build/tests, ShellSmoke and visual-QA matrix.
-- [ ] Inspect the final Touchpad left inward/right reverse selected/live screenshots at representative theme/width states; verify the right live trail is outward-only and no layout/symmetry regression appears.
+- [x] Started from immutable alpha.37 / current `main` and preserved it as the regression baseline.
+- [x] Kept all alpha.38 work on one branch/PR (#74).
+- [x] Reworked Touchpad corner rendering into a single canonical mirrored geometry and shared zone grammar.
+- [x] Replaced hidden Track-center hold behavior with a visible bounded tap target and updated policy tests/copy.
+- [x] Added provider-advertised fan calibration capability state and removed X9/model rules from generic Fans UI.
+- [x] Added explicit Keyboard Effects capability state and delayed saved-effect restoration until provider support is known.
+- [x] Unified manual update-check Last-checked state.
+- [x] Preserved existing low-level write authorization/safety boundaries.
+- [x] `version.json`, README and product docs identify `v0.1.0-alpha.38` as this candidate.
+- [ ] Final changed-file review confirms no accidental feature/provider expansion.
+- [ ] Final exact PR-head CI passes build, all tests, ShellSmoke and visual-QA matrix.
+- [ ] Inspect final `advanced-touchpad.png`, wide Touchpad, left/right selected and left/right live corner screenshots; verify symmetry, identical idle grammar, no edge overlap and visible center tap target.
+- [ ] Inspect final Fans screenshots; verify calibration wording is provider-neutral and unavailable/manual states remain truthful.
+- [ ] Inspect final Keyboard screenshots; verify Effects availability follows fixture capability and layout remains clean.
+- [ ] Inspect final Updates screenshot; verify Last checked is current in the deterministic fixture.
 - [ ] Final exact PR-head Package ThinkControl passes publish/installer/service/IPC/update/uninstall/alpha.14.1 regression checks.
-- [ ] Review final PR comments/checks and resolve the two superseded PR #70 review findings with the alpha.37 fix evidence.
-- [ ] Squash-merge PR #73 with the exact expected final head SHA.
-- [ ] Verify post-merge `main` equals the merged alpha.37 commit and alpha.36 remains unchanged.
-- [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.37` at the merged commit.
-- [ ] Verify alpha.37 is an immutable prerelease with exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid published checksums.
+- [ ] Review PR checks/comments and merge #74 with the exact expected final head SHA.
+- [ ] Verify post-merge `main` equals the merged alpha.38 commit and alpha.37 remains unchanged.
+- [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.38` at the merged commit.
+- [ ] Verify alpha.38 is an immutable prerelease with exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid published checksums.
 
 ## Physical X9 follow-up — separate evidence class
 
-Hosted CI cannot prove these. Alpha.37 may be published with these still open because unsupported/unproven hardware paths fail closed or use the already-reviewed alpha.36 provider contracts, but the results must remain documented honestly.
+Hosted CI cannot prove these. The X9 is the current reference device, not the product boundary.
 
-- [ ] Install alpha.37 on machine type `21Q6`/`21Q7` and record the Fans provider/detail line before changing fan state.
-- [ ] If **Lenovo Other Mode direct target-RPM** activates, record whether it used canonical Capability Data or `exact-X9 direct-ID fallback`, then verify two plausible live fan channels plus manual 25/50/75/100% settling.
+- [ ] Install alpha.38 on machine type `21Q6`/`21Q7` and record the Fans provider/detail line before changing fan state.
+- [ ] If Lenovo Other Mode direct target-RPM activates, verify two plausible live channels plus manual 25/50/75/100% settling.
 - [ ] Confirm direct OEM targets do not reproduce the earlier repeating wave/re-kick/buzzy character.
-- [ ] Compare OEM 100% with naturally hot Lenovo Auto; Lenovo Fan Test max is reference/self-test data and may not be the absolute physical ceiling, so do not infer equivalence from metadata alone.
-- [ ] Repeatedly return direct OEM ownership to Auto and confirm both owned channels release cleanly with no stale target/stall/persistent divergence.
-- [ ] If only EnergyDrv native telemetry appears, confirm Fan 1/Fan 2 plausibly track physical sound while controls stay read-only rather than silently restoring EC after native proof.
-- [ ] Confirm a provider refresh/transient OEM telemetry miss does not re-enable EC during the same hardware-service lifetime after native two-fan proof.
-- [ ] If only the EC fallback remains, treat its profiles as fallback behavior; do not claim Max Cooling equals Lenovo Auto's physical maximum.
-- [ ] Export a support bundle after the test so bounded provider/fan samples can be compared with physical observations.
-- [ ] Capture `lenovo-auto-hot` / `lenovo-auto-cool` evidence if the exact EnergyDrv writer still needs recovery.
+- [ ] Compare OEM 100% with naturally hot Lenovo Auto without claiming metadata/self-test max equals the physical ceiling.
+- [ ] Repeatedly return direct OEM ownership to Auto and confirm both owned channels release cleanly.
+- [ ] If only EnergyDrv native telemetry appears, keep control read-only and confirm Fan 1/Fan 2 plausibly track physical sound.
+- [ ] If only the discrete EC fallback remains, complete its real tachometer calibration before judging percentage profiles.
+- [ ] Verify the calibration prerequisite/card appears because the active provider advertises it, not because the UI recognizes `21Q6`/`21Q7`.
+- [ ] Verify Keyboard Effects become available only on the direct provider and do not produce the Lenovo brightness pop-up.
+- [ ] Verify Touchpad corner idle/selected/live symmetry and accidental-trigger rate on the real haptic pad.
+- [ ] Verify the visible center Play/Pause target behaves as a tap target while surrounding Previous/Next swipes remain reliable.
+- [ ] Verify reverse-close still hides Compact/Advanced cleanly without false shell failure diagnostics.
+- [ ] Verify manual update checks refresh Last checked immediately on Home and Updates.
 - [ ] Continue issue #60 field observation for `TargetParameterCountException`; source regression is guarded but issue closure needs real-world evidence.
-- [ ] Verify Touchpad corner guard/reverse-close feel on the real haptic pad, including left/right symmetry and accidental-trigger rate.
-- [ ] With Compact visible, verify reverse-close hides it cleanly in real use and does not produce a false shell failure diagnostic.
-- [ ] Verify Audio navigation mid-drag, Lenovo keyboard Auto/Fn+Space, direct keyboard effects and PawnIO repair/restart on the physical machine.
+- [ ] Export a support bundle after physical testing so bounded provider/fan evidence can be compared with observations.
 
 ## Release workflow principles
 
@@ -134,6 +144,8 @@ For future releases:
 - start from current `main` and inspect branches/PRs/releases first;
 - keep one coherent release branch/PR;
 - preserve capability boundaries and existing owners rather than stacking duplicate providers/timers/overlays;
+- keep generic pages vendor/model-neutral and consume explicit semantic capabilities;
+- keep model-specific implementation and safety evidence inside the provider/hardware layer;
 - distinguish current-client dead code from intentionally retained updater/service compatibility;
 - freeze version/docs before final exact-head gates;
 - inspect UI artifacts manually when UI changes;
@@ -162,7 +174,8 @@ Do **not** mix commercial backend/licensing work into alpha hardware stabilizati
 - [x] Raw X9 EC controls require exact-model/provider validation.
 - [x] Setup distinguishes registration metadata from real provider/device readiness.
 - [x] X9 fan semantics distinguish native target-RPM, native read-only telemetry and discrete EC fallback.
-- [ ] Continue replacing residual device-name assumptions with explicit capabilities.
+- [x] Fan calibration and Keyboard Effects are exposed to generic UI as semantic provider capabilities.
+- [ ] Continue replacing residual device-name assumptions outside narrowly justified recovery/safety paths.
 - [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic contract.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
 
