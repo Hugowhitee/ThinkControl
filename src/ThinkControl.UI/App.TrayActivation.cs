@@ -112,7 +112,7 @@ public partial class App
         {
             _attentionToast.HidePassive();
             if (CompactWindow?.IsVisible == true)
-                CompactWindow.HideAnimated();
+                CompactWindow.HideForViewTransition();
             if (_advancedWindow?.IsVisible == true)
                 _advancedWindow.HideAnimated();
 

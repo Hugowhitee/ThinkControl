@@ -31,6 +31,11 @@ public partial class TouchpadPanel
     /// </summary>
     internal void PrepareReverseCornerForSnapshot(TouchpadCorner corner, bool live)
     {
+        // Build the selected corner from a non-live baseline first. The caller no
+        // longer composes an inward live fixture before this method, so the reverse
+        // trail starts clean instead of inheriting/connecting to inward contact 1.
+        PrepareCornerForSnapshot(corner, live: false);
+
         TouchpadCornerLaunchBindings launches = _configuration.CornerLaunches ?? new TouchpadCornerLaunchBindings();
         launches = corner switch
         {

@@ -6,76 +6,60 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease before this candidate:
 
-- `v0.1.0-alpha.35`
-- immutable tag/release SHA: `b6d2fb7a0a19d65dbac070f1c3f54fb9a662c6eb`
-- exactly four managed public assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
+- `v0.1.0-alpha.36`;
+- immutable tag/release SHA: `b9e194ec54d0539d5526a4acf515d6aac3a94ec3`;
+- published 2026-09-05 as a prerelease;
+- exactly four managed public assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
-Current `main` before the alpha.36 merge:
+Current `main` before the alpha.37 merge:
 
-- `aa697799319b8b942e58834649f7fed25bc33b85`
-- includes PR #70 touchpad corner reliability/reverse-close work
+- `b9e194ec54d0539d5526a4acf515d6aac3a94ec3`;
+- includes PR #70 Touchpad corner reliability/reverse-close work and PR #72 X9 dual-fan/native-provider hardening;
+- matches the immutable `v0.1.0-alpha.36` tag.
 
 Current release candidate:
 
-- branch: `fix/x9-dual-fan-control-stability`
-- PR: #72 — **Harden X9 dual-fan control with Lenovo OEM target-RPM provider**
-- version: `v0.1.0-alpha.36`
-- release scope: post-alpha.35 touchpad corner completion + X9 dual-fan/native-provider hardening + bounded diagnostics/research support
-- alpha.36 remains a prerelease; physical X9 behavior is not inferred from hosted runners
+- branch: `fix/touchpad-reverse-close-followup`;
+- PR: #73 — **Fix touchpad reverse-close shell and visual QA regressions**;
+- version: `v0.1.0-alpha.37`;
+- release scope: two narrow post-alpha.36 review fixes in the existing Touchpad reverse-close path and its deterministic visual fixture;
+- no fan/provider/device-support expansion and no change to the alpha.36 hardware safety model.
 
-The release branch is designed to fail closed. The direct Lenovo target-RPM writer remains externally gated to the exact X9 identity. Canonical Lenovo Capability Data is preferred; when firmware omits a fan capability record, the narrow direct-ID fallback requires a sane Lenovo Fan Test range plus a plausible live `GetFeatureValue` from the documented `0x0403000N` fan attribute immediately before writing. An explicitly present invalid/readonly capability is never overridden. EnergyDrv remains read-only until its write encoding is actually recovered, and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
+Alpha.37 exists because two P2 review findings on merged PR #70 remained valid on the alpha.36 source after release. The immutable alpha.36 tag is not moved or rewritten. This candidate fixes those issues through the existing shell-transition and Touchpad fixture owners instead of stacking another gesture worker, timer, overlay or shell path.
 
-The final release-prep delta after the earlier fully green candidate is intentional and stays inside the same fan-control scope: Lenovo Auto can be explicitly reasserted after in-memory ownership is lost, Compact/Home controls no longer show a false Auto state while managed cooling is active, direct OEM targets require bounded live-RPM response evidence after `SetFeatureValue`, EnergyDrv retry/backoff survives provider refresh correctly, and the fan-curve editor/diagnostics import the active provider contract instead of assuming EC semantics. These follow-up changes are part of alpha.36.
+## Alpha.37 product delta
 
-## Alpha.36 product delta
+### Touchpad reverse-close / shell lifecycle
 
-### Touchpad
+- `HideThinkControlToTray()` keeps ownership of the reverse-close transition.
+- When Compact is visible, the transition uses the existing synchronous `MainWindow.HideForViewTransition()` path before `VerifyPrimarySurfaceState` and `shell.transition.completed` are recorded.
+- The ordinary tray-toggle path still uses `HideAnimated()`; alpha.37 does not globally remove Compact animation.
+- This prevents a successful reverse-close from being falsely recorded as `shell.exception` while the previous 95 ms Compact fade still left `IsVisible == true`.
 
-- unified Top-left / Top-right with the same six-zone editor used by Top/Bottom/Left/Right;
-- exact mirrored **guard → diagonal lane → rounded end-cap** geometry;
-- enabled corner guard is the recognizer's real first-frame priority area;
-- rejected corner candidates remain locked out until lift and cannot fall through into the nearby edge gesture;
-- center divider replaced by a directional arrow; rounded end-cap replaces the old flat/blob treatment;
-- enabled corner actions show Compact/Advanced semantic icon + text;
-- optional per-corner **Reverse swipe closes ThinkControl** uses the same recognizer/ownership path rather than a second overlay/worker;
-- live corner state must not cause editor reflow.
+### Touchpad visual QA
 
-### X9 fans
+- The mirrored top-right reverse-close fixture is prepared directly instead of first composing the normal inward live fixture with the same contact ID.
+- `PrepareReverseCornerForSnapshot` establishes the selected/configured corner from a clean non-live baseline before adding outward live points.
+- The resulting deterministic trail represents only the reverse-close movement toward the physical corner.
+- Source regression tests guard both the synchronous shell handoff and clean reverse-fixture construction.
 
-Physical evidence before alpha.36 established:
+### Preserved alpha.36 architecture
 
-- the X9 has two physical fan channels and ThinkControl can expose both through reviewed telemetry paths;
-- the old one-fan product model was incomplete;
-- `dev.1191` still used `Fallback · verified X9 discrete EC telemetry/control`;
-- EC Max Cooling remained softer than naturally hot Lenovo Auto and could have a faint electronic/buzzy/wavy character;
-- therefore EC step 7 is **not** accepted as the finished X9 product maximum.
+Alpha.37 does **not** alter the alpha.36 feature/hardware model:
 
-Alpha.36 architecture:
+- the unified Top/Bottom/Left/Right/Top-left/Top-right Touchpad editor remains canonical;
+- corner guard → diagonal lane → rounded end-cap geometry and reject-until-lift ownership remain unchanged;
+- raw recognition still receives full-rate input while WPF visualization is coalesced;
+- Lenovo Other Mode target-RPM remains the preferred exact-X9 fan writer when its capability/safety gates pass;
+- EnergyDrv remains read-only until its X9 write encoding is proven;
+- the seven-step EC writer remains the exact-model fallback/investigation path;
+- firmware/OEM Auto handoff, provider ownership and unknown-device fail-closed rules remain unchanged.
 
-1. **Lenovo Other Mode target-RPM** is the preferred writer. Canonical channels use VALID+GET+SET Capability Data plus sane Lenovo Fan Test constraints and live reads. If Capability Data omits a fan ID, the exact-X9 direct-ID fallback may still consider documented `0x0403000N` channels only when Fan Test supplies a sane range and the channel answers a plausible live RPM immediately before the write. Explicitly present invalid/readonly capability records are never bypassed.
-2. Fan attributes use Lenovo's documented `0x04030001` onward IDs. `GetFeatureValue` reads current RPM; `SetFeatureValue` writes the target; target `0` returns the owned channel to Lenovo Auto; effective targets use 100-RPM granularity. A successful method invocation is followed by bounded live-RPM response validation so a silent no-op is not accepted as ownership.
-3. Extra/phantom capability records do not make the whole provider all-or-nothing: two real independently live safe writable channels are sufficient. Missing metadata can be diagnosed through the direct-ID path; explicit negative metadata still fails closed.
-4. ThinkControl records the exact channels it actually writes and returns only owned channels to Auto. Provider refresh preserves ownership evidence if an Auto handoff fails so cleanup can be retried. Explicit user/safety Auto requests can reassert target `0` across two independently live safe OEM channels even after a UI/service restart lost the in-memory ownership record.
-5. **Lenovo EnergyDrv** `QueryFanSpeed 0x83102570` is read-only native telemetry. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until the exact X9 `dwFanCtrlCmd` encoding and rollback/Auto semantics are recovered.
-6. Once two native Lenovo fan channels are proven during a service lifetime, transient native telemetry loss cannot silently re-authorize the EC writer.
-7. The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider only. The ambiguous `0x40` full-speed/disengaged family remains blocked after exact-X9 testing echoed `0x47` while producing 0 RPM.
-8. Fan-state changes invalidate stale RPM before a settled replacement is presented. Visible Fans-page refresh advances the canonical status pipeline without creating a high-rate EC polling loop.
-9. Bounded support diagnostics preserve active provider, control temperature, applied state and up to two fan RPM values without starting a duplicate hardware polling worker.
-10. Lenovo Fan Test min/max values are treated as the safe direct-target **reference range**, not proof of the absolute physical ceiling. Lenovo's own upstream driver notes healthy firmware may run outside those self-test reference values, so hot Auto remains the physical comparison target.
+## Alpha.36 immutable baseline
 
-### Research-only Lenovo evidence
+Alpha.36 completed the post-alpha.35 corner integration and X9 dual-fan/native-provider hardening. Its final candidate passed the required CI and Package gates before merge, then PR #72 was merged to `main` at `b9e194ec54d0539d5526a4acf515d6aac3a94ec3`. `v0.1.0-alpha.36` was subsequently created at that exact commit and published with exactly the four managed release assets. That tag/release is immutable and remains the regression baseline immediately before alpha.37.
 
-Do not turn these into production writes merely because the symbols exist:
-
-- EnergyDrv `0x8310257C ChangeFanSpeed` — one `dwFanCtrlCmd` DWORD in / one action-status DWORD out, but X9 command encoding still unknown;
-- EnergyDrv `0x831020C0` dust/temporary high-speed family — maintenance behavior, not a smooth target-RPM contract;
-- family-specific `0x8310213C` ITS/Geek full-speed overlay — not generalized to X9;
-- Lenovo Other Mode `0x04020000` full-speed feature observed on some newer Lenovo gaming/ThinkBook systems — not generalized to X9 until exact-machine evidence exists;
-- ThinkSmartSense/LITSSvc AC/DC Cool `500/501` and `505/506`;
-- Improved Cooling Efficiency `510/511`;
-- Balanced/Performance LCM `31..34`.
-
-`tools/research/Capture-LenovoAuto.ps1` remains observational. Its Lenovo Other Mode path invokes **GetFeatureValue only**, its EnergyDrv calls are read/query contracts only, and optional OEM binaries remain local until explicitly shared. `tools/research/Analyze-LenovoOemFanBinaries.ps1` is static/offline analysis only and never opens a driver or executes captured OEM binaries.
+Physical X9 behavior is still a separate evidence class. Hosted CI proves source/build/lifecycle/package behavior; it does not prove real fan response, haptic feel or accidental gesture rates.
 
 ## Validation ownership
 
@@ -83,7 +67,7 @@ Do not turn these into production writes merely because the symbols exist:
 
 - repository hygiene;
 - solution restore/build;
-- Core tests;
+- Core tests, including source regression guards;
 - real Compact ↔ Advanced WPF lifecycle smoke;
 - deterministic WPF visual-QA matrix + artifact upload.
 
@@ -103,30 +87,32 @@ Do not turn these into production writes merely because the symbols exist:
 
 Do not recreate a third full installer workflow. CI and Package are the current required PR gates. Superseded PR runs cancel; immutable/tag release packaging does not.
 
-## Alpha.36 release gate
+## Alpha.37 release gate
 
-- [x] Work remained on one active branch / one PR.
-- [x] AGENTS, architecture, product, device support, testing and release handoff were recovered before release preparation.
-- [x] Known-good alpha.33 shell/touchpad lifecycle protections were preserved rather than rewritten casually.
-- [x] Fan provider ownership is single-owner through `FanSupervisor` / `LenovoHardwareController`; no duplicate fan worker was introduced.
-- [x] Other Mode direct-RPM writes use the exact-X9 controller gate plus either canonical capability metadata or the narrow missing-capdata direct-ID path; both require safe Fan Test bounds and a live channel read before writes.
-- [x] Explicitly invalid/readonly Lenovo capability records are never overridden by the direct-ID fallback.
-- [x] EnergyDrv writer remains disabled; no `GENERIC_WRITE`/brute-force fan command was added.
-- [x] Research scripts are parser-checked in CI and are read-only/static by contract.
-- [x] `version.json`, README and active version docs are frozen at `v0.1.0-alpha.36`.
-- [x] Representative Fans and Touchpad visual-QA states were manually inspected on the final code candidate: OEM manual, EC active-curve, unavailable, min/wide Fans, plus left/right selected/live Touchpad states. No release-blocking visual regression was found.
-- [x] Final changed-file scope contains only release docs/version plus the intended fan provider/service/UI/diagnostic/research/test work.
-- [x] Final documentation head `e6623957b1dd78f7e169973203d99c9366e133de` passed both required gates: CI #1559 / run `33969465517` and Package #1279 / run `33969465516`. The immediately preceding code-identical release-prep head also passed CI #1558 with 0 warnings, 0 errors, 144/144 tests, shell smoke and 85 WPF snapshots. Final CI visual artifact digest: `sha256:a0f7efbe047526c88407340de350a6453b5fc4dec053f22aa926f57d90ec47a2`. Final Package development artifact: `ThinkControl-0.1.0-alpha.36-dev.1279`, digest `sha256:57c8dac0ef09905da8fd2f6a54ebc6fe576fd391d3d941d66c78fe22e1c61382`; package owns the same publish/installer/IPC/clean-uninstall/alpha.14.1-upgrade checks as the preceding measured run.
-- [ ] Squash-merge with exact expected head SHA `e6623957b1dd78f7e169973203d99c9366e133de`.
-- [ ] Verify post-merge `main`.
-- [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.36` at the merged commit and does not move alpha.35.
-- [ ] Verify the new prerelease has exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid checksums.
+- [x] Recovered current `main`, immutable alpha.36 release/tag, open PRs/branches, AGENTS and the active architecture/product/device/testing/release docs before editing.
+- [x] Confirmed there was no active feature PR/branch to reuse before creating the single alpha.37 follow-up branch/PR.
+- [x] Reproduced both unresolved PR #70 P2 findings against current alpha.36 source rather than assuming the old review was stale.
+- [x] Reverse-close remains on the canonical `HideThinkControlToTray` shell owner; no new timer, callback worker or duplicate shell transition was introduced.
+- [x] Normal tray-toggle animation remains unchanged; only the transition-owned Compact hide is synchronous.
+- [x] The reverse visual fixture now starts from a clean non-live corner baseline without adding a new visualizer/trail-reset API.
+- [x] Added source regression guards for the shell handoff and reverse fixture.
+- [x] No hardware/provider/service write paths changed; alpha.36 fan safety gates remain intact.
+- [x] `version.json`, README and active docs are being frozen at `v0.1.0-alpha.37` for the final candidate.
+- [ ] Final changed-file review confirms only intended reverse-close/tests/version/docs changes.
+- [ ] Final exact PR-head CI passes build/tests, ShellSmoke and visual-QA matrix.
+- [ ] Inspect the final Touchpad left inward/right reverse selected/live screenshots at representative theme/width states; verify the right live trail is outward-only and no layout/symmetry regression appears.
+- [ ] Final exact PR-head Package ThinkControl passes publish/installer/service/IPC/update/uninstall/alpha.14.1 regression checks.
+- [ ] Review final PR comments/checks and resolve the two superseded PR #70 review findings with the alpha.37 fix evidence.
+- [ ] Squash-merge PR #73 with the exact expected final head SHA.
+- [ ] Verify post-merge `main` equals the merged alpha.37 commit and alpha.36 remains unchanged.
+- [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.37` at the merged commit.
+- [ ] Verify alpha.37 is an immutable prerelease with exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid published checksums.
 
 ## Physical X9 follow-up — separate evidence class
 
-Hosted CI cannot prove these. Alpha.36 may be published with these still open because unsupported/unproven paths fail closed or are deliberately bounded to documented OEM semantics, but the results must remain documented honestly.
+Hosted CI cannot prove these. Alpha.37 may be published with these still open because unsupported/unproven hardware paths fail closed or use the already-reviewed alpha.36 provider contracts, but the results must remain documented honestly.
 
-- [ ] Install alpha.36 on machine type `21Q6`/`21Q7` and record the Fans provider/detail line before changing fan state.
+- [ ] Install alpha.37 on machine type `21Q6`/`21Q7` and record the Fans provider/detail line before changing fan state.
 - [ ] If **Lenovo Other Mode direct target-RPM** activates, record whether it used canonical Capability Data or `exact-X9 direct-ID fallback`, then verify two plausible live fan channels plus manual 25/50/75/100% settling.
 - [ ] Confirm direct OEM targets do not reproduce the earlier repeating wave/re-kick/buzzy character.
 - [ ] Compare OEM 100% with naturally hot Lenovo Auto; Lenovo Fan Test max is reference/self-test data and may not be the absolute physical ceiling, so do not infer equivalence from metadata alone.
@@ -138,6 +124,7 @@ Hosted CI cannot prove these. Alpha.36 may be published with these still open be
 - [ ] Capture `lenovo-auto-hot` / `lenovo-auto-cool` evidence if the exact EnergyDrv writer still needs recovery.
 - [ ] Continue issue #60 field observation for `TargetParameterCountException`; source regression is guarded but issue closure needs real-world evidence.
 - [ ] Verify Touchpad corner guard/reverse-close feel on the real haptic pad, including left/right symmetry and accidental-trigger rate.
+- [ ] With Compact visible, verify reverse-close hides it cleanly in real use and does not produce a false shell failure diagnostic.
 - [ ] Verify Audio navigation mid-drag, Lenovo keyboard Auto/Fn+Space, direct keyboard effects and PawnIO repair/restart on the physical machine.
 
 ## Release workflow principles

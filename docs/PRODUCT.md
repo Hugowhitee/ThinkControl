@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.36`.
+Current prerelease candidate: `v0.1.0-alpha.37`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -76,7 +76,7 @@ A compatible registration with a missing kernel service is an incomplete install
 
 Supervised cooling uses bounded smoothing, hysteresis, dwell time, immediate meaningful cooling increases and firmware fallback. Missing control telemetry/provider state or a thermal safety handoff returns ownership to OEM firmware.
 
-Manual fan testing is temporary, restores the previous profile and falls back to firmware Auto if restoration cannot be proven. Provider ownership is explicit: ThinkControl returns only the OEM channels/provider state it actually took over rather than inferring ownership from a readback that another utility may have created.
+Manual fan testing is temporary, restores the previous profile and falls back to firmware Auto if restoration cannot be proven. Provider ownership is explicit: ThinkControl returns only the OEM channels/provider state it actually took ownership of rather than inferring ownership from a readback that another utility may have created.
 
 See [Cooling Design](COOLING-DESIGN.md) for the canonical cooling/calibration contract.
 
@@ -126,7 +126,9 @@ Runtime corner recognition remains intentionally separate from edge recognition 
 
 Each corner can independently enable **Reverse swipe closes ThinkControl**. With that option enabled, the rounded inner cap becomes the outward start target: a deliberate diagonal swipe back toward the physical corner hides the currently visible Compact or Advanced shell. With the option disabled, the cap remains part of the normal inward launch area. The reverse path uses the same recognizer ownership, diagonal-intent and reject-until-lift rules as the launch path; it does not add a parallel gesture worker or overlay.
 
-Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners, covers the normal inward state on the left and the opt-in reverse-close state on the mirrored right, and asserts mirrored final geometry plus unchanged editor layout across live frames.
+The gesture-owned hide-to-tray operation uses the canonical shell-transition owner. Compact is hidden synchronously for that transition before shell-state verification/diagnostics are recorded; the separate normal tray-toggle path may still animate. This keeps reverse-close lifecycle diagnostics aligned with the state the user actually sees.
+
+Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners, covers the normal inward state on the left and the opt-in reverse-close state on the mirrored right, and asserts mirrored final geometry plus unchanged editor layout across live frames. The reverse fixture starts from a clean non-live corner baseline so its trail represents only the outward close gesture.
 
 Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence and publishes all-up frames immediately. Raw-input/HID registration is deferred until after the visible shell/page has painted. UI-only corner/gesture listeners attach only while the Touchpad page is visible so leaving the page cannot keep high-rate dispatcher work alive elsewhere in Advanced.
 
@@ -164,11 +166,11 @@ The current desktop client uses the graph-based cooling API. Older service-side 
 
 ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Local crash history remains the durable source of truth. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails.
 
-No automatic cloud compatibility/crash upload is part of alpha.36; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.35` release remains the production baseline immediately before this release.
+No automatic cloud compatibility/crash upload is part of alpha.37; future telemetry/account work is tracked separately in [Release Readiness](RELEASE_READINESS.md). The immutable `v0.1.0-alpha.36` release is the production baseline immediately before this candidate.
 
 ## Installation and updates
 
-Alpha.36 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.37 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Packaging/installer CI validates payload construction, custom-location clean install, service startup/IPC, in-place update behavior, compatibility with the legacy updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 
