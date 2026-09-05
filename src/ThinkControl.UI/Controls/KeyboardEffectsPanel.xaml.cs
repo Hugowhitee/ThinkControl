@@ -53,7 +53,8 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
         if (e.PropertyName is nameof(AppState.KeyboardMode)
             or nameof(AppState.KeyboardBaseLevel)
             or nameof(AppState.KeyboardEffectSpeed)
-            or nameof(AppState.CanKeyboardBacklight))
+            or nameof(AppState.CanKeyboardBacklight)
+            or nameof(AppState.CanKeyboardEffects))
         {
             Dispatcher.Invoke(SyncControls);
         }
@@ -83,8 +84,11 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
 
     private async void Effect_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || AppHost is null || sender is not FrameworkElement { Tag: string mode })
+        if (_syncing || AppHost is null || _state?.CanKeyboardEffects != true ||
+            sender is not FrameworkElement { Tag: string mode })
+        {
             return;
+        }
 
         await AppHost.SetKeyboardModeAsync(mode);
         SyncControls();
@@ -92,8 +96,11 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
 
     private void BaseLevel_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || AppHost is null || sender is not FrameworkElement { Tag: string level })
+        if (_syncing || AppHost is null || _state?.CanKeyboardEffects != true ||
+            sender is not FrameworkElement { Tag: string level })
+        {
             return;
+        }
 
         AppHost.SetKeyboardBaseLevel(level);
         SyncControls();
@@ -101,8 +108,11 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
 
     private void EffectSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_syncing || !IsLoaded || AppHost is null || sender is not Slider slider || !slider.IsMouseCaptureWithin)
+        if (_syncing || !IsLoaded || AppHost is null || _state?.CanKeyboardEffects != true ||
+            sender is not Slider slider || !slider.IsMouseCaptureWithin)
+        {
             return;
+        }
 
         AppHost.SetKeyboardEffectSpeed(e.NewValue);
     }
