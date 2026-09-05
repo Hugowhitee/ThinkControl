@@ -5,6 +5,31 @@ namespace ThinkControl.UI.Controls;
 public partial class FansPanel
 {
     /// <summary>
+    /// Visual-QA only: makes the baseline discrete-provider fixture exercise the
+    /// generic calibration prerequisite without teaching production UI about a
+    /// machine type or parsing provider-detail text.
+    /// </summary>
+    internal void PrepareCalibrationRequiredForSnapshot()
+    {
+        if (_app is null)
+            return;
+
+        _fanControlKind = FanControlKinds.DiscreteEc;
+        _app.State.FanControlKind = FanControlKinds.DiscreteEc;
+        ApplyProviderCopy(_app.State.CanFanControl, _fanControlKind);
+        ApplyCalibrationUi(
+            new FanCalibrationUiState(
+                Relevant: true,
+                Running: false,
+                Ready: false,
+                CompletedLevels: 0,
+                TotalLevels: 7,
+                Status: "Calibration required by the active discrete fan provider."),
+            _app.State.CanFanControl);
+        UpdateLayout();
+    }
+
+    /// <summary>
     /// Visual-QA only: shows the production temporary-test controls without sending
     /// a fan command or starting the real timeout timer. The deterministic fixture
     /// deliberately uses the richer OEM target-RPM path so screenshots exercise the
@@ -36,6 +61,7 @@ public partial class FansPanel
         if (_app is not null)
         {
             var state = _app.State;
+            state.FanControlKind = FanControlKinds.OemTargetRpm;
             state.HardwareAccess =
                 "Full · verified OEM target-RPM fan provider · Fan 1 1,800–5,300 RPM · Fan 2 1,700–5,200 RPM";
             state.FanStateText = "ThinkControl managed · OEM target RPM";
@@ -47,6 +73,7 @@ public partial class FansPanel
             state.Sensors.ToArray());
 
             ApplyProviderCopy(true, FanControlKinds.OemTargetRpm);
+            ApplyCalibrationUi(FanCalibrationUiState.None, canControl: true);
             CoolingDetailText.Text = "Balanced · continuous OEM target-RPM control";
             AppliedLevelText.Text = $"{targetPercent}% OEM target";
             LiveCurveStatus.Text = $"{state.ControlTemperatureText} · temporary {targetPercent}% OEM target · 3,650 / 3,510 RPM";
