@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.36** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.37** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -22,7 +22,7 @@ The recurring `TargetParameterCountException` dispatcher bug was fixed and guard
 
 ## Audio lifecycle regression
 
-Alpha.35 added the current Audio navigation-lifecycle guard and alpha.36 preserves it.
+Alpha.35 added the current Audio navigation-lifecycle guard; alpha.36 and alpha.37 preserve it.
 
 1. Open Advanced → Audio.
 2. Drag output volume, navigate away while dragging, then return.
@@ -42,7 +42,7 @@ The expected behavior is that Audio output/microphone debounce timers and tempor
 
 ## Touchpad
 
-Alpha.36 includes the completed corner-zone integration. The editor has one six-zone model: Top, Bottom, Left, Right, Top-left and Top-right.
+Alpha.36 introduced the completed corner-zone integration. Alpha.37 keeps that geometry/recognizer model unchanged and fixes the Compact reverse-close shell handoff plus the mirrored reverse-close visual fixture.
 
 - Selecting an edge must clear a selected corner, and selecting a corner must clear the edge selection.
 - Top-left and top-right guides must be exact mirrors: same guard radius, lane size, angle, rounded end arc, boundary weight and selected/live treatment.
@@ -51,14 +51,16 @@ Alpha.36 includes the completed corner-zone integration. The editor has one six-
 - Start an ordinary edge gesture outside the corner guard/lane and confirm the edge still behaves normally.
 - Confirm the old neutral center divider is gone: the lane should show a directional arrow, the inner end should be a semicircular arc rather than a flat 90-degree cross-line/filled blob, and enabled Compact/Advanced corners should show the matching semantic icon and text.
 - Select each corner and confirm its editor exposes **Reverse swipe closes ThinkControl**. With it enabled, start in the rounded inner end-cap and swipe diagonally back toward the physical corner; Compact or Advanced should hide to tray. With it disabled, that outward swipe must not close ThinkControl.
+- With Compact visible and Windows client-area animations enabled, perform reverse-close and confirm it hides cleanly without producing a false `shell.exception` for the successful `hide-to-tray` transition.
 - Verify reverse-close on both mirrored corners and confirm a wrong-direction/rejected reverse candidate cannot become a nearby edge gesture while the same contact remains down.
 - Test corner candidate/active behavior under real touch and confirm the settings layout does not reflow or oscillate.
-- Inspect selected and live fixtures at minimum, normal and wide Advanced sizes plus light/dark states. The existing left fixture covers inward launch; the mirrored right fixture covers the opt-in reverse-close state.
+- Inspect selected and live fixtures at minimum, normal and wide Advanced sizes plus light/dark states. The left fixture covers inward launch; the mirrored right fixture covers the opt-in reverse-close state.
+- In the live top-right reverse fixture, confirm the visible trail is one outward movement toward the physical corner. It must not contain an inward segment immediately followed by a reversal from the same synthetic contact.
 - Leave Touchpad for another page and confirm the rest of Advanced remains responsive during normal touchpad use.
 
 ## Fans and hardware providers
 
-Alpha.36 changes the X9 fan architecture from “seven EC steps are the product fan controller” to “use the highest-capability verified Lenovo provider and fail closed when only telemetry is proven.” The old EC path remains available only when it is genuinely the active fallback provider.
+Alpha.37 preserves alpha.36's X9 fan architecture: use the highest-capability verified Lenovo provider and fail closed when only telemetry is proven. The old EC path remains available only when it is genuinely the active fallback provider.
 
 - Unsupported devices must remain safe/read-only.
 - On the verified X9 path, fan writes must be enabled only after a concrete provider passes its own safety gate; model identity by itself is not permission to write.
@@ -67,9 +69,9 @@ Alpha.36 changes the X9 fan architecture from “seven EC steps are the product 
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
 - Manual percentage and graph-curve operations should appear as fan-control diagnostics rather than generic hardware events, and diagnostics should name the active provider rather than always claiming ThinkPad EC.
 
-Current exact-X9 physical evidence already established that `dev.1191` could expose both physical fan RPMs through the EC investigation path, but EC Max Cooling remained below naturally hot Lenovo Auto and could still sound electronically buzzy/wavy. That negative evidence is why alpha.36 does not present EC step 7 as Lenovo's physical maximum.
+Current exact-X9 physical evidence established before alpha.36 that `dev.1191` could expose both physical fan RPMs through the EC investigation path, but EC Max Cooling remained below naturally hot Lenovo Auto and could still sound electronically buzzy/wavy. That negative evidence is why the current architecture does not present EC step 7 as Lenovo's physical maximum.
 
-Use this order on alpha.36:
+Use this order on alpha.37:
 
 1. Install the release and restart ThinkControl/the hardware service as the installer normally does. Start in **Lenovo Auto**.
 2. Open Advanced → Fans and record the provider/detail plus Fan 1/Fan 2 source text.
