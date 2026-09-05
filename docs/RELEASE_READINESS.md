@@ -25,6 +25,8 @@ Current release candidate:
 
 The release branch is designed to fail closed. The direct Lenovo target-RPM writer remains externally gated to the exact X9 identity. Canonical Lenovo Capability Data is preferred; when firmware omits a fan capability record, the narrow direct-ID fallback requires a sane Lenovo Fan Test range plus a plausible live `GetFeatureValue` from the documented `0x0403000N` fan attribute immediately before writing. An explicitly present invalid/readonly capability is never overridden. EnergyDrv remains read-only until its write encoding is actually recovered, and the known-inferior EC writer does not silently reappear after native two-fan evidence has been proven during the hardware-service lifetime.
 
+The final release-prep delta after the earlier fully green candidate is intentional and stays inside the same fan-control scope: Lenovo Auto can be explicitly reasserted after in-memory ownership is lost, Compact/Home controls no longer show a false Auto state while managed cooling is active, direct OEM targets require bounded live-RPM response evidence after `SetFeatureValue`, EnergyDrv retry/backoff survives provider refresh correctly, and the fan-curve editor/diagnostics import the active provider contract instead of assuming EC semantics. These follow-up changes are part of alpha.36 and therefore require one final CI + Package pass on the exact release head before merge.
+
 ## Alpha.36 product delta
 
 ### Touchpad
@@ -51,9 +53,9 @@ Physical evidence before alpha.36 established:
 Alpha.36 architecture:
 
 1. **Lenovo Other Mode target-RPM** is the preferred writer. Canonical channels use VALID+GET+SET Capability Data plus sane Lenovo Fan Test constraints and live reads. If Capability Data omits a fan ID, the exact-X9 direct-ID fallback may still consider documented `0x0403000N` channels only when Fan Test supplies a sane range and the channel answers a plausible live RPM immediately before the write. Explicitly present invalid/readonly capability records are never bypassed.
-2. Fan attributes use Lenovo's documented `0x04030001` onward IDs. `GetFeatureValue` reads current RPM; `SetFeatureValue` writes the target; target `0` returns the owned channel to Lenovo Auto; effective targets use 100-RPM granularity.
+2. Fan attributes use Lenovo's documented `0x04030001` onward IDs. `GetFeatureValue` reads current RPM; `SetFeatureValue` writes the target; target `0` returns the owned channel to Lenovo Auto; effective targets use 100-RPM granularity. A successful method invocation is followed by bounded live-RPM response validation so a silent no-op is not accepted as ownership.
 3. Extra/phantom capability records do not make the whole provider all-or-nothing: two real independently live safe writable channels are sufficient. Missing metadata can be diagnosed through the direct-ID path; explicit negative metadata still fails closed.
-4. ThinkControl records the exact channels it actually writes and returns only owned channels to Auto. Provider refresh preserves ownership evidence if an Auto handoff fails so cleanup can be retried.
+4. ThinkControl records the exact channels it actually writes and returns only owned channels to Auto. Provider refresh preserves ownership evidence if an Auto handoff fails so cleanup can be retried. Explicit user/safety Auto requests can reassert target `0` across two independently live safe OEM channels even after a UI/service restart lost the in-memory ownership record.
 5. **Lenovo EnergyDrv** `QueryFanSpeed 0x83102570` is read-only native telemetry. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until the exact X9 `dwFanCtrlCmd` encoding and rollback/Auto semantics are recovered.
 6. Once two native Lenovo fan channels are proven during a service lifetime, transient native telemetry loss cannot silently re-authorize the EC writer.
 7. The classic seven-step ThinkPad EC path remains an exact-model fallback/investigation provider only. The ambiguous `0x40` full-speed/disengaged family remains blocked after exact-X9 testing echoed `0x47` while producing 0 RPM.
