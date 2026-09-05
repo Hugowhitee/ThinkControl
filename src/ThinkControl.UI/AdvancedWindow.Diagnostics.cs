@@ -115,12 +115,14 @@ public partial class AdvancedWindow
 
     public void PrepareTouchpadCornerForSnapshot(TouchpadCorner corner, bool live)
     {
-        TouchpadPanelControl.PrepareCornerForSnapshot(corner, live);
-        // The left pair covers the normal launch state. Reuse the mirrored right
-        // pair for the opt-in reverse-close state so both interaction directions are
-        // visually inspected without expanding the already-large snapshot matrix.
+        // The left pair covers the normal launch state. The mirrored right pair is
+        // prepared directly as reverse-close so its live trail cannot inherit the
+        // inward fixture that would otherwise have been drawn moments earlier.
         if (corner == TouchpadCorner.TopRight)
             TouchpadPanelControl.PrepareReverseCornerForSnapshot(corner, live);
+        else
+            TouchpadPanelControl.PrepareCornerForSnapshot(corner, live);
+
         TouchpadPanelControl.PrepareHapticsForSnapshot();
         TouchpadPanelControl.ValidateCornerEditorLayoutForSnapshot(corner, live);
     }
