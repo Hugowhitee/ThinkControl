@@ -16,6 +16,7 @@ public partial class FansPanel
 
         _fanControlKind = FanControlKinds.DiscreteEc;
         _app.State.FanControlKind = FanControlKinds.DiscreteEc;
+        _app.State.FanStateText = "Firmware Auto";
         ApplyProviderCopy(_app.State.CanFanControl, _fanControlKind);
         ApplyCalibrationUi(
             new FanCalibrationUiState(
@@ -26,6 +27,7 @@ public partial class FansPanel
                 TotalLevels: 7,
                 Status: "Calibration required by the active discrete fan provider."),
             _app.State.CanFanControl);
+        AppliedLevelText.Text = _app.State.FanStateText;
         UpdateLayout();
     }
 
