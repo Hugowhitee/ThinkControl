@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.38**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
+This document describes the current architecture at **v0.1.0-alpha.39**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
 
 ## Process boundary
 
@@ -18,9 +18,9 @@ The UI must remain `asInvoker`. Hardware operations that need elevated/device ac
 
 Hardware support is capability-driven. Unknown hardware remains read-only/safe until an operation has a reviewed provider and validation gate. Generic UI consumes semantic capability state; it must not infer write support, calibration requirements or effect support by parsing model names or diagnostic provider strings.
 
-The ThinkPad X9 path currently prefers Lenovo-native fan semantics over direct EC writes. `LENOVO_OTHER_METHOD` target-RPM control is writable only when exact-X9 identity, per-channel VALID+GET+SET capability data, sane Lenovo fan constraints and at least two live fan channels all agree. Lenovo `EnergyDrv` is used only for its recovered read-only fan-speed query until a matching X9 write contract is proven. The seven-step ThinkPad EC writer remains a fallback/investigation path and is not promoted over proven native two-fan telemetry.
+The ThinkPad X9 path currently prefers Lenovo-native **telemetry** over direct EC writes. `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` channels, but its experimental target-RPM writer is held read-only in alpha.39 because physical alpha.38 testing failed the writer's own acceptance gate: a fixed target produced repeated speed cycling/re-kick and nominal 100% remained below naturally hot firmware Auto. VALID+GET+SET metadata, sane Fan Test ranges and live channels remain useful evidence but are not sufficient product write authorization after that physical rejection. Lenovo `EnergyDrv` is likewise read-only until a matching X9 write contract is proven.
 
-Fan ownership is explicit. ThinkControl records the provider/channels it actually takes over, returns those owned channels to Lenovo/OEM Auto on handoff/failure/disposal where supported, and does not infer ownership merely from reading an external manual-looking state. Native two-fan evidence is latched for the current service lifetime so a transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer.
+Fan ownership is explicit. ThinkControl records the provider/channels it actually takes over, returns those owned channels to Lenovo/OEM Auto on handoff/failure/disposal where supported, and does not infer ownership merely from reading an external manual-looking state. Target `0` on the rejected Other Mode path remains available for cleanup/reassertion of Auto after previously owned state. Native two-fan evidence is latched for the current service lifetime so a rejected/native writer or transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer.
 
 Repeated provider discovery is avoided where possible. The service keeps provider state; the UI consumes bounded status snapshots and uses targeted refresh operations for sensors, keyboard and full provider recovery.
 
@@ -30,13 +30,15 @@ The current UI has one fan-curve model:
 
 - named `FanCurveDefinition` profiles;
 - `SetCoolingCurve` for current curve writes;
-- `SetFanPercent` for deliberate manual output where supported;
+- `SetFanPercent` for deliberate temporary output testing where supported;
 - `ReturnFanToAuto` for firmware/OEM ownership;
 - characterization operations only when the active provider advertises a calibration workflow.
 
-`FanSupervisor` is the sole owner of ThinkControl fan writes. A continuous target-RPM provider receives percentages directly; a discrete provider may map the same semantic targets through a measured output-state mapping. Raw EC states/calibration remain provider-specific diagnostics rather than a generic fan-control assumption.
+`FanSupervisor` is the sole owner of ThinkControl fan writes. A physically accepted continuous target-RPM provider may receive percentages directly; a discrete provider may map the same semantic targets through a measured output-state mapping. Raw EC states/calibration remain provider-specific diagnostics rather than a generic fan-control assumption. On the X9 alpha.39 path, no writable fan provider is advertised merely because the Other Mode metadata is write-capable.
 
-The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. `App.Cooling` converts those service capabilities plus characterization progress into the generic `FanCalibrationUiState`. The Fans page and Inbox consume that state; they do not independently decide that a specific model must calibrate. The current X9 discrete EC path is one implementation that uses this contract, not the product boundary.
+The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. `App.Cooling` converts those service capabilities plus characterization progress into the generic `FanCalibrationUiState`. The Fans page and Inbox consume that state; they do not independently decide that a specific model must calibrate. The calibration task card is visible only while calibration is required or actively running; a ready mapping is ordinary provider state, not a permanent top-of-page success card.
+
+Manual fan UI is a bounded diagnostic surface. Percentage targets and provider-specific raw states run through the same 30-second temporary-test/automatic-restore contract. The surface is hidden when no verified writable provider exists. Raw EC diagnostics appear only when the active provider explicitly advertises the discrete-EC semantic contract.
 
 The service still accepts older IPC operations such as `SetCoolingProfile`, `SetCustomCoolingCurve` and `MarkFanLevelAudible` for the supported installed-client compatibility floor. Those are **legacy server compatibility endpoints**, not current UI APIs. Do not remove them merely because the current `HardwareServiceClient` no longer calls them; removal requires an explicit updater/client-floor decision and compatibility test update.
 
@@ -57,7 +59,7 @@ The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, 
 
 `TouchpadVisualizer` owns edge/corner rendering, selection and hit-testing. Corner geometry comes from one canonical source and the right side is an exact horizontal mirror of the left. Edge visual bands are clipped around enabled corner geometry so the corners do not behave or look like a second overlay system. The legacy auxiliary overlay does not own zone selection.
 
-Optional Track-center Play/Pause is also owned by `TouchpadVisualizer`: when enabled for Track control it is a small visible bounded target inside the selected edge lane. `TrackCenterGesturePolicy` accepts only a short low-travel tap that starts/ends inside that target; the surrounding lane continues to own Previous/Next swipes. There is no hidden hold-and-release gesture owner.
+Track control is also owned entirely by `TouchpadVisualizer`. It is one continuous edge lane with three semantic segments: **Previous | Play/Pause | Next**. Previous/Next remain deliberate swipes; the center 20% of the same band is the visible Play/Pause tap segment. `TrackCenterGesturePolicy` accepts only a short low-travel tap there, with movement tolerance below the general edge-claim threshold. The old serialized center flag remains readable for settings compatibility but is derived from the Track binding at runtime; there is no separate menu switch, floating pill or second visual owner.
 
 Runtime gesture recognition remains intentionally stricter than editor selection. Enabled corner launches use the same visible guard → diagonal lane → rounded end-cap geometry as the recognizer. A corner candidate owns the contact from the first eligible frame and rejected corner input remains locked out until lift instead of falling through into a neighboring edge gesture. Optional reverse-close starts from the rounded inner cap and uses the same ownership/intent rules rather than a second gesture worker.
 
