@@ -71,7 +71,7 @@
                     <StackPanel Margin="0,0,210,0">
                         <TextBlock x:Name="CharacterizationTitleText" Text="Fan calibration required" FontWeight="SemiBold" />
                         <TextBlock x:Name="CalibrationDescriptionText"
-                                   Text="ThinkControl must measure all seven verified X9 EC fan states before percentage profiles and manual targets are enabled. Lenovo Auto remains the safe default until the run starts."
+                                   Text="The active fan provider requires a measured output mapping before percentage profiles and manual targets are enabled. Firmware Auto remains the safe default until calibration completes."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Top">
@@ -171,7 +171,7 @@
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ManualControlDescriptionText" Text="Manual targets use only the range exposed by the active verified provider. Lenovo Auto remains a separate firmware-owned mode and is restored automatically when a temporary test ends."
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="Manual targets use only the range exposed by the active verified provider. Firmware Auto remains a separate mode and is restored automatically when a temporary test ends."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
@@ -184,7 +184,7 @@
 
                     <Expander x:Name="RawEcStepsExpander" Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Text="Diagnostic fallback only. Step 7 is the highest verified standard EC state, not a claim about Lenovo Auto's hottest or absolute physical fan ceiling."
+                            <TextBlock Text="Diagnostic fallback only. The highest exposed standard EC state is not a claim about firmware Auto's hottest or the absolute physical fan ceiling."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
