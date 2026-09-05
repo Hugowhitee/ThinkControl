@@ -278,6 +278,25 @@ internal sealed class ServiceEngine : IDisposable
             CoolingProfileId: cooling.ProfileId,
             CoolingAppliedPercent: cooling.AppliedPercent,
             KeyboardBackend: status.KeyboardBackend);
+
+        string fanControlKind = ToFanControlKind(status.FanControlKind);
+        bool fanCalibrationSupported = status.CanFanControl &&
+                                       status.CanFanTelemetry &&
+                                       string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
+        bool completeCalibration = cooling.Characterization.TotalLevels > 0 &&
+                                   cooling.Characterization.Levels.Count == cooling.Characterization.TotalLevels &&
+                                   cooling.Characterization.Levels.All(static level => level.Stable);
+        bool fanCalibrationRequired = fanCalibrationSupported &&
+                                      (cooling.Characterization.Running || !completeCalibration);
+
+        // Repeated user-session effects require a provider whose direct/static write
+        // contract can be called rapidly without invoking an OEM popup. Keep this
+        // provider-specific decision on the service side; generic UI consumes only
+        // the capability bit and never infers support from a vendor/backend label.
+        bool keyboardEffects = status.CanKeyboardBacklight &&
+                               !status.KeyboardBackend.Contains("Vantage", StringComparison.OrdinalIgnoreCase) &&
+                               !status.KeyboardBackend.Equals("Not exposed", StringComparison.OrdinalIgnoreCase);
+
         var capabilities = new HardwareCapabilitySnapshot(
             status.CanFanTelemetry,
             status.CanFanControl,
@@ -285,7 +304,10 @@ internal sealed class ServiceEngine : IDisposable
             status.CanCpuTemperature,
             status.CanSensorTelemetry,
             fans.Length,
-            ToFanControlKind(status.FanControlKind));
+            fanControlKind,
+            FanCalibrationSupported: fanCalibrationSupported,
+            FanCalibrationRequired: fanCalibrationRequired,
+            KeyboardEffects: keyboardEffects);
         return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
     }
 
