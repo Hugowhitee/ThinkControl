@@ -14,6 +14,7 @@ public partial class AdvancedWindow
     private WpfProgressBar? _updateCheckProgress;
     private TextBlock? _updateLastCheckedText;
     private Border? _updateUpToDateBadge;
+    private DateTimeOffset? _lastUpdateCheckedAt;
     private DateTimeOffset? _snapshotLastChecked;
     private bool _updateUiConfigured;
     private bool _homeUpdateUiConfigured;
@@ -71,6 +72,7 @@ public partial class AdvancedWindow
         content.Children.Insert(actionIndex, _updateLastCheckedText);
         content.Children.Insert(actionIndex + 1, _updateCheckProgress);
 
+        _lastUpdateCheckedAt ??= UpdateCheckHistoryService.Read();
         if (DataContext is AppState state)
             state.PropertyChanged += UpdateUiState_PropertyChanged;
 
@@ -95,9 +97,6 @@ public partial class AdvancedWindow
         if (_homeUpdateCheckButton is null)
             return;
 
-        // Home used the original one-off check handler, which neither published the
-        // result nor shared automatic-update state with the real Updates page. Keep
-        // one release state across both surfaces instead of two independent finders.
         _homeUpdateCheckButton.Click -= CheckUpdates_Click;
         _homeUpdateCheckButton.Click += HomeUpdateCheck_Click;
         _app.UpdateAvailabilityChanged += HomeUpdateAvailabilityChanged;
@@ -120,9 +119,7 @@ public partial class AdvancedWindow
         {
             _lastUpdate = await _app.UpdateService.CheckAsync();
             _app.PublishUpdateCheckResult(_lastUpdate);
-            DateTimeOffset checkedAt = DateTimeOffset.UtcNow;
-            UpdateCheckHistoryService.Record(checkedAt);
-            RefreshLastChecked(checkedAt);
+            RecordUpdateCheckCompleted(DateTimeOffset.UtcNow);
         }
         finally
         {
@@ -230,7 +227,7 @@ public partial class AdvancedWindow
             RefreshUpdateAvailabilityVisual();
             RefreshHomeUpdateUi();
             if (!checking)
-                RefreshLastChecked(_snapshotLastChecked ?? UpdateCheckHistoryService.Read());
+                RefreshLastChecked(CurrentLastCheckedTimestamp());
         }));
     }
 
@@ -239,7 +236,22 @@ public partial class AdvancedWindow
         SetUpdateCheckingVisual(IsUpdateCheckInProgress());
         RefreshUpdateAvailabilityVisual();
         RefreshHomeUpdateUi();
-        RefreshLastChecked(_snapshotLastChecked ?? UpdateCheckHistoryService.Read());
+        RefreshLastChecked(CurrentLastCheckedTimestamp());
+    }
+
+    private DateTimeOffset? CurrentLastCheckedTimestamp()
+    {
+        if (_snapshotLastChecked is DateTimeOffset snapshot)
+            return snapshot;
+        _lastUpdateCheckedAt ??= UpdateCheckHistoryService.Read();
+        return _lastUpdateCheckedAt;
+    }
+
+    private void RecordUpdateCheckCompleted(DateTimeOffset checkedAt)
+    {
+        _lastUpdateCheckedAt = checkedAt;
+        UpdateCheckHistoryService.Record(checkedAt);
+        RefreshLastChecked(checkedAt);
     }
 
     private AppState UpdateViewState => DataContext as AppState ?? _app.State;
@@ -294,11 +306,6 @@ public partial class AdvancedWindow
             _updateLastCheckedText.Text = UpdateCheckHistoryService.Format(timestamp);
     }
 
-    /// <summary>
-    /// Keeps visual QA deterministic without writing into the real user's
-    /// %LocalAppData% update history. The snapshot harness still exercises the
-    /// exact same update controls and status rendering used at runtime.
-    /// </summary>
     internal void PrepareUpdateUiForSnapshot(DateTimeOffset checkedAt)
     {
         _snapshotLastChecked = checkedAt;
