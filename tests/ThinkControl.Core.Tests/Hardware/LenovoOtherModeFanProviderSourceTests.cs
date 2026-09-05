@@ -156,15 +156,21 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         string xaml = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.xaml");
         string appState = ReadSource("src", "ThinkControl.UI", "ViewModels", "AppState.cs");
         string editor = ReadSource("src", "ThinkControl.UI", "FanCurveEditorWindow.cs");
+        string cooling = ReadSource("src", "ThinkControl.UI", "App.Cooling.cs");
 
         Assert.Contains("ToFanControlKind(status.FanControlKind)", service, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", service, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.DiscreteEc", service, StringComparison.Ordinal);
+        Assert.Contains("FanCalibrationSupported: fanCalibrationSupported", service, StringComparison.Ordinal);
+        Assert.Contains("FanCalibrationRequired: fanCalibrationRequired", service, StringComparison.Ordinal);
         Assert.Contains("public string FanControlKind", appState, StringComparison.Ordinal);
 
         Assert.Contains("100% requests each fan's Lenovo-reported maximum target RPM", ui, StringComparison.Ordinal);
         Assert.Contains("RawEcStepsExpander.Visibility = x9EcWriter", ui, StringComparison.Ordinal);
-        Assert.Contains("CalibrationCard.Visibility = x9Calibration", ui, StringComparison.Ordinal);
+        Assert.Contains("CalibrationCard.Visibility = calibration.Relevant", ui, StringComparison.Ordinal);
+        Assert.Contains("visibility is owned solely by the provider capability state", ui, StringComparison.Ordinal);
+        Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
         Assert.Contains("% OEM target", ui, StringComparison.Ordinal);
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", editor, StringComparison.Ordinal);
