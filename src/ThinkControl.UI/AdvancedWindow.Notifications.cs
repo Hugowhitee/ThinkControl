@@ -99,17 +99,22 @@ public partial class AdvancedWindow
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;
         _app.UpdateAvailabilityChanged += App_UpdateNotificationAvailabilityChanged;
+        _app.FanCalibrationStateChanged += App_FanCalibrationStateChanged;
         Closed += (_, _) =>
         {
             if (DataContext is AppState closingState)
                 closingState.PropertyChanged -= NotificationState_PropertyChanged;
             _app.UpdateAvailabilityChanged -= App_UpdateNotificationAvailabilityChanged;
+            _app.FanCalibrationStateChanged -= App_FanCalibrationStateChanged;
         };
 
         SyncNotificationIndicator();
     }
 
     private void App_UpdateNotificationAvailabilityChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(SyncNotificationIndicator);
+
+    private void App_FanCalibrationStateChanged(object? sender, EventArgs e) =>
         Dispatcher.BeginInvoke(SyncNotificationIndicator);
 
     private void NotificationState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -146,16 +151,21 @@ public partial class AdvancedWindow
                                   (DeviceCapabilityExpectations.ExpectsWritableFanControl(state) && !state.CanFanControl) ||
                                   (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(state) && !state.CanKeyboardBacklight));
         bool updateAttention = _app.LatestUpdateResult?.Available == true;
-        bool attention = hardwareAttention || updateAttention;
+        bool calibrationAttention = _app.FanCalibrationState.Required && !_app.FanCalibrationState.Running;
+        bool attention = hardwareAttention || updateAttention || calibrationAttention;
 
         _notificationDot.Visibility = attention ? Visibility.Visible : Visibility.Collapsed;
-        string label = updateAttention && hardwareAttention
-            ? "Notifications · update + hardware"
-            : updateAttention
-                ? "Notifications · update available"
-                : hardwareAttention
-                    ? "Notifications · hardware attention"
-                    : "Notifications";
+        string label = calibrationAttention
+            ? updateAttention || hardwareAttention
+                ? "Notifications · setup attention"
+                : "Notifications · fan calibration required"
+            : updateAttention && hardwareAttention
+                ? "Notifications · update + hardware"
+                : updateAttention
+                    ? "Notifications · update available"
+                    : hardwareAttention
+                        ? "Notifications · hardware attention"
+                        : "Notifications";
         TcToolTip.Apply(_notificationIndicator, label);
     }
 }
