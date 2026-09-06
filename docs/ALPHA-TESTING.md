@@ -97,46 +97,58 @@ The wide fixture exercises live Bottom Track control. Verify the three Track gly
 
 ## Fans and hardware providers
 
-Alpha.39 incorporates **negative physical evidence** from the alpha.38 X9 target-RPM writer. Hosted CI can guard the fail-closed architecture but must not reinterpret that negative real-device result as a passing writer merely because WMI metadata looks writable.
+Alpha.39 incorporates **negative physical evidence** from the alpha.38 X9 direct target-RPM writer without disabling the normal cooling profiles. Hosted CI can guard the architecture but cannot prove acoustic/thermal behavior on the real laptop.
 
 - Unsupported devices must remain safe/read-only.
-- Fan writes must be enabled only after a concrete provider passes both its code/provider gate and any required real-device acceptance gate; model identity or VALID+GET+SET metadata by itself is not permission to write.
-- The Fans page must not decide that `21Q6`, `21Q7`, `X9` or `Lenovo` means calibration is required.
-- `FanCalibrationSupported` / `FanCalibrationRequired` must drive the calibration task and dependent-control lock.
-- While calibration is running, competing fan controls must remain locked and firmware/OEM Auto must be restored after finish/stop/failure.
-- Once a calibration is complete/ready, the calibration card should **disappear from the top of the Fans page**. Ready calibration is provider state, not permanent attention UI.
+- A direct fan writer must be enabled only after a concrete provider passes both its code/provider gate and any required real-device acceptance gate; model identity or VALID+GET+SET metadata by itself is not permission to write.
+- A semantic firmware-policy backend must remain distinct from direct RPM/PWM control. It may expose named built-ins without exposing manual percentages, raw EC states or custom direct curves.
+- The Fans page must not decide that `21Q6`, `21Q7`, `X9` or `Lenovo` means direct calibration is required.
+- `FanCalibrationSupported` / `FanCalibrationRequired` must drive the calibration task and dependent direct-control lock.
+- While direct calibration is running, competing direct fan controls must remain locked and firmware/OEM Auto must be restored after finish/stop/failure.
+- Once calibration is complete/ready, the calibration card should **disappear from the top of the Fans page**.
 - A failed/partial calibration must not replace a previously verified complete mapping.
-- Temporary manual controls must be hidden when there is no verified writable provider.
-- When a writable provider exists, manual percentage tests must present themselves as temporary tests, run for at most 30 seconds by default, expose **End test**, and restore the previous profile automatically.
-- **Raw EC diagnostics** must appear only when the active provider explicitly exposes the discrete-EC semantic contract. They use the same temporary-test/restore policy; they are not a generic laptop option.
-- Test firmware/OEM Auto return after every ThinkControl-owned manual/custom fan state.
-- Do not interpret a visible UI control as proof that a hardware write succeeded; verify status and physical response.
+- Manual percentage controls must be hidden on the X9 firmware-policy backend and whenever no verified direct writer exists.
+- When a direct writer exists, manual percentage tests must present themselves as temporary tests, run for at most 30 seconds by default, expose **End test**, and restore the previous profile automatically.
+- **Raw EC diagnostics** must appear only when the active provider explicitly exposes the discrete-EC semantic contract.
+- Do not interpret a visible profile selector as proof of direct fan ownership; firmware-policy profiles deliberately keep Lenovo in the fan loop.
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
 
 ### Current exact-X9 physical state
 
-The alpha.38 Lenovo Other Mode target-RPM writer has now **failed its physical finished-product gate** on the reference X9:
+The alpha.38 Lenovo Other Mode target-RPM writer has **failed its physical finished-product gate** on the reference X9:
 
 - a fixed ThinkControl target repeatedly speeds up and slows down instead of settling smoothly;
 - the audible behavior matches the previously documented wave/re-kick concern;
 - nominal ThinkControl 100% remains below naturally hot firmware Auto;
-- `FanSupervisor` does not continuously rewrite a manual target while it is active, so this is not explained by the service's normal 4-second supervision loop.
+- `FanSupervisor` does not continuously rewrite a manual target while it is active, so this is not explained by the service's normal supervision loop.
 
-Alpha.39 therefore keeps Other Mode/native Fan 1 + Fan 2 telemetry but reports no writable fan capability from that writer. Do not try to compensate by writing beyond Lenovo's Fan Test ranges or by automatically falling back to the known-inferior EC path.
+Alpha.39 therefore keeps Other Mode/native Fan 1 + Fan 2 telemetry but does not use that writer for normal cooling. It also does not compensate by writing beyond Lenovo's Fan Test ranges or silently falling back to the known-inferior EC path.
+
+Instead, built-in profiles use the already reviewed exact-X9 Lenovo LITSSvc firmware thermal-policy path:
+
+```text
+Quiet        -> Lenovo Quiet policy
+Balanced     -> Lenovo Balanced policy
+Max cooling  -> Lenovo Performance cooling policy
+Auto         -> clear cooling override and restore current power-policy baseline
+```
 
 Use this order on alpha.39:
 
-1. Install/restart normally and start in firmware/Lenovo Auto.
-2. Open Advanced → Fans and record provider/detail plus Fan 1/Fan 2 sources.
-3. Confirm native Fan 1/Fan 2 telemetry can still appear when Other Mode or EnergyDrv exposes credible channels.
-4. Confirm ordinary fan profiles/manual tests are unavailable on the X9 while no physically accepted writer exists, rather than showing a fake usable 0–100% control.
-5. Confirm **Raw EC diagnostics** are not silently exposed merely because the native writer is held read-only; the service-lifetime native telemetry safety latch must block that fallback.
-6. If updating from alpha.38 after a stale previously owned Other Mode target, explicitly return/reassert Auto and confirm both channels settle back under Lenovo firmware ownership.
-7. Observe naturally hot Auto as the safe reference behavior; do not label any metadata range or EC state as its absolute ceiling.
-8. Export a Diagnostics support bundle after observation so provider/source distinctions can be compared with physical behavior.
-9. The separate ambiguous `0x40` EC family remains blocked; do not brute-force unknown write encodings.
+1. Install/restart normally and start in Auto. Confirm the Fans page still offers **Auto, Quiet, Balanced and Max cooling**.
+2. Record provider/detail plus Fan 1/Fan 2 sources. Native telemetry may come from Other Mode or EnergyDrv even though the direct writer remains rejected.
+3. Select **Quiet** under a modest repeatable workload. Confirm Lenovo firmware remains the owner, fan behavior is smooth, and the system is audibly/thermally less aggressive than Balanced where conditions permit.
+4. Select **Balanced** under the same workload and confirm stable normal Lenovo-managed behavior without the alpha.38 periodic re-kick pattern.
+5. Select **Max cooling** under a sufficiently warm workload. Confirm it reaches the useful high-cooling Lenovo firmware behavior and remains smooth; compare against naturally hot Lenovo Auto/Performance behavior rather than a fake fixed-RPM number.
+6. While a non-Auto cooling profile is active, change Windows Performance mode. Confirm the cooling profile remains selected/active rather than being silently overwritten.
+7. Select **Auto**. Confirm the latest Windows/Lenovo power-policy baseline is restored and cooling remains firmware-owned.
+8. Confirm custom curve editing, manual percentage tests and Raw EC diagnostics are **not** exposed on the firmware-policy backend unless a separate physically accepted direct provider is actually active.
+9. Confirm the native telemetry safety latch prevents a transient native read failure from exposing the EC writer.
+10. If updating from alpha.38 after stale direct target ownership, explicitly select Auto and confirm both channels settle back under Lenovo firmware ownership.
+11. Export a Diagnostics support bundle after observation so provider/source distinctions can be compared with physical behavior.
+12. The ambiguous `0x40` EC family remains blocked; do not brute-force unknown write encodings.
 
-A future X9 writer may be re-enabled only after it independently passes: two real channels, stable fixed-target settling without repeated wave/re-kick, useful high-cooling range comparable with naturally hot Auto, and repeated clean Auto handoff. Hosted CI alone cannot satisfy those checks.
+A future X9 direct writer may be enabled only after it independently passes: two real channels, stable fixed-target settling without repeated wave/re-kick, useful high-cooling range comparable with naturally hot Auto, and repeated clean Auto handoff. Hosted CI alone cannot satisfy those checks.
 
 The service-lifetime native-telemetry latch is intentionally not persisted across reboot/service restart yet. Persisting it without a BIOS/driver-aware evidence key could make an old capability observation survive a real platform change.
 
