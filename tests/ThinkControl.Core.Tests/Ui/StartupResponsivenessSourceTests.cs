@@ -35,7 +35,8 @@ public sealed class StartupResponsivenessSourceTests
         string touchpad = Read(root, "src", "ThinkControl.UI", "App.Touchpad.cs");
         string host = Read(root, "src", "ThinkControl.UI", "Services", "Touchpad", "TouchpadFeatureHost.cs");
 
-        Assert.Contains("\"{executable}\" --tray", startup, StringComparison.Ordinal);
+        Assert.Contains("CurrentVersion\\Run", startup, StringComparison.Ordinal);
+        Assert.Contains("--tray", startup, StringComparison.Ordinal);
         Assert.Contains("StartConfiguredTouchpadInputForStartup", shell, StringComparison.Ordinal);
         Assert.Contains("DispatcherPriority.Background", shell, StringComparison.Ordinal);
 
