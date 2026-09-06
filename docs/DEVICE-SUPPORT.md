@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.39**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant write access or decide which setup/calibration/effect workflows appear.
+This document describes the support model at **v0.1.0-alpha.39**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
 
 ## Support levels
 
@@ -19,24 +19,29 @@ Unsupported vendor controls stay visible as unavailable rather than pretending t
 
 ### Provider-backed read-only
 
-ThinkControl can expose telemetry from a reviewed provider without implying that writes are safe. Examples include temperature/fan/sensor discovery where the provider produces credible values but no verified write contract exists.
+ThinkControl can expose telemetry from a reviewed provider without implying that direct writes are safe. Examples include temperature/fan/sensor discovery where the provider produces credible values but no verified direct-output contract exists.
 
-### Verified write support
+### Verified semantic policy support
 
-A write control is enabled only when the active provider advertises the exact semantic capability and passes its provider/device validation gate **and any required physical acceptance gate**. A failed or unknown write path must fall back to safe firmware/OEM ownership rather than guessing addresses, EC commands, vendor APIs or a larger numeric ceiling.
+An OEM may expose a reviewed semantic thermal policy such as Quiet/Balanced/Performance without exposing safe direct RPM/PWM control. ThinkControl may use that policy for named built-in cooling profiles while leaving manual percentages, custom curves and raw hardware states unavailable.
+
+### Verified direct write support
+
+A direct-output control is enabled only when the active provider advertises the exact semantic capability and passes its provider/device validation gate **and any required physical acceptance gate**. A failed or unknown direct write path must fall back to safe firmware/OEM ownership rather than guessing addresses, EC commands, vendor APIs or a larger numeric ceiling.
 
 ## ThinkPad X9 15 Gen 1
 
-Machine types `21Q6` / `21Q7` are the current verified X9 development path. That identity is only one part of the gate: the relevant low-level provider must also initialize and validate the expected hardware behavior before writes become available. The X9 is a reference implementation, not the product boundary.
+Machine types `21Q6` / `21Q7` are the current verified X9 development path. That identity is only one part of each gate: the relevant provider must also match the reviewed semantic contract. The X9 is a reference implementation, not the product boundary.
 
 Current X9-oriented areas include:
 
 - sensor discovery and CPU/control temperature sources;
 - independent Fan 1 / Fan 2 telemetry where Lenovo-native or reviewed EC providers expose it;
 - Lenovo `LENOVO_OTHER_METHOD` native dual-fan telemetry where real `fanX_input` channels pass the live-read gate;
+- **working built-in Auto / Quiet / Balanced / Max cooling through the reviewed Lenovo LITSSvc firmware thermal-policy backend**;
 - the experimental Lenovo Other Mode `fanX_target` writer held **read-only in alpha.39** after real alpha.38 testing reproduced repeated speed cycling/re-kick and a nominal 100% target below naturally hot firmware Auto;
 - read-only Lenovo `EnergyDrv` `QueryFanSpeed` telemetry where the matching write contract is not verified;
-- the seven-step ThinkPad EC provider retained as an explicitly gated provider-specific diagnostic/fallback implementation, but not silently re-authorized once native OEM fan telemetry has been confirmed;
+- the seven-step ThinkPad EC implementation retained as explicitly gated provider-specific investigation/diagnostic code, but not silently re-authorized once native OEM fan telemetry has been confirmed;
 - Lenovo keyboard backlight provider/readback;
 - Lenovo/OEM keyboard Auto where verified;
 - haptic/raw-touchpad discovery and the shared Touchpad gesture editor.
@@ -47,22 +52,34 @@ If two native Lenovo fan channels have been proven during a hardware-service lif
 
 Fan features are kept semantically distinct:
 
-- **Firmware/OEM Auto**: firmware owns cooling;
+- **Firmware/OEM Auto**: firmware owns cooling and the current OEM power-policy baseline applies;
+- **OEM firmware-policy profile**: a reviewed semantic Quiet/Balanced/Performance transition while firmware still owns the actual fan loop;
 - **OEM target RPM**: a provider may advertise a real per-fan RPM target only after its capability/range contract and required physical behavior have both been accepted; target `0` is reserved for Auto on Lenovo Other Mode;
-- **named fan curves**: ThinkControl's graph-based curve model, routed through the active provider's semantic output contract only when a verified writer exists;
+- **named direct curves**: ThinkControl's graph-based curve model, routed through the active direct provider only when a verified direct writer exists;
 - **discrete output**: provider/model-specific states, not fake continuous PWM;
-- **calibration**: a provider-advertised mapping workflow used only when that provider requires measured evidence before translating semantic percentages;
-- **telemetry-only**: RPM/state can be shown without enabling writes.
+- **calibration**: a provider-advertised mapping workflow used only when a direct provider requires measured evidence before translating semantic percentages;
+- **telemetry-only**: RPM/state can be shown without enabling direct writes.
 
-The generic service/UI contract carries `FanCalibrationSupported` and `FanCalibrationRequired`. The Fans page must not recreate those decisions from `21Q6`, `21Q7`, X9, Lenovo or provider-detail strings. A future fan provider can advertise no calibration, optional calibration or a required mapping without adding a model-specific page branch.
+On the current X9 firmware-policy backend the built-ins map as follows:
 
-On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. Alpha.39 can still use independently live channels as native telemetry evidence, but VALID+GET+SET metadata plus sane Fan Test ranges no longer authorizes the X9 writer after its physical rejection. The write gate remains false until a future implementation again proves stable fixed-target behavior and a useful high-cooling range against naturally hot firmware Auto. ThinkControl still records previously owned channels and keeps target `0` available for cleanup/reassertion of Auto.
+```text
+Auto         -> clear ThinkControl cooling override; restore current Lenovo power-policy baseline
+Quiet        -> Lenovo Quiet thermal policy
+Balanced     -> Lenovo Balanced thermal policy
+Max cooling  -> Lenovo Performance cooling policy
+```
+
+The UI seeds the service with the current Windows performance preference before enabling a cooling override. If the Windows preference changes while a cooling profile is active, the service updates the restore baseline but keeps the selected cooling profile in control. This keeps Performance and Fans as separate product controls without repeatedly fighting over the same Lenovo policy channel.
+
+The generic service/UI contract carries `FanControlKind`, `FanCalibrationSupported` and `FanCalibrationRequired`. Firmware-policy capability and direct-output capability are distinguishable; the Fans page must not infer direct-write support from `21Q6`, `21Q7`, X9, Lenovo or provider-detail strings. A future fan provider can advertise firmware policy, direct output with no calibration, or a calibrated discrete mapping without adding a model-specific page copy.
+
+On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. Alpha.39 can still use independently live channels as native telemetry evidence, but VALID+GET+SET metadata plus sane Fan Test ranges no longer authorizes the X9 target writer after its physical rejection. The direct write gate remains false until a future implementation again proves stable fixed-target behavior and a useful high-cooling range against naturally hot firmware Auto. ThinkControl still records previously owned channels and keeps target `0` available for cleanup/reassertion of Auto.
 
 `EnergyDrv` `QueryFanSpeed 0x83102570` is currently read-only evidence. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until its exact X9 command encoding and rollback semantics are recovered; maintenance/high-speed IOCTL families are not substituted for smooth percentage control.
 
 The classic EC states are not a generic laptop control. **Raw EC diagnostics** appear only if an active provider explicitly exposes the verified discrete-EC semantic contract. When available, percentage/raw-state interactions use the same bounded temporary-test safety model rather than acting as persistent everyday controls.
 
-The current UI uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto` only when provider capability allows them. The service still accepts a small set of older cooling IPC operations for installed-client compatibility; those are not evidence of current UI features and should not be exposed as new controls.
+The current UI uses semantic `SetCoolingProfile` for firmware-backed built-ins, and uses `SetCoolingCurve`, `SetFanPercent` and `ReturnFanToAuto` only where their provider capability allows them. `SetCustomCoolingCurve` and other older endpoints remain service-side compatibility contracts, not evidence that unsupported direct controls should appear.
 
 ## Keyboard semantics
 
@@ -96,20 +113,28 @@ Unknown hardware should remain safe by default:
 
 1. collect passive, non-sensitive identity/capability evidence;
 2. expose read-only features that have credible generic/provider support;
-3. keep risky writes unavailable;
+3. keep risky direct writes unavailable;
 4. allow an explicit sanitized compatibility report;
-5. promote write support only after reviewed evidence and an explicit provider/profile change.
+5. promote direct write support only after reviewed evidence and an explicit provider/profile change.
 
 ThinkControl should never learn a new device by experimentally writing arbitrary EC/IOCTL/BIOS values merely for diagnostics.
 
 ## Physical validation
 
-Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device evidence currently establishes one **negative** X9 fan result: the alpha.38 Lenovo Other Mode target-RPM writer does not meet the finished-product acceptance gate because a fixed target repeatedly speeds up/slows down and its nominal 100% remains below naturally hot firmware Auto. It therefore remains read-only in alpha.39.
+Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device evidence currently establishes one **negative** X9 direct-writer result: the alpha.38 Lenovo Other Mode target-RPM writer does not meet the finished-product acceptance gate because a fixed target repeatedly speeds up/slows down and its nominal 100% remains below naturally hot firmware Auto. It therefore remains read-only in alpha.39.
 
-Real-device validation is still required for:
+Alpha.39's firmware-policy profiles are a separate evidence class. Before release they should be checked on the real X9 for:
 
-- any future recovered X9 writer before `FanControl` is re-advertised; it must settle smoothly at fixed targets, operate both real fan channels and provide a useful high-cooling range comparable with naturally hot Auto;
-- repeated Auto cleanup/reassertion after stale previously owned target state;
+- Quiet producing appropriately reduced/smoother cooling versus Balanced under comparable load;
+- Balanced behaving as a stable normal Lenovo-managed profile;
+- Max cooling reaching the useful high-cooling Lenovo firmware behavior without the alpha.38 fixed-target re-kick cycle;
+- Auto restoring the latest Windows/Lenovo power-policy baseline;
+- changing the Windows performance preference while a cooling profile is active updating the restore baseline without cancelling the cooling override.
+
+Real-device validation is also still required for:
+
+- any future recovered X9 direct writer before direct percentage/custom-curve control is re-advertised;
+- repeated Auto cleanup/reassertion after stale previously owned direct target state;
 - EnergyDrv/native telemetry correlation while the writer remains read-only;
 - provider-driven fan calibration behavior on any active discrete provider and future devices;
 - Lenovo keyboard Auto/Fn+Space/readback agreement;
