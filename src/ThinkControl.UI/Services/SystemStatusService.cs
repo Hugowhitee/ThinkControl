@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using System.IO;
 using System.Management;
 using System.Text.RegularExpressions;
 using Forms = System.Windows.Forms;
