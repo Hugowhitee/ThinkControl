@@ -64,11 +64,12 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 
 ## What alpha.39 changes
 
-Alpha.39 is a focused interaction/safety follow-up to the immutable alpha.38 release. It finishes the Touchpad bottom-edge Track control and changes the X9 cooling backend after physical testing rejected the experimental fixed target-RPM writer.
+Alpha.39 is a focused interaction/safety follow-up to the immutable alpha.38 release. It finishes the Touchpad bottom-edge Track control, changes the X9 cooling backend after physical testing rejected the experimental fixed target-RPM writer, and removes slow discovery/activation dependencies from silent Windows startup.
 
 - **Track control is one continuous edge lane.** Previous, Play/Pause and Next are rendered inside the same selected edge band. The old floating Play/Pause pill and floating Previous/Next glyph placement are gone.
 - **Play/Pause is easier to hit without becoming a hidden gesture.** The center segment spans 20% of the edge lane and accepts a short, low-travel tap. Previous/Next still requires a deliberate swipe, so the recognizer/router ownership model is unchanged.
 - **The redundant Center play/pause setting is gone.** Assigning Track control now means one coherent three-part affordance: Previous | Play/Pause | Next. The old serialized flag remains readable for settings compatibility but is derived at runtime rather than exposed as a second feature toggle.
+- **Start with Windows no longer waits on the rich WMI inventory.** The synchronous `--tray` preflight uses only cheap firmware identity/power data; CPU/GPU/BIOS discovery continues on the existing background refresh path. If edge gestures are enabled, raw touchpad input is explicitly started during silent tray startup instead of waiting for a WPF window to be activated first.
 - **Fan calibration stops occupying the page after completion.** The calibration card is an attention/task surface only while calibration is required or actively running; once the provider reports a ready mapping, normal fan UI becomes primary again.
 - **Quiet, Balanced and Max cooling stay functional on the X9.** With the direct writer rejected, these built-in profiles now use the already reviewed Lenovo LITSSvc firmware thermal-policy path instead of a fixed RPM target. Quiet maps to Lenovo Quiet policy, Balanced to Lenovo Balanced policy and Max cooling to Lenovo Performance cooling policy. Lenovo firmware keeps ownership of the smooth fan loop.
 - **Windows performance mode and cooling profile remain separate product controls.** ThinkControl remembers the current Lenovo power-policy baseline while a cooling profile is active. Changing Windows performance mode updates that baseline without silently cancelling the selected cooling profile; choosing Auto clears the cooling override and restores the latest baseline.
@@ -116,7 +117,7 @@ On the current X9-15 reference path:
 - PawnIO registration/service/device readiness is distinguished instead of collapsed into one registry check;
 - sensor/provider failure is reported explicitly rather than replaced by synthetic values.
 
-Automated CI does **not** prove physical-device behavior. Alpha.39 therefore still needs real-X9 confirmation that Quiet/Balanced/Max cooling produce the expected Lenovo-managed acoustic/thermal ordering, that Max cooling is smooth rather than re-kicking, and that Auto restores the current power-policy baseline. Any future direct X9 fan writer also requires its own settling/range validation. Hosted tests can only guard the architecture, fail-closed gates, build and deterministic UI behavior.
+Automated CI does **not** prove physical-device behavior. Alpha.39 therefore still needs real-X9 confirmation that Quiet/Balanced/Max cooling produce the expected Lenovo-managed acoustic/thermal ordering, that Max cooling is smooth rather than re-kicking, that Auto restores the current power-policy baseline, and that an enabled edge gesture works after a real Windows sign-in without first opening ThinkControl. Any future direct X9 fan writer also requires its own settling/range validation. Hosted tests can only guard the architecture, fail-closed gates, build and deterministic UI behavior.
 
 See **[Device support](docs/DEVICE-SUPPORT.md)** and **[Hardware safety](docs/HARDWARE-SAFETY.md)**.
 
