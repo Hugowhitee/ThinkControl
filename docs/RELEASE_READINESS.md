@@ -17,10 +17,11 @@ Current alpha.39 candidate:
 - PR: #75;
 - version: `v0.1.0-alpha.39`;
 - base: immutable alpha.38 / `main` at `7fa4f8507d5118e94e851c02787cabf7938b8ff9`;
-- `version.json.releaseReady` remains `false` until the implementation head passes CI + Package and its WPF artifacts are manually inspected;
+- implementation head validated before freeze: `31af3cc646e04bb5c194ac3f2cbc7c8e0887532b`;
+- `version.json.releaseReady=true` after implementation CI + Package passed and the exact WPF artifact was manually inspected;
 - no new guessed EC register, RPM ceiling, IOCTL or vendor write contract is authorized by this candidate.
 
-Alpha.39 now has three evidence-backed stabilization goals after alpha.38 shipped: finish the Touchpad Track lane, replace the physically rejected X9 fixed-target fan path without disabling normal cooling profiles, and remove slow/dormant behavior from silent Windows startup so configured edge gestures do not wait for a ThinkControl window activation.
+Alpha.39 has three evidence-backed stabilization goals after alpha.38 shipped: finish the Touchpad Track lane, replace the physically rejected X9 fixed-target fan path without disabling normal cooling profiles, and remove slow/dormant behavior from silent Windows startup so configured edge gestures do not wait for a ThinkControl window activation.
 
 ## Alpha.39 product delta
 
@@ -131,6 +132,17 @@ This fixes a real architecture bug: a tray-only launch can remain completely una
 
 Do not recreate a third full installer workflow. CI and Package are the required PR gates. Superseded PR runs may cancel; immutable/tag release packaging does not.
 
+### Validated implementation evidence
+
+Exact implementation head `31af3cc646e04bb5c194ac3f2cbc7c8e0887532b` passed both required PR pipelines before release freeze:
+
+- CI run `34044922761` / #1662: Release build succeeded with 0 warnings and 0 errors; all **152/152** Core/source tests passed; Compact/Advanced ShellSmoke passed; **85** WPF snapshots rendered successfully.
+- WPF artifact `9992815021` (`ThinkControl-Visual-QA`), SHA-256 `7932b4adad64b3d375bc0ca94ac147e2df9d9254a1ebc322cc0b631a9209eb21`, was downloaded and manually inspected.
+- Touchpad inspection covered normal/minimum/wide/light plus top-left/top-right selected/live fixtures. The wide Bottom Track fixture shows Previous, Play/Pause and Next inside one continuous edge lane, with the center segment integrated into the band and no separate floating pill or duplicate skip glyph system. Selected/live corner fixtures remain visually mirrored with matching geometry/state grammar.
+- Fans inspection covered calibration-required, ready/active-curve, unavailable and temporary-manual-test states. Required calibration remains an attention card, the ready state no longer carries a stale completed-calibration card, unavailable state stays read-only, and the temporary direct-output test is explicitly bounded/restore-oriented rather than presented as ordinary persistent control.
+- Package run `34044922757` / #1379 passed UI/service publish, payload budgets, bootstrap build, installer/service/IPC lifecycle, custom-location persistence, uninstall cleanup and real alpha.14.1 → alpha.39 updater compatibility. The development package artifact is `9992815901`, SHA-256 `c300522fe60fb223ea1c26b8a303de2b57afacb3a7c4a00dd10e22f77b0b0485`.
+- PR #75 changed-file review found one startup owner, one Touchpad recognizer/visual owner, the rejected Other Mode direct writer still physically gated read-only, and no speculative replacement EC/IOCTL/RPM ceiling. PR review/comment threads were empty at freeze time.
+
 ## Alpha.39 release gate
 
 - [x] Started from immutable alpha.38 / current `main` at `7fa4f8507d5118e94e851c02787cabf7938b8ff9`.
@@ -149,16 +161,15 @@ Do not recreate a third full installer workflow. CI and Package are the required
 - [x] Made enabled edge gestures explicitly start during `--tray` startup instead of depending on WPF `Activated`.
 - [x] Added source guards for startup critical-path and silent tray gesture startup ownership.
 - [x] Updated README/Product/Architecture/Device Support/Hardware Safety/Cooling Design/Alpha Testing contracts for the alpha.39 architecture; release-readiness remains the mutable handoff.
-- [x] `version.json` identifies `0.1.0-alpha.39` with `releaseReady=false` during implementation/QA.
-- [ ] Exact implementation head passes CI: repository hygiene, Release build, all Core/source tests, ShellSmoke and WPF snapshot rendering.
-- [ ] Manually inspect at least `advanced-touchpad.png`, `advanced-touchpad-wide.png`, `advanced-touchpad-light.png`, corner selected/live fixtures, `advanced-fans*.png` and `advanced-fans-manual-test.png` from that exact CI artifact.
-- [ ] Confirm the wide Touchpad fixture shows Previous/Play-Pause/Next inside one continuous lane with no floating pill/icons, and that the center segment remains legible in light/dark themes.
-- [ ] Confirm Fans calibration-required fixture is still truthful while ready/unavailable/manual-test states do not leave a stale completed-calibration card at the top; verify the firmware-policy presentation does not imply direct percentage/RPM ownership.
-- [ ] Exact implementation head passes Package ThinkControl including UI/service publish, installer/service/IPC/update/uninstall smoke, existing Start-with-Windows Run-entry contract and immutable alpha.14.1 → alpha.39 updater regression.
-- [ ] Review PR changed files/comments and confirm no speculative low-level fan writer, accidental second Touchpad owner or duplicate startup mechanism entered the diff.
-- [ ] Freeze implementation. Set `version.json.releaseReady=true` and update this checklist with exact CI/Package run IDs + visual artifact evidence in a docs/version-only final commit.
-- [ ] Require CI + Package to pass again on that exact frozen head.
-- [ ] Mark PR #75 ready, review checks/comments and merge with the exact expected head SHA.
+- [x] Exact implementation head passed CI: repository hygiene, Release build, 152/152 Core/source tests, ShellSmoke and 85-snapshot WPF rendering.
+- [x] Manually inspected the required Touchpad/Fans screenshots from exact artifact `9992815021`.
+- [x] Confirmed the wide Touchpad fixture shows Previous/Play-Pause/Next inside one continuous lane with no floating pill/icons and the center segment remains legible in dark/light coverage.
+- [x] Confirmed Fans required/ready/unavailable/manual-test states do not leave a stale completed-calibration card and do not fake direct percentage/RPM ownership on the firmware-policy path.
+- [x] Exact implementation head passed Package ThinkControl including UI/service publish, installer/service/IPC/update/uninstall smoke, Start-with-Windows Run-entry contract and immutable alpha.14.1 → alpha.39 updater regression.
+- [x] Reviewed PR changed files/comments and confirmed no speculative low-level fan writer, accidental second Touchpad owner or duplicate startup mechanism entered the diff.
+- [x] Froze implementation and set `version.json.releaseReady=true`; this document records the pre-freeze evidence.
+- [ ] Require CI + Package to pass again on the exact frozen docs/version head.
+- [ ] Mark PR #75 ready, review final checks/comments and merge with the exact expected head SHA.
 - [ ] Verify post-merge `main` equals the merged alpha.39 commit and immutable alpha.38 remains unchanged.
 - [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.39` at the merged commit.
 - [ ] Verify alpha.39 is immutable with exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid published checksums.
