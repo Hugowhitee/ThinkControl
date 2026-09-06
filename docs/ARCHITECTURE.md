@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.40**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
+This document describes the current architecture at **v0.1.0-alpha.41**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
 
 ## Process boundary
 
@@ -10,48 +10,55 @@ ThinkControl is split into a normal-user WPF application and a privileged Window
 - `ThinkControl.Service` owns privileged hardware access and exposes a narrow named-pipe IPC contract.
 - `ThinkControl.Core` contains shared models, policies and protocol types that do not depend on WPF or hardware implementations.
 - `ThinkControl.Hardware` contains provider implementations and verified low-level device behavior.
-- `ThinkControl.DeviceProfiles` is the architectural boundary for device/profile data. It intentionally remains small while capability logic is moved out of UI assumptions.
+- `ThinkControl.DeviceProfiles` is the architectural boundary for device/profile data.
 
-The UI must remain `asInvoker`. Hardware operations that need elevated/device access belong in the service rather than causing repeated UAC prompts from the desktop process.
+The UI remains `asInvoker`. Hardware operations that need elevated/device access belong in the service rather than causing repeated UAC prompts from the desktop process.
 
 ## Startup model
 
-Startup has a strict critical-path boundary: create the shell/tray and make configured background input usable before rich hardware discovery completes.
+Startup has a strict critical-path boundary: establish cheap identity and configured user-session input before rich WPF/hardware discovery. Alpha.41 tightens this after comparing the runtime shape with lightweight helper apps such as G-Helper. The useful principle is **input/tray first, discovery later**; ThinkControl does not copy G-Helper's single-process privilege model.
 
-`Start with Windows` remains a single per-user HKCU Run entry that launches `ThinkControl.UI.exe --tray`. Alpha.39 established this path and alpha.40 preserves it unchanged. During `Application.Startup`, `App.ShellIcons` marks exactly one `SystemStatusService.Read()` as a fast preflight. That preflight reads firmware identity from `HKLM\HARDWARE\DESCRIPTION\System\BIOS` plus cheap Windows power state and returns placeholders for CPU/GPU/RAM/BIOS. The existing initial `RefreshStatusAsync` performs the full cached WMI inventory on a worker through `Task.Run`, so rich identity cannot block tray creation or raw-input readiness.
+`Start with Windows` remains one per-user HKCU Run entry launching `ThinkControl.UI.exe --tray`. During the earliest `Application.Startup` hook, `SystemStatusService.ReadStartupIdentity()` reads only firmware identity from `HKLM\HARDWARE\DESCRIPTION\System\BIOS`. If configured Touchpad gestures are enabled, `StartConfiguredTouchpadInputForStartup()` creates the existing gesture host and starts Raw Input immediately from that Startup hook instead of queueing registration behind normal WPF dispatcher shell work.
 
-Enabled Touchpad gestures are application-level behavior, not page-level behavior. After startup yields, `StartConfiguredTouchpadInputForStartup` explicitly starts the gesture host. A silent `--tray` launch uses `DispatcherPriority.Background` because no visible WPF destination needs first-paint protection; ordinary page/shell starts retain `ContextIdle`. `Application.Activated` remains a recovery path for session/device transitions, but it is not the first-start owner because a tray-only process can remain unactivated indefinitely.
+Normal visible launches retain first-paint protection: touch input registration may still use the existing deferred path where appropriate, and the painted bootstrap surface remains responsible for avoiding black/unpainted frames. Rich CPU/GPU/RAM/BIOS inventory continues on the background refresh path through `Task.Run`/cached WMI. `Application.Activated` remains a recovery path after device/session transitions, not the first-start owner.
 
-The Windows Run mechanism may have its own OS scheduling latency at sign-in. ThinkControl does not alter machine-wide Explorer startup-delay policy. If real-session evidence shows the process itself is launched late after the application-side critical path is fixed, changing the startup mechanism is a separate installer/update/uninstall contract change.
+Windows itself may schedule HKCU Run programs later than another helper. ThinkControl does not modify machine-wide Explorer startup-delay policy. If real-session evidence shows process creation itself is late, a different startup mechanism is a separate installer/update/uninstall contract decision.
 
 ## Hardware safety model
 
 Hardware support is capability-driven. Unknown hardware remains read-only/safe until an operation has a reviewed provider and validation gate. Generic UI consumes semantic capability state; it must not infer write support, calibration requirements or effect support by parsing model names or diagnostic provider strings.
 
-The ThinkPad X9 path separates **firmware policy** from **direct fan output**. `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry, but its experimental target-RPM writer remains read-only because physical alpha.38 testing failed the writer's own acceptance gate: a fixed target produced repeated speed cycling/re-kick and nominal 100% remained below naturally hot firmware Auto. VALID+GET+SET metadata, sane Fan Test ranges and live channels remain useful read evidence but are not sufficient write authorization after that physical rejection. Lenovo `EnergyDrv` is likewise read-only until a matching X9 write contract is proven.
+The ThinkPad X9 path separates four concepts:
 
-Built-in X9 cooling does **not** disappear with that rejection. `LenovoCoolingPolicyCoordinator` uses the already reviewed exact-X9 `LenovoThermalPolicyService` / LITSSvc semantic path for Quiet, Balanced and Max cooling. This keeps Lenovo firmware in the closed-loop fan controller rather than approximating its behavior with a fixed RPM target. The coordinator remembers the current power-mode policy as a restore baseline, lets a cooling profile temporarily take precedence, and restores the newest baseline when Auto is selected.
+1. native fan telemetry;
+2. Lenovo firmware thermal policy;
+3. Lenovo's known global full-speed boolean semantic;
+4. direct per-fan output writers.
 
-Fan ownership remains explicit. `FanSupervisor` owns direct-output providers only; the firmware-policy coordinator owns only the semantic Lenovo policy override. ThinkControl records direct provider/channels it actually takes over, returns those owned channels to Lenovo/OEM Auto on handoff/failure/disposal where supported, and does not infer ownership merely from reading an external manual-looking state. Target `0` on the rejected Other Mode path remains available for cleanup/reassertion of stale previously owned direct targets. Native two-fan evidence is latched for the current service lifetime so a rejected/native writer or transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer.
+`LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate: fixed targets repeatedly re-kicked/waved and nominal 100% remained physically below naturally hot Lenovo Auto. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
 
-Repeated provider discovery is avoided where possible. The service keeps provider state; the UI consumes bounded status snapshots and uses targeted refresh operations for sensors, keyboard and full provider recovery.
+Alpha.41 adds a different exact-X9 semantic: Lenovo Other Mode feature **`0x04020000`**, treated only as a boolean full-speed override. `LenovoOtherModeFullSpeedService` is restricted to verified `21Q6/21Q7`, requires a live boolean read immediately around the transition, respects an explicitly present capability row, writes only `0`/`1`, and verifies the resulting state by readback. This is not used as evidence that per-fan target RPM is safe and is not generalized into arbitrary feature-ID passthrough.
 
 ## Cooling model
 
-The service distinguishes two cooling capability families.
+The service distinguishes firmware policy, optional full-speed override, and direct-output providers.
 
 ### Firmware-policy profiles
 
-On the verified X9, the service can expose `FanControlKind = LenovoFirmwarePolicy` even though no direct target writer is authorized. The current UI then keeps these built-ins available:
+`LenovoCoolingPolicyCoordinator` owns the exact-X9 semantic profile override while Lenovo firmware remains responsible for the closed-loop fan controller.
 
-- Auto — clear the cooling override and restore the current Lenovo power-policy baseline;
-- Quiet — Lenovo Quiet thermal policy;
-- Balanced — Lenovo Balanced thermal policy;
-- Max cooling — Lenovo Performance cooling policy.
+- **Auto** — release any ThinkControl-owned full-speed override, clear the cooling override and restore the latest Lenovo power-policy baseline.
+- **Quiet** — first release any ThinkControl-owned full-speed override, then request Lenovo Quiet thermal policy.
+- **Balanced** — first release any ThinkControl-owned full-speed override, then request Lenovo Balanced thermal policy.
+- **Max cooling** — request Lenovo Performance policy, then request the exact-X9 `0x04020000 = 1` full-speed semantic when it is safely exposed and verify readback.
 
-`SetCoolingProfile` is therefore a current semantic UI operation for the firmware-policy backend. Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through the existing `SetThermalMode` semantic operation. A later Performance-page change updates that baseline while the cooling override stays active, preventing the two product surfaces from fighting over the same Lenovo policy channel.
+The coordinator tracks whether **ThinkControl itself actually changed full-speed state**. It never claims ownership merely because a read observes that Lenovo/another component already has the feature enabled. Lower profiles and Auto only perform release behavior appropriate to that ownership model; service disposal also best-effort releases ThinkControl-owned full speed before restoring firmware policy.
 
-Firmware policy intentionally does not advertise applied percentage, EC state or editable curve semantics. The Fans page hides manual percentage tests, raw EC diagnostics and curve editing on this backend. Compact/Home still expose the working built-in profiles.
+If the known full-speed feature is unavailable, non-writable, non-boolean or fails readback, the transition fails closed instead of guessing a larger RPM target, EC state or IOCTL. Quiet/Balanced remain ordinary Lenovo firmware-policy operations.
+
+Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through `SetThermalMode`. Later Performance-page changes update that baseline while a cooling override remains active. Auto restores the latest baseline, so Performance and Fans do not continuously fight over the same Lenovo policy surface.
+
+Firmware policy/full-speed profiles intentionally do not advertise applied percentage, EC state or editable curve semantics. Manual percentage tests, raw EC diagnostics and curve editing remain direct-provider features only.
 
 ### Direct-output profiles
 
@@ -61,67 +68,65 @@ The generic direct-output model remains:
 - `SetCoolingCurve` for current direct curve writes;
 - `SetFanPercent` for deliberate temporary output testing where supported;
 - `ReturnFanToAuto` for firmware/OEM ownership;
-- characterization operations only when the active direct provider advertises a calibration workflow.
+- characterization operations only when the active direct provider advertises calibration.
 
-`FanSupervisor` is the sole owner of ThinkControl direct fan writes. A physically accepted continuous target-RPM provider may receive percentages directly; a discrete provider may map the same semantic targets through a measured output-state mapping. Raw EC states/calibration remain provider-specific diagnostics rather than a generic fan-control assumption. On the X9 alpha.40 path, the rejected Other Mode writer is not re-authorized merely because its metadata says SET.
+`FanSupervisor` remains the sole owner of direct percentage/discrete fan writes. A physically accepted continuous target provider may receive percentages directly; a discrete provider may map semantic targets through measured output states. The rejected X9 `fanX_target` implementation remains blocked even though alpha.41 now has a separate full-speed boolean path.
 
-The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. `App.Cooling` converts those service capabilities plus characterization progress into the generic `FanCalibrationUiState`. Firmware-policy profiles do not need this direct-output calibration. The calibration task card is visible only while a relevant provider requires it or is actively running; a ready mapping is ordinary provider state, not a permanent top-of-page success card.
+The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. Firmware-policy/full-speed profiles do not require direct calibration. The calibration task card is visible only while a relevant direct provider requires it or is actively running.
 
-Manual direct-output UI is a bounded diagnostic surface. Percentage targets and provider-specific raw states run through the same 30-second temporary-test/automatic-restore contract. The surface is hidden on the firmware-policy backend and whenever no verified direct writer exists. Raw EC diagnostics appear only when the active provider explicitly advertises the discrete-EC semantic contract.
+## Fan ownership and telemetry
 
-The service still accepts `SetCustomCoolingCurve` and `MarkFanLevelAudible` for the supported installed-client compatibility floor. Those remain legacy server compatibility endpoints. `SetCoolingProfile` remains a current semantic operation for built-in firmware-policy profiles. Removing any endpoint requires an explicit updater/client-floor decision and compatibility-test update.
+ThinkControl records only state it actually owns. Direct provider/channels are returned to OEM Auto on handoff/failure/disposal where supported. Target `0` on the rejected per-fan Other Mode path remains only for cleanup/reassertion of stale previously owned targets.
+
+Native two-fan evidence is latched for the current service lifetime so a transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer. Fan RPM telemetry is evidence about tachometer speed, not proof that a selected policy equals Lenovo's strongest physical cooling state; alpha.40 physical feedback specifically showed that high-looking RPM telemetry can coexist with weaker airflow than naturally hot Auto.
 
 ## Keyboard model
 
 Keyboard brightness and effects deliberately have different ownership.
 
 - Off / Low / High are static hardware states when the active provider supports them.
-- Auto means a verified firmware/OEM Auto contract where one exists. ThinkControl does not emulate Auto with a High → Low → Off idle loop.
-- Breathing / Reactive / Audio are ThinkControl user-session effects and require the active provider to advertise `KeyboardEffects`.
-- A fallback provider that cannot safely accept repeated changes does not advertise effects; the current Lenovo Vantage fallback is one such implementation because repeated writes can show OEM brightness pop-ups.
+- Auto means a verified firmware/OEM Auto contract where one exists.
+- Breathing / Reactive / Audio are ThinkControl user-session effects and require `KeyboardEffects`.
+- A fallback provider that cannot safely accept repeated changes does not advertise effects.
 
-Keyboard writes are serialized by the keyboard/effect coordinator so firmware/static ownership and user-session animation do not fight each other. Saved effect state is restored only after the provider capability is known.
+Keyboard writes are serialized so firmware/static ownership and user-session animation do not fight each other. Saved effect state is restored only after provider capability is known.
 
 ## Touchpad model
 
-The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right.
+The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. `TouchpadVisualizer` owns edge/corner rendering, selection and hit-testing. The right corner is an exact horizontal mirror of the left, and enabled corners share the same visual/recognition geometry rather than behaving like overlays.
 
-`TouchpadVisualizer` owns edge/corner rendering, selection and hit-testing. Corner geometry comes from one canonical source and the right side is an exact horizontal mirror of the left. Edge visual bands are clipped around enabled corner geometry so the corners do not behave or look like a second overlay system. The legacy auxiliary overlay does not own zone selection.
+Track control is one continuous edge lane with three semantic segments: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action or second center toggle/recognizer. Legacy serialized PlayPause values sanitize into Track control.
 
-Track control is also owned entirely by the existing visualizer/recognizer/router stack. It is one continuous edge lane with three semantic segments: **Previous | Play/Pause | Next**. The center 20% of the band is the visible Play/Pause start segment; Previous/Next remains the surrounding swipe interaction. There is no standalone Play/Pause action in the current edge menu and no second center toggle, overlay or recognizer. The old enum/serialized values remain readable only for compatibility and sanitize into Track control.
+Alpha.41 changes the center interaction from a bounded-duration tap into a **button-like release candidate**. A one-finger Track contact that starts inside the center segment is reserved for Play/Pause while its radial movement stays below the deliberate Track skip threshold. There is no maximum hold-time requirement. Once movement reaches the existing **9 mm** Previous/Next threshold, Track swipe intent wins; a claimed swipe cannot later downgrade into Play/Pause on release. This removes both the short/long-press ambiguity and the former 4.5–9 mm no-op region without making track skipping less deliberate.
 
-Alpha.40 gives center taps a dedicated recognition envelope rather than lowering the normal gesture thresholds. When a one-finger Track candidate **starts inside the center segment**, `EdgeGestureRecognizer` keeps it in Candidate through up to **4.5 mm radial movement**, regardless of small off-axis finger drift. A lift within **700 ms** can then satisfy `TrackCenterGesturePolicy`. Movement beyond that envelope resumes the existing normal edge direction/claim path. The action router still requires the established **9 mm** Track swipe threshold before Previous/Next is sent. This ordering fixes the former dead zone where a normal tap could cross the ~2 mm general claim threshold and be rejected as wrong-direction before lift, without making tiny movements count as skips.
+Occupied edge assignment continues to swap action kinds rather than clearing the previous edge. Sensitivity and inversion remain properties of the physical edge.
 
-The action editor treats each non-Off action as one physical affordance. If the user selects an action already assigned to another edge, the two **action kinds swap** rather than clearing the previous edge. Sensitivity and inversion remain properties of the physical edge and therefore stay with their original edges during a swap. If the selected edge was Off, moving an occupied action naturally leaves Off behind because there is no second active action to exchange.
+Track OSD semantics remain: resulting **Playing → pause bars**, **Paused → play triangle**, and ambiguous virtual-key fallback stays `Playback toggled`.
 
-The Track popup reports resulting playback state while its glyph communicates the next familiar media action: **Playing → pause bars** and **Paused → play triangle**. If only the virtual-key fallback succeeds and post-command state is unknown, the OSD remains intentionally state-ambiguous rather than inventing a result.
+Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Rejected corner ownership remains locked until lift and optional reverse-close routes into the canonical hide-to-tray transition.
 
-Runtime corner recognition remains intentionally separate from edge recognition. Enabled corner launches use the same visible guard → diagonal lane → rounded end-cap geometry as the recognizer. A corner candidate owns the contact from the first eligible frame and rejected corner input remains locked out until lift instead of falling through into a neighboring edge gesture. Optional reverse-close starts from the rounded inner cap and uses the same ownership/intent rules rather than a second gesture worker.
-
-Reverse-close routes into the canonical application hide-to-tray transition. Compact uses the transition-owned synchronous hide before final shell-state verification; normal user-triggered tray toggling keeps its separate animation path. Visual-QA reverse fixtures are built from a clean non-live corner baseline so an outward trail cannot inherit an earlier inward contact segment.
-
-Raw HID input stays available to recognition at full rate. WPF visualization is coalesced and page listeners only remain attached while the Touchpad page is visible, preventing rendering work from becoming an application-wide input tax. Gesture recognition itself remains active in the background when configured and is started explicitly at silent tray startup as described above.
+Raw HID recognition receives every frame while WPF visualization is coalesced. UI-only listeners remain attached only while the Touchpad page is visible; configured gesture recognition is application-level and now starts earlier during silent Windows startup.
 
 ## Audio lifecycle
 
-Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state, not durable application state; they are cleared when the Audio page becomes hidden so navigation during a drag cannot suppress later refreshes or apply a stale microphone write off-page.
+Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state and are cleared when the Audio page becomes hidden so stale off-page writes cannot fire later.
 
 ## Status, diagnostics and discovery
 
-`HardwareServiceClient` caches a short last-known-good status snapshot and backs off after a confirmed offline service state. It publishes bounded status/operation events to the application instead of letting individual pages create competing service polling loops.
+`HardwareServiceClient` caches a short last-known-good status snapshot and backs off after a confirmed offline service state. It publishes bounded status/operation events instead of letting pages create competing polling loops.
 
-Diagnostics are local-first. Compatibility sharing remains explicit, sanitized and separate from hardware control. Raw touch coordinates, personal file content, usernames, serial numbers and arbitrary memory/log dumps are outside the intended upload schema.
+Diagnostics are local-first and sanitized. Raw touch coordinates, personal file content, usernames, serial numbers and arbitrary memory/log dumps are outside the intended upload schema.
 
-Direct fan-percent and fan-curve writes are classified as fan-control diagnostic operations rather than falling through to generic hardware events. Bounded X9 fan samples reuse already-observed service status and preserve provider/source distinctions without starting a second hardware polling loop. Firmware-profile changes remain semantic policy operations and do not claim direct RPM ownership.
+Repeated provider discovery is avoided where possible. The service keeps provider state; the UI consumes bounded status snapshots and uses targeted refresh operations for sensors, keyboard and full provider recovery.
 
 ## Update state
 
-Home and Updates share one application update result. Completed manual checks also share one Last-checked timestamp owner: the in-memory value is refreshed immediately and persisted for the next session. Page reconstruction reads that owner rather than maintaining a second timestamp path.
+Home and Updates share one application update result and one Last-checked timestamp owner. Completed manual checks refresh that in-memory value immediately and persist it for the next session.
 
 ## Release and compatibility boundaries
 
-The installer is a small bootstrapper plus a separately versioned payload. CI exercises build/tests, real WPF shell smoke, visual snapshots, package size, installer/service lifecycle and the legacy updater fixture.
+The installer is a small bootstrapper plus a separately versioned payload. CI exercises build/tests, real WPF shell smoke and visual snapshots. Package ThinkControl owns publish/payload/bootstrap plus installer/service/IPC/update/uninstall compatibility.
 
-PR CI and package workflows cancel superseded runs for the same PR/ref so stale branch commits do not waste Windows runners. Immutable/tag release packaging remains outside that cancellation behavior.
+PR CI and Package runs may cancel superseded heads; immutable/tag release packaging remains outside that cancellation behavior.
 
-A cleanup is not permission to remove compatibility code blindly. Current-client dead code should be deleted; server-side legacy protocol handlers and serialized enum values stay where required until the minimum supported installed client/settings floor no longer needs them and that compatibility decision is intentionally advanced.
+A cleanup is not permission to remove compatibility code blindly. Server-side legacy protocol handlers and serialized enum values remain where required until the supported installed-client/settings floor is deliberately advanced.
