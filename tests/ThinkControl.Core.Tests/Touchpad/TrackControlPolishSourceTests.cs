@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Touchpad;
 public sealed class TrackControlPolishSourceTests
 {
     [Fact]
-    public void TrackCenterTap_HasDedicatedDriftReservationWithoutLoweringSkipThreshold()
+    public void TrackCenterBehavesLikeAButtonWithoutLoweringSkipThreshold()
     {
         string recognizer = ReadSource("src", "ThinkControl.Core", "Touchpad", "EdgeGestureRecognizer.cs");
         string router = ReadSource("src", "ThinkControl.UI", "Services", "Touchpad", "GestureActionRouter.cs");
@@ -13,10 +13,13 @@ public sealed class TrackControlPolishSourceTests
 
         Assert.Contains("IsTrackCenterTapCandidate()", recognizer, StringComparison.Ordinal);
         Assert.Contains("radialTravel <= TrackCenterGesturePolicy.MovementToleranceMm", recognizer, StringComparison.Ordinal);
-        Assert.Contains("TrackSwipeThresholdMm = 9.0", router, StringComparison.Ordinal);
+        Assert.Contains("TrackCenterGesturePolicy.SwipeThresholdMm", router, StringComparison.Ordinal);
         Assert.Contains("if (!_trackSwipeFired && _trackStayedCandidate)", router, StringComparison.Ordinal);
-        Assert.Contains("MovementToleranceMm = 4.5", policy, StringComparison.Ordinal);
-        Assert.Contains("MaximumTapMs = 700", policy, StringComparison.Ordinal);
+        Assert.Contains("ButtonTravelToleranceMm = 8.75", policy, StringComparison.Ordinal);
+        Assert.Contains("SwipeThresholdMm = 9.0", policy, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaximumTapMs", policy, StringComparison.Ordinal);
+        Assert.DoesNotContain("Stopwatch.GetTimestamp() - _trackGestureStarted", router, StringComparison.Ordinal);
+        Assert.Contains("ShouldCommit(_trackMaxTravelMm, _trackStartPosition01)", router, StringComparison.Ordinal);
     }
 
     [Fact]
