@@ -9,18 +9,39 @@ public partial class App
     private void OnShellIconStartup(object? sender, StartupEventArgs e)
     {
         // Application.Startup is raised from base.OnStartup before App.OnStartup
-        // continues. Mark that one synchronous preflight as registry-only so shell,
-        // tray and gesture startup never wait for the richer WMI inventory. The first
-        // normal RefreshStatusAsync call immediately performs the full read on a worker.
+        // continues. Keep this hook intentionally tiny and registry-only: shell,
+        // tray and gesture readiness must not wait for the richer WMI inventory.
         SystemStatusService.UseFastStartupReadOnce();
         ShowStartupBootstrapEarly();
 
-        // The tray icon and Compact runtime are created later in App.OnStartup. Queue
-        // both cosmetic icon replacement and configured touchpad input after that
-        // handler yields. A silent --tray launch does not need a WPF activation event
-        // before edge gestures become usable.
+        // Gesture input is user-session infrastructure, closer to a hotkey service
+        // than to a settings page. Prime the cheap machine identity now so an X9 gets
+        // the correct physical fallback geometry, then start configured Raw Input at
+        // the earliest startup hook. On --tray launches EnsureInputStarted performs
+        // the registration immediately; visible launches still defer the HID probe to
+        // ContextIdle so first paint wins.
+        try
+        {
+            StartupSystemIdentity identity = SystemStatusService.ReadStartupIdentity();
+            if (!string.IsNullOrWhiteSpace(identity.DeviceName))
+                State.DeviceName = identity.DeviceName;
+            if (!string.IsNullOrWhiteSpace(identity.MachineType))
+                State.MachineType = identity.MachineType;
+            if (!string.IsNullOrWhiteSpace(identity.Manufacturer))
+                _manufacturer = identity.Manufacturer;
+            StartConfiguredTouchpadInputForStartup();
+        }
+        catch
+        {
+            // Gesture startup has its own activation recovery path. A malformed or
+            // unavailable firmware identity must never prevent ThinkControl itself
+            // from reaching the tray/UI.
+        }
+
+        // Cosmetic shell work stays deferred. The important difference is that edge
+        // gestures no longer sit behind Compact-window construction, diagnostics or
+        // service/hardware discovery during a silent Windows login.
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, new Action(ApplyCanonicalTrayIcon));
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(StartConfiguredTouchpadInputForStartup));
     }
 
     private void ApplyCanonicalTrayIcon()
