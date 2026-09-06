@@ -31,4 +31,20 @@ public sealed class TrackControlConfigurationTests
 
         Assert.False(configuration.Sanitize().TrackCenterPlayPauseEnabled);
     }
+
+    [Fact]
+    public void LegacyStandalonePlayPauseMigratesIntoTrackControl()
+    {
+        var configuration = new TouchpadGestureConfiguration(
+            Bindings: new TouchpadGestureBindings(
+                Left: new TouchpadEdgeBinding(GestureActionKind.Volume),
+                Right: new TouchpadEdgeBinding(GestureActionKind.Brightness),
+                Top: new TouchpadEdgeBinding(GestureActionKind.PlayPause),
+                Bottom: new TouchpadEdgeBinding(GestureActionKind.Disabled)));
+
+        TouchpadGestureConfiguration sanitized = configuration.Sanitize();
+
+        Assert.Equal(GestureActionKind.PreviousNextTrack, sanitized.BindingFor(TouchpadEdge.Top).Action);
+        Assert.True(sanitized.TrackCenterPlayPauseEnabled);
+    }
 }

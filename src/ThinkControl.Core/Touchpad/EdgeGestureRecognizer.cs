@@ -83,9 +83,9 @@ public sealed class EdgeGestureRecognizer
                 return released;
             }
 
-            // Track control optionally owns a deliberate center hold-and-release.
-            // Emit a release for an unambiguous edge candidate; launch corners never
-            // commit on lift alone and therefore cannot become glorified corner taps.
+            // Track control owns an integrated center tap. Emit a release for an
+            // unambiguous edge candidate; launch corners never commit on lift alone
+            // and therefore cannot become glorified corner taps.
             if (_phase == GesturePhase.Candidate && _candidateCorner is null && _candidateEdges.Length == 1)
             {
                 TouchpadEdge edge = _candidateEdges[0];
@@ -226,14 +226,25 @@ public sealed class EdgeGestureRecognizer
         double dy = geometry.DeltaYToMm(contact.Y - _startY);
         double absX = Math.Abs(dx);
         double absY = Math.Abs(dy);
+        double radialTravel = Math.Sqrt(dx * dx + dy * dy);
+        _lastTotalTravelMm = radialTravel;
+
+        // A real finger rarely lifts with <2 mm of perfectly axis-aligned movement.
+        // If Track started inside its visible center segment, keep that contact as a
+        // tap candidate through the dedicated tap-slop envelope regardless of drift
+        // direction. Once it exceeds that envelope, ordinary edge direction/claim
+        // rules resume and the 9 mm action-router threshold still decides skips.
+        if (IsTrackCenterTapCandidate() &&
+            radialTravel <= TrackCenterGesturePolicy.MovementToleranceMm)
+        {
+            return null;
+        }
+
         double activation = _configuration.ActivationDistanceMm;
         double dominance = _configuration.DirectionDominance;
 
         if (Math.Max(absX, absY) < activation)
-        {
-            _lastTotalTravelMm = Math.Sqrt(dx * dx + dy * dy);
             return null;
-        }
 
         TouchpadEdge? chosen = null;
         bool horizontalIntent = absX >= activation && absX >= absY * dominance;
@@ -424,6 +435,19 @@ public sealed class EdgeGestureRecognizer
             delta,
             ContactId: contact.ContactId,
             EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
+    }
+
+    private bool IsTrackCenterTapCandidate()
+    {
+        if (!_configuration.TrackCenterPlayPauseEnabled || _candidateEdges.Length != 1)
+            return false;
+
+        TouchpadEdge edge = _candidateEdges[0];
+        if (_configuration.BindingFor(edge).Action != GestureActionKind.PreviousNextTrack)
+            return false;
+
+        return TrackCenterGesturePolicy.IsInsideCenterZone(
+            AlongEdgePosition01(edge, _startX, _startY));
     }
 
     private CornerCandidate? DetectConfiguredCorner(TouchContact contact)

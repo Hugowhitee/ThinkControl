@@ -46,7 +46,7 @@ public partial class TouchpadPanel
         if (tracks)
         {
             ActionHelpText.Text =
-                "Use the left and right lane segments for Previous / Next. Tap the wider center segment for Play / Pause; all three actions share one continuous edge lane.";
+                "Use the left and right lane segments for Previous / Next. Tap the center segment for Play / Pause; small finger drift is tolerated so a normal quick tap does not fall into a dead zone.";
         }
 
         // Edge/corner rendering plus the integrated Track center segment share the

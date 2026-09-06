@@ -53,7 +53,6 @@ public partial class TouchpadPanel : UserControl
             new ActionOption(GestureActionKind.Brightness, "Brightness", "Slide continuously to change Windows display brightness.", ResolveIcon(SemanticIconKeys.Brightness)),
             new ActionOption(GestureActionKind.MediaSeek, "Media scrub", "Scrub through the active media session. Slow movement is precise; faster movement seeks farther.", ResolveIcon(SemanticIconKeys.MediaScrub)),
             new ActionOption(GestureActionKind.PreviousNextTrack, "Track control", "Swipe one way for previous and the other for next. Tap the visible center segment for Play / Pause; all three actions share the same lane.", ResolveIcon(SemanticIconKeys.Next)),
-            new ActionOption(GestureActionKind.PlayPause, "Play / pause", "Toggle the active media session once when the edge gesture is claimed.", ResolveIcon(SemanticIconKeys.PlayPause)),
             new ActionOption(GestureActionKind.OpenThinkControl, "Open Compact", "Swipe inward from this edge to open ThinkControl Compact.", ResolveIcon(SemanticIconKeys.CompactView))
         };
 
@@ -247,11 +246,58 @@ public partial class TouchpadPanel : UserControl
 
     private void ActionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncing || _selectedZone.Edge is null || ActionCombo.SelectedItem is not ActionOption option)
+        if (_syncing || _host is null || _selectedZone.Edge is null ||
+            ActionCombo.SelectedItem is not ActionOption option)
+        {
             return;
+        }
+
         ActionHelpText.Text = option.Description;
-        TouchpadEdgeBinding current = _configuration.BindingFor(SelectedEdge);
-        SetSelectedBinding(current with { Action = option.Action });
+        TouchpadEdge selectedEdge = SelectedEdge;
+        TouchpadEdgeBinding selectedBinding = _configuration.BindingFor(selectedEdge);
+        if (selectedBinding.Action == option.Action)
+            return;
+
+        TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
+        TouchpadEdge? occupiedEdge = null;
+        TouchpadEdgeBinding? occupiedBinding = null;
+
+        if (option.Action != GestureActionKind.Disabled)
+        {
+            foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
+            {
+                if (edge == selectedEdge)
+                    continue;
+                TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
+                if (existing.Action != option.Action)
+                    continue;
+                occupiedEdge = edge;
+                occupiedBinding = existing;
+                break;
+            }
+        }
+
+        if (occupiedEdge is TouchpadEdge previous && occupiedBinding is not null)
+        {
+            // Sensitivity/inversion belong to each physical edge. Swap only action
+            // kinds so an occupied choice never leaves the previous edge empty.
+            bindings = WithBinding(
+                bindings,
+                previous,
+                occupiedBinding with { Action = selectedBinding.Action });
+            bindings = WithBinding(
+                bindings,
+                selectedEdge,
+                selectedBinding with { Action = option.Action });
+            ApplyBindings(bindings, selectedBinding.Sensitivity);
+
+            GestureStatusText.Text = selectedBinding.Action == GestureActionKind.Disabled
+                ? $"{ActionLabel(option.Action)} moved from {EdgeLabel(previous)} to {EdgeLabel(selectedEdge)}."
+                : $"Swapped {ActionLabel(option.Action)} and {ActionLabel(selectedBinding.Action)} between {EdgeLabel(previous)} and {EdgeLabel(selectedEdge)}.";
+            return;
+        }
+
+        SetSelectedBinding(selectedBinding with { Action = option.Action });
     }
 
     private void InvertCheck_Click(object sender, RoutedEventArgs e)
@@ -300,32 +346,23 @@ public partial class TouchpadPanel : UserControl
         if (_host is null || _selectedZone.Edge is null)
             return;
 
-        TouchpadEdge selectedEdge = SelectedEdge;
-        TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
-        TouchpadEdge? movedFrom = null;
-        if (binding.Action != GestureActionKind.Disabled)
-        {
-            foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
-            {
-                if (edge == selectedEdge)
-                    continue;
-                TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
-                if (existing.Action != binding.Action)
-                    continue;
-                movedFrom = edge;
-                bindings = WithBinding(bindings, edge, existing with { Action = GestureActionKind.Disabled });
-            }
-        }
+        TouchpadGestureBindings bindings = WithBinding(
+            _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle,
+            SelectedEdge,
+            binding);
+        ApplyBindings(bindings, binding.Sensitivity);
+    }
 
-        bindings = WithBinding(bindings, selectedEdge, binding);
+    private void ApplyBindings(TouchpadGestureBindings bindings, double selectedSensitivity)
+    {
+        if (_host is null)
+            return;
+
         _configuration = (_configuration with { Bindings = bindings }).Sanitize();
         _host.UpdateConfiguration(_configuration);
         Visualizer.Configuration = _configuration;
         SyncGestureZoneOverlay();
-        SensitivityValue.Text = FormatSensitivity(binding.Sensitivity);
-
-        if (movedFrom is TouchpadEdge previous)
-            GestureStatusText.Text = $"{ActionLabel(binding.Action)} moved from {EdgeLabel(previous)} to {EdgeLabel(selectedEdge)}.";
+        SensitivityValue.Text = FormatSensitivity(selectedSensitivity);
     }
 
     private void HapticSwitch_Click(object sender, RoutedEventArgs e)

@@ -63,6 +63,10 @@ public sealed record TouchpadEdgeBinding(
     private static GestureActionKind SanitizeAction(GestureActionKind action) => action switch
     {
         GestureActionKind.Mute => GestureActionKind.Volume,
+        // Play/Pause is no longer a separate edge affordance. Preserve old numeric
+        // settings by migrating it into the integrated Previous | Play/Pause | Next
+        // Track control rather than showing an action the editor can no longer choose.
+        GestureActionKind.PlayPause => GestureActionKind.PreviousNextTrack,
         GestureActionKind.TaskView or
         GestureActionKind.ShowDesktop or
         GestureActionKind.KeyboardBacklight or
@@ -106,7 +110,7 @@ public sealed record TouchpadGestureBindings(
         // A gesture action represents one physical affordance. Keeping the same
         // non-Off action on multiple edges makes the visualizer ambiguous and is
         // almost always accidental. Preserve the first occurrence when loading old
-        // settings; the UI actively moves an action when the user reassigns it.
+        // settings; the UI actively swaps occupied actions when the user reassigns one.
         var used = new HashSet<GestureActionKind>();
         left = KeepUnique(left, used);
         right = KeepUnique(right, used);

@@ -22,9 +22,9 @@ internal sealed class GestureOsdService : IDisposable
     private const double RestingOffset = 0;
     private const double HiddenOffset = 76;
 
-    // Deliberately simple state glyphs. The old combined Material play/pause path
-    // read as another skip icon at OSD size and could not tell the user what the
-    // successful command actually did.
+    // Deliberately simple media-action glyphs. The label reports the resulting state,
+    // while the glyph follows familiar players such as Spotify and shows the action
+    // available next: Pause while playing, Play while paused.
     private static readonly Geometry PlayStateGeometry = Geometry.Parse("M260,190 L730,480 L260,770 Z");
     private static readonly Geometry PauseStateGeometry = Geometry.Parse("M260,190 H400 V770 H260 Z M560,190 H700 V770 H560 Z");
 
@@ -111,10 +111,10 @@ internal sealed class GestureOsdService : IDisposable
         switch (result)
         {
             case MediaToggleResult.Playing:
-                ShowMediaCommand("Playing", PlayStateGeometry);
+                ShowMediaCommand("Playing", PauseStateGeometry);
                 break;
             case MediaToggleResult.Paused:
-                ShowMediaCommand("Paused", PauseStateGeometry);
+                ShowMediaCommand("Paused", PlayStateGeometry);
                 break;
             case MediaToggleResult.Toggled:
                 // The virtual-key fallback has no reliable post-command playback

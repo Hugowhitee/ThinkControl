@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.39**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
+This document describes the support model at **v0.1.0-alpha.40**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
 
 ## Support levels
 
@@ -39,14 +39,14 @@ Current X9-oriented areas include:
 - independent Fan 1 / Fan 2 telemetry where Lenovo-native or reviewed EC providers expose it;
 - Lenovo `LENOVO_OTHER_METHOD` native dual-fan telemetry where real `fanX_input` channels pass the live-read gate;
 - **working built-in Auto / Quiet / Balanced / Max cooling through the reviewed Lenovo LITSSvc firmware thermal-policy backend**;
-- the experimental Lenovo Other Mode `fanX_target` writer held **read-only in alpha.39** after real alpha.38 testing reproduced repeated speed cycling/re-kick and a nominal 100% target below naturally hot firmware Auto;
+- the experimental Lenovo Other Mode `fanX_target` writer held **read-only** after real alpha.38 testing reproduced repeated speed cycling/re-kick and a nominal 100% target below naturally hot firmware Auto;
 - read-only Lenovo `EnergyDrv` `QueryFanSpeed` telemetry where the matching write contract is not verified;
 - the seven-step ThinkPad EC implementation retained as explicitly gated provider-specific investigation/diagnostic code, but not silently re-authorized once native OEM fan telemetry has been confirmed;
 - Lenovo keyboard backlight provider/readback;
 - Lenovo/OEM keyboard Auto where verified;
 - haptic/raw-touchpad discovery and the shared Touchpad gesture editor.
 
-If two native Lenovo fan channels have been proven during a hardware-service lifetime, a transient native read failure—or a native writer that remains physically rejected—does not silently re-authorize the EC writer. If PawnIO is missing, stale or inaccessible, ThinkControl presents the existing repair path rather than treating provider failure as permission to guess another low-level backend.
+Alpha.40 does not change these low-level X9 support gates. If two native Lenovo fan channels have been proven during a hardware-service lifetime, a transient native read failure—or a native writer that remains physically rejected—does not silently re-authorize the EC writer. If PawnIO is missing, stale or inaccessible, ThinkControl presents the existing repair path rather than treating provider failure as permission to guess another low-level backend.
 
 ## Fan semantics
 
@@ -73,7 +73,7 @@ The UI seeds the service with the current Windows performance preference before 
 
 The generic service/UI contract carries `FanControlKind`, `FanCalibrationSupported` and `FanCalibrationRequired`. Firmware-policy capability and direct-output capability are distinguishable; the Fans page must not infer direct-write support from `21Q6`, `21Q7`, X9, Lenovo or provider-detail strings. A future fan provider can advertise firmware policy, direct output with no calibration, or a calibrated discrete mapping without adding a model-specific page copy.
 
-On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. Alpha.39 can still use independently live channels as native telemetry evidence, but VALID+GET+SET metadata plus sane Fan Test ranges no longer authorizes the X9 target writer after its physical rejection. The direct write gate remains false until a future implementation again proves stable fixed-target behavior and a useful high-cooling range against naturally hot firmware Auto. ThinkControl still records previously owned channels and keeps target `0` available for cleanup/reassertion of Auto.
+On Lenovo Other Mode, the known fan attributes are `0x04030001` onward. Independently live channels can remain native telemetry evidence, but VALID+GET+SET metadata plus sane Fan Test ranges no longer authorizes the X9 target writer after its physical rejection. The direct write gate remains false until a future implementation again proves stable fixed-target behavior and a useful high-cooling range against naturally hot firmware Auto. ThinkControl still records previously owned channels and keeps target `0` available for cleanup/reassertion of Auto.
 
 `EnergyDrv` `QueryFanSpeed 0x83102570` is currently read-only evidence. The separate `ChangeFanSpeed 0x8310257C` writer remains blocked until its exact X9 command encoding and rollback semantics are recovered; maintenance/high-speed IOCTL families are not substituted for smooth percentage control.
 
@@ -103,7 +103,11 @@ Per corner, **Reverse swipe closes ThinkControl** can be enabled independently. 
 
 The reverse-close action reuses the canonical application hide-to-tray transition. Compact completes the transition-owned synchronous hide before shell-state verification; this does not change the separate animated tray-toggle path. The mirrored reverse visual fixture is built from a clean non-live corner baseline so its trail contains only the outward gesture being validated.
 
-Track control is one continuous visible edge lane: **Previous | Play/Pause | Next**. The center Play/Pause segment occupies 20% of the selected lane and accepts only a short low-travel tap; Previous/Next remain deliberate surrounding swipes. Assigning Track control automatically owns all three segments—there is no separate Center play/pause menu option, floating pill, second overlay/recognizer or hidden hold gesture.
+Track control is one continuous visible edge lane: **Previous | Play/Pause | Next**. The center Play/Pause start segment occupies 20% of the selected lane. In alpha.40, a contact beginning in that center segment gets a dedicated bounded tap reservation: up to **4.5 mm radial finger drift** can remain a tap candidate for up to **700 ms**, including small movement perpendicular to the lane. Exceeding that tap envelope returns the contact to the ordinary direction/claim logic. Previous/Next still requires the established **9 mm** deliberate swipe threshold, so increased tap reliability does not lower skip intent.
+
+Standalone **Play / pause** is no longer offered as a separate edge action. Legacy numeric/serialized PlayPause bindings sanitize into Track control so existing settings remain readable. The editor also swaps occupied edge actions: if an action already lives on another edge, the selected edge's previous action moves back to that edge instead of being lost. Sensitivity and inversion remain with their physical edges.
+
+The Track OSD follows common media-player affordance semantics: the text reports the resulting state while the glyph shows the action available next—**Playing with pause bars**, **Paused with a play triangle**. An ambiguous virtual-key fallback remains labelled `Playback toggled` rather than inventing playback state.
 
 Visualized live input is coalesced for WPF, while recognition still receives the full raw frame stream.
 
@@ -121,9 +125,9 @@ ThinkControl should never learn a new device by experimentally writing arbitrary
 
 ## Physical validation
 
-Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device evidence currently establishes one **negative** X9 direct-writer result: the alpha.38 Lenovo Other Mode target-RPM writer does not meet the finished-product acceptance gate because a fixed target repeatedly speeds up/slows down and its nominal 100% remains below naturally hot firmware Auto. It therefore remains read-only in alpha.39.
+Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response. Real-device evidence currently establishes one **negative** X9 direct-writer result: the alpha.38 Lenovo Other Mode target-RPM writer does not meet the finished-product acceptance gate because a fixed target repeatedly speeds up/slows down and its nominal 100% remains below naturally hot firmware Auto. It therefore remains read-only.
 
-Alpha.39's firmware-policy profiles are a separate evidence class. Before release they should be checked on the real X9 for:
+The alpha.39 firmware-policy profiles remain a separate evidence class and alpha.40 preserves them. Real-X9 checks remain useful for:
 
 - Quiet producing appropriately reduced/smoother cooling versus Balanced under comparable load;
 - Balanced behaving as a stable normal Lenovo-managed profile;
@@ -131,7 +135,7 @@ Alpha.39's firmware-policy profiles are a separate evidence class. Before releas
 - Auto restoring the latest Windows/Lenovo power-policy baseline;
 - changing the Windows performance preference while a cooling profile is active updating the restore baseline without cancelling the cooling override.
 
-Real-device validation is also still required for:
+Real-device/session validation is also still required for:
 
 - any future recovered X9 direct writer before direct percentage/custom-curve control is re-advertised;
 - repeated Auto cleanup/reassertion after stale previously owned direct target state;
@@ -141,8 +145,9 @@ Real-device validation is also still required for:
 - direct-provider effect behavior without Lenovo pop-ups;
 - haptic Touchpad corner sensitivity/symmetry and high-rate responsiveness;
 - corner guard reliability against nearby top/side gestures on real finger contact;
-- integrated center Play/Pause tap reliability versus surrounding Previous/Next swipes;
+- **alpha.40 center Play/Pause reliability and accidental skip rate on a real finger/pad**;
 - reverse-close feel and accidental-trigger rate for both mirrored corners;
+- Windows-logon edge-gesture readiness without first opening ThinkControl;
 - Audio volume/microphone behavior across real navigation during a drag;
 - provider repair/restart behavior after real PawnIO/service failure states.
 
