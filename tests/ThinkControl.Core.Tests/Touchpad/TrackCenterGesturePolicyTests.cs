@@ -6,8 +6,8 @@ namespace ThinkControl.Core.Tests.Touchpad;
 public sealed class TrackCenterGesturePolicyTests
 {
     [Theory]
-    [InlineData(461, 0.1, 0.50)]
-    [InlineData(120, 1.91, 0.50)]
+    [InlineData(701, 0.1, 0.50)]
+    [InlineData(120, 4.51, 0.50)]
     [InlineData(120, -0.01, 0.50)]
     [InlineData(120, 0.2, 0.39)]
     [InlineData(120, 0.2, 0.61)]
@@ -17,10 +17,18 @@ public sealed class TrackCenterGesturePolicyTests
     [Theory]
     [InlineData(0, 0, 0.50)]
     [InlineData(90, 0.25, 0.40)]
-    [InlineData(260, 0.8, 0.50)]
-    [InlineData(460, 1.9, 0.60)]
+    [InlineData(260, 2.4, 0.50)]
+    [InlineData(520, 3.8, 0.50)]
+    [InlineData(700, 4.5, 0.60)]
     public void BoundedCenterTapCommits(double durationMs, double travelMm, double position) =>
         Assert.True(TrackCenterGesturePolicy.ShouldCommit(durationMs, travelMm, position));
+
+    [Fact]
+    public void TapSlopExceedsGeneralClaimThresholdWithoutApproachingSkipThreshold()
+    {
+        Assert.True(TrackCenterGesturePolicy.MovementToleranceMm > TouchpadGestureConfiguration.Default.ActivationDistanceMm);
+        Assert.True(TrackCenterGesturePolicy.MovementToleranceMm < 9.0);
+    }
 
     [Fact]
     public void NonFiniteValuesDoNotCommit()
