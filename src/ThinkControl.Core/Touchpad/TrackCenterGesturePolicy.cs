@@ -1,16 +1,29 @@
 namespace ThinkControl.Core.Touchpad;
 
 /// <summary>
-/// Safety gate for the integrated center segment inside Track control. Play/Pause is
-/// part of the same visible edge lane as Previous/Next: the contact must start inside
-/// the center segment and lift like a tap. Small real-finger drift is allowed even if
-/// the general edge recognizer briefly claims the contact; a deliberate track swipe
-/// still wins once it crosses the much larger skip threshold in the action router.
+/// Policy for the integrated center button inside Track control.
+///
+/// Play/Pause should feel like a real button, not a timing challenge. A contact that
+/// starts inside the visible center segment remains a center-button candidate until
+/// it becomes a deliberate Previous/Next swipe. Holding the finger still for longer
+/// does not invalidate the button; only movement/intent does.
 /// </summary>
 public static class TrackCenterGesturePolicy
 {
-    public const double MaximumTapMs = 700;
-    public const double MovementToleranceMm = 4.5;
+    // Shared discrete-swipe threshold. Keeping this in the same policy as the center
+    // button removes the former 4.5-9 mm no-man's-land where a center contact could
+    // stop being a tap without yet being large enough to become Previous/Next.
+    public const double SwipeThresholdMm = 9.0;
+
+    // A center press can drift almost all the way to the deliberate swipe threshold
+    // and still behave like a button on release. The small gap prevents floating-point
+    // noise around the exact swipe boundary from toggling Play/Pause after a skip.
+    public const double ButtonTravelToleranceMm = 8.75;
+
+    // Existing recognizer callers use this semantic name. It now means the center
+    // button's movement envelope rather than a short-tap-only slop value.
+    public const double MovementToleranceMm = ButtonTravelToleranceMm;
+
     public const double CenterZoneStart = 0.40;
     public const double CenterZoneEnd = 0.60;
 
@@ -21,18 +34,25 @@ public static class TrackCenterGesturePolicy
         position <= CenterZoneEnd;
 
     public static bool ShouldCommit(
+        double maximumTravelMm,
+        double? edgePosition01) =>
+        double.IsFinite(maximumTravelMm) &&
+        maximumTravelMm >= 0 &&
+        maximumTravelMm <= ButtonTravelToleranceMm &&
+        IsInsideCenterZone(edgePosition01);
+
+    // Compatibility overload for callers/tests that still carry an elapsed time.
+    // Duration is deliberately not a product rule anymore: a long press is still a
+    // press, provided it never turned into a deliberate track swipe.
+    public static bool ShouldCommit(
         double durationMs,
         double maximumTravelMm,
         double? edgePosition01) =>
         double.IsFinite(durationMs) &&
-        double.IsFinite(maximumTravelMm) &&
         durationMs >= 0 &&
-        durationMs <= MaximumTapMs &&
-        maximumTravelMm >= 0 &&
-        maximumTravelMm <= MovementToleranceMm &&
-        IsInsideCenterZone(edgePosition01);
+        ShouldCommit(maximumTravelMm, edgePosition01);
 
-    // Kept for policy callers/tests that only exercise timing/travel semantics.
-    public static bool ShouldCommit(double durationMs, double maximumTravelMm) =>
-        ShouldCommit(durationMs, maximumTravelMm, 0.5);
+    // Do not add back the old two-double (duration, travel) overload. It is ambiguous
+    // with the current (travel, position) API when callers hold a non-nullable double
+    // position, and can silently bypass the center-zone check through overload choice.
 }

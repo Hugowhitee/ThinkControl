@@ -98,19 +98,27 @@ internal sealed class TouchpadFeatureHost : IDisposable
             return false;
         if (_gestures.IsRunning)
             return true;
-
-        // Raw-input registration includes a connected-device/HID probe. During an
-        // ordinary page/shell transition it waits until ContextIdle so WPF paints
-        // first. A silent --tray Windows startup has no destination window to protect,
-        // so enabled gestures are queued at Background priority and become usable as
-        // soon as the startup handler yields instead of waiting for a later activation.
         if (Interlocked.CompareExchange(ref _inputStartScheduled, 1, 0) != 0)
             return true;
 
-        DispatcherPriority priority = startupCritical
-            ? DispatcherPriority.Background
-            : DispatcherPriority.ContextIdle;
-        _app.Dispatcher.BeginInvoke(priority, new Action(() =>
+        // Tray startup is the hotkey/gesture service path, not a page-render path.
+        // Register Raw Input immediately so a logged-in user does not have to wait for
+        // WPF window construction, diagnostics or hardware/service discovery before
+        // edge gestures work. Ordinary visible/page starts still defer the HID probe
+        // until ContextIdle so first paint wins.
+        if (startupCritical)
+        {
+            try
+            {
+                return !_disposed && _gestures.Start();
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _inputStartScheduled, 0);
+            }
+        }
+
+        _app.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
         {
             try
             {
