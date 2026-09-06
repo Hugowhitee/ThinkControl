@@ -3,13 +3,14 @@ namespace ThinkControl.Core.Touchpad;
 /// <summary>
 /// Safety gate for the integrated center segment inside Track control. Play/Pause is
 /// part of the same visible edge lane as Previous/Next: the contact must start inside
-/// the center segment, stay nearly stationary and lift within a short tap window.
-/// Normal previous/next swipes continue to use the surrounding lane.
+/// the center segment and lift like a tap. Small real-finger drift is allowed even if
+/// the general edge recognizer briefly claims the contact; a deliberate track swipe
+/// still wins once it crosses the much larger skip threshold in the action router.
 /// </summary>
 public static class TrackCenterGesturePolicy
 {
-    public const double MaximumTapMs = 460;
-    public const double MovementToleranceMm = 1.9;
+    public const double MaximumTapMs = 700;
+    public const double MovementToleranceMm = 4.5;
     public const double CenterZoneStart = 0.40;
     public const double CenterZoneEnd = 0.60;
 
