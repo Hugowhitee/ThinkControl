@@ -14,6 +14,16 @@ ThinkControl is split into a normal-user WPF application and a privileged Window
 
 The UI must remain `asInvoker`. Hardware operations that need elevated/device access belong in the service rather than causing repeated UAC prompts from the desktop process.
 
+## Startup model
+
+Startup has a strict critical-path boundary: create the shell/tray and make configured background input usable before rich hardware discovery completes.
+
+`Start with Windows` remains a single per-user HKCU Run entry that launches `ThinkControl.UI.exe --tray`. Alpha.39 does not add a scheduled-task or second startup owner. During `Application.Startup`, `App.ShellIcons` marks exactly one `SystemStatusService.Read()` as a fast preflight. That preflight reads firmware identity from `HKLM\HARDWARE\DESCRIPTION\System\BIOS` plus cheap Windows power state and returns placeholders for CPU/GPU/RAM/BIOS. The existing initial `RefreshStatusAsync` performs the full cached WMI inventory on a worker through `Task.Run`, so rich identity cannot block tray creation or raw-input readiness.
+
+Enabled Touchpad gestures are application-level behavior, not page-level behavior. After startup yields, `StartConfiguredTouchpadInputForStartup` explicitly starts the gesture host. A silent `--tray` launch uses `DispatcherPriority.Background` because no visible WPF destination needs first-paint protection; ordinary page/shell starts retain `ContextIdle`. `Application.Activated` remains a recovery path for session/device transitions, but it is not the first-start owner because a tray-only process can remain unactivated indefinitely.
+
+The Windows Run mechanism may have its own OS scheduling latency at sign-in. ThinkControl does not alter machine-wide Explorer startup-delay policy. If real-session evidence shows the process itself is launched late after the application-side critical path is fixed, changing the startup mechanism is a separate installer/update/uninstall contract change.
+
 ## Hardware safety model
 
 Hardware support is capability-driven. Unknown hardware remains read-only/safe until an operation has a reviewed provider and validation gate. Generic UI consumes semantic capability state; it must not infer write support, calibration requirements or effect support by parsing model names or diagnostic provider strings.
@@ -84,7 +94,7 @@ Runtime gesture recognition remains intentionally stricter than editor selection
 
 Reverse-close routes into the canonical application hide-to-tray transition. Compact uses the transition-owned synchronous hide before final shell-state verification; normal user-triggered tray toggling keeps its separate animation path. Visual-QA reverse fixtures are built from a clean non-live corner baseline so an outward trail cannot inherit an earlier inward contact segment.
 
-Raw HID input stays available to recognition at full rate. WPF visualization is coalesced and page listeners only remain attached while the Touchpad page is visible, preventing rendering work from becoming an application-wide input tax.
+Raw HID input stays available to recognition at full rate. WPF visualization is coalesced and page listeners only remain attached while the Touchpad page is visible, preventing rendering work from becoming an application-wide input tax. Gesture recognition itself remains active in the background when configured and is started explicitly at silent tray startup as described above.
 
 ## Audio lifecycle
 
