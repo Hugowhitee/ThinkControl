@@ -5,15 +5,16 @@ namespace ThinkControl.Core.Tests.Touchpad;
 public sealed class TrackControlPolishSourceTests
 {
     [Fact]
-    public void TrackCenterRelease_AllowsTapAfterSmallRecognizerClaimWithoutLoweringSkipThreshold()
+    public void TrackCenterTap_HasDedicatedDriftReservationWithoutLoweringSkipThreshold()
     {
+        string recognizer = ReadSource("src", "ThinkControl.Core", "Touchpad", "EdgeGestureRecognizer.cs");
         string router = ReadSource("src", "ThinkControl.UI", "Services", "Touchpad", "GestureActionRouter.cs");
         string policy = ReadSource("src", "ThinkControl.Core", "Touchpad", "TrackCenterGesturePolicy.cs");
 
+        Assert.Contains("IsTrackCenterTapCandidate()", recognizer, StringComparison.Ordinal);
+        Assert.Contains("radialTravel <= TrackCenterGesturePolicy.MovementToleranceMm", recognizer, StringComparison.Ordinal);
         Assert.Contains("TrackSwipeThresholdMm = 9.0", router, StringComparison.Ordinal);
-        Assert.Contains("TryFireTrackSwipe(signal, allowReleaseFallback: true);", router, StringComparison.Ordinal);
-        Assert.Contains("if (!_trackSwipeFired)\n                TryFireTrackCenter();", Normalize(router), StringComparison.Ordinal);
-        Assert.DoesNotContain("_trackStayedCandidate", router, StringComparison.Ordinal);
+        Assert.Contains("if (!_trackSwipeFired && _trackStayedCandidate)", router, StringComparison.Ordinal);
         Assert.Contains("MovementToleranceMm = 4.5", policy, StringComparison.Ordinal);
         Assert.Contains("MaximumTapMs = 700", policy, StringComparison.Ordinal);
     }
