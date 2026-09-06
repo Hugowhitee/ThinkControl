@@ -64,17 +64,19 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 
 ## What alpha.39 changes
 
-Alpha.39 is a focused interaction/safety follow-up to the immutable alpha.38 release. It finishes the Touchpad bottom-edge Track control and incorporates physical X9 fan evidence that invalidated the experimental Lenovo Other Mode target-RPM writer as a finished product path.
+Alpha.39 is a focused interaction/safety follow-up to the immutable alpha.38 release. It finishes the Touchpad bottom-edge Track control and changes the X9 cooling backend after physical testing rejected the experimental fixed target-RPM writer.
 
 - **Track control is one continuous edge lane.** Previous, Play/Pause and Next are rendered inside the same selected edge band. The old floating Play/Pause pill and floating Previous/Next glyph placement are gone.
 - **Play/Pause is easier to hit without becoming a hidden gesture.** The center segment spans 20% of the edge lane and accepts a short, low-travel tap. Previous/Next still requires a deliberate swipe, so the recognizer/router ownership model is unchanged.
 - **The redundant Center play/pause setting is gone.** Assigning Track control now means one coherent three-part affordance: Previous | Play/Pause | Next. The old serialized flag remains readable for settings compatibility but is derived at runtime rather than exposed as a second feature toggle.
 - **Fan calibration stops occupying the page after completion.** The calibration card is an attention/task surface only while calibration is required or actively running; once the provider reports a ready mapping, normal fan UI becomes primary again.
-- **Manual fan controls are explicitly temporary diagnostics.** Percentage targets and provider-specific raw EC states use the existing 30-second auto-restore safety contract. Raw EC diagnostics appear only when the active provider explicitly exposes the discrete-EC semantic contract.
-- **The X9 Other Mode target-RPM writer is held read-only.** Real alpha.38 testing reproduced repeated speed cycling/re-kick under a fixed target and showed the nominal 100% target below naturally hot firmware Auto. Those are the same rejection criteria documented during development, so alpha.39 keeps native dual-fan telemetry and Auto cleanup/reassertion but no longer advertises that writer as fan control.
-- **There is no silent fallback to the inferior EC path.** Once native OEM fan telemetry is confirmed on the X9, the existing safety latch prevents a transient read miss or rejected target-RPM writer from re-authorizing the discrete EC fallback.
+- **Quiet, Balanced and Max cooling stay functional on the X9.** With the direct writer rejected, these built-in profiles now use the already reviewed Lenovo LITSSvc firmware thermal-policy path instead of a fixed RPM target. Quiet maps to Lenovo Quiet policy, Balanced to Lenovo Balanced policy and Max cooling to Lenovo Performance cooling policy. Lenovo firmware keeps ownership of the smooth fan loop.
+- **Windows performance mode and cooling profile remain separate product controls.** ThinkControl remembers the current Lenovo power-policy baseline while a cooling profile is active. Changing Windows performance mode updates that baseline without silently cancelling the selected cooling profile; choosing Auto clears the cooling override and restores the latest baseline.
+- **Manual percentage/custom-curve controls remain direct-writer features.** They are not faked on the firmware-policy backend. Where a physically accepted direct provider exists, manual percentage targets and provider-specific raw EC states still use the bounded 30-second auto-restore contract.
+- **The alpha.38 Other Mode target-RPM writer remains read-only.** Real-device testing reproduced repeated speed cycling/re-kick under a fixed target and showed the nominal 100% target below naturally hot firmware Auto. Native dual-fan telemetry and explicit Auto cleanup/reassertion are retained, but those failed writes are not used to implement the built-in profiles.
+- **There is no silent fallback to the inferior EC path.** Once native OEM fan telemetry is confirmed on the X9, the safety latch prevents a transient read miss or rejected target-RPM writer from re-authorizing the discrete EC fallback.
 
-Alpha.38 remains immutable. Alpha.39 does not guess a new EC register, IOCTL, vendor override or fan ceiling to compensate for the rejected writer. A future direct writer must pass both provider-level validation and real-device smoothness/range checks before generic fan controls can advertise it.
+Alpha.38 remains immutable. Alpha.39 does not guess a new EC register, IOCTL, vendor override or fan ceiling. A future direct writer must pass both provider-level validation and real-device smoothness/range checks before custom curves or manual percentage output can advertise it.
 
 ## Main capabilities
 
@@ -82,7 +84,7 @@ Alpha.38 remains immutable. Alpha.39 does not guess a new EC register, IOCTL, ve
 | --- | --- |
 | **Home** | Live Battery, CPU, fan/RPM, power and sensor overview plus quick controls |
 | **Performance** | Separate battery and plugged-in preferences using Windows power integration |
-| **Fans** | Firmware/OEM Auto, supervised curves and bounded temporary controls only where the active provider has a physically accepted writable contract |
+| **Fans** | Firmware/OEM Auto plus working Quiet, Balanced and Max cooling through verified provider policy; custom curves and bounded direct tests only where a physically accepted direct writer exists |
 | **Battery** | Watts, Wh, health, ETA, temperature when genuinely exposed, and compact local charge/discharge history |
 | **Display** | Brightness, adaptive brightness, refresh rate, automatic refresh switching and Windows display shortcuts |
 | **Audio** | Windows output/microphone control plus semantic Dolby controls where the installed DAX provider safely exposes them |
@@ -103,17 +105,18 @@ Profiles decide which providers are reasonable to probe. Providers own implement
 On the current X9-15 reference path:
 
 - native Lenovo dual-fan RPM telemetry is retained when real channels are exposed;
+- built-in Quiet/Balanced/Max cooling is routed through the reviewed X9 Lenovo firmware thermal-policy contract, so Lenovo retains the actual closed-loop fan behavior;
 - the alpha.38 Lenovo Other Mode target-RPM writer is held read-only after failing physical smoothness/range acceptance;
 - the native-OEM telemetry safety latch prevents silent fallback to the known-inferior seven-step EC writer;
-- Auto cleanup/reassertion remains available so a stale previously owned target can be handed back to firmware safely;
-- seven-step EC control remains an explicit provider-specific diagnostic/fallback contract for hardware that genuinely exposes and validates it, not a generic laptop assumption;
-- writes are supervised and returned to firmware/OEM Auto on failure/disposal where supported;
+- Auto cleanup/reassertion remains available so stale previously owned direct targets can be handed back to firmware safely;
+- custom curves and manual percentages are available only with a physically accepted direct writer; the firmware-policy backend does not pretend to expose continuous RPM/PWM control;
+- raw seven-step EC behavior remains an explicit provider-specific diagnostic contract where genuinely active and validated, not the normal X9 product backend;
 - real provider telemetry is preferred over fallback probes;
 - calibration requires real tachometer evidence and never persists a partial failed run;
 - PawnIO registration/service/device readiness is distinguished instead of collapsed into one registry check;
 - sensor/provider failure is reported explicitly rather than replaced by synthetic values.
 
-Automated CI does **not** prove physical-device behavior. Any future X9 fan writer still requires real-device settling/range validation; hosted tests can only guard the architecture, fail-closed gates, build and deterministic UI behavior. Clean PawnIO repair/restart behavior, Lenovo Auto/Fn+Space agreement, touchpad feel, direct keyboard effects, Dolby behavior and haptics likewise remain physical evidence classes where applicable.
+Automated CI does **not** prove physical-device behavior. Alpha.39 therefore still needs real-X9 confirmation that Quiet/Balanced/Max cooling produce the expected Lenovo-managed acoustic/thermal ordering, that Max cooling is smooth rather than re-kicking, and that Auto restores the current power-policy baseline. Any future direct X9 fan writer also requires its own settling/range validation. Hosted tests can only guard the architecture, fail-closed gates, build and deterministic UI behavior.
 
 See **[Device support](docs/DEVICE-SUPPORT.md)** and **[Hardware safety](docs/HARDWARE-SAFETY.md)**.
 
