@@ -20,6 +20,7 @@ The reference device is **not** the product boundary. Windows-safe features shou
 8. Never expose an empty/black application surface while expensive startup discovery or view construction is in progress.
 9. Keep setup state truthful: registration metadata, kernel/service readiness and actual provider/device access are distinct facts.
 10. Keep high-rate device input away from the WPF layout/render critical path; live visualization may coalesce frames while recognition retains the full input stream.
+11. Keep Windows startup useful before rich hardware discovery finishes: tray ownership and enabled background gestures must not depend on slow WMI or a visible WPF window activation.
 
 Implementation boundaries are defined in [Architecture](ARCHITECTURE.md), low-level rules in [Hardware Safety](HARDWARE-SAFETY.md), current support in [Device Support](DEVICE-SUPPORT.md), and Lenovo implementation evidence in [Lenovo provider research](research/lenovo-providers.md) plus [X9 research](research/x9-15-gen1.md).
 
@@ -55,11 +56,22 @@ Battery and plugged-in preferences are stored separately. Compact and Home inten
 
 An OEM thermal-policy provider may coordinate with the selected Windows preference only when that semantic contract has been reviewed for the exact supported scope. Power mode is not treated as fake direct fan-RPM/PWM control.
 
+On the X9 firmware-policy cooling backend, ThinkControl keeps the active cooling profile and Windows performance preference as separate user-facing settings even though both ultimately coordinate through Lenovo thermal policy. Before a built-in fan profile is selected, the current power preference becomes the restore baseline. A later power-mode change updates that baseline without cancelling the fan profile; selecting Auto clears the cooling override and restores the latest baseline.
+
 ## Fans, PawnIO and temperatures
 
 Fans consume generic fan/control-temperature capabilities. The provider may expose discrete states, a continuous target-RPM contract, an OEM-native thermal policy, or read-only telemetry; the UI must not assume one backend merely because `FanControl` exists. Calibration is also an explicit capability: generic UI shows or requires it only when the active provider reports `FanCalibrationSupported` / `FanCalibrationRequired`, rather than deriving the product workflow from a laptop model name.
 
-On the current X9 reference path, Lenovo `LENOVO_OTHER_METHOD` can still provide real per-fan `fanX_input` telemetry when two channels pass the read gate. Its experimental `fanX_target` writer is **not a product control in alpha.39**. Physical alpha.38 testing reproduced repeated speed cycling/re-kick under a fixed target and showed the nominal 100% target below naturally hot firmware Auto. Those were explicit rejection criteria for the writer, so metadata such as VALID+GET+SET and Fan Test min/max values is no longer sufficient to advertise `FanControl`. Target `0` remains available only for cleanup/reassertion of Lenovo firmware Auto after previously owned state.
+On the current X9 reference path, the normal built-in profiles remain working product controls even though the alpha.38 direct target writer was rejected. Alpha.39 exposes a distinct `LenovoFirmwarePolicy` cooling backend using the already reviewed exact-X9 LITSSvc thermal-policy path:
+
+- **Auto** clears the cooling override and returns to the current Lenovo power-policy baseline;
+- **Quiet** requests Lenovo Quiet policy;
+- **Balanced** requests Lenovo Balanced policy;
+- **Max cooling** requests Lenovo Performance cooling policy.
+
+Lenovo firmware therefore remains responsible for the actual closed-loop fan ramp. The firmware-policy backend does not advertise fake direct percentages, RPM targets, EC states or custom curve semantics. Home, Compact and Fans can still select the built-in profiles, while custom curves/manual percentages remain hidden until a physically accepted direct writer exists.
+
+Lenovo `LENOVO_OTHER_METHOD` can still provide real per-fan `fanX_input` telemetry when two channels pass the read gate. Its experimental `fanX_target` writer is **not a product control in alpha.39**. Physical alpha.38 testing reproduced repeated speed cycling/re-kick under a fixed target and showed the nominal 100% target below naturally hot firmware Auto. Those were explicit rejection criteria for the writer, so metadata such as VALID+GET+SET and Fan Test min/max values is no longer sufficient to advertise direct fan output. Target `0` remains available only for cleanup/reassertion of Lenovo firmware Auto after previously owned state.
 
 Lenovo `EnergyDrv` `QueryFanSpeed 0x83102570` is a separate read-only native telemetry path. It can provide Fan 1 / Fan 2 evidence without authorizing the still-unrecovered `ChangeFanSpeed 0x8310257C` writer. Once two native Lenovo fan channels have been proven in a hardware-service lifetime, a transient native read failure does not silently re-enable the known-inferior EC writer. The same native-telemetry safety latch also applies when Other Mode telemetry is live but its writer remains physically rejected.
 
@@ -72,13 +84,13 @@ PawnIO prerequisite state is not inferred from an uninstall registry entry alone
 - whether a demand-start driver is currently running;
 - whether the hardware provider can actually open/verify the required device/module path.
 
-A compatible registration with a missing kernel service is an incomplete installation and is presented as **repair**. A stopped demand-start kernel service can still be ready for provider probing. On the verified X9, repair is not considered a successful low-level recovery until the active provider path itself passes again; unrelated sensor or keyboard recovery cannot unlock fan writes.
+A compatible registration with a missing kernel service is an incomplete installation and is presented as **repair**. A stopped demand-start kernel service can still be ready for provider probing. On the verified X9, repair is not considered a successful low-level recovery until the active provider path itself passes again; unrelated sensor or keyboard recovery cannot unlock direct fan writes.
 
-Supervised cooling uses bounded smoothing, hysteresis, dwell time, immediate meaningful cooling increases and firmware fallback. Missing control telemetry/provider state or a thermal safety handoff returns ownership to OEM firmware.
+Supervised direct cooling uses bounded smoothing, hysteresis, dwell time, immediate meaningful cooling increases and firmware fallback. Missing control telemetry/provider state or a thermal safety handoff returns direct ownership to OEM firmware. Firmware-policy profiles do not run that second ThinkControl fan loop; they deliberately leave Lenovo's own loop in control.
 
-Manual fan testing is explicitly temporary. A percentage target or provider-specific raw state starts the same 30-second test window, restores the previous profile automatically and falls back to firmware Auto if restoration cannot be proven. The test surface is hidden when no physically accepted writable provider is active. Provider ownership is explicit: ThinkControl returns only the OEM channels/provider state it actually took ownership of rather than inferring ownership from a readback that another utility may have created.
+Manual fan testing is explicitly temporary and exists only for a direct-output provider. A percentage target or provider-specific raw state starts the same 30-second test window, restores the previous profile automatically and falls back to firmware Auto if restoration cannot be proven. The test surface is hidden on the X9 firmware-policy backend and whenever no physically accepted direct provider is active. Provider ownership is explicit: ThinkControl returns only the OEM channels/provider state it actually took ownership of rather than inferring ownership from a readback that another utility may have created.
 
-A completed calibration is durable provider state, not a permanent attention card. The Fans page shows the calibration task only while calibration is required or running; once the mapping is ready, normal fan controls become primary again.
+A completed calibration is durable provider state, not a permanent attention card. The Fans page shows the calibration task only while calibration is required or running; once the mapping is ready, normal fan controls become primary again. Firmware-policy profiles do not require direct-output calibration.
 
 See [Cooling Design](COOLING-DESIGN.md) for the canonical cooling/calibration contract.
 
@@ -134,7 +146,9 @@ The gesture-owned hide-to-tray operation uses the canonical shell-transition own
 
 Transient live corner ownership must not collapse/re-expand page layout while a finger is moving. The selected editor remains in place and is dimmed/disabled during live corner ownership. CI renders selected/live states for both corners and asserts mirrored final geometry plus unchanged editor layout across live frames.
 
-Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence and publishes all-up frames immediately. Raw-input/HID registration is deferred until after the visible shell/page has painted. UI-only corner/gesture listeners attach only while the Touchpad page is visible so leaving the page cannot keep high-rate dispatcher work alive elsewhere in Advanced.
+Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence and publishes all-up frames immediately. UI-only corner/gesture listeners attach only while the Touchpad page is visible so leaving the page cannot keep high-rate dispatcher work alive elsewhere in Advanced.
+
+When configured gestures are enabled, the recognition input itself is application-level behavior, not Touchpad-page behavior. A normal page/shell transition still defers HID registration until after first paint, but a silent Windows `--tray` launch explicitly queues enabled gesture input during startup. It does not wait for `Application.Activated`, which may never occur until the user opens a window.
 
 ## Battery
 
@@ -144,13 +158,17 @@ Charge/discharge history is local and bounded. Windows remains the owner of syst
 
 ## Startup and shell reliability
 
-A dedicated painted loading surface appears before synchronous startup discovery and remains until the destination has completed a render pass. Whole-window fade tricks are not used to hide an unpainted native WPF window.
+A dedicated painted loading surface appears before synchronous startup work on normal visible launches and remains until the destination has completed a render pass. Whole-window fade tricks are not used to hide an unpainted native WPF window.
+
+Alpha.39 removes the rich WMI inventory from the synchronous process-startup critical path. `Application.Startup` marks the first `SystemStatusService.Read()` as a one-shot fast preflight; that read uses the Windows firmware registry identity plus cheap power state and returns placeholders for CPU/GPU/RAM/BIOS. The existing `RefreshStatusAsync` immediately performs the full cached WMI inventory via `Task.Run`, so provider/system detail fills in asynchronously instead of holding tray/input creation behind WMI.
+
+`Start with Windows` continues to launch the normal UI executable with `--tray`. Enabled Touchpad gestures are explicitly queued after the startup handler yields, at background priority for silent tray startup. WPF `Activated` remains a recovery path after session/device transitions but is no longer the only route that starts raw touchpad input. The Windows Run mechanism itself remains the current installer contract; alpha.39's implementation change addresses application-side startup blocking/gesture dormancy rather than modifying global Windows startup-delay policy.
 
 Opening Advanced restores a minimized/hidden full window before requested heavy-page work begins. A passive successful-update confirmation can be dismissed directly; a deliberate Compact → Advanced transition clears it, while an update restart that already opens into Advanced still shows the confirmation once.
 
 WPF dispatcher work must use strongly understood overloads. In particular, `Dispatcher.BeginInvoke` calls with a priority pass `DispatcherPriority` first; putting it after a zero-argument delegate can bind it into `params object[]` and produce a delayed `TargetParameterCountException` through `DynamicInvoke`. CI includes a source regression guard for that crash class.
 
-The release gate includes real Compact → Advanced → Compact shell smoke plus deterministic screenshots across minimum/normal/wide widths, themes and important unavailable/error states.
+The release gate includes real Compact → Advanced → Compact shell smoke plus deterministic screenshots across minimum/normal/wide widths, themes and important unavailable/error states. Windows-logon startup/gesture readiness remains a physical/system-session check because hosted WPF tests cannot reproduce the user's actual login startup timing.
 
 ## Compatibility
 
@@ -164,7 +182,7 @@ Profiles select reasonable provider candidates. Providers own implementation, re
 
 Unknown/unverified laptops remain capability-driven and conservative. Windows-safe features may work, read-only providers may surface real telemetry, and hardware-specific writes remain unavailable until the relevant provider/device contract is verified.
 
-The current desktop client uses the graph-based cooling API. Older service-side cooling IPC handlers remain intentionally available for the supported installed-client/updater compatibility floor; they are legacy server compatibility endpoints, not current UI features.
+The current desktop client uses semantic `SetCoolingProfile` for supported firmware-policy built-ins and the graph-based `SetCoolingCurve` path for physically accepted direct providers. Older compatibility operations such as `SetCustomCoolingCurve` remain intentionally available service-side for the supported installed-client/updater floor; they are not evidence that unsupported direct controls should appear in the current UI.
 
 ## Diagnostics and privacy
 
