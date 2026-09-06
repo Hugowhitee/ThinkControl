@@ -52,6 +52,33 @@ public sealed class LenovoOtherModeFullSpeedSourceTests
         Assert.Contains("if (!wantsFullSpeed && fullSpeedOwned)", coordinator, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ExplicitAuto_CanRecoverVerifiedFullSpeedAfterServiceRestartWithoutChangingDisposeSemantics()
+    {
+        string coordinator = ReadSource("src", "ThinkControl.Service", "LenovoCoolingPolicyCoordinator.cs");
+        string service = ReadSource("src", "ThinkControl.Service", "ServiceEngine.cs");
+
+        Assert.Contains("internal bool RequestFirmwareAuto", coordinator, StringComparison.Ordinal);
+        Assert.Contains("fullSpeed.Available && fullSpeed.Enabled", coordinator, StringComparison.Ordinal);
+        Assert.Contains("LenovoOtherModeFullSpeedService.TrySet(_hardware.Identity, enabled: false", coordinator, StringComparison.Ordinal);
+
+        string autoMethod = Normalize(service)
+            .Split("private ServiceResponse ReturnFanToAuto()", StringSplitOptions.None)[1]
+            .Split("private ServiceResponse SetCoolingProfile", StringSplitOptions.None)[0];
+        Assert.Contains("_coolingPolicy.RequestFirmwareAuto", autoMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("_coolingPolicy.ClearProfileOverride", autoMethod, StringComparison.Ordinal);
+
+        // Automatic service disposal remains ownership-aware and does not use the
+        // wider explicit-user recovery operation that may clear a stale prior-instance bit.
+        string disposeMethod = Normalize(service)
+            .Split("public void Dispose()", StringSplitOptions.None)[1];
+        Assert.Contains("_coolingPolicy.ClearProfileOverride", disposeMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("RequestFirmwareAuto", disposeMethod, StringComparison.Ordinal);
+    }
+
+    private static string Normalize(string value) =>
+        value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+
     private static string ReadSource(params string[] path)
     {
         string root = FindRepositoryRoot();
