@@ -30,6 +30,9 @@ public partial class App
     internal FanCalibrationUiState FanCalibrationState => _fanCalibrationState;
     internal event EventHandler? FanCalibrationStateChanged;
 
+    private bool UsesFirmwareCoolingPolicy =>
+        State.CanFanControl && string.Equals(State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
+
     private void InitializeCoolingCoordinator()
     {
         HardwareClient.StatusObserved += CoolingStatusObserved;
@@ -120,11 +123,52 @@ public partial class App
             return false;
         }
 
+        if (UsesFirmwareCoolingPolicy)
+        {
+            if (!FanProfiles.IsBuiltIn(definition.Id))
+            {
+                State.HardwareAccess = "Custom fan curves require a physically accepted direct fan writer. Quiet, Balanced and Max cooling remain available through Lenovo firmware.";
+                return false;
+            }
+
+            // The service coordinator needs the current Windows performance mode as
+            // the restore baseline before a cooling profile temporarily overrides
+            // Lenovo's thermal policy. While the profile is active, later performance
+            // changes update that baseline without fighting the selected cooling mode.
+            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode);
+            if (baseline?.Success != true)
+            {
+                State.HardwareAccess = baseline?.Error ?? "Lenovo thermal-policy baseline unavailable";
+                return false;
+            }
+
+            ServiceResponse? applied = await HardwareClient.SetCoolingProfileAsync(definition.Name);
+            if (applied?.Success != true)
+            {
+                State.HardwareAccess = applied?.Error ?? "Lenovo firmware cooling profile unavailable";
+                return false;
+            }
+
+            UserSettings.Update(settings => settings with { CoolingProfile = definition.Id });
+            State.CoolingProfile = definition.Name;
+            _coolingPreferenceRestoreAttempted = true;
+            _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
+            return true;
+        }
+
         return await ApplyFanCurveAsync(definition, persistSelection: true);
     }
 
     internal async Task<bool> ApplyFanCurveAsync(FanCurveDefinition definition, bool persistSelection)
     {
+        if (UsesFirmwareCoolingPolicy)
+        {
+            if (FanProfiles.IsBuiltIn(definition.Id))
+                return await SetCoolingProfileAsync(definition.Id);
+            State.HardwareAccess = "Custom fan curves are unavailable until a physically accepted direct fan writer is active. The built-in Lenovo firmware profiles still work.";
+            return false;
+        }
+
         if (FanCalibrationState.Required)
         {
             State.HardwareAccess = FanCalibrationState.Running
@@ -158,6 +202,12 @@ public partial class App
 
     internal async Task<bool> SetManualFanPercentAsync(int percent)
     {
+        if (UsesFirmwareCoolingPolicy)
+        {
+            State.HardwareAccess = "Temporary percentage targets require a physically accepted direct fan writer. Use Quiet, Balanced or Max cooling for Lenovo firmware-controlled cooling.";
+            return false;
+        }
+
         if (FanCalibrationState.Required)
         {
             State.HardwareAccess = FanCalibrationState.Running
@@ -216,10 +266,9 @@ public partial class App
                          selected.Equals("Auto", StringComparison.OrdinalIgnoreCase);
         bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType);
 
-        // The generic preference path follows the advertised provider capability.
-        // The exact-X9 exception below is retained only as a safety/recovery guard
-        // for an older ThinkControl-owned target that may survive a transient loss
-        // of the writer capability; it is not the product-wide calibration rule.
+        // Generic restoration follows the advertised cooling capability. The exact-X9
+        // Auto exception remains only as a safety/recovery guard for a stale target
+        // that may survive a transient provider-capability miss.
         if (response.Capabilities?.FanControl != true && !(wantsAuto && verifiedX9))
             return;
 
@@ -252,7 +301,6 @@ public partial class App
                 return;
             }
 
-            _coolingPreferenceRestoreAttempted = true;
             FanCurveDefinition? definition = FanProfiles.Find(selected);
             if (definition is null)
             {
@@ -260,27 +308,66 @@ public partial class App
                 if (!verifiedX9)
                 {
                     State.CoolingProfile = "Lenovo Auto";
+                    _coolingPreferenceRestoreAttempted = true;
                     return;
                 }
 
                 ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
                 if (auto?.Success != true)
                 {
-                    _coolingPreferenceRestoreAttempted = false;
                     _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
                     State.HardwareAccess = auto?.Error ?? "Firmware Auto fallback could not be reasserted";
                     return;
                 }
 
                 State.CoolingProfile = "Lenovo Auto";
+                _coolingPreferenceRestoreAttempted = true;
                 return;
             }
 
-            ServiceResponse? applied = await HardwareClient.SetCoolingCurveAsync(definition);
-            if (applied?.Success != true)
-                State.HardwareAccess = applied?.Error ?? "Saved fan profile could not be restored";
-            else
+            if (UsesFirmwareCoolingPolicy)
+            {
+                if (!FanProfiles.IsBuiltIn(definition.Id))
+                {
+                    UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
+                    ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                    State.CoolingProfile = "Lenovo Auto";
+                    State.HardwareAccess = auto?.Success == true
+                        ? "The saved custom fan curve needs a direct fan writer, so Lenovo Auto was restored. Built-in firmware profiles remain available."
+                        : auto?.Error ?? "Saved custom fan curve cannot be restored and Lenovo Auto reassertion failed.";
+                    _coolingPreferenceRestoreAttempted = auto?.Success == true;
+                    if (!_coolingPreferenceRestoreAttempted)
+                        _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
+                    return;
+                }
+
+                ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode);
+                ServiceResponse? applied = baseline?.Success == true
+                    ? await HardwareClient.SetCoolingProfileAsync(definition.Name)
+                    : null;
+                if (baseline?.Success != true || applied?.Success != true)
+                {
+                    _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
+                    State.HardwareAccess = baseline?.Error ?? applied?.Error ?? "Saved Lenovo firmware cooling profile could not be restored";
+                    return;
+                }
+
                 State.CoolingProfile = definition.Name;
+                _coolingPreferenceRestoreAttempted = true;
+                _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
+                return;
+            }
+
+            ServiceResponse? directApplied = await HardwareClient.SetCoolingCurveAsync(definition);
+            if (directApplied?.Success != true)
+            {
+                State.HardwareAccess = directApplied?.Error ?? "Saved fan profile could not be restored";
+                return;
+            }
+
+            State.CoolingProfile = definition.Name;
+            _coolingPreferenceRestoreAttempted = true;
+            _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
         }
         finally
         {
