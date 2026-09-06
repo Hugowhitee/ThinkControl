@@ -20,9 +20,11 @@ public sealed class EdgeGestureReleaseTests
         };
         var recognizer = new EdgeGestureRecognizer(config);
 
-        recognizer.ProcessFrame([new TouchContact(1, 6200, 120, true)], Geometry);
-        GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 6550, 120, true)]);
-        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 7600, 120, true)]);
+        // Keep this generic swipe/release regression outside Track's dedicated
+        // center tap reservation. Center-start behavior has its own tests below.
+        recognizer.ProcessFrame([new TouchContact(1, 3500, 120, true)], Geometry);
+        GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 3850, 120, true)]);
+        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 4900, 120, true)]);
         GestureSignal? released = recognizer.ProcessFrame([]);
 
         Assert.Equal(GestureActionKind.PreviousNextTrack, claimed?.Action);
@@ -30,7 +32,7 @@ public sealed class EdgeGestureReleaseTests
         Assert.True(active?.TotalTravelMm > 7);
         Assert.Equal(GesturePhase.Released, released?.Phase);
         Assert.Equal(active?.TotalTravelMm, released?.TotalTravelMm);
-        Assert.InRange(released?.EdgePosition01 ?? -1, 0.45, 0.47);
+        Assert.InRange(released?.EdgePosition01 ?? -1, 0.25, 0.27);
     }
 
     [Fact]
