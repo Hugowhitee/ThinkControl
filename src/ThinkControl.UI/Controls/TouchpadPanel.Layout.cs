@@ -9,21 +9,6 @@ public partial class TouchpadPanel
     protected override void OnInitialized(EventArgs e)
     {
         base.OnInitialized(e);
-
-        // Play/Pause is part of Track control now. Keep the legacy enum value only so
-        // old numeric settings can migrate; do not offer a second menu action that
-        // duplicates the center segment.
-        ActionOption[] currentOptions = ActionCombo.Items
-            .Cast<ActionOption>()
-            .Where(option => option.Action != GestureActionKind.PlayPause)
-            .ToArray();
-        ActionCombo.ItemsSource = currentOptions;
-
-        // Replace the original move-only assignment handler with swap semantics. If
-        // the requested action already lives on another edge, the selected edge's
-        // previous action moves there instead of leaving that edge Off.
-        ActionCombo.SelectionChanged -= ActionCombo_SelectionChanged;
-        ActionCombo.SelectionChanged += ActionCombo_SwapSelectionChanged;
         ActionCombo.SelectionChanged += (_, _) => SyncTrackCenterOption();
         Loaded += (_, _) =>
         {
@@ -33,67 +18,6 @@ public partial class TouchpadPanel
             SyncCornerLaunchControls();
             ApplySelectedZoneEditor();
         };
-    }
-
-    private void ActionCombo_SwapSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_syncing || _host is null || _selectedZone.Edge is null ||
-            ActionCombo.SelectedItem is not ActionOption option)
-        {
-            return;
-        }
-
-        ActionHelpText.Text = option.Description;
-        TouchpadEdge selectedEdge = SelectedEdge;
-        TouchpadEdgeBinding selectedBinding = _configuration.BindingFor(selectedEdge);
-        if (selectedBinding.Action == option.Action)
-            return;
-
-        TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
-        TouchpadEdge? occupiedEdge = null;
-        TouchpadEdgeBinding? occupiedBinding = null;
-
-        if (option.Action != GestureActionKind.Disabled)
-        {
-            foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
-            {
-                if (edge == selectedEdge)
-                    continue;
-                TouchpadEdgeBinding existing = bindings.Get(edge).Sanitize();
-                if (existing.Action != option.Action)
-                    continue;
-                occupiedEdge = edge;
-                occupiedBinding = existing;
-                break;
-            }
-        }
-
-        if (occupiedEdge is not TouchpadEdge previous || occupiedBinding is null)
-        {
-            SetSelectedBinding(selectedBinding with { Action = option.Action });
-            return;
-        }
-
-        // Sensitivity/inversion belong to the physical edge, not to the action being
-        // moved. Swap only the action kinds so each edge keeps its own tuning.
-        bindings = WithBinding(
-            bindings,
-            previous,
-            occupiedBinding with { Action = selectedBinding.Action });
-        bindings = WithBinding(
-            bindings,
-            selectedEdge,
-            selectedBinding with { Action = option.Action });
-
-        _configuration = (_configuration with { Bindings = bindings }).Sanitize();
-        _host.UpdateConfiguration(_configuration);
-        Visualizer.Configuration = _configuration;
-        SyncGestureZoneOverlay();
-        SensitivityValue.Text = FormatSensitivity(selectedBinding.Sensitivity);
-
-        GestureStatusText.Text = selectedBinding.Action == GestureActionKind.Disabled
-            ? $"{ActionLabel(option.Action)} moved from {EdgeLabel(previous)} to {EdgeLabel(selectedEdge)}."
-            : $"Swapped {ActionLabel(option.Action)} and {ActionLabel(selectedBinding.Action)} between {EdgeLabel(previous)} and {EdgeLabel(selectedEdge)}.";
     }
 
     private void ApplyTouchpadLayout()
