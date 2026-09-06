@@ -22,23 +22,24 @@ public sealed class TrackControlPolishSourceTests
     [Fact]
     public void StandalonePlayPause_IsRemovedFromMenuAndMigratesIntoTrackControl()
     {
-        string layout = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadPanel.Layout.cs");
+        string panel = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadPanel.xaml.cs");
         string models = ReadSource("src", "ThinkControl.Core", "Touchpad", "GestureModels.cs");
 
-        Assert.Contains("option.Action != GestureActionKind.PlayPause", layout, StringComparison.Ordinal);
+        string actionOptions = Normalize(panel).Split("Visualizer.ZoneSelected += OnZoneSelected;", StringSplitOptions.None)[0];
+        Assert.DoesNotContain("new ActionOption(GestureActionKind.PlayPause", actionOptions, StringComparison.Ordinal);
+        Assert.Contains("new ActionOption(GestureActionKind.PreviousNextTrack", actionOptions, StringComparison.Ordinal);
         Assert.Contains("GestureActionKind.PlayPause => GestureActionKind.PreviousNextTrack", models, StringComparison.Ordinal);
     }
 
     [Fact]
     public void OccupiedEdgeAssignment_SwapsActionsInsteadOfClearingPreviousEdge()
     {
-        string layout = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadPanel.Layout.cs");
+        string panel = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadPanel.xaml.cs");
 
-        Assert.Contains("ActionCombo.SelectionChanged -= ActionCombo_SelectionChanged", layout, StringComparison.Ordinal);
-        Assert.Contains("ActionCombo.SelectionChanged += ActionCombo_SwapSelectionChanged", layout, StringComparison.Ordinal);
-        Assert.Contains("occupiedBinding with { Action = selectedBinding.Action }", layout, StringComparison.Ordinal);
-        Assert.Contains("selectedBinding with { Action = option.Action }", layout, StringComparison.Ordinal);
-        Assert.Contains("Swapped {ActionLabel(option.Action)}", layout, StringComparison.Ordinal);
+        Assert.Contains("occupiedBinding with { Action = selectedBinding.Action }", panel, StringComparison.Ordinal);
+        Assert.Contains("selectedBinding with { Action = option.Action }", panel, StringComparison.Ordinal);
+        Assert.Contains("Swapped {ActionLabel(option.Action)}", panel, StringComparison.Ordinal);
+        Assert.DoesNotContain("movedFrom = edge", panel, StringComparison.Ordinal);
     }
 
     [Fact]
