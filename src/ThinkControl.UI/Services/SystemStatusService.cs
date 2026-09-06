@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using System.Management;
 using System.Text.RegularExpressions;
 using Forms = System.Windows.Forms;
@@ -15,11 +16,49 @@ public sealed record SystemStatusSnapshot(
     string BatteryStatus,
     string Manufacturer);
 
+public sealed record StartupSystemIdentity(
+    string DeviceName,
+    string MachineType,
+    string Manufacturer);
+
 public sealed class SystemStatusService
 {
+    private const string BiosRegistryPath = @"HARDWARE\DESCRIPTION\System\BIOS";
     private static readonly string[] VerifiedX9MachineTypes = ["21Q6", "21Q7"];
     private readonly object _cacheGate = new();
     private StaticSystemIdentity? _cachedIdentity;
+
+    /// <summary>
+    /// Reads only the cheap firmware identity values Windows already exposes in the
+    /// registry. Shell/tray creation and enabled touchpad gestures must not wait for
+    /// the full WMI CPU/GPU/BIOS inventory. The normal Read() path still performs and
+    /// caches that richer inventory later on a background worker.
+    /// </summary>
+    public StartupSystemIdentity ReadStartupIdentity()
+    {
+        try
+        {
+            using RegistryKey? bios = Registry.LocalMachine.OpenSubKey(BiosRegistryPath, writable: false);
+            string manufacturer = ReadRegistryString(bios, "SystemManufacturer") ?? string.Empty;
+            string productName = ReadRegistryString(bios, "SystemProductName") ?? string.Empty;
+            string productVersion = ReadRegistryString(bios, "SystemVersion") ?? string.Empty;
+            string sku = ReadRegistryString(bios, "SystemSKU") ?? string.Empty;
+
+            string machineType = ParseMachineType(sku, productName, productVersion);
+            string deviceName = SelectDeviceName(productVersion, productName);
+            if (string.IsNullOrWhiteSpace(deviceName))
+                deviceName = "Windows laptop";
+
+            return new StartupSystemIdentity(
+                deviceName.Trim(),
+                machineType,
+                manufacturer.Trim());
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            return new StartupSystemIdentity("Windows laptop", "—", string.Empty);
+        }
+    }
 
     public SystemStatusSnapshot Read()
     {
@@ -75,6 +114,17 @@ public sealed class SystemStatusService
                 manufacturer.Trim());
             return _cachedIdentity;
         }
+    }
+
+    private static string? ReadRegistryString(RegistryKey? key, string valueName)
+    {
+        object? value = key?.GetValue(valueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+        return value switch
+        {
+            string text when !string.IsNullOrWhiteSpace(text) => text,
+            string[] values when values.Length > 0 => values.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)),
+            _ => null
+        };
     }
 
     private static string? ReadFirst(string className, string property)
