@@ -371,8 +371,11 @@ internal sealed class ServiceEngine : IDisposable
     {
         if (!_fanSupervisor.ReturnToAuto(out string? fanError))
             return Error(fanError ?? "Lenovo Auto rejected.");
-        if (!_coolingPolicy.ClearProfileOverride(out string? policyError))
-            return Error(policyError ?? "Lenovo firmware cooling profile could not return to the current power-mode policy.");
+        // Explicit Auto is also the recovery path after a service/app restart lost
+        // in-memory ownership of an alpha.41 full-speed override. The coordinator
+        // touches only the exact known boolean feature and verifies the release.
+        if (!_coolingPolicy.RequestFirmwareAuto(out string? policyError))
+            return Error(policyError ?? "Lenovo firmware cooling profile could not return to Auto.");
         return RefreshAndReturnStatus();
     }
 
