@@ -27,7 +27,7 @@ public sealed class StartupResponsivenessSourceTests
     }
 
     [Fact]
-    public void EnabledEdgeGestures_StartDuringSilentTrayStartupWithoutWaitingForWindowActivation()
+    public void EnabledEdgeGestures_StartAtTheEarliestTrayStartupHookBeforeShellDiscovery()
     {
         string root = FindRepositoryRoot();
         string startup = Read(root, "src", "ThinkControl.UI", "Services", "StartupService.cs");
@@ -37,8 +37,9 @@ public sealed class StartupResponsivenessSourceTests
 
         Assert.Contains("CurrentVersion\\Run", startup, StringComparison.Ordinal);
         Assert.Contains("--tray", startup, StringComparison.Ordinal);
-        Assert.Contains("StartConfiguredTouchpadInputForStartup", shell, StringComparison.Ordinal);
-        Assert.Contains("DispatcherPriority.Background", shell, StringComparison.Ordinal);
+        Assert.Contains("StartupSystemIdentity identity = SystemStatusService.ReadStartupIdentity();", shell, StringComparison.Ordinal);
+        Assert.Contains("StartConfiguredTouchpadInputForStartup();", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("DispatcherPriority.Background, new Action(StartConfiguredTouchpadInputForStartup)", shell, StringComparison.Ordinal);
 
         string startupMethod = touchpad.Split("internal void StartConfiguredTouchpadInputForStartup()", StringSplitOptions.None)[1]
             .Split("private void OnTouchpadApplicationActivated", StringSplitOptions.None)[0];
@@ -46,12 +47,15 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("TouchpadFeature.EnsureInputStarted(startupCritical: IsTrayOnlyLaunch())", startupMethod, StringComparison.Ordinal);
         Assert.DoesNotContain("OnTouchpadApplicationActivated(", startupMethod, StringComparison.Ordinal);
 
-        // Activation remains a recovery path, but no longer owns first registration.
-        Assert.Contains("private void OnTouchpadApplicationActivated", touchpad, StringComparison.Ordinal);
-        Assert.Contains("internal bool EnsureInputStarted(bool startupCritical = false)", host, StringComparison.Ordinal);
-        Assert.Contains("startupCritical", host, StringComparison.Ordinal);
-        Assert.Contains("DispatcherPriority.Background", host, StringComparison.Ordinal);
+        // The tray path starts Raw Input synchronously after cheap registry identity,
+        // mirroring the essential-input-first discipline of lightweight helper apps.
+        Assert.Contains("if (startupCritical)", host, StringComparison.Ordinal);
+        Assert.Contains("return !_disposed && _gestures.Start();", host, StringComparison.Ordinal);
         Assert.Contains("DispatcherPriority.ContextIdle", host, StringComparison.Ordinal);
+        Assert.DoesNotContain("DispatcherPriority.Background", host, StringComparison.Ordinal);
+
+        // Activation remains a recovery path for device/session transitions.
+        Assert.Contains("private void OnTouchpadApplicationActivated", touchpad, StringComparison.Ordinal);
     }
 
     private static string Read(string root, params string[] path) =>
