@@ -20,6 +20,10 @@ public static class TrackCenterGesturePolicy
     // noise around the exact swipe boundary from toggling Play/Pause after a skip.
     public const double ButtonTravelToleranceMm = 8.75;
 
+    // Existing recognizer callers use this semantic name. It now means the center
+    // button's movement envelope rather than a short-tap-only slop value.
+    public const double MovementToleranceMm = ButtonTravelToleranceMm;
+
     public const double CenterZoneStart = 0.40;
     public const double CenterZoneEnd = 0.60;
 
