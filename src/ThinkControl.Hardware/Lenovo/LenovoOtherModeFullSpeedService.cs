@@ -3,7 +3,7 @@ using ThinkControl.Hardware.X9;
 
 namespace ThinkControl.Hardware.Lenovo;
 
-internal sealed record LenovoOtherModeFullSpeedStatus(
+public sealed record LenovoOtherModeFullSpeedStatus(
     bool Available,
     bool Writable,
     bool Enabled,
@@ -25,7 +25,7 @@ internal sealed record LenovoOtherModeFullSpeedStatus(
 /// boolean on the exact X9 immediately before the write. Every write is verified by
 /// readback. No arbitrary IDs or values are accepted.
 /// </summary>
-internal static class LenovoOtherModeFullSpeedService
+public static class LenovoOtherModeFullSpeedService
 {
     private const string WmiNamespace = @"root\WMI";
     private const string MethodClass = "LENOVO_OTHER_METHOD";
@@ -36,7 +36,7 @@ internal static class LenovoOtherModeFullSpeedService
     private const uint SupportSet = 1u << 2;
     private const uint RequiredWriteSupport = SupportValid | SupportGet | SupportSet;
 
-    internal static LenovoOtherModeFullSpeedStatus Read(HardwareDeviceIdentity identity)
+    public static LenovoOtherModeFullSpeedStatus Read(HardwareDeviceIdentity identity)
     {
         if (!identity.IsVerifiedX9)
         {
@@ -92,7 +92,7 @@ internal static class LenovoOtherModeFullSpeedService
         }
     }
 
-    internal static bool TrySet(
+    public static bool TrySet(
         HardwareDeviceIdentity identity,
         bool enabled,
         out bool changed,
