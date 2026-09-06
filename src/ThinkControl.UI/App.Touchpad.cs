@@ -10,11 +10,24 @@ public partial class App
     internal TouchpadFeatureHost TouchpadFeature =>
         _touchpadFeature ??= new TouchpadFeatureHost(this);
 
+    internal void StartConfiguredTouchpadInputForStartup()
+    {
+        if (UserSettings.Current.TouchpadGestures?.Enabled != true)
+            return;
+
+        // A --tray Windows startup may never activate a WPF window, so relying on
+        // Application.Activated leaves edge gestures dormant until the user opens
+        // ThinkControl. Start them explicitly once the cheap machine identity and
+        // tray/Compact runtime exist. Silent startup prioritizes registration because
+        // there is no visible destination window whose first paint could be delayed.
+        TouchpadFeature.EnsureInputStarted(startupCritical: IsTrayOnlyLaunch());
+    }
+
     private void OnTouchpadApplicationActivated(object? sender, EventArgs e)
     {
-        // BootstrapWindow can activate before the normal app runtime exists. Do not
-        // construct the touchpad host until preflight has populated the machine type
-        // and the actual tray/compact surface has been created.
+        // Activation remains a recovery path after device/session transitions. The
+        // normal Windows --tray startup no longer depends on this event to make
+        // configured edge gestures usable.
         if (_trayIcon is null || CompactWindow is null)
             return;
 

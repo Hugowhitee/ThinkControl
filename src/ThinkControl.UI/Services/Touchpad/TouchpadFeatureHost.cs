@@ -92,22 +92,25 @@ internal sealed class TouchpadFeatureHost : IDisposable
         hidFeedbackSupported: _gestures.HapticFeedbackSupported,
         hidClickForceSupported: _gestures.ClickForceSupported);
 
-    internal bool EnsureInputStarted()
+    internal bool EnsureInputStarted(bool startupCritical = false)
     {
         if (_disposed)
             return false;
         if (_gestures.IsRunning)
             return true;
 
-        // Raw-input registration includes a connected-device/HID probe. It is useful
-        // work, but it must not sit synchronously inside a page VisibilityChanged or
-        // shell transition. Queue one start after the current render/input work so
-        // Advanced becomes visible first. Enabled gestures still start automatically
-        // at app activation; this only changes when that setup blocks the WPF thread.
+        // Raw-input registration includes a connected-device/HID probe. During an
+        // ordinary page/shell transition it waits until ContextIdle so WPF paints
+        // first. A silent --tray Windows startup has no destination window to protect,
+        // so enabled gestures are queued at Background priority and become usable as
+        // soon as the startup handler yields instead of waiting for a later activation.
         if (Interlocked.CompareExchange(ref _inputStartScheduled, 1, 0) != 0)
             return true;
 
-        _app.Dispatcher.BeginInvoke(DispatcherPriority.ContextIdle, new Action(() =>
+        DispatcherPriority priority = startupCritical
+            ? DispatcherPriority.Background
+            : DispatcherPriority.ContextIdle;
+        _app.Dispatcher.BeginInvoke(priority, new Action(() =>
         {
             try
             {

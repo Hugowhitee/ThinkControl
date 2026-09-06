@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.38** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners. The X9 is the current reference device, not the product boundary.
+Use this checklist for **v0.1.0-alpha.39** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners. The X9 is the current reference device, not the product boundary.
 
 ## Install/update sanity
 
@@ -10,6 +10,19 @@ Use this checklist for **v0.1.0-alpha.38** and later candidates built from it. A
 4. Exercise Check for updates from Home and from Updates. An up-to-date result must not enable an install action, and **Last checked must refresh immediately** on the shared state.
 5. After an in-place update, confirm the previous install directory is preserved and the app relaunches into the expected surface.
 6. A successful update confirmation must remain dismissable and must not strand a topmost notification over Advanced.
+
+## Windows startup and background gestures
+
+Alpha.39 changes application-side `--tray` startup so the rich WMI inventory no longer blocks the synchronous startup path and enabled edge gestures no longer depend on a WPF window activation. The installer still uses the existing per-user Windows Run entry; do not infer real logon timing from hosted CI.
+
+1. In Settings, enable **Start with Windows** and enable at least one easily observable edge gesture, for example volume or brightness.
+2. Sign out/in or reboot. Do **not** manually open ThinkControl after the desktop appears.
+3. Confirm ThinkControl reaches the tray without showing its normal Compact/Advanced surface.
+4. As soon as the tray process is present, use the configured edge gesture. It should work without first clicking the tray icon or activating a ThinkControl window.
+5. Repeat once after a cold reboot and once after sign-out/sign-in. Record roughly how long from desktop availability until the first successful gesture; this is the real Windows-logon startup evidence.
+6. Open ThinkControl afterwards and confirm CPU/GPU/BIOS/system information fills in normally. The fast startup preflight may begin with placeholders internally, but the later background refresh must converge to the same real inventory.
+7. Disable gestures, restart ThinkControl with `--tray`, and confirm raw gesture ownership is not kept alive merely because Start with Windows is enabled.
+8. If the process itself is still launched conspicuously late by Windows even though its own startup is fast, record that separately. Do not work around Windows startup delay by changing a machine-wide Explorer startup-delay registry policy.
 
 ## Crash/shell regression
 
@@ -23,7 +36,7 @@ The recurring `TargetParameterCountException` dispatcher bug was fixed and guard
 
 ## Audio lifecycle regression
 
-The existing Audio navigation-lifecycle guard remains part of the alpha.38 baseline.
+The existing Audio navigation-lifecycle guard remains part of the alpha.39 baseline.
 
 1. Open Advanced → Audio.
 2. Drag output volume, navigate away while dragging, then return.
@@ -43,7 +56,7 @@ The existing Audio navigation-lifecycle guard remains part of the alpha.38 basel
 
 ## Touchpad
 
-Alpha.38 changes both the visual grammar and the optional Track-center interaction. Test the physical pad, not only screenshots.
+Alpha.39 keeps alpha.38's mirrored corner model and finishes the bottom-edge Track interaction. Test the physical pad, not only screenshots.
 
 ### Six-zone editor and corner geometry
 
@@ -58,15 +71,18 @@ Alpha.38 changes both the visual grammar and the optional Track-center interacti
 - Start an ordinary edge gesture outside the corner guard/lane and confirm the edge still behaves normally.
 - Confirm the lane shows a directional arrow and enabled Compact/Advanced corners show the matching semantic icon/text.
 
-### Track-center Play/Pause
+### Integrated Track lane
 
-- Assign **Track control** to an edge and enable the optional center Play/Pause action.
-- Confirm a small Play/Pause target is visibly drawn inside the canonical `TouchpadVisualizer`; there must be no separate hidden overlay target.
-- A short low-travel tap inside that visible target should toggle Play/Pause once.
-- A normal Previous/Next swipe that starts outside the target must remain a track swipe.
-- A swipe crossing the center target must not accidentally become a tap.
-- A long rest or large movement in the target must not commit Play/Pause.
-- User-facing copy/feedback should say **tap**, not hold-and-release.
+- Assign **Track control** to the Bottom edge first, then repeat on another edge if useful.
+- Confirm the selected band stays one continuous lane. Previous, Play/Pause and Next must all sit **inside** that lane; there must be no floating skip icons and no separate rounded Play/Pause pill.
+- Confirm there is no separate **Center play / pause** option in the selected-edge settings UI. Track control itself owns all three segments.
+- The center Play/Pause segment should span about 20% of the lane, stay visibly distinct with subtle separators/fill, and be easy to target deliberately.
+- A short low-travel tap anywhere inside that center segment should toggle Play/Pause once.
+- A normal Previous/Next swipe from the surrounding lane must remain a track swipe.
+- A swipe that begins in or crosses the center segment must not accidentally become a tap once the general edge recognizer has claimed the movement.
+- A long rest or movement beyond the bounded tap tolerance must not commit Play/Pause.
+- Confirm Track still requires the existing deliberate ~9 mm skip threshold; increasing the center hitbox must not turn tiny swipes into Previous/Next commands.
+- User-facing copy/feedback should say **tap** / **center segment**, not hold-and-release or a separately enabled center control.
 
 ### Reverse-close and lifecycle
 
@@ -84,45 +100,68 @@ Inspect the final CI artifact at minimum/normal/wide widths and light/dark where
 
 - `advanced-touchpad.png`;
 - `advanced-touchpad-wide.png`;
+- `advanced-touchpad-light.png`;
 - `advanced-touchpad-top-left-selected.png`;
 - `advanced-touchpad-top-right-selected.png`;
 - `advanced-touchpad-top-left-live.png`;
 - `advanced-touchpad-top-right-live.png`.
 
-The two selected fixtures and two live fixtures must remain mirrored and the visible center Track target must fit naturally into the same visualizer.
+The wide fixture exercises live Bottom Track control. Verify the three Track glyphs are inside one continuous band, the center segment has no floating pill, the active direction is legible, and any `Next` value badge reads as feedback rather than as a fourth lane control. Corner selected/live fixtures must remain mirrored.
 
 ## Fans and hardware providers
 
-Alpha.38 keeps alpha.37's reviewed X9 low-level fan boundaries but changes the **generic product contract**: calibration belongs to the active provider capability, not to a model name in the UI.
+Alpha.39 incorporates **negative physical evidence** from the alpha.38 X9 direct target-RPM writer without disabling the normal cooling profiles. Hosted CI can guard the architecture but cannot prove acoustic/thermal behavior on the real laptop.
 
 - Unsupported devices must remain safe/read-only.
-- Fan writes must be enabled only after a concrete provider passes its own safety gate; model identity by itself is not permission to write.
-- The Fans page must not decide that `21Q6`, `21Q7`, `X9` or `Lenovo` means calibration is required.
-- `FanCalibrationSupported` / `FanCalibrationRequired` must drive the calibration card, Inbox attention and dependent-control lock.
-- A provider that does not require calibration must not inherit the X9 discrete fallback setup flow.
-- While calibration is running, competing fan controls must remain locked and firmware/OEM Auto must be restored after finish/stop/failure.
+- A direct fan writer must be enabled only after a concrete provider passes both its code/provider gate and any required real-device acceptance gate; model identity or VALID+GET+SET metadata by itself is not permission to write.
+- A semantic firmware-policy backend must remain distinct from direct RPM/PWM control. It may expose named built-ins without exposing manual percentages, raw EC states or custom direct curves.
+- The Fans page must not decide that `21Q6`, `21Q7`, `X9` or `Lenovo` means direct calibration is required.
+- `FanCalibrationSupported` / `FanCalibrationRequired` must drive the calibration task and dependent direct-control lock.
+- While direct calibration is running, competing direct fan controls must remain locked and firmware/OEM Auto must be restored after finish/stop/failure.
+- Once calibration is complete/ready, the calibration card should **disappear from the top of the Fans page**.
 - A failed/partial calibration must not replace a previously verified complete mapping.
-- Test firmware/OEM Auto return after every ThinkControl-owned manual/custom fan state.
-- Do not interpret a visible UI control as proof that a hardware write succeeded; verify status and physical response.
+- Manual percentage controls must be hidden on the X9 firmware-policy backend and whenever no verified direct writer exists.
+- When a direct writer exists, manual percentage tests must present themselves as temporary tests, run for at most 30 seconds by default, expose **End test**, and restore the previous profile automatically.
+- **Raw EC diagnostics** must appear only when the active provider explicitly exposes the discrete-EC semantic contract.
+- Do not interpret a visible profile selector as proof of direct fan ownership; firmware-policy profiles deliberately keep Lenovo in the fan loop.
 - If PawnIO is missing/stale, test the existing repair/restart path before changing EC assumptions.
-- Manual percentage and graph-curve operations should appear as fan-control diagnostics and identify the active provider rather than always claiming ThinkPad EC.
 
-### Current exact-X9 physical sequence
+### Current exact-X9 physical state
 
-Current exact-X9 evidence established before alpha.38 that the EC investigation path can expose both physical fan RPMs, but EC maximum output remained below naturally hot Lenovo Auto and could sound electronically buzzy/wavy. That negative evidence is why the product does not treat EC state 7 as Lenovo's physical maximum.
+The alpha.38 Lenovo Other Mode target-RPM writer has **failed its physical finished-product gate** on the reference X9:
 
-Use this order on alpha.38:
+- a fixed ThinkControl target repeatedly speeds up and slows down instead of settling smoothly;
+- the audible behavior matches the previously documented wave/re-kick concern;
+- nominal ThinkControl 100% remains below naturally hot firmware Auto;
+- `FanSupervisor` does not continuously rewrite a manual target while it is active, so this is not explained by the service's normal supervision loop.
 
-1. Install/restart normally and start in firmware/Lenovo Auto.
-2. Open Advanced → Fans and record provider/detail plus Fan 1/Fan 2 sources.
-3. If `Lenovo Other Mode direct target-RPM` is active, test manual **25 → 50 → 75 → 100%** with time to settle. Confirm both fans move plausibly and that the earlier repeating wave/re-kick/buzzy character is absent.
-4. Compare 100% with naturally hot Lenovo Auto without assuming Fan Test metadata equals the absolute physical ceiling.
-5. Return to Lenovo Auto repeatedly. Both ThinkControl-owned target channels must release cleanly with no stale target or persistent divergence.
-6. If only EnergyDrv native telemetry is available, keep control read-only and confirm Fan 1/Fan 2 readings plausibly track physical sound.
-7. If the discrete EC fallback is active, confirm the calibration card appears because its provider capability requires a mapping. Complete the real tachometer calibration before judging percentage curves.
-8. Stop a calibration mid-run and confirm Auto is restored and no partial result is promoted.
-9. Export a Diagnostics support bundle after observation so provider/source distinctions can be compared with physical behavior.
-10. The separate ambiguous `0x40` EC family remains blocked; do not brute-force unknown write encodings.
+Alpha.39 therefore keeps Other Mode/native Fan 1 + Fan 2 telemetry but does not use that writer for normal cooling. It also does not compensate by writing beyond Lenovo's Fan Test ranges or silently falling back to the known-inferior EC path.
+
+Instead, built-in profiles use the already reviewed exact-X9 Lenovo LITSSvc firmware thermal-policy path:
+
+```text
+Quiet        -> Lenovo Quiet policy
+Balanced     -> Lenovo Balanced policy
+Max cooling  -> Lenovo Performance cooling policy
+Auto         -> clear cooling override and restore current power-policy baseline
+```
+
+Use this order on alpha.39:
+
+1. Install/restart normally and start in Auto. Confirm the Fans page still offers **Auto, Quiet, Balanced and Max cooling**.
+2. Record provider/detail plus Fan 1/Fan 2 sources. Native telemetry may come from Other Mode or EnergyDrv even though the direct writer remains rejected.
+3. Select **Quiet** under a modest repeatable workload. Confirm Lenovo firmware remains the owner, fan behavior is smooth, and the system is audibly/thermally less aggressive than Balanced where conditions permit.
+4. Select **Balanced** under the same workload and confirm stable normal Lenovo-managed behavior without the alpha.38 periodic re-kick pattern.
+5. Select **Max cooling** under a sufficiently warm workload. Confirm it reaches the useful high-cooling Lenovo firmware behavior and remains smooth; compare against naturally hot Lenovo Auto/Performance behavior rather than a fake fixed-RPM number.
+6. While a non-Auto cooling profile is active, change Windows Performance mode. Confirm the cooling profile remains selected/active rather than being silently overwritten.
+7. Select **Auto**. Confirm the latest Windows/Lenovo power-policy baseline is restored and cooling remains firmware-owned.
+8. Confirm custom curve editing, manual percentage tests and Raw EC diagnostics are **not** exposed on the firmware-policy backend unless a separate physically accepted direct provider is actually active.
+9. Confirm the native telemetry safety latch prevents a transient native read failure from exposing the EC writer.
+10. If updating from alpha.38 after stale direct target ownership, explicitly select Auto and confirm both channels settle back under Lenovo firmware ownership.
+11. Export a Diagnostics support bundle after observation so provider/source distinctions can be compared with physical behavior.
+12. The ambiguous `0x40` EC family remains blocked; do not brute-force unknown write encodings.
+
+A future X9 direct writer may be enabled only after it independently passes: two real channels, stable fixed-target settling without repeated wave/re-kick, useful high-cooling range comparable with naturally hot Auto, and repeated clean Auto handoff. Hosted CI alone cannot satisfy those checks.
 
 The service-lifetime native-telemetry latch is intentionally not persisted across reboot/service restart yet. Persisting it without a BIOS/driver-aware evidence key could make an old capability observation survive a real platform change.
 
@@ -161,4 +200,4 @@ Before calling a candidate releasable, require:
 - promotion/tag verification and an immutable prerelease with exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`;
 - successful checksum verification of the published Setup/Payload.
 
-Physical hardware checks above remain follow-up evidence and should be recorded honestly rather than converted into automated claims.
+Physical hardware checks above remain a separate evidence class and should be recorded honestly rather than converted into automated claims.

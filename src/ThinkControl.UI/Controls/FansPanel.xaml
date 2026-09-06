@@ -165,26 +165,29 @@
             </Border>
         </Grid>
 
-        <Expander x:Name="ManualControlExpander" Header="Advanced manual control" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
+        <Expander x:Name="ManualControlExpander" Header="Temporary fan test" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
             <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
                 <StackPanel>
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="Manual fan target" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ManualControlDescriptionText" Text="Manual targets use only the range exposed by the active verified provider. Firmware Auto remains a separate mode and is restored automatically when a temporary test ends."
+                            <TextBlock Text="Temporary fan target" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="Run a temporary 30-second target test through the active verified provider. The previous profile is restored automatically when the test ends."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
-                        <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" VerticalAlignment="Top" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
+                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">
+                            <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
+                            <TextBlock Text="30 s test" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,3,0,0" />
+                        </StackPanel>
                     </Grid>
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <Slider x:Name="ManualPercentSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" Value="50" TickFrequency="1" ValueChanged="ManualPercentSlider_ValueChanged" />
-                        <Button x:Name="ManualPercentApplyButton" Grid.Column="1" Content="Apply" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
+                        <Button x:Name="ManualPercentApplyButton" Grid.Column="1" Content="Start test" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
                     </Grid>
 
-                    <Expander x:Name="RawEcStepsExpander" Header="Raw verified EC steps" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
+                    <Expander x:Name="RawEcStepsExpander" Header="Raw EC diagnostics" Style="{StaticResource FanExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
-                            <TextBlock Text="Diagnostic fallback only. The highest exposed standard EC state is not a claim about firmware Auto's hottest or the absolute physical fan ceiling."
+                            <TextBlock Text="Provider-only diagnostic. These raw states appear only when the active provider explicitly exposes a verified discrete-EC contract. Selecting a state starts the same temporary 30-second test and restores the previous profile automatically."
                                        Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
                             <Grid>
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>

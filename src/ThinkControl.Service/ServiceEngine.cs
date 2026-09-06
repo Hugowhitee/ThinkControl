@@ -16,6 +16,7 @@ internal sealed class ServiceEngine : IDisposable
 
     private readonly LenovoHardwareController _hardware = new();
     private readonly FanSupervisor _fanSupervisor;
+    private readonly LenovoCoolingPolicyCoordinator _coolingPolicy;
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly object _statusGate = new();
     private readonly SemaphoreSlim _statusWake = new(0, 1);
@@ -23,7 +24,11 @@ internal sealed class ServiceEngine : IDisposable
     private ServiceResponse? _lastStatus;
     private bool _disposed;
 
-    internal ServiceEngine() => _fanSupervisor = new FanSupervisor(_hardware);
+    internal ServiceEngine()
+    {
+        _fanSupervisor = new FanSupervisor(_hardware);
+        _coolingPolicy = new LenovoCoolingPolicyCoordinator(_hardware);
+    }
 
     internal async Task RunAsync(CancellationToken cancellationToken)
     {
@@ -250,6 +255,8 @@ internal sealed class ServiceEngine : IDisposable
     {
         LenovoHardwareStatus status = _hardware.ReadStatus();
         CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
+        LenovoCoolingPolicySnapshot firmwareCooling = _coolingPolicy.Snapshot();
+        bool firmwareOverride = firmwareCooling.OverrideActive;
         FanTelemetrySnapshot[] fans = status.Fans.Select((fan, index) =>
             new FanTelemetrySnapshot(fan.Id, fan.Label, fan.Rpm, fan.Source, index == 0)).ToArray();
         HardwareSensorSnapshot[] sensors = status.Sensors.Select(sensor =>
@@ -269,17 +276,23 @@ internal sealed class ServiceEngine : IDisposable
             Sensors: sensors,
             ControlTemperatureC: status.ControlTemperatureC,
             ControlTemperatureSource: status.ControlTemperatureSource,
-            CoolingProfile: cooling.Profile,
-            CoolingAppliedLevel: cooling.AppliedLevel,
-            CoolingSmoothedTemperatureC: cooling.SmoothedTemperatureC,
-            CoolingStatus: cooling.Status,
-            CoolingSafetyOverride: cooling.SafetyOverride,
+            CoolingProfile: firmwareOverride ? firmwareCooling.Profile : cooling.Profile,
+            CoolingAppliedLevel: firmwareOverride ? null : cooling.AppliedLevel,
+            CoolingSmoothedTemperatureC: firmwareOverride ? null : cooling.SmoothedTemperatureC,
+            CoolingStatus: firmwareOverride ? firmwareCooling.Status : cooling.Status,
+            CoolingSafetyOverride: firmwareOverride ? false : cooling.SafetyOverride,
             FanCharacterization: cooling.Characterization,
-            CoolingProfileId: cooling.ProfileId,
-            CoolingAppliedPercent: cooling.AppliedPercent,
+            CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
+            CoolingAppliedPercent: firmwareOverride ? null : cooling.AppliedPercent,
             KeyboardBackend: status.KeyboardBackend);
 
-        string fanControlKind = ToFanControlKind(status.FanControlKind);
+        bool firmwareProfileControl = firmwareCooling.Supported;
+        bool productFanControl = status.CanFanControl || firmwareProfileControl;
+        string fanControlKind = status.CanFanControl
+            ? ToFanControlKind(status.FanControlKind)
+            : firmwareProfileControl
+                ? FanControlKinds.FirmwarePolicy
+                : FanControlKinds.None;
         bool fanCalibrationSupported = status.CanFanControl &&
                                        status.CanFanTelemetry &&
                                        string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
@@ -299,7 +312,7 @@ internal sealed class ServiceEngine : IDisposable
 
         var capabilities = new HardwareCapabilitySnapshot(
             status.CanFanTelemetry,
-            status.CanFanControl,
+            productFanControl,
             status.CanKeyboardBacklight,
             status.CanCpuTemperature,
             status.CanSensorTelemetry,
@@ -354,13 +367,44 @@ internal sealed class ServiceEngine : IDisposable
         return _fanSupervisor.SetManualPercent(percent, out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Fan percentage rejected.");
     }
 
-    private ServiceResponse ReturnFanToAuto() =>
-        _fanSupervisor.ReturnToAuto(out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Lenovo Auto rejected.");
+    private ServiceResponse ReturnFanToAuto()
+    {
+        if (!_fanSupervisor.ReturnToAuto(out string? fanError))
+            return Error(fanError ?? "Lenovo Auto rejected.");
+        if (!_coolingPolicy.ClearProfileOverride(out string? policyError))
+            return Error(policyError ?? "Lenovo firmware cooling profile could not return to the current power-mode policy.");
+        return RefreshAndReturnStatus();
+    }
 
     private ServiceResponse SetCoolingProfile(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return Error("Fan profile is missing.");
-        return _fanSupervisor.SetProfile(value, out string? error) ? RefreshAndReturnStatus() : Error(error ?? "Fan profile rejected.");
+        string normalized = value.Trim();
+        if (normalized.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
+            normalized.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+        {
+            return ReturnFanToAuto();
+        }
+
+        LenovoHardwareStatus status = _hardware.ReadStatus();
+        if (_coolingPolicy.Supported && !status.CanFanControl && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
+        {
+            // Release any stale ThinkControl-owned direct target first. The profile
+            // itself is then owned and smoothed by Lenovo firmware/LITSSvc instead of
+            // the physically rejected target-RPM writer or the inferior EC fallback.
+            if (!_fanSupervisor.ReturnToAuto(out string? handoffError))
+                return Error(handoffError ?? "Could not return direct fan ownership to Lenovo Auto before applying the firmware profile.");
+            return _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError)
+                ? RefreshAndReturnStatus()
+                : Error(policyError ?? "Lenovo firmware cooling profile rejected the request.");
+        }
+
+        if (_coolingPolicy.Snapshot().OverrideActive && !_coolingPolicy.ClearProfileOverride(out string? clearError))
+            return Error(clearError ?? "The active Lenovo firmware cooling override could not be cleared before direct fan control.");
+
+        return _fanSupervisor.SetProfile(normalized, out string? error)
+            ? RefreshAndReturnStatus()
+            : Error(error ?? "Fan profile rejected.");
     }
 
     private ServiceResponse SetCoolingCurve(string? value)
@@ -371,6 +415,17 @@ internal sealed class ServiceEngine : IDisposable
         FanCurveDefinition? definition;
         try { definition = JsonSerializer.Deserialize<FanCurveDefinition>(value, JsonOptions); }
         catch (JsonException) { return Error("Fan curve is malformed."); }
+        if (definition is null)
+            return Error("Fan curve is missing.");
+
+        LenovoHardwareStatus status = _hardware.ReadStatus();
+        if (_coolingPolicy.Supported && !status.CanFanControl && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(definition.Id))
+            return SetCoolingProfile(definition.Name);
+        if (_coolingPolicy.Supported && !status.CanFanControl)
+            return Error("Custom fan curves require a physically accepted direct fan writer. Built-in Quiet, Balanced and Max cooling remain available through Lenovo firmware policy.");
+
+        if (_coolingPolicy.Snapshot().OverrideActive && !_coolingPolicy.ClearProfileOverride(out string? clearError))
+            return Error(clearError ?? "The active Lenovo firmware cooling override could not be cleared before applying a direct curve.");
 
         return _fanSupervisor.SetCurve(definition, out string? error)
             ? RefreshAndReturnStatus()
@@ -382,9 +437,16 @@ internal sealed class ServiceEngine : IDisposable
         if (string.IsNullOrWhiteSpace(value))
             return Error("Custom cooling curve is missing.");
 
+        LenovoHardwareStatus status = _hardware.ReadStatus();
+        if (_coolingPolicy.Supported && !status.CanFanControl)
+            return Error("Custom fan curves require a physically accepted direct fan writer. Built-in firmware cooling profiles remain available.");
+
         double[]? thresholds;
         try { thresholds = JsonSerializer.Deserialize<double[]>(value, JsonOptions); }
         catch (JsonException) { return Error("Custom cooling curve is malformed."); }
+
+        if (_coolingPolicy.Snapshot().OverrideActive && !_coolingPolicy.ClearProfileOverride(out string? clearError))
+            return Error(clearError ?? "The active Lenovo firmware cooling override could not be cleared before applying a custom curve.");
 
         return _fanSupervisor.SetCustomCurve(thresholds, out string? error)
             ? RefreshAndReturnStatus()
@@ -409,7 +471,7 @@ internal sealed class ServiceEngine : IDisposable
     private ServiceResponse SetThermalMode(string? value)
     {
         if (string.IsNullOrWhiteSpace(value)) return Error("Thermal mode is missing.");
-        return LenovoThermalPolicyService.TrySetX9Policy(_hardware.Identity, value, out string? detail)
+        return _coolingPolicy.SetBasePowerMode(value, out string? detail)
             ? new ServiceResponse(ThinkControlProtocol.Version, true, detail)
             : Error(detail ?? "Lenovo thermal policy rejected the request.");
     }
@@ -430,6 +492,7 @@ internal sealed class ServiceEngine : IDisposable
         _disposeCts.Cancel();
         try { _statusWake.Release(); } catch { }
         try { _statusRefreshTask?.Wait(TimeSpan.FromSeconds(1)); } catch { }
+        try { _coolingPolicy.ClearProfileOverride(out _); } catch { }
         _fanSupervisor.Dispose();
         _hardware.Dispose();
         _statusWake.Dispose();

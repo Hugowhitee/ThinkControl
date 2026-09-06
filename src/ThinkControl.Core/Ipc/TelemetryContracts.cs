@@ -11,6 +11,7 @@ public static class FanControlKinds
     public const string None = "None";
     public const string DiscreteEc = "ThinkPadEcDiscrete";
     public const string OemTargetRpm = "LenovoOtherModeTargetRpm";
+    public const string FirmwarePolicy = "LenovoFirmwarePolicy";
 }
 
 public sealed record ServiceRequest(

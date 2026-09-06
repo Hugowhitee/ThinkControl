@@ -208,7 +208,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             DrawEdgeBand(dc, pad, edge, accent, muted, faint);
         DrawCornerZone(dc, pad, TouchpadCorner.TopLeft, accent, muted, faint);
         DrawCornerZone(dc, pad, TouchpadCorner.TopRight, accent, muted, faint);
-        DrawTrackCenterZone(dc, pad, surface, muted, accent);
+        DrawTrackLane(dc, pad, muted, accent);
         DrawTrail(dc, pad, accent);
         dc.Pop();
 
@@ -483,7 +483,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         }
     }
 
-    private void DrawTrackCenterZone(DrawingContext dc, Rect pad, Brush surface, Brush muted, Brush accent)
+    private void DrawTrackLane(DrawingContext dc, Rect pad, Brush muted, Brush accent)
     {
         if (!_configuration.TrackCenterPlayPauseEnabled)
             return;
@@ -495,24 +495,74 @@ public sealed class TouchpadVisualizer : FrameworkElement
         if (trackEdge is not TouchpadEdge edge)
             return;
 
-        Rect zone = TrackCenterRect(pad, edge);
-        bool live = _signal?.Edge == edge &&
-                    _signal.Action == GestureActionKind.PreviousNextTrack &&
-                    _signal.Phase == GesturePhase.Candidate &&
-                    TrackCenterGesturePolicy.IsInsideCenterZone(_signal.EdgePosition01);
-        Brush source = live ? accent : muted;
-        var pen = new Pen(TransparentClone(source, live ? 1.0 : 0.62), live ? 1.8 : 1.2)
-        {
-            StartLineCap = PenLineCap.Round,
-            EndLineCap = PenLineCap.Round,
-            LineJoin = PenLineJoin.Round
-        };
-        double radius = Math.Min(5, Math.Min(zone.Width, zone.Height) / 2);
-        dc.DrawRoundedRectangle(TransparentClone(surface, live ? 0.96 : 0.82), pen, zone, radius, radius);
+        TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
+        Rect band = EdgeBandRect(pad, edge);
+        Rect centerZone = TrackCenterRect(pad, edge);
+        Geometry visibleBand = EdgeBandVisualGeometry(pad, edge);
+        bool vertical = edge is TouchpadEdge.Left or TouchpadEdge.Right;
+        bool selected = _selectedZone.Edge == edge;
+        bool hovered = _hoverZone?.Edge == edge;
+        bool active = IsActiveEdge(edge);
+        bool centerLive = _signal?.Edge == edge &&
+                          _signal.Action == GestureActionKind.PreviousNextTrack &&
+                          _signal.Phase == GesturePhase.Candidate &&
+                          TrackCenterGesturePolicy.IsInsideCenterZone(_signal.EdgePosition01);
 
-        WpfPoint center = new(zone.Left + zone.Width / 2, zone.Top + zone.Height / 2);
-        Brush icon = live ? accent : ResourceBrush("Tc.TextMuted", muted);
-        DrawMaterialIcon(dc, SemanticIconKeys.PlayPause, new Rect(center.X - 7.5, center.Y - 7.5, 15, 15), icon);
+        double centerOpacity = centerLive ? 0.26 : selected ? 0.16 : hovered ? 0.14 : 0.10;
+        var separator = new Pen(
+            TransparentClone(centerLive ? accent : muted, centerLive ? 0.82 : selected || hovered ? 0.46 : 0.32),
+            centerLive ? 1.5 : 1.0)
+        {
+            StartLineCap = PenLineCap.Flat,
+            EndLineCap = PenLineCap.Flat
+        };
+
+        dc.PushClip(visibleBand);
+        dc.DrawRectangle(TransparentClone(centerLive ? accent : muted, centerOpacity), null, centerZone);
+        if (vertical)
+        {
+            dc.DrawLine(separator, new WpfPoint(band.Left, centerZone.Top), new WpfPoint(band.Right, centerZone.Top));
+            dc.DrawLine(separator, new WpfPoint(band.Left, centerZone.Bottom), new WpfPoint(band.Right, centerZone.Bottom));
+        }
+        else
+        {
+            dc.DrawLine(separator, new WpfPoint(centerZone.Left, band.Top), new WpfPoint(centerZone.Left, band.Bottom));
+            dc.DrawLine(separator, new WpfPoint(centerZone.Right, band.Top), new WpfPoint(centerZone.Right, band.Bottom));
+        }
+        dc.Pop();
+
+        TouchpadActionVisualSpec spec = TouchpadActionVisualCatalog.Get(GestureActionKind.PreviousNextTrack);
+        TouchpadVisualCue firstCue;
+        TouchpadVisualCue lastCue;
+        if (vertical)
+        {
+            firstCue = binding.Inverted ? spec.Negative : spec.Positive;
+            lastCue = binding.Inverted ? spec.Positive : spec.Negative;
+        }
+        else
+        {
+            firstCue = binding.Inverted ? spec.Positive : spec.Negative;
+            lastCue = binding.Inverted ? spec.Negative : spec.Positive;
+        }
+
+        double physicalDelta = vertical
+            ? -(_signal?.DeltaMm ?? 0)
+            : (_signal?.DeltaMm ?? 0);
+        bool firstActive = active && (vertical ? physicalDelta > 0.01 : physicalDelta < -0.01);
+        bool lastActive = active && (vertical ? physicalDelta < -0.01 : physicalDelta > 0.01);
+        Brush idleIcon = TransparentClone(muted, selected ? 0.96 : hovered ? 0.86 : 0.70);
+        Brush centerIcon = centerLive ? accent : idleIcon;
+
+        WpfPoint firstPoint = TrackLanePoint(pad, edge, 0.22);
+        WpfPoint centerPoint = TrackLanePoint(pad, edge, 0.50);
+        WpfPoint lastPoint = TrackLanePoint(pad, edge, 0.78);
+        DrawCue(dc, firstCue, firstPoint, firstActive ? accent : idleIcon, vertical);
+        DrawMaterialIcon(
+            dc,
+            SemanticIconKeys.PlayPause,
+            new Rect(centerPoint.X - 8.25, centerPoint.Y - 8.25, 16.5, 16.5),
+            centerIcon);
+        DrawCue(dc, lastCue, lastPoint, lastActive ? accent : idleIcon, vertical);
     }
 
     private void DrawCornerLabel(
@@ -666,16 +716,19 @@ public sealed class TouchpadVisualizer : FrameworkElement
             bool enabled = binding.Action != GestureActionKind.Disabled;
             Brush labelBrush = active || candidate ? accent : selected ? ResourceBrush("Tc.Text", muted) : hovered ? ResourceBrush("Tc.Text", muted) : enabled ? muted : faint;
             Rect band = EdgeBandRect(pad, edge);
+            bool integratedTrack = binding.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled;
 
-            WpfPoint point = edge switch
-            {
-                TouchpadEdge.Top => new(pad.Left + pad.Width / 2, band.Bottom + 13),
-                TouchpadEdge.Bottom => new(pad.Left + pad.Width / 2, band.Top - 13),
-                TouchpadEdge.Left => new(band.Right + 25, pad.Top + pad.Height / 2),
-                _ => new(band.Left - 25, pad.Top + pad.Height / 2)
-            };
+            WpfPoint point = integratedTrack
+                ? TrackLanePoint(pad, edge, 0.50)
+                : edge switch
+                {
+                    TouchpadEdge.Top => new(pad.Left + pad.Width / 2, band.Bottom + 13),
+                    TouchpadEdge.Bottom => new(pad.Left + pad.Width / 2, band.Top - 13),
+                    TouchpadEdge.Left => new(band.Right + 25, pad.Top + pad.Height / 2),
+                    _ => new(band.Left - 25, pad.Top + pad.Height / 2)
+                };
 
-            if (TouchpadActionVisualCatalog.Get(binding.Action).Motion == TouchpadGestureMotionKind.Inward)
+            if (!integratedTrack && TouchpadActionVisualCatalog.Get(binding.Action).Motion == TouchpadGestureMotionKind.Inward)
             {
                 point = edge switch
                 {
@@ -686,7 +739,8 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 };
             }
 
-            DrawActionGlyph(dc, edge, point, binding, labelBrush, accent, active, candidate);
+            if (!integratedTrack)
+                DrawActionGlyph(dc, edge, point, binding, labelBrush, accent, active, candidate);
 
             if (_activeFeedbackEdge == edge && !string.IsNullOrWhiteSpace(_activeFeedbackText))
                 DrawValueBadge(dc, pad, edge, point, _activeFeedbackText!, accent, 1, live: true);
@@ -894,31 +948,29 @@ public sealed class TouchpadVisualizer : FrameworkElement
         Rect band = EdgeBandRect(pad, edge);
         double start = TrackCenterGesturePolicy.CenterZoneStart;
         double end = TrackCenterGesturePolicy.CenterZoneEnd;
-        const double inset = 2.5;
 
         return edge switch
         {
-            TouchpadEdge.Top => new Rect(
+            TouchpadEdge.Top or TouchpadEdge.Bottom => new Rect(
                 pad.Left + pad.Width * start,
-                band.Top + inset,
+                band.Top,
                 pad.Width * (end - start),
-                Math.Max(12, band.Height - inset * 2)),
-            TouchpadEdge.Bottom => new Rect(
-                pad.Left + pad.Width * start,
-                band.Bottom - Math.Max(12, band.Height - inset * 2) - inset,
-                pad.Width * (end - start),
-                Math.Max(12, band.Height - inset * 2)),
-            TouchpadEdge.Left => new Rect(
-                band.Left + inset,
-                pad.Top + pad.Height * start,
-                Math.Max(12, band.Width - inset * 2),
-                pad.Height * (end - start)),
+                band.Height),
             _ => new Rect(
-                band.Right - Math.Max(12, band.Width - inset * 2) - inset,
+                band.Left,
                 pad.Top + pad.Height * start,
-                Math.Max(12, band.Width - inset * 2),
+                band.Width,
                 pad.Height * (end - start))
         };
+    }
+
+    private WpfPoint TrackLanePoint(Rect pad, TouchpadEdge edge, double position01)
+    {
+        Rect band = EdgeBandRect(pad, edge);
+        double position = Math.Clamp(position01, 0, 1);
+        return edge is TouchpadEdge.Top or TouchpadEdge.Bottom
+            ? new WpfPoint(pad.Left + pad.Width * position, band.Top + band.Height / 2)
+            : new WpfPoint(band.Left + band.Width / 2, pad.Top + pad.Height * position);
     }
 
     private TouchpadZoneSelection? HitZone(Rect pad, WpfPoint point)

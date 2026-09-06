@@ -42,33 +42,16 @@ public partial class TouchpadPanel
     {
         bool tracks = ActionCombo.SelectedItem is ActionOption option &&
                       option.Action == GestureActionKind.PreviousNextTrack;
-        TrackCenterRow.Visibility = tracks ? Visibility.Visible : Visibility.Collapsed;
-        TrackCenterPlayPauseSwitch.IsChecked = _configuration.TrackCenterPlayPauseEnabled;
 
         if (tracks)
         {
-            ActionHelpText.Text = _configuration.TrackCenterPlayPauseEnabled
-                ? "Swipe left/right for Previous / Next. Tap the small outlined center target for Play / Pause; normal swipes outside it keep track control."
-                : "Swipe left/right for Previous / Next. Enable the optional center target if you also want a direct Play / Pause tap.";
+            ActionHelpText.Text =
+                "Use the left and right lane segments for Previous / Next. Tap the wider center segment for Play / Pause; all three actions share one continuous edge lane.";
         }
 
-        // The selectable edge/corner fills and the optional center media target now
-        // share TouchpadVisualizer as one rendering owner.
+        // Edge/corner rendering plus the integrated Track center segment share the
+        // canonical TouchpadVisualizer. There is no auxiliary center option/overlay.
         Visualizer.Configuration = _configuration;
-    }
-
-    private void TrackCenterPlayPause_Click(object sender, RoutedEventArgs e)
-    {
-        if (_syncing || _host is null)
-            return;
-
-        _configuration = (_configuration with
-        {
-            TrackCenterPlayPauseEnabled = TrackCenterPlayPauseSwitch.IsChecked == true
-        }).Sanitize();
-        _host.UpdateConfiguration(_configuration);
-        Visualizer.Configuration = _configuration;
-        SyncTrackCenterOption();
     }
 
     private static void EnsureValueColumnWidth(TextBlock value, double minimumWidth)

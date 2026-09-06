@@ -55,9 +55,12 @@ public sealed class FanAutoHandoffSourceTests
         Assert.Contains("Saved firmware Auto preference could not be reasserted", cooling, StringComparison.Ordinal);
         Assert.Contains("State.CoolingProfile = \"Lenovo Auto\";", cooling, StringComparison.Ordinal);
 
-        // The exact-X9 branch is a narrowly documented recovery exception for a
-        // stale ThinkControl-owned target, not the product-wide calibration model.
-        Assert.Contains("it is not the product-wide calibration rule", cooling, StringComparison.Ordinal);
+        // The exact-X9 Auto exception remains narrowly scoped to stale-target recovery;
+        // normal profile restoration is capability-driven. Firmware-backed profiles
+        // also seed the current Windows power mode as their restore baseline.
+        Assert.Contains("if (response.Capabilities?.FanControl != true && !(wantsAuto && verifiedX9))", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedMode)", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetCoolingProfileAsync(definition.Name)", cooling, StringComparison.Ordinal);
 
         // Do not regress to a UI-only restore that merely paints the selector as Auto
         // without asking the service/hardware to hand ownership back.
@@ -78,15 +81,15 @@ public sealed class FanAutoHandoffSourceTests
         Assert.Contains("if (!choice.Selectable || ProfileIdsEqual(choice.Id, _currentProfileId))", fans, StringComparison.Ordinal);
         Assert.DoesNotContain("ProfileComboBox.SelectedItem = selected ?? _profileChoices.FirstOrDefault();", fans, StringComparison.Ordinal);
 
-        Assert.Contains("if (IsManualFanState(current))", compact, StringComparison.Ordinal);
+        Assert.Contains("if (IsManualFanState(current) && !firmwarePolicy)", compact, StringComparison.Ordinal);
         Assert.Contains("values.Add(current);", compact, StringComparison.Ordinal);
         Assert.Contains("if (IsManualFanState(raw))", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => \"Auto\"", compact, StringComparison.Ordinal);
 
-        Assert.Contains("if (e.PropertyName == nameof(ViewModels.AppState.CoolingProfile))", home, StringComparison.Ordinal);
-        Assert.Contains("if (manual)\n                values.Add(selected);", home, StringComparison.Ordinal);
+        Assert.Contains("bool manual = IsManualHomeFanState(selected);", home, StringComparison.Ordinal);
+        Assert.Contains("if (manual && !firmwarePolicy)\n                values.Add(selected);", home, StringComparison.Ordinal);
         Assert.Contains("IsManualHomeFanState(profile)", home, StringComparison.Ordinal);
-        Assert.Contains("manual target is shown truthfully", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("IsManualHomeFanState(selected) => \"Auto\"", home, StringComparison.Ordinal);
     }
 
     private static string ReadNormalized(string path) =>

@@ -177,15 +177,27 @@ public sealed record TouchpadGestureConfiguration(
         Bindings: TouchpadGestureBindings.AsusStyle,
         CornerLaunches: new TouchpadCornerLaunchBindings());
 
-    public TouchpadGestureConfiguration Sanitize() => this with
+    public TouchpadGestureConfiguration Sanitize()
     {
-        EdgeWidthMm = Math.Clamp(double.IsFinite(EdgeWidthMm) ? EdgeWidthMm : 5.0, 2.0, 15.0),
-        ActivationDistanceMm = Math.Clamp(double.IsFinite(ActivationDistanceMm) ? ActivationDistanceMm : 2.0, 0.5, 8.0),
-        ContinuationToleranceMm = Math.Clamp(double.IsFinite(ContinuationToleranceMm) ? ContinuationToleranceMm : 12.0, 4.0, 30.0),
-        DirectionDominance = Math.Clamp(double.IsFinite(DirectionDominance) ? DirectionDominance : 1.15, 1.02, 2.5),
-        Bindings = (Bindings ?? TouchpadGestureBindings.AsusStyle).Sanitize(),
-        CornerLaunches = (CornerLaunches ?? new TouchpadCornerLaunchBindings()).Sanitize()
-    };
+        TouchpadGestureBindings bindings = (Bindings ?? TouchpadGestureBindings.AsusStyle).Sanitize();
+        bool trackCenterPlayPauseEnabled = Enum.GetValues<TouchpadEdge>()
+            .Any(edge => bindings.Get(edge).Action == GestureActionKind.PreviousNextTrack);
+
+        return this with
+        {
+            EdgeWidthMm = Math.Clamp(double.IsFinite(EdgeWidthMm) ? EdgeWidthMm : 5.0, 2.0, 15.0),
+            ActivationDistanceMm = Math.Clamp(double.IsFinite(ActivationDistanceMm) ? ActivationDistanceMm : 2.0, 0.5, 8.0),
+            ContinuationToleranceMm = Math.Clamp(double.IsFinite(ContinuationToleranceMm) ? ContinuationToleranceMm : 12.0, 4.0, 30.0),
+            DirectionDominance = Math.Clamp(double.IsFinite(DirectionDominance) ? DirectionDominance : 1.15, 1.02, 2.5),
+            // Track control is one three-part affordance now: Previous | Play/Pause | Next.
+            // Keep the serialized flag for backwards JSON compatibility, but derive its
+            // runtime value from the presence of the Track action so there is no second
+            // menu-level feature switch or visual owner.
+            TrackCenterPlayPauseEnabled = trackCenterPlayPauseEnabled,
+            Bindings = bindings,
+            CornerLaunches = (CornerLaunches ?? new TouchpadCornerLaunchBindings()).Sanitize()
+        };
+    }
 
     public TouchpadEdgeBinding BindingFor(TouchpadEdge edge) =>
         (Bindings ?? TouchpadGestureBindings.AsusStyle).Get(edge).Sanitize();

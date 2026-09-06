@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
@@ -36,12 +37,16 @@ public partial class CompactDashboard
         if (_app is null)
             return ["Auto"];
 
+        bool firmwarePolicy = string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
         var values = new List<string>();
         string current = DisplayFanName(_app.State.CoolingProfile);
-        if (IsManualFanState(current))
+        if (IsManualFanState(current) && !firmwarePolicy)
             values.Add(current);
         values.Add("Auto");
-        values.AddRange(_app.FanProfiles.GetProfiles().Select(profile => profile.Name));
+        IEnumerable<Core.Cooling.FanCurveDefinition> profiles = _app.FanProfiles.GetProfiles();
+        if (firmwarePolicy)
+            profiles = profiles.Where(profile => _app.FanProfiles.IsBuiltIn(profile.Id));
+        values.AddRange(profiles.Select(profile => profile.Name));
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 

@@ -5,13 +5,17 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class HardwareClientSurfaceSourceTests
 {
     [Fact]
-    public void CurrentUiClient_DoesNotReintroduceLegacyCoolingWrappers()
+    public void CurrentUiClient_UsesSemanticCoolingProfileOperationWithoutLegacyCustomWrapper()
     {
         string root = FindRepositoryRoot();
         string client = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Services", "HardwareServiceClient.cs"));
         string cooling = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.Cooling.cs"));
 
-        Assert.DoesNotContain("SetCoolingProfileAsync", client, StringComparison.Ordinal);
+        // Built-in firmware profiles now have a first-class semantic IPC operation.
+        // Keep that narrow surface, while the obsolete custom-threshold wrapper stays
+        // server-side compatibility only.
+        Assert.Contains("SetCoolingProfileAsync(string profile", client, StringComparison.Ordinal);
+        Assert.Contains("SendTrackedAsync(\"SetCoolingProfile\", profile", client, StringComparison.Ordinal);
         Assert.DoesNotContain("SetCustomCoolingCurveAsync", client, StringComparison.Ordinal);
         Assert.DoesNotContain("SetCustomCoolingCurveAsync", cooling, StringComparison.Ordinal);
         Assert.Contains("SetCoolingCurveAsync", client, StringComparison.Ordinal);

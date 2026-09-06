@@ -1,3 +1,5 @@
+using Microsoft.Win32;
+using System.IO;
 using System.Management;
 using System.Text.RegularExpressions;
 using Forms = System.Windows.Forms;
@@ -15,26 +17,65 @@ public sealed record SystemStatusSnapshot(
     string BatteryStatus,
     string Manufacturer);
 
+public sealed record StartupSystemIdentity(
+    string DeviceName,
+    string MachineType,
+    string Manufacturer);
+
 public sealed class SystemStatusService
 {
+    private const string BiosRegistryPath = @"HARDWARE\DESCRIPTION\System\BIOS";
     private static readonly string[] VerifiedX9MachineTypes = ["21Q6", "21Q7"];
     private readonly object _cacheGate = new();
     private StaticSystemIdentity? _cachedIdentity;
+    private int _fastStartupReadPending;
+
+    /// <summary>
+    /// Marks the next Read() as the process-startup preflight. That one read uses only
+    /// cheap registry/power data so shell/tray creation cannot be held behind WMI.
+    /// The following normal Read(), already called from RefreshStatusAsync on a worker,
+    /// performs and caches the full CPU/GPU/BIOS inventory.
+    /// </summary>
+    public void UseFastStartupReadOnce() => Interlocked.Exchange(ref _fastStartupReadPending, 1);
+
+    /// <summary>
+    /// Reads only the cheap firmware identity values Windows already exposes in the
+    /// registry. Shell/tray creation and enabled touchpad gestures must not wait for
+    /// the full WMI CPU/GPU/BIOS inventory.
+    /// </summary>
+    public StartupSystemIdentity ReadStartupIdentity()
+    {
+        try
+        {
+            using RegistryKey? bios = Registry.LocalMachine.OpenSubKey(BiosRegistryPath, writable: false);
+            string manufacturer = ReadRegistryString(bios, "SystemManufacturer") ?? string.Empty;
+            string productName = ReadRegistryString(bios, "SystemProductName") ?? string.Empty;
+            string productVersion = ReadRegistryString(bios, "SystemVersion") ?? string.Empty;
+            string sku = ReadRegistryString(bios, "SystemSKU") ?? string.Empty;
+
+            string machineType = ParseMachineType(sku, productName, productVersion);
+            string deviceName = SelectDeviceName(productVersion, productName);
+            if (string.IsNullOrWhiteSpace(deviceName))
+                deviceName = "Windows laptop";
+
+            return new StartupSystemIdentity(
+                deviceName.Trim(),
+                machineType,
+                manufacturer.Trim());
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            return new StartupSystemIdentity("Windows laptop", "—", string.Empty);
+        }
+    }
 
     public SystemStatusSnapshot Read()
     {
-        StaticSystemIdentity identity = GetStaticIdentity();
+        if (Interlocked.Exchange(ref _fastStartupReadPending, 0) == 1)
+            return BuildFastStartupSnapshot();
 
-        Forms.PowerStatus power = Forms.SystemInformation.PowerStatus;
-        int battery = power.BatteryLifePercent is >= 0 and <= 1
-            ? (int)Math.Round(power.BatteryLifePercent * 100)
-            : 0;
-        string batteryStatus = power.PowerLineStatus switch
-        {
-            Forms.PowerLineStatus.Online => battery >= 100 ? "Fully charged" : "Charging / AC",
-            Forms.PowerLineStatus.Offline => "On battery",
-            _ => "Power state unknown"
-        };
+        StaticSystemIdentity identity = GetStaticIdentity();
+        (int battery, string batteryStatus) = ReadPowerState();
 
         return new SystemStatusSnapshot(
             identity.DeviceName,
@@ -46,6 +87,37 @@ public sealed class SystemStatusService
             battery,
             batteryStatus,
             identity.Manufacturer);
+    }
+
+    private SystemStatusSnapshot BuildFastStartupSnapshot()
+    {
+        StartupSystemIdentity identity = ReadStartupIdentity();
+        (int battery, string batteryStatus) = ReadPowerState();
+        return new SystemStatusSnapshot(
+            identity.DeviceName,
+            "—",
+            "—",
+            "—",
+            "—",
+            identity.MachineType,
+            battery,
+            batteryStatus,
+            identity.Manufacturer);
+    }
+
+    private static (int Battery, string Status) ReadPowerState()
+    {
+        Forms.PowerStatus power = Forms.SystemInformation.PowerStatus;
+        int battery = power.BatteryLifePercent is >= 0 and <= 1
+            ? (int)Math.Round(power.BatteryLifePercent * 100)
+            : 0;
+        string batteryStatus = power.PowerLineStatus switch
+        {
+            Forms.PowerLineStatus.Online => battery >= 100 ? "Fully charged" : "Charging / AC",
+            Forms.PowerLineStatus.Offline => "On battery",
+            _ => "Power state unknown"
+        };
+        return (battery, batteryStatus);
     }
 
     private StaticSystemIdentity GetStaticIdentity()
@@ -75,6 +147,17 @@ public sealed class SystemStatusService
                 manufacturer.Trim());
             return _cachedIdentity;
         }
+    }
+
+    private static string? ReadRegistryString(RegistryKey? key, string valueName)
+    {
+        object? value = key?.GetValue(valueName, null, RegistryValueOptions.DoNotExpandEnvironmentNames);
+        return value switch
+        {
+            string text when !string.IsNullOrWhiteSpace(text) => text,
+            string[] values when values.Length > 0 => values.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item)),
+            _ => null
+        };
     }
 
     private static string? ReadFirst(string className, string property)
