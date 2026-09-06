@@ -14,13 +14,13 @@ Last immutable published prerelease before this candidate:
 Current alpha.39 candidate:
 
 - branch: `fix/alpha39-touchpad-bottom-edge`;
-- PR: #75 — **Finish Touchpad bottom lane and harden fan test UX**;
+- PR: #75;
 - version: `v0.1.0-alpha.39`;
 - base: immutable alpha.38 / `main` at `7fa4f8507d5118e94e851c02787cabf7938b8ff9`;
 - `version.json.releaseReady` remains `false` until the implementation head passes CI + Package and its WPF artifacts are manually inspected;
-- no new guessed low-level write contract is authorized by this candidate.
+- no new guessed EC register, RPM ceiling, IOCTL or vendor write contract is authorized by this candidate.
 
-Alpha.39 exists for two evidence-backed reasons after alpha.38 shipped: the Touchpad bottom Track lane still looked like three unrelated controls, and real X9 testing failed the experimental Lenovo Other Mode target-RPM writer's previously documented physical acceptance criteria.
+Alpha.39 now has three evidence-backed stabilization goals after alpha.38 shipped: finish the Touchpad Track lane, replace the physically rejected X9 fixed-target fan path without disabling normal cooling profiles, and remove slow/dormant behavior from silent Windows startup so configured edge gestures do not wait for a ThinkControl window activation.
 
 ## Alpha.39 product delta
 
@@ -40,11 +40,11 @@ Alpha.39 exists for two evidence-backed reasons after alpha.38 shipped: the Touc
 - Calibration is an attention/task surface only while required or running.
 - Once `FanCalibrationUiState.Ready` is true and no calibration is running, the top calibration card disappears; a completed mapping does not permanently occupy the page.
 - Manual percentage output is presented as **Temporary fan test**, not ordinary persistent control.
-- Manual percentage and raw provider states use the existing 30-second automatic restore contract and explicit **End test** behavior.
+- Manual percentage and raw provider states use the existing 30-second automatic restore contract and explicit **End test** behavior where a direct provider supports them.
 - **Raw EC diagnostics** remain available only when the active provider explicitly exposes the discrete-EC semantic contract; they are not a generic laptop option.
-- Temporary test UI is hidden when no verified writable provider is active.
+- Direct-test/curve UI is hidden on a firmware-policy backend and whenever no physically accepted direct writer is active.
 
-### X9 Lenovo Other Mode physical rejection
+### X9 cooling backend after alpha.38 physical rejection
 
 Physical alpha.38 testing on the reference X9 produced the same failure modes that the earlier target-RPM development plan explicitly defined as rejection criteria:
 
@@ -53,16 +53,44 @@ Physical alpha.38 testing on the reference X9 produced the same failure modes th
 - nominal ThinkControl 100% remains below naturally hot Lenovo firmware Auto;
 - `FanSupervisor` does not continuously rewrite a manual target while it is active, so the observed pulsing is not explained by the normal supervision loop repeatedly issuing the same command.
 
-Alpha.39 therefore changes the product authorization state instead of cosmetically relabelling or overdriving that path:
+Alpha.39 keeps that failed direct writer read-only instead of cosmetically relabelling or overdriving it:
 
 - Lenovo Other Mode `fanX_input` remains usable as native dual-fan telemetry evidence;
-- `fanX_target` product writes are held read-only behind an explicit physical-acceptance gate;
+- `fanX_target` product writes are held read-only behind the explicit physical-acceptance gate;
 - metadata such as VALID+GET+SET plus Fan Test min/max values is not enough to re-enable the writer after physical rejection;
 - target `0` remains available for cleanup/reassertion of firmware Auto after previously owned alpha.38 state;
-- once native OEM fan telemetry is confirmed, the existing service-lifetime safety latch prevents silent fallback to the known-inferior discrete EC writer;
+- once native OEM fan telemetry is confirmed, the service-lifetime safety latch prevents silent fallback to the known-inferior discrete EC writer;
 - no larger guessed RPM, maintenance IOCTL, `0x40` EC override or other speculative writer is substituted.
 
-A future X9 writer can be promoted only after two real channels, smooth fixed-target settling, useful high-cooling range comparable with naturally hot Auto and repeated clean Auto handoff are all physically demonstrated again.
+Normal user-facing cooling remains available through a **different semantic capability**: the already reviewed exact-X9 Lenovo LITSSvc thermal-policy backend. `LenovoCoolingPolicyCoordinator` maps:
+
+```text
+Quiet        -> Lenovo Quiet policy
+Balanced     -> Lenovo Balanced policy
+Max cooling  -> Lenovo Performance cooling policy
+Auto         -> clear cooling override and restore current power-policy baseline
+```
+
+This firmware-policy backend keeps Lenovo in the closed-loop fan controller. It is exposed separately as `FanControlKinds.FirmwarePolicy`; it does not pretend to provide direct RPM/PWM percentages. Home, Compact and Fans retain Auto/Quiet/Balanced/Max cooling, while custom curves/manual percentages remain direct-writer features.
+
+The coordinator also resolves the previous product conflict between Performance and Fans. Before a built-in cooling profile becomes active, the current Windows/Lenovo performance preference is stored as its restore baseline. A later Performance change updates that baseline without silently cancelling the cooling profile; Auto clears the override and restores the newest baseline.
+
+A future X9 direct writer can be promoted only after two real channels, smooth fixed-target settling, useful high-cooling range comparable with naturally hot Auto and repeated clean Auto handoff are all physically demonstrated again.
+
+### Windows startup and gesture readiness
+
+The existing installer/Settings contract still starts the UI executable per-user through the Windows Run entry with `--tray`; alpha.39 does not add a second startup owner or modify machine-wide Explorer startup-delay policy.
+
+The application-side startup path changes materially:
+
+- `Application.Startup` marks exactly one `SystemStatusService.Read()` as a fast startup preflight;
+- that preflight reads cheap firmware identity from `HKLM\HARDWARE\DESCRIPTION\System\BIOS` plus Windows power state, not the full WMI CPU/GPU/BIOS inventory;
+- the existing initial `RefreshStatusAsync` immediately performs the rich cached WMI inventory on a worker via `Task.Run`;
+- enabled Touchpad gestures are explicitly queued during startup after the handler yields;
+- silent `--tray` startup gives raw-input registration background priority because there is no visible destination window whose first paint needs protection;
+- `Application.Activated` remains a recovery path but is no longer the only path that starts edge gestures.
+
+This fixes a real architecture bug: a tray-only launch can remain completely unactivated, so the previous activation-only gesture startup could leave edge gestures dormant until the user opened ThinkControl. Hosted source/build tests can prove the startup ownership change, but actual Windows logon timing remains a system-session validation item.
 
 ### Preserved alpha.38 baseline
 
@@ -71,9 +99,10 @@ A future X9 writer can be promoted only after two real channels, smooth fixed-ta
 - minimized/hidden Advanced recovery and `TargetParameterCountException` guards remain intact;
 - generic Fan calibration and Keyboard Effects remain provider-capability-driven;
 - Home/Updates still share one Last-checked owner;
-- EnergyDrv remains read-only until a reviewed writer contract exists;
+- EnergyDrv remains read-only until a reviewed direct writer contract exists;
 - firmware/OEM Auto handoff, explicit provider ownership and unknown-device fail-closed behavior remain unchanged;
-- no current-client compatibility endpoint is removed merely because it is not exposed in the modern UI.
+- the installer still owns one per-user Start-with-Windows mechanism rather than adding a duplicate Task Scheduler/startup path;
+- supported installed-client compatibility endpoints remain until the explicit updater floor advances.
 
 ## Validation ownership
 
@@ -81,7 +110,7 @@ A future X9 writer can be promoted only after two real channels, smooth fixed-ta
 
 - repository hygiene;
 - solution restore/build;
-- Core/source regression tests;
+- Core/source regression tests, including startup critical-path and tray-gesture ownership guards;
 - real Compact ↔ Advanced WPF lifecycle smoke;
 - deterministic WPF visual-QA matrix + artifact upload.
 
@@ -97,6 +126,7 @@ A future X9 writer can be promoted only after two real channels, smooth fixed-ta
 - current in-place update path;
 - clean uninstall and ThinkControl-owned state cleanup;
 - immutable oldest-supported `v0.1.0-alpha.14.1` → candidate updater regression;
+- the existing `startwithwindows` HKCU Run-entry install/update/uninstall contract;
 - checksums and development artifact.
 
 Do not recreate a third full installer workflow. CI and Package are the required PR gates. Superseded PR runs may cancel; immutable/tag release packaging does not.
@@ -110,17 +140,22 @@ Do not recreate a third full installer workflow. CI and Package are the required
 - [x] Removed the separate Center play/pause settings row/switch without breaking old serialized settings.
 - [x] Kept `TouchpadVisualizer`, the existing recognizer and the existing router as the only owners; no duplicate overlay/input path was added.
 - [x] Changed completed fan calibration from a permanent top card to non-attention provider state.
-- [x] Reframed manual percentage/raw EC controls as bounded temporary tests and kept EC diagnostics capability-gated.
+- [x] Reframed manual percentage/raw EC controls as bounded direct-provider tests and kept EC diagnostics capability-gated.
 - [x] Converted the physically rejected X9 Other Mode writer to read-only product state while preserving native telemetry and Auto cleanup/reassertion.
 - [x] Preserved the native OEM telemetry latch so rejected native writes cannot silently re-enable the inferior EC fallback.
-- [x] Updated README/Product/Architecture/Device Support/Alpha Testing contracts to describe alpha.39 rather than claiming the rejected writer is preferred.
+- [x] Added a distinct X9 firmware-policy backend so **Auto / Quiet / Balanced / Max cooling stay functional** without re-authorizing the rejected fixed-target writer.
+- [x] Coordinated firmware cooling overrides with the current Windows performance baseline so Performance and Fans no longer repeatedly overwrite each other.
+- [x] Removed rich WMI discovery from the synchronous app-startup critical path with a one-shot registry identity preflight and existing asynchronous refresh.
+- [x] Made enabled edge gestures explicitly start during `--tray` startup instead of depending on WPF `Activated`.
+- [x] Added source guards for startup critical-path and silent tray gesture startup ownership.
+- [x] Updated README/Product/Architecture/Device Support/Hardware Safety/Cooling Design/Alpha Testing contracts for the alpha.39 architecture; release-readiness remains the mutable handoff.
 - [x] `version.json` identifies `0.1.0-alpha.39` with `releaseReady=false` during implementation/QA.
 - [ ] Exact implementation head passes CI: repository hygiene, Release build, all Core/source tests, ShellSmoke and WPF snapshot rendering.
 - [ ] Manually inspect at least `advanced-touchpad.png`, `advanced-touchpad-wide.png`, `advanced-touchpad-light.png`, corner selected/live fixtures, `advanced-fans*.png` and `advanced-fans-manual-test.png` from that exact CI artifact.
 - [ ] Confirm the wide Touchpad fixture shows Previous/Play-Pause/Next inside one continuous lane with no floating pill/icons, and that the center segment remains legible in light/dark themes.
-- [ ] Confirm Fans calibration-required fixture is still truthful while ordinary ready/unavailable/manual-test fixtures do not leave a stale completed-calibration card at the top.
-- [ ] Exact implementation head passes Package ThinkControl including UI/service publish, installer/service/IPC/update/uninstall smoke and immutable alpha.14.1 → alpha.39 updater regression.
-- [ ] Review PR changed files/comments and confirm no speculative low-level fan writer or accidental second Touchpad owner entered the diff.
+- [ ] Confirm Fans calibration-required fixture is still truthful while ready/unavailable/manual-test states do not leave a stale completed-calibration card at the top; verify the firmware-policy presentation does not imply direct percentage/RPM ownership.
+- [ ] Exact implementation head passes Package ThinkControl including UI/service publish, installer/service/IPC/update/uninstall smoke, existing Start-with-Windows Run-entry contract and immutable alpha.14.1 → alpha.39 updater regression.
+- [ ] Review PR changed files/comments and confirm no speculative low-level fan writer, accidental second Touchpad owner or duplicate startup mechanism entered the diff.
 - [ ] Freeze implementation. Set `version.json.releaseReady=true` and update this checklist with exact CI/Package run IDs + visual artifact evidence in a docs/version-only final commit.
 - [ ] Require CI + Package to pass again on that exact frozen head.
 - [ ] Mark PR #75 ready, review checks/comments and merge with the exact expected head SHA.
@@ -128,7 +163,7 @@ Do not recreate a third full installer workflow. CI and Package are the required
 - [ ] Verify `Promote release-ready main` creates `v0.1.0-alpha.39` at the merged commit.
 - [ ] Verify alpha.39 is immutable with exactly Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png` and valid published checksums.
 
-## Physical X9 follow-up — separate evidence class
+## Physical X9 / Windows-session follow-up — separate evidence class
 
 Hosted CI cannot prove these. The X9 is the current reference device, not the product boundary.
 
@@ -139,21 +174,29 @@ Hosted CI cannot prove these. The X9 is the current reference device, not the pr
 - [x] Nominal ThinkControl 100% remained below naturally hot Lenovo Auto.
 - [x] Those observations fail the writer's earlier explicit physical acceptance criteria; alpha.39 therefore holds it read-only rather than force-writing beyond Lenovo metadata.
 
-### Alpha.39 real-device checks
+### Alpha.39 real-device/session checks
 
 - [ ] Install alpha.39 on machine type `21Q6`/`21Q7` and record the Fans provider/detail line.
 - [ ] Confirm real Fan 1/Fan 2 native telemetry remains visible where Other Mode/EnergyDrv supplies it.
-- [ ] Confirm no normal percentage/curve/manual fan controls are enabled merely because Other Mode metadata is write-capable.
+- [ ] Confirm Fans/Home/Compact offer **Auto / Quiet / Balanced / Max cooling** through the firmware-policy backend.
+- [ ] Under comparable load, confirm Quiet is the least aggressive/smooth Lenovo-managed profile, Balanced is stable normal behavior and Max cooling reaches useful high-cooling Lenovo behavior without the alpha.38 fixed-target re-kick cycle.
+- [ ] While a non-Auto cooling profile is active, change Windows performance preference and confirm the cooling profile remains active while the new preference becomes the Auto restore baseline.
+- [ ] Select Auto and confirm the latest Windows/Lenovo power-policy baseline returns.
+- [ ] Confirm no normal percentage/custom-curve/manual direct controls are enabled merely because Other Mode metadata is write-capable.
 - [ ] Confirm Raw EC diagnostics do not silently reappear on the X9 after the native writer is rejected.
 - [ ] From any stale alpha.38-owned target, return/reassert firmware Auto and confirm both channels settle back under Lenovo ownership.
-- [ ] Verify the calibration task appears only if an actually active provider advertises calibration and disappears once that provider is ready.
-- [ ] Verify temporary manual test copy/countdown/restore on hardware where a verified writable provider actually exists.
+- [ ] Verify the calibration task appears only if an actually active direct provider advertises calibration and disappears once that provider is ready.
+- [ ] Verify temporary manual test copy/countdown/restore on hardware where a verified direct provider actually exists.
+- [ ] With **Start with Windows** and an obvious edge gesture enabled, sign out/in or reboot; without opening ThinkControl, confirm the gesture works once the tray process has started and record approximate desktop → first-success timing.
+- [ ] Repeat the startup gesture check after a cold reboot and after sign-out/sign-in so Windows Run timing is not inferred from one session.
 - [ ] Verify Bottom Track Previous/Play-Pause/Next feel like one lane on the real haptic pad; specifically test center hit reliability and accidental skip rate.
 - [ ] Verify top-corner idle/selected/live symmetry and reverse-close accidental-trigger rate remain unchanged.
 - [ ] Verify Keyboard Effects become available only when the active provider advertises them and do not produce the Lenovo brightness pop-up.
 - [ ] Verify manual update checks refresh Last checked immediately on Home and Updates.
 - [ ] Continue issue #60 field observation for `TargetParameterCountException`; source regression is guarded but issue closure needs real-world evidence.
 - [ ] Export a support bundle after physical testing so bounded provider/fan evidence can be compared with observations.
+
+If application-side startup is fast but the ThinkControl process itself still appears materially late after sign-in, treat that as separate Windows Run-launch timing evidence. Do not modify a machine-wide Explorer `StartupDelayInMSec` policy as a product workaround. A future move from HKCU Run to a per-user scheduled logon task would be an installer/startup-contract change requiring its own install/update/uninstall smoke and must not be stacked into alpha.39 without evidence that the remaining delay is actually Windows launch scheduling.
 
 ## Release workflow principles
 
@@ -165,6 +208,7 @@ For future releases:
 - treat provider metadata and physical write acceptance as separate gates when hardware behavior requires it;
 - keep generic pages vendor/model-neutral and consume explicit semantic capabilities;
 - keep model-specific implementation and safety evidence inside the provider/hardware layer;
+- keep startup/navigation independent of slow hardware discovery and avoid duplicate background/startup owners;
 - distinguish current-client dead code from intentionally retained updater/service compatibility;
 - freeze version/docs before final exact-head gates;
 - inspect UI artifacts manually when UI changes;
@@ -192,9 +236,10 @@ Do **not** mix commercial backend/licensing work into alpha hardware stabilizati
 - [x] Windows-generic UI is vendor-neutral.
 - [x] Raw EC controls require explicit provider/model validation rather than appearing as a generic laptop feature.
 - [x] Setup distinguishes registration metadata from real provider/device readiness.
-- [x] X9 fan semantics distinguish native telemetry, physically accepted writers and discrete provider fallbacks.
+- [x] X9 fan semantics distinguish native telemetry, firmware policy, physically accepted direct writers and discrete provider fallbacks.
 - [x] Fan calibration and Keyboard Effects are exposed to generic UI as semantic provider capabilities.
-- [x] A physically rejected native writer can remain telemetry-only without falling back to a known-inferior writer.
+- [x] A physically rejected native direct writer can remain telemetry-only without falling back to a known-inferior writer.
+- [x] A semantic firmware-policy backend can preserve useful built-in fan profiles without falsely advertising direct RPM/PWM control.
 - [ ] Continue replacing residual device-name assumptions outside narrowly justified recovery/safety paths.
 - [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic contract.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
@@ -238,4 +283,4 @@ Do not make source private while updater/build distribution still depends on pub
 
 ## Release principle
 
-A green compiler is not release readiness. Promotion requires exact-head build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review and immutable release verification. Physical hardware behavior remains a separate evidence class and must never be invented from hosted CI.
+A green compiler is not release readiness. Promotion requires exact-head build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review and immutable release verification. Physical hardware behavior and actual Windows-logon startup timing remain separate evidence classes and must never be invented from hosted CI.
