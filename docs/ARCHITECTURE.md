@@ -18,29 +18,48 @@ The UI must remain `asInvoker`. Hardware operations that need elevated/device ac
 
 Hardware support is capability-driven. Unknown hardware remains read-only/safe until an operation has a reviewed provider and validation gate. Generic UI consumes semantic capability state; it must not infer write support, calibration requirements or effect support by parsing model names or diagnostic provider strings.
 
-The ThinkPad X9 path currently prefers Lenovo-native **telemetry** over direct EC writes. `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` channels, but its experimental target-RPM writer is held read-only in alpha.39 because physical alpha.38 testing failed the writer's own acceptance gate: a fixed target produced repeated speed cycling/re-kick and nominal 100% remained below naturally hot firmware Auto. VALID+GET+SET metadata, sane Fan Test ranges and live channels remain useful evidence but are not sufficient product write authorization after that physical rejection. Lenovo `EnergyDrv` is likewise read-only until a matching X9 write contract is proven.
+The ThinkPad X9 path separates **firmware policy** from **direct fan output**. `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry, but its experimental target-RPM writer is held read-only in alpha.39 because physical alpha.38 testing failed the writer's own acceptance gate: a fixed target produced repeated speed cycling/re-kick and nominal 100% remained below naturally hot firmware Auto. VALID+GET+SET metadata, sane Fan Test ranges and live channels remain useful read evidence but are not sufficient write authorization after that physical rejection. Lenovo `EnergyDrv` is likewise read-only until a matching X9 write contract is proven.
 
-Fan ownership is explicit. ThinkControl records the provider/channels it actually takes over, returns those owned channels to Lenovo/OEM Auto on handoff/failure/disposal where supported, and does not infer ownership merely from reading an external manual-looking state. Target `0` on the rejected Other Mode path remains available for cleanup/reassertion of Auto after previously owned state. Native two-fan evidence is latched for the current service lifetime so a rejected/native writer or transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer.
+Built-in X9 cooling does **not** disappear with that rejection. `LenovoCoolingPolicyCoordinator` uses the already reviewed exact-X9 `LenovoThermalPolicyService` / LITSSvc semantic path for Quiet, Balanced and Max cooling. This keeps Lenovo firmware in the closed-loop fan controller rather than approximating its behavior with a fixed RPM target. The coordinator remembers the current power-mode policy as a restore baseline, lets a cooling profile temporarily take precedence, and restores the newest baseline when Auto is selected.
+
+Fan ownership remains explicit. `FanSupervisor` owns direct-output providers only; the firmware-policy coordinator owns only the semantic Lenovo policy override. ThinkControl records direct provider/channels it actually takes over, returns those owned channels to Lenovo/OEM Auto on handoff/failure/disposal where supported, and does not infer ownership merely from reading an external manual-looking state. Target `0` on the rejected Other Mode path remains available for cleanup/reassertion of stale previously owned direct targets. Native two-fan evidence is latched for the current service lifetime so a rejected/native writer or transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer.
 
 Repeated provider discovery is avoided where possible. The service keeps provider state; the UI consumes bounded status snapshots and uses targeted refresh operations for sensors, keyboard and full provider recovery.
 
 ## Cooling model
 
-The current UI has one fan-curve model:
+The service distinguishes two cooling capability families.
+
+### Firmware-policy profiles
+
+On the verified X9, the service can expose `FanControlKind = LenovoFirmwarePolicy` even though no direct target writer is authorized. The current UI then keeps these built-ins available:
+
+- Auto — clear the cooling override and restore the current Lenovo power-policy baseline;
+- Quiet — Lenovo Quiet thermal policy;
+- Balanced — Lenovo Balanced thermal policy;
+- Max cooling — Lenovo Performance cooling policy.
+
+`SetCoolingProfile` is therefore a current semantic UI operation again for the firmware-policy backend. Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through the existing `SetThermalMode` semantic operation. A later Performance-page change updates that baseline while the cooling override stays active, preventing the two product surfaces from fighting over the same Lenovo policy channel.
+
+Firmware policy intentionally does not advertise applied percentage, EC state or editable curve semantics. The Fans page hides manual percentage tests, raw EC diagnostics and curve editing on this backend. Compact/Home still expose the working built-in profiles.
+
+### Direct-output profiles
+
+The generic direct-output model remains:
 
 - named `FanCurveDefinition` profiles;
-- `SetCoolingCurve` for current curve writes;
+- `SetCoolingCurve` for current direct curve writes;
 - `SetFanPercent` for deliberate temporary output testing where supported;
 - `ReturnFanToAuto` for firmware/OEM ownership;
-- characterization operations only when the active provider advertises a calibration workflow.
+- characterization operations only when the active direct provider advertises a calibration workflow.
 
-`FanSupervisor` is the sole owner of ThinkControl fan writes. A physically accepted continuous target-RPM provider may receive percentages directly; a discrete provider may map the same semantic targets through a measured output-state mapping. Raw EC states/calibration remain provider-specific diagnostics rather than a generic fan-control assumption. On the X9 alpha.39 path, no writable fan provider is advertised merely because the Other Mode metadata is write-capable.
+`FanSupervisor` is the sole owner of ThinkControl direct fan writes. A physically accepted continuous target-RPM provider may receive percentages directly; a discrete provider may map the same semantic targets through a measured output-state mapping. Raw EC states/calibration remain provider-specific diagnostics rather than a generic fan-control assumption. On the X9 alpha.39 path, the rejected Other Mode writer is not re-authorized merely because its metadata says SET.
 
-The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. `App.Cooling` converts those service capabilities plus characterization progress into the generic `FanCalibrationUiState`. The Fans page and Inbox consume that state; they do not independently decide that a specific model must calibrate. The calibration task card is visible only while calibration is required or actively running; a ready mapping is ordinary provider state, not a permanent top-of-page success card.
+The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. `App.Cooling` converts those service capabilities plus characterization progress into the generic `FanCalibrationUiState`. Firmware-policy profiles do not need this direct-output calibration. The calibration task card is visible only while a relevant provider requires it or is actively running; a ready mapping is ordinary provider state, not a permanent top-of-page success card.
 
-Manual fan UI is a bounded diagnostic surface. Percentage targets and provider-specific raw states run through the same 30-second temporary-test/automatic-restore contract. The surface is hidden when no verified writable provider exists. Raw EC diagnostics appear only when the active provider explicitly advertises the discrete-EC semantic contract.
+Manual direct-output UI is a bounded diagnostic surface. Percentage targets and provider-specific raw states run through the same 30-second temporary-test/automatic-restore contract. The surface is hidden on the firmware-policy backend and whenever no verified direct writer exists. Raw EC diagnostics appear only when the active provider explicitly advertises the discrete-EC semantic contract.
 
-The service still accepts older IPC operations such as `SetCoolingProfile`, `SetCustomCoolingCurve` and `MarkFanLevelAudible` for the supported installed-client compatibility floor. Those are **legacy server compatibility endpoints**, not current UI APIs. Do not remove them merely because the current `HardwareServiceClient` no longer calls them; removal requires an explicit updater/client-floor decision and compatibility test update.
+The service still accepts `SetCustomCoolingCurve` and `MarkFanLevelAudible` for the supported installed-client compatibility floor. Those remain legacy server compatibility endpoints. `SetCoolingProfile` is no longer legacy-only because alpha.39's current UI uses it as the semantic operation for built-in firmware-policy profiles. Removing any endpoint requires an explicit updater/client-floor decision and compatibility-test update.
 
 ## Keyboard model
 
@@ -77,7 +96,7 @@ Audio volume/microphone writes are debounced in the WPF page. Transient debounce
 
 Diagnostics are local-first. Compatibility sharing remains explicit, sanitized and separate from hardware control. Raw touch coordinates, personal file content, usernames, serial numbers and arbitrary memory/log dumps are outside the intended upload schema.
 
-Current fan-percent and fan-curve writes are classified as fan-control diagnostic operations rather than falling through to generic hardware events. Bounded X9 fan samples reuse already-observed service status and preserve provider/source distinctions without starting a second hardware polling loop. Removed current-client cooling wrappers are guarded by source tests so the service-only legacy compatibility surface cannot silently leak back into the modern UI client.
+Direct fan-percent and fan-curve writes are classified as fan-control diagnostic operations rather than falling through to generic hardware events. Bounded X9 fan samples reuse already-observed service status and preserve provider/source distinctions without starting a second hardware polling loop. Firmware-profile changes remain semantic policy operations and do not claim direct RPM ownership.
 
 ## Update state
 
