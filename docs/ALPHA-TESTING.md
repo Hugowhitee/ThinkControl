@@ -11,6 +11,19 @@ Use this checklist for **v0.1.0-alpha.39** and later candidates built from it. A
 5. After an in-place update, confirm the previous install directory is preserved and the app relaunches into the expected surface.
 6. A successful update confirmation must remain dismissable and must not strand a topmost notification over Advanced.
 
+## Windows startup and background gestures
+
+Alpha.39 changes application-side `--tray` startup so the rich WMI inventory no longer blocks the synchronous startup path and enabled edge gestures no longer depend on a WPF window activation. The installer still uses the existing per-user Windows Run entry; do not infer real logon timing from hosted CI.
+
+1. In Settings, enable **Start with Windows** and enable at least one easily observable edge gesture, for example volume or brightness.
+2. Sign out/in or reboot. Do **not** manually open ThinkControl after the desktop appears.
+3. Confirm ThinkControl reaches the tray without showing its normal Compact/Advanced surface.
+4. As soon as the tray process is present, use the configured edge gesture. It should work without first clicking the tray icon or activating a ThinkControl window.
+5. Repeat once after a cold reboot and once after sign-out/sign-in. Record roughly how long from desktop availability until the first successful gesture; this is the real Windows-logon startup evidence.
+6. Open ThinkControl afterwards and confirm CPU/GPU/BIOS/system information fills in normally. The fast startup preflight may begin with placeholders internally, but the later background refresh must converge to the same real inventory.
+7. Disable gestures, restart ThinkControl with `--tray`, and confirm raw gesture ownership is not kept alive merely because Start with Windows is enabled.
+8. If the process itself is still launched conspicuously late by Windows even though its own startup is fast, record that separately. Do not work around Windows startup delay by changing a machine-wide Explorer startup-delay registry policy.
+
 ## Crash/shell regression
 
 The recurring `TargetParameterCountException` dispatcher bug was fixed and guarded in alpha.33. Keep issue/field validation separate from the source-level fix.
