@@ -27,12 +27,20 @@ public sealed class SystemStatusService
     private static readonly string[] VerifiedX9MachineTypes = ["21Q6", "21Q7"];
     private readonly object _cacheGate = new();
     private StaticSystemIdentity? _cachedIdentity;
+    private int _fastStartupReadPending;
+
+    /// <summary>
+    /// Marks the next Read() as the process-startup preflight. That one read uses only
+    /// cheap registry/power data so shell/tray creation cannot be held behind WMI.
+    /// The following normal Read(), already called from RefreshStatusAsync on a worker,
+    /// performs and caches the full CPU/GPU/BIOS inventory.
+    /// </summary>
+    public void UseFastStartupReadOnce() => Interlocked.Exchange(ref _fastStartupReadPending, 1);
 
     /// <summary>
     /// Reads only the cheap firmware identity values Windows already exposes in the
     /// registry. Shell/tray creation and enabled touchpad gestures must not wait for
-    /// the full WMI CPU/GPU/BIOS inventory. The normal Read() path still performs and
-    /// caches that richer inventory later on a background worker.
+    /// the full WMI CPU/GPU/BIOS inventory.
     /// </summary>
     public StartupSystemIdentity ReadStartupIdentity()
     {
@@ -62,18 +70,11 @@ public sealed class SystemStatusService
 
     public SystemStatusSnapshot Read()
     {
-        StaticSystemIdentity identity = GetStaticIdentity();
+        if (Interlocked.Exchange(ref _fastStartupReadPending, 0) == 1)
+            return BuildFastStartupSnapshot();
 
-        Forms.PowerStatus power = Forms.SystemInformation.PowerStatus;
-        int battery = power.BatteryLifePercent is >= 0 and <= 1
-            ? (int)Math.Round(power.BatteryLifePercent * 100)
-            : 0;
-        string batteryStatus = power.PowerLineStatus switch
-        {
-            Forms.PowerLineStatus.Online => battery >= 100 ? "Fully charged" : "Charging / AC",
-            Forms.PowerLineStatus.Offline => "On battery",
-            _ => "Power state unknown"
-        };
+        StaticSystemIdentity identity = GetStaticIdentity();
+        (int battery, string batteryStatus) = ReadPowerState();
 
         return new SystemStatusSnapshot(
             identity.DeviceName,
@@ -85,6 +86,37 @@ public sealed class SystemStatusService
             battery,
             batteryStatus,
             identity.Manufacturer);
+    }
+
+    private SystemStatusSnapshot BuildFastStartupSnapshot()
+    {
+        StartupSystemIdentity identity = ReadStartupIdentity();
+        (int battery, string batteryStatus) = ReadPowerState();
+        return new SystemStatusSnapshot(
+            identity.DeviceName,
+            "—",
+            "—",
+            "—",
+            "—",
+            identity.MachineType,
+            battery,
+            batteryStatus,
+            identity.Manufacturer);
+    }
+
+    private static (int Battery, string Status) ReadPowerState()
+    {
+        Forms.PowerStatus power = Forms.SystemInformation.PowerStatus;
+        int battery = power.BatteryLifePercent is >= 0 and <= 1
+            ? (int)Math.Round(power.BatteryLifePercent * 100)
+            : 0;
+        string batteryStatus = power.PowerLineStatus switch
+        {
+            Forms.PowerLineStatus.Online => battery >= 100 ? "Fully charged" : "Charging / AC",
+            Forms.PowerLineStatus.Offline => "On battery",
+            _ => "Power state unknown"
+        };
+        return (battery, batteryStatus);
     }
 
     private StaticSystemIdentity GetStaticIdentity()
