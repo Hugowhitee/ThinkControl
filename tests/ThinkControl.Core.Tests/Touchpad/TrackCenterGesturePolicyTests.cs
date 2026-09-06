@@ -6,35 +6,49 @@ namespace ThinkControl.Core.Tests.Touchpad;
 public sealed class TrackCenterGesturePolicyTests
 {
     [Theory]
-    [InlineData(701, 0.1, 0.50)]
-    [InlineData(120, 4.51, 0.50)]
-    [InlineData(120, -0.01, 0.50)]
-    [InlineData(120, 0.2, 0.39)]
-    [InlineData(120, 0.2, 0.61)]
-    public void UnsafeCenterTapDoesNotCommit(double durationMs, double travelMm, double position) =>
-        Assert.False(TrackCenterGesturePolicy.ShouldCommit(durationMs, travelMm, position));
+    [InlineData(8.76, 0.50)]
+    [InlineData(-0.01, 0.50)]
+    [InlineData(0.2, 0.39)]
+    [InlineData(0.2, 0.61)]
+    public void UnsafeCenterButtonReleaseDoesNotCommit(double travelMm, double position) =>
+        Assert.False(TrackCenterGesturePolicy.ShouldCommit(travelMm, position));
 
     [Theory]
-    [InlineData(0, 0, 0.50)]
-    [InlineData(90, 0.25, 0.40)]
-    [InlineData(260, 2.4, 0.50)]
-    [InlineData(520, 3.8, 0.50)]
-    [InlineData(700, 4.5, 0.60)]
-    public void BoundedCenterTapCommits(double durationMs, double travelMm, double position) =>
-        Assert.True(TrackCenterGesturePolicy.ShouldCommit(durationMs, travelMm, position));
+    [InlineData(0, 0.50)]
+    [InlineData(0.25, 0.40)]
+    [InlineData(2.4, 0.50)]
+    [InlineData(6.8, 0.50)]
+    [InlineData(8.75, 0.60)]
+    public void CenterButtonReleaseCommitsAcrossNaturalFingerDrift(double travelMm, double position) =>
+        Assert.True(TrackCenterGesturePolicy.ShouldCommit(travelMm, position));
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(90)]
+    [InlineData(700)]
+    [InlineData(2500)]
+    [InlineData(10000)]
+    public void HoldDurationDoesNotChangeButtonMeaning(double durationMs) =>
+        Assert.True(TrackCenterGesturePolicy.ShouldCommit(durationMs, 1.0, 0.5));
 
     [Fact]
-    public void TapSlopExceedsGeneralClaimThresholdWithoutApproachingSkipThreshold()
+    public void CenterButtonEnvelopeRunsUpToButNotThroughSkipThreshold()
     {
-        Assert.True(TrackCenterGesturePolicy.MovementToleranceMm > TouchpadGestureConfiguration.Default.ActivationDistanceMm);
-        Assert.True(TrackCenterGesturePolicy.MovementToleranceMm < 9.0);
+        Assert.Equal(9.0, TrackCenterGesturePolicy.SwipeThresholdMm);
+        Assert.Equal(TrackCenterGesturePolicy.ButtonTravelToleranceMm, TrackCenterGesturePolicy.MovementToleranceMm);
+        Assert.True(TrackCenterGesturePolicy.ButtonTravelToleranceMm > TouchpadGestureConfiguration.Default.ActivationDistanceMm);
+        Assert.True(TrackCenterGesturePolicy.ButtonTravelToleranceMm < TrackCenterGesturePolicy.SwipeThresholdMm);
+        Assert.InRange(
+            TrackCenterGesturePolicy.SwipeThresholdMm - TrackCenterGesturePolicy.ButtonTravelToleranceMm,
+            0.0,
+            0.30);
     }
 
     [Fact]
     public void NonFiniteValuesDoNotCommit()
     {
-        Assert.False(TrackCenterGesturePolicy.ShouldCommit(double.NaN, 0, 0.5));
-        Assert.False(TrackCenterGesturePolicy.ShouldCommit(120, double.PositiveInfinity, 0.5));
+        Assert.False(TrackCenterGesturePolicy.ShouldCommit(double.PositiveInfinity, 0.5));
         Assert.False(TrackCenterGesturePolicy.ShouldCommit(120, 0, double.NaN));
+        Assert.False(TrackCenterGesturePolicy.ShouldCommit(double.NaN, 0, 0.5));
     }
 }
