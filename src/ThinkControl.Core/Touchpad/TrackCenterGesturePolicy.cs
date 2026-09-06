@@ -52,6 +52,7 @@ public static class TrackCenterGesturePolicy
         durationMs >= 0 &&
         ShouldCommit(maximumTravelMm, edgePosition01);
 
-    public static bool ShouldCommit(double durationMs, double maximumTravelMm) =>
-        ShouldCommit(durationMs, maximumTravelMm, 0.5);
+    // Do not add back the old two-double (duration, travel) overload. It is ambiguous
+    // with the current (travel, position) API when callers hold a non-nullable double
+    // position, and can silently bypass the center-zone check through overload choice.
 }
