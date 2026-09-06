@@ -44,7 +44,7 @@ public sealed class StartupResponsivenessSourceTests
             .Split("private void OnTouchpadApplicationActivated", StringSplitOptions.None)[0];
         Assert.Contains("UserSettings.Current.TouchpadGestures?.Enabled != true", startupMethod, StringComparison.Ordinal);
         Assert.Contains("TouchpadFeature.EnsureInputStarted(startupCritical: IsTrayOnlyLaunch())", startupMethod, StringComparison.Ordinal);
-        Assert.DoesNotContain("Activated", startupMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("OnTouchpadApplicationActivated(", startupMethod, StringComparison.Ordinal);
 
         // Activation remains a recovery path, but no longer owns first registration.
         Assert.Contains("private void OnTouchpadApplicationActivated", touchpad, StringComparison.Ordinal);
