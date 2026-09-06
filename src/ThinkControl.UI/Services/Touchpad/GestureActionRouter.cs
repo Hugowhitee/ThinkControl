@@ -7,9 +7,6 @@ internal sealed class GestureActionRouter
 {
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
-    // Previous / Next is a discrete command. Requiring a real swipe prevents the
-    // tiny 3-4 mm movement that felt like an accidental tap in alpha.30.
-    private const double TrackSwipeThresholdMm = 9.0;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
@@ -33,7 +30,6 @@ internal sealed class GestureActionRouter
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
     private bool _trackSwipeFired;
-    private long _trackGestureStarted;
     private double _trackMaxTravelMm;
     private double? _trackStartPosition01;
     private bool _trackStayedCandidate;
@@ -99,7 +95,6 @@ internal sealed class GestureActionRouter
 
         _setGestureActive(signal.Action, true);
         _trackSwipeFired = false;
-        _trackGestureStarted = Stopwatch.GetTimestamp();
         _trackMaxTravelMm = 0;
         _trackStartPosition01 = signal.EdgePosition01;
         _trackStayedCandidate = true;
@@ -136,8 +131,6 @@ internal sealed class GestureActionRouter
             case GestureActionKind.PreviousNextTrack:
                 _setGestureActive(signal.Action, true);
                 _trackSwipeFired = false;
-                if (_trackGestureStarted == 0)
-                    _trackGestureStarted = Stopwatch.GetTimestamp();
                 _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
                 _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
@@ -201,7 +194,7 @@ internal sealed class GestureActionRouter
         double signed = ToPositiveControlDelta(signal, signal.TotalTravelMm);
         // Release is allowed to finish a swipe that crossed the same deliberate
         // threshold between input frames; it is not a shortcut to a smaller gesture.
-        double threshold = TrackSwipeThresholdMm;
+        double threshold = TrackCenterGesturePolicy.SwipeThresholdMm;
         if (Math.Abs(signed) < threshold)
             return;
 
@@ -214,11 +207,13 @@ internal sealed class GestureActionRouter
     private void TryFireTrackCenter()
     {
         TouchpadGestureConfiguration configuration = _getConfiguration().Sanitize();
-        if (!configuration.TrackCenterPlayPauseEnabled || _trackGestureStarted == 0)
+        if (!configuration.TrackCenterPlayPauseEnabled)
             return;
 
-        double elapsedMs = (Stopwatch.GetTimestamp() - _trackGestureStarted) * 1000d / Stopwatch.Frequency;
-        if (!TrackCenterGesturePolicy.ShouldCommit(elapsedMs, _trackMaxTravelMm, _trackStartPosition01))
+        // The center segment behaves like a button: once a contact begins there,
+        // elapsed hold time is irrelevant. Releasing inside the movement envelope
+        // toggles Play/Pause; a deliberate 9 mm Track swipe wins before release.
+        if (!TrackCenterGesturePolicy.ShouldCommit(_trackMaxTravelMm, _trackStartPosition01))
             return;
 
         _trackSwipeFired = true;
@@ -323,7 +318,6 @@ internal sealed class GestureActionRouter
         if (action == GestureActionKind.PreviousNextTrack)
         {
             _trackSwipeFired = false;
-            _trackGestureStarted = 0;
             _trackMaxTravelMm = 0;
             _trackStartPosition01 = null;
             _trackStayedCandidate = false;
