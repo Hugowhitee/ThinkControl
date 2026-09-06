@@ -2,13 +2,14 @@ using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
 
 public partial class AdvancedWindow
 {
-    private const string MoreFanProfilesLabel = "Auto / custom…";
+    private const string MoreFanProfilesLabel = "More…";
     private bool _homeQuickControlsConfigured;
 
     private void ConfigureHomeQuickControls()
@@ -38,12 +39,12 @@ public partial class AdvancedWindow
 
     private void HomeQuickState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(ViewModels.AppState.CoolingProfile))
+        if (e.PropertyName is nameof(ViewModels.AppState.CoolingProfile) or
+            nameof(ViewModels.AppState.CanFanControl) or
+            nameof(ViewModels.AppState.FanControlKind))
         {
-            // AdvancedWindow.SyncControls is subscribed earlier and historically
-            // fell back to Auto when its fixed item list did not contain a manual
-            // state. Rebuild the Home fan choices on the next dispatcher turn so a
-            // manual target is shown truthfully and Auto remains a distinct action.
+            // Rebuild after capability/profile changes so the firmware-policy backend
+            // exposes its built-ins without advertising unavailable custom curves.
             Dispatcher.BeginInvoke(new Action(RefreshHomeFanProfiles));
             return;
         }
@@ -100,6 +101,7 @@ public partial class AdvancedWindow
 
         string selected = _app.State.CoolingProfileDisplay;
         bool manual = IsManualHomeFanState(selected);
+        bool firmwarePolicy = string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
         _syncing = true;
         try
         {
@@ -109,13 +111,16 @@ public partial class AdvancedWindow
             HomeFanMax.IsChecked = selected.Equals("Max cooling", StringComparison.OrdinalIgnoreCase);
 
             var values = new List<string>();
-            if (manual)
+            if (manual && !firmwarePolicy)
                 values.Add(selected);
             values.Add(MoreFanProfilesLabel);
             values.Add("Auto");
-            values.AddRange(_app.FanProfiles.GetProfiles()
-                .Where(profile => !_app.FanProfiles.IsBuiltIn(profile.Id))
-                .Select(profile => profile.Name));
+            if (!firmwarePolicy)
+            {
+                values.AddRange(_app.FanProfiles.GetProfiles()
+                    .Where(profile => !_app.FanProfiles.IsBuiltIn(profile.Id))
+                    .Select(profile => profile.Name));
+            }
             HomeFanProfileCombo.ItemsSource = values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
             HomeFanProfileCombo.SelectedItem = values.Contains(selected, StringComparer.OrdinalIgnoreCase)
                 ? selected
