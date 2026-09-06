@@ -36,7 +36,6 @@ internal sealed class GestureActionRouter
     private long _trackGestureStarted;
     private double _trackMaxTravelMm;
     private double? _trackStartPosition01;
-    private bool _trackStayedCandidate;
 
     internal GestureActionRouter(
         NativeInputService nativeInput,
@@ -102,7 +101,6 @@ internal sealed class GestureActionRouter
         _trackGestureStarted = Stopwatch.GetTimestamp();
         _trackMaxTravelMm = 0;
         _trackStartPosition01 = signal.EdgePosition01;
-        _trackStayedCandidate = true;
     }
 
     private void Begin(GestureSignal signal)
@@ -139,7 +137,6 @@ internal sealed class GestureActionRouter
                 if (_trackGestureStarted == 0)
                     _trackGestureStarted = Stopwatch.GetTimestamp();
                 _trackStartPosition01 ??= signal.EdgePosition01;
-                _trackStayedCandidate = false;
                 _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
                 TryFireTrackSwipe(signal);
                 break;
@@ -172,7 +169,6 @@ internal sealed class GestureActionRouter
                 break;
             case GestureActionKind.PreviousNextTrack:
                 _trackStartPosition01 ??= signal.EdgePosition01;
-                _trackStayedCandidate = false;
                 _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
                 TryFireTrackSwipe(signal);
                 break;
@@ -185,9 +181,13 @@ internal sealed class GestureActionRouter
         {
             _trackStartPosition01 ??= signal.EdgePosition01;
             _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
-            if (!_trackStayedCandidate)
-                TryFireTrackSwipe(signal, allowReleaseFallback: true);
-            if (!_trackSwipeFired && _trackStayedCandidate)
+
+            // Previous/Next keeps first refusal once the deliberate 9 mm swipe
+            // threshold is reached. Otherwise a contact that STARTED in the center
+            // may still resolve as Play/Pause on lift, even if ordinary finger drift
+            // crossed the recognizer's smaller edge-claim threshold along the way.
+            TryFireTrackSwipe(signal, allowReleaseFallback: true);
+            if (!_trackSwipeFired)
                 TryFireTrackCenter();
         }
         End(signal.Action);
@@ -326,7 +326,6 @@ internal sealed class GestureActionRouter
             _trackGestureStarted = 0;
             _trackMaxTravelMm = 0;
             _trackStartPosition01 = null;
-            _trackStayedCandidate = false;
         }
 
         if (action == GestureActionKind.MediaSeek)
