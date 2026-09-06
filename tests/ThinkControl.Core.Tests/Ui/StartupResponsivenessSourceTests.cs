@@ -38,10 +38,15 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("\"{executable}\" --tray", startup, StringComparison.Ordinal);
         Assert.Contains("StartConfiguredTouchpadInputForStartup", shell, StringComparison.Ordinal);
         Assert.Contains("DispatcherPriority.Background", shell, StringComparison.Ordinal);
-        Assert.Contains("UserSettings.Current.TouchpadGestures?.Enabled != true", touchpad, StringComparison.Ordinal);
-        Assert.Contains("TouchpadFeature.EnsureInputStarted(startupCritical: IsTrayOnlyLaunch())", touchpad, StringComparison.Ordinal);
-        Assert.Contains("Application.Activated", touchpad.Replace("OnTouchpadApplicationActivated", "Application.Activated", StringComparison.Ordinal), StringComparison.Ordinal);
 
+        string startupMethod = touchpad.Split("internal void StartConfiguredTouchpadInputForStartup()", StringSplitOptions.None)[1]
+            .Split("private void OnTouchpadApplicationActivated", StringSplitOptions.None)[0];
+        Assert.Contains("UserSettings.Current.TouchpadGestures?.Enabled != true", startupMethod, StringComparison.Ordinal);
+        Assert.Contains("TouchpadFeature.EnsureInputStarted(startupCritical: IsTrayOnlyLaunch())", startupMethod, StringComparison.Ordinal);
+        Assert.DoesNotContain("Activated", startupMethod, StringComparison.Ordinal);
+
+        // Activation remains a recovery path, but no longer owns first registration.
+        Assert.Contains("private void OnTouchpadApplicationActivated", touchpad, StringComparison.Ordinal);
         Assert.Contains("internal bool EnsureInputStarted(bool startupCritical = false)", host, StringComparison.Ordinal);
         Assert.Contains("startupCritical", host, StringComparison.Ordinal);
         Assert.Contains("DispatcherPriority.Background", host, StringComparison.Ordinal);
