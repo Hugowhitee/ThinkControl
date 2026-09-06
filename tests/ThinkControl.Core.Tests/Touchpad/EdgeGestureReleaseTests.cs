@@ -34,7 +34,7 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
-    public void StationaryTrackCandidate_EmitsReleaseSoCenterHoldCanCommit()
+    public void StationaryTrackCandidate_EmitsReleaseSoCenterTapCanCommit()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -56,6 +56,76 @@ public sealed class EdgeGestureReleaseTests
         Assert.Equal(GestureActionKind.PreviousNextTrack, released?.Action);
         Assert.Equal(0, released?.TotalTravelMm);
         Assert.InRange(released?.EdgePosition01 ?? -1, 0.499, 0.501);
+    }
+
+    [Fact]
+    public void TrackCenterTap_AllowsNaturalOffAxisDriftInsideTapSlop()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            Bindings = new TouchpadGestureBindings(
+                Left: new(GestureActionKind.Volume),
+                Right: new(GestureActionKind.Brightness),
+                Top: new(GestureActionKind.MediaSeek),
+                Bottom: new(GestureActionKind.PreviousNextTrack))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        GestureSignal? candidate = recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
+        GestureSignal? drift = recognizer.ProcessFrame([new TouchContact(1, 6850, 7600, true)]);
+        GestureSignal? released = recognizer.ProcessFrame([]);
+
+        Assert.Equal(GesturePhase.Candidate, candidate?.Phase);
+        Assert.Null(drift);
+        Assert.Equal(GesturePhase.Released, released?.Phase);
+        Assert.Equal(GestureActionKind.PreviousNextTrack, released?.Action);
+        Assert.InRange(released?.TotalTravelMm ?? -1, 2.8, 3.2);
+        Assert.True(TrackCenterGesturePolicy.IsInsideCenterZone(released?.EdgePosition01));
+    }
+
+    [Fact]
+    public void TrackCenterDriftBeyondTapSlop_ResumesNormalDirectionRejection()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            Bindings = new TouchpadGestureBindings(
+                Left: new(GestureActionKind.Volume),
+                Right: new(GestureActionKind.Brightness),
+                Top: new(GestureActionKind.MediaSeek),
+                Bottom: new(GestureActionKind.PreviousNextTrack))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
+        GestureSignal? rejected = recognizer.ProcessFrame([new TouchContact(1, 6750, 7300, true)]);
+
+        Assert.Equal(GesturePhase.Cancelled, rejected?.Phase);
+        Assert.Equal(GestureActionKind.PreviousNextTrack, rejected?.Action);
+        Assert.Equal("Wrong direction", rejected?.Reason);
+        Assert.True((rejected?.TotalTravelMm ?? 0) > TrackCenterGesturePolicy.MovementToleranceMm);
+    }
+
+    [Fact]
+    public void TrackCenterHorizontalSwipe_LeavesTapReservationAndClaimsTrack()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            Bindings = new TouchpadGestureBindings(
+                Left: new(GestureActionKind.Volume),
+                Right: new(GestureActionKind.Brightness),
+                Top: new(GestureActionKind.MediaSeek),
+                Bottom: new(GestureActionKind.PreviousNextTrack))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
+        GestureSignal? stillTap = recognizer.ProcessFrame([new TouchContact(1, 7100, 7880, true)]);
+        GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 7300, 7880, true)]);
+
+        Assert.Null(stillTap);
+        Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
+        Assert.Equal(GestureActionKind.PreviousNextTrack, claimed?.Action);
+        Assert.True(Math.Abs(claimed?.TotalTravelMm ?? 0) > TrackCenterGesturePolicy.MovementToleranceMm);
     }
 
     [Fact]
@@ -81,12 +151,12 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
-    public void MovingTrackCandidate_PreservesPreClaimTravelForCenterHoldGuard()
+    public void MovingTrackCandidate_PreservesPreClaimTravelForCenterTapGuard()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
             TrackCenterPlayPauseEnabled = true,
-            ActivationDistanceMm = 4,
+            ActivationDistanceMm = 6,
             Bindings = new TouchpadGestureBindings(
                 new(GestureActionKind.Volume),
                 new(GestureActionKind.Brightness),
