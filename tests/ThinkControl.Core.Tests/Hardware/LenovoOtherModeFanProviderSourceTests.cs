@@ -141,7 +141,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("if (_identity.IsVerifiedX9 && nativeOemSafetyBoundary)", source, StringComparison.Ordinal);
         Assert.Contains("return LenovoFanControlKind.None;", source, StringComparison.Ordinal);
         Assert.Contains("_nativeOemFanTelemetryConfirmed = true", source, StringComparison.Ordinal);
-        Assert.Contains("must never silently re-authorize the known-inferior EC writer", source, StringComparison.Ordinal);
+        Assert.Contains("transient provider miss must never silently", source, StringComparison.Ordinal);
+        Assert.Contains("re-authorize the known-inferior EC writer", source, StringComparison.Ordinal);
         Assert.Contains("A transient telemetry miss cannot re-enable the EC fallback", source, StringComparison.Ordinal);
         Assert.Contains("ownsDiscreteEc = _activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete", source, StringComparison.Ordinal);
     }
