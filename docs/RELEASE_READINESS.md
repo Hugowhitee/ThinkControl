@@ -18,7 +18,8 @@ Current alpha.40 candidate:
 - PR: #76;
 - version: `v0.1.0-alpha.40`;
 - base: immutable alpha.39 / `main` at `ac3434805ff54e24fbee7178ec36e3e4d7829c4c`;
-- `version.json.releaseReady=false` until implementation CI + Package + inspected WPF QA pass;
+- implementation head validated before release freeze: `591707b56d72b16f409f9b9669662a3b74a97533`;
+- `version.json.releaseReady=true` after implementation CI + Package passed and the exact WPF artifact was manually inspected;
 - no hardware-provider, fan-writer, startup-owner or low-level write contract is changed by this candidate.
 
 Alpha.40 is a narrow Touchpad interaction follow-up. Alpha.39 got the Track lane visually correct, but real-pad use showed that the center Play/Pause tap could still be difficult to trigger quickly. Alpha.40 fixes the recognition dead zone, removes the now-duplicate standalone Play/Pause menu action, makes occupied edge reassignment swap actions, and corrects the media popup glyph semantics.
@@ -120,12 +121,12 @@ Do not recreate a third full installer workflow. CI and Package are the required
 - [x] Corrected Track popup semantics to Playing→pause-bars and Paused→play-triangle.
 - [x] Added source/policy compatibility guards for the new interaction contracts.
 - [x] Updated README/Product/Architecture/Device Support/Alpha Testing for alpha.40; this document remains the mutable handoff.
-- [ ] Exact implementation head passes CI: hygiene, Release build, all Core/source tests, ShellSmoke and WPF rendering.
-- [ ] Exact implementation head passes Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
-- [ ] Download and manually inspect the exact-head WPF visual-QA artifact, especially Touchpad normal/minimum/wide/light and media OSD coverage.
-- [ ] Review final implementation diff for duplicate/dead event handlers, duplicate action owners and accidental alpha.39 hardware/startup regressions.
-- [ ] Record exact implementation-head run IDs, test/snapshot counts and visual artifact ID/digest below.
-- [ ] Set `version.json.releaseReady=true` only after implementation evidence is complete.
+- [x] Exact implementation head passed CI: hygiene, Release build, all Core/source tests, ShellSmoke and WPF rendering.
+- [x] Exact implementation head passed Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
+- [x] Downloaded and manually inspected the exact-head WPF visual-QA artifact, especially Touchpad normal/minimum/wide/light plus the existing media OSD shell fixture.
+- [x] Reviewed the implementation diff for duplicate/dead event handlers, duplicate action owners and accidental alpha.39 hardware/startup regressions.
+- [x] Recorded exact implementation-head run IDs, test/snapshot counts and visual/package artifact IDs/digests below.
+- [x] Set `version.json.releaseReady=true` only after implementation evidence was complete.
 - [ ] Require CI + Package to pass again on the exact frozen docs/version head.
 - [ ] Mark PR #76 ready, review final checks/comments and merge with the exact expected head SHA.
 - [ ] Verify post-merge `main` equals the merged alpha.40 commit and immutable alpha.39 remains unchanged.
@@ -134,7 +135,15 @@ Do not recreate a third full installer workflow. CI and Package are the required
 
 ### Alpha.40 implementation evidence
 
-Pending exact-head CI / Package / WPF artifact inspection. Do not fill this section from superseded runs.
+Exact implementation head `591707b56d72b16f409f9b9669662a3b74a97533` passed both required PR pipelines before the final docs/version freeze:
+
+- CI run `34056270851` / #1688: repository hygiene passed; Release build succeeded with **0 warnings / 0 errors**; **162/162** Core/source tests passed; Compact/Advanced ShellSmoke passed; **85** WPF snapshots rendered successfully.
+- WPF artifact `9996065736` (`ThinkControl-Visual-QA`) has SHA-256 digest `c93c2b4d3e6460d07c03d5bec908cd5697f8ff243139a08eb2987e9f85698b43` and was downloaded and manually inspected.
+- Touchpad visual inspection covered `advanced-touchpad.png`, `advanced-touchpad-min.png`, `advanced-touchpad-wide.png` and `advanced-touchpad-light.png`. The wide Bottom Track fixture still reads as one continuous Previous | Play/Pause | Next band; the 20% center segment remains integrated rather than becoming a second pill/overlay; normal/minimum/light layouts remain aligned and unclipped.
+- The current 85-snapshot matrix contains the existing media popup shell/Next-track fixture rather than separate deterministic Playing/Paused state fixtures. The exact Playing→pause-bars and Paused→play-triangle mapping is therefore guarded by `TrackControlPolishSourceTests`; visual review confirmed the popup shell itself remains intact. Do not claim a physical media-session result from hosted screenshots.
+- Package run `34056270849` / #1404 passed UI/service publish, payload/bootstrap build, deep installer/service/IPC lifecycle, custom-location preservation, clean uninstall, checksum creation and immutable alpha.14.1 → alpha.40 updater compatibility.
+- Package development artifact `9996071168` (`ThinkControl-0.1.0-alpha.40-dev.1404`) has SHA-256 digest `62992447a75d19f09c4506fdae542e03181a564d03b9fbd1a6536e04ddb61010`.
+- Final implementation diff is Touchpad/core/UI/tests/docs/version only. No hardware provider, cooling writer, startup owner or installer mechanism changed. `TouchpadPanel.OnInitialized` explicitly detaches the old move-only action-selection handler before attaching the swap handler, so there is one active assignment owner; Track recognition remains in the existing recognizer/router and the standalone PlayPause enum survives only as compatibility input.
 
 ## Physical X9 / Windows-session follow-up — separate evidence class
 
