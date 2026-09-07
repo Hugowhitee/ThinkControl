@@ -56,7 +56,11 @@ The coordinator tracks whether **ThinkControl itself actually changed full-speed
 
 If the known full-speed feature is unavailable, non-writable, non-boolean or fails readback, the transition fails closed instead of guessing a larger RPM target, EC state or IOCTL. Quiet/Balanced remain ordinary Lenovo firmware-policy operations.
 
-Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through `SetThermalMode`. Later Performance-page changes update that baseline while a cooling override remains active. Auto restores the latest baseline, so Performance and Fans do not continuously fight over the same Lenovo policy surface.
+Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through `SetThermalMode`. Lenovo's reviewed thermal commands are source-specific: AC uses 502/503/504 and DC uses 507/508/509. Alpha.42 therefore treats a new power baseline as an event that must also **reassert the active cooling override for the current source**. Merely retaining `_overrideProfile = "Quiet"` in memory is not enough because Lenovo/Windows may have changed the physical OEM policy underneath it during AC/DC or resume transitions.
+
+Startup restoration also distinguishes a saved preference from applied state. The saved `CoolingProfile` is not painted as active merely because it exists in `UserSettings`. The Fans selector follows service/runtime state until the saved profile has actually been applied. After the first successful restore, `App.Cooling` performs one bounded seven-second settle reassert to cover Lenovo login/service policy work that may finish shortly after ThinkControl first becomes available. This is intentionally a one-shot convergence step, not a recurring policy fight or polling loop.
+
+Closing/restarting only the normal-user UI does not clear a firmware-policy profile. The privileged service owns that state and keeps Quiet/Balanced/Max active. Direct/manual fan output remains a different safety class and is returned to Auto when the UI exits. Normal service disposal still releases ThinkControl-owned firmware/full-speed state before hardware disposal.
 
 Firmware policy/full-speed profiles intentionally do not advertise applied percentage, EC state or editable curve semantics. Manual percentage tests, raw EC diagnostics and curve editing remain direct-provider features only.
 
@@ -79,6 +83,8 @@ The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `H
 ThinkControl records only state it actually owns. Direct provider/channels are returned to OEM Auto on handoff/failure/disposal where supported. Target `0` on the rejected per-fan Other Mode path remains only for cleanup/reassertion of stale previously owned targets.
 
 Native two-fan evidence is latched for the current service lifetime so a transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer. Fan RPM telemetry is evidence about tachometer speed, not proof that a selected policy equals Lenovo's strongest physical cooling state; alpha.40 physical feedback specifically showed that high-looking RPM telemetry can coexist with weaker airflow than naturally hot Auto.
+
+For firmware profiles, telemetry is only truthful when the coordinator has successfully applied/reasserted the corresponding semantic policy in the current lifecycle. The UI no longer substitutes the persisted preference ID for a runtime Auto state during page initialization.
 
 ## Keyboard model
 
