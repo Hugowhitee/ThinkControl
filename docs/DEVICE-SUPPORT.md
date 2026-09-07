@@ -113,9 +113,9 @@ Enabled top-corner launch geometry remains the canonical **guard → diagonal la
 
 Track control remains one continuous visible edge lane: **Previous | Play/Pause | Next**. Standalone Play/Pause is not offered separately; legacy serialized PlayPause bindings sanitize into Track control.
 
-In alpha.42 the center target is widened to **28%** of the Track edge (`0.36..0.64`). A quick press still commits on release, but a stationary center hold also commits after about **240 ms while the finger remains down**. Hold/release/skip share one guarded action state, so a single contact cannot double-toggle or both toggle and skip. The center movement envelope remains **8.75 mm** and the deliberate Previous/Next threshold remains **9 mm**.
+In alpha.42 the center target remains widened to **28%** of the Track edge (`0.36..0.64`), but Play/Pause is deliberately **hold-to-release**, not tap-to-toggle. A center-start contact must remain down for at least **450 ms**, stay within **3 mm** maximum radial movement, and then release. Quick taps are ignored. The recognizer preserves the maximum excursion so moving away and back cannot re-arm the hold. Once the 3 mm hold slop is exceeded, normal Track direction recognition resumes; Previous/Next still requires the unchanged **9 mm** threshold.
 
-When reverse close is enabled for a top corner, the reverse start target is now the **inner half of the already-visible diagonal lane**, not only the small rounded inner cap. The outer corner guard remains an inward-launch start, the right side remains an exact mirror, and no invisible reverse hit area exists beyond the rendered lane/cap geometry.
+When reverse close is enabled for a top corner, the reverse start target is the **inner half of the already-visible diagonal lane**, not only the small rounded inner cap. The outer corner guard remains an inward-launch start, the right side remains an exact mirror, and no invisible reverse hit area exists beyond the rendered lane/cap geometry.
 
 Occupied edge actions still swap instead of destructively clearing the previous edge. Sensitivity and inversion remain attached to their physical edges.
 
@@ -144,14 +144,16 @@ Confirmed negative X9 evidence remains:
 - alpha.38 per-fan target-RPM control repeatedly re-kicked/waved rather than settling;
 - nominal target 100% was weaker than naturally hot Lenovo Auto;
 - alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry;
-- alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise.
+- alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise;
+- pre-freeze alpha.42 testing feedback also made clear that automatic/quick center activation was too risky for a global media command.
 
 Alpha.42 therefore requires real-X9 checks for:
 
-- repeated quick center presses reliably toggling exactly once;
-- a stationary center hold toggling while the finger is still down without a second toggle on release;
-- a center hold not later also producing Previous/Next;
-- deliberate ~9 mm Track swipes still winning when performed as swipes;
+- a quick center tap doing nothing;
+- a deliberate roughly half-second center hold toggling exactly once **on release**;
+- ordinary small stationary-finger jitter staying within the 3 mm hold slop;
+- moving beyond 3 mm disarming Play/Pause even if the finger returns near its start;
+- deliberate ~9 mm Track swipes still producing Previous/Next without also toggling Play/Pause;
 - reverse close succeeding from multiple points in the inner half of either mirrored diagonal lane;
 - the outer guard still launching inward and never being misclassified as reverse close;
 - all alpha.41 fan/startup safety behavior remaining unchanged.
