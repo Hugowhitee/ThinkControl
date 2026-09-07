@@ -105,9 +105,9 @@ The editor/visualizer uses one six-zone selection model: Top, Bottom, Left, Righ
 
 Track control is one coherent three-part edge affordance: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action, no separate Center play/pause setting and no second overlay/recognizer.
 
-Alpha.42 makes the physical Play/Pause target deliberately easier to hit. The visible center segment is now **28%** of the selected Track edge (`0.36..0.64`) instead of alpha.41's 20%. A quick center press still commits on release, while a stationary center hold commits after about **240 ms while the finger is still down** so holding the visible button no longer feels inert.
+Alpha.42 keeps the larger physical Play/Pause target but intentionally makes the action harder to trigger accidentally. The visible center segment is **28%** of the selected Track edge (`0.36..0.64`) instead of alpha.41's 20%, so deliberate placement is easy. A quick center tap does **not** toggle media. Play/Pause requires a center-start contact to remain held for at least **450 ms**, stay within **3 mm** maximum radial movement, and then release.
 
-Center hold, release and Previous/Next share one guarded Track action state. Exactly one action may commit per contact: a hold cannot toggle again on release and cannot subsequently also fire Previous/Next. The center movement envelope remains **8.75 mm**, immediately below the unchanged **9 mm** deliberate Previous/Next threshold, so easier Play/Pause does not lower skip intent.
+The recognizer records the **maximum** center excursion while the contact remains a candidate. Moving away and returning near the start cannot make a previously mobile contact look stationary at release. If movement exceeds the 3 mm hold slop, center Play/Pause is disarmed and normal Track direction recognition resumes. Previous/Next still requires the unchanged **9 mm** deliberate swipe threshold. Play/Pause never auto-fires while the finger is still down, which keeps a resting or incidental touch from unexpectedly starting media.
 
 Old serialized standalone `PlayPause` bindings remain readable and sanitize into Track control. When assigning an edge action already used elsewhere, the editor swaps the two action kinds instead of clearing the old edge; sensitivity and inversion remain physical-edge tuning and stay with their edges.
 
