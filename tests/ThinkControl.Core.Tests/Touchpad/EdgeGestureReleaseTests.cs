@@ -21,7 +21,7 @@ public sealed class EdgeGestureReleaseTests
         var recognizer = new EdgeGestureRecognizer(config);
 
         // Keep this generic swipe/release regression outside Track's dedicated
-        // center button reservation. Center-start behavior has its own tests below.
+        // center hold reservation. Center-start behavior has its own tests below.
         recognizer.ProcessFrame([new TouchContact(1, 3500, 120, true)], Geometry);
         GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 3850, 120, true)]);
         GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 4900, 120, true)]);
@@ -36,7 +36,7 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
-    public void StationaryTrackCandidate_EmitsReleaseSoCenterButtonCanCommit()
+    public void StationaryTrackCandidate_EmitsReleaseSoCenterHoldCanCommit()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -61,7 +61,7 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
-    public void TrackCenterButton_AllowsNaturalOffAxisDriftInsideButtonEnvelope()
+    public void TrackCenterHold_AllowsSmallNaturalOffAxisDrift()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -74,19 +74,19 @@ public sealed class EdgeGestureReleaseTests
         var recognizer = new EdgeGestureRecognizer(config);
 
         GestureSignal? candidate = recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
-        GestureSignal? drift = recognizer.ProcessFrame([new TouchContact(1, 7000, 7350, true)]);
+        GestureSignal? drift = recognizer.ProcessFrame([new TouchContact(1, 6900, 7700, true)]);
         GestureSignal? released = recognizer.ProcessFrame([]);
 
         Assert.Equal(GesturePhase.Candidate, candidate?.Phase);
         Assert.Null(drift);
         Assert.Equal(GesturePhase.Released, released?.Phase);
         Assert.Equal(GestureActionKind.PreviousNextTrack, released?.Action);
-        Assert.InRange(released?.TotalTravelMm ?? -1, 5.7, 6.0);
+        Assert.InRange(released?.TotalTravelMm ?? -1, 2.3, 2.4);
         Assert.True(TrackCenterGesturePolicy.IsInsideCenterZone(released?.EdgePosition01));
     }
 
     [Fact]
-    public void TrackCenterDriftBeyondButtonEnvelope_ResumesNormalDirectionRejection()
+    public void TrackCenterRelease_PreservesMaximumExcursionEvenIfFingerReturns()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -99,7 +99,29 @@ public sealed class EdgeGestureReleaseTests
         var recognizer = new EdgeGestureRecognizer(config);
 
         recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
-        GestureSignal? rejected = recognizer.ProcessFrame([new TouchContact(1, 6750, 6950, true)]);
+        Assert.Null(recognizer.ProcessFrame([new TouchContact(1, 7030, 7880, true)]));
+        Assert.Null(recognizer.ProcessFrame([new TouchContact(1, 6800, 7880, true)]));
+        GestureSignal? released = recognizer.ProcessFrame([]);
+
+        Assert.Equal(GesturePhase.Released, released?.Phase);
+        Assert.InRange(released?.TotalTravelMm ?? -1, 2.79, 2.81);
+    }
+
+    [Fact]
+    public void TrackCenterDriftBeyondHoldEnvelope_ResumesNormalDirectionRejection()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            Bindings = new TouchpadGestureBindings(
+                Left: new(GestureActionKind.Volume),
+                Right: new(GestureActionKind.Brightness),
+                Top: new(GestureActionKind.MediaSeek),
+                Bottom: new(GestureActionKind.PreviousNextTrack))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
+        GestureSignal? rejected = recognizer.ProcessFrame([new TouchContact(1, 6750, 7480, true)]);
 
         Assert.Equal(GesturePhase.Cancelled, rejected?.Phase);
         Assert.Equal(GestureActionKind.PreviousNextTrack, rejected?.Action);
@@ -108,7 +130,7 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
-    public void TrackCenterHorizontalSwipe_LeavesButtonReservationAndClaimsTrackAtSkipScale()
+    public void TrackCenterHorizontalSwipe_LeavesHoldReservationBeforeSkipScale()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -121,14 +143,15 @@ public sealed class EdgeGestureReleaseTests
         var recognizer = new EdgeGestureRecognizer(config);
 
         recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
-        GestureSignal? stillButton = recognizer.ProcessFrame([new TouchContact(1, 7500, 7880, true)]);
-        GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 7700, 7880, true)]);
+        GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 7100, 7880, true)]);
+        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 7700, 7880, true)]);
 
-        Assert.Null(stillButton);
         Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
         Assert.Equal(GestureActionKind.PreviousNextTrack, claimed?.Action);
-        Assert.True(Math.Abs(claimed?.TotalTravelMm ?? 0) > TrackCenterGesturePolicy.MovementToleranceMm);
-        Assert.True(Math.Abs(claimed?.TotalTravelMm ?? 0) >= TrackCenterGesturePolicy.SwipeThresholdMm);
+        Assert.InRange(Math.Abs(claimed?.TotalTravelMm ?? 0), 3.49, 3.51);
+        Assert.True(Math.Abs(claimed?.TotalTravelMm ?? 0) < TrackCenterGesturePolicy.SwipeThresholdMm);
+        Assert.Equal(GesturePhase.Active, active?.Phase);
+        Assert.True(Math.Abs(active?.TotalTravelMm ?? 0) >= TrackCenterGesturePolicy.SwipeThresholdMm);
     }
 
     [Fact]
@@ -154,7 +177,7 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
-    public void MovingTrackCandidate_PreservesPreClaimTravelForCenterButtonGuard()
+    public void MovingTrackCandidate_PreservesPreClaimTravelForCenterHoldGuard()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
