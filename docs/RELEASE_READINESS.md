@@ -18,10 +18,11 @@ Current alpha.42 candidate:
 - PR: #78, **Make Track Play/Pause and reverse close easier to trigger**;
 - version: `v0.1.0-alpha.42`;
 - base: immutable alpha.41 / `main` at `6088955eeab54d1af6506780fa7707df17fe11c3`;
-- `version.json.releaseReady=false` while the final deliberate-hold implementation is validated;
+- final deliberate-hold implementation head validated before release freeze: `57217763e94e93fa11473765feb90f63312bea10`;
+- `version.json.releaseReady=false` during implementation evidence collection; the next version-only freeze may set it true now that this evidence is recorded;
 - the earlier alpha.42 freeze was explicitly reopened after the user clarified that global Play/Pause must be difficult to trigger accidentally, especially in a school/classroom context.
 
-Alpha.42 remains intentionally narrow. Real X9 use of alpha.41 showed two physical Touchpad interaction problems: the integrated Track center Play/Pause target remained hard to trigger, and reverse-close usually failed because its start target was too precise. The first alpha.42 implementation fixed hitability but made Play/Pause **too easy** by accepting a quick tap and auto-firing a hold while the finger was still down. That behavior is superseded before release.
+Alpha.42 remains intentionally narrow. Real X9 use of alpha.41 showed two physical Touchpad interaction problems: the integrated Track center Play/Pause target remained hard to trigger, and reverse-close usually failed because its start target was too precise. The first alpha.42 implementation fixed hitability but made Play/Pause **too easy** by accepting a quick tap and auto-firing a hold while the finger was still down. That behavior was superseded before release.
 
 ## Alpha.42 product delta
 
@@ -95,7 +96,7 @@ Earlier alpha.42 implementation/docs head `47c90f9ea662096a7134712e00bde0598e11d
 - Package #1432 / run `34086178924` passed the full package/installer/service/updater path;
 - Package artifact `10005304235`, digest `f99a0ed1f657ade2f279080124932a105485e206e22434cb113d0b7ede03f505`.
 
-The subsequent frozen head `d164574ac1f69690cc143d16fe013ca1ae5b21bc` also passed final CI. **None of those runs can approve the final release now**, because they tested the superseded 240 ms auto-fire / quick-tap behavior. They remain useful regression baseline evidence only.
+The subsequent frozen head `d164574ac1f69690cc143d16fe013ca1ae5b21bc` also passed final CI. **None of those runs approve the final release**, because they tested the superseded 240 ms auto-fire / quick-tap behavior. They remain regression baseline evidence only.
 
 ## Alpha.42 final implementation gate
 
@@ -111,12 +112,12 @@ The subsequent frozen head `d164574ac1f69690cc143d16fe013ca1ae5b21bc` also passe
 - [x] Preserved mirrored corner geometry, outer-guard inward launch and corner lockout semantics.
 - [x] Added/updated Track policy, max-excursion, reverse-zone and source-level regression tests.
 - [x] Updated README/Product/Architecture/Device Support/Alpha Testing for the final alpha.42 semantics.
-- [ ] Fresh exact implementation head passes CI: hygiene, zero-warning/zero-error Release build, all tests, ShellSmoke and WPF rendering.
-- [ ] Fresh exact implementation head passes Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
-- [ ] Download and manually inspect fresh exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
-- [ ] Record the fresh implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
-- [ ] Review the focused diff for duplicate gesture/action owners and alpha.41 hardware/startup regressions.
-- [ ] Freeze `version.json.releaseReady=true` only after that implementation evidence is complete.
+- [x] Fresh exact implementation head passed CI: hygiene, zero-warning/zero-error Release build, all tests, ShellSmoke and WPF rendering.
+- [x] Fresh exact implementation head passed Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
+- [x] Downloaded and manually inspected fresh exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
+- [x] Recorded the fresh implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
+- [x] Reviewed the focused diff: only Touchpad/docs/tests/version files changed; no hardware/provider/service/startup/installer source was modified and no second gesture/action owner was added.
+- [ ] Freeze `version.json.releaseReady=true`.
 - [ ] Require CI + Package to pass again on the exact frozen docs/version head.
 - [ ] Mark PR #78 ready; review comments/threads/checks and merge with the exact expected head SHA.
 - [ ] Verify post-merge `main` equals the merged alpha.42 commit and immutable alpha.41 remains unchanged.
@@ -125,7 +126,16 @@ The subsequent frozen head `d164574ac1f69690cc143d16fe013ca1ae5b21bc` also passe
 
 ## Alpha.42 final implementation evidence
 
-Pending fresh validation of the deliberate hold-to-release implementation. Do not copy the superseded run IDs above into this section as release evidence.
+Exact deliberate-hold implementation head `57217763e94e93fa11473765feb90f63312bea10` passed both required PR pipelines:
+
+- **CI #1737 / run `34089402864`**: repository hygiene passed; Release build succeeded with **0 warnings / 0 errors**; **173/173** Core/source tests passed; Compact/Advanced ShellSmoke passed; **85** WPF visual-QA snapshots rendered successfully.
+- **WPF artifact `10006326748`** (`ThinkControl-Visual-QA`) has SHA-256 digest `f6b3d5af1f68942d80920940d79ace5e9392158ac724743a7c54fe481f6b3139` and was downloaded and manually inspected.
+- Visual review covered `advanced-touchpad.png`, `advanced-touchpad-min.png`, `advanced-touchpad-wide.png`, `advanced-touchpad-light.png`, both selected corner fixtures and both live corner fixtures. The wide Bottom Track fixture keeps Previous / Play-Pause / Next inside one continuous band with the wider center integrated rather than overlaid. The editor help copy is visible and explicitly says to hold about half a second, release, and that quick taps are ignored. Normal/min/light layouts remain aligned and unclipped. Left/right corner selected/live geometry remains visually mirrored; reverse-close recognition changes only inside the already-rendered diagonal lane.
+- **Package #1451 / run `34089402756`** passed UI/service publish, compact-payload checks, payload/bootstrap construction, deep installer/service/IPC lifecycle, custom-location preservation, clean uninstall, checksum creation and immutable alpha.14.1 → alpha.42 updater compatibility.
+- **Package artifact `10006325268`** (`ThinkControl-0.1.0-alpha.42-dev.1451`) has SHA-256 digest `3597664f0a773aa35ed5a2997476e354dd961f1eca08e62da0f87dc8666639c1`.
+- Focused source review confirmed the final center path is release-only: `GestureActionRouter` records one candidate timestamp and calls `ShouldCommitHold` only on release; there is no delayed auto-fire worker. `TrackCenterGesturePolicy` requires 450 ms, <=3 mm and center-start ownership. `EdgeGestureRecognizer` preserves maximum candidate excursion and resumes normal edge direction recognition beyond the hold slop. The 9 mm Track skip threshold remains unchanged. Reverse close changes only the canonical start classifier inside the visible corner lane.
+
+Physical finger feel is intentionally not marked proven by these hosted results.
 
 ## Physical X9 follow-up — separate evidence class
 
