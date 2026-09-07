@@ -4,186 +4,199 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 ## Current release state
 
-Last immutable published prerelease before this candidate:
+Last immutable published prerelease:
 
-- `v0.1.0-alpha.41`;
-- immutable tag/release SHA: `6088955eeab54d1af6506780fa7707df17fe11c3`;
-- published 2026-09-06 as an immutable prerelease;
-- exactly four managed public assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`;
-- alpha.41 is the preserved baseline for its startup ordering, X9 full-speed safety path, rejected per-fan target writer, installer/updater behavior and prior shell/crash fixes.
+- `v0.1.0-alpha.41`
+- immutable tag/release SHA `6088955eeab54d1af6506780fa7707df17fe11c3`
+- exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
+- preserved baseline for early tray/Raw-Input startup, X9 full-speed safety, rejected per-fan target writer, installer/updater and prior shell/crash fixes
 
-Current alpha.42 candidate:
+Current candidate:
 
-- branch: `fix/alpha42-touchpad-input-reliability`;
-- PR: #78, **Make Track Play/Pause and reverse close easier to trigger**;
-- version: `v0.1.0-alpha.42`;
-- base: immutable alpha.41 / `main` at `6088955eeab54d1af6506780fa7707df17fe11c3`;
-- final deliberate-hold implementation head validated before release freeze: `57217763e94e93fa11473765feb90f63312bea10`;
-- `version.json.releaseReady=true`; the release candidate is frozen and only exact-head validation/merge/promotion remain;
-- the earlier alpha.42 freeze was explicitly reopened after the user clarified that global Play/Pause must be difficult to trigger accidentally, especially in a school/classroom context.
+- version `v0.1.0-alpha.42`
+- branch `fix/alpha42-touchpad-input-reliability`
+- PR #78, **Make Track Play/Pause and reverse close easier to trigger**
+- base `main` / alpha.41 at `6088955eeab54d1af6506780fa7707df17fe11c3`
+- latest validated implementation head before release-doc refresh: `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf`
+- `version.json.releaseReady=false` until the new handoff is frozen and exact frozen-head CI + Package pass
 
-Alpha.42 remains intentionally narrow. Real X9 use of alpha.41 showed two physical Touchpad interaction problems: the integrated Track center Play/Pause target remained hard to trigger, and reverse-close usually failed because its start target was too precise. The first alpha.42 implementation fixed hitability but made Play/Pause **too easy** by accepting a quick tap and auto-firing a hold while the finger was still down. That behavior was superseded before release.
+Alpha.42 was reopened twice before release for valid physical evidence: first because quick/automatic center Play/Pause was too easy to trigger accidentally, then because a saved X9 cooling profile such as Quiet could remain selected in UI while the physical machine had effectively returned to Auto/base policy after restart/lifecycle transitions. Neither superseded freeze is release evidence for the final candidate.
 
 ## Alpha.42 product delta
 
-### Track center Play/Pause — final candidate model
+### Track center Play/Pause
 
 Track remains one continuous **Previous | Play/Pause | Next** lane with one recognizer/router owner.
 
-The final alpha.42 model separates *where* the target is from *how deliberately* it activates:
-
-- the center start segment remains widened from 20% to **28%** (`0.36..0.64`) so deliberate placement is easy;
-- a **quick center tap does nothing**;
-- Play/Pause requires a center-start contact held for at least **450 ms**;
-- the contact may move at most **3 mm maximum radial excursion** while it remains a hold candidate;
-- Play/Pause commits **only on release**, never automatically while the finger remains down;
-- the recognizer preserves maximum excursion, so moving away and returning cannot erase earlier movement and re-arm the hold;
-- once movement exceeds 3 mm, ordinary Track direction recognition resumes;
-- the deliberate Previous/Next threshold remains unchanged at **9.0 mm**;
-- a claimed Track swipe cannot downgrade into Play/Pause on release.
-
-This deliberately favors accidental-playback prevention over the fastest possible toggle. It also follows a well-established touchpad interaction pattern rather than inventing another overlay: libinput-style hold gestures distinguish a static hold from a quick tap and allow small unavoidable single-finger deltas while cancelling into movement when intent changes. Public gesture projects also use hold for media Play/Pause. These references informed the interaction model only; ThinkControl imports no code or dependency from them.
+- center start region is 28% of the selected Track edge (`0.36..0.64`)
+- quick center taps intentionally do nothing
+- Play/Pause requires at least 450 ms hold time
+- maximum eligible radial excursion is 3 mm
+- maximum excursion is preserved, so moving away and returning cannot re-arm the hold
+- Play/Pause commits only on release
+- after leaving the hold envelope, normal Track recognition resumes
+- Previous/Next threshold remains 9 mm
+- a claimed Track swipe cannot also become Play/Pause on release
 
 ### Reverse close
 
-- the visible mirrored corner geometry is unchanged: guard → diagonal lane → rounded end-cap;
-- with reverse close enabled, outward ownership can begin in the **inner half of the already-visible diagonal lane**, not only the tiny rounded cap;
-- the outer guard remains a normal inward-launch start;
-- no invisible hit target is added outside the rendered lane/cap geometry;
-- outward claim still routes through the existing canonical hide-to-tray action;
-- rejected corner ownership still stays locked until lift instead of falling through to a neighboring edge.
+- visible mirrored guard → diagonal lane → rounded end-cap geometry is unchanged
+- reverse-close ownership may start anywhere in the inner half of the already-visible diagonal lane
+- outer guard remains inward launch
+- no hidden hit area was added
+- rejected corner ownership remains locked until lift
 
-### Preserved alpha.41 baseline
+### X9 firmware-profile runtime truth and persistence
 
-Alpha.42 does **not** modify hardware, fan, startup, service, installer or updater contracts. In particular:
+Physical pre-release testing found that a saved profile such as Quiet could appear selected after restart even though the fan audibly behaved like firmware Auto/base policy. Alpha.42 fixes the lifecycle without adding a new low-level writer.
 
-- X9 `fanX_target` remains physically rejected/read-only;
-- exact-X9 `0x04020000` full-speed remains separately live-read/readback gated;
-- no silent EC fallback is reintroduced;
-- early tray-start Raw Input ownership remains unchanged;
-- Compact/Advanced lifecycle, minimized-window recovery and `TargetParameterCountException` guards remain unchanged.
+- Fans initializes from service/runtime telemetry, not the persisted preference pretending to be applied state
+- saved firmware profiles are actively restored after capability discovery
+- one bounded 7-second startup-settle reassert handles a later Lenovo-service policy overwrite without creating a permanent polling fight
+- AC/DC, resume and Windows power-baseline transitions reassert the currently owned Quiet/Balanced/Max profile through the same reviewed source-specific LITSSvc path
+- closing/restarting only the WPF UI no longer releases a service-owned firmware profile to Auto
+- direct/manual fan ownership keeps the existing Auto-on-UI-exit/timeout safety class
+- service shutdown remains the final owner of firmware/full-speed/direct cleanup
+- rejected per-fan `fanX_target` remains read-only
+- Max still uses only the existing exact-X9 `0x04020000` boolean full-speed contract when its live/readback gates pass
+- no silent classic-EC or EnergyDrv writer fallback was introduced
 
-## Validation ownership
+## Final implementation evidence before release freeze
 
-### CI owns
+Exact implementation head `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf` passed both required PR pipelines after the cooling-persistence fix.
 
-- repository hygiene;
-- Release restore/build;
-- Core/source regression tests;
-- real Compact ↔ Advanced WPF lifecycle smoke;
-- deterministic WPF visual-QA matrix and artifact upload.
+### CI #1751
 
-### Package ThinkControl owns
+Run `34135415794` completed successfully on that exact head:
 
-- UI/service publish;
-- compact payload checks;
-- payload/bootstrap installer construction;
-- non-elevating UI contract;
-- service startup + named-pipe IPC;
-- custom install-location preservation;
-- in-place update and clean uninstall;
-- oldest-supported `v0.1.0-alpha.14.1` updater compatibility;
-- checksums and development artifact.
+- repository hygiene passed
+- Release build: **0 warnings, 0 errors**
+- Core/source tests: **177 passed, 0 failed, 0 skipped**
+- Compact/Advanced real WPF ShellSmoke passed
+- **85** deterministic WPF visual-QA snapshots rendered
+- visual artifact `10023821813`, `ThinkControl-Visual-QA`
+- artifact digest `cbc0a051cb1a5128b3d30436a0115a0e7505dee909e4a0ac28ac67826bb690d9`
 
-Do not recreate a third full installer workflow. Superseded PR runs may cancel; immutable/tag release packaging does not.
+The artifact was downloaded and manually inspected. `advanced-touchpad-wide.png` keeps Previous / Play-Pause / Next inside one continuous bottom band, the 28% center remains integrated rather than a separate pill, and the active Next treatment stays local. Top-left and top-right selected fixtures remain visually mirrored. Fans normal/manual/unavailable fixtures remain aligned; direct/manual controls still read as temporary/provider-specific rather than generic X9 controls. No screenshot regression was found from the persistence changes, which intentionally alter lifecycle/runtime truth rather than static Fans layout.
 
-## Superseded alpha.42 evidence
+### Package #1465
 
-Earlier alpha.42 implementation/docs head `47c90f9ea662096a7134712e00bde0598e11de93` passed the complete software gates:
+Run `34135415785` completed successfully on the same exact implementation head:
 
-- CI #1718 / run `34086178927`: 0 warnings / 0 errors, 173/173 tests, ShellSmoke and 85 snapshots;
-- WPF artifact `10005298128`, digest `8a03ec3b33434257e3353ee2a157761171ba952d256572d09586ee1815505cf8`, was downloaded and manually inspected;
-- Package #1432 / run `34086178924` passed the full package/installer/service/updater path;
-- Package artifact `10005304235`, digest `f99a0ed1f657ade2f279080124932a105485e206e22434cb113d0b7ede03f505`.
+- UI publish passed
+- hardware-service publish passed
+- compact managed-payload checks passed
+- payload archive and web bootstrap installer built
+- deep installer/service/IPC reliability smoke passed
+- custom-location lifecycle passed
+- oldest-supported immutable alpha.14.1 updater compatibility passed
+- checksums generated
+- development artifact uploaded
+- package artifact `10023809253`, `ThinkControl-0.1.0-alpha.42-dev.1465`
+- artifact digest `1cf1de4e06113db6d4daf17e5a5c759f172af626ec4c0ffad25ccf1bb5a4d038`
 
-The subsequent frozen head `d164574ac1f69690cc143d16fe013ca1ae5b21bc` also passed final CI. **None of those runs approve the final release**, because they tested the superseded 240 ms auto-fire / quick-tap behavior. They remain regression baseline evidence only.
+## Source/safety review
 
-## Alpha.42 final implementation gate
+Focused review after the physical cooling report confirms:
 
-- [x] Started from immutable alpha.41 / `main` at `6088955eeab54d1af6506780fa7707df17fe11c3`.
-- [x] Kept the follow-up on one branch/PR (#78).
-- [x] Widened Track center recognition and matching visual separators to 28%.
-- [x] Rejected the too-easy pre-freeze quick-tap / 240 ms auto-fire design before release.
-- [x] Changed Play/Pause to deliberate **450 ms hold + release**.
-- [x] Limited valid hold movement to **3 mm maximum radial excursion** and preserved that maximum even if the finger returns.
-- [x] Preserved the **9 mm** Previous/Next threshold and normal swipe recognition after the hold slop is exceeded.
-- [x] Removed delayed hold workers/concurrent auto-fire arbitration; release is the sole Play/Pause commit moment.
-- [x] Expanded reverse-close ownership only within the inner half of the already-visible diagonal lane.
-- [x] Preserved mirrored corner geometry, outer-guard inward launch and corner lockout semantics.
-- [x] Added/updated Track policy, max-excursion, reverse-zone and source-level regression tests.
-- [x] Updated README/Product/Architecture/Device Support/Alpha Testing for the final alpha.42 semantics.
-- [x] Fresh exact implementation head passed CI: hygiene, zero-warning/zero-error Release build, all tests, ShellSmoke and WPF rendering.
-- [x] Fresh exact implementation head passed Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
-- [x] Downloaded and manually inspected fresh exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
-- [x] Recorded the fresh implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
-- [x] Reviewed the focused diff: only Touchpad/docs/tests/version files changed; no hardware/provider/service/startup/installer source was modified and no second gesture/action owner was added.
-- [x] Frozen `version.json.releaseReady=true`.
-- [ ] Require CI + Package to pass on this exact final handoff head.
-- [ ] Mark PR #78 ready; review comments/threads/checks and merge with the exact expected head SHA.
-- [ ] Verify post-merge `main` equals the merged alpha.42 commit and immutable alpha.41 remains unchanged.
-- [ ] Verify `Promote release-ready main` creates immutable `v0.1.0-alpha.42` at the merged commit.
-- [ ] Verify exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png` are published and published Setup/Payload checksums validate.
+- `LenovoCoolingPolicyCoordinator.SetBasePowerMode` reasserts an active semantic profile through `SetBuiltInProfile`, so AC/DC/source-specific Lenovo commands converge without a second writer
+- `App.Cooling` owns one bounded startup-settle retry and has no `DispatcherTimer`/permanent enforcement loop
+- UI exit skips `ReturnFanToAuto` only for service-owned firmware policy; direct/manual paths retain cleanup
+- Fans selector initialization derives its current id from runtime profile state, not `UserSettings.Current.CoolingProfile`
+- four new source regression tests cover source/baseline reassertion, UI-exit ownership class, bounded startup settle and runtime selector truth
+- hardware safety docs, cooling design, architecture, device support and X9 research reflect the new lifecycle
 
-## Alpha.42 final implementation evidence
+The actual root cause of any Lenovo-side overwrite is not claimed. The product fix only responds to the observed lifecycle failure with reviewed semantic reassertion.
 
-Exact deliberate-hold implementation head `57217763e94e93fa11473765feb90f63312bea10` passed both required PR pipelines:
+## Alpha.42 release gate
 
-- **CI #1737 / run `34089402864`**: repository hygiene passed; Release build succeeded with **0 warnings / 0 errors**; **173/173** Core/source tests passed; Compact/Advanced ShellSmoke passed; **85** WPF visual-QA snapshots rendered successfully.
-- **WPF artifact `10006326748`** (`ThinkControl-Visual-QA`) has SHA-256 digest `f6b3d5af1f68942d80920940d79ace5e9392158ac724743a7c54fe481f6b3139` and was downloaded and manually inspected.
-- Visual review covered `advanced-touchpad.png`, `advanced-touchpad-min.png`, `advanced-touchpad-wide.png`, `advanced-touchpad-light.png`, both selected corner fixtures and both live corner fixtures. The wide Bottom Track fixture keeps Previous / Play-Pause / Next inside one continuous band with the wider center integrated rather than overlaid. The editor help copy is visible and explicitly says to hold about half a second, release, and that quick taps are ignored. Normal/min/light layouts remain aligned and unclipped. Left/right corner selected/live geometry remains visually mirrored; reverse-close recognition changes only inside the already-rendered diagonal lane.
-- **Package #1451 / run `34089402756`** passed UI/service publish, compact-payload checks, payload/bootstrap construction, deep installer/service/IPC lifecycle, custom-location preservation, clean uninstall, checksum creation and immutable alpha.14.1 → alpha.42 updater compatibility.
-- **Package artifact `10006325268`** (`ThinkControl-0.1.0-alpha.42-dev.1451`) has SHA-256 digest `3597664f0a773aa35ed5a2997476e354dd961f1eca08e62da0f87dc8666639c1`.
-- Focused source review confirmed the final center path is release-only: `GestureActionRouter` records one candidate timestamp and calls `ShouldCommitHold` only on release; there is no delayed auto-fire worker. `TrackCenterGesturePolicy` requires 450 ms, <=3 mm and center-start ownership. `EdgeGestureRecognizer` preserves maximum candidate excursion and resumes normal edge direction recognition beyond the hold slop. The 9 mm Track skip threshold remains unchanged. Reverse close changes only the canonical start classifier inside the visible corner lane.
+Completed implementation work:
 
-Physical finger feel is intentionally not marked proven by these hosted results.
+- [x] Started from immutable alpha.41
+- [x] Kept one active branch/PR
+- [x] Final Track interaction uses 28% center + 450 ms hold + release + <=3 mm maximum excursion
+- [x] Previous/Next remains 9 mm and cannot overlap Play/Pause
+- [x] Reverse-close target widened only inside visible lane geometry
+- [x] Cooling selector/runtime truth no longer confuses persisted preference with applied state
+- [x] Saved firmware profiles actively restore after startup capability discovery
+- [x] Added one bounded 7-second startup-settle reassert
+- [x] Active firmware profile reasserts across AC/DC/resume/power-baseline changes
+- [x] WPF UI exit preserves service-owned firmware profile but direct/manual cleanup remains intact
+- [x] No rejected direct writer/EC fallback was reauthorized
+- [x] Implementation head passed CI + Package
+- [x] Implementation-head visual artifact downloaded and inspected
+- [x] Alpha testing guide updated for the new physical persistence regression
+
+Remaining release steps:
+
+- [ ] Freeze release handoff with `version.json.releaseReady=true`
+- [ ] Require **CI + Package ThinkControl on the exact frozen head**
+- [ ] Inspect the frozen-head WPF artifact and confirm no UI difference/regression
+- [ ] Review complete PR changed-file list, comments and review threads
+- [ ] Mark PR #78 ready and merge with exact expected-head SHA
+- [ ] Verify post-merge `main`
+- [ ] Verify `Promote release-ready main` creates immutable `v0.1.0-alpha.42` at the merged commit
+- [ ] Verify exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
+- [ ] Verify published Setup/Payload SHA-256 checksums
+- [ ] Confirm immutable alpha.41 tag/release was not moved
 
 ## Physical X9 follow-up — separate evidence class
 
-Hosted CI cannot prove finger feel. Alpha.42 is specifically intended to address physical alpha.41 feedback, so do not convert automated tests into claims that the interaction now feels correct.
+Hosted CI cannot prove finger feel or Lenovo firmware acoustics. After installing the published alpha.42, record these separately:
 
-Real-pad checks after installing alpha.42:
+Touchpad:
 
-- [ ] A quick center tap does **nothing** and cannot unexpectedly start playback.
-- [ ] A deliberate roughly half-second center hold toggles exactly once **on release**.
-- [ ] Nothing auto-fires while the finger is still being held down.
-- [ ] Normal small stationary-finger jitter stays usable within the 3 mm hold slop.
-- [ ] Moving beyond 3 mm disarms Play/Pause even if the finger returns near its start.
-- [ ] Deliberate ~9 mm+ Previous/Next swipes still work and do not also toggle Play/Pause.
-- [ ] Reverse close succeeds from several points across the inner half of the visible top-left lane.
-- [ ] Reverse close succeeds equivalently on the mirrored top-right lane.
-- [ ] The outer guard still launches inward and is not misclassified as reverse close.
-- [ ] Reverse-close disabled means an outward lane swipe does not hide ThinkControl.
-- [ ] No regressions in alpha.41 startup, fan, keyboard, Audio or shell behavior.
+- [ ] quick center tap does nothing
+- [ ] roughly half-second center hold toggles once on release
+- [ ] nothing auto-fires while still held
+- [ ] <=3 mm natural jitter remains usable
+- [ ] >3 mm movement permanently disarms the hold for that contact
+- [ ] 9 mm Previous/Next remains reliable without Play/Pause overlap
+- [ ] reverse close works across multiple points in the inner half of both mirrored lanes
+- [ ] outer guard still launches inward
+
+Cooling persistence:
+
+- [ ] select Quiet and verify physical/runtime Quiet state
+- [ ] close/reopen only the UI while service remains running; Quiet remains active
+- [ ] reboot with Quiet saved; runtime UI remains truthful during restore and Quiet converges after startup
+- [ ] listen through the post-login settle window; no later silent return to Auto/base policy
+- [ ] unplug/replug AC while Quiet is active; Quiet remains active
+- [ ] sleep/resume while Quiet is active; Quiet remains active
+- [ ] change Windows performance preference while Quiet is active; Quiet remains override and Auto later restores the new baseline
+- [ ] repeat lifecycle with Balanced
+- [ ] repeat Max only if the existing exact full-speed safety gates pass
+- [ ] no alpha.38 target-RPM wave/re-kick behavior returns
 
 ## Release workflow principles
 
 For future releases:
 
-- start from current `main` and inspect branches/PRs/releases first;
-- keep one coherent release branch/PR;
-- preserve existing owners rather than stacking duplicate providers, timers, overlays or input workers;
-- treat physical evidence separately from hosted CI;
-- keep startup/navigation independent of slow hardware discovery;
-- freeze version/docs before final exact-head gates;
-- inspect UI artifacts manually when UI changes;
-- merge with an expected-head guard;
-- verify post-merge promotion and immutable tag/asset checksums;
-- never move an existing immutable release tag.
+- recover current state from `main`, version, releases, active PR and this handoff
+- stabilize related regressions before expanding scope
+- improve existing owners instead of stacking helpers/timers/providers/overlays
+- keep generic UI capability-first and hardware writes provider-gated
+- separate hosted validation from physical evidence
+- inspect UI artifacts manually
+- freeze docs/version before exact final gates
+- merge with expected-head guard
+- verify promotion, immutable tag, assets and checksums
+- never move an existing immutable release tag
 
-The reusable version-agnostic bootstrap is [`CHAT_STARTER.md`](CHAT_STARTER.md). It is not a mutable release-state source of truth.
+The reusable version-agnostic bootstrap is [`CHAT_STARTER.md`](CHAT_STARTER.md).
 
 ## Commercial/public release program
 
-Do **not** mix commercial backend/licensing work into alpha hardware stabilization.
+Do not mix commercial backend/licensing work into alpha hardware stabilization.
 
 ### Installer, updater and signing
 
 - [x] Preserve custom install location across supported in-place update.
-- [x] Exercise install, service start/IPC, update compatibility and uninstall in CI/Package.
-- [ ] Failed staged update cannot destroy the last working payload; rollback remains tested.
+- [x] Exercise install, service start/IPC, updater compatibility and uninstall in Package.
+- [ ] Test that a failed staged update cannot destroy the last working payload.
 - [ ] Define explicit uninstall policy for ThinkControl-owned local/runtime data.
 - [ ] Sign binaries/installer and document/test SmartScreen reputation strategy.
-- [ ] Keep legacy updater compatibility until the supported installed-client floor is deliberately advanced.
+- [ ] Keep legacy updater compatibility until the installed-client floor is deliberately advanced.
 
 ### Capability-driven hardware architecture
 
@@ -191,33 +204,31 @@ Do **not** mix commercial backend/licensing work into alpha hardware stabilizati
 - [x] Raw EC controls require explicit provider/model validation.
 - [x] Setup distinguishes registration metadata from real provider/device readiness.
 - [x] X9 fan semantics distinguish telemetry, firmware policy, narrow global full speed, direct writers and discrete fallbacks.
-- [x] Fan calibration and Keyboard Effects are exposed as semantic capabilities.
-- [x] A physically rejected direct writer can remain telemetry-only without falling back to a known-inferior writer.
+- [x] Fan calibration and Keyboard Effects are semantic capabilities.
+- [x] A physically rejected writer can remain telemetry-only without falling back to a known-inferior writer.
 - [ ] Continue replacing residual device-name assumptions outside narrowly justified recovery/safety paths.
 - [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic contract.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
 
 ### Privacy-safe diagnostics and device learning
 
-Diagnostics consent and licensing are separate. Opting out of diagnostics must never break a paid entitlement.
-
-Never upload usernames, hostnames, serial numbers, personal files/paths/content, browser content, keystrokes, touch coordinates/trails, memory dumps or arbitrary raw logs.
+Diagnostics consent and licensing remain separate. Never upload usernames, hostnames, serial numbers, personal files/paths/content, browser content, keystrokes, raw touch coordinates/trails, memory dumps or arbitrary raw logs.
 
 - [ ] Shared redaction/schema layer powers preview and upload.
-- [ ] Durable local crash journal remains source of truth; mark Reported only after server acknowledgement.
+- [ ] Durable local crash journal remains source of truth; mark Reported only after acknowledgement.
 - [ ] Upload/retry is asynchronous/bounded and never blocks startup.
 - [ ] Unknown-device learning uses passive normal-app evidence; no experimental writes merely for telemetry.
 - [ ] Confidence states: `Observed → Candidate → Verified → Regression watch`.
 - [ ] Conflicting evidence blocks automatic promotion.
-- [ ] Any remote device/profile manifest is signed/versioned and cannot inject arbitrary hardware-write instructions.
+- [ ] Any remote profile manifest is signed/versioned and cannot inject arbitrary hardware-write instructions.
 
 ### Accounts, licensing and backend
 
-- [ ] Define tiers, activation limits and offline grace behavior before enforcement code.
+- [ ] Define tiers, activation limits and offline grace before enforcement code.
 - [ ] Use OAuth/OIDC Authorization Code + PKCE through the system browser.
 - [ ] Store refresh/session secrets only in OS-protected storage.
 - [ ] Purchases create server-side entitlements; desktop receives short-lived signed entitlement state.
-- [ ] License/network failure never disables safety-critical restore/firmware Auto behavior.
+- [ ] License/network failure never disables safety-critical firmware Auto/restore behavior.
 - [ ] Device activation/deactivation is self-service.
 - [ ] Payment/signing secrets never ship in the desktop client.
 - [ ] Payment-provider webhooks are authoritative for purchase/refund/subscription state.
@@ -228,7 +239,7 @@ Never upload usernames, hostnames, serial numbers, personal files/paths/content,
 Do not make source private while updater/build distribution still depends on public GitHub release URLs.
 
 - [ ] Decide public versus private surfaces.
-- [ ] Move release assets/update manifest to a paid-user-compatible distribution endpoint before privatizing source.
+- [ ] Move release assets/update manifest to a paid-user-compatible endpoint before privatizing source.
 - [ ] Rotate credentials/tokens that were ever exposed.
 - [ ] Add commercial license/EULA/privacy policy before accepting payment.
 
