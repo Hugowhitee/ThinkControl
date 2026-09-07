@@ -64,15 +64,18 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 
 ## What alpha.42 changes
 
-Alpha.42 is a narrow physical Touchpad reliability follow-up to immutable alpha.41. The hardware, fan, startup and installer architecture is intentionally unchanged.
+Alpha.42 finishes the remaining physical Touchpad reliability work from alpha.41 and fixes a release-blocking X9 cooling-profile persistence/runtime-truth problem found before promotion.
 
 - **Play/Pause gets a larger real target.** The integrated Track center segment grows from 20% to **28%** of the selected edge, and the visual separators use the same `0.36..0.64` recognition contract.
-- **Play/Pause is now deliberately hold-to-release.** A quick center tap does **nothing**. To toggle playback, hold the center for at least **450 ms** with only small natural finger drift, then release. The action never auto-fires merely because a finger rests there for a moment.
+- **Play/Pause is deliberately hold-to-release.** A quick center tap does **nothing**. To toggle playback, hold the center for at least **450 ms** with only small natural finger drift, then release. The action never auto-fires merely because a finger rests there for a moment.
 - **Accidental playback is explicitly guarded.** The hold may move at most **3 mm** from its start. The recognizer preserves the contact's maximum excursion, so moving away and back cannot erase evidence that the gesture stopped being a deliberate hold.
 - **Previous/Next stays deliberate and separate.** Once center movement exceeds the hold slop, normal Track direction recognition resumes; Previous/Next still requires the unchanged **9 mm** swipe threshold.
 - **Reverse close gets a much easier start target.** When enabled, the reverse swipe may start anywhere in the **inner half of the already-visible diagonal corner lane**, instead of requiring a precise hit on the small rounded end-cap. The outer guard still belongs to the normal inward launch, and no hidden hit area is added outside the rendered geometry.
+- **Saved fan profiles now have to become real before the UI claims them.** The Fans page initializes from runtime/service state instead of painting a persisted Quiet/Balanced/Max preference as already applied.
+- **Quiet/Balanced/Max survive UI restarts and power transitions correctly.** Closing/restarting only ThinkControl's UI no longer resets a service-owned firmware profile. AC/DC, resume and Windows power-baseline changes reassert the selected profile using the same reviewed source-specific Lenovo policy path.
+- **Startup restore gets one bounded convergence retry.** After a successful firmware-profile restore, ThinkControl performs one seven-second settle reassert so late Lenovo login policy work cannot silently leave the UI saying Quiet while the machine has returned to a harder Auto/base policy. This is not a polling loop.
 
-Alpha.41 remains immutable. Its early Raw Input startup path, X9 full-speed safety model, rejected target-RPM writer boundary and the rest of the alpha.41 baseline are preserved.
+Alpha.41 remains immutable. Its early Raw Input startup path, exact-X9 full-speed safety model, rejected target-RPM writer boundary and the rest of the alpha.41 baseline are preserved. Alpha.42 does not add a new fan writer.
 
 ## Main capabilities
 
@@ -101,7 +104,7 @@ Profiles decide which providers are reasonable to probe. Providers own implement
 On the current X9-15 reference path:
 
 - native Lenovo dual-fan RPM telemetry is retained when real channels are exposed;
-- Quiet/Balanced use the reviewed X9 Lenovo firmware thermal-policy contract;
+- Quiet/Balanced use the reviewed X9 Lenovo firmware thermal-policy contract and are reasserted after startup/source/resume transitions when selected;
 - Max cooling uses the known Lenovo Other Mode full-speed boolean only if this exact X9 itself returns a safe live boolean contract; otherwise the request fails explicitly rather than pretending Performance policy is literal maximum;
 - the alpha.38 Lenovo Other Mode per-fan target-RPM writer remains read-only after failing physical smoothness/range acceptance;
 - the native-OEM telemetry safety latch prevents silent fallback to the known-inferior seven-step EC writer;
@@ -112,7 +115,7 @@ On the current X9-15 reference path:
 - PawnIO registration/service/device readiness is distinguished instead of collapsed into one registry check;
 - sensor/provider failure is reported explicitly rather than replaced by synthetic values.
 
-Automated CI does **not** prove physical-device behavior. Alpha.42 specifically needs a real-pad confirmation that the 450 ms hold feels deliberate without becoming fiddly, that quick taps cannot trigger playback, and that reverse-close starts across the enlarged visible target feel reliable. The alpha.41 X9 full-speed path still has its own separate real-device validation requirements. Hosted tests can prove the recognition/action arbitration, exact capability gates, readback/rollback contracts, build and deterministic UI behavior but cannot substitute for physical evidence.
+Automated CI does **not** prove physical-device behavior. Alpha.42 specifically needs real-X9 confirmation that the 450 ms Play/Pause hold feels deliberate without becoming fiddly, reverse close works reliably, and saved Quiet/Balanced/Max physically survive restart, AC/DC and resume the way the runtime state says they do. Hosted tests can prove the recognition/action arbitration, persistence/reassert control flow, exact capability gates, readback/rollback contracts, build and deterministic UI behavior but cannot substitute for physical evidence.
 
 See **[Device support](docs/DEVICE-SUPPORT.md)** and **[Hardware safety](docs/HARDWARE-SAFETY.md)**.
 
@@ -135,4 +138,4 @@ dotnet build ThinkControl.slnx -c Release
 
 Packaging and installer workflows additionally validate payload construction, custom-location clean install, service start/IPC, updater compatibility and uninstall cleanup before a prerelease is promoted. Release candidates are merged only after **CI and Package ThinkControl both pass on the exact final PR head**; UI-changing candidates also require manual inspection of that head's generated WPF artifact. Current release-gate status and remaining real-device checks are tracked in **[Release readiness](docs/RELEASE_READINESS.md)**.
 
-See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUCT.md)** · **[Release readiness](docs/RELEASE_READINESS.md)** · **[X9-15 research](docs/research/x9-15-gen1.md)**.
+See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUCT.md)** · **[Release readiness](docs/RELEASE_READINESS.md)** · **[X9-15 research](docs/research/x9-15-gen1.md)** · **[alpha.42 cooling persistence evidence](docs/research/x9-alpha42-cooling-persistence.md)**.
