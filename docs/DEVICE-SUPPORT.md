@@ -42,6 +42,7 @@ Current X9-oriented areas include:
 - Lenovo `LENOVO_OTHER_METHOD` native dual-fan telemetry where real `fanX_input` channels pass live-read gates;
 - built-in **Auto / Quiet / Balanced / Max cooling** through reviewed Lenovo firmware-policy semantics;
 - alpha.41 exact-X9 support for Lenovo Other Mode's known global **full-speed boolean feature `0x04020000`** for Max cooling only when it live-reads safely and every transition verifies readback;
+- alpha.42 persistence/reassertion of the selected firmware cooling profile across UI restart, Windows startup settle, AC/DC transitions and resume;
 - the experimental per-fan Other Mode `fanX_target` writer kept **read-only** after physical testing reproduced repeated speed cycling/re-kick and weaker useful cooling than naturally hot Auto;
 - read-only Lenovo `EnergyDrv` fan telemetry while its write contract remains unverified;
 - the seven-step ThinkPad EC implementation retained as provider-specific investigation/diagnostic code, not silently re-authorized once native OEM fan telemetry has been confirmed;
@@ -72,7 +73,11 @@ Balanced     -> ensure ThinkControl-owned full speed is released; Lenovo Balance
 Max cooling  -> Lenovo Performance policy + verified 0x04020000 full-speed boolean when safely exposed
 ```
 
-The UI seeds the service with the current Windows performance preference before enabling a cooling override. If Windows performance preference changes while a cooling profile is active, the service updates the restore baseline but keeps the selected cooling profile active. Auto later restores that latest baseline.
+The UI seeds the service with the current Windows performance preference before enabling a cooling override. Lenovo's reviewed policy command differs by power source, so a Windows power-mode, AC/DC or resume event now both updates the Auto restore baseline **and reasserts the active Quiet/Balanced/Max override for the current source**. Auto later restores the latest baseline.
+
+A saved profile is not itself proof of applied state. During startup the Fans selector follows runtime/service state, so it may truthfully show Auto while a saved Quiet preference is still being restored. After capability discovery, the saved profile is actively reapplied. Alpha.42 adds one bounded seven-second settle reassert to cover Lenovo login/service policy work that may complete just after the first successful request. This is not continuous polling.
+
+Closing or restarting only the normal-user UI keeps a firmware-policy profile active in the privileged service. Direct/manual output remains a separate safety class and is released to Auto when the UI exits. Normal service shutdown still performs its ownership-aware cleanup.
 
 ### X9 Other Mode details
 
@@ -145,7 +150,8 @@ Confirmed negative X9 evidence remains:
 - nominal target 100% was weaker than naturally hot Lenovo Auto;
 - alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry;
 - alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise;
-- pre-freeze alpha.42 testing feedback also made clear that automatic/quick center activation was too risky for a global media command.
+- pre-freeze alpha.42 testing feedback also made clear that automatic/quick center activation was too risky for a global media command;
+- during alpha.41/early-alpha.42 restart testing, a saved Quiet preference could remain visibly selected while physical airflow behaved like a harder Auto/base policy. This is consistent with runtime/profile restoration and source-policy convergence being incomplete; it is not evidence for a new low-level fan writer.
 
 Alpha.42 therefore requires real-X9 checks for:
 
@@ -156,6 +162,11 @@ Alpha.42 therefore requires real-X9 checks for:
 - deliberate ~9 mm Track swipes still producing Previous/Next without also toggling Play/Pause;
 - reverse close succeeding from multiple points in the inner half of either mirrored diagonal lane;
 - the outer guard still launching inward and never being misclassified as reverse close;
-- all alpha.41 fan/startup safety behavior remaining unchanged.
+- select Quiet, close/reopen only the UI and confirm the physical profile remains Quiet;
+- reboot/sign in with Quiet saved and confirm the UI does not claim Quiet before restore, then confirm Quiet physically takes effect after restore/settle;
+- repeat the restart test for Balanced and Max cooling;
+- switch AC↔DC while Quiet/Balanced/Max is active and confirm the selected cooling behavior is reasserted rather than drifting to the base policy;
+- resume from sleep with a non-Auto cooling profile and confirm the same reassertion behavior;
+- Auto still returns to the latest power-mode baseline and Max still follows the existing exact-X9 full-speed gates.
 
 These physical checks belong in `docs/ALPHA-TESTING.md` and release-readiness notes; screenshots/CI alone must not mark them complete.
