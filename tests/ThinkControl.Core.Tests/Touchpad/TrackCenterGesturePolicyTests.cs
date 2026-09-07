@@ -6,49 +6,62 @@ namespace ThinkControl.Core.Tests.Touchpad;
 public sealed class TrackCenterGesturePolicyTests
 {
     [Theory]
-    [InlineData(8.76, 0.50)]
-    [InlineData(-0.01, 0.50)]
-    [InlineData(0.2, 0.39)]
-    [InlineData(0.2, 0.61)]
-    public void UnsafeCenterButtonReleaseDoesNotCommit(double travelMm, double position) =>
-        Assert.False(TrackCenterGesturePolicy.ShouldCommit(travelMm, position));
-
-    [Theory]
-    [InlineData(0, 0.50)]
-    [InlineData(0.25, 0.40)]
-    [InlineData(2.4, 0.50)]
-    [InlineData(6.8, 0.50)]
-    [InlineData(8.75, 0.60)]
-    public void CenterButtonReleaseCommitsAcrossNaturalFingerDrift(double travelMm, double position) =>
-        Assert.True(TrackCenterGesturePolicy.ShouldCommit(travelMm, position));
-
-    [Theory]
     [InlineData(0)]
     [InlineData(90)]
-    [InlineData(700)]
-    [InlineData(2500)]
-    [InlineData(10000)]
-    public void HoldDurationDoesNotChangeButtonMeaning(double durationMs) =>
-        Assert.True(TrackCenterGesturePolicy.ShouldCommit(durationMs, 1.0, 0.5));
+    [InlineData(250)]
+    [InlineData(449)]
+    public void QuickCenterTapDoesNotCommit(double durationMs) =>
+        Assert.False(TrackCenterGesturePolicy.ShouldCommitHold(durationMs, 0.5, 0.50));
+
+    [Theory]
+    [InlineData(450, 0, 0.50)]
+    [InlineData(500, 0.8, 0.36)]
+    [InlineData(900, 2.2, 0.50)]
+    [InlineData(2500, 3.0, 0.64)]
+    public void DeliberateStationaryHoldCommitsOnRelease(
+        double durationMs,
+        double travelMm,
+        double position) =>
+        Assert.True(TrackCenterGesturePolicy.ShouldCommitHold(durationMs, travelMm, position));
+
+    [Theory]
+    [InlineData(700, 3.01, 0.50)]
+    [InlineData(700, 8.0, 0.50)]
+    [InlineData(700, 0.5, 0.35)]
+    [InlineData(700, 0.5, 0.65)]
+    [InlineData(449, 0.0, 0.50)]
+    public void UnsafeCenterHoldDoesNotCommit(
+        double durationMs,
+        double travelMm,
+        double position) =>
+        Assert.False(TrackCenterGesturePolicy.ShouldCommitHold(durationMs, travelMm, position));
 
     [Fact]
-    public void CenterButtonEnvelopeRunsUpToButNotThroughSkipThreshold()
+    public void HoldSlopIsSmallButAboveOrdinaryActivationNoise()
     {
         Assert.Equal(9.0, TrackCenterGesturePolicy.SwipeThresholdMm);
-        Assert.Equal(TrackCenterGesturePolicy.ButtonTravelToleranceMm, TrackCenterGesturePolicy.MovementToleranceMm);
-        Assert.True(TrackCenterGesturePolicy.ButtonTravelToleranceMm > TouchpadGestureConfiguration.Default.ActivationDistanceMm);
-        Assert.True(TrackCenterGesturePolicy.ButtonTravelToleranceMm < TrackCenterGesturePolicy.SwipeThresholdMm);
-        Assert.InRange(
-            TrackCenterGesturePolicy.SwipeThresholdMm - TrackCenterGesturePolicy.ButtonTravelToleranceMm,
-            0.0,
-            0.30);
+        Assert.Equal(3.0, TrackCenterGesturePolicy.HoldMovementToleranceMm);
+        Assert.Equal(TrackCenterGesturePolicy.HoldMovementToleranceMm, TrackCenterGesturePolicy.MovementToleranceMm);
+        Assert.True(TrackCenterGesturePolicy.HoldMovementToleranceMm > TouchpadGestureConfiguration.Default.ActivationDistanceMm);
+        Assert.True(TrackCenterGesturePolicy.HoldMovementToleranceMm < TrackCenterGesturePolicy.SwipeThresholdMm);
+    }
+
+    [Fact]
+    public void CenterTargetStaysSpatiallyForgivingButTemporallyDeliberate()
+    {
+        Assert.Equal(0.36, TrackCenterGesturePolicy.CenterZoneStart, 3);
+        Assert.Equal(0.64, TrackCenterGesturePolicy.CenterZoneEnd, 3);
+        Assert.Equal(0.28, TrackCenterGesturePolicy.CenterZoneEnd - TrackCenterGesturePolicy.CenterZoneStart, 3);
+        Assert.Equal(450, TrackCenterGesturePolicy.HoldMinimumMs);
     }
 
     [Fact]
     public void NonFiniteValuesDoNotCommit()
     {
-        Assert.False(TrackCenterGesturePolicy.ShouldCommit(double.PositiveInfinity, 0.5));
-        Assert.False(TrackCenterGesturePolicy.ShouldCommit(120, 0, double.NaN));
-        Assert.False(TrackCenterGesturePolicy.ShouldCommit(double.NaN, 0, 0.5));
+        Assert.False(TrackCenterGesturePolicy.ShouldCommitHold(double.NaN, 0, 0.5));
+        Assert.False(TrackCenterGesturePolicy.ShouldCommitHold(double.PositiveInfinity, 0, 0.5));
+        Assert.False(TrackCenterGesturePolicy.ShouldCommitHold(600, double.NaN, 0.5));
+        Assert.False(TrackCenterGesturePolicy.ShouldCommitHold(600, double.PositiveInfinity, 0.5));
+        Assert.False(TrackCenterGesturePolicy.ShouldCommitHold(600, 0, double.NaN));
     }
 }

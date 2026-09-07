@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.41**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
+This document describes the current architecture at **v0.1.0-alpha.42**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
 
 ## Process boundary
 
@@ -16,7 +16,7 @@ The UI remains `asInvoker`. Hardware operations that need elevated/device access
 
 ## Startup model
 
-Startup has a strict critical-path boundary: establish cheap identity and configured user-session input before rich WPF/hardware discovery. Alpha.41 tightens this after comparing the runtime shape with lightweight helper apps such as G-Helper. The useful principle is **input/tray first, discovery later**; ThinkControl does not copy G-Helper's single-process privilege model.
+Startup has a strict critical-path boundary: establish cheap identity and configured user-session input before rich WPF/hardware discovery. Alpha.41 tightened this after comparing the runtime shape with lightweight helper apps such as G-Helper. The useful principle is **input/tray first, discovery later**; ThinkControl does not copy G-Helper's single-process privilege model.
 
 `Start with Windows` remains one per-user HKCU Run entry launching `ThinkControl.UI.exe --tray`. During the earliest `Application.Startup` hook, `SystemStatusService.ReadStartupIdentity()` reads only firmware identity from `HKLM\HARDWARE\DESCRIPTION\System\BIOS`. If configured Touchpad gestures are enabled, `StartConfiguredTouchpadInputForStartup()` creates the existing gesture host and starts Raw Input immediately from that Startup hook instead of queueing registration behind normal WPF dispatcher shell work.
 
@@ -37,7 +37,7 @@ The ThinkPad X9 path separates four concepts:
 
 `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate: fixed targets repeatedly re-kicked/waved and nominal 100% remained physically below naturally hot Lenovo Auto. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
 
-Alpha.41 adds a different exact-X9 semantic: Lenovo Other Mode feature **`0x04020000`**, treated only as a boolean full-speed override. `LenovoOtherModeFullSpeedService` is restricted to verified `21Q6/21Q7`, requires a live boolean read immediately around the transition, respects an explicitly present capability row, writes only `0`/`1`, and verifies the resulting state by readback. This is not used as evidence that per-fan target RPM is safe and is not generalized into arbitrary feature-ID passthrough.
+Alpha.41 added a different exact-X9 semantic: Lenovo Other Mode feature **`0x04020000`**, treated only as a boolean full-speed override. `LenovoOtherModeFullSpeedService` is restricted to verified `21Q6/21Q7`, requires a live boolean read immediately around the transition, respects an explicitly present capability row, writes only `0`/`1`, and verifies the resulting state by readback. This is not used as evidence that per-fan target RPM is safe and is not generalized into arbitrary feature-ID passthrough.
 
 ## Cooling model
 
@@ -56,7 +56,11 @@ The coordinator tracks whether **ThinkControl itself actually changed full-speed
 
 If the known full-speed feature is unavailable, non-writable, non-boolean or fails readback, the transition fails closed instead of guessing a larger RPM target, EC state or IOCTL. Quiet/Balanced remain ordinary Lenovo firmware-policy operations.
 
-Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through `SetThermalMode`. Later Performance-page changes update that baseline while a cooling override remains active. Auto restores the latest baseline, so Performance and Fans do not continuously fight over the same Lenovo policy surface.
+Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through `SetThermalMode`. Lenovo's reviewed thermal commands are source-specific: AC uses 502/503/504 and DC uses 507/508/509. Alpha.42 therefore treats a new power baseline as an event that must also **reassert the active cooling override for the current source**. Merely retaining `_overrideProfile = "Quiet"` in memory is not enough because Lenovo/Windows may have changed the physical OEM policy underneath it during AC/DC or resume transitions.
+
+Startup restoration also distinguishes a saved preference from applied state. The saved `CoolingProfile` is not painted as active merely because it exists in `UserSettings`. The Fans selector follows service/runtime state until the saved profile has actually been applied. After the first successful restore, `App.Cooling` performs one bounded seven-second settle reassert to cover Lenovo login/service policy work that may finish shortly after ThinkControl first becomes available. This is intentionally a one-shot convergence step, not a recurring policy fight or polling loop.
+
+Closing/restarting only the normal-user UI does not clear a firmware-policy profile. The privileged service owns that state and keeps Quiet/Balanced/Max active. Direct/manual fan output remains a different safety class and is returned to Auto when the UI exits. Normal service disposal still releases ThinkControl-owned firmware/full-speed state before hardware disposal.
 
 Firmware policy/full-speed profiles intentionally do not advertise applied percentage, EC state or editable curve semantics. Manual percentage tests, raw EC diagnostics and curve editing remain direct-provider features only.
 
@@ -70,7 +74,7 @@ The generic direct-output model remains:
 - `ReturnFanToAuto` for firmware/OEM ownership;
 - characterization operations only when the active direct provider advertises calibration.
 
-`FanSupervisor` remains the sole owner of direct percentage/discrete fan writes. A physically accepted continuous target provider may receive percentages directly; a discrete provider may map semantic targets through measured output states. The rejected X9 `fanX_target` implementation remains blocked even though alpha.41 now has a separate full-speed boolean path.
+`FanSupervisor` remains the sole owner of direct percentage/discrete fan writes. A physically accepted continuous target provider may receive percentages directly; a discrete provider may map semantic targets through measured output states. The rejected X9 `fanX_target` implementation remains blocked even though alpha.41 has a separate full-speed boolean path.
 
 The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. Firmware-policy/full-speed profiles do not require direct calibration. The calibration task card is visible only while a relevant direct provider requires it or is actively running.
 
@@ -79,6 +83,8 @@ The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `H
 ThinkControl records only state it actually owns. Direct provider/channels are returned to OEM Auto on handoff/failure/disposal where supported. Target `0` on the rejected per-fan Other Mode path remains only for cleanup/reassertion of stale previously owned targets.
 
 Native two-fan evidence is latched for the current service lifetime so a transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer. Fan RPM telemetry is evidence about tachometer speed, not proof that a selected policy equals Lenovo's strongest physical cooling state; alpha.40 physical feedback specifically showed that high-looking RPM telemetry can coexist with weaker airflow than naturally hot Auto.
+
+For firmware profiles, telemetry is only truthful when the coordinator has successfully applied/reasserted the corresponding semantic policy in the current lifecycle. The UI no longer substitutes the persisted preference ID for a runtime Auto state during page initialization.
 
 ## Keyboard model
 
@@ -97,15 +103,19 @@ The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, 
 
 Track control is one continuous edge lane with three semantic segments: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action or second center toggle/recognizer. Legacy serialized PlayPause values sanitize into Track control.
 
-Alpha.41 changes the center interaction from a bounded-duration tap into a **button-like release candidate**. A one-finger Track contact that starts inside the center segment is reserved for Play/Pause while its radial movement stays below the deliberate Track skip threshold. There is no maximum hold-time requirement. Once movement reaches the existing **9 mm** Previous/Next threshold, Track swipe intent wins; a claimed swipe cannot later downgrade into Play/Pause on release. This removes both the short/long-press ambiguity and the former 4.5–9 mm no-op region without making track skipping less deliberate.
+Alpha.42 keeps the larger **28%** center start region (`0.36..0.64`) but intentionally changes Play/Pause from easy tap/button semantics into a **deliberate hold-to-release** action. `TrackCenterGesturePolicy` requires at least **450 ms** of hold time and no more than **3 mm** maximum radial movement. Brief center taps are ignored. The 9 mm Previous/Next threshold remains unchanged.
+
+`EdgeGestureRecognizer` keeps a center-start contact in candidate state only through the 3 mm hold slop. While it remains a candidate, `_lastTotalTravelMm` stores the **maximum** radial excursion rather than the latest point, so moving away and returning cannot requalify a mobile contact as stationary. Once the hold slop is exceeded, normal edge direction recognition resumes; if the contact later reaches 9 mm, the existing Track swipe path can still fire Previous/Next.
+
+`GestureActionRouter` owns the temporal half of the contract with one `Stopwatch` timestamp from the original Track candidate. It evaluates the hold only on `Released`; there is no delayed worker, no auto-fire while the finger is still down, and no concurrent hold-vs-release arbitration state. A claimed Track swipe sets `_trackStayedCandidate=false`, so it cannot downgrade into Play/Pause on lift. This keeps one recognizer/router owner while making accidental playback materially harder.
 
 Occupied edge assignment continues to swap action kinds rather than clearing the previous edge. Sensitivity and inversion remain properties of the physical edge.
 
 Track OSD semantics remain: resulting **Playing → pause bars**, **Paused → play triangle**, and ambiguous virtual-key fallback stays `Playback toggled`.
 
-Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Rejected corner ownership remains locked until lift and optional reverse-close routes into the canonical hide-to-tray transition.
+Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Alpha.42 changes only reverse-close start classification: when reverse close is enabled, the inner half of the **already-visible** diagonal lane is accepted as an outward start instead of requiring the small rounded cap. The outer guard remains an inward-launch start and no hidden geometry is added. Rejected corner ownership remains locked until lift and outward claim routes through the existing canonical hide-to-tray transition.
 
-Raw HID recognition receives every frame while WPF visualization is coalesced. UI-only listeners remain attached only while the Touchpad page is visible; configured gesture recognition is application-level and now starts earlier during silent Windows startup.
+Raw HID recognition receives every frame while WPF visualization is coalesced. UI-only listeners remain attached only while the Touchpad page is visible; configured gesture recognition is application-level and starts during silent Windows startup.
 
 ## Audio lifecycle
 

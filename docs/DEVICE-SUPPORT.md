@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.41**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
+This document describes the support model at **v0.1.0-alpha.42**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
 
 ## Support levels
 
@@ -42,6 +42,7 @@ Current X9-oriented areas include:
 - Lenovo `LENOVO_OTHER_METHOD` native dual-fan telemetry where real `fanX_input` channels pass live-read gates;
 - built-in **Auto / Quiet / Balanced / Max cooling** through reviewed Lenovo firmware-policy semantics;
 - alpha.41 exact-X9 support for Lenovo Other Mode's known global **full-speed boolean feature `0x04020000`** for Max cooling only when it live-reads safely and every transition verifies readback;
+- alpha.42 persistence/reassertion of the selected firmware cooling profile across UI restart, Windows startup settle, AC/DC transitions and resume;
 - the experimental per-fan Other Mode `fanX_target` writer kept **read-only** after physical testing reproduced repeated speed cycling/re-kick and weaker useful cooling than naturally hot Auto;
 - read-only Lenovo `EnergyDrv` fan telemetry while its write contract remains unverified;
 - the seven-step ThinkPad EC implementation retained as provider-specific investigation/diagnostic code, not silently re-authorized once native OEM fan telemetry has been confirmed;
@@ -63,7 +64,7 @@ Fan features are kept semantically distinct:
 - **calibration**: a provider-advertised direct-output mapping workflow;
 - **telemetry-only**: RPM/state can be shown without enabling direct writes.
 
-On the current alpha.41 X9 backend the built-ins map as follows:
+On the current X9 backend the built-ins map as follows:
 
 ```text
 Auto         -> release ThinkControl-owned full speed if any; clear cooling override; restore latest Lenovo power-policy baseline
@@ -72,7 +73,11 @@ Balanced     -> ensure ThinkControl-owned full speed is released; Lenovo Balance
 Max cooling  -> Lenovo Performance policy + verified 0x04020000 full-speed boolean when safely exposed
 ```
 
-The UI seeds the service with the current Windows performance preference before enabling a cooling override. If Windows performance preference changes while a cooling profile is active, the service updates the restore baseline but keeps the selected cooling profile active. Auto later restores that latest baseline.
+The UI seeds the service with the current Windows performance preference before enabling a cooling override. Lenovo's reviewed policy command differs by power source, so a Windows power-mode, AC/DC or resume event now both updates the Auto restore baseline **and reasserts the active Quiet/Balanced/Max override for the current source**. Auto later restores the latest baseline.
+
+A saved profile is not itself proof of applied state. During startup the Fans selector follows runtime/service state, so it may truthfully show Auto while a saved Quiet preference is still being restored. After capability discovery, the saved profile is actively reapplied. Alpha.42 adds one bounded seven-second settle reassert to cover Lenovo login/service policy work that may complete just after the first successful request. This is not continuous polling.
+
+Closing or restarting only the normal-user UI keeps a firmware-policy profile active in the privileged service. Direct/manual output remains a separate safety class and is released to Auto when the UI exits. Normal service shutdown still performs its ownership-aware cleanup.
 
 ### X9 Other Mode details
 
@@ -113,13 +118,15 @@ Enabled top-corner launch geometry remains the canonical **guard → diagonal la
 
 Track control remains one continuous visible edge lane: **Previous | Play/Pause | Next**. Standalone Play/Pause is not offered separately; legacy serialized PlayPause bindings sanitize into Track control.
 
-In alpha.41, the center behaves like a button rather than a timed tap. A contact that begins inside the visible center segment remains a Play/Pause candidate while movement stays below the deliberate **9 mm** Track-skip threshold; there is no maximum hold duration. Once deliberate swipe travel reaches the Track threshold, Previous/Next wins and Play/Pause cannot fire on release. This removes the alpha.40 700-ms timing question and the practical 4.5–9 mm no-op zone.
+In alpha.42 the center target remains widened to **28%** of the Track edge (`0.36..0.64`), but Play/Pause is deliberately **hold-to-release**, not tap-to-toggle. A center-start contact must remain down for at least **450 ms**, stay within **3 mm** maximum radial movement, and then release. Quick taps are ignored. The recognizer preserves the maximum excursion so moving away and back cannot re-arm the hold. Once the 3 mm hold slop is exceeded, normal Track direction recognition resumes; Previous/Next still requires the unchanged **9 mm** threshold.
+
+When reverse close is enabled for a top corner, the reverse start target is the **inner half of the already-visible diagonal lane**, not only the small rounded inner cap. The outer corner guard remains an inward-launch start, the right side remains an exact mirror, and no invisible reverse hit area exists beyond the rendered lane/cap geometry.
 
 Occupied edge actions still swap instead of destructively clearing the previous edge. Sensitivity and inversion remain attached to their physical edges.
 
 The Track OSD keeps familiar semantics: **Playing + pause bars**, **Paused + play triangle**; ambiguous fallback remains `Playback toggled`.
 
-Visualized live input is coalesced for WPF while recognition receives the raw frame stream. At silent Windows startup, configured Raw Input is now started from the earliest app Startup hook after cheap identity instead of being queued behind ordinary shell dispatcher work.
+Visualized live input is coalesced for WPF while recognition receives the raw frame stream. At silent Windows startup, configured Raw Input is started from the earliest app Startup hook after cheap identity instead of being queued behind ordinary shell dispatcher work.
 
 ## Unknown/new hardware
 
@@ -141,19 +148,25 @@ Confirmed negative X9 evidence remains:
 
 - alpha.38 per-fan target-RPM control repeatedly re-kicked/waved rather than settling;
 - nominal target 100% was weaker than naturally hot Lenovo Auto;
-- alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry.
+- alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry;
+- alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise;
+- pre-freeze alpha.42 testing feedback also made clear that automatic/quick center activation was too risky for a global media command;
+- during alpha.41/early-alpha.42 restart testing, a saved Quiet preference could remain visibly selected while physical airflow behaved like a harder Auto/base policy. This is consistent with runtime/profile restoration and source-policy convergence being incomplete; it is not evidence for a new low-level fan writer.
 
-Alpha.41 therefore requires real-X9 checks for:
+Alpha.42 therefore requires real-X9 checks for:
 
-- Max cooling engaging the strongest Lenovo-style airflow when `0x04020000` is safely available;
-- Max remaining steady without the alpha.38 repeated re-kick cycle;
-- Max → Balanced/Quiet releasing full speed promptly;
-- Auto restoring the latest Windows/Lenovo power-policy baseline;
-- feature-unavailable/readback-failure paths failing closed rather than exposing another writer;
-- native Fan 1/Fan 2 telemetry remaining truthful and not being used as a stand-in for airflow intensity;
-- center Play/Pause reliably acting like press/release without requiring a learned hold duration;
-- deliberate ~9 mm Track swipes continuing to win over the center button;
-- Windows-logon edge gestures working without first opening ThinkControl;
-- corner/reverse-close, keyboard, Audio lifecycle and provider-repair regressions remaining intact.
+- a quick center tap doing nothing;
+- a deliberate roughly half-second center hold toggling exactly once **on release**;
+- ordinary small stationary-finger jitter staying within the 3 mm hold slop;
+- moving beyond 3 mm disarming Play/Pause even if the finger returns near its start;
+- deliberate ~9 mm Track swipes still producing Previous/Next without also toggling Play/Pause;
+- reverse close succeeding from multiple points in the inner half of either mirrored diagonal lane;
+- the outer guard still launching inward and never being misclassified as reverse close;
+- select Quiet, close/reopen only the UI and confirm the physical profile remains Quiet;
+- reboot/sign in with Quiet saved and confirm the UI does not claim Quiet before restore, then confirm Quiet physically takes effect after restore/settle;
+- repeat the restart test for Balanced and Max cooling;
+- switch AC↔DC while Quiet/Balanced/Max is active and confirm the selected cooling behavior is reasserted rather than drifting to the base policy;
+- resume from sleep with a non-Auto cooling profile and confirm the same reassertion behavior;
+- Auto still returns to the latest power-mode baseline and Max still follows the existing exact-X9 full-speed gates.
 
 These physical checks belong in `docs/ALPHA-TESTING.md` and release-readiness notes; screenshots/CI alone must not mark them complete.

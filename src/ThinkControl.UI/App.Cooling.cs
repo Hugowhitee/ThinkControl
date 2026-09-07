@@ -19,10 +19,13 @@ internal sealed record FanCalibrationUiState(
 public partial class App
 {
     private static readonly TimeSpan CoolingAutoRestoreRetryInterval = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan CoolingStartupSettleDelay = TimeSpan.FromSeconds(7);
 
+    private readonly CancellationTokenSource _coolingLifetimeCts = new();
     private bool _coolingPreferenceRestoreAttempted;
     private bool _coolingPreferenceRestoreInFlight;
     private DateTimeOffset _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
+    private int _coolingSelectionGeneration;
     private FanProfileCatalog? _fanProfiles;
     private FanCalibrationUiState _fanCalibrationState = FanCalibrationUiState.None;
 
@@ -39,6 +42,15 @@ public partial class App
         Exit += (_, _) =>
         {
             HardwareClient.StatusObserved -= CoolingStatusObserved;
+            _coolingLifetimeCts.Cancel();
+
+            // Firmware-policy profiles are durable user preferences owned by the
+            // privileged service. Closing/restarting only the UI must not silently
+            // turn Quiet/Balanced/Max back into Auto. Direct/manual writers remain a
+            // different safety class and are still released when the UI process exits.
+            if (UsesFirmwareCoolingPolicy)
+                return;
+
             try
             {
                 using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(900));
@@ -88,6 +100,7 @@ public partial class App
 
     internal async Task<bool> SetCoolingProfileAsync(string profile)
     {
+        int generation = Interlocked.Increment(ref _coolingSelectionGeneration);
         string raw = profile?.Trim() ?? string.Empty;
         if (raw.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
             raw.Equals("Auto", StringComparison.OrdinalIgnoreCase))
@@ -134,7 +147,7 @@ public partial class App
             // The service coordinator needs the current Windows performance mode as
             // the restore baseline before a cooling profile temporarily overrides
             // Lenovo's thermal policy. While the profile is active, later performance
-            // changes update that baseline without fighting the selected cooling mode.
+            // and AC/DC changes reassert this cooling override for the current source.
             ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode);
             if (baseline?.Success != true)
             {
@@ -153,6 +166,7 @@ public partial class App
             State.CoolingProfile = definition.Name;
             _coolingPreferenceRestoreAttempted = true;
             _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
+            ScheduleFirmwareCoolingSettleReassert(definition.Id, generation);
             return true;
         }
 
@@ -261,6 +275,7 @@ public partial class App
             return;
         }
 
+        int generation = Volatile.Read(ref _coolingSelectionGeneration);
         string selected = UserSettings.Current.CoolingProfile;
         bool wantsAuto = selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
                          selected.Equals("Auto", StringComparison.OrdinalIgnoreCase);
@@ -352,9 +367,18 @@ public partial class App
                     return;
                 }
 
+                // If the user selected a different profile while startup restoration
+                // was in flight, do not relabel or schedule a stale saved preference.
+                if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
+                    !string.Equals(UserSettings.Current.CoolingProfile, selected, StringComparison.OrdinalIgnoreCase))
+                {
+                    return;
+                }
+
                 State.CoolingProfile = definition.Name;
                 _coolingPreferenceRestoreAttempted = true;
                 _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
+                ScheduleFirmwareCoolingSettleReassert(definition.Id, generation);
                 return;
             }
 
@@ -373,6 +397,62 @@ public partial class App
         {
             _coolingPreferenceRestoreInFlight = false;
         }
+    }
+
+    private void ScheduleFirmwareCoolingSettleReassert(string profileId, int generation)
+    {
+        _ = ReassertFirmwareCoolingAfterStartupSettleAsync(profileId, generation, _coolingLifetimeCts.Token);
+    }
+
+    private async Task ReassertFirmwareCoolingAfterStartupSettleAsync(
+        string profileId,
+        int generation,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(CoolingStartupSettleDelay, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
+            !UsesFirmwareCoolingPolicy ||
+            !string.Equals(UserSettings.Current.CoolingProfile, profileId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        FanCurveDefinition? definition = FanProfiles.Find(profileId);
+        if (definition is null || !FanProfiles.IsBuiltIn(definition.Id))
+            return;
+
+        // Lenovo services can finish their own login/resume policy work shortly after
+        // ThinkControl first becomes available. Reassert once after startup settles so
+        // a successful early Quiet/Balanced/Max restore cannot be silently overwritten
+        // while our UI continues displaying the saved preference. This is deliberately
+        // one bounded retry, not a polling loop or a fight with firmware.
+        ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, cancellationToken);
+        ServiceResponse? applied = baseline?.Success == true
+            ? await HardwareClient.SetCoolingProfileAsync(definition.Name, cancellationToken)
+            : null;
+
+        if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
+            !string.Equals(UserSettings.Current.CoolingProfile, profileId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (baseline?.Success == true && applied?.Success == true)
+        {
+            State.CoolingProfile = definition.Name;
+            return;
+        }
+
+        State.HardwareAccess = baseline?.Error ?? applied?.Error ??
+                               $"Saved {definition.Name} cooling could not be reasserted after startup settled.";
     }
 
     private static string NormalizeProfileId(string profile) => profile switch

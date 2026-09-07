@@ -65,14 +65,31 @@ internal sealed class LenovoCoolingPolicyCoordinator
             return false;
         }
 
+        string? activeProfile;
         lock (_gate)
         {
             _basePowerMode = mode;
-            if (_overrideProfile is not null)
+            activeProfile = _overrideProfile;
+        }
+
+        // Lenovo exposes different LITSSvc commands for AC and DC, and firmware/OEM
+        // components may re-apply their source policy after resume or a power-source
+        // transition. Keeping only our in-memory override label would make telemetry
+        // say Quiet/Balanced/Max while the machine had physically returned to its base
+        // policy. Whenever the baseline is refreshed, re-assert the selected cooling
+        // override through the same verified provider path for the current source.
+        if (activeProfile is not null)
+        {
+            if (!SetBuiltInProfile(activeProfile, out string? reassertDetail))
             {
-                detail = $"Stored Lenovo {mode} as the power-mode baseline; {_overrideProfile} cooling remains the active cooling override.";
-                return true;
+                detail = $"Stored Lenovo {mode} as the power-mode baseline, but the active {activeProfile} cooling override could not be reasserted for the current power source. " +
+                         (reassertDetail ?? "Lenovo firmware rejected the reassertion.");
+                return false;
             }
+
+            detail = $"Stored Lenovo {mode} as the power-mode baseline and reasserted {activeProfile} cooling for the current power source. " +
+                     (reassertDetail ?? string.Empty);
+            return true;
         }
 
         bool success = LenovoThermalPolicyService.TrySetX9Policy(_hardware.Identity, mode, out detail);

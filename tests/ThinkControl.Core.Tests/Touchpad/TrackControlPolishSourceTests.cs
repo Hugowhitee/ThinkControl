@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Touchpad;
 public sealed class TrackControlPolishSourceTests
 {
     [Fact]
-    public void TrackCenterBehavesLikeAButtonWithoutLoweringSkipThreshold()
+    public void TrackCenterRequiresDeliberateHoldWithoutLoweringSkipThreshold()
     {
         string recognizer = ReadSource("src", "ThinkControl.Core", "Touchpad", "EdgeGestureRecognizer.cs");
         string router = ReadSource("src", "ThinkControl.UI", "Services", "Touchpad", "GestureActionRouter.cs");
@@ -13,13 +13,32 @@ public sealed class TrackControlPolishSourceTests
 
         Assert.Contains("IsTrackCenterTapCandidate()", recognizer, StringComparison.Ordinal);
         Assert.Contains("radialTravel <= TrackCenterGesturePolicy.MovementToleranceMm", recognizer, StringComparison.Ordinal);
+        Assert.Contains("Math.Max(_lastTotalTravelMm, radialTravel)", recognizer, StringComparison.Ordinal);
         Assert.Contains("TrackCenterGesturePolicy.SwipeThresholdMm", router, StringComparison.Ordinal);
-        Assert.Contains("if (!_trackSwipeFired && _trackStayedCandidate)", router, StringComparison.Ordinal);
-        Assert.Contains("ButtonTravelToleranceMm = 8.75", policy, StringComparison.Ordinal);
+        Assert.Contains("_trackGestureStarted = Stopwatch.GetTimestamp();", router, StringComparison.Ordinal);
+        Assert.Contains("Stopwatch.GetTimestamp() - _trackGestureStarted", router, StringComparison.Ordinal);
+        Assert.Contains("ShouldCommitHold(", router, StringComparison.Ordinal);
+        Assert.Contains("HoldMovementToleranceMm = 3.0", policy, StringComparison.Ordinal);
         Assert.Contains("SwipeThresholdMm = 9.0", policy, StringComparison.Ordinal);
-        Assert.DoesNotContain("MaximumTapMs", policy, StringComparison.Ordinal);
-        Assert.DoesNotContain("Stopwatch.GetTimestamp() - _trackGestureStarted", router, StringComparison.Ordinal);
-        Assert.Contains("ShouldCommit(_trackMaxTravelMm, _trackStartPosition01)", router, StringComparison.Ordinal);
+        Assert.Contains("HoldMinimumMs = 450", policy, StringComparison.Ordinal);
+        Assert.Contains("CenterZoneStart = 0.36", policy, StringComparison.Ordinal);
+        Assert.Contains("CenterZoneEnd = 0.64", policy, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void TrackCenterDoesNotAutoFireOrAcceptQuickTaps()
+    {
+        string router = ReadSource("src", "ThinkControl.UI", "Services", "Touchpad", "GestureActionRouter.cs");
+        string policy = ReadSource("src", "ThinkControl.Core", "Touchpad", "TrackCenterGesturePolicy.cs");
+
+        Assert.DoesNotContain("CommitTrackCenterAfterHoldAsync", router, StringComparison.Ordinal);
+        Assert.DoesNotContain("Task.Delay(TrackCenterGesturePolicy", router, StringComparison.Ordinal);
+        Assert.DoesNotContain("_trackActionCommitted", router, StringComparison.Ordinal);
+        Assert.DoesNotContain("_trackCandidateGeneration", router, StringComparison.Ordinal);
+        Assert.DoesNotContain("public static bool ShouldCommit(\n        double maximumTravelMm", policy, StringComparison.Ordinal);
+        Assert.Contains("durationMs >= HoldMinimumMs", policy, StringComparison.Ordinal);
+        Assert.Contains("maximumTravelMm <= HoldMovementToleranceMm", policy, StringComparison.Ordinal);
+        Assert.Contains("if (!_trackSwipeFired && _trackStayedCandidate)", router, StringComparison.Ordinal);
     }
 
     [Fact]

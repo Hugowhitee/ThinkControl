@@ -33,6 +33,7 @@ internal sealed class GestureActionRouter
     private double _trackMaxTravelMm;
     private double? _trackStartPosition01;
     private bool _trackStayedCandidate;
+    private long _trackGestureStarted;
 
     internal GestureActionRouter(
         NativeInputService nativeInput,
@@ -98,6 +99,7 @@ internal sealed class GestureActionRouter
         _trackMaxTravelMm = 0;
         _trackStartPosition01 = signal.EdgePosition01;
         _trackStayedCandidate = true;
+        _trackGestureStarted = Stopwatch.GetTimestamp();
     }
 
     private void Begin(GestureSignal signal)
@@ -130,7 +132,6 @@ internal sealed class GestureActionRouter
                 break;
             case GestureActionKind.PreviousNextTrack:
                 _setGestureActive(signal.Action, true);
-                _trackSwipeFired = false;
                 _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
                 _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
@@ -181,7 +182,7 @@ internal sealed class GestureActionRouter
             if (!_trackStayedCandidate)
                 TryFireTrackSwipe(signal, allowReleaseFallback: true);
             if (!_trackSwipeFired && _trackStayedCandidate)
-                TryFireTrackCenter();
+                TryFireTrackCenterHold();
         }
         End(signal.Action);
     }
@@ -204,17 +205,26 @@ internal sealed class GestureActionRouter
         _ = SkipTrackReliablyAsync(next);
     }
 
-    private void TryFireTrackCenter()
+    private void TryFireTrackCenterHold()
     {
         TouchpadGestureConfiguration configuration = _getConfiguration().Sanitize();
         if (!configuration.TrackCenterPlayPauseEnabled)
             return;
 
-        // The center segment behaves like a button: once a contact begins there,
-        // elapsed hold time is irrelevant. Releasing inside the movement envelope
-        // toggles Play/Pause; a deliberate 9 mm Track swipe wins before release.
-        if (!TrackCenterGesturePolicy.ShouldCommit(_trackMaxTravelMm, _trackStartPosition01))
+        double durationMs = _trackGestureStarted == 0
+            ? 0
+            : (Stopwatch.GetTimestamp() - _trackGestureStarted) * 1000.0 / Stopwatch.Frequency;
+
+        // Play/Pause is intentionally hold-to-release. A short tap never toggles media,
+        // and any movement beyond the small hold slop invalidates the center action.
+        // Previous/Next remains available once the contact becomes a deliberate swipe.
+        if (!TrackCenterGesturePolicy.ShouldCommitHold(
+                durationMs,
+                _trackMaxTravelMm,
+                _trackStartPosition01))
+        {
             return;
+        }
 
         _trackSwipeFired = true;
         _ = TogglePlayPauseReliablyAsync();
@@ -321,6 +331,7 @@ internal sealed class GestureActionRouter
             _trackMaxTravelMm = 0;
             _trackStartPosition01 = null;
             _trackStayedCandidate = false;
+            _trackGestureStarted = 0;
         }
 
         if (action == GestureActionKind.MediaSeek)

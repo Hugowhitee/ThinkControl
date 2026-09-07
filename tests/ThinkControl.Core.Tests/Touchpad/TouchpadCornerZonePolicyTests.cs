@@ -46,9 +46,6 @@ public sealed class TouchpadCornerZonePolicyTests
         };
         var recognizer = new EdgeGestureRecognizer(config);
 
-        // 1 x 8 mm is outside the old narrow diagonal corridor, but now visibly
-        // inside the quarter-circle guard and close enough to the left edge that it
-        // would otherwise become a side gesture.
         GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 100, 800, true)], Geometry);
 
         Assert.Equal(TouchpadCorner.TopLeft, signal?.Corner);
@@ -57,7 +54,7 @@ public sealed class TouchpadCornerZonePolicyTests
     }
 
     [Fact]
-    public void ReverseEnabled_InnerRoundedCapOwnsOutwardStart()
+    public void ReverseEnabled_InnerHalfOfVisibleLaneOwnsOutwardStart()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -68,15 +65,35 @@ public sealed class TouchpadCornerZonePolicyTests
         };
         var recognizer = new EdgeGestureRecognizer(config);
 
-        // About 16.5 x 16.5 mm is in the rounded inner cap at the end of the lane.
-        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 1650, 1650, true)], Geometry);
+        // 10 x 10 mm lies well before the rounded inner cap but inside the visible
+        // inner half of the diagonal lane. Alpha.42 intentionally accepts it as a
+        // reverse-close start so the user no longer has to hit an 8 mm cap precisely.
+        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 1000, 1000, true)], Geometry);
 
+        Assert.True(TouchpadCornerZonePolicy.ContainsReverseStartLocal(10, 10));
         Assert.Equal(TouchpadCorner.TopLeft, signal?.Corner);
         Assert.Equal(CornerGestureDirection.Outward, signal?.CornerDirection);
     }
 
     [Fact]
-    public void ReverseDisabled_InnerRoundedCapRemainsAnInwardLaunchStart()
+    public void ReverseEnabled_OuterGuardStillBelongsToInwardLaunch()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            CornerLaunches = new TouchpadCornerLaunchBindings(
+                TopLeft: GestureActionKind.OpenThinkControl,
+                TopLeftReverseClose: true)
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 500, 500, true)], Geometry);
+
+        Assert.False(TouchpadCornerZonePolicy.ContainsReverseStartLocal(5, 5));
+        Assert.Equal(CornerGestureDirection.Inward, signal?.CornerDirection);
+    }
+
+    [Fact]
+    public void ReverseDisabled_InnerLaneRemainsAnInwardLaunchStart()
     {
         var config = TouchpadGestureConfiguration.Default with
         {
@@ -87,7 +104,7 @@ public sealed class TouchpadCornerZonePolicyTests
         };
         var recognizer = new EdgeGestureRecognizer(config);
 
-        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 1650, 1650, true)], Geometry);
+        GestureSignal? signal = recognizer.ProcessFrame([new TouchContact(1, 1000, 1000, true)], Geometry);
 
         Assert.Equal(CornerGestureDirection.Inward, signal?.CornerDirection);
     }
