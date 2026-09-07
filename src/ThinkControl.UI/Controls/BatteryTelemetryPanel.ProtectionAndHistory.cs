@@ -8,6 +8,7 @@ namespace ThinkControl.UI.Controls;
 public partial class BatteryTelemetryPanel
 {
     private bool _batteryProtectionStatusSubscribed;
+    private bool _batteryProtectionWritable;
     private bool _syncingChargeProtection;
     private bool _syncingHistoryRetention;
 
@@ -50,13 +51,13 @@ public partial class BatteryTelemetryPanel
     private void ApplyBatteryProtectionStatus(ServiceResponse? response)
     {
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
-        bool writable = response?.Capabilities?.BatteryChargeProtection == true;
+        _batteryProtectionWritable = response?.Capabilities?.BatteryChargeProtection == true;
         int? limit = telemetry?.BatteryChargeLimitPercent;
 
         _syncingChargeProtection = true;
         try
         {
-            ChargeProtectionComboBox.IsEnabled = writable;
+            ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable;
             ChargeProtectionComboBox.SelectedItem = limit is 80 or 100
                 ? ChargeProtectionComboBox.Items.OfType<ComboBoxItem>()
                     .FirstOrDefault(item => int.TryParse(item.Tag?.ToString(), out int value) && value == limit)
@@ -69,12 +70,12 @@ public partial class BatteryTelemetryPanel
 
         if (limit == 80)
         {
-            ChargeProtectionStateText.Text = writable ? "Battery care · active" : "Battery care · read-only";
+            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Battery care · active" : "Battery care · read-only";
             ChargeProtectionImpactText.Text = "20 percentage points of headroom from full charge · less time at high state of charge. Best for everyday plugged-in use.";
         }
         else if (limit == 100)
         {
-            ChargeProtectionStateText.Text = writable ? "Full charge · active" : "Full charge · read-only";
+            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge · active" : "Full charge · read-only";
             ChargeProtectionImpactText.Text = "Maximum available runtime. Switch back to Battery care when you do not need the final 20% of capacity.";
         }
         else
@@ -85,12 +86,12 @@ public partial class BatteryTelemetryPanel
 
         ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
             "ThinkControl writes only a verified OEM charge-protection semantic and verifies the result by readback.";
-        ChargeProtectionFallbackButton.Visibility = writable ? Visibility.Collapsed : Visibility.Visible;
+        ChargeProtectionFallbackButton.Visibility = _batteryProtectionWritable ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void ChargeProtection_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncingChargeProtection || WpfApplication.Current is not App app ||
+        if (_syncingChargeProtection || !_batteryProtectionWritable || WpfApplication.Current is not App app ||
             ChargeProtectionComboBox.SelectedItem is not ComboBoxItem item ||
             !int.TryParse(item.Tag?.ToString(), out int percent) || percent is not 80 and not 100)
         {
@@ -115,8 +116,7 @@ public partial class BatteryTelemetryPanel
         }
         finally
         {
-            if (ChargeProtectionStateText.Text != "Not exposed")
-                ChargeProtectionComboBox.IsEnabled = app is not null && ChargeProtectionComboBox.SelectedItem is not null;
+            ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable;
         }
     }
 
