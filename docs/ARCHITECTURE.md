@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.42**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
+This document describes the current architecture at **v0.1.0-alpha.43**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.42` remains the release baseline underneath this candidate.
 
 ## Process boundary
 
@@ -101,25 +101,51 @@ Keyboard writes are serialized so firmware/static ownership and user-session ani
 
 The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. `TouchpadVisualizer` owns edge/corner rendering, selection and hit-testing. The right corner is an exact horizontal mirror of the left, and enabled corners share the same visual/recognition geometry rather than behaving like overlays.
 
-Track control is one continuous edge lane with three semantic segments: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action or second center toggle/recognizer. Legacy serialized PlayPause values sanitize into Track control.
+Track control remains one continuous edge affordance with one recognizer/router owner. Standalone current Play/Pause is not an edge action; legacy serialized PlayPause values sanitize into Track control. Alpha.43 adds a **Track-local Play/Pause option**, not a second center recognizer or overlay. The option is shown only while editing an edge whose action is Track control.
 
-Alpha.42 keeps the larger **28%** center start region (`0.36..0.64`) but intentionally changes Play/Pause from easy tap/button semantics into a **deliberate hold-to-release** action. `TrackCenterGesturePolicy` requires at least **450 ms** of hold time and no more than **3 mm** maximum radial movement. Brief center taps are ignored. The 9 mm Previous/Next threshold remains unchanged.
+When that option is enabled, the lane is **Previous | Play/Pause | Next**. The center uses the existing **28%** start region (`0.36..0.64`), requires at least **450 ms** of hold time and no more than **3 mm** maximum radial movement, and commits only on `Released`. Brief center taps are ignored. Release is deliberately the final intent confirmation: no delayed worker fires merely because the hold duration elapsed while a finger is still resting on the touchpad.
 
-`EdgeGestureRecognizer` keeps a center-start contact in candidate state only through the 3 mm hold slop. While it remains a candidate, `_lastTotalTravelMm` stores the **maximum** radial excursion rather than the latest point, so moving away and returning cannot requalify a mobile contact as stationary. Once the hold slop is exceeded, normal edge direction recognition resumes; if the contact later reaches 9 mm, the existing Track swipe path can still fire Previous/Next.
+When the Track-local option is disabled, `TrackCenterPlayPauseEnabled` sanitizes false while the `PreviousNextTrack` binding remains in place. `TouchpadVisualizer.DrawTrackLane` therefore does not draw the center fill, separators or Play/Pause icon, and the generic Track visual path renders only the two directional Previous/Next cues. Recognition uses the same canonical configuration, so the center is not a hidden active target.
 
-`GestureActionRouter` owns the temporal half of the contract with one `Stopwatch` timestamp from the original Track candidate. It evaluates the hold only on `Released`; there is no delayed worker, no auto-fire while the finger is still down, and no concurrent hold-vs-release arbitration state. A claimed Track swipe sets `_trackStayedCandidate=false`, so it cannot downgrade into Play/Pause on lift. This keeps one recognizer/router owner while making accidental playback materially harder.
+For backward compatibility the serialized/runtime `TrackCenterPlayPauseEnabled` member remains, while alpha.43 adds an explicit `TrackCenterPlayPauseDisabled` opt-out. The opt-out defaults false so existing alpha.42 configurations continue to get their integrated center action. Explicitly disabling it persists even if Track is temporarily moved/removed and later assigned again.
+
+`EdgeGestureRecognizer` keeps a center-start contact in candidate state only through the 3 mm hold slop when center Play/Pause is enabled. While it remains a candidate, `_lastTotalTravelMm` stores the **maximum** radial excursion rather than the latest point, so moving away and returning cannot requalify a mobile contact as stationary. Once the hold slop is exceeded, normal edge direction recognition resumes; if the contact later reaches 9 mm, the existing Track swipe path can still fire Previous/Next.
+
+`GestureActionRouter` owns the temporal half of the enabled-center contract with one `Stopwatch` timestamp from the original Track candidate. It evaluates the hold only on `Released`; there is no delayed worker, no auto-fire while the finger is still down, and no concurrent hold-vs-release arbitration state. A claimed Track swipe sets `_trackStayedCandidate=false`, so it cannot downgrade into Play/Pause on lift. Previous/Next keeps the unchanged **9 mm** threshold.
 
 Occupied edge assignment continues to swap action kinds rather than clearing the previous edge. Sensitivity and inversion remain properties of the physical edge.
 
 Track OSD semantics remain: resulting **Playing → pause bars**, **Paused → play triangle**, and ambiguous virtual-key fallback stays `Playback toggled`.
 
-Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Alpha.42 changes only reverse-close start classification: when reverse close is enabled, the inner half of the **already-visible** diagonal lane is accepted as an outward start instead of requiring the small rounded cap. The outer guard remains an inward-launch start and no hidden geometry is added. Rejected corner ownership remains locked until lift and outward claim routes through the existing canonical hide-to-tray transition.
+Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Alpha.42 changed reverse-close start classification so, when reverse close is enabled, the inner half of the **already-visible** diagonal lane is accepted as an outward start instead of requiring the small rounded cap. The outer guard remains an inward-launch start and no hidden geometry is added. Rejected corner ownership remains locked until lift and outward claim routes through the existing canonical hide-to-tray transition.
 
 Raw HID recognition receives every frame while WPF visualization is coalesced. UI-only listeners remain attached only while the Touchpad page is visible; configured gesture recognition is application-level and starts during silent Windows startup.
 
-## Audio lifecycle
+## Audio Safety model
 
-Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state and are cleared when the Audio page becomes hidden so stale off-page writes cannot fire later.
+Alpha.43 adds one Windows-generic, **session-level** policy owner for preventing accidental ThinkControl audio/media actions. It deliberately does not create a second Touchpad recognizer, a separate Mute edge action or a general phone-style Focus Modes framework.
+
+`ThinkControl.Core.Audio.AudioSafetyPolicy` defines three semantic modes:
+
+- **Normal** — no Audio Safety restrictions;
+- **Media lock** — block ThinkControl Touchpad Volume, Media scrub and Track commands while leaving deliberate Windows/app audio untouched;
+- **Silent** — includes Media lock, requires the active Windows render endpoint to be muted, and blocks ThinkControl output-volume/unmute writes.
+
+`AudioSafetyService` is the canonical UI-process state owner. `AudioSafetyRuntimeState` is a process-local fail-closed read gate used by Windows output helpers; `AudioSafetyService` is its only writer. The mode is intentionally **not persisted in alpha.43**. Every new process starts in Normal, avoiding the unsound situation where a new process claims ownership of mute state established by an earlier process.
+
+Entering Silent obtains the default Windows render/multimedia endpoint through semantic Core Audio APIs, records that endpoint's prior mute state once, mutes it when needed, and does not publish Silent if the initial mute cannot be established. While Silent remains active, the app reuses the existing hardware/status observation cadence to call `EnsureSilentOutput()`. A single interlocked worker can then apply the same policy if Windows changes the default render endpoint; no second DispatcherTimer or permanent audio polling loop is created.
+
+Mute ownership is per endpoint ID. When ThinkControl encounters an output during Silent it remembers the prior mute state only once. Leaving Silent or orderly app disposal restores those recorded states. If an endpoint disappeared, ThinkControl does not guess a replacement endpoint to restore. Microphone (`DataFlow.Capture`) remains independent and is not automatically muted or changed by Audio Safety.
+
+The Touchpad router checks the canonical policy at the existing action boundary. Volume, Media scrub, Previous/Next and integrated Play/Pause are suppressed in Media lock/Silent and receive bounded `Media locked`/`Silent` feedback instead of silently appearing broken. Entering a lock also cancels any currently owned Touchpad audio action so a gesture that began in Normal cannot continue writing after the policy changes.
+
+Windows output helpers also check `AudioSafetyRuntimeState` immediately before output writes, so Silent is not merely a disabled UI control. Compact and Advanced Audio controls fail closed through the same semantic gate. The microphone path passes `DataFlow.Capture` and is deliberately outside that output-only restriction.
+
+Audio Safety currently composes no fan profile. A future user preset may request both Audio Safety and Quiet, but that would require explicit transactional ownership/restore semantics and capability gating rather than coupling cooling to silence implicitly.
+
+## Audio page lifecycle
+
+Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state and are cleared when the Audio page becomes hidden so stale off-page writes cannot fire later. Core Audio endpoint enumeration remains off the dispatcher because some OEM stacks can block.
 
 ## Status, diagnostics and discovery
 
