@@ -14,21 +14,22 @@ Available without vendor-specific write access where Windows exposes the informa
 - display/audio pages backed by Windows-visible capabilities;
 - alpha.43 **Audio Safety** (`Normal` / `Media lock` / `Silent`) using Windows semantic audio APIs;
 - battery and generic telemetry that Windows/providers expose;
+- local battery-history aggregation/retention management;
 - diagnostics/report preview and explicit sharing controls.
 
 Audio Safety is a Windows-user-session policy and does **not** grant any low-level device write capability. Media lock only suppresses ThinkControl Touchpad media/output actions. Silent additionally mutes the current Windows render endpoint and blocks ThinkControl output writes while leaving microphone input independent.
 
 ### Provider-backed read-only
 
-ThinkControl can expose telemetry from a reviewed provider without implying that writes are safe. Fan RPM, temperature and OEM feature reads may therefore be available even when direct fan output remains blocked.
+ThinkControl can expose telemetry from a reviewed provider without implying that writes are safe. Fan RPM, temperature and OEM feature reads may therefore be available even when direct fan output remains blocked. The same applies to OEM battery-care state: a credible live read may be shown read-only when the provider does not expose a complete write contract.
 
 ### Verified semantic policy support
 
-An OEM may expose reviewed semantic thermal policy such as Quiet/Balanced/Performance without exposing safe direct RPM/PWM control. ThinkControl may use that policy for named built-ins while leaving manual percentages, custom curves and raw hardware states unavailable.
+An OEM may expose reviewed semantic policy without exposing arbitrary low-level writes. ThinkControl may expose only the semantic states that provider actually proves.
 
 ### Verified narrow hardware semantic
 
-A model/provider may expose a narrowly defined hardware semantic that is not a generic continuous writer. Alpha.41's X9 full-speed boolean is one example: the known Lenovo feature can be used only behind exact identity, live read, capability/readback and bounded-value gates. It does not imply that arbitrary Other Mode feature IDs or per-fan targets are safe.
+A model/provider may expose a narrowly defined hardware semantic that is not a generic continuous writer. Current X9 examples are the known Lenovo global full-speed boolean and the Lenovo Standard/Long-Life battery charge type. Neither implies arbitrary Other Mode feature IDs or freeform values are safe.
 
 ### Verified direct write support
 
@@ -46,6 +47,7 @@ Current X9-oriented areas include:
 - built-in **Auto / Quiet / Balanced / Max cooling** through reviewed Lenovo firmware-policy semantics;
 - alpha.41 exact-X9 support for Lenovo Other Mode's known global **full-speed boolean feature `0x04020000`** for Max cooling only when it live-reads safely and every transition verifies readback;
 - alpha.42 persistence/reassertion of the selected firmware cooling profile across UI restart, Windows startup settle, AC/DC transitions and resume;
+- alpha.43 exact-X9 **Battery care · 80% / Full charge · 100%** through Lenovo Other Mode charge-type attribute `0x03010001` only when the explicit capability row advertises VALID+GET+SET and post-write readback verifies the transition;
 - the experimental per-fan Other Mode `fanX_target` writer kept **read-only** after physical testing reproduced repeated speed cycling/re-kick and weaker useful cooling than naturally hot Auto;
 - read-only Lenovo `EnergyDrv` fan telemetry while its write contract remains unverified;
 - the seven-step ThinkPad EC implementation retained as provider-specific investigation/diagnostic code, not silently re-authorized once native OEM fan telemetry has been confirmed;
@@ -54,6 +56,27 @@ Current X9-oriented areas include:
 - alpha.43 Audio Safety, which is Windows-generic and does not alter any Lenovo provider boundary.
 
 If two native Lenovo fan channels have been proven during a hardware-service lifetime, a transient native read failure—or a rejected per-fan writer—does not silently re-authorize the EC writer. Provider failure is not permission to guess a lower-level backend.
+
+## Battery charge-protection semantics
+
+The current X9 provider is intentionally **not** a generic numeric charge-limit backend. Upstream Lenovo WMI evidence defines `0x03010001` as the PSU charge type with two semantic states:
+
+```text
+Standard  = 0 -> Full charge · 100%
+Long Life = 1 -> Battery care · 80%
+```
+
+ThinkControl enables the selector only when all product-write gates pass: exact `21Q6/21Q7` identity, active Lenovo Other Mode method, explicit capability row, VALID+GET+SET, a live `0/1` value immediately before writing, and matching post-write readback. If Lenovo omits the capability row, a live state may be shown read-only but ThinkControl does not write it.
+
+The UI does not invent 60/70/85/90/95% options and does not promise an unsupported "x fewer cycles" multiplier. The factual benefit shown for Battery care is 20 percentage points of headroom from full charge and reduced time at high state of charge; firmware health/cycle telemetry remains separate.
+
+Other OEMs or future Lenovo providers can expose their own supported threshold sets through a future semantic provider contract without changing the shared Battery page into a Lenovo-only page.
+
+## Battery history semantics
+
+Battery history is local-only product data. The current UI aggregates **day first, session second** rather than showing one raw endless event list. Recent detailed graphs are retained for a user-selectable **7 / 14 / 30 days**, while compact summaries remain for one year under the existing retention policy.
+
+Automatic compaction is preferred to manual cleanup because summaries still support trends and learned estimates. Destructive reset lives behind **Manage history**, warns that learned charge/discharge estimates and the local health trend are cleared, and does not alter firmware battery health, cycle count or charge-protection state.
 
 ## Fan semantics
 
@@ -104,8 +127,6 @@ RPM telemetry is not treated as a proxy for airflow intensity. Physical alpha.40
 
 The classic EC states are not generic laptop controls. **Raw EC diagnostics** appear only if an active provider explicitly exposes the verified discrete-EC semantic contract. Manual percentage/raw-state interactions use bounded temporary-test safety where applicable.
 
-The current UI uses semantic `SetCoolingProfile` for firmware-backed built-ins and only exposes `SetCoolingCurve`, `SetFanPercent` or raw EC behavior when the matching direct provider capability exists.
-
 ## Keyboard semantics
 
 - Off / Low / High are static hardware states when available.
@@ -147,8 +168,6 @@ Audio Safety is available anywhere the normal Windows output endpoint can be acc
 
 Alpha.43 keeps Audio Safety **session-only**. Restart starts in Normal because the new process cannot safely claim ownership of mute state created by the old process. While Silent is active, ThinkControl records the prior mute state of each default output endpoint it actually encounters and restores only those states when leaving Silent/orderly exit. A default-output change reuses the existing app status cadence rather than starting a new polling loop.
 
-Audio Safety does not imply any cooling, EC, keyboard or OEM support. Future composed presets would need separate explicit ownership and restore semantics for every subsystem they change.
-
 ## Unknown/new hardware
 
 Unknown hardware stays safe by default:
@@ -171,22 +190,14 @@ Confirmed negative X9 evidence remains:
 - nominal target 100% was weaker than naturally hot Lenovo Auto;
 - alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry;
 - alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise;
-- pre-freeze alpha.42 testing feedback made clear that automatic/quick center activation was too risky for a global media command;
 - during alpha.41/early-alpha.42 restart testing, a saved Quiet preference could remain visibly selected while physical airflow behaved like a harder Auto/base policy.
 
-Alpha.43 therefore carries forward the alpha.42 real-X9 checks and adds Audio Safety / optional-center checks:
+Alpha.43 adds these physical battery-care checks:
 
-- with Track Play/Pause enabled, quick center tap does nothing;
-- deliberate roughly half-second center hold toggles exactly once **on release**;
-- nothing auto-fires while the finger stays down after the hold threshold;
-- >3 mm movement permanently disarms Play/Pause for that contact;
-- ~9 mm Track swipes still produce Previous/Next without overlap;
-- disable Track Play/Pause and confirm the center visual disappears and center contacts never toggle media while Previous/Next still work;
-- re-enable it and confirm the center visual/recognizer return together;
-- reverse close works from multiple points in the inner half of either mirrored diagonal lane;
-- outer guard remains inward launch;
-- Quiet/Balanced/Max persistence and reassertion remain truthful across UI restart, reboot, AC/DC and resume as described in alpha.42 testing;
-- on real Windows audio, Media lock blocks ThinkControl Touchpad media/output actions without muting deliberate app audio;
-- Silent mutes the current default output, blocks ThinkControl output changes, follows a default-output change, leaves the microphone independent and restores only prior endpoint mute states that ThinkControl owned/recorded.
+- initial dropdown matches the actual firmware-reported Standard/Long-Life state rather than a saved preference;
+- selecting Battery care returns verified Long-Life/80% state and the real machine stops/holds normal charging around Lenovo's intended 80% boundary;
+- selecting Full charge returns verified Standard/100% state and ordinary charging can continue above 80%;
+- app/service restart reads actual firmware state again instead of painting a remembered desired value;
+- missing/ambiguous capability remains read-only/unavailable and never writes guessed thresholds.
 
-These physical checks belong in `docs/ALPHA-TESTING.md` and release-readiness notes; screenshots/CI alone must not mark them complete.
+Touchpad, fan persistence and Audio Safety real-device checks remain listed in `docs/ALPHA-TESTING.md`. These physical checks must not be marked complete from screenshots/CI alone.
