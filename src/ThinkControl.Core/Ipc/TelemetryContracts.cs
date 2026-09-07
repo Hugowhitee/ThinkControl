@@ -86,7 +86,10 @@ public sealed record TelemetrySnapshot(
     FanCharacterizationSnapshot? FanCharacterization = null,
     string? CoolingProfileId = null,
     int? CoolingAppliedPercent = null,
-    string? KeyboardBackend = null);
+    string? KeyboardBackend = null,
+    int? BatteryChargeLimitPercent = null,
+    string? BatteryChargeProtectionSource = null,
+    string? BatteryChargeProtectionDetail = null);
 
 public sealed record HardwareCapabilitySnapshot(
     bool FanTelemetry,
@@ -98,4 +101,5 @@ public sealed record HardwareCapabilitySnapshot(
     string FanControlKind = FanControlKinds.None,
     bool FanCalibrationSupported = false,
     bool FanCalibrationRequired = false,
-    bool KeyboardEffects = false);
+    bool KeyboardEffects = false,
+    bool BatteryChargeProtection = false);
