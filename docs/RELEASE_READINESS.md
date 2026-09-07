@@ -18,26 +18,30 @@ Current alpha.42 candidate:
 - PR: #78, **Make Track Play/Pause and reverse close easier to trigger**;
 - version: `v0.1.0-alpha.42`;
 - base: immutable alpha.41 / `main` at `6088955eeab54d1af6506780fa7707df17fe11c3`;
-- implementation/docs head validated before release freeze: `47c90f9ea662096a7134712e00bde0598e11de93`;
-- `version.json.releaseReady=false` during implementation evidence collection; set it true only for the final frozen docs/version head after this record.
+- `version.json.releaseReady=false` while the final deliberate-hold implementation is validated;
+- the earlier alpha.42 freeze was explicitly reopened after the user clarified that global Play/Pause must be difficult to trigger accidentally, especially in a school/classroom context.
 
-Alpha.42 is intentionally narrow. Real X9 use of alpha.41 still showed two physical Touchpad interaction problems: the integrated Track center Play/Pause target remained hard to trigger, especially when the user naturally tapped and held it, and reverse-close usually failed because its start target was too precise.
+Alpha.42 remains intentionally narrow. Real X9 use of alpha.41 showed two physical Touchpad interaction problems: the integrated Track center Play/Pause target remained hard to trigger, and reverse-close usually failed because its start target was too precise. The first alpha.42 implementation fixed hitability but made Play/Pause **too easy** by accepting a quick tap and auto-firing a hold while the finger was still down. That behavior is superseded before release.
 
 ## Alpha.42 product delta
 
-### Track center Play/Pause
+### Track center Play/Pause — final candidate model
 
-- one continuous **Previous | Play/Pause | Next** Track lane remains the product model;
-- the center start segment widens from 20% to **28%** (`0.36..0.64`);
-- a quick center press still commits Play/Pause on release;
-- a stationary center hold also commits after about **240 ms while the finger remains down**;
-- the center movement envelope remains **8.75 mm**;
-- the deliberate Previous/Next threshold remains **9.0 mm**;
-- hold, release and skip share one guarded Track action state so exactly one action can commit for a contact;
-- stale delayed hold tasks are invalidated when recognition claims, updates, releases or cancels the contact;
-- a successful hold cannot toggle again on release and cannot subsequently also fire Previous/Next.
+Track remains one continuous **Previous | Play/Pause | Next** lane with one recognizer/router owner.
 
-This improves hitability and feedback without adding another recognizer, timer owner, overlay or standalone Play/Pause setting.
+The final alpha.42 model separates *where* the target is from *how deliberately* it activates:
+
+- the center start segment remains widened from 20% to **28%** (`0.36..0.64`) so deliberate placement is easy;
+- a **quick center tap does nothing**;
+- Play/Pause requires a center-start contact held for at least **450 ms**;
+- the contact may move at most **3 mm maximum radial excursion** while it remains a hold candidate;
+- Play/Pause commits **only on release**, never automatically while the finger remains down;
+- the recognizer preserves maximum excursion, so moving away and returning cannot erase earlier movement and re-arm the hold;
+- once movement exceeds 3 mm, ordinary Track direction recognition resumes;
+- the deliberate Previous/Next threshold remains unchanged at **9.0 mm**;
+- a claimed Track swipe cannot downgrade into Play/Pause on release.
+
+This deliberately favors accidental-playback prevention over the fastest possible toggle. It also follows a well-established touchpad interaction pattern rather than inventing another overlay: libinput-style hold gestures distinguish a static hold from a quick tap and allow small unavoidable single-finger deltas while cancelling into movement when intent changes. Public gesture projects also use hold for media Play/Pause. These references informed the interaction model only; ThinkControl imports no code or dependency from them.
 
 ### Reverse close
 
@@ -82,44 +86,46 @@ Alpha.42 does **not** modify hardware, fan, startup, service, installer or updat
 
 Do not recreate a third full installer workflow. Superseded PR runs may cancel; immutable/tag release packaging does not.
 
-## Alpha.42 release gate
+## Superseded alpha.42 evidence
+
+Earlier alpha.42 implementation/docs head `47c90f9ea662096a7134712e00bde0598e11de93` passed the complete software gates:
+
+- CI #1718 / run `34086178927`: 0 warnings / 0 errors, 173/173 tests, ShellSmoke and 85 snapshots;
+- WPF artifact `10005298128`, digest `8a03ec3b33434257e3353ee2a157761171ba952d256572d09586ee1815505cf8`, was downloaded and manually inspected;
+- Package #1432 / run `34086178924` passed the full package/installer/service/updater path;
+- Package artifact `10005304235`, digest `f99a0ed1f657ade2f279080124932a105485e206e22434cb113d0b7ede03f505`.
+
+The subsequent frozen head `d164574ac1f69690cc143d16fe013ca1ae5b21bc` also passed final CI. **None of those runs can approve the final release now**, because they tested the superseded 240 ms auto-fire / quick-tap behavior. They remain useful regression baseline evidence only.
+
+## Alpha.42 final implementation gate
 
 - [x] Started from immutable alpha.41 / `main` at `6088955eeab54d1af6506780fa7707df17fe11c3`.
 - [x] Kept the follow-up on one branch/PR (#78).
 - [x] Widened Track center recognition and matching visual separators to 28%.
-- [x] Added a bounded 240 ms stationary-hold commit while retaining quick release commit.
-- [x] Preserved the 8.75 mm center envelope and 9 mm deliberate skip threshold.
-- [x] Serialized hold/release/skip so one Track contact cannot double-toggle or also skip.
+- [x] Rejected the too-easy pre-freeze quick-tap / 240 ms auto-fire design before release.
+- [x] Changed Play/Pause to deliberate **450 ms hold + release**.
+- [x] Limited valid hold movement to **3 mm maximum radial excursion** and preserved that maximum even if the finger returns.
+- [x] Preserved the **9 mm** Previous/Next threshold and normal swipe recognition after the hold slop is exceeded.
+- [x] Removed delayed hold workers/concurrent auto-fire arbitration; release is the sole Play/Pause commit moment.
 - [x] Expanded reverse-close ownership only within the inner half of the already-visible diagonal lane.
 - [x] Preserved mirrored corner geometry, outer-guard inward launch and corner lockout semantics.
-- [x] Added/updated Track policy, reverse-zone and source-level regression tests.
-- [x] Updated README/Product/Architecture/Device Support/Alpha Testing for alpha.42.
-- [x] Exact implementation/docs head passed CI: hygiene, zero-warning/zero-error Release build, all tests, ShellSmoke and WPF rendering.
-- [x] Exact implementation/docs head passed Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
-- [x] Downloaded and manually inspected exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
-- [x] Recorded exact implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
-- [x] Reviewed the focused diff for duplicate gesture/action owners, delayed-hold races and alpha.41 hardware/startup regressions.
-- [ ] Set `version.json.releaseReady=true` only after implementation evidence is complete.
+- [x] Added/updated Track policy, max-excursion, reverse-zone and source-level regression tests.
+- [x] Updated README/Product/Architecture/Device Support/Alpha Testing for the final alpha.42 semantics.
+- [ ] Fresh exact implementation head passes CI: hygiene, zero-warning/zero-error Release build, all tests, ShellSmoke and WPF rendering.
+- [ ] Fresh exact implementation head passes Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
+- [ ] Download and manually inspect fresh exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
+- [ ] Record the fresh implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
+- [ ] Review the focused diff for duplicate gesture/action owners and alpha.41 hardware/startup regressions.
+- [ ] Freeze `version.json.releaseReady=true` only after that implementation evidence is complete.
 - [ ] Require CI + Package to pass again on the exact frozen docs/version head.
 - [ ] Mark PR #78 ready; review comments/threads/checks and merge with the exact expected head SHA.
 - [ ] Verify post-merge `main` equals the merged alpha.42 commit and immutable alpha.41 remains unchanged.
 - [ ] Verify `Promote release-ready main` creates immutable `v0.1.0-alpha.42` at the merged commit.
 - [ ] Verify exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png` are published and published Setup/Payload checksums validate.
 
-## Alpha.42 implementation evidence
+## Alpha.42 final implementation evidence
 
-The first PR attempt on head `d8d02a5908fb33e1f119bfc26ff4495ecc11beff` produced useful partial evidence: Package #1426 / run `34085672890` passed the complete candidate packaging path, while CI #1712 / run `34085672865` correctly stopped at repository hygiene because the version bump preceded the required current-version docs. No build/test/visual claim is taken from that failed CI run.
-
-Exact implementation/docs head `47c90f9ea662096a7134712e00bde0598e11de93` then passed the complete required implementation gates:
-
-- **CI #1718 / run `34086178927`**: repository hygiene passed; Release build succeeded with **0 warnings / 0 errors**; **173/173** Core/source tests passed; Compact/Advanced ShellSmoke passed; **85** WPF visual-QA snapshots rendered successfully.
-- **WPF artifact `10005298128`** (`ThinkControl-Visual-QA`) has SHA-256 digest `8a03ec3b33434257e3353ee2a157761171ba952d256572d09586ee1815505cf8` and was downloaded and manually inspected.
-- Visual review covered `advanced-touchpad.png`, `advanced-touchpad-min.png`, `advanced-touchpad-wide.png`, `advanced-touchpad-light.png`, both selected corner fixtures and both live corner fixtures. The Bottom Track wide fixture shows the widened center as part of the same continuous lane; Previous/Play-Pause/Next remain aligned inside it, the updated hold behavior copy is visible and unclipped, normal/min/light layouts remain clean, and left/right corner geometry remains an exact visual mirror. Alpha.42 intentionally changes reverse recognition inside the existing lane rather than painting a second reverse overlay.
-- **Package #1432 / run `34086178924`** passed UI/service publish, payload/bootstrap construction, deep installer/service/IPC lifecycle, custom-location preservation, clean uninstall, checksum creation and immutable alpha.14.1 → alpha.42 updater compatibility.
-- **Package artifact `10005304235`** (`ThinkControl-0.1.0-alpha.42-dev.1432`) has SHA-256 digest `f99a0ed1f657ade2f279080124932a105485e206e22434cb113d0b7ede03f505`.
-- Focused diff review confirmed no hardware/provider/service/startup/installer source changes. Track still uses the existing recognizer/router; the delayed hold is generation-cancelled by claim/update/release/cancel and shares `_trackActionCommitted` with release/skip, preventing double commit. Reverse close changes only canonical start classification inside the already-visible corner lane.
-
-Physical finger feel is intentionally not marked proven by these hosted results.
+Pending fresh validation of the deliberate hold-to-release implementation. Do not copy the superseded run IDs above into this section as release evidence.
 
 ## Physical X9 follow-up — separate evidence class
 
@@ -127,11 +133,12 @@ Hosted CI cannot prove finger feel. Alpha.42 is specifically intended to address
 
 Real-pad checks after installing alpha.42:
 
-- [ ] Repeated quick center taps toggle exactly once and are materially easier to hit than alpha.41.
-- [ ] A stationary center hold toggles around 240 ms while the finger remains down.
-- [ ] Releasing after a successful hold does not toggle a second time.
-- [ ] Moving after a successful hold does not also fire Previous/Next.
-- [ ] Normal deliberate ~9 mm+ Previous/Next swipes still work and do not accidentally toggle center first.
+- [ ] A quick center tap does **nothing** and cannot unexpectedly start playback.
+- [ ] A deliberate roughly half-second center hold toggles exactly once **on release**.
+- [ ] Nothing auto-fires while the finger is still being held down.
+- [ ] Normal small stationary-finger jitter stays usable within the 3 mm hold slop.
+- [ ] Moving beyond 3 mm disarms Play/Pause even if the finger returns near its start.
+- [ ] Deliberate ~9 mm+ Previous/Next swipes still work and do not also toggle Play/Pause.
 - [ ] Reverse close succeeds from several points across the inner half of the visible top-left lane.
 - [ ] Reverse close succeeds equivalently on the mirrored top-right lane.
 - [ ] The outer guard still launches inward and is not misclassified as reverse close.
