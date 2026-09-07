@@ -96,7 +96,7 @@ public partial class TouchpadPanel
 
         var reverseDescription = new TextBlock
         {
-            Text = "Start at the rounded inner end and swipe back toward the corner to hide Compact or Advanced.",
+            Text = "Start anywhere in the inner half of the visible diagonal lane and swipe back toward the corner to hide Compact or Advanced.",
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(24, 4, 0, 0),
             FontSize = TypographyScale.Caption
