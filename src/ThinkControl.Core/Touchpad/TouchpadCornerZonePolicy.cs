@@ -11,6 +11,12 @@ public static class TouchpadCornerZonePolicy
     public const double HalfWidthMm = 4.0;
     public const double OuterGuardRadiusMm = 10.0;
 
+    // Reverse-close used to require the finger to land inside only the tiny rounded
+    // inner cap. On a real touchpad that was unnecessarily precise. The inner half of
+    // the already-visible diagonal lane is now a legitimate reverse start target; no
+    // invisible area is added outside the canonical corner geometry.
+    public const double ReverseStartAlongMm = 12.0;
+
     public static double InnerCapCenterMm => LengthMm - HalfWidthMm;
 
     public static double LaneStartAlongMm =>
@@ -72,7 +78,15 @@ public static class TouchpadCornerZonePolicy
             return false;
 
         ToLaneCoordinates(localXmm, localYmm, out double along, out double across);
-        if (along < InnerCapCenterMm || along > LengthMm)
+        if (along < ReverseStartAlongMm || Math.Abs(across) > HalfWidthMm)
+            return false;
+
+        // The straight inner half of the visible lane is intentionally forgiving.
+        // Past the lane's centerline end, keep the same rounded-cap boundary as the
+        // rendered corner zone so reverse close never gains a hidden hit target.
+        if (along <= InnerCapCenterMm)
+            return true;
+        if (along > LengthMm)
             return false;
 
         double capAlong = along - InnerCapCenterMm;
