@@ -46,7 +46,7 @@ public partial class TouchpadPanel
         if (tracks)
         {
             ActionHelpText.Text =
-                "Use the left and right lane segments for Previous / Next. The wider center segment is Play / Pause: a quick tap commits on release, and a short stationary hold commits while your finger is still down.";
+                "Use the left and right lane segments for Previous / Next. For Play / Pause, press and hold the center for about half a second, then release. Quick taps are ignored to prevent accidental playback.";
         }
 
         // Edge/corner rendering plus the integrated Track center segment share the
