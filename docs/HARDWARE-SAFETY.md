@@ -15,13 +15,14 @@ Keep these concepts separate:
 - writable per-fan target;
 - discrete EC fan states;
 - percentage/PWM fan control;
+- **OEM battery charge-protection semantic**;
 - keyboard hardware control;
 - haptic touchpad control;
 - Precision Touchpad input only.
 
 The UI may show a low-level control only when the active provider exposes the matching capability and required validation state. Raw EC wording must not appear for a generic provider, and Lenovo-specific wording must not appear merely because SMBIOS says Lenovo.
 
-A verified firmware thermal-policy capability is **not** the same capability as direct fan output. Likewise, a verified boolean full-speed semantic is not permission to expose arbitrary feature IDs, manual percentages, custom RPM curves or raw EC states.
+A verified firmware thermal-policy capability is **not** the same capability as direct fan output. Likewise, a verified boolean full-speed semantic is not permission to expose arbitrary feature IDs, manual percentages, custom RPM curves or raw EC states. A verified battery charge-type semantic is not permission to invent arbitrary charge thresholds.
 
 ### Unknown hardware is read-only first
 
@@ -71,7 +72,7 @@ The current physically reviewed low-level reference is ThinkPad X9-15 Gen 1 mach
 
 ### Normal product cooling path
 
-Alpha.42 keeps **Auto / Quiet / Balanced / Max cooling** useful without re-authorizing the rejected per-fan writer:
+Alpha.43 keeps **Auto / Quiet / Balanced / Max cooling** useful without re-authorizing the rejected per-fan writer:
 
 ```text
 Auto         -> release ThinkControl-owned full speed if any; restore latest Lenovo power-policy baseline
@@ -80,7 +81,36 @@ Balanced     -> release ThinkControl-owned full speed; Lenovo Balanced policy
 Max cooling  -> Lenovo Performance policy + verified global full-speed boolean when safely exposed
 ```
 
-The service performs exact-X9 identity checks before translating semantic policy into the reviewed Lenovo LITSSvc contract. The desktop UI never supplies raw Lenovo command IDs. Alpha.42 only reuses those same reviewed semantic transitions when startup, AC/DC or resume requires the active profile to be reasserted.
+The service performs exact-X9 identity checks before translating semantic policy into the reviewed Lenovo LITSSvc contract. The desktop UI never supplies raw Lenovo command IDs. Alpha.43 carries forward the bounded startup, AC/DC and resume reassertion added in alpha.42.
+
+### Battery charge-protection semantic
+
+Alpha.43 adds a second narrow exact-X9 Lenovo Other Mode contract: **PSU charge type `0x03010001`**.
+
+Upstream Lenovo WMI support documents this attribute as a two-state semantic:
+
+```text
+0 = Standard   -> normal/full charging
+1 = Long Life  -> 80% battery-care charging
+```
+
+ThinkControl exposes those states as **Full charge · 100%** and **Battery care · 80%**. It does not expose a freeform threshold or invent unsupported 60/70/85/90/95% values on this backend.
+
+A battery charge-protection write is allowed only when all of these gates pass:
+
+- exact verified X9 identity (`21Q6/21Q7`);
+- active `LENOVO_OTHER_METHOD`;
+- an explicit `LENOVO_CAPABILITY_DATA_00` row for `0x03010001` is present;
+- that row advertises VALID + GET + SET;
+- live `GetFeatureValue(0x03010001)` immediately before the write returns only `0` or `1`;
+- product code accepts only requested 80% or 100%;
+- the same feature is read back after the write and must equal the requested state.
+
+If the capability row is omitted, ThinkControl may surface a credible live **read-only** state but does not authorize a product write. Unknown devices or unknown Lenovo charge interfaces remain read-only/fallback-only.
+
+Battery-care UI must not claim a fabricated wear multiplier or “x fewer cycles”. Reducing time at high state of charge can improve longevity, but real wear depends on temperature, chemistry, depth of discharge and time. The UI therefore reports the factual 20-percentage-point headroom and the trade-off against available runtime while keeping firmware cycle count/health telemetry separate.
+
+See `docs/research/x9-alpha43-battery-care.md` for the evidence and product gate.
 
 ### Global full-speed semantic
 
@@ -108,7 +138,7 @@ The alpha.38 Lenovo Other Mode `fanX_target` writer remains **physically rejecte
 
 Read-side native dual-fan telemetry remains useful. Target `0` on the rejected per-fan path is retained only to release stale previously owned state. Once native two-fan evidence is established, transient telemetry loss must not silently re-authorize the known-inferior EC writer.
 
-The classic ThinkPad EC family remains research/diagnostic evidence rather than the normal alpha.42 X9 cooling backend:
+The classic ThinkPad EC family remains research/diagnostic evidence rather than the normal alpha.43 X9 cooling backend:
 
 ```text
 Lenovo/OEM Auto   0x80
@@ -121,14 +151,22 @@ A percentage may be shown only if an active physically accepted direct provider 
 
 ### Readback and transport discipline
 
+- Battery-care writes require the exact charge-type feature's capability row, live read and post-write readback.
 - Full-speed writes require the exact feature's live read and post-write readback.
 - Direct manual writes and return-to-Auto require their provider's readback/recovery contract.
 - Supported keyboard writes require provider/readback validation.
 - Low-level transport uses bounded waits and failure recovery rather than high-frequency blind polling.
 - X9 tachometer access remains conservative because aggressive EC polling can disturb fan behavior.
+- Battery charge-protection status is cached between bounded service probes rather than becoming a new high-frequency WMI loop.
 - Firmware policy is sent as semantic transitions; ThinkControl does not fight Lenovo's closed loop by continuously rewriting fixed targets.
 - The one startup settle reassert is bounded and generation-guarded so a stale saved choice cannot overwrite a newer user selection.
 - Reported RPM is telemetry, not proof that airflow/cooling intensity equals Lenovo's strongest physical state.
+
+## Battery history safety
+
+Battery history is local product data, not firmware state. Detailed samples are automatically compacted while long-lived summaries remain available for trends/learned estimates. A user retention change may reduce detailed graph retention but must not silently erase the summary history that supports longer-term product behavior.
+
+Destructive history reset is intentionally separated from routine viewing/retention controls. The UI must warn that reset also clears ThinkControl's learned charge/discharge priors and health trend. It must also state what reset does **not** change: current firmware battery health, firmware cycle count and OEM charge-protection state.
 
 ## Diagnostics and device learning
 
@@ -142,6 +180,6 @@ Device-learning states are conceptually `Observed → Candidate → Verified →
 
 A green compiler, snapshot or hosted CI runner is not physical hardware verification. Hardware-write claims require appropriate real-device evidence in addition to software gates.
 
-For alpha.42, automated validation can prove the exact-ID/value/readback/ownership architecture, startup/source reassert path and fail-closed behavior. It cannot prove that Quiet/Balanced/Max physically remain correct across reboot, AC/DC and resume on the user's X9. Those remain separate real-device evidence items and must not be converted into hosted-CI claims.
+For alpha.43, automated validation can prove the battery-care exact-ID/value/capability/readback gates, fan ownership architecture, session Audio Safety, startup behavior, build and deterministic UI. It cannot prove that the reference X9 physically stops/holds charging around 80% after selecting Long Life, nor can it prove the real-device fan/acoustic behavior. Those remain separate physical evidence items and must not be converted into hosted-CI claims.
 
 Before release promotion, follow [Release readiness](RELEASE_READINESS.md) and [Alpha testing](ALPHA-TESTING.md). Do not weaken safety or backwards-compatibility contracts merely to make the implementation simpler.
