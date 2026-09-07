@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.41**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
+This document describes the support model at **v0.1.0-alpha.42**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
 
 ## Support levels
 
@@ -63,7 +63,7 @@ Fan features are kept semantically distinct:
 - **calibration**: a provider-advertised direct-output mapping workflow;
 - **telemetry-only**: RPM/state can be shown without enabling direct writes.
 
-On the current alpha.41 X9 backend the built-ins map as follows:
+On the current X9 backend the built-ins map as follows:
 
 ```text
 Auto         -> release ThinkControl-owned full speed if any; clear cooling override; restore latest Lenovo power-policy baseline
@@ -113,13 +113,15 @@ Enabled top-corner launch geometry remains the canonical **guard → diagonal la
 
 Track control remains one continuous visible edge lane: **Previous | Play/Pause | Next**. Standalone Play/Pause is not offered separately; legacy serialized PlayPause bindings sanitize into Track control.
 
-In alpha.41, the center behaves like a button rather than a timed tap. A contact that begins inside the visible center segment remains a Play/Pause candidate while movement stays below the deliberate **9 mm** Track-skip threshold; there is no maximum hold duration. Once deliberate swipe travel reaches the Track threshold, Previous/Next wins and Play/Pause cannot fire on release. This removes the alpha.40 700-ms timing question and the practical 4.5–9 mm no-op zone.
+In alpha.42 the center target is widened to **28%** of the Track edge (`0.36..0.64`). A quick press still commits on release, but a stationary center hold also commits after about **240 ms while the finger remains down**. Hold/release/skip share one guarded action state, so a single contact cannot double-toggle or both toggle and skip. The center movement envelope remains **8.75 mm** and the deliberate Previous/Next threshold remains **9 mm**.
+
+When reverse close is enabled for a top corner, the reverse start target is now the **inner half of the already-visible diagonal lane**, not only the small rounded inner cap. The outer corner guard remains an inward-launch start, the right side remains an exact mirror, and no invisible reverse hit area exists beyond the rendered lane/cap geometry.
 
 Occupied edge actions still swap instead of destructively clearing the previous edge. Sensitivity and inversion remain attached to their physical edges.
 
 The Track OSD keeps familiar semantics: **Playing + pause bars**, **Paused + play triangle**; ambiguous fallback remains `Playback toggled`.
 
-Visualized live input is coalesced for WPF while recognition receives the raw frame stream. At silent Windows startup, configured Raw Input is now started from the earliest app Startup hook after cheap identity instead of being queued behind ordinary shell dispatcher work.
+Visualized live input is coalesced for WPF while recognition receives the raw frame stream. At silent Windows startup, configured Raw Input is started from the earliest app Startup hook after cheap identity instead of being queued behind ordinary shell dispatcher work.
 
 ## Unknown/new hardware
 
@@ -141,19 +143,17 @@ Confirmed negative X9 evidence remains:
 
 - alpha.38 per-fan target-RPM control repeatedly re-kicked/waved rather than settling;
 - nominal target 100% was weaker than naturally hot Lenovo Auto;
-- alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry.
+- alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry;
+- alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise.
 
-Alpha.41 therefore requires real-X9 checks for:
+Alpha.42 therefore requires real-X9 checks for:
 
-- Max cooling engaging the strongest Lenovo-style airflow when `0x04020000` is safely available;
-- Max remaining steady without the alpha.38 repeated re-kick cycle;
-- Max → Balanced/Quiet releasing full speed promptly;
-- Auto restoring the latest Windows/Lenovo power-policy baseline;
-- feature-unavailable/readback-failure paths failing closed rather than exposing another writer;
-- native Fan 1/Fan 2 telemetry remaining truthful and not being used as a stand-in for airflow intensity;
-- center Play/Pause reliably acting like press/release without requiring a learned hold duration;
-- deliberate ~9 mm Track swipes continuing to win over the center button;
-- Windows-logon edge gestures working without first opening ThinkControl;
-- corner/reverse-close, keyboard, Audio lifecycle and provider-repair regressions remaining intact.
+- repeated quick center presses reliably toggling exactly once;
+- a stationary center hold toggling while the finger is still down without a second toggle on release;
+- a center hold not later also producing Previous/Next;
+- deliberate ~9 mm Track swipes still winning when performed as swipes;
+- reverse close succeeding from multiple points in the inner half of either mirrored diagonal lane;
+- the outer guard still launching inward and never being misclassified as reverse close;
+- all alpha.41 fan/startup safety behavior remaining unchanged.
 
 These physical checks belong in `docs/ALPHA-TESTING.md` and release-readiness notes; screenshots/CI alone must not mark them complete.
