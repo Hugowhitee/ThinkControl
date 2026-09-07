@@ -2,7 +2,7 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.41`.
+Current prerelease candidate: `v0.1.0-alpha.42`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -105,13 +105,17 @@ The editor/visualizer uses one six-zone selection model: Top, Bottom, Left, Righ
 
 Track control is one coherent three-part edge affordance: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action, no separate Center play/pause setting and no second overlay/recognizer.
 
-Alpha.41 changes the center segment from a bounded short-tap gesture into button semantics. A contact must still **start** inside the visible center 20% segment, but elapsed hold duration is no longer a product rule. Releasing the contact toggles Play/Pause provided it stayed below the center-button movement envelope and never became a deliberate track swipe.
+Alpha.42 makes the physical Play/Pause target deliberately easier to hit. The visible center segment is now **28%** of the selected Track edge (`0.36..0.64`) instead of alpha.41's 20%. A quick center press still commits on release, while a stationary center hold commits after about **240 ms while the finger is still down** so holding the visible button no longer feels inert.
 
-The center movement envelope now extends to **8.75 mm**, immediately below the unchanged **9 mm** Previous/Next threshold. This removes the alpha.40 4.5–9 mm no-action region where ordinary finger drift could stop being a tap without being large enough to become a skip. A deliberate 9 mm swipe still wins before release, so easier Play/Pause does not reduce the skip threshold.
+Center hold, release and Previous/Next share one guarded Track action state. Exactly one action may commit per contact: a hold cannot toggle again on release and cannot subsequently also fire Previous/Next. The center movement envelope remains **8.75 mm**, immediately below the unchanged **9 mm** deliberate Previous/Next threshold, so easier Play/Pause does not lower skip intent.
 
 Old serialized standalone `PlayPause` bindings remain readable and sanitize into Track control. When assigning an edge action already used elsewhere, the editor swaps the two action kinds instead of clearing the old edge; sensitivity and inversion remain physical-edge tuning and stay with their edges.
 
 Track OSD semantics follow familiar media players: the label reports current/resulting state while the glyph shows the available next action. **Playing shows pause bars; Paused shows the play triangle.** A virtual-key fallback that cannot report post-command state remains labelled `Playback toggled` rather than inventing state.
+
+### Corner launch and reverse close
+
+Top-corner launch geometry stays unchanged and mirrored. When **Reverse swipe closes ThinkControl** is enabled, alpha.42 no longer requires the first reverse frame to land only inside the small rounded end-cap. The **inner half of the already-visible diagonal lane** is now a valid reverse-close start target. The outer corner guard still belongs to the normal inward launch, and no invisible hit target exists outside the rendered lane/cap geometry.
 
 Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence. UI-only listeners attach only while the page is visible, while configured background recognition remains application-level behavior.
 
@@ -145,11 +149,11 @@ Legacy server IPC and serialized settings values stay where required for the sup
 
 ## Diagnostics and privacy
 
-ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails. No automatic cloud compatibility/crash upload is part of alpha.41.
+ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails. No automatic cloud compatibility/crash upload is part of alpha.42.
 
 ## Installation and updates
 
-Alpha.41 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.42 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is persisted for the next session.
 
