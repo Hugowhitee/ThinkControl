@@ -58,7 +58,7 @@ The existing Audio navigation-lifecycle guard remains part of the alpha.42 basel
 
 ## Touchpad
 
-Alpha.42 is specifically a physical-reliability follow-up for the integrated Track center button and reverse-close gesture. Test these on the real pad, not only screenshots.
+Alpha.42 is specifically a physical-reliability follow-up for the integrated Track center action and reverse-close gesture. The final center model is deliberately conservative: spatially easy to hit, temporally intentional. Test these on the real pad, not only screenshots.
 
 ### Six-zone editor and corner geometry
 
@@ -74,16 +74,17 @@ Alpha.42 is specifically a physical-reliability follow-up for the integrated Tra
 - Confirm the selected band remains one continuous lane with Previous, Play/Pause and Next all **inside** it; there must be no floating skip icons or separate Play/Pause pill.
 - Confirm the edge action menu contains no separate **Play / pause** action and still has **Track control**.
 - If upgrading from old settings that used standalone Play/Pause, confirm that edge migrates to Track control rather than becoming Off.
-- The visible center Play/Pause start segment should now occupy about **28%** of the lane (`0.36..0.64`) and the visual separators must match that recognition target.
-- Perform repeated quick center taps. Each successful tap should toggle exactly once on release without requiring a learned press duration.
-- Touch and **hold** the center without releasing. Around **240 ms**, Play/Pause should toggle while the finger is still down. The control should no longer feel inert while held.
-- Keep holding after that first toggle, then release. There must be **no second toggle** on release.
-- After a hold has already committed Play/Pause, move sideways before lifting. It must not also fire Previous/Next from the same contact.
-- Make ordinary small diagonal/inward finger movement while pressing the center. It should remain a Play/Pause candidate instead of disappearing into a wrong-direction dead zone.
-- Test movement through roughly 4.5–8 mm. It should not become a no-op merely because it exceeds the old tap slop but stays below the 9 mm skip threshold.
-- Perform a normal deliberate swipe that crosses the existing **9 mm** Track threshold before the stationary hold commits. Previous/Next should win and Play/Pause must not fire.
-- Repeatedly alternate: quick center tap → Previous swipe → center hold → Next swipe. Look for missed toggles, double toggles and accidental skips.
-- The popup after a successful toggle must use current-state text plus next-action icon: **Playing + pause bars**, **Paused + play triangle**. If the fallback cannot know state, `Playback toggled` is acceptable and must not invent state.
+- The visible center Play/Pause start segment should occupy about **28%** of the lane (`0.36..0.64`) and the visual separators must match that recognition target.
+- Perform repeated **quick center taps**. They must do **nothing**: no playback toggle and no media popup. This is an intentional accidental-playback guard.
+- Press and hold the center for roughly half a second, keeping the finger mostly still, then release. Play/Pause should toggle **once on release**.
+- Keep holding for one or two seconds before releasing. Nothing should auto-fire while the finger is still down; release should still toggle once if the contact never left the hold envelope.
+- Make natural tiny finger adjustments while holding. Movement up to about **3 mm maximum radial excursion** should remain eligible.
+- Move clearly more than 3 mm, then return close to the start and release. Play/Pause must remain disarmed; returning to the start must not erase the earlier movement.
+- Perform a deliberate Track swipe. Once the contact leaves the 3 mm hold envelope, ordinary edge direction recognition should resume, and Previous/Next should still require the unchanged **9 mm** Track threshold.
+- A swipe must never also toggle Play/Pause on release.
+- Repeatedly alternate: quick center tap (no-op) → deliberate center hold/release (toggle) → Previous swipe → center hold/release (toggle) → Next swipe. Look for accidental playback, missed deliberate toggles or action overlap.
+- The popup after a successful deliberate toggle must use current-state text plus next-action icon: **Playing + pause bars**, **Paused + play triangle**. If the fallback cannot know state, `Playback toggled` is acceptable and must not invent state.
+- Check the help text in the editor. It should explicitly say to hold for about half a second and release, and that quick taps are ignored.
 
 ### Edge assignment swapping
 
@@ -117,7 +118,7 @@ Inspect the final CI artifact at minimum/normal/wide widths and light/dark where
 - `advanced-touchpad-top-right-live.png`;
 - relevant media/gesture OSD fixtures.
 
-The wide fixture exercises live Bottom Track control. Verify the three Track glyphs remain inside one continuous band, the wider center region still reads as part of that same band, and no duplicate standalone Play/Pause row reappears. Corner geometry itself should remain visually unchanged and mirrored; alpha.42 expands recognition only within the already-rendered inner lane.
+The wide fixture exercises live Bottom Track control. Verify the three Track glyphs remain inside one continuous band, the wider center region still reads as part of that same band, and no duplicate standalone Play/Pause row reappears. The help copy must describe the deliberate hold-to-release behavior. Corner geometry itself should remain visually unchanged and mirrored; alpha.42 expands reverse recognition only within the already-rendered inner lane.
 
 ## Fans and hardware providers
 
