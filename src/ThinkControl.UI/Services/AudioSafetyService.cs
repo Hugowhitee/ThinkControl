@@ -57,6 +57,10 @@ internal sealed class AudioSafetyService : IDisposable
                 return new(true, current, Describe(current));
             }
 
+            // Enforcement workers use this same transition gate. Therefore an
+            // in-flight Silent convergence either finishes before this restore or
+            // observes the new mode after the transition; it cannot re-mute an
+            // endpoint after we have restored its owned prior state.
             if (current == AudioSafetyMode.Silent && requested != AudioSafetyMode.Silent)
                 RestoreOwnedMuteStates();
 
@@ -76,7 +80,8 @@ internal sealed class AudioSafetyService : IDisposable
 
     /// <summary>
     /// Reuses the application's existing status cadence to cover a default-output
-    /// switch while Silent is active. No second polling loop is created.
+    /// switch while Silent is active. No second polling loop is created. Enforcement
+    /// is serialized with mode transitions so leaving Silent cannot race a late mute.
     /// </summary>
     internal void EnsureSilentOutput()
     {
@@ -86,12 +91,25 @@ internal sealed class AudioSafetyService : IDisposable
             return;
         }
 
-        _ = Task.Run(() =>
+        _ = Task.Run(async () =>
         {
             try
             {
-                if (!_disposed && Mode == AudioSafetyMode.Silent)
-                    EnforceCurrentOutputMute();
+                await _transitionGate.WaitAsync().ConfigureAwait(false);
+                try
+                {
+                    if (!_disposed && Mode == AudioSafetyMode.Silent)
+                        EnforceCurrentOutputMute();
+                }
+                finally
+                {
+                    _transitionGate.Release();
+                }
+            }
+            catch (ObjectDisposedException)
+            {
+                // Orderly application shutdown may dispose the gate before a queued
+                // convergence worker gets CPU time. No output write is needed then.
             }
             finally
             {
@@ -190,10 +208,23 @@ internal sealed class AudioSafetyService : IDisposable
     {
         if (_disposed)
             return;
-        _disposed = true;
-        RestoreOwnedMuteStates();
-        Volatile.Write(ref _mode, (int)AudioSafetyMode.Normal);
-        AudioSafetyRuntimeState.SetMode(AudioSafetyMode.Normal);
+
+        _transitionGate.Wait();
+        try
+        {
+            if (_disposed)
+                return;
+
+            _disposed = true;
+            RestoreOwnedMuteStates();
+            Volatile.Write(ref _mode, (int)AudioSafetyMode.Normal);
+            AudioSafetyRuntimeState.SetMode(AudioSafetyMode.Normal);
+        }
+        finally
+        {
+            _transitionGate.Release();
+        }
+
         _transitionGate.Dispose();
     }
 }
