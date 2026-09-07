@@ -6,203 +6,196 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.41`
-- immutable tag/release SHA `6088955eeab54d1af6506780fa7707df17fe11c3`
-- exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
-- preserved baseline for early tray/Raw-Input startup, X9 full-speed safety, rejected per-fan target writer, installer/updater and prior shell/crash fixes
+- `v0.1.0-alpha.42`
+- immutable tag/release SHA: `2d40dffebeb6f8327cd06403e076936c40d60497`
+- release is immutable and contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
+- alpha.41 remains separately immutable at `6088955eeab54d1af6506780fa7707df17fe11c3`
+- alpha.42 is the known-good baseline for deliberate Track hold/release, widened reverse-close ownership, X9 cooling-profile runtime truth/persistence, early Raw Input startup, rejected per-fan target writer safety, installer/updater and prior shell/crash fixes
 
 Current candidate:
 
-- version `v0.1.0-alpha.42`
-- branch `fix/alpha42-touchpad-input-reliability`
-- PR #78, **Make Track Play/Pause and reverse close easier to trigger**
-- base `main` / alpha.41 at `6088955eeab54d1af6506780fa7707df17fe11c3`
-- validated implementation head `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf`
-- first frozen release-ready head `1cc66681944c690096889aa33f157423ae0f62fd`
-- `version.json.releaseReady=true`
-- CI #1754 and Package #1468 passed on `1cc66681944c690096889aa33f157423ae0f62fd`; this documentation-only handoff update must receive one final exact-head CI + Package pass before merge
+- version `v0.1.0-alpha.43`
+- branch `feat/alpha43-audio-safety`
+- PR #80, **Add session Audio Safety modes**
+- base `main` / alpha.42 at `2d40dffebeb6f8327cd06403e076936c40d60497`
+- `version.json.releaseReady=false`
+- issue #79 is the product request for Audio Safety
+- the alpha.43 scope is Windows-generic Audio Safety plus the directly related Track-local Play/Pause option; no fan/hardware writer expansion is part of this candidate
 
-Alpha.42 was reopened twice before release for valid physical evidence: first because quick/automatic center Play/Pause was too easy to trigger accidentally, then because a saved X9 cooling profile such as Quiet could remain selected in UI while the physical machine had effectively returned to Auto/base policy after restart/lifecycle transitions. Neither superseded freeze is release evidence for the final candidate.
+## Alpha.43 product delta
 
-## Alpha.42 product delta
+### Audio Safety
 
-### Track center Play/Pause
+Alpha.43 adds one canonical **session-level** policy owner with three modes:
 
-Track remains one continuous **Previous | Play/Pause | Next** lane with one recognizer/router owner.
+- **Normal** — current ThinkControl media/output behavior is unchanged;
+- **Media lock** — blocks ThinkControl Touchpad Volume, Media scrub, Previous/Next and integrated Play/Pause while leaving deliberate Windows/app audio available;
+- **Silent** — includes Media lock, requires the active Windows render endpoint to be muted and blocks ThinkControl output-volume/unmute writes.
 
-- center start region is 28% of the selected Track edge (`0.36..0.64`)
-- quick center taps intentionally do nothing
-- Play/Pause requires at least 450 ms hold time
-- maximum eligible radial excursion is 3 mm
-- maximum excursion is preserved, so moving away and returning cannot re-arm the hold
-- Play/Pause commits only on release
-- after leaving the hold envelope, normal Track recognition resumes
-- Previous/Next threshold remains 9 mm
-- a claimed Track swipe cannot also become Play/Pause on release
+Architecture constraints:
 
-### Reverse close
+- `AudioSafetyService` is the canonical user-session owner;
+- `AudioSafetyRuntimeState` is a process-local output-write gate and has one writer;
+- microphone/capture input stays independent;
+- entering Media lock/Silent cancels an in-flight Touchpad audio action;
+- blocked Touchpad actions receive bounded explanatory feedback rather than silently doing nothing;
+- Silent remembers prior mute state once per output endpoint encountered and restores only those owned/recorded states on exit/orderly app shutdown;
+- a default-output change reuses the application's existing status cadence for mute convergence; there is no second permanent audio polling loop;
+- alpha.43 deliberately does **not persist** Audio Safety across process restart because a new process cannot truthfully inherit the old process's mute ownership;
+- this is not a general phone-style Focus Modes/preset framework and Silent does not implicitly change fan/cooling state.
 
-- visible mirrored guard → diagonal lane → rounded end-cap geometry is unchanged
-- reverse-close ownership may start anywhere in the inner half of the already-visible diagonal lane
-- outer guard remains inward launch
-- no hidden hit area was added
-- rejected corner ownership remains locked until lift
+### Track Play/Pause option
 
-### X9 firmware-profile runtime truth and persistence
+Track control stays one edge action and one recognizer/router owner. Standalone current Play/Pause remains absent from the edge action list.
 
-Physical pre-release testing found that a saved profile such as Quiet could appear selected after restart even though the fan audibly behaved like firmware Auto/base policy. Alpha.42 fixes the lifecycle without adding a new low-level writer.
+Alpha.43 adds one Track-local **Play / Pause** switch:
 
-- Fans initializes from service/runtime telemetry, not the persisted preference pretending to be applied state
-- saved firmware profiles are actively restored after capability discovery
-- one bounded 7-second startup-settle reassert handles a later Lenovo-service policy overwrite without creating a permanent polling fight
-- AC/DC, resume and Windows power-baseline transitions reassert the currently owned Quiet/Balanced/Max profile through the same reviewed source-specific LITSSvc path
-- closing/restarting only the WPF UI no longer releases a service-owned firmware profile to Auto
-- direct/manual fan ownership keeps the existing Auto-on-UI-exit/timeout safety class
-- service shutdown remains the final owner of firmware/full-speed/direct cleanup
-- rejected per-fan `fanX_target` remains read-only
-- Max still uses only the existing exact-X9 `0x04020000` boolean full-speed contract when its live/readback gates pass
-- no silent classic-EC or EnergyDrv writer fallback was introduced
+- the option is visible only when the selected edge uses Track control;
+- existing alpha.42 configurations default to Play/Pause enabled for backward compatibility;
+- enabled behavior remains the alpha.42 28% center region (`0.36..0.64`), >=450 ms hold, <=3 mm maximum radial movement and commit on release;
+- release remains the final intent confirmation: reaching the hold duration while still touching does not auto-start media;
+- Previous/Next keeps the unchanged 9 mm deliberate swipe threshold;
+- disabling Play/Pause keeps Track assigned but removes the center recognition and visual together: no center fill, separators or Play/Pause glyph, leaving Previous/Next only;
+- the explicit opt-out survives moving/removing/reassigning Track;
+- no second center recognizer, overlay or standalone action was introduced.
 
-## Implementation evidence
+### Hardware boundary
 
-Exact implementation head `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf` passed both required PR pipelines after the cooling-persistence fix.
+Alpha.43 adds no new low-level hardware writer.
 
-### CI #1751
+- alpha.38 `fanX_target` remains physically rejected/read-only;
+- the native Lenovo fan telemetry latch remains intact;
+- exact-X9 full-speed `0x04020000` remains separately boolean/live/readback-gated;
+- alpha.42 Quiet/Balanced/Max restore/reassert lifecycle is unchanged;
+- classic EC/EnergyDrv fallbacks are not reauthorized;
+- Audio Safety uses Windows semantic Core Audio APIs only.
 
-Run `34135415794` completed successfully on that exact head:
+## Current implementation evidence
 
-- repository hygiene passed
-- Release build: **0 warnings, 0 errors**
-- Core/source tests: **177 passed, 0 failed, 0 skipped**
-- Compact/Advanced real WPF ShellSmoke passed
-- **85** deterministic WPF visual-QA snapshots rendered
-- visual artifact `10023821813`, `ThinkControl-Visual-QA`
-- artifact digest `cbc0a051cb1a5128b3d30436a0115a0e7505dee909e4a0ac28ac67826bb690d9`
+The Audio Safety implementation and Track-local option are on PR #80. Before the documentation refresh, branch head `63b4cdeccfd1c45d1b8d71abd24b3c1104722aa1` produced these pipeline results:
 
-The artifact was downloaded and manually inspected. `advanced-touchpad-wide.png` keeps Previous / Play-Pause / Next inside one continuous bottom band, the 28% center remains integrated rather than a separate pill, and the active Next treatment stays local. Top-left and top-right selected fixtures remain visually mirrored. Fans normal/manual/unavailable fixtures remain aligned; direct/manual controls still read as temporary/provider-specific rather than generic X9 controls. No screenshot regression was found from the persistence changes, which intentionally alter lifecycle/runtime truth rather than static Fans layout.
+### Package #1475
 
-### Package #1465
+Run `34143979197` completed successfully on exact head `63b4cdeccfd1c45d1b8d71abd24b3c1104722aa1`:
 
-Run `34135415785` completed successfully on the same exact implementation head:
+- version resolution and canonical branding passed;
+- UI publish passed, proving the WPF/UI changes compile;
+- hardware-service publish passed;
+- compact managed-payload checks passed;
+- release payload and web bootstrap installer built;
+- deep installer/service/IPC reliability smoke passed;
+- oldest-supported alpha.14.1 updater compatibility passed;
+- checksums and development artifact were produced.
 
-- UI publish passed
-- hardware-service publish passed
-- compact managed-payload checks passed
-- payload archive and web bootstrap installer built
-- deep installer/service/IPC reliability smoke passed
-- custom-location lifecycle passed
-- oldest-supported immutable alpha.14.1 updater compatibility passed
-- checksums generated
-- development artifact uploaded
-- package artifact `10023809253`, `ThinkControl-0.1.0-alpha.42-dev.1465`
-- artifact digest `1cf1de4e06113db6d4daf17e5a5c759f172af626ec4c0ffad25ccf1bb5a4d038`
+This is useful implementation evidence but **not** release evidence because the same head did not complete CI/visual QA.
 
-## Frozen release-head evidence
+### CI #1762
 
-The release-ready freeze at `1cc66681944c690096889aa33f157423ae0f62fd` also passed the exact-head gates.
+Run `34143979130` stopped at repository hygiene before restore/build/tests because the branch had already moved `version.json` to alpha.43 while README and required release docs still named alpha.42. The concrete failures were only:
 
-### CI #1754
+- `README.md` missing `v0.1.0-alpha.43`;
+- `docs/ALPHA-TESTING.md` missing `v0.1.0-alpha.43`;
+- `docs/ARCHITECTURE.md` missing `v0.1.0-alpha.43`;
+- `docs/DEVICE-SUPPORT.md` missing `v0.1.0-alpha.43`;
+- `docs/PRODUCT.md` missing `v0.1.0-alpha.43`.
 
-Run `34136818024` completed successfully:
+Those docs are now advanced as part of this handoff. The failed run did **not** execute build/tests/WPF visual QA and must not be represented as a code failure or as validation evidence.
 
-- repository hygiene passed
-- Release restore/build passed
-- all Core/source tests passed
-- Compact/Advanced ShellSmoke passed
-- all **85** WPF visual-QA snapshots rendered and uploaded
-- frozen-head visual artifact `10024353664`, `ThinkControl-Visual-QA`
-- artifact digest `205ac684ad4c78c000c17814d3726a34058ae50ea66d645598fc13e626bdbca5`
+## Source review notes before next gate
 
-The frozen-head artifact was downloaded and inspected. Representative Touchpad and Fans snapshots remained visually unchanged from the already-reviewed implementation artifact. The only compared PNG with a different binary hash was the top-right live-corner fixture; direct visual comparison showed the same mirrored geometry and state, consistent with nondeterministic WPF raster/compression detail rather than a product change.
+The current design deliberately keeps existing owners rather than stacking helpers:
 
-### Package #1468
+- Touchpad policy is checked at the existing `GestureActionRouter` boundary and the async media fallbacks re-check the policy before committing;
+- Windows render writes fail closed through the process-local Audio Safety gate even if a UI control is stale for a moment;
+- capture/microphone writes remain allowed because the gate is render-output specific;
+- the Track option only controls canonical configuration; `TouchpadVisualizer` and the existing recognizer/router consume the same state, so turning Play/Pause off cannot leave a separate hidden center visual owner;
+- backward compatibility uses a new explicit opt-out (`TrackCenterPlayPauseDisabled=false` by default) while retaining the legacy/runtime `TrackCenterPlayPauseEnabled` member;
+- release-to-commit is retained because a timer-based auto-fire would allow a resting finger to start playback before the user can cancel by moving/lifting.
 
-Run `34136818032` completed successfully on the same frozen head:
+Before freeze, continue focused review for lifecycle races, event subscriptions and stale user-facing copy. In particular, Audio Safety must never restore an endpoint it did not record and the Compact/Settings state must remain one canonical session value.
 
-- UI/service publish passed
-- compact managed-payload verification passed
-- payload/bootstrap construction passed
-- deep installer/service/IPC reliability smoke passed
-- oldest-supported alpha.14.1 updater compatibility passed
-- checksums generated
-- development artifact `10024350248`, `ThinkControl-0.1.0-alpha.42-dev.1468`
-- artifact digest `5bdf73d5f53a4e6c0fd5c10ed5ab86d7faec94d991b2c1b953943df8a96b7ca7`
+## Alpha.43 implementation gate
 
-This handoff update changes documentation only. Because exact-head discipline applies to the actual merge SHA rather than a previous almost-identical head, CI + Package must pass once more on the resulting final PR head before merge.
+Completed scope work so far:
 
-## Source/safety review
+- [x] Started from immutable alpha.42
+- [x] Reused the single active alpha.43 branch/PR (#80)
+- [x] Added canonical Normal / Media lock / Silent policy model
+- [x] Media lock blocks ThinkControl Touchpad Volume/Track/seek while external audio remains available
+- [x] Silent adds semantic Windows output mute + fail-closed ThinkControl output-write gate
+- [x] Microphone remains independent
+- [x] Silent tracks prior mute state per encountered endpoint and restores only recorded ownership
+- [x] Default-output convergence reuses existing status cadence instead of a new polling loop
+- [x] Audio Safety is session-only for alpha.43
+- [x] Added Compact quick selector and Settings detailed state
+- [x] Added Track-local Play/Pause on/off option
+- [x] Kept alpha.42 450 ms + <=3 mm + release safety when Play/Pause is enabled
+- [x] Disabled Track center removes center behavior while preserving Previous/Next
+- [x] Added configuration/source regression tests for Track option
+- [x] Package #1475 passed on the pre-doc implementation head
+- [x] Advanced README/product/architecture/device/testing docs to alpha.43
 
-Focused review after the physical cooling report confirms:
+Required before release freeze:
 
-- `LenovoCoolingPolicyCoordinator.SetBasePowerMode` reasserts an active semantic profile through `SetBuiltInProfile`, so AC/DC/source-specific Lenovo commands converge without a second writer
-- `App.Cooling` owns one bounded startup-settle retry and has no `DispatcherTimer`/permanent enforcement loop
-- UI exit skips `ReturnFanToAuto` only for service-owned firmware policy; direct/manual paths retain cleanup
-- Fans selector initialization derives its current id from runtime profile state, not `UserSettings.Current.CoolingProfile`
-- four new source regression tests cover source/baseline reassertion, UI-exit ownership class, bounded startup settle and runtime selector truth
-- hardware safety docs, cooling design, architecture, device support and X9 research reflect the new lifecycle
+- [ ] Run CI on the new exact documentation/code head and require repository hygiene, zero-warning Release build, all tests, ShellSmoke and WPF visual QA
+- [ ] Run Package ThinkControl on that same exact head
+- [ ] Download and manually inspect the exact-head visual artifact, especially Compact Audio Safety, Settings Audio Safety and `advanced-touchpad-wide.png`
+- [ ] Confirm the new Track Play/Pause editor row fits minimum/normal/wide layouts and does not make Track feel like a second overlay system
+- [ ] Prefer a deterministic Play/Pause-off visual fixture if needed to prove the center disappears rather than relying only on source assertions
+- [ ] Review stale Touchpad copy so enabled-center instructions say hold + release, not quick tap
+- [ ] Finish focused Audio Safety lifecycle/event review and add tests for any concrete fix
+- [ ] Update this handoff with exact run IDs, test count, snapshot count, artifact IDs/digests and manual visual findings
 
-The actual root cause of any Lenovo-side overwrite is not claimed. The product fix only responds to the observed lifecycle failure with reviewed semantic reassertion.
+Release freeze/promotion steps after implementation evidence is complete:
 
-## Alpha.42 release gate
-
-Completed implementation and validation work:
-
-- [x] Started from immutable alpha.41
-- [x] Kept one active branch/PR
-- [x] Final Track interaction uses 28% center + 450 ms hold + release + <=3 mm maximum excursion
-- [x] Previous/Next remains 9 mm and cannot overlap Play/Pause
-- [x] Reverse-close target widened only inside visible lane geometry
-- [x] Cooling selector/runtime truth no longer confuses persisted preference with applied state
-- [x] Saved firmware profiles actively restore after startup capability discovery
-- [x] Added one bounded 7-second startup-settle reassert
-- [x] Active firmware profile reasserts across AC/DC/resume/power-baseline changes
-- [x] WPF UI exit preserves service-owned firmware profile but direct/manual cleanup remains intact
-- [x] No rejected direct writer/EC fallback was reauthorized
-- [x] Implementation head passed CI + Package
-- [x] Implementation-head visual artifact downloaded and inspected
-- [x] Alpha testing guide updated for the new physical persistence regression
-- [x] Frozen `version.json.releaseReady=true`
-- [x] CI #1754 + Package #1468 passed on the first exact frozen head
-- [x] Frozen-head WPF artifact downloaded and inspected
-- [x] Complete PR changed-file list reviewed; scope is Touchpad, cooling lifecycle, tests/docs/version only
-- [x] PR conversation and inline review threads checked; no outstanding comments/threads at that point
-
-Remaining release steps:
-
-- [ ] Require CI + Package to pass on the **final documentation handoff head**
-- [ ] Mark PR #78 ready and merge with exact expected-head SHA
+- [ ] Set `version.json.releaseReady=true` only after the implementation-head evidence above is complete
+- [ ] Require **CI + Package ThinkControl on the exact frozen head**
+- [ ] Inspect frozen-head WPF artifact and confirm no UI regression
+- [ ] Review complete PR changed-file list, comments, reviews and review threads
+- [ ] Mark PR #80 ready and merge using exact expected-head SHA
 - [ ] Verify post-merge `main`
-- [ ] Verify `Promote release-ready main` creates immutable `v0.1.0-alpha.42` at the merged commit
+- [ ] Verify promotion creates immutable `v0.1.0-alpha.43` at the merged commit
 - [ ] Verify exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
 - [ ] Verify published Setup/Payload SHA-256 checksums
-- [ ] Confirm immutable alpha.41 tag/release was not moved
+- [ ] Confirm immutable alpha.42 and alpha.41 tags/releases were not moved
 
-## Physical X9 follow-up — separate evidence class
+## Physical follow-up — separate evidence class
 
-Hosted CI cannot prove finger feel or Lenovo firmware acoustics. After installing the published alpha.42, record these separately.
+Hosted CI cannot prove finger feel, audible silence, real default-endpoint transitions or Lenovo firmware acoustics. After installing the published alpha.43, record these separately.
 
 Touchpad:
 
-- [ ] quick center tap does nothing
-- [ ] roughly half-second center hold toggles once on release
+- [ ] with Play/Pause enabled, quick center tap does nothing
+- [ ] roughly half-second center hold toggles once **on release**
 - [ ] nothing auto-fires while still held
 - [ ] <=3 mm natural jitter remains usable
 - [ ] >3 mm movement permanently disarms the hold for that contact
 - [ ] 9 mm Previous/Next remains reliable without Play/Pause overlap
-- [ ] reverse close works across multiple points in the inner half of both mirrored lanes
+- [ ] disable Track Play/Pause: center visual disappears and center never toggles media
+- [ ] with center disabled, Previous/Next still work normally
+- [ ] re-enable center: visual and behavior return together
+- [ ] reverse close remains reliable across the inner half of both mirrored lanes
 - [ ] outer guard still launches inward
 
-Cooling persistence:
+Audio Safety:
+
+- [ ] Media lock blocks ThinkControl Touchpad Volume/Track/seek but deliberate app/Windows audio still works
+- [ ] entering Media lock/Silent during an active audio gesture stops further ThinkControl writes
+- [ ] Silent mutes the current default output and ThinkControl cannot unmute/change output while active
+- [ ] microphone remains independently controllable
+- [ ] switching default output while Silent causes the new output to become muted without rapid polling behavior
+- [ ] leaving Silent restores each encountered endpoint to its prior mute state
+- [ ] an endpoint already muted before Silent stays muted afterwards
+- [ ] orderly app exit from Silent restores owned states
+- [ ] restart begins at Normal as designed for alpha.43
+
+Cooling carry-forward:
 
 - [ ] select Quiet and verify physical/runtime Quiet state
 - [ ] close/reopen only the UI while service remains running; Quiet remains active
 - [ ] reboot with Quiet saved; runtime UI remains truthful during restore and Quiet converges after startup
-- [ ] listen through the post-login settle window; no later silent return to Auto/base policy
-- [ ] unplug/replug AC while Quiet is active; Quiet remains active
-- [ ] sleep/resume while Quiet is active; Quiet remains active
-- [ ] change Windows performance preference while Quiet is active; Quiet remains override and Auto later restores the new baseline
-- [ ] repeat lifecycle with Balanced
-- [ ] repeat Max only if the existing exact full-speed safety gates pass
+- [ ] unplug/replug AC and sleep/resume while a non-Auto profile is active; policy remains/reasserts correctly
+- [ ] repeat lifecycle with Balanced and Max only where existing safety gates pass
 - [ ] no alpha.38 target-RPM wave/re-kick behavior returns
 
 ## Release workflow principles
@@ -243,6 +236,7 @@ Do not mix commercial backend/licensing work into alpha hardware stabilization.
 - [x] X9 fan semantics distinguish telemetry, firmware policy, narrow global full speed, direct writers and discrete fallbacks.
 - [x] Fan calibration and Keyboard Effects are semantic capabilities.
 - [x] A physically rejected writer can remain telemetry-only without falling back to a known-inferior writer.
+- [x] Audio Safety is Windows-generic and does not mutate hardware capability boundaries.
 - [ ] Continue replacing residual device-name assumptions outside narrowly justified recovery/safety paths.
 - [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic contract.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
@@ -282,4 +276,4 @@ Do not make source private while updater/build distribution still depends on pub
 
 ## Release principle
 
-A green compiler is not release readiness. Promotion requires exact-head build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review and immutable release verification. Physical hardware behavior remains a separate evidence class and must never be invented from hosted CI.
+A green compiler is not release readiness. Promotion requires exact-head build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review and immutable release verification. Physical hardware/audio behavior remains a separate evidence class and must never be invented from hosted CI.
