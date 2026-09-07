@@ -64,8 +64,8 @@ public sealed record TouchpadEdgeBinding(
     {
         GestureActionKind.Mute => GestureActionKind.Volume,
         // Play/Pause is no longer a separate edge affordance. Preserve old numeric
-        // settings by migrating it into the integrated Previous | Play/Pause | Next
-        // Track control rather than showing an action the editor can no longer choose.
+        // settings by migrating it into Track control rather than showing an action
+        // the editor can choose independently.
         GestureActionKind.PlayPause => GestureActionKind.PreviousNextTrack,
         GestureActionKind.TaskView or
         GestureActionKind.ShowDesktop or
@@ -175,7 +175,8 @@ public sealed record TouchpadGestureConfiguration(
     bool HideCursorWhenActive = true,
     bool TrackCenterPlayPauseEnabled = false,
     TouchpadGestureBindings? Bindings = null,
-    TouchpadCornerLaunchBindings? CornerLaunches = null)
+    TouchpadCornerLaunchBindings? CornerLaunches = null,
+    bool TrackCenterPlayPauseDisabled = false)
 {
     public static TouchpadGestureConfiguration Default { get; } = new(
         Bindings: TouchpadGestureBindings.AsusStyle,
@@ -184,8 +185,9 @@ public sealed record TouchpadGestureConfiguration(
     public TouchpadGestureConfiguration Sanitize()
     {
         TouchpadGestureBindings bindings = (Bindings ?? TouchpadGestureBindings.AsusStyle).Sanitize();
-        bool trackCenterPlayPauseEnabled = Enum.GetValues<TouchpadEdge>()
+        bool trackAssigned = Enum.GetValues<TouchpadEdge>()
             .Any(edge => bindings.Get(edge).Action == GestureActionKind.PreviousNextTrack);
+        bool trackCenterPlayPauseEnabled = trackAssigned && !TrackCenterPlayPauseDisabled;
 
         return this with
         {
@@ -193,10 +195,11 @@ public sealed record TouchpadGestureConfiguration(
             ActivationDistanceMm = Math.Clamp(double.IsFinite(ActivationDistanceMm) ? ActivationDistanceMm : 2.0, 0.5, 8.0),
             ContinuationToleranceMm = Math.Clamp(double.IsFinite(ContinuationToleranceMm) ? ContinuationToleranceMm : 12.0, 4.0, 30.0),
             DirectionDominance = Math.Clamp(double.IsFinite(DirectionDominance) ? DirectionDominance : 1.15, 1.02, 2.5),
-            // Track control is one three-part affordance now: Previous | Play/Pause | Next.
-            // Keep the serialized flag for backwards JSON compatibility, but derive its
-            // runtime value from the presence of the Track action so there is no second
-            // menu-level feature switch or visual owner.
+            // TrackCenterPlayPauseEnabled is retained as the runtime/legacy serialized
+            // compatibility value. Alpha.43 adds an explicit opt-out flag so older
+            // configs keep the alpha.42 integrated Play/Pause behavior by default,
+            // while the Track editor can disable that center segment without creating
+            // a second edge action or recognizer owner.
             TrackCenterPlayPauseEnabled = trackCenterPlayPauseEnabled,
             Bindings = bindings,
             CornerLaunches = (CornerLaunches ?? new TouchpadCornerLaunchBindings()).Sanitize()
