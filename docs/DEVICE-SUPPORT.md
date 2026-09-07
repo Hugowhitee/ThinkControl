@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.42**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear.
+This document describes the support model at **v0.1.0-alpha.43**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.42` remains the low-level hardware baseline for this candidate.
 
 ## Support levels
 
@@ -12,8 +12,11 @@ Available without vendor-specific write access where Windows exposes the informa
 - update/install flow;
 - Windows power-policy integration;
 - display/audio pages backed by Windows-visible capabilities;
+- alpha.43 **Audio Safety** (`Normal` / `Media lock` / `Silent`) using Windows semantic audio APIs;
 - battery and generic telemetry that Windows/providers expose;
 - diagnostics/report preview and explicit sharing controls.
+
+Audio Safety is a Windows-user-session policy and does **not** grant any low-level device write capability. Media lock only suppresses ThinkControl Touchpad media/output actions. Silent additionally mutes the current Windows render endpoint and blocks ThinkControl output writes while leaving microphone input independent.
 
 ### Provider-backed read-only
 
@@ -47,7 +50,8 @@ Current X9-oriented areas include:
 - read-only Lenovo `EnergyDrv` fan telemetry while its write contract remains unverified;
 - the seven-step ThinkPad EC implementation retained as provider-specific investigation/diagnostic code, not silently re-authorized once native OEM fan telemetry has been confirmed;
 - Lenovo keyboard backlight provider/readback and firmware Auto where verified;
-- haptic/raw-touchpad discovery and the shared Touchpad gesture editor.
+- haptic/raw-touchpad discovery and the shared Touchpad gesture editor;
+- alpha.43 Audio Safety, which is Windows-generic and does not alter any Lenovo provider boundary.
 
 If two native Lenovo fan channels have been proven during a hardware-service lifetime, a transient native read failure—or a rejected per-fan writer—does not silently re-authorize the EC writer. Provider failure is not permission to guess a lower-level backend.
 
@@ -73,9 +77,9 @@ Balanced     -> ensure ThinkControl-owned full speed is released; Lenovo Balance
 Max cooling  -> Lenovo Performance policy + verified 0x04020000 full-speed boolean when safely exposed
 ```
 
-The UI seeds the service with the current Windows performance preference before enabling a cooling override. Lenovo's reviewed policy command differs by power source, so a Windows power-mode, AC/DC or resume event now both updates the Auto restore baseline **and reasserts the active Quiet/Balanced/Max override for the current source**. Auto later restores the latest baseline.
+The UI seeds the service with the current Windows performance preference before enabling a cooling override. Lenovo's reviewed policy command differs by power source, so a Windows power-mode, AC/DC or resume event both updates the Auto restore baseline **and reasserts the active Quiet/Balanced/Max override for the current source**. Auto later restores the latest baseline.
 
-A saved profile is not itself proof of applied state. During startup the Fans selector follows runtime/service state, so it may truthfully show Auto while a saved Quiet preference is still being restored. After capability discovery, the saved profile is actively reapplied. Alpha.42 adds one bounded seven-second settle reassert to cover Lenovo login/service policy work that may complete just after the first successful request. This is not continuous polling.
+A saved profile is not itself proof of applied state. During startup the Fans selector follows runtime/service state, so it may truthfully show Auto while a saved Quiet preference is still being restored. After capability discovery, the saved profile is actively reapplied. Alpha.42 added one bounded seven-second settle reassert to cover Lenovo login/service policy work that may complete just after the first successful request. This is not continuous polling.
 
 Closing or restarting only the normal-user UI keeps a firmware-policy profile active in the privileged service. Direct/manual output remains a separate safety class and is released to Auto when the UI exits. Normal service shutdown still performs its ownership-aware cleanup.
 
@@ -116,9 +120,13 @@ The Touchpad editor exposes six selectable zones: Top, Bottom, Left, Right, Top-
 
 Enabled top-corner launch geometry remains the canonical **guard → diagonal lane → rounded end-cap** shape. The right side is an exact horizontal mirror of the left. Rejected corner candidates stay locked out until lift rather than falling through into nearby edge gestures.
 
-Track control remains one continuous visible edge lane: **Previous | Play/Pause | Next**. Standalone Play/Pause is not offered separately; legacy serialized PlayPause bindings sanitize into Track control.
+Track control remains one continuous edge action. Standalone current Play/Pause is not offered separately; legacy serialized PlayPause bindings sanitize into Track control.
 
-In alpha.42 the center target remains widened to **28%** of the Track edge (`0.36..0.64`), but Play/Pause is deliberately **hold-to-release**, not tap-to-toggle. A center-start contact must remain down for at least **450 ms**, stay within **3 mm** maximum radial movement, and then release. Quick taps are ignored. The recognizer preserves the maximum excursion so moving away and back cannot re-arm the hold. Once the 3 mm hold slop is exceeded, normal Track direction recognition resumes; Previous/Next still requires the unchanged **9 mm** threshold.
+Alpha.43 adds a **Play / Pause** switch only inside the selected Track-control editor. Existing alpha.42 settings default to enabled for backward compatibility. When enabled, the lane remains **Previous | Play/Pause | Next** and the center target stays **28%** of the Track edge (`0.36..0.64`). Play/Pause is deliberately **hold-to-release**, not timer-auto-fire: the contact must remain down at least **450 ms**, stay within **3 mm** maximum radial movement, and then release. Quick taps are ignored. Release is the final intent confirmation.
+
+When the Track-local switch is disabled, Track itself remains assigned but the center target is not active or visible: no center fill, no separators and no Play/Pause icon. The edge is then a clean Previous/Next lane. The preference survives temporarily moving/removing Track and is reused if Track is assigned again.
+
+The recognizer preserves maximum excursion so moving away and back cannot re-arm an enabled center hold. Once the 3 mm hold slop is exceeded, normal Track direction recognition resumes; Previous/Next still requires the unchanged **9 mm** threshold. A Track swipe can never also become Play/Pause on release.
 
 When reverse close is enabled for a top corner, the reverse start target is the **inner half of the already-visible diagonal lane**, not only the small rounded inner cap. The outer corner guard remains an inward-launch start, the right side remains an exact mirror, and no invisible reverse hit area exists beyond the rendered lane/cap geometry.
 
@@ -127,6 +135,19 @@ Occupied edge actions still swap instead of destructively clearing the previous 
 The Track OSD keeps familiar semantics: **Playing + pause bars**, **Paused + play triangle**; ambiguous fallback remains `Playback toggled`.
 
 Visualized live input is coalesced for WPF while recognition receives the raw frame stream. At silent Windows startup, configured Raw Input is started from the earliest app Startup hook after cheap identity instead of being queued behind ordinary shell dispatcher work.
+
+## Audio Safety semantics
+
+Audio Safety is available anywhere the normal Windows output endpoint can be accessed; it is not an OEM capability.
+
+- **Normal** — ThinkControl audio/media controls behave normally.
+- **Media lock** — ThinkControl Touchpad Volume, Media scrub and Track media commands are blocked. It does not mute the Windows output and does not stop audio deliberately started elsewhere.
+- **Silent** — includes Media lock, semantically mutes the current Windows render/multimedia endpoint and blocks ThinkControl output-volume/unmute writes.
+- **Microphone** — capture/input state remains independent in all three modes.
+
+Alpha.43 keeps Audio Safety **session-only**. Restart starts in Normal because the new process cannot safely claim ownership of mute state created by the old process. While Silent is active, ThinkControl records the prior mute state of each default output endpoint it actually encounters and restores only those states when leaving Silent/orderly exit. A default-output change reuses the existing app status cadence rather than starting a new polling loop.
+
+Audio Safety does not imply any cooling, EC, keyboard or OEM support. Future composed presets would need separate explicit ownership and restore semantics for every subsystem they change.
 
 ## Unknown/new hardware
 
@@ -142,7 +163,7 @@ ThinkControl never learns a new device by experimentally writing arbitrary EC/IO
 
 ## Physical validation
 
-Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel or firmware response.
+Hosted CI can prove source/build/lifecycle behavior but not physical hardware feel, Windows endpoint acoustics or firmware response.
 
 Confirmed negative X9 evidence remains:
 
@@ -150,23 +171,22 @@ Confirmed negative X9 evidence remains:
 - nominal target 100% was weaker than naturally hot Lenovo Auto;
 - alpha.40 Performance-policy-only Max cooling improved behavior but still felt materially less forceful than Auto despite high-looking RPM telemetry;
 - alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise;
-- pre-freeze alpha.42 testing feedback also made clear that automatic/quick center activation was too risky for a global media command;
-- during alpha.41/early-alpha.42 restart testing, a saved Quiet preference could remain visibly selected while physical airflow behaved like a harder Auto/base policy. This is consistent with runtime/profile restoration and source-policy convergence being incomplete; it is not evidence for a new low-level fan writer.
+- pre-freeze alpha.42 testing feedback made clear that automatic/quick center activation was too risky for a global media command;
+- during alpha.41/early-alpha.42 restart testing, a saved Quiet preference could remain visibly selected while physical airflow behaved like a harder Auto/base policy.
 
-Alpha.42 therefore requires real-X9 checks for:
+Alpha.43 therefore carries forward the alpha.42 real-X9 checks and adds Audio Safety / optional-center checks:
 
-- a quick center tap doing nothing;
-- a deliberate roughly half-second center hold toggling exactly once **on release**;
-- ordinary small stationary-finger jitter staying within the 3 mm hold slop;
-- moving beyond 3 mm disarming Play/Pause even if the finger returns near its start;
-- deliberate ~9 mm Track swipes still producing Previous/Next without also toggling Play/Pause;
-- reverse close succeeding from multiple points in the inner half of either mirrored diagonal lane;
-- the outer guard still launching inward and never being misclassified as reverse close;
-- select Quiet, close/reopen only the UI and confirm the physical profile remains Quiet;
-- reboot/sign in with Quiet saved and confirm the UI does not claim Quiet before restore, then confirm Quiet physically takes effect after restore/settle;
-- repeat the restart test for Balanced and Max cooling;
-- switch AC↔DC while Quiet/Balanced/Max is active and confirm the selected cooling behavior is reasserted rather than drifting to the base policy;
-- resume from sleep with a non-Auto cooling profile and confirm the same reassertion behavior;
-- Auto still returns to the latest power-mode baseline and Max still follows the existing exact-X9 full-speed gates.
+- with Track Play/Pause enabled, quick center tap does nothing;
+- deliberate roughly half-second center hold toggles exactly once **on release**;
+- nothing auto-fires while the finger stays down after the hold threshold;
+- >3 mm movement permanently disarms Play/Pause for that contact;
+- ~9 mm Track swipes still produce Previous/Next without overlap;
+- disable Track Play/Pause and confirm the center visual disappears and center contacts never toggle media while Previous/Next still work;
+- re-enable it and confirm the center visual/recognizer return together;
+- reverse close works from multiple points in the inner half of either mirrored diagonal lane;
+- outer guard remains inward launch;
+- Quiet/Balanced/Max persistence and reassertion remain truthful across UI restart, reboot, AC/DC and resume as described in alpha.42 testing;
+- on real Windows audio, Media lock blocks ThinkControl Touchpad media/output actions without muting deliberate app audio;
+- Silent mutes the current default output, blocks ThinkControl output changes, follows a default-output change, leaves the microphone independent and restores only prior endpoint mute states that ThinkControl owned/recorded.
 
 These physical checks belong in `docs/ALPHA-TESTING.md` and release-readiness notes; screenshots/CI alone must not mark them complete.
