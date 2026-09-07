@@ -32,8 +32,6 @@ public partial class CompactDashboard
         {
             _syncingQuickControls = false;
         }
-
-        _app.AudioSafety.ModeChanged += AudioSafety_ModeChanged;
     }
 
     private void AudioSafety_ModeChanged(AudioSafetyMode mode) =>
@@ -249,7 +247,7 @@ public partial class CompactDashboard
         CompactVolumeSlider.IsEnabled = status.Available && !silent;
         if (!status.Available)
         {
-            CompactVolumeText.Text = "—";
+            CompactVolumeText.Text = silent ? "Silent" : "—";
             return;
         }
         CompactVolumeSlider.Value = status.Percent;
