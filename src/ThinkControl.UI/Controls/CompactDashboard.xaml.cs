@@ -36,7 +36,8 @@ public partial class CompactDashboard : UserControl
             CompactPerformanceCombo,
             CompactFanCombo,
             CompactRefreshCombo,
-            CompactKeyboardCombo
+            CompactKeyboardCombo,
+            CompactAudioSafetyCombo
         })
         {
             combo.Margin = new Thickness(0, 6, 0, 0);
@@ -55,11 +56,13 @@ public partial class CompactDashboard : UserControl
             {
                 _app.State.PropertyChanged -= State_PropertyChanged;
                 _app.UpdateAvailabilityChanged -= App_UpdateAvailabilityChanged;
+                _app.AudioSafety.ModeChanged -= AudioSafety_ModeChanged;
             }
 
             _app = app;
             app.State.PropertyChanged += State_PropertyChanged;
             app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
+            app.AudioSafety.ModeChanged += AudioSafety_ModeChanged;
         }
 
         EnsureQuickControls();
