@@ -60,16 +60,16 @@ ThinkControl-Setup-0.1.0-alpha.42.exe
 
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
-Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background update checks never install or open UAC by themselves.
+Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
 
 ## What alpha.42 changes
 
 Alpha.42 is a narrow physical Touchpad reliability follow-up to immutable alpha.41. The hardware, fan, startup and installer architecture is intentionally unchanged.
 
 - **Play/Pause gets a larger real target.** The integrated Track center segment grows from 20% to **28%** of the selected edge, and the visual separators use the same `0.36..0.64` recognition contract.
-- **Holding the center now gives an actual response.** A quick tap still toggles on release. If the user deliberately keeps a finger stationary in the center, Play/Pause commits after about **240 ms while the finger is still down**, instead of appearing to do nothing until lift.
-- **One contact can still do only one thing.** Hold, release and Previous/Next are serialized through one Track action state. A successful hold cannot toggle again on release or later also fire a skip.
-- **Previous/Next stays deliberate.** The center movement envelope remains 8.75 mm and the Track skip threshold remains **9 mm**; alpha.42 does not lower the skip threshold just to make Play/Pause easier.
+- **Play/Pause is now deliberately hold-to-release.** A quick center tap does **nothing**. To toggle playback, hold the center for at least **450 ms** with only small natural finger drift, then release. The action never auto-fires merely because a finger rests there for a moment.
+- **Accidental playback is explicitly guarded.** The hold may move at most **3 mm** from its start. The recognizer preserves the contact's maximum excursion, so moving away and back cannot erase evidence that the gesture stopped being a deliberate hold.
+- **Previous/Next stays deliberate and separate.** Once center movement exceeds the hold slop, normal Track direction recognition resumes; Previous/Next still requires the unchanged **9 mm** swipe threshold.
 - **Reverse close gets a much easier start target.** When enabled, the reverse swipe may start anywhere in the **inner half of the already-visible diagonal corner lane**, instead of requiring a precise hit on the small rounded end-cap. The outer guard still belongs to the normal inward launch, and no hidden hit area is added outside the rendered geometry.
 
 Alpha.41 remains immutable. Its early Raw Input startup path, X9 full-speed safety model, rejected target-RPM writer boundary and the rest of the alpha.41 baseline are preserved.
@@ -112,7 +112,7 @@ On the current X9-15 reference path:
 - PawnIO registration/service/device readiness is distinguished instead of collapsed into one registry check;
 - sensor/provider failure is reported explicitly rather than replaced by synthetic values.
 
-Automated CI does **not** prove physical-device behavior. Alpha.42 specifically needs a real-pad confirmation that quick center taps, stationary center holds and reverse-close starts across the enlarged visible targets feel reliable. The alpha.41 X9 full-speed path still has its own separate real-device validation requirements. Hosted tests can prove the recognition/action arbitration, exact capability gates, readback/rollback contracts, build and deterministic UI behavior but cannot substitute for physical evidence.
+Automated CI does **not** prove physical-device behavior. Alpha.42 specifically needs a real-pad confirmation that the 450 ms hold feels deliberate without becoming fiddly, that quick taps cannot trigger playback, and that reverse-close starts across the enlarged visible target feel reliable. The alpha.41 X9 full-speed path still has its own separate real-device validation requirements. Hosted tests can prove the recognition/action arbitration, exact capability gates, readback/rollback contracts, build and deterministic UI behavior but cannot substitute for physical evidence.
 
 See **[Device support](docs/DEVICE-SUPPORT.md)** and **[Hardware safety](docs/HARDWARE-SAFETY.md)**.
 
