@@ -13,15 +13,19 @@ internal sealed class ServiceEngine : IDisposable
 {
     private const int MaxRequestBytes = 8192;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan BatteryProtectionProbeInterval = TimeSpan.FromSeconds(30);
 
     private readonly LenovoHardwareController _hardware = new();
     private readonly FanSupervisor _fanSupervisor;
     private readonly LenovoCoolingPolicyCoordinator _coolingPolicy;
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly object _statusGate = new();
+    private readonly object _batteryProtectionGate = new();
     private readonly SemaphoreSlim _statusWake = new(0, 1);
     private Task? _statusRefreshTask;
     private ServiceResponse? _lastStatus;
+    private LenovoBatteryChargeProtectionStatus? _batteryProtectionStatus;
+    private DateTimeOffset _batteryProtectionRefreshAfter = DateTimeOffset.MinValue;
     private bool _disposed;
 
     internal ServiceEngine()
@@ -192,6 +196,7 @@ internal sealed class ServiceEngine : IDisposable
                 "StopFanCharacterization" => StopFanCharacterization(),
                 "SetKeyboardBacklight" => SetKeyboardBacklight(request.Value),
                 "SetThermalMode" => SetThermalMode(request.Value),
+                "SetBatteryChargeLimit" => SetBatteryChargeLimit(request.Value),
                 _ => Error("Unsupported operation. Raw EC, port and IOCTL passthrough are never exposed by ThinkControl.")
             };
         }
@@ -221,6 +226,7 @@ internal sealed class ServiceEngine : IDisposable
                          (handoffError ?? "Retry Lenovo Auto, then refresh providers again."));
 
         _hardware.RefreshProviders();
+        ResetBatteryProtectionCache();
         ServiceResponse discovering = ProviderDiscoveryResponse("Providers recycled · re-detecting PawnIO/LHM, X9 EC and Lenovo keyboard backends");
         lock (_statusGate) _lastStatus = discovering;
         SignalStatusDemand();
@@ -256,6 +262,7 @@ internal sealed class ServiceEngine : IDisposable
         LenovoHardwareStatus status = _hardware.ReadStatus();
         CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
         LenovoCoolingPolicySnapshot firmwareCooling = _coolingPolicy.Snapshot();
+        LenovoBatteryChargeProtectionStatus batteryProtection = ReadBatteryChargeProtection();
         bool firmwareOverride = firmwareCooling.OverrideActive;
         FanTelemetrySnapshot[] fans = status.Fans.Select((fan, index) =>
             new FanTelemetrySnapshot(fan.Id, fan.Label, fan.Rpm, fan.Source, index == 0)).ToArray();
@@ -284,7 +291,10 @@ internal sealed class ServiceEngine : IDisposable
             FanCharacterization: cooling.Characterization,
             CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
             CoolingAppliedPercent: firmwareOverride ? null : cooling.AppliedPercent,
-            KeyboardBackend: status.KeyboardBackend);
+            KeyboardBackend: status.KeyboardBackend,
+            BatteryChargeLimitPercent: batteryProtection.Available ? batteryProtection.LimitPercent : null,
+            BatteryChargeProtectionSource: batteryProtection.Available ? "Lenovo WMI · Long-Life charge type" : null,
+            BatteryChargeProtectionDetail: batteryProtection.Detail);
 
         bool firmwareProfileControl = firmwareCooling.Supported;
         bool productFanControl = status.CanFanControl || firmwareProfileControl;
@@ -320,8 +330,36 @@ internal sealed class ServiceEngine : IDisposable
             fanControlKind,
             FanCalibrationSupported: fanCalibrationSupported,
             FanCalibrationRequired: fanCalibrationRequired,
-            KeyboardEffects: keyboardEffects);
+            KeyboardEffects: keyboardEffects,
+            BatteryChargeProtection: batteryProtection.Available && batteryProtection.Writable);
         return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
+    }
+
+    private LenovoBatteryChargeProtectionStatus ReadBatteryChargeProtection(bool force = false)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        lock (_batteryProtectionGate)
+        {
+            if (!force && _batteryProtectionStatus is not null && now < _batteryProtectionRefreshAfter)
+                return _batteryProtectionStatus;
+        }
+
+        LenovoBatteryChargeProtectionStatus current = LenovoBatteryChargeProtectionService.Read(_hardware.Identity);
+        lock (_batteryProtectionGate)
+        {
+            _batteryProtectionStatus = current;
+            _batteryProtectionRefreshAfter = now + BatteryProtectionProbeInterval;
+        }
+        return current;
+    }
+
+    private void ResetBatteryProtectionCache()
+    {
+        lock (_batteryProtectionGate)
+        {
+            _batteryProtectionStatus = null;
+            _batteryProtectionRefreshAfter = DateTimeOffset.MinValue;
+        }
     }
 
     private static string ToFanControlKind(LenovoFanControlKind kind) => kind switch
@@ -477,6 +515,19 @@ internal sealed class ServiceEngine : IDisposable
         return _coolingPolicy.SetBasePowerMode(value, out string? detail)
             ? new ServiceResponse(ThinkControlProtocol.Version, true, detail)
             : Error(detail ?? "Lenovo thermal policy rejected the request.");
+    }
+
+    private ServiceResponse SetBatteryChargeLimit(string? value)
+    {
+        if (!int.TryParse(value, out int percent) || percent is not 80 and not 100)
+            return Error("Battery charge protection supports 80% Battery care or 100% Full charge only on this provider.");
+
+        if (!LenovoBatteryChargeProtectionService.TrySetLimit(_hardware.Identity, percent, out _, out string? detail))
+            return Error(detail ?? "Battery charge protection rejected the request.");
+
+        ResetBatteryProtectionCache();
+        ServiceLog.Write($"Battery charge limit changed to {percent}% through verified Lenovo charge-type semantics.");
+        return RefreshAndReturnStatus();
     }
 
     private static ServiceResponse Error(string message) => new(ThinkControlProtocol.Version, false, message);
