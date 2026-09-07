@@ -19,7 +19,7 @@ Current alpha.42 candidate:
 - version: `v0.1.0-alpha.42`;
 - base: immutable alpha.41 / `main` at `6088955eeab54d1af6506780fa7707df17fe11c3`;
 - final deliberate-hold implementation head validated before release freeze: `57217763e94e93fa11473765feb90f63312bea10`;
-- `version.json.releaseReady=false` during implementation evidence collection; the next version-only freeze may set it true now that this evidence is recorded;
+- `version.json.releaseReady=true`; the release candidate is frozen and only exact-head validation/merge/promotion remain;
 - the earlier alpha.42 freeze was explicitly reopened after the user clarified that global Play/Pause must be difficult to trigger accidentally, especially in a school/classroom context.
 
 Alpha.42 remains intentionally narrow. Real X9 use of alpha.41 showed two physical Touchpad interaction problems: the integrated Track center Play/Pause target remained hard to trigger, and reverse-close usually failed because its start target was too precise. The first alpha.42 implementation fixed hitability but made Play/Pause **too easy** by accepting a quick tap and auto-firing a hold while the finger was still down. That behavior was superseded before release.
@@ -117,8 +117,8 @@ The subsequent frozen head `d164574ac1f69690cc143d16fe013ca1ae5b21bc` also passe
 - [x] Downloaded and manually inspected fresh exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
 - [x] Recorded the fresh implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
 - [x] Reviewed the focused diff: only Touchpad/docs/tests/version files changed; no hardware/provider/service/startup/installer source was modified and no second gesture/action owner was added.
-- [ ] Freeze `version.json.releaseReady=true`.
-- [ ] Require CI + Package to pass again on the exact frozen docs/version head.
+- [x] Frozen `version.json.releaseReady=true`.
+- [ ] Require CI + Package to pass on this exact final handoff head.
 - [ ] Mark PR #78 ready; review comments/threads/checks and merge with the exact expected head SHA.
 - [ ] Verify post-merge `main` equals the merged alpha.42 commit and immutable alpha.41 remains unchanged.
 - [ ] Verify `Promote release-ready main` creates immutable `v0.1.0-alpha.42` at the merged commit.
