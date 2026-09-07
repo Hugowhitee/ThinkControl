@@ -45,8 +45,13 @@ The WPF app remains an ordinary user process. Privileged hardware ownership belo
 - Firmware thermal-policy profiles leave OEM firmware in the closed-loop fan controller.
 - A narrow full-speed override may be owned only if ThinkControl itself successfully changes and verifies that exact known state.
 - Lower firmware profiles and Auto must release ThinkControl-owned full speed before claiming the lower state is active.
+- A stored fan preference is not treated as applied hardware state; the runtime/service state remains the UI source of truth until restoration succeeds.
+- AC/DC and resume reassertion may reuse the already-reviewed semantic Quiet/Balanced/Performance provider because Lenovo's verified commands are source-specific. Reassertion must not broaden the command set or introduce a new direct writer.
+- Startup convergence is bounded to one delayed reassert after the initial successful restore; ThinkControl must not continuously hammer firmware merely to keep an in-memory label true.
+- Closing the normal-user UI does not clear a service-owned firmware profile. Direct/manual output remains a separate safety class and is returned to Auto when the UI exits.
+- Normal service shutdown remains the privileged ownership boundary that releases ThinkControl-owned firmware/full-speed/direct state where possible.
 - Manual direct-output tests are temporary and bounded.
-- `End test`, timeout, page exit, provider failure and shutdown restore prior ownership/profile where possible; firmware Auto is the fallback.
+- `End test`, timeout, provider failure and service shutdown restore prior ownership/profile where possible; firmware Auto is the fallback.
 - Telemetry refresh never creates fan-control writes.
 - Unchanged low-level fan states are not continuously rewritten.
 - Missing control temperature/provider state returns supervised direct cooling to firmware ownership.
@@ -66,7 +71,7 @@ The current physically reviewed low-level reference is ThinkPad X9-15 Gen 1 mach
 
 ### Normal product cooling path
 
-Alpha.41 keeps **Auto / Quiet / Balanced / Max cooling** useful without re-authorizing the rejected per-fan writer:
+Alpha.42 keeps **Auto / Quiet / Balanced / Max cooling** useful without re-authorizing the rejected per-fan writer:
 
 ```text
 Auto         -> release ThinkControl-owned full speed if any; restore latest Lenovo power-policy baseline
@@ -75,11 +80,11 @@ Balanced     -> release ThinkControl-owned full speed; Lenovo Balanced policy
 Max cooling  -> Lenovo Performance policy + verified global full-speed boolean when safely exposed
 ```
 
-The service performs exact-X9 identity checks before translating semantic policy into the reviewed Lenovo LITSSvc contract. The desktop UI never supplies raw Lenovo command IDs.
+The service performs exact-X9 identity checks before translating semantic policy into the reviewed Lenovo LITSSvc contract. The desktop UI never supplies raw Lenovo command IDs. Alpha.42 only reuses those same reviewed semantic transitions when startup, AC/DC or resume requires the active profile to be reasserted.
 
 ### Global full-speed semantic
 
-Alpha.41 adds one narrow exact-X9 Lenovo Other Mode contract: **feature `0x04020000` as boolean full speed**.
+Alpha.41 added one narrow exact-X9 Lenovo Other Mode contract: **feature `0x04020000` as boolean full speed**.
 
 The provider may write it only when all relevant gates pass:
 
@@ -103,7 +108,7 @@ The alpha.38 Lenovo Other Mode `fanX_target` writer remains **physically rejecte
 
 Read-side native dual-fan telemetry remains useful. Target `0` on the rejected per-fan path is retained only to release stale previously owned state. Once native two-fan evidence is established, transient telemetry loss must not silently re-authorize the known-inferior EC writer.
 
-The classic ThinkPad EC family remains research/diagnostic evidence rather than the normal alpha.41 X9 cooling backend:
+The classic ThinkPad EC family remains research/diagnostic evidence rather than the normal alpha.42 X9 cooling backend:
 
 ```text
 Lenovo/OEM Auto   0x80
@@ -122,6 +127,7 @@ A percentage may be shown only if an active physically accepted direct provider 
 - Low-level transport uses bounded waits and failure recovery rather than high-frequency blind polling.
 - X9 tachometer access remains conservative because aggressive EC polling can disturb fan behavior.
 - Firmware policy is sent as semantic transitions; ThinkControl does not fight Lenovo's closed loop by continuously rewriting fixed targets.
+- The one startup settle reassert is bounded and generation-guarded so a stale saved choice cannot overwrite a newer user selection.
 - Reported RPM is telemetry, not proof that airflow/cooling intensity equals Lenovo's strongest physical state.
 
 ## Diagnostics and device learning
@@ -136,6 +142,6 @@ Device-learning states are conceptually `Observed → Candidate → Verified →
 
 A green compiler, snapshot or hosted CI runner is not physical hardware verification. Hardware-write claims require appropriate real-device evidence in addition to software gates.
 
-For alpha.41, automated validation can prove the exact-ID/value/readback/ownership architecture and fail-closed paths. It cannot prove that Max cooling on the user's physical X9 has the expected airflow/acoustic behavior. That remains a separate post-install evidence item and must not be converted into a hosted-CI claim.
+For alpha.42, automated validation can prove the exact-ID/value/readback/ownership architecture, startup/source reassert path and fail-closed behavior. It cannot prove that Quiet/Balanced/Max physically remain correct across reboot, AC/DC and resume on the user's X9. Those remain separate real-device evidence items and must not be converted into hosted-CI claims.
 
 Before release promotion, follow [Release readiness](RELEASE_READINESS.md) and [Alpha testing](ALPHA-TESTING.md). Do not weaken safety or backwards-compatibility contracts merely to make the implementation simpler.
