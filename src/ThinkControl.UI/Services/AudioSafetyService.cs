@@ -26,7 +26,7 @@ internal sealed class AudioSafetyService : IDisposable
     internal string DisplayName => AudioSafetyPolicy.DisplayName(Mode);
     internal bool CanChangeOutput => !AudioSafetyPolicy.BlocksExplicitOutputChanges(Mode);
 
-    internal WindowsVolumeStatus ReadOutput() => _volume.Read();
+    internal WindowsVolumeStatus ReadOutput() => _volume.Read(DataFlow.Render, respectAudioSafety: false);
 
     internal bool TrySetOutputVolume(int percent, out int applied)
     {
@@ -64,6 +64,7 @@ internal sealed class AudioSafetyService : IDisposable
                 return new(false, current, "Silent could not acquire the current Windows output. Audio safety was left unchanged.");
 
             Volatile.Write(ref _mode, (int)requested);
+            AudioSafetyRuntimeState.SetMode(requested);
             ModeChanged?.Invoke(requested);
             return new(true, requested, Describe(requested));
         }
@@ -192,6 +193,7 @@ internal sealed class AudioSafetyService : IDisposable
         _disposed = true;
         RestoreOwnedMuteStates();
         Volatile.Write(ref _mode, (int)AudioSafetyMode.Normal);
+        AudioSafetyRuntimeState.SetMode(AudioSafetyMode.Normal);
         _transitionGate.Dispose();
     }
 }
