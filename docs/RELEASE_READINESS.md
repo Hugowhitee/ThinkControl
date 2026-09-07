@@ -18,7 +18,8 @@ Current alpha.42 candidate:
 - PR: #78, **Make Track Play/Pause and reverse close easier to trigger**;
 - version: `v0.1.0-alpha.42`;
 - base: immutable alpha.41 / `main` at `6088955eeab54d1af6506780fa7707df17fe11c3`;
-- `version.json.releaseReady=false` until implementation-head CI + Package and manual WPF visual inspection are complete.
+- implementation/docs head validated before release freeze: `47c90f9ea662096a7134712e00bde0598e11de93`;
+- `version.json.releaseReady=false` during implementation evidence collection; set it true only for the final frozen docs/version head after this record.
 
 Alpha.42 is intentionally narrow. Real X9 use of alpha.41 still showed two physical Touchpad interaction problems: the integrated Track center Play/Pause target remained hard to trigger, especially when the user naturally tapped and held it, and reverse-close usually failed because its start target was too precise.
 
@@ -93,11 +94,11 @@ Do not recreate a third full installer workflow. Superseded PR runs may cancel; 
 - [x] Preserved mirrored corner geometry, outer-guard inward launch and corner lockout semantics.
 - [x] Added/updated Track policy, reverse-zone and source-level regression tests.
 - [x] Updated README/Product/Architecture/Device Support/Alpha Testing for alpha.42.
-- [ ] Exact implementation/docs head passes CI: hygiene, zero-error Release build, all tests, ShellSmoke and WPF rendering.
-- [ ] Exact implementation/docs head passes Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
-- [ ] Download and manually inspect exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
-- [ ] Record exact implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
-- [ ] Review final diff for duplicate gesture/action owners, timer races and alpha.41 regressions.
+- [x] Exact implementation/docs head passed CI: hygiene, zero-warning/zero-error Release build, all tests, ShellSmoke and WPF rendering.
+- [x] Exact implementation/docs head passed Package ThinkControl including installer/service/IPC/update/uninstall and oldest-supported updater regression.
+- [x] Downloaded and manually inspected exact-head WPF QA, especially Touchpad normal/minimum/wide/light and mirrored corner selected/live fixtures.
+- [x] Recorded exact implementation-head run IDs, test/snapshot counts and artifact IDs/digests below.
+- [x] Reviewed the focused diff for duplicate gesture/action owners, delayed-hold races and alpha.41 hardware/startup regressions.
 - [ ] Set `version.json.releaseReady=true` only after implementation evidence is complete.
 - [ ] Require CI + Package to pass again on the exact frozen docs/version head.
 - [ ] Mark PR #78 ready; review comments/threads/checks and merge with the exact expected head SHA.
@@ -107,12 +108,18 @@ Do not recreate a third full installer workflow. Superseded PR runs may cancel; 
 
 ## Alpha.42 implementation evidence
 
-The first PR attempt on head `d8d02a5908fb33e1f119bfc26ff4495ecc11beff` produced useful partial evidence:
+The first PR attempt on head `d8d02a5908fb33e1f119bfc26ff4495ecc11beff` produced useful partial evidence: Package #1426 / run `34085672890` passed the complete candidate packaging path, while CI #1712 / run `34085672865` correctly stopped at repository hygiene because the version bump preceded the required current-version docs. No build/test/visual claim is taken from that failed CI run.
 
-- Package #1426 / run `34085672890` passed the complete candidate packaging, installer/service/IPC/update/uninstall and oldest-supported updater path;
-- CI #1712 / run `34085672865` stopped at repository hygiene because the version had been bumped before the required current-version docs were updated; no build/test/visual claim is taken from that failed CI run.
+Exact implementation/docs head `47c90f9ea662096a7134712e00bde0598e11de93` then passed the complete required implementation gates:
 
-A newer exact head must therefore pass both pipelines after the alpha.42 documentation update. Record that evidence here before release freeze.
+- **CI #1718 / run `34086178927`**: repository hygiene passed; Release build succeeded with **0 warnings / 0 errors**; **173/173** Core/source tests passed; Compact/Advanced ShellSmoke passed; **85** WPF visual-QA snapshots rendered successfully.
+- **WPF artifact `10005298128`** (`ThinkControl-Visual-QA`) has SHA-256 digest `8a03ec3b33434257e3353ee2a157761171ba952d256572d09586ee1815505cf8` and was downloaded and manually inspected.
+- Visual review covered `advanced-touchpad.png`, `advanced-touchpad-min.png`, `advanced-touchpad-wide.png`, `advanced-touchpad-light.png`, both selected corner fixtures and both live corner fixtures. The Bottom Track wide fixture shows the widened center as part of the same continuous lane; Previous/Play-Pause/Next remain aligned inside it, the updated hold behavior copy is visible and unclipped, normal/min/light layouts remain clean, and left/right corner geometry remains an exact visual mirror. Alpha.42 intentionally changes reverse recognition inside the existing lane rather than painting a second reverse overlay.
+- **Package #1432 / run `34086178924`** passed UI/service publish, payload/bootstrap construction, deep installer/service/IPC lifecycle, custom-location preservation, clean uninstall, checksum creation and immutable alpha.14.1 → alpha.42 updater compatibility.
+- **Package artifact `10005304235`** (`ThinkControl-0.1.0-alpha.42-dev.1432`) has SHA-256 digest `f99a0ed1f657ade2f279080124932a105485e206e22434cb113d0b7ede03f505`.
+- Focused diff review confirmed no hardware/provider/service/startup/installer source changes. Track still uses the existing recognizer/router; the delayed hold is generation-cancelled by claim/update/release/cancel and shares `_trackActionCommitted` with release/skip, preventing double commit. Reverse close changes only canonical start classification inside the already-visible corner lane.
+
+Physical finger feel is intentionally not marked proven by these hosted results.
 
 ## Physical X9 follow-up — separate evidence class
 
