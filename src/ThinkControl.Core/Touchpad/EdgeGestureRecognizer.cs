@@ -83,7 +83,7 @@ public sealed class EdgeGestureRecognizer
                 return released;
             }
 
-            // Track control owns an integrated center tap. Emit a release for an
+            // Track control owns an integrated center hold. Emit a release for an
             // unambiguous edge candidate; launch corners never commit on lift alone
             // and therefore cannot become glorified corner taps.
             if (_phase == GesturePhase.Candidate && _candidateCorner is null && _candidateEdges.Length == 1)
@@ -227,13 +227,16 @@ public sealed class EdgeGestureRecognizer
         double absX = Math.Abs(dx);
         double absY = Math.Abs(dy);
         double radialTravel = Math.Sqrt(dx * dx + dy * dy);
-        _lastTotalTravelMm = radialTravel;
 
-        // A real finger rarely lifts with <2 mm of perfectly axis-aligned movement.
-        // If Track started inside its visible center segment, keep that contact as a
-        // tap candidate through the dedicated tap-slop envelope regardless of drift
-        // direction. Once it exceeds that envelope, ordinary edge direction/claim
-        // rules resume and the 9 mm action-router threshold still decides skips.
+        // Candidate release must report the farthest excursion, not merely where the
+        // finger happened to return before lift. This keeps hold-to-Play/Pause safe:
+        // moving away and back cannot erase evidence that the contact was not still.
+        _lastTotalTravelMm = Math.Max(_lastTotalTravelMm, radialTravel);
+
+        // A real finger cannot remain pixel-perfectly stationary. If Track started in
+        // its visible center segment, reserve the contact through the small hold slop
+        // regardless of drift direction. Beyond that, ordinary edge recognition resumes;
+        // the separate 9 mm action threshold still decides deliberate Previous/Next.
         if (IsTrackCenterTapCandidate() &&
             radialTravel <= TrackCenterGesturePolicy.MovementToleranceMm)
         {
