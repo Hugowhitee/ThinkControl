@@ -5,14 +5,14 @@ namespace ThinkControl.Core.Touchpad;
 ///
 /// Play/Pause should feel like a real button, not a timing challenge. A contact that
 /// starts inside the visible center segment remains a center-button candidate until
-/// it becomes a deliberate Previous/Next swipe. Holding the finger still for longer
-/// does not invalidate the button; only movement/intent does.
+/// it becomes a deliberate Previous/Next swipe. A quick tap commits on lift, while a
+/// short stationary hold may commit before lift so the control never feels inert.
 /// </summary>
 public static class TrackCenterGesturePolicy
 {
     // Shared discrete-swipe threshold. Keeping this in the same policy as the center
-    // button removes the former 4.5-9 mm no-man's-land where a center contact could
-    // stop being a tap without yet being large enough to become Previous/Next.
+    // button removes the former no-man's-land where a center contact could stop being
+    // a tap without yet being large enough to become Previous/Next.
     public const double SwipeThresholdMm = 9.0;
 
     // A center press can drift almost all the way to the deliberate swipe threshold
@@ -20,12 +20,21 @@ public static class TrackCenterGesturePolicy
     // noise around the exact swipe boundary from toggling Play/Pause after a skip.
     public const double ButtonTravelToleranceMm = 8.75;
 
-    // Existing recognizer callers use this semantic name. It now means the center
-    // button's movement envelope rather than a short-tap-only slop value.
+    // Holding the visible center segment should produce feedback without requiring the
+    // user to guess that lift is the only commit moment. The delay is long enough for
+    // an ordinary deliberate Track swipe to claim first, but short enough to feel like
+    // a button when the finger is intentionally held in place.
+    public const int HoldCommitMs = 240;
+
+    // Existing recognizer callers use this semantic name. It means the center button's
+    // movement envelope rather than a short-tap-only slop value.
     public const double MovementToleranceMm = ButtonTravelToleranceMm;
 
-    public const double CenterZoneStart = 0.40;
-    public const double CenterZoneEnd = 0.60;
+    // Alpha.41's 20% center segment was still unnecessarily precise on the physical
+    // X9 pad. Keep clear Previous/Next side regions while making Play/Pause a more
+    // forgiving 28% target that exactly matches the visual separators.
+    public const double CenterZoneStart = 0.36;
+    public const double CenterZoneEnd = 0.64;
 
     public static bool IsInsideCenterZone(double? edgePosition01) =>
         edgePosition01 is double position &&
@@ -42,8 +51,8 @@ public static class TrackCenterGesturePolicy
         IsInsideCenterZone(edgePosition01);
 
     // Compatibility overload for callers/tests that still carry an elapsed time.
-    // Duration is deliberately not a product rule anymore: a long press is still a
-    // press, provided it never turned into a deliberate track swipe.
+    // Duration is deliberately not a release-time product rule anymore: a long press
+    // is still a press, provided it never turned into a deliberate track swipe.
     public static bool ShouldCommit(
         double durationMs,
         double maximumTravelMm,
