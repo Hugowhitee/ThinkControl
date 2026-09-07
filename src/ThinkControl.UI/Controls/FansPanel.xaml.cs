@@ -52,7 +52,11 @@ public partial class FansPanel : UserControl
         _fanControlKind = app.State.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
             _fanControlKind = ResolveFanControlKind(null, app.State.CanFanControl);
-        SyncProfileSelector(app.State.CoolingProfile, CurrentProfileIdForDisplay(app.State.CoolingProfile, app.UserSettings.Current.CoolingProfile));
+
+        // The selector represents applied runtime state, not merely the preference
+        // stored for the next restore attempt. Showing saved Quiet while telemetry is
+        // still Auto made startup look successful even when Lenovo had not applied it.
+        SyncProfileSelector(app.State.CoolingProfile, RuntimeProfileIdForDisplay(app.State.CoolingProfile));
         ApplyProviderCopy(app.State.CanFanControl, _fanControlKind);
         ApplyCalibrationUi(app.FanCalibrationState, app.State.CanFanControl);
         SyncStatusSubscription();
@@ -369,8 +373,35 @@ public partial class FansPanel : UserControl
     private static bool IsManualProfile(string? value) =>
         !string.IsNullOrWhiteSpace(value) && value.Trim().StartsWith("Manual ", StringComparison.OrdinalIgnoreCase);
 
-    private static string CurrentProfileIdForDisplay(string? profileName, string? persistedProfileId) =>
-        IsManualProfile(profileName) ? profileName!.Trim() : persistedProfileId ?? "Lenovo Auto";
+    private string RuntimeProfileIdForDisplay(string? profileName)
+    {
+        if (IsManualProfile(profileName))
+            return profileName!.Trim();
+
+        string runtime = profileName?.Trim() ?? string.Empty;
+        if (runtime.Length == 0 || runtime.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
+            runtime.Equals("Auto", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Lenovo Auto";
+        }
+        if (runtime.Equals("Quiet", StringComparison.OrdinalIgnoreCase) || runtime.Equals("Silent", StringComparison.OrdinalIgnoreCase))
+            return FanCurveDefaults.QuietId;
+        if (runtime.Equals("Balanced", StringComparison.OrdinalIgnoreCase) || runtime.Equals("Normal", StringComparison.OrdinalIgnoreCase))
+            return FanCurveDefaults.BalancedId;
+        if (runtime.Equals("Max cooling", StringComparison.OrdinalIgnoreCase) || runtime.Equals("Cool", StringComparison.OrdinalIgnoreCase))
+            return FanCurveDefaults.MaxCoolingId;
+
+        // A custom profile has a display name in AppState. Reuse the persisted id only
+        // when that id resolves to the same runtime name; never let an unrelated saved
+        // preference paint the selector as applied.
+        if (_app?.FanProfiles.Find(_app.UserSettings.Current.CoolingProfile) is FanCurveDefinition persisted &&
+            string.Equals(persisted.Name, runtime, StringComparison.OrdinalIgnoreCase))
+        {
+            return persisted.Id;
+        }
+
+        return runtime;
+    }
 
     private static string DisplayProfile(string? raw) => raw?.Trim() switch
     {
@@ -385,9 +416,7 @@ public partial class FansPanel : UserControl
     {
         if (_app is null || _app.FanCalibrationState.Required)
             return;
-        SyncProfileSelector(
-            _app.State.CoolingProfile,
-            CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
+        SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
         ProfileComboBox.IsDropDownOpen = true;
     }
 
@@ -404,15 +433,11 @@ public partial class FansPanel : UserControl
             if (!await _app.SetCoolingProfileAsync(choice.Id))
             {
                 CoolingDetailText.Text = _app.State.HardwareAccess;
-                SyncProfileSelector(
-                    _app.State.CoolingProfile,
-                    CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
+                SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
                 return;
             }
 
-            SyncProfileSelector(
-                _app.State.CoolingProfile,
-                CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
+            SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
         }
         finally
         {
@@ -427,9 +452,7 @@ public partial class FansPanel : UserControl
         ProfileComboBox.IsDropDownOpen = false;
         var editor = new FanCurveEditorWindow(_app) { Owner = Window.GetWindow(this) };
         editor.ShowDialog();
-        SyncProfileSelector(
-            _app.State.CoolingProfile,
-            CurrentProfileIdForDisplay(_app.State.CoolingProfile, _app.UserSettings.Current.CoolingProfile));
+        SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
         if (IsVisible)
             _ = _app.HardwareClient.GetStatusAsync();
     }
