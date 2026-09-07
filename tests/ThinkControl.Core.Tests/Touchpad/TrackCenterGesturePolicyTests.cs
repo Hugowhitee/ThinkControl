@@ -8,17 +8,17 @@ public sealed class TrackCenterGesturePolicyTests
     [Theory]
     [InlineData(8.76, 0.50)]
     [InlineData(-0.01, 0.50)]
-    [InlineData(0.2, 0.39)]
-    [InlineData(0.2, 0.61)]
+    [InlineData(0.2, 0.35)]
+    [InlineData(0.2, 0.65)]
     public void UnsafeCenterButtonReleaseDoesNotCommit(double travelMm, double position) =>
         Assert.False(TrackCenterGesturePolicy.ShouldCommit(travelMm, position));
 
     [Theory]
     [InlineData(0, 0.50)]
-    [InlineData(0.25, 0.40)]
+    [InlineData(0.25, 0.36)]
     [InlineData(2.4, 0.50)]
     [InlineData(6.8, 0.50)]
-    [InlineData(8.75, 0.60)]
+    [InlineData(8.75, 0.64)]
     public void CenterButtonReleaseCommitsAcrossNaturalFingerDrift(double travelMm, double position) =>
         Assert.True(TrackCenterGesturePolicy.ShouldCommit(travelMm, position));
 
@@ -28,7 +28,7 @@ public sealed class TrackCenterGesturePolicyTests
     [InlineData(700)]
     [InlineData(2500)]
     [InlineData(10000)]
-    public void HoldDurationDoesNotChangeButtonMeaning(double durationMs) =>
+    public void HoldDurationDoesNotInvalidateReleaseButtonMeaning(double durationMs) =>
         Assert.True(TrackCenterGesturePolicy.ShouldCommit(durationMs, 1.0, 0.5));
 
     [Fact]
@@ -42,6 +42,15 @@ public sealed class TrackCenterGesturePolicyTests
             TrackCenterGesturePolicy.SwipeThresholdMm - TrackCenterGesturePolicy.ButtonTravelToleranceMm,
             0.0,
             0.30);
+    }
+
+    [Fact]
+    public void CenterTargetAndHoldDelayAreDeliberatelyForgiving()
+    {
+        Assert.Equal(0.36, TrackCenterGesturePolicy.CenterZoneStart, 3);
+        Assert.Equal(0.64, TrackCenterGesturePolicy.CenterZoneEnd, 3);
+        Assert.Equal(0.28, TrackCenterGesturePolicy.CenterZoneEnd - TrackCenterGesturePolicy.CenterZoneStart, 3);
+        Assert.InRange(TrackCenterGesturePolicy.HoldCommitMs, 180, 300);
     }
 
     [Fact]
