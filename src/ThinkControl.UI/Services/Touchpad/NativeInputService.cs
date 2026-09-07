@@ -10,15 +10,19 @@ internal sealed class NativeInputService : IDisposable
     private const ushort VkD = 0x44;
 
     private readonly Action<string, int>? _showValue;
+    private readonly Func<bool>? _audioAllowed;
     private readonly object _audioGate = new();
     private MMDeviceEnumerator? _audioEnumerator;
     private MMDevice? _audioDevice;
     private bool _disposed;
 
-    internal NativeInputService(Action<string, int>? showValue = null)
+    internal NativeInputService(Action<string, int>? showValue = null, Func<bool>? audioAllowed = null)
     {
         _showValue = showValue;
+        _audioAllowed = audioAllowed;
     }
+
+    private bool AudioAllowed => _audioAllowed?.Invoke() != false;
 
     internal int GetVolumePercent()
     {
@@ -39,6 +43,9 @@ internal sealed class NativeInputService : IDisposable
 
     internal bool SetVolume(int percent)
     {
+        if (!AudioAllowed)
+            return false;
+
         lock (_audioGate)
         {
             try
@@ -64,6 +71,9 @@ internal sealed class NativeInputService : IDisposable
 
     internal bool ToggleMute()
     {
+        if (!AudioAllowed)
+            return false;
+
         lock (_audioGate)
         {
             try
@@ -79,14 +89,14 @@ internal sealed class NativeInputService : IDisposable
             catch
             {
                 ResetAudioEndpoint();
-                return SendKey(TouchpadNativeMethods.VkVolumeMute);
+                return AudioAllowed && SendKey(TouchpadNativeMethods.VkVolumeMute);
             }
         }
     }
 
-    internal bool NextTrack() => SendKey(TouchpadNativeMethods.VkMediaNextTrack);
-    internal bool PreviousTrack() => SendKey(TouchpadNativeMethods.VkMediaPrevTrack);
-    internal bool TogglePlayPause() => SendKey(TouchpadNativeMethods.VkMediaPlayPause);
+    internal bool NextTrack() => AudioAllowed && SendKey(TouchpadNativeMethods.VkMediaNextTrack);
+    internal bool PreviousTrack() => AudioAllowed && SendKey(TouchpadNativeMethods.VkMediaPrevTrack);
+    internal bool TogglePlayPause() => AudioAllowed && SendKey(TouchpadNativeMethods.VkMediaPlayPause);
     internal bool ShowTaskView() => SendChord(VkLeftWindows, VkTab);
     internal bool ShowDesktop() => SendChord(VkLeftWindows, VkD);
 
