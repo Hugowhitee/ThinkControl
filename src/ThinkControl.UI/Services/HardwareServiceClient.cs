@@ -143,6 +143,13 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> SetThermalModeAsync(string value, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 3200);
 
+    public async Task<ServiceResponse?> SetBatteryChargeLimitAsync(int percent, CancellationToken cancellationToken = default)
+    {
+        if (percent is not 80 and not 100)
+            throw new ArgumentOutOfRangeException(nameof(percent), "Battery charge protection supports only 80% or 100% on the current provider.");
+        return await SendTrackedAsync("SetBatteryChargeLimit", percent.ToString(), cancellationToken, timeoutMs: 3500);
+    }
+
     private async Task<ServiceResponse?> SendTrackedAsync(
         string operation,
         string? value,
