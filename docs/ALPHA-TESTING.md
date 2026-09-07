@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.41** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners. The X9 is the current reference device, not the product boundary.
+Use this checklist for **v0.1.0-alpha.42** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners. The X9 is the current reference device, not the product boundary.
 
 ## Install/update sanity
 
@@ -13,7 +13,7 @@ Use this checklist for **v0.1.0-alpha.41** and later candidates built from it. A
 
 ## Windows startup and background gestures
 
-Alpha.41 tightens the application startup critical path after comparing ThinkControl with lightweight helper apps such as G-Helper. The goal is not to copy G-Helper's single-process architecture; ThinkControl keeps its privileged hardware service. The relevant principle is **input/tray first, rich discovery later**.
+Alpha.41 tightened the application startup critical path after comparing ThinkControl with lightweight helper apps such as G-Helper. Alpha.42 does not change that architecture. The relevant principle remains **input/tray first, rich discovery later**.
 
 1. In Settings, enable **Start with Windows** and enable at least one obvious edge gesture, for example volume or brightness.
 2. Sign out/in or reboot. Do **not** manually open ThinkControl after the desktop appears.
@@ -39,7 +39,7 @@ The recurring `TargetParameterCountException` dispatcher bug was fixed and guard
 
 ## Audio lifecycle regression
 
-The existing Audio navigation-lifecycle guard remains part of the alpha.41 baseline.
+The existing Audio navigation-lifecycle guard remains part of the alpha.42 baseline.
 
 1. Open Advanced → Audio.
 2. Drag output volume, navigate away while dragging, then return.
@@ -58,7 +58,7 @@ The existing Audio navigation-lifecycle guard remains part of the alpha.41 basel
 
 ## Touchpad
 
-Alpha.41 preserves the single-lane Track visual but changes center Play/Pause from a timing-sensitive gesture into a button-like release action. Test the physical pad, not only screenshots.
+Alpha.42 is specifically a physical-reliability follow-up for the integrated Track center button and reverse-close gesture. Test these on the real pad, not only screenshots.
 
 ### Six-zone editor and corner geometry
 
@@ -68,19 +68,21 @@ Alpha.41 preserves the single-lane Track visual but changes center Play/Pause fr
 - Start near either edge of an enabled corner guard where a side/top gesture would otherwise be plausible. The corner candidate must own that contact from the first frame and a rejected corner must stay locked out until lift.
 - Start an ordinary edge gesture outside the corner guard/lane and confirm the edge still behaves normally.
 
-### Integrated Track lane — alpha.41 focus
+### Integrated Track lane — alpha.42 focus
 
 - Assign **Track control** to Bottom first, then repeat on another edge if useful.
 - Confirm the selected band remains one continuous lane with Previous, Play/Pause and Next all **inside** it; there must be no floating skip icons or separate Play/Pause pill.
 - Confirm the edge action menu contains no separate **Play / pause** action and still has **Track control**.
 - If upgrading from old settings that used standalone Play/Pause, confirm that edge migrates to Track control rather than becoming Off.
-- The center Play/Pause start segment remains about 20% of the lane.
-- Treat the center like a button: touch inside the visible center segment and release. There should be no need to learn a special short/long press duration.
-- Hold the finger still for well over one second, then release. Play/Pause should still commit once as long as the contact remained a center-button candidate.
+- The visible center Play/Pause start segment should now occupy about **28%** of the lane (`0.36..0.64`) and the visual separators must match that recognition target.
+- Perform repeated quick center taps. Each successful tap should toggle exactly once on release without requiring a learned press duration.
+- Touch and **hold** the center without releasing. Around **240 ms**, Play/Pause should toggle while the finger is still down. The control should no longer feel inert while held.
+- Keep holding after that first toggle, then release. There must be **no second toggle** on release.
+- After a hold has already committed Play/Pause, move sideways before lifting. It must not also fire Previous/Next from the same contact.
 - Make ordinary small diagonal/inward finger movement while pressing the center. It should remain a Play/Pause candidate instead of disappearing into a wrong-direction dead zone.
-- Test movement in the former alpha.40 dead region around 4.5–8 mm. It should no longer become a no-op merely because it exceeded the old tap slop but stayed below the 9 mm skip threshold.
-- Deliberately cross the existing **9 mm** Track swipe threshold. Previous/Next should win and Play/Pause must not fire on release.
-- Repeatedly alternate: center press/release → Previous swipe → center press/release → Next swipe. Look for missed stops/starts and accidental skips.
+- Test movement through roughly 4.5–8 mm. It should not become a no-op merely because it exceeds the old tap slop but stays below the 9 mm skip threshold.
+- Perform a normal deliberate swipe that crosses the existing **9 mm** Track threshold before the stationary hold commits. Previous/Next should win and Play/Pause must not fire.
+- Repeatedly alternate: quick center tap → Previous swipe → center hold → Next swipe. Look for missed toggles, double toggles and accidental skips.
 - The popup after a successful toggle must use current-state text plus next-action icon: **Playing + pause bars**, **Paused + play triangle**. If the fallback cannot know state, `Playback toggled` is acceptable and must not invent state.
 
 ### Edge assignment swapping
@@ -91,12 +93,14 @@ Alpha.41 preserves the single-lane Track visual but changes center Play/Pause fr
 - Confirm edge-specific sensitivity/inversion tuning stays with each physical edge during the swap.
 - Repeat after reopening the Touchpad page to confirm persistence.
 
-### Reverse-close and lifecycle
+### Reverse-close — alpha.42 focus
 
-- Select each corner and test **Reverse swipe closes ThinkControl**.
-- With it enabled, start in the rounded inner end-cap and swipe diagonally back toward the physical corner; Compact or Advanced should hide to tray.
-- With it disabled, that outward swipe must not close ThinkControl.
-- Verify reverse-close on both mirrored corners and confirm a rejected reverse candidate cannot become a nearby edge gesture while the same contact remains down.
+- Select each top corner and enable **Reverse swipe closes ThinkControl**.
+- Instead of aiming only for the rounded cap, start at several points through the **inner half of the visible diagonal lane** and swipe diagonally back toward the physical corner. Compact or Advanced should hide to tray reliably.
+- Test starts near the beginning, middle and rounded end of that inner-half reverse target on both top-left and top-right; the two sides should feel like exact mirrors.
+- Start in the **outer corner guard** and move inward. That must remain the normal launch direction, not reverse close.
+- With reverse close disabled, the same inner-lane outward swipe must not close ThinkControl.
+- A rejected reverse candidate must not fall through into a nearby edge gesture while the same contact remains down.
 - Leave Touchpad for another page and confirm the rest of Advanced remains responsive during normal touchpad use.
 
 ### Visual-QA review
@@ -113,11 +117,11 @@ Inspect the final CI artifact at minimum/normal/wide widths and light/dark where
 - `advanced-touchpad-top-right-live.png`;
 - relevant media/gesture OSD fixtures.
 
-The wide fixture exercises live Bottom Track control. Verify the three Track glyphs remain inside one continuous band, center separators remain subtle and no duplicate standalone Play/Pause row reappears.
+The wide fixture exercises live Bottom Track control. Verify the three Track glyphs remain inside one continuous band, the wider center region still reads as part of that same band, and no duplicate standalone Play/Pause row reappears. Corner geometry itself should remain visually unchanged and mirrored; alpha.42 expands recognition only within the already-rendered inner lane.
 
 ## Fans and hardware providers
 
-Alpha.41 keeps the rejected per-fan `fanX_target` writer read-only, but adds a distinct exact-X9 path for Lenovo Other Mode's known **global full-speed boolean** semantic `0x04020000`. This is not an arbitrary RPM target and must not be generalized to unknown machines.
+Alpha.42 does not change the alpha.41 fan architecture. The rejected per-fan `fanX_target` writer stays read-only and the exact-X9 Lenovo Other Mode **global full-speed boolean** semantic `0x04020000` remains separately gated.
 
 - Unsupported devices must remain safe/read-only.
 - A direct target-RPM writer must remain disabled unless it independently passes its provider and physical acceptance gates.
@@ -137,7 +141,7 @@ Confirmed negative evidence from earlier builds remains valid:
 - nominal ThinkControl target 100% remained physically weaker than naturally hot Lenovo Auto even when telemetry looked high;
 - therefore `fanX_target` remains read-only.
 
-Alpha.41 built-ins are expected to behave as:
+Alpha.41/42 built-ins are expected to behave as:
 
 ```text
 Auto         -> release ThinkControl full-speed ownership if any; restore current Lenovo power-policy baseline
@@ -151,7 +155,7 @@ For real X9 testing:
 1. Start in Auto and confirm Auto/Quiet/Balanced/Max remain offered.
 2. Record Fan 1/Fan 2/provider sources and RPM, but do not treat RPM alone as proof of airflow/cooling intensity.
 3. Compare Quiet and Balanced under repeatable load; both should remain smooth Lenovo-managed profiles.
-4. Select **Max cooling**. Listen/feel for a clear step to the strongest Lenovo-style airflow. It should be materially closer to naturally hot Auto/full cooling than alpha.40 Performance-policy-only behavior.
+4. Select **Max cooling**. Listen/feel for a clear step to the strongest Lenovo-style airflow.
 5. Confirm Max remains steady rather than reproducing the alpha.38 repeated re-kick/wave behavior.
 6. Switch Max → Balanced and Max → Quiet. Confirm full-speed releases promptly and the lower firmware profile takes effect.
 7. Select Auto and confirm the latest Windows/Lenovo power-policy baseline returns.
