@@ -17,8 +17,10 @@ Current candidate:
 - branch `fix/alpha42-touchpad-input-reliability`
 - PR #78, **Make Track Play/Pause and reverse close easier to trigger**
 - base `main` / alpha.41 at `6088955eeab54d1af6506780fa7707df17fe11c3`
-- latest validated implementation head before release-doc refresh: `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf`
-- `version.json.releaseReady=false` until the new handoff is frozen and exact frozen-head CI + Package pass
+- validated implementation head `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf`
+- first frozen release-ready head `1cc66681944c690096889aa33f157423ae0f62fd`
+- `version.json.releaseReady=true`
+- CI #1754 and Package #1468 passed on `1cc66681944c690096889aa33f157423ae0f62fd`; this documentation-only handoff update must receive one final exact-head CI + Package pass before merge
 
 Alpha.42 was reopened twice before release for valid physical evidence: first because quick/automatic center Play/Pause was too easy to trigger accidentally, then because a saved X9 cooling profile such as Quiet could remain selected in UI while the physical machine had effectively returned to Auto/base policy after restart/lifecycle transitions. Neither superseded freeze is release evidence for the final candidate.
 
@@ -61,7 +63,7 @@ Physical pre-release testing found that a saved profile such as Quiet could appe
 - Max still uses only the existing exact-X9 `0x04020000` boolean full-speed contract when its live/readback gates pass
 - no silent classic-EC or EnergyDrv writer fallback was introduced
 
-## Final implementation evidence before release freeze
+## Implementation evidence
 
 Exact implementation head `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf` passed both required PR pipelines after the cooling-persistence fix.
 
@@ -95,6 +97,39 @@ Run `34135415785` completed successfully on the same exact implementation head:
 - package artifact `10023809253`, `ThinkControl-0.1.0-alpha.42-dev.1465`
 - artifact digest `1cf1de4e06113db6d4daf17e5a5c759f172af626ec4c0ffad25ccf1bb5a4d038`
 
+## Frozen release-head evidence
+
+The release-ready freeze at `1cc66681944c690096889aa33f157423ae0f62fd` also passed the exact-head gates.
+
+### CI #1754
+
+Run `34136818024` completed successfully:
+
+- repository hygiene passed
+- Release restore/build passed
+- all Core/source tests passed
+- Compact/Advanced ShellSmoke passed
+- all **85** WPF visual-QA snapshots rendered and uploaded
+- frozen-head visual artifact `10024353664`, `ThinkControl-Visual-QA`
+- artifact digest `205ac684ad4c78c000c17814d3726a34058ae50ea66d645598fc13e626bdbca5`
+
+The frozen-head artifact was downloaded and inspected. Representative Touchpad and Fans snapshots remained visually unchanged from the already-reviewed implementation artifact. The only compared PNG with a different binary hash was the top-right live-corner fixture; direct visual comparison showed the same mirrored geometry and state, consistent with nondeterministic WPF raster/compression detail rather than a product change.
+
+### Package #1468
+
+Run `34136818032` completed successfully on the same frozen head:
+
+- UI/service publish passed
+- compact managed-payload verification passed
+- payload/bootstrap construction passed
+- deep installer/service/IPC reliability smoke passed
+- oldest-supported alpha.14.1 updater compatibility passed
+- checksums generated
+- development artifact `10024350248`, `ThinkControl-0.1.0-alpha.42-dev.1468`
+- artifact digest `5bdf73d5f53a4e6c0fd5c10ed5ab86d7faec94d991b2c1b953943df8a96b7ca7`
+
+This handoff update changes documentation only. Because exact-head discipline applies to the actual merge SHA rather than a previous almost-identical head, CI + Package must pass once more on the resulting final PR head before merge.
+
 ## Source/safety review
 
 Focused review after the physical cooling report confirms:
@@ -110,7 +145,7 @@ The actual root cause of any Lenovo-side overwrite is not claimed. The product f
 
 ## Alpha.42 release gate
 
-Completed implementation work:
+Completed implementation and validation work:
 
 - [x] Started from immutable alpha.41
 - [x] Kept one active branch/PR
@@ -126,13 +161,15 @@ Completed implementation work:
 - [x] Implementation head passed CI + Package
 - [x] Implementation-head visual artifact downloaded and inspected
 - [x] Alpha testing guide updated for the new physical persistence regression
+- [x] Frozen `version.json.releaseReady=true`
+- [x] CI #1754 + Package #1468 passed on the first exact frozen head
+- [x] Frozen-head WPF artifact downloaded and inspected
+- [x] Complete PR changed-file list reviewed; scope is Touchpad, cooling lifecycle, tests/docs/version only
+- [x] PR conversation and inline review threads checked; no outstanding comments/threads at that point
 
 Remaining release steps:
 
-- [ ] Freeze release handoff with `version.json.releaseReady=true`
-- [ ] Require **CI + Package ThinkControl on the exact frozen head**
-- [ ] Inspect the frozen-head WPF artifact and confirm no UI difference/regression
-- [ ] Review complete PR changed-file list, comments and review threads
+- [ ] Require CI + Package to pass on the **final documentation handoff head**
 - [ ] Mark PR #78 ready and merge with exact expected-head SHA
 - [ ] Verify post-merge `main`
 - [ ] Verify `Promote release-ready main` creates immutable `v0.1.0-alpha.42` at the merged commit
@@ -142,7 +179,7 @@ Remaining release steps:
 
 ## Physical X9 follow-up — separate evidence class
 
-Hosted CI cannot prove finger feel or Lenovo firmware acoustics. After installing the published alpha.42, record these separately:
+Hosted CI cannot prove finger feel or Lenovo firmware acoustics. After installing the published alpha.42, record these separately.
 
 Touchpad:
 
