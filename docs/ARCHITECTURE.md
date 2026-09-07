@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.41**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
+This document describes the current architecture at **v0.1.0-alpha.42**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
 
 ## Process boundary
 
@@ -16,7 +16,7 @@ The UI remains `asInvoker`. Hardware operations that need elevated/device access
 
 ## Startup model
 
-Startup has a strict critical-path boundary: establish cheap identity and configured user-session input before rich WPF/hardware discovery. Alpha.41 tightens this after comparing the runtime shape with lightweight helper apps such as G-Helper. The useful principle is **input/tray first, discovery later**; ThinkControl does not copy G-Helper's single-process privilege model.
+Startup has a strict critical-path boundary: establish cheap identity and configured user-session input before rich WPF/hardware discovery. Alpha.41 tightened this after comparing the runtime shape with lightweight helper apps such as G-Helper. The useful principle is **input/tray first, discovery later**; ThinkControl does not copy G-Helper's single-process privilege model.
 
 `Start with Windows` remains one per-user HKCU Run entry launching `ThinkControl.UI.exe --tray`. During the earliest `Application.Startup` hook, `SystemStatusService.ReadStartupIdentity()` reads only firmware identity from `HKLM\HARDWARE\DESCRIPTION\System\BIOS`. If configured Touchpad gestures are enabled, `StartConfiguredTouchpadInputForStartup()` creates the existing gesture host and starts Raw Input immediately from that Startup hook instead of queueing registration behind normal WPF dispatcher shell work.
 
@@ -37,7 +37,7 @@ The ThinkPad X9 path separates four concepts:
 
 `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate: fixed targets repeatedly re-kicked/waved and nominal 100% remained physically below naturally hot Lenovo Auto. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
 
-Alpha.41 adds a different exact-X9 semantic: Lenovo Other Mode feature **`0x04020000`**, treated only as a boolean full-speed override. `LenovoOtherModeFullSpeedService` is restricted to verified `21Q6/21Q7`, requires a live boolean read immediately around the transition, respects an explicitly present capability row, writes only `0`/`1`, and verifies the resulting state by readback. This is not used as evidence that per-fan target RPM is safe and is not generalized into arbitrary feature-ID passthrough.
+Alpha.41 added a different exact-X9 semantic: Lenovo Other Mode feature **`0x04020000`**, treated only as a boolean full-speed override. `LenovoOtherModeFullSpeedService` is restricted to verified `21Q6/21Q7`, requires a live boolean read immediately around the transition, respects an explicitly present capability row, writes only `0`/`1`, and verifies the resulting state by readback. This is not used as evidence that per-fan target RPM is safe and is not generalized into arbitrary feature-ID passthrough.
 
 ## Cooling model
 
@@ -70,7 +70,7 @@ The generic direct-output model remains:
 - `ReturnFanToAuto` for firmware/OEM ownership;
 - characterization operations only when the active direct provider advertises calibration.
 
-`FanSupervisor` remains the sole owner of direct percentage/discrete fan writes. A physically accepted continuous target provider may receive percentages directly; a discrete provider may map semantic targets through measured output states. The rejected X9 `fanX_target` implementation remains blocked even though alpha.41 now has a separate full-speed boolean path.
+`FanSupervisor` remains the sole owner of direct percentage/discrete fan writes. A physically accepted continuous target provider may receive percentages directly; a discrete provider may map semantic targets through measured output states. The rejected X9 `fanX_target` implementation remains blocked even though alpha.41 has a separate full-speed boolean path.
 
 The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. Firmware-policy/full-speed profiles do not require direct calibration. The calibration task card is visible only while a relevant direct provider requires it or is actively running.
 
@@ -97,15 +97,17 @@ The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, 
 
 Track control is one continuous edge lane with three semantic segments: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action or second center toggle/recognizer. Legacy serialized PlayPause values sanitize into Track control.
 
-Alpha.41 changes the center interaction from a bounded-duration tap into a **button-like release candidate**. A one-finger Track contact that starts inside the center segment is reserved for Play/Pause while its radial movement stays below the deliberate Track skip threshold. There is no maximum hold-time requirement. Once movement reaches the existing **9 mm** Previous/Next threshold, Track swipe intent wins; a claimed swipe cannot later downgrade into Play/Pause on release. This removes both the short/long-press ambiguity and the former 4.5–9 mm no-op region without making track skipping less deliberate.
+Alpha.42 keeps one recognizer and one action router but makes the center button less precise. `TrackCenterGesturePolicy` defines a visible **28%** center start region (`0.36..0.64`), the existing **8.75 mm** center movement envelope, and the unchanged **9 mm** deliberate Previous/Next threshold. A quick center contact commits on release. A stationary center contact also schedules a bounded **240 ms** hold commit so Play/Pause can fire while the finger is still down.
+
+`GestureActionRouter` serializes the hold, release and skip paths with one Track action state. A candidate generation invalidates stale delayed hold tasks when the recognizer claims, updates, releases or cancels the gesture. `_trackActionCommitted` ensures that whichever path wins is the only action for that contact: a hold cannot toggle again on lift or subsequently also become Previous/Next. This is action arbitration inside the existing router, not another gesture/input owner.
 
 Occupied edge assignment continues to swap action kinds rather than clearing the previous edge. Sensitivity and inversion remain properties of the physical edge.
 
 Track OSD semantics remain: resulting **Playing → pause bars**, **Paused → play triangle**, and ambiguous virtual-key fallback stays `Playback toggled`.
 
-Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Rejected corner ownership remains locked until lift and optional reverse-close routes into the canonical hide-to-tray transition.
+Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Alpha.42 changes only reverse-close start classification: when reverse close is enabled, the inner half of the **already-visible** diagonal lane is accepted as an outward start instead of requiring the small rounded cap. The outer guard remains an inward-launch start and no hidden geometry is added. Rejected corner ownership remains locked until lift and outward claim routes through the existing canonical hide-to-tray transition.
 
-Raw HID recognition receives every frame while WPF visualization is coalesced. UI-only listeners remain attached only while the Touchpad page is visible; configured gesture recognition is application-level and now starts earlier during silent Windows startup.
+Raw HID recognition receives every frame while WPF visualization is coalesced. UI-only listeners remain attached only while the Touchpad page is visible; configured gesture recognition is application-level and starts during silent Windows startup.
 
 ## Audio lifecycle
 
