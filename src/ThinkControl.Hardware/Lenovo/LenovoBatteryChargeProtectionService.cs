@@ -124,7 +124,7 @@ public static class LenovoBatteryChargeProtectionService
         }
         if (status.Enabled && status.StartPercent == startPercent && status.StopPercent == stopPercent)
         {
-            detail = $"Battery thresholds are already {startPercent}–{stop}%.";
+            detail = $"Battery thresholds are already {startPercent}–{stopPercent}%.";
             return true;
         }
 
