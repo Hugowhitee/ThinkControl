@@ -11,6 +11,7 @@ public partial class BatteryTelemetryPanel
     private bool _batteryProtectionWritable;
     private bool _syncingChargeProtection;
     private bool _syncingHistoryRetention;
+    private int _historyVisibleDays = 7;
 
     private void BatteryTelemetryPanel_Loaded(object sender, RoutedEventArgs e)
     {
@@ -51,58 +52,94 @@ public partial class BatteryTelemetryPanel
     private void ApplyBatteryProtectionStatus(ServiceResponse? response)
     {
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
-        _batteryProtectionWritable = response?.Capabilities?.BatteryChargeProtection == true;
-        int? limit = telemetry?.BatteryChargeLimitPercent;
+        _batteryProtectionWritable = response?.Capabilities?.BatteryChargeProtection == true &&
+                                     response.Capabilities.BatteryCustomChargeThresholds;
+        bool available = telemetry?.BatteryChargeProtectionEnabled is not null || telemetry?.BatteryChargeLimitPercent is not null;
+        bool enabled = telemetry?.BatteryChargeProtectionEnabled ?? telemetry?.BatteryChargeLimitPercent is < 100;
+        int start = telemetry?.BatteryChargeStartPercent ?? 75;
+        int stop = enabled
+            ? telemetry?.BatteryChargeStopPercent ?? telemetry?.BatteryChargeLimitPercent ?? 85
+            : 100;
 
         _syncingChargeProtection = true;
         try
         {
+            RemoveDynamicChargeProtectionPreset();
+            ComboBoxItem? selected = enabled
+                ? FindChargeProtectionPreset(start, stop)
+                : FindChargeProtectionPreset(enabled: false);
+            if (enabled && selected is null && available)
+            {
+                selected = new ComboBoxItem
+                {
+                    Content = $"Custom · {start}–{stop}%",
+                    Tag = $"custom:{start},{stop}"
+                };
+                ChargeProtectionComboBox.Items.Insert(0, selected);
+            }
+
+            ChargeProtectionComboBox.SelectedItem = selected;
             ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable;
-            ChargeProtectionComboBox.SelectedItem = limit is 80 or 100
-                ? ChargeProtectionComboBox.Items.OfType<ComboBoxItem>()
-                    .FirstOrDefault(item => int.TryParse(item.Tag?.ToString(), out int value) && value == limit)
-                : null;
         }
         finally
         {
             _syncingChargeProtection = false;
         }
 
-        if (limit == 80)
+        if (!available)
         {
-            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Battery care · active" : "Battery care · read-only";
-            ChargeProtectionImpactText.Text = "20 percentage points of headroom from full charge · less time at high state of charge. Best for everyday plugged-in use.";
+            ChargeProtectionStateText.Text = "Not exposed";
+            ChargeProtectionImpactText.Text = "ThinkControl did not find the Lenovo PM Device threshold contract on the active hardware provider.";
         }
-        else if (limit == 100)
+        else if (!enabled)
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge · active" : "Full charge · read-only";
-            ChargeProtectionImpactText.Text = "Maximum available runtime. Switch back to Battery care when you do not need the final 20% of capacity.";
+            ChargeProtectionImpactText.Text = "Maximum available unplugged runtime. No charge ceiling is active, so the battery may remain near 100% while plugged in.";
         }
         else
         {
-            ChargeProtectionStateText.Text = "Not exposed";
-            ChargeProtectionImpactText.Text = "ThinkControl did not find a verified writable battery-care contract on the active hardware provider.";
+            ChargeProtectionStateText.Text = _batteryProtectionWritable
+                ? $"{start}–{stop}% · active"
+                : $"{start}–{stop}% · read-only";
+            ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
         }
 
         ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
-            "ThinkControl writes only a verified OEM charge-protection semantic and verifies the result by readback.";
+            "ThinkControl changes only a verified OEM threshold provider and does not claim a fixed cycle-life multiplier.";
         ChargeProtectionFallbackButton.Visibility = _batteryProtectionWritable ? Visibility.Collapsed : Visibility.Visible;
     }
 
     private async void ChargeProtection_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingChargeProtection || !_batteryProtectionWritable || WpfApplication.Current is not App app ||
-            ChargeProtectionComboBox.SelectedItem is not ComboBoxItem item ||
-            !int.TryParse(item.Tag?.ToString(), out int percent) || percent is not 80 and not 100)
+            ChargeProtectionComboBox.SelectedItem is not ComboBoxItem item)
         {
             return;
         }
 
+        string tag = item.Tag?.ToString() ?? string.Empty;
+        if (tag.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
+            return; // Current firmware state is display-only until a named preset is chosen.
+
         ChargeProtectionComboBox.IsEnabled = false;
-        ChargeProtectionStateText.Text = $"Applying {percent}%…";
+        ChargeProtectionStateText.Text = "Applying…";
         try
         {
-            ServiceResponse? response = await app.HardwareClient.SetBatteryChargeLimitAsync(percent);
+            ServiceResponse? response;
+            if (tag.Equals("off", StringComparison.OrdinalIgnoreCase))
+            {
+                response = await app.HardwareClient.DisableBatteryChargeThresholdsAsync();
+            }
+            else if (TryParseThresholdPair(tag, out int start, out int stop))
+            {
+                response = await app.HardwareClient.SetBatteryChargeThresholdsAsync(start, stop);
+            }
+            else
+            {
+                ChargeProtectionStateText.Text = "Invalid preset";
+                return;
+            }
+
             if (response?.Success == true)
             {
                 ApplyBatteryProtectionStatus(response);
@@ -110,7 +147,7 @@ public partial class BatteryTelemetryPanel
             }
 
             ChargeProtectionStateText.Text = "Change rejected";
-            ChargeProtectionImpactText.Text = response?.Error ?? "The hardware service did not return a verified battery-protection result.";
+            ChargeProtectionImpactText.Text = response?.Error ?? "The hardware service did not return a verified battery-threshold result.";
             ServiceResponse? current = await app.HardwareClient.GetStatusAsync();
             ApplyBatteryProtectionStatus(current);
         }
@@ -118,6 +155,46 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable;
         }
+    }
+
+    private ComboBoxItem? FindChargeProtectionPreset(int start = 0, int stop = 0, bool enabled = true)
+    {
+        return ChargeProtectionComboBox.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
+        {
+            string tag = item.Tag?.ToString() ?? string.Empty;
+            if (!enabled)
+                return tag.Equals("off", StringComparison.OrdinalIgnoreCase);
+            return TryParseThresholdPair(tag, out int candidateStart, out int candidateStop) &&
+                   candidateStart == start && candidateStop == stop;
+        });
+    }
+
+    private void RemoveDynamicChargeProtectionPreset()
+    {
+        ComboBoxItem? dynamic = ChargeProtectionComboBox.Items.OfType<ComboBoxItem>()
+            .FirstOrDefault(item => item.Tag?.ToString()?.StartsWith("custom:", StringComparison.OrdinalIgnoreCase) == true);
+        if (dynamic is not null)
+            ChargeProtectionComboBox.Items.Remove(dynamic);
+    }
+
+    private static bool TryParseThresholdPair(string raw, out int start, out int stop)
+    {
+        start = 0;
+        stop = 0;
+        string[] parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length == 2 && int.TryParse(parts[0], out start) && int.TryParse(parts[1], out stop) && start < stop;
+    }
+
+    private static string DescribeChargeProtectionImpact(int start, int stop)
+    {
+        int headroom = Math.Max(0, 100 - stop);
+        int window = Math.Max(0, stop - start);
+        string use = stop <= 65
+            ? "Best when the laptop is plugged in most of the day."
+            : stop <= 80
+                ? "Good for frequent desk use while keeping useful unplugged reserve."
+                : "A balanced everyday limit with most unplugged capacity still available.";
+        return $"Avoids routine charging in the top {headroom}% of capacity · charging resumes below {start}% and stops at {stop}% · {window}% hysteresis avoids constant tiny top-ups. {use}";
     }
 
     private void SyncHistoryManagementUi()
@@ -156,6 +233,21 @@ public partial class BatteryTelemetryPanel
         RefreshHistoryUi();
     }
 
+    private void HistoryRange_Click(object sender, RoutedEventArgs e)
+    {
+        _historyVisibleDays = _historyVisibleDays <= 7 ? 14 : 7;
+        RefreshHistoryUi();
+    }
+
+    private void UpdateHistoryRangeButton(int availableDays)
+    {
+        bool hasOlder = availableDays > 7;
+        HistoryRangeButton.Visibility = hasOlder ? Visibility.Visible : Visibility.Collapsed;
+        HistoryRangeButton.Content = _historyVisibleDays <= 7
+            ? $"Show older{(availableDays > 7 ? $" · {Math.Min(7, availableDays - 7)} more days" : string.Empty)}"
+            : "Show recent 7 days";
+    }
+
     private void ResetHistory_Click(object sender, RoutedEventArgs e)
     {
         if (WpfApplication.Current is not App app)
@@ -170,6 +262,7 @@ public partial class BatteryTelemetryPanel
             return;
 
         app.ClearBatteryHistory();
+        _historyVisibleDays = 7;
         RefreshHistoryUi();
         SyncHistoryManagementUi();
     }
