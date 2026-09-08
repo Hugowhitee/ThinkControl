@@ -18,8 +18,11 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("ChargeProtection_SelectionChanged", xaml, StringComparison.Ordinal);
         Assert.Contains("SetBatteryChargeThresholdsAsync(start, stop)", code, StringComparison.Ordinal);
         Assert.Contains("DisableBatteryChargeThresholdsAsync", code, StringComparison.Ordinal);
+        Assert.Contains("Battery wear stress:", code, StringComparison.Ordinal);
         Assert.Contains("Avoids routine charging in the top", code, StringComparison.Ordinal);
         Assert.Contains("hysteresis avoids constant tiny top-ups", code, StringComparison.Ordinal);
+        Assert.Contains("does not claim a fixed cycle-life multiplier", code, StringComparison.Ordinal);
+        Assert.Contains("Exact lifetime improvement still depends on temperature and use", code, StringComparison.Ordinal);
         Assert.Contains("_batteryProtectionWritable", code, StringComparison.Ordinal);
         Assert.DoesNotContain("fewer cycles", xaml, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("fewer cycles", code, StringComparison.OrdinalIgnoreCase);
