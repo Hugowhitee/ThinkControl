@@ -34,11 +34,11 @@ The ThinkPad X9 path separates five concepts:
 2. Lenovo firmware thermal policy;
 3. Lenovo's known global full-speed boolean semantic;
 4. direct per-fan output writers;
-5. Lenovo's Standard/Long-Life battery charge-type semantic.
+5. Lenovo PM Device battery charge-threshold semantics.
 
 `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
 
-Alpha.41 added Lenovo Other Mode feature `0x04020000` as a narrow boolean full-speed override. Alpha.43 adds a similarly narrow but independently gated battery-care provider for PSU charge type `0x03010001`: Standard (`0`) / Long Life (`1`). The battery provider requires exact X9 identity, an explicit capability row with VALID+GET+SET, live `0/1` state, only 80/100 product values and post-write readback. The UI never receives the raw Lenovo feature ID.
+Alpha.41 added Lenovo Other Mode feature `0x04020000` as a narrow boolean full-speed override. Battery preservation is a separate provider. Alpha.43 uses the installed Lenovo Power Manager configuration plus the existing Lenovo PM kernel device (`PWRMGRV` + `\\.\IBMPmDrv`) to expose bounded start/stop charge windows on the verified X9. Raw IOCTLs and driver paths never cross the public IPC boundary.
 
 ## Cooling model
 
@@ -83,35 +83,52 @@ Native two-fan evidence is latched for the current service lifetime so a transie
 
 ## Battery charge-protection model
 
-`LenovoBatteryChargeProtectionService` is a provider, not a generic threshold calculator. For the verified X9 it knows exactly one Lenovo Other Mode attribute: `0x03010001`.
+`LenovoBatteryChargeProtectionService` is an exact-X9 provider, not a generic battery-threshold calculator. Its source of truth is Lenovo's installed Windows Power Manager configuration:
 
-The hardware provider maps that firmware semantic to product language:
+```text
+HKLM\SOFTWARE\WOW6432Node\Lenovo\PWRMGRV\ConfKeys\Data\<battery>
+ChargeStartPercentage
+ChargeStopPercentage
+ChargeStartControl
+ChargeStopControl
+```
 
-- raw `0` -> **Full charge · 100%**;
-- raw `1` -> **Battery care · 80%**.
+When that configuration exists and the privileged service can open `\\.\IBMPmDrv`, the provider can apply the same semantic start/stop threshold family used by current Lenovo battery tooling. Driver constants are fixed inside the provider; the WPF client supplies only a validated start/stop pair or `off`.
 
-A write is accepted only for product values `80` and `100`. `ThinkControl.Service` exposes a semantic `SetBatteryChargeLimit` IPC operation and adds `BatteryChargeProtection` plus the current verified limit/source/detail to status. The normal-user WPF app never invokes WMI methods or supplies a raw OEM attribute/value.
+Product writes are deliberately narrower than the raw driver byte range. Alpha.43 accepts five-percent steps, start `40..90`, stop `45..95`, and requires `start < stop`. The normal UI exposes only a few named presets. Existing Lenovo thresholds remain source of truth; an unmatched pair is displayed as `Custom · start–stop%` rather than overwritten.
 
-Battery-protection status uses the service's existing request-driven status model. A small 30-second provider cache avoids turning Battery-page refresh into repeated WMI discovery. A successful transition invalidates that cache and returns a freshly read status immediately.
+A transition is transactional at the provider boundary:
 
-The Battery page subscribes to the existing `HardwareClient.StatusObserved` event only while loaded. It does not start a second timer. The dropdown stays disabled unless the service advertises `BatteryChargeProtection = true`. A live state whose capability row is missing can therefore be displayed read-only without silently becoming write-authorized.
+1. read the current PWRMGRV battery configuration;
+2. update the semantic registry state;
+3. send the fixed Lenovo PM Device mode/stop/start commands;
+4. reject a failed IOCTL or Lenovo result bit 31;
+5. re-read PWRMGRV and require an exact semantic match;
+6. broadcast the Lenovo setting change;
+7. on failure, request the exact previous registry/driver state again.
 
-The charge-protection preference is not duplicated into `UserSettings` in alpha.43. Firmware readback remains source of truth. This avoids the same class of bug that previously let a saved fan preference look active before hardware had actually applied it.
+Disabling preservation clears both driver threshold latches before selecting Lenovo automatic/full-charge mode. ThinkControl does not alter the Lenovo driver service startup type and does not try an EC/ACPI fallback if the PM device is unavailable.
 
-Other OEMs can later implement their own semantic battery provider and supported limit set without changing the shared Battery page into vendor-specific code.
+`ThinkControl.Service` keeps the existing semantic operation name `SetBatteryChargeLimit` for protocol compatibility but its current value is an ordered `start,stop` pair or `off`. Status exposes `BatteryChargeProtectionEnabled`, current start/stop percentages and a provider string. `BatteryChargeLimitPercent` remains only as a backwards-compatible stop-threshold summary.
+
+Battery-protection status uses the existing request-driven status model with a small service-side cache. The Battery page subscribes to `HardwareClient.StatusObserved` only while loaded; it does not create a polling loop. The charge window is not duplicated into `UserSettings`, so actual Lenovo state remains authoritative after restart or external Vantage changes.
+
+Other OEMs can later implement their own semantic provider without changing the shared Battery UI into vendor-specific pages.
 
 ## Battery history model
 
 `BatteryHistoryService` stores local charge/discharge sessions with sparse detailed points plus compact summaries. The UI is aggregation-first: day -> session -> detail window. It is not a raw chronological log.
 
-Retention has two layers:
+Presentation and retention are intentionally separate:
 
-- detailed graphs: normalized user choice (currently surfaced as 7 / 14 / 30 days);
+- normal page: most recent 7 days;
+- `Show older`: expand to 14 days without changing retention;
+- detailed graphs: normalized user choice (7 / 14 / 30 days);
 - compact summaries: one year under `BatteryHistoryRetentionPolicy.SummaryRetentionDays`.
 
-Automatic compaction clears old point arrays while preserving session summaries, health trend inputs and useful learned estimates. This is preferable to making users manually delete a growing list merely to keep storage bounded.
+Automatic compaction clears old point arrays while preserving session summaries and useful learned estimates. Storage also has hard bounds, so users do not need to manually delete a growing raw log merely to keep the app healthy.
 
-`Manage history` owns destructive/retention actions. Reset is explicit and warns that local session summaries, graphs, health trend and learned charge/discharge priors are cleared. Firmware battery health, cycle count and OEM charge-protection state are not part of this local history document and are unaffected.
+`Manage history` owns destructive/retention actions. Reset is explicit and warns that local session summaries, graphs, health trend and learned charge/discharge priors are cleared. Firmware battery health, cycle count and OEM charge-threshold state are not part of this local history document and are unaffected.
 
 ## Keyboard model
 
@@ -174,7 +191,7 @@ Audio volume/microphone writes are debounced in the WPF page. Transient debounce
 
 Diagnostics are local-first and sanitized. Raw touch coordinates, personal file content, usernames, serial numbers and arbitrary memory/log dumps are outside the intended upload schema.
 
-Battery charge-protection writes are classified as `battery.charge_limit_set` semantic hardware operations. Diagnostics do not expose a generic Lenovo feature writer.
+Battery charge-threshold changes are classified as semantic hardware operations. Diagnostics do not expose the Lenovo registry path, device handle or generic IOCTL passthrough to the normal-user client.
 
 Repeated provider discovery is avoided where possible. The service keeps provider state; the UI consumes bounded status snapshots and uses targeted refresh operations for sensors, keyboard and full provider recovery.
 
