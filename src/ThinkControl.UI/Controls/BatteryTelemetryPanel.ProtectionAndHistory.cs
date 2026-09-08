@@ -94,7 +94,7 @@ public partial class BatteryTelemetryPanel
         else if (!enabled)
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge · active" : "Full charge · read-only";
-            ChargeProtectionImpactText.Text = "Maximum available unplugged runtime. No charge ceiling is active, so the battery may remain near 100% while plugged in.";
+            ChargeProtectionImpactText.Text = "Maximum available unplugged runtime. No charge ceiling is active, so the battery may remain near 100% while plugged in and receives no high-charge wear reduction from a threshold.";
         }
         else
         {
@@ -105,7 +105,7 @@ public partial class BatteryTelemetryPanel
         }
 
         ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
-            "ThinkControl changes only a verified OEM threshold provider and does not claim a fixed cycle-life multiplier.";
+            "ThinkControl changes only a verified OEM threshold provider. Wear reduction is qualitative; it does not claim a fixed cycle-life multiplier.";
         ChargeProtectionFallbackButton.Visibility = _batteryProtectionWritable ? Visibility.Collapsed : Visibility.Visible;
     }
 
@@ -119,7 +119,7 @@ public partial class BatteryTelemetryPanel
 
         string tag = item.Tag?.ToString() ?? string.Empty;
         if (tag.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
-            return; // Current firmware state is display-only until a named preset is chosen.
+            return;
 
         ChargeProtectionComboBox.IsEnabled = false;
         ChargeProtectionStateText.Text = "Applying…";
@@ -189,12 +189,17 @@ public partial class BatteryTelemetryPanel
     {
         int headroom = Math.Max(0, 100 - stop);
         int window = Math.Max(0, stop - start);
+        string wear = stop <= 65
+            ? "Battery wear stress: much lower than routinely staying near 100%, because high state-of-charge exposure is strongly reduced."
+            : stop <= 80
+                ? "Battery wear stress: lower than routinely staying near 100%, because the battery spends less time at very high charge."
+                : "Battery wear stress: somewhat lower than routinely staying near 100%, while preserving most unplugged capacity.";
         string use = stop <= 65
             ? "Best when the laptop is plugged in most of the day."
             : stop <= 80
                 ? "Good for frequent desk use while keeping useful unplugged reserve."
                 : "A balanced everyday limit with most unplugged capacity still available.";
-        return $"Avoids routine charging in the top {headroom}% of capacity · charging resumes below {start}% and stops at {stop}% · {window}% hysteresis avoids constant tiny top-ups. {use}";
+        return $"{wear} Avoids routine charging in the top {headroom}% of capacity · charging resumes below {start}% and stops at {stop}% · {window}% hysteresis avoids constant tiny top-ups. {use} Exact lifetime improvement still depends on temperature and use.";
     }
 
     private void SyncHistoryManagementUi()
