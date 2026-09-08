@@ -56,7 +56,7 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
     }
 
     [Fact]
-    public void BatteryUi_UsesSmallPresetsAndDoesNotInventCycleSavings()
+    public void BatteryUi_UsesSmallPresetsAndExplainsWearWithoutInventingCycleSavings()
     {
         string xaml = ReadSource("src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml");
         string panel = ReadSource("src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.ProtectionAndHistory.cs");
@@ -66,15 +66,18 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("Desk · 55–80%", xaml, StringComparison.Ordinal);
         Assert.Contains("Maximum care · 40–60%", xaml, StringComparison.Ordinal);
         Assert.Contains("Full charge · 100%", xaml, StringComparison.Ordinal);
-        Assert.Contains("does not claim a fixed cycle-life multiplier", xaml, StringComparison.Ordinal);
+        Assert.Contains("Battery wear stress:", panel, StringComparison.Ordinal);
+        Assert.Contains("does not claim a fixed cycle-life multiplier", panel, StringComparison.Ordinal);
         Assert.Contains("Avoids routine charging in the top", panel, StringComparison.Ordinal);
         Assert.Contains("charging resumes below", panel, StringComparison.Ordinal);
+        Assert.Contains("Exact lifetime improvement still depends on temperature and use", panel, StringComparison.Ordinal);
         Assert.Contains("_historyVisibleDays = 7", panel, StringComparison.Ordinal);
         Assert.Contains("GetRecentDays(14)", mainPanel, StringComparison.Ordinal);
         Assert.Contains("Take(_historyVisibleDays)", mainPanel, StringComparison.Ordinal);
         Assert.Contains("Reset all history…", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Clear history\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("fewer cycles", xaml, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("fewer cycles", panel, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("×", xaml, StringComparison.Ordinal);
     }
 
