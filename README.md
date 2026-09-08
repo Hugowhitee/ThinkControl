@@ -65,7 +65,7 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 
 ## What alpha.43 changes
 
-Alpha.43 is a focused Windows-generic safety follow-up to immutable alpha.42. It adds one canonical Audio Safety policy for situations such as tests, lectures and quiet sessions, and makes the integrated Track-center Play/Pause control optional without bringing back a standalone Play/Pause edge action.
+Alpha.43 is a focused safety/usability follow-up to immutable alpha.42. It adds one canonical Audio Safety policy, makes the integrated Track-center Play/Pause optional, and adds a capability-gated battery-preservation surface without turning Battery into another OEM utility.
 
 - **Audio Safety has three clear session states.** `Normal` leaves existing controls unchanged. `Media lock` blocks ThinkControl Touchpad Volume, Previous/Next, Play/Pause and Media scrub actions while deliberate Windows/app audio remains available. `Silent` includes Media lock, mutes the current Windows output and blocks ThinkControl output-volume/unmute changes.
 - **Silent owns only mute state it actually changed or encountered.** ThinkControl remembers the prior mute state per output endpoint while Silent is active and restores those states when leaving Silent or on orderly app exit. A removed endpoint is not replaced by a guessed fallback write.
@@ -73,11 +73,15 @@ Alpha.43 is a focused Windows-generic safety follow-up to immutable alpha.42. It
 - **Microphone input stays independent.** Audio Safety does not automatically mute or change the microphone.
 - **The mode is deliberately session-only in alpha.43.** Restart returns to Normal instead of persisting a stale mute-ownership claim across processes.
 - **Compact gets one quick Audio Safety selector; Settings owns the explanation.** This is intentionally not a phone-style Focus Modes framework and not a grid of unrelated presets.
-- **Track Play/Pause is now optional inside Track control.** When enabled, the lane remains `Previous | Play/Pause | Next`. When disabled, the center target, separators and Play/Pause icon disappear and the same edge becomes a clean `Previous / Next` control.
-- **Release-to-commit remains intentional.** With Play/Pause enabled, the center still requires at least **450 ms** with no more than **3 mm** maximum radial movement and then commits on release. Release is the final intent confirmation so a resting/incidental touch cannot auto-start media merely because the hold timer elapsed.
+- **Track Play/Pause is optional inside Track control.** When enabled, the lane remains `Previous | Play/Pause | Next`. When disabled, the center target, separators and Play/Pause icon disappear and the same edge becomes a clean `Previous / Next` control.
+- **Release-to-commit remains intentional.** With Play/Pause enabled, the center requires at least **450 ms** with no more than **3 mm** maximum radial movement and then commits on release. Release is the final intent confirmation so a resting/incidental touch cannot auto-start media merely because the hold timer elapsed.
 - **Previous/Next remains unchanged.** It keeps the deliberate **9 mm** swipe threshold and one recognizer/router owner.
+- **Battery preservation uses real Lenovo start/stop thresholds on the verified X9 path.** When the installed Lenovo PWRMGRV/`IBMPmDrv` contract is present, the Battery page can select a small set of Vantage-style windows such as **75–85%** or return to **Full charge · 100%**. The desktop UI never receives a raw driver command.
+- **No made-up battery-life multiplier.** The UI explains the actual stop threshold, start threshold and hysteresis instead of claiming “2× fewer cycles”. Battery wear depends on more than state of charge.
+- **Existing firmware state wins.** ThinkControl does not silently apply a preservation preset on first run. A non-preset Lenovo pair appears as `Custom · start–stop%` until the user deliberately chooses another preset.
+- **Battery history stays useful without becoming an endless page.** The normal view shows seven recent days, `Show older` expands to 14, detailed retention remains selectable at 7/14/30 days, older data compacts into summaries, and destructive reset lives behind `Manage history` with a clear warning about relearning local estimates.
 
-Alpha.42 remains immutable at its published release commit. Its Touchpad corner/reverse-close work, cooling-profile runtime truth and persistence fix, exact-X9 full-speed safety boundary, rejected per-fan target writer, installer/updater and shell/crash fixes are preserved. Alpha.43 adds no new fan writer and does not change the X9 hardware-support boundary.
+Alpha.42 remains immutable at its published release commit. Its Touchpad corner/reverse-close work, cooling-profile runtime truth and persistence fix, exact-X9 full-speed safety boundary, rejected per-fan target writer, installer/updater and shell/crash fixes are preserved. Alpha.43 does not re-enable the rejected fan writer.
 
 ## Main capabilities
 
@@ -86,7 +90,7 @@ Alpha.42 remains immutable at its published release commit. Its Touchpad corner/
 | **Home** | Live Battery, CPU, fan/RPM, power and sensor overview plus quick controls |
 | **Performance** | Separate battery and plugged-in preferences using Windows power integration |
 | **Fans** | Firmware/OEM Auto, Quiet and Balanced plus exact-capability-gated X9 Max cooling; custom curves and bounded direct tests only where a physically accepted direct writer exists |
-| **Battery** | Watts, Wh, health, ETA, temperature when genuinely exposed, and compact local charge/discharge history |
+| **Battery** | Watts, Wh, health, ETA, cycle telemetry, compact history, retention management and capability-gated charge-preservation thresholds |
 | **Display** | Brightness, adaptive brightness, refresh rate, automatic refresh switching and Windows display shortcuts |
 | **Audio** | Windows output/microphone control, session Audio Safety, plus semantic Dolby controls where the installed DAX provider safely exposes them |
 | **Keyboard** | Verified hardware levels, firmware Auto where exposed, and bounded user-session effects only when the active provider advertises them |
@@ -112,12 +116,13 @@ On the current X9-15 reference path:
 - the native-OEM telemetry safety latch prevents silent fallback to the known-inferior seven-step EC writer;
 - custom curves and manual percentages remain direct-writer features and are not faked through the firmware/full-speed semantic backend;
 - raw seven-step EC behavior remains an explicit provider-specific diagnostic contract where genuinely active and validated, not the normal X9 product backend;
+- charge-threshold writes are restricted to the verified X9 identity plus the installed Lenovo PWRMGRV battery configuration and a live `\\.\IBMPmDrv` device; requests are bounded to five-percent start/stop pairs and failures request rollback rather than trying another EC/ACPI path;
 - real provider telemetry is preferred over fallback probes;
 - calibration requires real tachometer evidence and never persists a partial failed run;
 - PawnIO registration/service/device readiness is distinguished instead of collapsed into one registry check;
 - sensor/provider failure is reported explicitly rather than replaced by synthetic values.
 
-Audio Safety is Windows-generic and does not grant or alter any low-level hardware capability. Automated CI does **not** prove physical-device behavior. Alpha.43 still needs real-X9 confirmation of Touchpad feel and alpha.42 cooling persistence, plus a real Windows audio check for Silent/default-output transitions. Hosted tests can prove policy routing, ownership bookkeeping, build and deterministic UI behavior but cannot substitute for physical audio or fan evidence.
+Audio Safety is Windows-generic and does not grant or alter any low-level hardware capability. Automated CI does **not** prove physical-device behavior. Alpha.43 still needs real-X9 confirmation of Touchpad feel, cooling persistence and the physical battery threshold behavior, plus a real Windows audio check for Silent/default-output transitions. Hosted tests can prove policy routing, threshold validation/rollback architecture, ownership bookkeeping, build and deterministic UI behavior but cannot substitute for physical audio, fan or charging evidence.
 
 See **[Device support](docs/DEVICE-SUPPORT.md)** and **[Hardware safety](docs/HARDWARE-SAFETY.md)**.
 
@@ -140,4 +145,4 @@ dotnet build ThinkControl.slnx -c Release
 
 Packaging and installer workflows additionally validate payload construction, custom-location clean install, service start/IPC, updater compatibility and uninstall cleanup before a prerelease is promoted. Release candidates are merged only after **CI and Package ThinkControl both pass on the exact final PR head**; UI-changing candidates also require manual inspection of that head's generated WPF artifact. Current release-gate status and remaining real-device checks are tracked in **[Release readiness](docs/RELEASE_READINESS.md)**.
 
-See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUCT.md)** · **[Release readiness](docs/RELEASE_READINESS.md)** · **[X9-15 research](docs/research/x9-15-gen1.md)** · **[alpha.42 cooling persistence evidence](docs/research/x9-alpha42-cooling-persistence.md)**.
+See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUCT.md)** · **[Release readiness](docs/RELEASE_READINESS.md)** · **[X9-15 research](docs/research/x9-15-gen1.md)** · **[alpha.43 battery preservation research](docs/research/x9-alpha43-battery-care.md)**.
