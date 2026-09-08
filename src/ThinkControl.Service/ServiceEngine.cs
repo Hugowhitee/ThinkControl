@@ -292,9 +292,13 @@ internal sealed class ServiceEngine : IDisposable
             CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
             CoolingAppliedPercent: firmwareOverride ? null : cooling.AppliedPercent,
             KeyboardBackend: status.KeyboardBackend,
-            BatteryChargeLimitPercent: batteryProtection.Available ? batteryProtection.LimitPercent : null,
-            BatteryChargeProtectionSource: batteryProtection.Available ? "Lenovo WMI · Long-Life charge type" : null,
-            BatteryChargeProtectionDetail: batteryProtection.Detail);
+            BatteryChargeLimitPercent: batteryProtection.Available ? (batteryProtection.Enabled ? batteryProtection.StopPercent : 100) : null,
+            BatteryChargeProtectionSource: batteryProtection.Available ? batteryProtection.Provider : null,
+            BatteryChargeProtectionDetail: batteryProtection.Detail,
+            BatteryChargeProtectionEnabled: batteryProtection.Available ? batteryProtection.Enabled : null,
+            BatteryChargeStartPercent: batteryProtection.Available ? batteryProtection.StartPercent : null,
+            BatteryChargeStopPercent: batteryProtection.Available ? batteryProtection.StopPercent : null,
+            BatteryChargeProtectionProvider: batteryProtection.Available ? batteryProtection.Provider : null);
 
         bool firmwareProfileControl = firmwareCooling.Supported;
         bool productFanControl = status.CanFanControl || firmwareProfileControl;
@@ -331,7 +335,8 @@ internal sealed class ServiceEngine : IDisposable
             FanCalibrationSupported: fanCalibrationSupported,
             FanCalibrationRequired: fanCalibrationRequired,
             KeyboardEffects: keyboardEffects,
-            BatteryChargeProtection: batteryProtection.Available && batteryProtection.Writable);
+            BatteryChargeProtection: batteryProtection.Available && batteryProtection.Writable,
+            BatteryCustomChargeThresholds: batteryProtection.Available && batteryProtection.Writable && batteryProtection.CustomThresholds);
         return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
     }
 
@@ -519,14 +524,36 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse SetBatteryChargeLimit(string? value)
     {
-        if (!int.TryParse(value, out int percent) || percent is not 80 and not 100)
-            return Error("Battery charge protection supports 80% Battery care or 100% Full charge only on this provider.");
+        string raw = value?.Trim() ?? string.Empty;
+        bool success;
+        string? detail;
 
-        if (!LenovoBatteryChargeProtectionService.TrySetLimit(_hardware.Identity, percent, out _, out string? detail))
+        if (raw.Equals("off", StringComparison.OrdinalIgnoreCase) || raw == "100")
+        {
+            success = LenovoBatteryChargeProtectionService.TryDisable(_hardware.Identity, out _, out detail);
+        }
+        else
+        {
+            string[] parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            // Compatibility for an unreleased early alpha.43 client that only knew
+            // an 80% ceiling: turn it into a conservative 75–80% hysteresis window.
+            if (parts.Length == 1 && int.TryParse(parts[0], out int legacyStop) && legacyStop == 80)
+                parts = ["75", "80"];
+
+            if (parts.Length != 2 || !int.TryParse(parts[0], out int start) || !int.TryParse(parts[1], out int stop) ||
+                !LenovoBatteryChargeProtectionService.TryValidatePair(start, stop, out string? validation))
+            {
+                return Error(validation ?? "Battery charge protection expects an ordered start,stop threshold pair or 'off'.");
+            }
+
+            success = LenovoBatteryChargeProtectionService.TrySetThresholds(_hardware.Identity, start, stop, out _, out detail);
+        }
+
+        if (!success)
             return Error(detail ?? "Battery charge protection rejected the request.");
 
         ResetBatteryProtectionCache();
-        ServiceLog.Write($"Battery charge limit changed to {percent}% through verified Lenovo charge-type semantics.");
+        ServiceLog.Write($"Battery charge protection changed through the verified Lenovo PM Device threshold contract: {detail}");
         return RefreshAndReturnStatus();
     }
 
