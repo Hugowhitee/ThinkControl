@@ -89,21 +89,23 @@
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
                     <Grid>
-                        <TextBlock Text="Charge protection" FontWeight="SemiBold" />
+                        <TextBlock Text="Battery preservation" FontWeight="SemiBold" />
                         <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                     </Grid>
-                    <TextBlock Text="Reduce time spent near full charge when you do not need every last percent of runtime." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock Text="Keep the battery away from a constantly full state when you do not need maximum unplugged runtime." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                     <ComboBox x:Name="ChargeProtectionComboBox"
                               Margin="0,10,0,0"
                               MinHeight="32"
                               IsEnabled="False"
                               SelectionChanged="ChargeProtection_SelectionChanged">
-                        <ComboBoxItem Content="Battery care · 80% (recommended)" Tag="80" />
-                        <ComboBoxItem Content="Full charge · 100%" Tag="100" />
+                        <ComboBoxItem Content="Daily · 75–85% (recommended)" Tag="75,85" />
+                        <ComboBoxItem Content="Desk · 55–80%" Tag="55,80" />
+                        <ComboBoxItem Content="Maximum care · 40–60%" Tag="40,60" />
+                        <ComboBoxItem Content="Full charge · 100%" Tag="off" />
                     </ComboBox>
                     <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active firmware setting…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                    <TextBlock x:Name="ChargeProtectionProviderText" Text="ThinkControl writes only a verified OEM charge-protection semantic and verifies the result by readback." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <Button x:Name="ChargeProtectionFallbackButton" Content="Battery settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="-7,7,0,0" Click="OpenVantage_Click" />
+                    <TextBlock x:Name="ChargeProtectionProviderText" Text="ThinkControl changes only a verified OEM threshold provider; it never estimates a battery-life multiplier." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <Button x:Name="ChargeProtectionFallbackButton" Content="Lenovo battery settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="-7,7,0,0" Click="OpenVantage_Click" />
                 </StackPanel>
             </Border>
         </Grid>
@@ -115,6 +117,13 @@
                     <TextBlock Text="Days stay compact. Open a day to see charge and usage sessions, then open a session for graphs and essential statistics." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
                 </StackPanel>
                 <StackPanel x:Name="RecentSessionItems" Margin="0,10,0,0" />
+                <Button x:Name="HistoryRangeButton"
+                        Content="Show older"
+                        Style="{StaticResource TcExternalSettingsLink}"
+                        HorizontalAlignment="Left"
+                        Margin="-7,4,0,0"
+                        Visibility="Collapsed"
+                        Click="HistoryRange_Click" />
 
                 <Expander Header="Manage history" Margin="0,9,0,0">
                     <StackPanel Margin="2,4,2,2">
