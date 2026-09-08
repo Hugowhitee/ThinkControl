@@ -1,4 +1,7 @@
-using System.Management;
+using Microsoft.Win32;
+using Microsoft.Win32.SafeHandles;
+using System.ComponentModel;
+using System.Runtime.InteropServices;
 using ThinkControl.Hardware.X9;
 
 namespace ThinkControl.Hardware.Lenovo;
@@ -6,103 +9,105 @@ namespace ThinkControl.Hardware.Lenovo;
 public sealed record LenovoBatteryChargeProtectionStatus(
     bool Available,
     bool Writable,
-    int LimitPercent,
-    bool CapabilityPresent,
-    uint Capability,
+    bool Enabled,
+    int StartPercent,
+    int StopPercent,
+    bool CustomThresholds,
+    string Provider,
     string Detail);
 
 /// <summary>
-/// Exact-X9 bridge for Lenovo Other Mode's PSU charge-type semantic.
+/// Exact-X9 bridge for Lenovo's Windows battery start/stop-threshold contract.
 ///
-/// Upstream Linux Lenovo WMI support documents PSU attribute 0x03010001 as the
-/// Standard/Long-Life charge type. Long-Life limits charging at 80%; Standard
-/// restores normal 100% charging. ThinkControl accepts only those two semantic
-/// states and never treats this as an arbitrary battery-threshold writer.
+/// The protocol is the same Lenovo PM Device/PWRMGRV path used by current Lenovo
+/// battery tooling: configuration lives under PWRMGRV and the existing Lenovo
+/// IBMPmDrv kernel interface receives semantic threshold/mode commands. ThinkControl
+/// exposes only bounded start/stop percentages; arbitrary IOCTLs never cross IPC.
 ///
-/// A product write requires the exact X9 21Q6/21Q7 identity, a present capability
-/// row advertising VALID+GET+SET, a live 0/1 read immediately before the write,
-/// and matching post-write readback. Missing/ambiguous capability remains read-only.
+/// This provider is initially restricted to the verified X9 21Q6/21Q7 identity and
+/// additionally requires the installed Lenovo PWRMGRV battery configuration plus a
+/// live \\.\IBMPmDrv device. Driver result bit 31 is treated as rejection. Registry
+/// state is re-read after every successful transition, and a failed transition makes
+/// a best-effort rollback to the exact state observed before the request.
 /// </summary>
 public static class LenovoBatteryChargeProtectionService
 {
-    private const string WmiNamespace = @"root\WMI";
-    private const string MethodClass = "LENOVO_OTHER_METHOD";
-    private const string CapabilityClass = "LENOVO_CAPABILITY_DATA_00";
-    private const uint ChargeTypeAttributeId = 0x03010001;
-    private const uint ChargeTypeStandard = 0;
-    private const uint ChargeTypeLongLife = 1;
-    private const uint SupportValid = 1u << 0;
-    private const uint SupportGet = 1u << 1;
-    private const uint SupportSet = 1u << 2;
-    private const uint RequiredWriteSupport = SupportValid | SupportGet | SupportSet;
+    private const string RegistryRoot = @"SOFTWARE\WOW6432Node\Lenovo\PWRMGRV\ConfKeys\Data";
+    private const string DriverPath = @"\\.\IBMPmDrv";
+
+    // Lenovo PM Device protocol. These are fixed, reviewed provider constants and
+    // are never supplied by the desktop client.
+    private const uint IoctlSetChargeMode = 0x0022261C;
+    private const uint IoctlSetStart = 0x00222630;
+    private const uint IoctlSetStop = 0x00222638;
+    private const uint PrimaryBattery = 0x00000100;
+    private const uint ThresholdMode = 0x00000101;
+    private const uint AutomaticMode = 0x00000000;
+    private const uint DriverRejected = 0x80000000;
+
+    // Product surface deliberately follows Lenovo/Vantage-style five-percent steps
+    // rather than exposing the driver's wider raw byte range.
+    public const int MinimumStartPercent = 40;
+    public const int MaximumStartPercent = 90;
+    public const int MinimumStopPercent = 45;
+    public const int MaximumStopPercent = 95;
+    public const int ThresholdStepPercent = 5;
+
+    private const uint GenericRead = 0x80000000;
+    private const uint GenericWrite = 0x40000000;
+    private const uint FileShareRead = 0x00000001;
+    private const uint FileShareWrite = 0x00000002;
+    private const uint OpenExisting = 3;
+    private const uint FileAttributeNormal = 0x00000080;
 
     public static LenovoBatteryChargeProtectionStatus Read(HardwareDeviceIdentity identity)
     {
         if (!identity.IsVerifiedX9)
-        {
-            return new LenovoBatteryChargeProtectionStatus(
-                false, false, 100, false, 0,
-                "Lenovo battery-care probing is restricted to the verified X9 21Q6/21Q7 profile.");
-        }
+            return Unavailable("Lenovo charge-threshold probing is restricted to the verified X9 21Q6/21Q7 profile.");
 
+        RegistryBatteryConfig? config;
         try
         {
-            (bool capabilityPresent, uint capability) = ReadCapability();
-            if (capabilityPresent && (capability & (SupportValid | SupportGet)) != (SupportValid | SupportGet))
-            {
-                return new LenovoBatteryChargeProtectionStatus(
-                    false, false, 100, true, capability,
-                    $"X9 firmware exposes 0x{ChargeTypeAttributeId:X8} without a valid readable contract (cap=0x{capability:X}).");
-            }
-
-            using ManagementObject? method = FindActiveMethodObject();
-            if (method is null)
-            {
-                return new LenovoBatteryChargeProtectionStatus(
-                    false, false, 100, capabilityPresent, capability,
-                    "LENOVO_OTHER_METHOD is unavailable while probing battery charge protection.");
-            }
-
-            if (!TryGetFeatureValue(method, ChargeTypeAttributeId, out uint raw) || raw > ChargeTypeLongLife)
-            {
-                return new LenovoBatteryChargeProtectionStatus(
-                    false, false, 100, capabilityPresent, capability,
-                    $"X9 charge-type feature 0x{ChargeTypeAttributeId:X8} did not return a valid Standard/Long-Life value.");
-            }
-
-            bool writable = capabilityPresent &&
-                            (capability & RequiredWriteSupport) == RequiredWriteSupport;
-            int limit = raw == ChargeTypeLongLife ? 80 : 100;
-            string contract = capabilityPresent
-                ? $"cap=0x{capability:X}"
-                : "live read only; capability row omitted";
-            return new LenovoBatteryChargeProtectionStatus(
-                true,
-                writable,
-                limit,
-                capabilityPresent,
-                capability,
-                $"Lenovo battery charge type = {(raw == ChargeTypeLongLife ? "Long Life (80%)" : "Standard (100%)")} · {contract}");
+            config = ReadRegistryConfig();
         }
         catch (Exception ex)
         {
-            return new LenovoBatteryChargeProtectionStatus(
-                false, false, 100, false, 0,
-                $"X9 battery-care probe failed safely: {DescribeManagementFailure(ex)}");
+            return Unavailable($"Lenovo PWRMGRV battery configuration could not be read: {Describe(ex)}");
         }
+
+        if (config is null)
+            return Unavailable("Lenovo PWRMGRV does not expose a battery start/stop-threshold configuration on this installation.");
+
+        bool enabled = IsEnabled(config);
+        int start = NormalizeStoredStart(config.StartPercent);
+        int stop = NormalizeStoredStop(config.StopPercent);
+        bool writable = CanOpenDriver(out string driverDetail);
+        string state = enabled
+            ? $"charging starts below {start}% and stops at {stop}%"
+            : "thresholds are disabled; normal full charging is active";
+        return new LenovoBatteryChargeProtectionStatus(
+            Available: true,
+            Writable: writable,
+            Enabled: enabled,
+            StartPercent: start,
+            StopPercent: enabled ? stop : 100,
+            CustomThresholds: true,
+            Provider: "Lenovo PM Device · charge thresholds",
+            Detail: $"Lenovo PWRMGRV · {state} · {driverDetail}");
     }
 
-    public static bool TrySetLimit(
+    public static bool TrySetThresholds(
         HardwareDeviceIdentity identity,
-        int limitPercent,
+        int startPercent,
+        int stopPercent,
         out bool changed,
         out string? detail)
     {
         changed = false;
         detail = null;
-        if (limitPercent is not 80 and not 100)
+        if (!TryValidatePair(startPercent, stopPercent, out string? validation))
         {
-            detail = "This Lenovo provider supports only 80% Battery care or 100% Full charge.";
+            detail = validation;
             return false;
         }
 
@@ -114,138 +119,270 @@ public static class LenovoBatteryChargeProtectionService
         }
         if (!status.Writable)
         {
-            detail = $"{status.Detail} · firmware does not advertise the required VALID+GET+SET write contract.";
+            detail = $"{status.Detail} · the installed Lenovo PM Device is not writable, so ThinkControl left charging unchanged.";
             return false;
         }
-        if (status.LimitPercent == limitPercent)
+        if (status.Enabled && status.StartPercent == startPercent && status.StopPercent == stopPercent)
         {
-            detail = $"Battery charge protection is already {limitPercent}%; no write was needed.";
+            detail = $"Battery thresholds are already {startPercent}–{stop}%.";
             return true;
         }
 
-        uint requested = limitPercent == 80 ? ChargeTypeLongLife : ChargeTypeStandard;
+        RegistryBatteryConfig? before = ReadRegistryConfig();
+        if (before is null)
+        {
+            detail = "The Lenovo battery configuration disappeared before the threshold transition.";
+            return false;
+        }
+
         try
         {
-            using ManagementObject? method = FindActiveMethodObject();
-            if (method is null)
-            {
-                detail = "LENOVO_OTHER_METHOD disappeared before the battery charge transition.";
-                return false;
-            }
+            WriteRegistryConfig(before.SubKeyName, startPercent, stopPercent, enabled: true);
+            if (!ApplyDriverThresholds(startPercent, stopPercent, enabled: true, out string? driverError))
+                throw new BatteryThresholdException(driverError ?? "Lenovo PM Device rejected the threshold transition.");
 
-            if (!TryGetFeatureValue(method, ChargeTypeAttributeId, out uint before) || before > ChargeTypeLongLife)
+            RegistryBatteryConfig? verified = ReadRegistryConfig(before.SubKeyName);
+            if (verified is null || !IsEnabled(verified) ||
+                NormalizeStoredStart(verified.StartPercent) != startPercent ||
+                NormalizeStoredStop(verified.StopPercent) != stopPercent)
             {
-                detail = "The X9 battery charge-type feature no longer returns a safe Standard/Long-Life value.";
-                return false;
-            }
-            if (before == requested)
-            {
-                detail = $"Battery charge protection is already {limitPercent}%; no write was needed.";
-                return true;
-            }
-
-            if (!TrySetFeatureValue(method, ChargeTypeAttributeId, requested, out string? setError))
-            {
-                detail = setError ?? "Lenovo firmware rejected the battery charge-type transition.";
-                return false;
-            }
-            if (!TryGetFeatureValue(method, ChargeTypeAttributeId, out uint verified) || verified != requested)
-            {
-                detail = $"Battery charge-type readback did not verify {limitPercent}%; ThinkControl is leaving the firmware-reported state unchanged.";
-                return false;
+                throw new BatteryThresholdException("Lenovo threshold registry readback did not match the requested pair.");
             }
 
             changed = true;
-            detail = $"Battery charge protection set to {limitPercent}% and verified by Lenovo firmware readback.";
+            detail = $"Battery charge window set to {startPercent}–{stopPercent}% · Lenovo PM Device accepted the transition and PWRMGRV readback verified the pair.";
+            BroadcastLenovoPowerSettingChange();
             return true;
         }
         catch (Exception ex)
         {
-            detail = $"Battery charge protection failed safely: {DescribeManagementFailure(ex)}";
+            RestorePreviousState(before);
+            detail = $"Battery threshold transition failed safely: {Describe(ex)}. The previous Lenovo charging configuration was requested again.";
             return false;
         }
     }
 
-    private static (bool Present, uint Capability) ReadCapability()
+    public static bool TryDisable(
+        HardwareDeviceIdentity identity,
+        out bool changed,
+        out string? detail)
     {
-        using var searcher = new ManagementObjectSearcher(WmiNamespace, $"SELECT IDs,Capability FROM {CapabilityClass}");
-        using ManagementObjectCollection collection = searcher.Get();
-        foreach (ManagementObject item in collection)
+        changed = false;
+        detail = null;
+        LenovoBatteryChargeProtectionStatus status = Read(identity);
+        if (!status.Available)
         {
-            using (item)
-            {
-                if (!TryUInt32(item["IDs"], out uint id) || id != ChargeTypeAttributeId)
-                    continue;
-                return TryUInt32(item["Capability"], out uint capability)
-                    ? (true, capability)
-                    : (true, 0u);
-            }
+            detail = status.Detail;
+            return false;
         }
-        return (false, 0u);
+        if (!status.Writable)
+        {
+            detail = $"{status.Detail} · the installed Lenovo PM Device is not writable, so ThinkControl left charging unchanged.";
+            return false;
+        }
+        if (!status.Enabled)
+        {
+            detail = "Battery thresholds are already disabled; normal full charging remains active.";
+            return true;
+        }
+
+        RegistryBatteryConfig? before = ReadRegistryConfig();
+        if (before is null)
+        {
+            detail = "The Lenovo battery configuration disappeared before the threshold release.";
+            return false;
+        }
+
+        try
+        {
+            // Keep the stored percentages so enabling protection later can recover the
+            // previous pair, but clear both control flags. At the driver level Lenovo
+            // requires both latched thresholds to be cleared before Automatic mode.
+            WriteRegistryConfig(before.SubKeyName, before.StartPercent, before.StopPercent, enabled: false);
+            if (!ApplyDriverThresholds(0, 0, enabled: false, out string? driverError))
+                throw new BatteryThresholdException(driverError ?? "Lenovo PM Device rejected the return to automatic charging.");
+
+            RegistryBatteryConfig? verified = ReadRegistryConfig(before.SubKeyName);
+            if (verified is null || IsEnabled(verified))
+                throw new BatteryThresholdException("Lenovo threshold registry readback still reports an enabled threshold after release.");
+
+            changed = true;
+            detail = "Battery charge thresholds disabled · Lenovo PM Device returned to automatic/full charging and PWRMGRV readback verified the release.";
+            BroadcastLenovoPowerSettingChange();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            RestorePreviousState(before);
+            detail = $"Battery threshold release failed safely: {Describe(ex)}. The previous Lenovo charging configuration was requested again.";
+            return false;
+        }
     }
 
-    private static ManagementObject? FindActiveMethodObject()
+    public static bool TryValidatePair(int startPercent, int stopPercent, out string? error)
     {
-        using var searcher = new ManagementObjectSearcher(WmiNamespace, $"SELECT * FROM {MethodClass}");
-        using ManagementObjectCollection collection = searcher.Get();
-        foreach (ManagementObject item in collection)
+        error = null;
+        if (startPercent < MinimumStartPercent || startPercent > MaximumStartPercent ||
+            stopPercent < MinimumStopPercent || stopPercent > MaximumStopPercent)
         {
-            bool active = item["Active"] is not bool value || value;
-            if (active)
-                return item;
-            item.Dispose();
+            error = $"Battery thresholds must stay within {MinimumStartPercent}–{MaximumStartPercent}% start and {MinimumStopPercent}–{MaximumStopPercent}% stop.";
+            return false;
+        }
+        if (startPercent % ThresholdStepPercent != 0 || stopPercent % ThresholdStepPercent != 0)
+        {
+            error = $"Battery thresholds use {ThresholdStepPercent}% steps, matching the Lenovo control surface.";
+            return false;
+        }
+        if (startPercent >= stopPercent)
+        {
+            error = "The charge-start threshold must be lower than the charge-stop threshold.";
+            return false;
+        }
+        return true;
+    }
+
+    private static bool ApplyDriverThresholds(int startPercent, int stopPercent, bool enabled, out string? error)
+    {
+        error = null;
+        using SafeFileHandle handle = OpenDriver();
+        if (handle.IsInvalid)
+        {
+            error = $"\\.\\IBMPmDrv could not be opened ({Marshal.GetLastWin32Error()}).";
+            return false;
+        }
+
+        if (!enabled)
+        {
+            // The embedded controller can retain the old stop threshold if Automatic
+            // mode is selected first. Clear both latches before handing ownership back.
+            return SendDriverCommand(handle, IoctlSetStop, PrimaryBattery, 0, out error) &&
+                   SendDriverCommand(handle, IoctlSetStart, PrimaryBattery, 0, out error) &&
+                   SendDriverCommand(handle, IoctlSetChargeMode, AutomaticMode, 0, out error);
+        }
+
+        return SendDriverCommand(handle, IoctlSetChargeMode, ThresholdMode, 0, out error) &&
+               SendDriverCommand(handle, IoctlSetStop, PrimaryBattery | (uint)stopPercent, stopPercent, out error) &&
+               SendDriverCommand(handle, IoctlSetStart, PrimaryBattery | (uint)startPercent, startPercent, out error);
+    }
+
+    private static bool SendDriverCommand(
+        SafeFileHandle handle,
+        uint ioctl,
+        uint payload,
+        int semanticPercent,
+        out string? error)
+    {
+        error = null;
+        uint input = payload;
+        uint result = 0;
+        bool ok = DeviceIoControl(
+            handle,
+            ioctl,
+            ref input,
+            sizeof(uint),
+            ref result,
+            sizeof(uint),
+            out uint bytesReturned,
+            IntPtr.Zero);
+        if (!ok)
+        {
+            error = $"Lenovo PM Device IOCTL 0x{ioctl:X8} failed with Win32 {Marshal.GetLastWin32Error()}.";
+            return false;
+        }
+        if (bytesReturned >= sizeof(uint) && (result & DriverRejected) != 0)
+        {
+            string semantic = semanticPercent > 0 ? $" ({semanticPercent}%)" : string.Empty;
+            error = $"Lenovo PM Device rejected IOCTL 0x{ioctl:X8}{semantic}.";
+            return false;
+        }
+        return true;
+    }
+
+    private static RegistryBatteryConfig? ReadRegistryConfig(string? preferredSubKey = null)
+    {
+        using RegistryKey? root = Registry.LocalMachine.OpenSubKey(RegistryRoot, writable: false);
+        if (root is null)
+            return null;
+
+        IEnumerable<string> names = preferredSubKey is null
+            ? root.GetSubKeyNames()
+            : [preferredSubKey];
+        foreach (string name in names)
+        {
+            using RegistryKey? battery = root.OpenSubKey(name, writable: false);
+            if (battery is null || !TryReadDword(battery, "ChargeStartPercentage", out int start))
+                continue;
+            if (!TryReadDword(battery, "ChargeStopPercentage", out int stop))
+                continue;
+            _ = TryReadDword(battery, "ChargeStartControl", out int startControl);
+            _ = TryReadDword(battery, "ChargeStopControl", out int stopControl);
+            return new RegistryBatteryConfig(name, start, stop, startControl, stopControl);
         }
         return null;
     }
 
-    private static bool TryGetFeatureValue(ManagementObject method, uint attributeId, out uint value)
+    private static void WriteRegistryConfig(string subKeyName, int start, int stop, bool enabled)
+    {
+        using RegistryKey? root = Registry.LocalMachine.OpenSubKey(RegistryRoot, writable: true)
+            ?? throw new BatteryThresholdException("Lenovo PWRMGRV configuration is not writable.");
+        using RegistryKey? battery = root.OpenSubKey(subKeyName, writable: true)
+            ?? throw new BatteryThresholdException("The Lenovo battery configuration key is no longer writable.");
+        battery.SetValue("ChargeStartPercentage", start, RegistryValueKind.DWord);
+        battery.SetValue("ChargeStopPercentage", stop, RegistryValueKind.DWord);
+        battery.SetValue("ChargeStartControl", enabled ? 1 : 0, RegistryValueKind.DWord);
+        battery.SetValue("ChargeStopControl", enabled ? 1 : 0, RegistryValueKind.DWord);
+    }
+
+    private static void RestorePreviousState(RegistryBatteryConfig before)
+    {
+        try
+        {
+            WriteRegistryConfig(before.SubKeyName, before.StartPercent, before.StopPercent, IsEnabled(before));
+            _ = ApplyDriverThresholds(
+                NormalizeStoredStart(before.StartPercent),
+                NormalizeStoredStop(before.StopPercent),
+                IsEnabled(before),
+                out _);
+            BroadcastLenovoPowerSettingChange();
+        }
+        catch
+        {
+            // Recovery is best effort. The caller reports the failed transition and
+            // never claims the requested state became active.
+        }
+    }
+
+    private static bool CanOpenDriver(out string detail)
+    {
+        using SafeFileHandle handle = OpenDriver();
+        if (!handle.IsInvalid)
+        {
+            detail = "IBMPmDrv ready";
+            return true;
+        }
+        int error = Marshal.GetLastWin32Error();
+        detail = $"IBMPmDrv unavailable (Win32 {error})";
+        return false;
+    }
+
+    private static SafeFileHandle OpenDriver() => CreateFileW(
+        DriverPath,
+        GenericRead | GenericWrite,
+        FileShareRead | FileShareWrite,
+        IntPtr.Zero,
+        OpenExisting,
+        FileAttributeNormal,
+        IntPtr.Zero);
+
+    private static bool TryReadDword(RegistryKey key, string name, out int value)
     {
         value = 0;
+        object? raw = key.GetValue(name);
         try
         {
-            using ManagementBaseObject input = method.GetMethodParameters("GetFeatureValue");
-            input["IDs"] = attributeId;
-            using ManagementBaseObject? output = method.InvokeMethod("GetFeatureValue", input, null);
-            return output is not null && TryUInt32(output["value"], out value);
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool TrySetFeatureValue(ManagementObject method, uint attributeId, uint value, out string? error)
-    {
-        error = null;
-        try
-        {
-            using ManagementBaseObject input = method.GetMethodParameters("SetFeatureValue");
-            input["IDs"] = attributeId;
-            input["value"] = value;
-            using ManagementBaseObject? output = method.InvokeMethod("SetFeatureValue", input, null);
-            if (output?.Properties["ReturnValue"]?.Value is object statusValue &&
-                TryUInt32(statusValue, out uint status) && status is not 0 and not 1)
-            {
-                error = $"OEM method returned status {status}.";
+            if (raw is null)
                 return false;
-            }
-            return true;
-        }
-        catch (Exception ex)
-        {
-            error = ex.GetType().Name;
-            return false;
-        }
-    }
-
-    private static bool TryUInt32(object? value, out uint result)
-    {
-        result = 0;
-        try
-        {
-            if (value is null)
-                return false;
-            result = Convert.ToUInt32(value);
+            value = Convert.ToInt32(raw);
             return true;
         }
         catch
@@ -254,7 +391,79 @@ public static class LenovoBatteryChargeProtectionService
         }
     }
 
-    private static string DescribeManagementFailure(Exception ex) => ex is ManagementException management
-        ? $"{ex.GetType().Name}/{management.ErrorCode}"
-        : ex.GetType().Name;
+    private static bool IsEnabled(RegistryBatteryConfig config) =>
+        config.StartControl != 0 && config.StopControl != 0 &&
+        config.StartPercent < config.StopPercent && config.StopPercent < 100;
+
+    private static int NormalizeStoredStart(int value) =>
+        value is >= MinimumStartPercent and <= MaximumStartPercent ? value : 75;
+
+    private static int NormalizeStoredStop(int value) =>
+        value is >= MinimumStopPercent and <= MaximumStopPercent ? value : 85;
+
+    private static LenovoBatteryChargeProtectionStatus Unavailable(string detail) => new(
+        false, false, false, 75, 100, true,
+        "Lenovo PM Device · charge thresholds", detail);
+
+    private static string Describe(Exception ex) => ex is BatteryThresholdException
+        ? ex.Message
+        : ex is Win32Exception win32
+            ? $"{win32.GetType().Name}/{win32.NativeErrorCode}"
+            : ex.GetType().Name;
+
+    private static void BroadcastLenovoPowerSettingChange()
+    {
+        const uint WmSettingChange = 0x001A;
+        const uint SmtoAbortIfHung = 0x0002;
+        IntPtr hwndBroadcast = new(0xFFFF);
+        _ = SendMessageTimeoutW(
+            hwndBroadcast,
+            WmSettingChange,
+            UIntPtr.Zero,
+            "SOFTWARE\\Lenovo\\PWRMGRV",
+            SmtoAbortIfHung,
+            250,
+            out _);
+    }
+
+    private sealed record RegistryBatteryConfig(
+        string SubKeyName,
+        int StartPercent,
+        int StopPercent,
+        int StartControl,
+        int StopControl);
+
+    private sealed class BatteryThresholdException(string message) : Exception(message);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFileW(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        IntPtr lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        IntPtr hTemplateFile);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool DeviceIoControl(
+        SafeFileHandle hDevice,
+        uint dwIoControlCode,
+        ref uint lpInBuffer,
+        int nInBufferSize,
+        ref uint lpOutBuffer,
+        int nOutBufferSize,
+        out uint lpBytesReturned,
+        IntPtr lpOverlapped);
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern IntPtr SendMessageTimeoutW(
+        IntPtr hWnd,
+        uint Msg,
+        UIntPtr wParam,
+        string lParam,
+        uint fuFlags,
+        uint uTimeout,
+        out UIntPtr lpdwResult);
 }
