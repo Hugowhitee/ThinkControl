@@ -15,13 +15,14 @@ Keep these concepts separate:
 - writable per-fan target;
 - discrete EC fan states;
 - percentage/PWM fan control;
+- **OEM battery charge-threshold semantic**;
 - keyboard hardware control;
 - haptic touchpad control;
 - Precision Touchpad input only.
 
 The UI may show a low-level control only when the active provider exposes the matching capability and required validation state. Raw EC wording must not appear for a generic provider, and Lenovo-specific wording must not appear merely because SMBIOS says Lenovo.
 
-A verified firmware thermal-policy capability is **not** the same capability as direct fan output. Likewise, a verified boolean full-speed semantic is not permission to expose arbitrary feature IDs, manual percentages, custom RPM curves or raw EC states.
+A verified firmware thermal-policy capability is **not** the same capability as direct fan output. Likewise, a verified boolean full-speed semantic is not permission to expose arbitrary feature IDs, manual percentages, custom RPM curves or raw EC states. A verified battery-threshold provider is not permission to expose a generic raw IOCTL or arbitrary driver byte range.
 
 ### Unknown hardware is read-only first
 
@@ -31,7 +32,7 @@ One independent machine is not enough evidence to promote risky write behavior b
 
 ### No generic raw-write interface
 
-The desktop UI and public IPC expose semantic operations only. They do not accept arbitrary EC registers, port I/O, ACPI methods, IOCTL payloads, Lenovo feature IDs or OEM command IDs.
+The desktop UI and public IPC expose semantic operations only. They do not accept arbitrary EC registers, port I/O, ACPI methods, IOCTL payloads, Lenovo feature IDs, driver paths or OEM command IDs.
 
 Remote metadata/diagnostics can select or score known provider/profile candidates but cannot inject executable low-level writes. New write contracts ship as reviewed provider code.
 
@@ -45,13 +46,12 @@ The WPF app remains an ordinary user process. Privileged hardware ownership belo
 - Firmware thermal-policy profiles leave OEM firmware in the closed-loop fan controller.
 - A narrow full-speed override may be owned only if ThinkControl itself successfully changes and verifies that exact known state.
 - Lower firmware profiles and Auto must release ThinkControl-owned full speed before claiming the lower state is active.
-- A stored fan preference is not treated as applied hardware state; the runtime/service state remains the UI source of truth until restoration succeeds.
-- AC/DC and resume reassertion may reuse the already-reviewed semantic Quiet/Balanced/Performance provider because Lenovo's verified commands are source-specific. Reassertion must not broaden the command set or introduce a new direct writer.
-- Startup convergence is bounded to one delayed reassert after the initial successful restore; ThinkControl must not continuously hammer firmware merely to keep an in-memory label true.
-- Closing the normal-user UI does not clear a service-owned firmware profile. Direct/manual output remains a separate safety class and is returned to Auto when the UI exits.
+- A stored fan preference is not treated as applied hardware state; runtime/service state remains the UI source of truth until restoration succeeds.
+- AC/DC and resume reassertion reuse only already-reviewed semantic Quiet/Balanced/Performance paths.
+- Startup convergence is bounded to one delayed reassert after initial successful restore; ThinkControl does not continuously hammer firmware.
+- Closing the normal-user UI does not clear a service-owned firmware profile. Direct/manual output remains a separate safety class and is returned to Auto when appropriate.
 - Normal service shutdown remains the privileged ownership boundary that releases ThinkControl-owned firmware/full-speed/direct state where possible.
 - Manual direct-output tests are temporary and bounded.
-- `End test`, timeout, provider failure and service shutdown restore prior ownership/profile where possible; firmware Auto is the fallback.
 - Telemetry refresh never creates fan-control writes.
 - Unchanged low-level fan states are not continuously rewritten.
 - Missing control temperature/provider state returns supervised direct cooling to firmware ownership.
@@ -71,7 +71,7 @@ The current physically reviewed low-level reference is ThinkPad X9-15 Gen 1 mach
 
 ### Normal product cooling path
 
-Alpha.42 keeps **Auto / Quiet / Balanced / Max cooling** useful without re-authorizing the rejected per-fan writer:
+Alpha.43 keeps **Auto / Quiet / Balanced / Max cooling** useful without re-authorizing the rejected per-fan writer:
 
 ```text
 Auto         -> release ThinkControl-owned full speed if any; restore latest Lenovo power-policy baseline
@@ -80,7 +80,37 @@ Balanced     -> release ThinkControl-owned full speed; Lenovo Balanced policy
 Max cooling  -> Lenovo Performance policy + verified global full-speed boolean when safely exposed
 ```
 
-The service performs exact-X9 identity checks before translating semantic policy into the reviewed Lenovo LITSSvc contract. The desktop UI never supplies raw Lenovo command IDs. Alpha.42 only reuses those same reviewed semantic transitions when startup, AC/DC or resume requires the active profile to be reasserted.
+The service performs exact-X9 identity checks before translating semantic policy into the reviewed Lenovo LITSSvc contract. The desktop UI never supplies raw Lenovo command IDs. Alpha.43 carries forward the bounded startup, AC/DC and resume reassertion added in alpha.42.
+
+### Battery charge-threshold provider
+
+Alpha.43 adds a separate exact-X9 battery-preservation provider around Lenovo's installed Windows Power Manager stack. It does **not** reuse the Lenovo Other Mode fan/charge-type interface and does not guess an EC register.
+
+The provider requires Lenovo's PWRMGRV battery configuration plus a live Lenovo PM kernel device:
+
+```text
+HKLM\SOFTWARE\WOW6432Node\Lenovo\PWRMGRV\ConfKeys\Data\<battery>
+\\.\IBMPmDrv
+```
+
+Only the reviewed fixed Lenovo PM Device operations are compiled into provider code: select threshold/automatic charge mode, set start threshold, and set stop threshold. The normal-user client never receives those IOCTL constants or supplies a raw payload.
+
+A write is allowed only when all product gates pass:
+
+- exact verified X9 identity (`21Q6/21Q7`);
+- a real PWRMGRV battery configuration with start/stop values and control flags;
+- the privileged service can open `\\.\IBMPmDrv` read/write;
+- start is `40..90`, stop is `45..95`, both are 5% steps and `start < stop`;
+- every fixed driver command returns success and not Lenovo rejection bit `0x80000000`;
+- PWRMGRV readback matches the requested pair/control state after the transition.
+
+ThinkControl snapshots the previous Lenovo configuration before a transition. A failure requests the exact previous registry/driver state again. Disabling preservation clears both threshold latches before selecting automatic/full charging so a stale ceiling is not left behind.
+
+ThinkControl does **not** alter the Lenovo driver service startup type. If the PM device/configuration is missing or inaccessible, the product remains read-only/fallback-only instead of trying another Lenovo EC/ACPI path.
+
+The UI exposes named charge windows rather than the raw supported byte range. Existing non-preset Lenovo thresholds are shown truthfully as Custom and are not overwritten until the user makes an explicit selection. Battery-preservation UI must not claim a fabricated wear multiplier or “x fewer cycles”; actual wear depends on chemistry, temperature, calendar time and depth of discharge.
+
+See `docs/research/x9-alpha43-battery-care.md` for the protocol evidence and product gate.
 
 ### Global full-speed semantic
 
@@ -108,7 +138,7 @@ The alpha.38 Lenovo Other Mode `fanX_target` writer remains **physically rejecte
 
 Read-side native dual-fan telemetry remains useful. Target `0` on the rejected per-fan path is retained only to release stale previously owned state. Once native two-fan evidence is established, transient telemetry loss must not silently re-authorize the known-inferior EC writer.
 
-The classic ThinkPad EC family remains research/diagnostic evidence rather than the normal alpha.42 X9 cooling backend:
+The classic ThinkPad EC family remains research/diagnostic evidence rather than the normal alpha.43 X9 cooling backend:
 
 ```text
 Lenovo/OEM Auto   0x80
@@ -121,14 +151,22 @@ A percentage may be shown only if an active physically accepted direct provider 
 
 ### Readback and transport discipline
 
+- Battery-threshold changes require PWRMGRV state, a live Lenovo PM Device, bounded semantic values and post-transition registry verification; failure triggers best-effort rollback.
 - Full-speed writes require the exact feature's live read and post-write readback.
 - Direct manual writes and return-to-Auto require their provider's readback/recovery contract.
 - Supported keyboard writes require provider/readback validation.
 - Low-level transport uses bounded waits and failure recovery rather than high-frequency blind polling.
 - X9 tachometer access remains conservative because aggressive EC polling can disturb fan behavior.
+- Battery charge-protection status is cached between bounded service probes rather than becoming a new high-frequency driver/registry loop.
 - Firmware policy is sent as semantic transitions; ThinkControl does not fight Lenovo's closed loop by continuously rewriting fixed targets.
 - The one startup settle reassert is bounded and generation-guarded so a stale saved choice cannot overwrite a newer user selection.
 - Reported RPM is telemetry, not proof that airflow/cooling intensity equals Lenovo's strongest physical state.
+
+## Battery history safety
+
+Battery history is local product data, not firmware state. Detailed samples are automatically compacted while long-lived summaries remain available. A user retention change may reduce detailed graph retention but must not silently erase summary history merely to shorten the page.
+
+The normal Battery page shows only seven days by default and can expand to fourteen without changing storage policy. Destructive history reset lives behind **Manage history**, separate from routine viewing/retention controls. The warning states that reset also clears ThinkControl's learned charge/discharge priors and local health trend, while current firmware battery health, firmware cycle count and OEM charge-threshold state are unaffected.
 
 ## Diagnostics and device learning
 
@@ -142,6 +180,6 @@ Device-learning states are conceptually `Observed → Candidate → Verified →
 
 A green compiler, snapshot or hosted CI runner is not physical hardware verification. Hardware-write claims require appropriate real-device evidence in addition to software gates.
 
-For alpha.42, automated validation can prove the exact-ID/value/readback/ownership architecture, startup/source reassert path and fail-closed behavior. It cannot prove that Quiet/Balanced/Max physically remain correct across reboot, AC/DC and resume on the user's X9. Those remain separate real-device evidence items and must not be converted into hosted-CI claims.
+For alpha.43, automated validation can prove the battery provider's identity/range/constant/rollback architecture, fan ownership architecture, session Audio Safety, startup behavior, build and deterministic UI. It cannot prove that the reference X9 physically starts and stops charging at a selected threshold pair, nor can it prove real fan/acoustic behavior. Those remain separate physical evidence items and must not be converted into hosted-CI claims.
 
 Before release promotion, follow [Release readiness](RELEASE_READINESS.md) and [Alpha testing](ALPHA-TESTING.md). Do not weaken safety or backwards-compatibility contracts merely to make the implementation simpler.

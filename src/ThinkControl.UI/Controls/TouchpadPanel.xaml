@@ -70,6 +70,10 @@
                             </ComboBox.ItemTemplate>
                         </ComboBox>
                         <TextBlock x:Name="ActionHelpText" Style="{StaticResource TouchpadLabel}" TextWrapping="Wrap" Margin="1,0,1,12" />
+                        <Grid x:Name="TrackPlayPauseRow" Visibility="Collapsed" Margin="0,0,0,12">
+                            <TextBlock Text="Play / Pause" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
+                            <CheckBox x:Name="TrackPlayPauseSwitch" HorizontalAlignment="Right" Style="{StaticResource TcSwitch}" Click="TrackPlayPauseSwitch_Click" />
+                        </Grid>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="76" /></Grid.ColumnDefinitions>
                             <TextBlock Text="Sensitivity" Style="{StaticResource TouchpadLabel}" />

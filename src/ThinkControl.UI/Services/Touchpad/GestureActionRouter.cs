@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using ThinkControl.Core.Audio;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Services.Touchpad;
@@ -11,6 +12,8 @@ internal sealed class GestureActionRouter
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
     private readonly Func<TouchpadGestureConfiguration> _getConfiguration;
+    private readonly Func<AudioSafetyMode> _getAudioSafetyMode;
+    private readonly Action<AudioSafetyMode> _showAudioSafetyBlocked;
     private readonly Func<int> _getVolume;
     private readonly Action<int> _queueVolume;
     private readonly Func<int> _getBrightness;
@@ -34,11 +37,14 @@ internal sealed class GestureActionRouter
     private double? _trackStartPosition01;
     private bool _trackStayedCandidate;
     private long _trackGestureStarted;
+    private bool _audioSafetySuppressedGesture;
 
     internal GestureActionRouter(
         NativeInputService nativeInput,
         MediaSessionService media,
         Func<TouchpadGestureConfiguration> getConfiguration,
+        Func<AudioSafetyMode> getAudioSafetyMode,
+        Action<AudioSafetyMode> showAudioSafetyBlocked,
         Func<int> getVolume,
         Action<int> queueVolume,
         Func<int> getBrightness,
@@ -53,6 +59,8 @@ internal sealed class GestureActionRouter
         _nativeInput = nativeInput;
         _media = media;
         _getConfiguration = getConfiguration;
+        _getAudioSafetyMode = getAudioSafetyMode;
+        _showAudioSafetyBlocked = showAudioSafetyBlocked;
         _getVolume = getVolume;
         _queueVolume = queueVolume;
         _getBrightness = getBrightness;
@@ -69,6 +77,12 @@ internal sealed class GestureActionRouter
 
     internal void Handle(GestureSignal signal)
     {
+        if (IsAudioSafetyAction(signal.Action) && AudioSafetyPolicy.BlocksTouchpadAudio(_getAudioSafetyMode()))
+        {
+            SuppressAudioGesture(signal);
+            return;
+        }
+
         switch (signal.Phase)
         {
             case GesturePhase.Candidate:
@@ -88,6 +102,25 @@ internal sealed class GestureActionRouter
                 break;
         }
     }
+
+    private void SuppressAudioGesture(GestureSignal signal)
+    {
+        if (!_audioSafetySuppressedGesture)
+        {
+            _audioSafetySuppressedGesture = true;
+            End(signal.Action);
+            _showAudioSafetyBlocked(_getAudioSafetyMode());
+        }
+
+        if (signal.Phase is GesturePhase.Released or GesturePhase.Cancelled)
+            _audioSafetySuppressedGesture = false;
+    }
+
+    private static bool IsAudioSafetyAction(GestureActionKind action) => action is
+        GestureActionKind.Volume or
+        GestureActionKind.MediaSeek or
+        GestureActionKind.PreviousNextTrack or
+        GestureActionKind.PlayPause;
 
     private void ObserveCandidate(GestureSignal signal)
     {
@@ -232,10 +265,13 @@ internal sealed class GestureActionRouter
 
     private async Task SkipTrackReliablyAsync(bool next)
     {
+        if (AudioSafetyPolicy.BlocksTouchpadAudio(_getAudioSafetyMode()))
+            return;
+
         bool handled = next
             ? await _media.TrySkipNextAsync().ConfigureAwait(false)
             : await _media.TrySkipPreviousAsync().ConfigureAwait(false);
-        if (handled)
+        if (handled || AudioSafetyPolicy.BlocksTouchpadAudio(_getAudioSafetyMode()))
             return;
 
         _ = next ? _nativeInput.NextTrack() : _nativeInput.PreviousTrack();
@@ -243,7 +279,12 @@ internal sealed class GestureActionRouter
 
     private async Task TogglePlayPauseReliablyAsync()
     {
+        if (AudioSafetyPolicy.BlocksTouchpadAudio(_getAudioSafetyMode()))
+            return;
+
         MediaToggleResult result = await _media.TryTogglePlayPauseAsync().ConfigureAwait(false);
+        if (AudioSafetyPolicy.BlocksTouchpadAudio(_getAudioSafetyMode()))
+            return;
         if (result == MediaToggleResult.Unavailable && _nativeInput.TogglePlayPause())
             result = MediaToggleResult.Toggled;
 
@@ -306,8 +347,10 @@ internal sealed class GestureActionRouter
     {
         try
         {
+            if (AudioSafetyPolicy.BlocksTouchpadAudio(_getAudioSafetyMode()))
+                return;
             Task<bool>? begin = _mediaBeginTask;
-            if (begin is null || !await begin.ConfigureAwait(false))
+            if (begin is null || !await begin.ConfigureAwait(false) || AudioSafetyPolicy.BlocksTouchpadAudio(_getAudioSafetyMode()))
                 return;
             _media.QueueSeekDelta(deltaSeconds);
         }

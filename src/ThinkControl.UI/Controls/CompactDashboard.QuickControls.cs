@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using ThinkControl.Core.Audio;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
@@ -25,12 +26,16 @@ public partial class CompactDashboard
             CompactFanCombo.ItemsSource = BuildFanOptions();
             CompactRefreshCombo.ItemsSource = BuildRefreshOptions();
             CompactKeyboardCombo.ItemsSource = new[] { "Off", "Low", "High", "Auto" };
+            CompactAudioSafetyCombo.ItemsSource = new[] { "Normal", "Media lock", "Silent" };
         }
         finally
         {
             _syncingQuickControls = false;
         }
     }
+
+    private void AudioSafety_ModeChanged(AudioSafetyMode mode) =>
+        Dispatcher.BeginInvoke(new Action(SyncQuickControls));
 
     private IReadOnlyList<string> BuildFanOptions()
     {
@@ -90,6 +95,8 @@ public partial class CompactDashboard
                 : _app.State.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase) ? "Low"
                 : _app.State.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase) ? "High"
                 : null;
+
+            CompactAudioSafetyCombo.SelectedItem = AudioSafetyPolicy.DisplayName(_app.AudioSafety.Mode);
         }
         finally
         {
@@ -159,6 +166,30 @@ public partial class CompactDashboard
         }
     }
 
+    private async void CompactAudioSafety_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncingQuickControls || _app is null || CompactAudioSafetyCombo.SelectedItem is not string raw)
+            return;
+
+        AudioSafetyMode mode = raw switch
+        {
+            "Media lock" => AudioSafetyMode.MediaLock,
+            "Silent" => AudioSafetyMode.Silent,
+            _ => AudioSafetyMode.Normal
+        };
+
+        CompactAudioSafetyCombo.IsEnabled = false;
+        try
+        {
+            await _app.SetAudioSafetyModeAsync(mode);
+        }
+        finally
+        {
+            CompactAudioSafetyCombo.IsEnabled = true;
+            SyncQuickControls();
+        }
+    }
+
     private async void CompactKeyboard_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingQuickControls || _app is null || CompactKeyboardCombo.SelectedItem is not string raw)
@@ -196,23 +227,30 @@ public partial class CompactDashboard
 
     private void CommitCompactVolume()
     {
-        if (_compactVolume.Set((int)Math.Round(CompactVolumeSlider.Value), out int applied))
+        if (_app is null)
+            return;
+        if (_app.AudioSafety.TrySetOutputVolume((int)Math.Round(CompactVolumeSlider.Value), out int applied))
         {
             CompactVolumeSlider.Value = applied;
             CompactVolumeText.Text = $"{applied}%";
+        }
+        else
+        {
+            RefreshCompactVolume();
         }
     }
 
     private void RefreshCompactVolume()
     {
-        WindowsVolumeStatus status = _compactVolume.Read();
-        CompactVolumeSlider.IsEnabled = status.Available;
+        WindowsVolumeStatus status = _app?.AudioSafety.ReadOutput() ?? _compactVolume.Read();
+        bool silent = _app?.AudioSafety.Mode == AudioSafetyMode.Silent;
+        CompactVolumeSlider.IsEnabled = status.Available && !silent;
         if (!status.Available)
         {
-            CompactVolumeText.Text = "—";
+            CompactVolumeText.Text = silent ? "Silent" : "—";
             return;
         }
         CompactVolumeSlider.Value = status.Percent;
-        CompactVolumeText.Text = status.Muted ? "Muted" : $"{status.Percent}%";
+        CompactVolumeText.Text = silent ? "Silent" : status.Muted ? "Muted" : $"{status.Percent}%";
     }
 }

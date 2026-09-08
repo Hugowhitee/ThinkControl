@@ -1,4 +1,5 @@
 using NAudio.CoreAudioApi;
+using ThinkControl.Core.Audio;
 
 namespace ThinkControl.UI.Services;
 
@@ -6,13 +7,19 @@ internal sealed record WindowsVolumeStatus(bool Available, int Percent, bool Mut
 
 internal sealed class WindowsVolumeService
 {
-    internal WindowsVolumeStatus Read(DataFlow flow = DataFlow.Render)
+    internal WindowsVolumeStatus Read(DataFlow flow = DataFlow.Render, bool respectAudioSafety = true)
     {
         try
         {
             using var enumerator = new MMDeviceEnumerator();
             using MMDevice device = enumerator.GetDefaultAudioEndpoint(flow, Role.Multimedia);
             int percent = (int)Math.Round(device.AudioEndpointVolume.MasterVolumeLevelScalar * 100);
+            if (flow == DataFlow.Render && respectAudioSafety &&
+                AudioSafetyPolicy.BlocksExplicitOutputChanges(AudioSafetyRuntimeState.Mode))
+            {
+                return new(false, Math.Clamp(percent, 0, 100), true,
+                    $"Silent · output locked by Audio safety · {device.FriendlyName}");
+            }
             return new(true, Math.Clamp(percent, 0, 100), device.AudioEndpointVolume.Mute, device.FriendlyName);
         }
         catch (Exception ex)
@@ -24,6 +31,12 @@ internal sealed class WindowsVolumeService
     internal bool Set(int percent, out int applied, DataFlow flow = DataFlow.Render)
     {
         applied = Math.Clamp(percent, 0, 100);
+        if (flow == DataFlow.Render &&
+            AudioSafetyPolicy.BlocksExplicitOutputChanges(AudioSafetyRuntimeState.Mode))
+        {
+            return false;
+        }
+
         try
         {
             using var enumerator = new MMDeviceEnumerator();
@@ -43,6 +56,12 @@ internal sealed class WindowsVolumeService
 
     internal bool SetMuted(bool muted, DataFlow flow = DataFlow.Render)
     {
+        if (flow == DataFlow.Render &&
+            AudioSafetyPolicy.BlocksExplicitOutputChanges(AudioSafetyRuntimeState.Mode))
+        {
+            return false;
+        }
+
         try
         {
             using var enumerator = new MMDeviceEnumerator();

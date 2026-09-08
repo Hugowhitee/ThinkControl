@@ -2,7 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current prerelease candidate: `v0.1.0-alpha.42`.
+Current prerelease candidate: `v0.1.0-alpha.43`.  
+Last immutable published baseline: `v0.1.0-alpha.42`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -23,6 +24,7 @@ The reference device is **not** the product boundary. Windows-safe features shou
 11. Keep Windows startup useful before rich hardware discovery finishes: tray ownership and enabled background gestures must not depend on slow WMI or a visible WPF window activation.
 12. Treat one visible interaction as one product affordance: do not expose duplicate settings/actions for the same Touchpad behavior.
 13. Keep startup-critical user-session infrastructure ahead of optional discovery/polish work; helper-app responsiveness is a product requirement, not a reason to collapse the privileged service boundary.
+14. For cross-cutting safety modes, keep one canonical policy owner and compose existing controls through that policy instead of creating duplicate action systems.
 
 Implementation boundaries are defined in [Architecture](ARCHITECTURE.md), low-level rules in [Hardware Safety](HARDWARE-SAFETY.md), current support in [Device Support](DEVICE-SUPPORT.md), and Lenovo implementation evidence in [Lenovo provider research](research/lenovo-providers.md) plus [X9 research](research/x9-15-gen1.md).
 
@@ -38,15 +40,18 @@ Compact contains the controls and telemetry most useful during normal operation:
 - display refresh controls;
 - brightness and volume;
 - keyboard backlight when supported;
+- one quick **Audio Safety** selector (`Normal` / `Media lock` / `Silent`);
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Audio Safety deliberately appears as one compact state selector rather than turning Compact into a phone-style modes dashboard.
 
 ### Advanced
 
 Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
+
+Settings owns the explanatory Audio Safety controls and copy. Compact and Settings reflect the same canonical session state rather than maintaining independent selections.
 
 ## Performance and power
 
@@ -55,6 +60,8 @@ User-facing Windows power terminology is consistently **Efficiency / Balanced / 
 Battery and plugged-in preferences are stored separately. Compact and Home intentionally expose the battery preference as the quick control; the full Performance page is the source of truth for configuring both battery and AC behavior independently.
 
 On the X9 firmware cooling backend, ThinkControl keeps the active cooling profile and Windows performance preference as separate user-facing settings even though both coordinate through Lenovo policy. Before a built-in fan profile is selected, the current power preference becomes the restore baseline. A later power-mode change updates that baseline without cancelling the fan profile; selecting Auto clears ThinkControl-owned cooling overrides and restores the latest baseline.
+
+Audio Safety is intentionally separate from cooling. `Silent` does **not** silently force fan Quiet. A future custom preset may compose those intents only if every changed subsystem has explicit capability, ownership and rollback semantics.
 
 ## Fans, PawnIO and temperatures
 
@@ -71,7 +78,7 @@ The X9 built-ins now have these semantics:
 
 The global full-speed path is not a guessed RPM/PWM value. Upstream Lenovo/Linux work and independent modern Lenovo tooling use the same known feature as a boolean full-speed override. ThinkControl restricts it to the verified X9 identity, rejects an explicitly invalid/readonly capability row, requires the exact feature to return a live `0`/`1` value immediately before the write, accepts only values `0` and `1`, and verifies the requested state by readback. ThinkControl remembers only a full-speed state it actually changed. Its owned state is released before lower profiles, Auto and normal service disposal. A pre-existing full-speed state owned by another utility is not silently stolen by ordinary profile transitions.
 
-Lenovo `LENOVO_OTHER_METHOD` still supplies real per-fan `fanX_input` telemetry where available. Its experimental per-fan `fanX_target` writer remains read-only after physical testing reproduced repeated speed cycling/re-kick and a nominal target ceiling below naturally hot firmware Auto. Alpha.41 does not increase those targets or use the inferior EC writer to simulate maximum cooling. `EnergyDrv` remains a separate read-only telemetry path until its writer contract is reviewed.
+Lenovo `LENOVO_OTHER_METHOD` still supplies real per-fan `fanX_input` telemetry where available. Its experimental per-fan `fanX_target` writer remains read-only after physical testing reproduced repeated speed cycling/re-kick and a nominal target ceiling below naturally hot firmware Auto. Alpha.43 does not increase those targets or use the inferior EC writer to simulate maximum cooling. `EnergyDrv` remains a separate read-only telemetry path until its writer contract is reviewed.
 
 The classic seven-step ThinkPad EC path is provider-specific investigation/diagnostic behavior, not the product definition of 0–100%. Raw EC diagnostics appear only when that exact discrete semantic capability is active. Manual direct-output tests are bounded to 30 seconds and restore the previous profile or firmware Auto on failure. A completed calibration is provider state, not a permanent success card.
 
@@ -87,7 +94,25 @@ Where Windows exposes the capability, ThinkControl supports current/maximum refr
 
 Normal output, microphone and volume controls use Windows audio endpoints. Output/microphone writes are debounced while the Audio page is active; navigation clears transient drag/debounce ownership so stale writes cannot fire off-page.
 
-Dolby controls are provider-driven rather than Lenovo-specific. Direct controls are enabled only when an installed DAX path exposes a semantic operation ThinkControl can verify; private profile IDs and IEQ mappings are not guessed.
+### Audio Safety
+
+Alpha.43 adds one Windows-generic session policy for situations such as tests, lectures and quiet work:
+
+- **Normal** — existing ThinkControl output/media controls behave normally.
+- **Media lock** — blocks ThinkControl Touchpad Volume, Media scrub, Previous/Next and integrated Play/Pause. It does not mute Windows audio, stop media deliberately started elsewhere or change the current output volume.
+- **Silent** — includes Media lock, mutes the active Windows render endpoint and blocks ThinkControl output volume/unmute writes while active.
+
+Microphone input remains independent. Silent does not automatically mute, lower or otherwise change the capture endpoint.
+
+Silent tracks mute ownership per output endpoint encountered during the session. ThinkControl records the endpoint's prior mute state once, enforces mute while that endpoint is the active default, and restores only the recorded prior state when leaving Silent or on orderly app exit. If an endpoint has disappeared, ThinkControl does not guess another endpoint to modify.
+
+A default-output change while Silent is active reuses the application's existing bounded status cadence to converge the newly active output into the same policy. No second audio polling loop is added.
+
+The mode is deliberately **session-only in alpha.43**. Restart returns to Normal because a new process cannot truthfully claim ownership of mute state established by a previous process. Persisted phone-style Focus Modes/presets are therefore not part of this release.
+
+Blocked Touchpad actions get bounded `Media locked`/`Silent` feedback rather than simply appearing broken. Entering Media lock or Silent also cancels a currently active Touchpad audio action so an in-flight gesture cannot continue writing after the policy changes.
+
+Dolby controls remain provider-driven rather than Lenovo-specific. Direct controls are enabled only when an installed DAX path exposes a semantic operation ThinkControl can verify; private profile IDs and IEQ mappings are not guessed.
 
 ## Keyboard
 
@@ -103,19 +128,25 @@ The editor/visualizer uses one six-zone selection model: Top, Bottom, Left, Righ
 
 ### Track control
 
-Track control is one coherent three-part edge affordance: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action, no separate Center play/pause setting and no second overlay/recognizer.
+Track control stays one coherent edge affordance with one recognizer/router owner. There is no standalone current Play/Pause edge action and no second center overlay/recognizer. Old serialized standalone `PlayPause` bindings remain readable and sanitize into Track control.
 
-Alpha.42 keeps the larger physical Play/Pause target but intentionally makes the action harder to trigger accidentally. The visible center segment is **28%** of the selected Track edge (`0.36..0.64`) instead of alpha.41's 20%, so deliberate placement is easy. A quick center tap does **not** toggle media. Play/Pause requires a center-start contact to remain held for at least **450 ms**, stay within **3 mm** maximum radial movement, and then release.
+Alpha.43 adds one **Play / Pause** switch inside the selected Track-control editor. It is a Track option, not a second action. Existing alpha.42 configurations default to enabled so upgrades preserve the integrated center behavior.
 
-The recognizer records the **maximum** center excursion while the contact remains a candidate. Moving away and returning near the start cannot make a previously mobile contact look stationary at release. If movement exceeds the 3 mm hold slop, center Play/Pause is disarmed and normal Track direction recognition resumes. Previous/Next still requires the unchanged **9 mm** deliberate swipe threshold. Play/Pause never auto-fires while the finger is still down, which keeps a resting or incidental touch from unexpectedly starting media.
+With the switch **on**, the lane is **Previous | Play/Pause | Next**. The visible center segment is **28%** of the selected Track edge (`0.36..0.64`). A quick center tap does **not** toggle media. Play/Pause requires a center-start contact to remain held for at least **450 ms**, stay within **3 mm** maximum radial movement, and then release.
 
-Old serialized standalone `PlayPause` bindings remain readable and sanitize into Track control. When assigning an edge action already used elsewhere, the editor swaps the two action kinds instead of clearing the old edge; sensitivity and inversion remain physical-edge tuning and stay with their edges.
+The action deliberately commits **on release**. Reaching 450 ms while the finger is still down is not enough. Release acts as the final intent confirmation and prevents a resting/incidental touch from automatically starting global media merely because a timer expired. There is no delayed auto-fire worker.
+
+The recognizer records the **maximum** center excursion while the contact remains a candidate. Moving away and returning near the start cannot make a previously mobile contact look stationary at release. If movement exceeds the 3 mm hold slop, center Play/Pause is disarmed and normal Track direction recognition resumes. Previous/Next still requires the unchanged **9 mm** deliberate swipe threshold. A Track swipe never also toggles Play/Pause on release.
+
+With the switch **off**, Track remains assigned but the center control disappears both visually and behaviorally. The center fill, separators and Play/Pause icon are not drawn; only Previous and Next remain in the edge lane. The explicit opt-out preference survives temporarily moving/removing Track so the user's choice is restored if Track is assigned again.
+
+When assigning an edge action already used elsewhere, the editor swaps the two action kinds instead of clearing the old edge; sensitivity and inversion remain physical-edge tuning and stay with their edges.
 
 Track OSD semantics follow familiar media players: the label reports current/resulting state while the glyph shows the available next action. **Playing shows pause bars; Paused shows the play triangle.** A virtual-key fallback that cannot report post-command state remains labelled `Playback toggled` rather than inventing state.
 
 ### Corner launch and reverse close
 
-Top-corner launch geometry stays unchanged and mirrored. When **Reverse swipe closes ThinkControl** is enabled, alpha.42 no longer requires the first reverse frame to land only inside the small rounded end-cap. The **inner half of the already-visible diagonal lane** is now a valid reverse-close start target. The outer corner guard still belongs to the normal inward launch, and no invisible hit target exists outside the rendered lane/cap geometry.
+Top-corner launch geometry stays unchanged and mirrored. When **Reverse swipe closes ThinkControl** is enabled, alpha.42 no longer requires the first reverse frame to land only inside the small rounded end-cap. The **inner half of the already-visible diagonal lane** is a valid reverse-close start target. The outer corner guard still belongs to the normal inward launch, and no invisible hit target exists outside the rendered lane/cap geometry.
 
 Live input has two rates by design: recognition consumes every raw HID frame, while WPF visualization coalesces to roughly display-refresh cadence. UI-only listeners attach only while the page is visible, while configured background recognition remains application-level behavior.
 
@@ -149,11 +180,11 @@ Legacy server IPC and serialized settings values stay where required for the sup
 
 ## Diagnostics and privacy
 
-ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails. No automatic cloud compatibility/crash upload is part of alpha.42.
+ThinkControl separates compatibility learning, crash recovery and troubleshooting diagnostics. Support/report payloads use bounded allowlisted schemas and exclude serial numbers, usernames, hostnames, personal paths/content and raw touch trails. No automatic cloud compatibility/crash upload is part of alpha.43.
 
 ## Installation and updates
 
-Alpha.42 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+Alpha.43 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
 Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is persisted for the next session.
 
@@ -163,4 +194,4 @@ Packaging/installer CI validates payload construction, custom-location install/u
 
 ThinkControl does not provide arbitrary EC register editing, arbitrary port I/O, arbitrary IOCTL passthrough, unverified fan-off/override states, private CPU tuning calls or automatic low-level write support for unknown machines.
 
-New low-level features require a documented provider contract, a defined safety/recovery model, narrow identity/capability gating and test/physical evidence appropriate to the risk. Alpha.41's full-speed path uses one already-documented semantic ID and exact boolean values only; it is not permission to broaden Lenovo Other Mode writes.
+New low-level features require a documented provider contract, a defined safety/recovery model, narrow identity/capability gating and test/physical evidence appropriate to the risk. Alpha.41's full-speed path uses one already-documented semantic ID and exact boolean values only; it is not permission to broaden Lenovo Other Mode writes. Audio Safety is a Windows user-session policy and does not weaken these hardware boundaries.

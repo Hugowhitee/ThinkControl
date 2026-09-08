@@ -1,192 +1,236 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.42** and later candidates built from it. Automated CI is required, but physical X9 behavior remains a separate evidence class and must not be inferred from hosted runners. The X9 is the current reference device, not the product boundary.
+Use this checklist for **v0.1.0-alpha.43** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
-1. Install or update using the versioned GitHub prerelease installer.
-2. Confirm ThinkControl starts as a normal-user app and the hardware service reaches Running without the UI remaining elevated.
-3. Confirm Compact opens, Advanced opens from Compact, and switching back does not create duplicate windows.
-4. Exercise Check for updates from Home and Updates. An up-to-date result must not enable Install, and **Last checked** must refresh immediately on the shared state.
-5. After an in-place update, confirm the previous install directory is preserved and the app relaunches into the expected surface.
-6. A successful update confirmation must remain dismissable and must not strand a topmost notification over Advanced.
+1. Install/update using the versioned prerelease installer.
+2. Confirm ThinkControl starts as a normal-user app and the hardware service reaches Running without leaving the UI elevated.
+3. Confirm Compact ↔ Advanced transitions do not create duplicate/invisible windows.
+4. Exercise Check for updates from Home and Updates. An up-to-date result must not enable Install, and **Last checked** must refresh immediately.
+5. Confirm an in-place update preserves the existing install directory.
+6. A successful update confirmation remains dismissable and never strands a topmost notification.
 
 ## Windows startup and background gestures
 
-Alpha.41 tightened the startup critical path around **input/tray first, rich discovery later**. Alpha.42 keeps that architecture.
+Alpha.41 established **input/tray first, rich discovery later** and alpha.43 preserves it.
 
-1. Enable **Start with Windows** and at least one obvious edge gesture such as Volume or Brightness.
-2. Sign out/in or reboot. Do not manually open ThinkControl after the desktop appears.
-3. Confirm ThinkControl reaches the tray without showing Compact/Advanced.
-4. As soon as the tray process exists, try the configured gesture. It should work without first activating a ThinkControl window.
-5. Repeat after a cold reboot and sign-out/sign-in. Record roughly how long from desktop availability until the first successful gesture.
-6. Open ThinkControl afterwards and confirm rich system information fills normally.
-7. Disable gestures, restart with `--tray`, and confirm Raw Input is not kept alive merely because Start with Windows is enabled.
-8. Confirm a normal visible launch still paints promptly and never regresses into a blank/black first frame.
-
-Configured Raw Input starts from the early application Startup hook after cheap identity is available. Rich WMI/service discovery remains asynchronous; `Application.Activated` is recovery, not first-start ownership.
+1. Enable **Start with Windows** and an obvious edge gesture.
+2. Reboot or sign out/in and do not manually open ThinkControl.
+3. Confirm the tray process appears without showing Compact/Advanced.
+4. Try the configured gesture as soon as the process exists. It must not require first activating a ThinkControl window.
+5. Repeat after a cold reboot and record time from desktop availability to first successful gesture.
+6. Open ThinkControl afterwards and confirm rich hardware data fills asynchronously.
+7. Disable gestures, restart with `--tray`, and confirm Raw Input is not kept alive solely because Start with Windows is enabled.
+8. Confirm a normal visible launch still paints promptly rather than regressing into a black/blank first frame.
 
 ## Crash/shell regression
 
-The recurring `TargetParameterCountException` dispatcher bug was fixed and guarded in alpha.33 and remains a regression boundary.
-
 - Open/close Advanced repeatedly.
-- Minimize Advanced, reopen directly to Touchpad, and confirm the window becomes visible rather than remaining minimized/invisible.
+- Minimize Advanced, reopen directly to Touchpad, and confirm it becomes visible.
 - Navigate Compact → Advanced → Compact several times.
-- Open and dismiss the Inbox/notification sheet.
-- If a crash occurs, retain report/journal evidence rather than treating one later clean session as proof the issue is solved.
+- Open/dismiss the Inbox/notification sheet.
+- Retain crash-report/journal evidence if a failure occurs; one later clean session is not proof the root cause disappeared.
 
 ## Audio lifecycle regression
 
 1. Open Advanced → Audio.
 2. Drag output volume and navigate away while dragging, then return.
 3. Repeat with microphone level.
-4. Confirm no delayed off-page write jumps the control when returning.
-5. Leave Audio idle for several seconds and confirm live output/microphone state continues refreshing after the navigation cycle.
+4. Confirm no delayed off-page write jumps a control later.
+5. Leave Audio idle and confirm live endpoint state continues refreshing after the navigation cycle.
+
+## Audio Safety — alpha.43
+
+Audio Safety is one session-level state shared by Compact, Settings, Touchpad routing and Windows output writes. It is deliberately **not persisted** across process restart in alpha.43.
+
+### State/UI truth
+
+1. Fresh process starts at **Normal**.
+2. Change Compact to **Media lock**; Settings must show the same canonical state.
+3. Change Settings to **Silent**; Compact must immediately agree.
+4. Return to Normal from either surface and confirm the other follows.
+5. Restart after using Media lock/Silent. The new process starts Normal.
+6. Confirm no new navigation page or standalone Touchpad Mute action was added.
+
+### Media lock
+
+1. Start media deliberately from a browser/app.
+2. Enable Media lock.
+3. Try ThinkControl Touchpad Volume, Media scrub, Track Previous/Next and integrated Play/Pause.
+4. None may alter playback/volume; bounded `Media locked` feedback should explain the block.
+5. External Windows/app controls must still work normally.
+6. Enter Media lock while a ThinkControl audio gesture is active; the in-flight action must stop.
+7. Non-audio gestures remain functional.
+
+### Silent
+
+1. Record the current default output endpoint's mute state.
+2. Enable Silent; the active output must become muted before ThinkControl claims success.
+3. ThinkControl output volume/unmute controls must not escape Silent.
+4. Touchpad media/output actions remain blocked.
+5. Microphone input remains independent.
+6. Switch the Windows default output while Silent is active; the newly encountered endpoint should converge to muted on the existing bounded status cadence.
+7. Leave Silent; each endpoint encountered during that Silent session returns to the mute state ThinkControl recorded before first touching it.
+8. An endpoint already muted before Silent stays muted after exit.
+9. A disappeared endpoint is not replaced by a guessed fallback write.
+10. Orderly app exit while Silent also restores owned states.
+
+Real endpoint switching/audible silence requires real Windows testing; hosted CI only proves policy/ownership code paths.
 
 ## Keyboard
 
 - Test Off, Low and High where the provider exposes them.
-- Test Auto only when ThinkControl reports a verified firmware/OEM Auto path. **Auto is firmware-managed; it is not a ThinkControl idle-dimming effect.**
-- Confirm Fn+Space and ThinkControl readback remain sensible after changing firmware Auto/static modes.
-- Breathing, Reactive and Audio belong to Effects and appear only when the provider advertises `KeyboardEffects`.
-- Confirm a saved effect is not reset during startup before provider capability is known.
-- When only the current Lenovo Vantage fallback is available, Effects should remain unavailable rather than generating repeated Lenovo brightness popups.
+- Test Auto only when a verified firmware/OEM Auto path exists; Auto is not a software idle-dimming effect.
+- Confirm Fn+Space/readback remains sensible on Lenovo hardware.
+- Breathing/Reactive/Audio appear only with `KeyboardEffects`.
+- Confirm a saved effect is not restored before provider capability is known.
+- The Lenovo Vantage fallback must not advertise repeated effects if doing so causes OEM popups.
 
-## Touchpad — alpha.42 physical focus
+## Touchpad — alpha.43 physical focus
 
-Alpha.42 specifically addresses the integrated Track center action and reverse-close reliability. The center target is spatially easy to hit but intentionally slow enough to avoid accidental media playback.
+### Six-zone editor/corners
 
-### Six-zone editor and corners
-
-- Selecting an edge clears a selected corner, and selecting a corner clears the selected edge.
-- Top-left and top-right are exact mirrors: same guard radius, lane size, angle, rounded end arc, fill, boundary weight and selected/live treatment.
-- Edge-band visuals stop/clip around enabled corner geometry instead of creating a darker overlap.
-- A corner candidate owns a contact from the first frame; a rejected corner stays locked until lift and must not fall through into a neighboring edge gesture.
+- Edge and corner selection remain mutually exclusive.
+- Top-left/right are exact mirrors in geometry and state treatment.
+- Edge bands clip cleanly around enabled corners.
+- A corner candidate owns the contact from the first eligible frame and rejected input stays locked until lift.
 - Ordinary edge gestures still work outside corner ownership geometry.
 
-### Integrated Track lane
+### Track control — Play/Pause enabled
 
-- Assign **Track control** to Bottom first.
-- Confirm Previous, Play/Pause and Next remain inside one continuous lane. There must be no floating skip icons or separate Play/Pause pill.
-- The edge menu must contain Track control but no separate current Play/Pause action.
-- Old serialized standalone PlayPause settings should sanitize into Track control rather than Off.
-- The visible Play/Pause start segment occupies about **28%** of the lane (`0.36..0.64`), and the separators match that recognition target.
-- Repeated **quick center taps must do nothing**: no playback toggle and no media popup.
-- Hold the center for roughly half a second, keep mostly still, then release. Play/Pause should toggle **exactly once on release**.
-- Hold for one or two seconds. Nothing should auto-fire while the finger remains down.
-- Natural tiny movement up to about **3 mm maximum radial excursion** should remain eligible.
-- Move clearly beyond 3 mm, return near the start and release. Play/Pause must remain disarmed; returning cannot erase earlier motion.
-- After leaving the 3 mm hold envelope, ordinary Track recognition resumes. Previous/Next still requires the unchanged **9 mm** deliberate swipe threshold.
-- A Previous/Next swipe must never also toggle Play/Pause on release.
-- Alternate quick tap → deliberate hold/release → Previous → deliberate hold/release → Next several times and look for overlap or accidental playback.
-- Successful media feedback uses current-state text plus next-action icon: **Playing + pause bars**, **Paused + play triangle**. `Playback toggled` is acceptable only when fallback state genuinely cannot be known.
+1. Assign Track control to Bottom.
+2. Confirm the selected Track editor has a **Play / Pause** switch but the action menu has no standalone current Play/Pause entry.
+3. With the switch on, the lane remains one continuous **Previous | Play/Pause | Next** affordance.
+4. Quick center taps must do nothing.
+5. Hold the center for roughly half a second, remain mostly still, then release. It toggles exactly once **on release**.
+6. Holding one or two seconds without releasing must not auto-fire.
+7. Natural movement up to about **3 mm maximum radial excursion** remains eligible.
+8. Move beyond 3 mm, return near the start, release: Play/Pause remains disarmed.
+9. Previous/Next still needs **9 mm** and cannot also toggle Play/Pause on release.
+10. OSD semantics remain **Playing + pause bars**, **Paused + play triangle**.
+
+Release-to-commit is intentional: release is the final intent confirmation so a resting touch cannot start global media simply because a timer elapsed.
+
+### Track control — Play/Pause disabled
+
+1. Turn the Track-local switch off.
+2. Center fill/separators/glyph disappear immediately.
+3. Tap/hold the physical center repeatedly; it must never act as an invisible Play/Pause target.
+4. Previous/Next continues with the same 9 mm threshold.
+5. Reopen Touchpad and confirm the choice persists.
+6. Move/remove/reassign Track and confirm the explicit Play/Pause-off choice survives.
 
 ### Edge assignment swapping
 
-- Give the four edges distinct non-Off actions where possible.
-- Choose an action already assigned elsewhere and confirm the two actions **swap** rather than clearing the previous edge.
-- Sensitivity and inversion stay with the physical edge.
-- Reopen Touchpad and verify persistence.
+- Give edges distinct actions.
+- Select an action already used on another edge; the two action kinds must swap rather than clearing the old edge.
+- Sensitivity/inversion remain with their physical edges.
 
 ### Reverse close
 
-- Enable **Reverse swipe closes ThinkControl** on each top corner.
-- Start from several points through the **inner half of the visible diagonal lane** and swipe back toward the physical corner. Compact or Advanced should hide to tray reliably.
-- Test the beginning, middle and rounded-end area of that inner-half target on both sides.
-- The two sides should feel mirrored.
-- Starting in the **outer guard** and moving inward remains the normal launch gesture, never reverse close.
-- With reverse close disabled, the same outward inner-lane swipe must not hide ThinkControl.
-- A rejected reverse candidate must not fall through to an edge action while the same contact remains down.
+- Enable **Reverse swipe closes ThinkControl** on both top corners.
+- Start from several points in the **inner half of the visible diagonal lane** and swipe toward the physical corner.
+- Compact/Advanced should hide reliably on both mirrored sides.
+- The outer guard remains an inward-launch start.
+- With reverse close disabled, the same outward swipe must not hide ThinkControl.
+- Rejected reverse input must not fall through into an edge gesture while the same contact remains down.
 
 ### Touchpad visual QA
 
-Inspect the exact release-head CI artifact, especially:
-
-- `advanced-touchpad.png`
-- `advanced-touchpad-min.png`
-- `advanced-touchpad-wide.png`
-- `advanced-touchpad-light.png`
-- both selected corner fixtures
-- both live corner fixtures
-- relevant gesture OSD fixtures
-
-The wide fixture must show Previous / Play-Pause / Next inside one continuous band with the wider center integrated rather than overlaid. Help copy must describe hold-about-half-a-second + release and state that quick taps are ignored. Corners must remain visually mirrored.
+Inspect exact-head renders for normal/minimum/wide/light Touchpad plus both selected/live corner fixtures. Confirm Track-local Play/Pause state is visually truthful, the lane remains coherent, and corners remain mirrored.
 
 ## Fans and hardware providers
 
-Alpha.42 keeps the alpha.41 low-level safety boundary but **does change cooling-profile lifecycle/persistence** after physical testing showed that a saved Quiet selection could survive in the UI while firmware had effectively returned to Auto/base policy.
+Alpha.43 preserves the alpha.42 cooling lifecycle and alpha.41 low-level safety boundary.
 
-The rejected per-fan `fanX_target` writer remains read-only. The exact-X9 Lenovo Other Mode global full-speed boolean `0x04020000` remains separately gated. No classic-EC fallback or guessed EnergyDrv command is introduced.
+- The rejected per-fan `fanX_target` writer remains read-only.
+- `0x04020000` full speed remains a separately exact-X9-gated boolean semantic.
+- No classic-EC fallback or guessed EnergyDrv command is introduced.
+- Firmware policy remains distinct from direct RPM/PWM control.
+- Manual percentages and Raw EC diagnostics stay hidden on the X9 firmware-policy backend.
+- Lower profiles and Auto release ThinkControl-owned full speed before claiming the lower state.
+- Failed full-speed probe/readback fails closed.
 
-### Capability and safety regression
+### Saved-profile runtime truth
 
-- Unsupported devices remain safe/read-only.
-- A direct target-RPM writer stays disabled unless it independently passes provider and physical acceptance gates.
-- Firmware policy remains semantically distinct from direct RPM/PWM control.
-- `FanCalibrationSupported` / `FanCalibrationRequired` continue to own direct calibration UI.
-- Manual percentages and Raw EC diagnostics remain hidden on the X9 firmware-policy backend.
-- Max cooling may use the exact-X9 full-speed boolean only when the feature live-reads as boolean, is safely writable and every transition verifies readback.
-- Quiet/Balanced release ThinkControl-owned full speed before applying lower Lenovo policy.
-- Explicit Auto and service shutdown release owned full speed and restore firmware ownership.
-- A failed full-speed probe/readback fails closed; it must not revive `fanX_target`, classic EC or arbitrary EnergyDrv writes.
+1. Start in Auto and confirm Fans reports service runtime, not merely saved settings.
+2. Select Quiet and verify service + physical behavior agree.
+3. Close only the UI while service stays running, reopen, and confirm Quiet remains physically active.
+4. Reboot with Quiet saved. UI must not paint Quiet before service restoration succeeds.
+5. Listen through the bounded seven-second startup convergence retry and confirm late Lenovo login work does not leave the machine back at Auto/base policy.
+6. Unplug/replug AC while Quiet is active; the intent remains Quiet.
+7. Sleep/resume; Quiet is reasserted.
+8. Change Windows Performance preference while Quiet remains selected; the new Windows mode becomes Auto's restore baseline without cancelling Quiet.
+9. Select Auto and confirm that latest baseline is restored.
+10. Repeat with Balanced and safely exposed Max.
 
-### Runtime truth and saved-profile persistence — alpha.42 release blocker
+Physical fan acceptance remains separate from CI. RPM telemetry alone is not proof of airflow intensity.
 
-This section specifically tests the bug reported immediately before alpha.42 release.
+## Battery preservation — alpha.43
 
-1. Start in **Auto**, open Fans, and confirm the selector/status describe the service's actual runtime state rather than merely the saved setting.
-2. Select **Quiet**. Confirm the service reports Quiet as active and fan behavior changes to Lenovo's Quiet policy.
-3. Close only the ThinkControl UI while leaving the Windows service running, then reopen the UI. Quiet must remain physically active; closing the user interface must not silently call Auto for a service-owned firmware profile.
-4. Reboot Windows with Quiet saved. During startup the UI must not paint the persisted preference as applied before service telemetry says so. After provider discovery, ThinkControl must actively restore Quiet.
-5. Continue listening through the first several seconds after login. The one bounded **7-second startup-settle reassert** should prevent a later-starting Lenovo component from leaving the machine back on Auto/base policy. There must be no repeating timer/polling fight.
-6. While Quiet is active, unplug AC and then reconnect it. Quiet must remain the active cooling intent across the Lenovo AC/DC-specific policy-command change.
-7. Put the machine to sleep and resume while Quiet is selected. Quiet must be reasserted rather than becoming a UI-only saved label.
-8. While Quiet is active, change Windows Performance preference. The cooling override must remain Quiet, while the new Windows mode becomes the baseline that Auto will restore later.
-9. Select **Auto** afterwards and confirm that latest Windows/Lenovo baseline is restored.
-10. Repeat the lifecycle checks with **Balanced**. Repeat with **Max cooling** only if the exact full-speed feature passes its existing safe live/readback contract.
-11. At no point should Fans show Quiet/Balanced/Max as applied solely because `settings.json` says so; the visible active profile must follow runtime/service telemetry.
-12. Confirm temporary/direct fan tests, where a future accepted direct writer exists, still retain their prior Auto-on-UI-exit/timeout safety class. The firmware-profile persistence fix must not weaken direct-writer cleanup.
+Alpha.43 uses the verified-X9 Lenovo Windows Power Manager threshold path (`PWRMGRV` + `IBMPmDrv`). Hosted CI can prove the identity/range/fixed-command/rollback architecture; it cannot prove the battery physically obeys the charge boundaries.
 
-The startup-settle behavior is intentionally **one bounded retry**, not a background enforcement loop. AC/DC, resume and explicit power-baseline changes are real state transitions and may reassert the currently owned firmware profile.
+### Provider/UI truth
 
-### Current exact-X9 physical expectations
+1. Open Advanced → Battery before changing anything.
+2. The card must show **actual Lenovo state**, not a saved ThinkControl preference.
+3. When the provider is writable, the dropdown offers only the small named presets:
+   - `Daily · 75–85% (recommended)`
+   - `Desk · 55–80%`
+   - `Maximum care · 40–60%`
+   - `Full charge · 100%`
+4. If Lenovo currently has another valid pair, it should appear as `Custom · start–stop%` and remain untouched until a named preset is deliberately selected.
+5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the dropdown stays read-only and the Lenovo settings fallback remains available.
+6. Provider text must describe Lenovo PM Device/PWRMGRV state; it must not claim a generic EC threshold backend.
+7. No UI claims “x fewer cycles”. The impact explanation should state the real start/stop boundary, headroom below full and hysteresis trade-off.
 
-Confirmed negative evidence remains:
+### Real X9 charge behavior
 
-- alpha.38 fixed target-RPM control repeatedly sped up/slowed down instead of settling smoothly;
-- nominal ThinkControl target 100% remained physically weaker than naturally hot Lenovo Auto even when telemetry looked high;
-- therefore `fanX_target` remains read-only.
+Use a test window that can be observed without repeatedly forcing unnecessary battery cycles. **75–85%** is the primary release check.
 
-Current built-ins are expected to behave as:
+1. Read the current thresholds and record them before changing anything.
+2. Select **Daily · 75–85%**. Service status must report `75–85%` only after the Lenovo PM Device calls and PWRMGRV readback succeed.
+3. With AC connected and battery below the stop threshold, confirm normal charging can rise toward 85%.
+4. Confirm charging stops/holds around the intended 85% boundary under normal conditions.
+5. While battery remains above the 75% start threshold, confirm ordinary tiny top-ups do not repeatedly restart charging.
+6. After battery drops below the start threshold in normal use, confirm charging can resume when AC is connected.
+7. Restart only the UI, then restart service/reboot separately. The Battery page must re-read actual Lenovo state rather than painting a remembered desired value.
+8. Select **Full charge · 100%**. Confirm thresholds release and ordinary charging can continue beyond the prior ceiling when conditions permit.
+9. If a driver call/readback fails, the UI must report rejection and the provider must request rollback rather than trying another EC/ACPI path.
+10. The normal-user UI must never show UAC for these changes; privileged access belongs to `ThinkControl.Service`.
 
-```text
-Auto         -> release ThinkControl full-speed ownership; restore latest Lenovo power-policy baseline
-Quiet        -> full speed off; Lenovo Quiet policy
-Balanced     -> full speed off; Lenovo Balanced policy
-Max cooling  -> Lenovo Performance policy + verified 0x04020000 full-speed boolean when safely exposed
-```
+Do not convert a successful driver/registry response into “physically verified” until the real battery behavior above is observed.
 
-Under repeatable load, compare Quiet/Balanced/Max and record provider sources/RPM, but do not use RPM alone as proof of airflow intensity. Max should remain steady rather than reproduce the alpha.38 re-kick/wave behavior. If Max cannot safely engage, collect exact provider/readback evidence rather than broadening any writer.
+## Battery history — alpha.43
 
-## Diagnostics/device learning
-
-- Supported hardware should not run expensive discovery every time the app opens.
-- Unknown-device collection remains passive and hardware-focused.
-- Sharing is explicit; preview must contain no usernames, serial numbers, personal file paths/content, keystrokes or raw touch trails.
-- After a successful share/report flow, the UI should not keep claiming the same report is ready as if nothing happened.
-
-## Repository/release hygiene
-
-Validation is split by ownership:
-
-- **CI** owns repository hygiene, zero-warning Release build, Core/source tests, real Compact ↔ Advanced ShellSmoke and WPF visual QA.
-- **Package ThinkControl** owns publish/payload/bootstrap, service + IPC lifecycle, non-elevating UI contract, custom-location update preservation, clean uninstall and oldest-supported updater compatibility.
-- Tagged release packaging owns the public overview/release assets.
-- Superseded PR runs may cancel; immutable/tag release packaging must remain non-cancellable by that optimization.
+1. With multiple recorded days, the normal page shows the most recent **7 days** only.
+2. `Show older` expands to 14 days without changing retention or deleting data.
+3. Days remain compact summaries; expand a day and open a session to verify graphs/statistics still work.
+4. Open **Manage history**. Destructive reset is not a primary page action.
+5. Change detailed-graph retention between **7 / 14 / 30 days** and verify persistence.
+6. Old detailed point arrays should compact automatically while one-year summaries remain.
+7. Ordinary compaction must not erase learned estimates merely because raw graph points expire.
+8. Choose **Reset all history…** and cancel; nothing changes.
+9. Accept reset only in a test environment. The warning must say local sessions/graphs/health trend/learned estimates are cleared while firmware health, cycle count and charge thresholds are not changed.
+10. After reset, ThinkControl should safely begin learning new history again.
 
 ## Release acceptance
 
-Before calling a candidate releasable, require repository hygiene, zero-warning Release build, all Core/source tests, real Compact/Advanced WPF shell smoke, the complete visual-QA matrix with representative screenshots manually inspected, Package ThinkControl, an exact final frozen-head CI + Package rerun, complete diff review, expected-head merge, post-merge main verification, immutable promotion to `v0.1.0-alpha.42`, exactly Setup + Payload + `SHA256SUMS.txt` + `ui-overview.png`, and checksum verification of the published Setup/Payload.
+Before calling alpha.43 releasable, require:
 
-Physical hardware checks remain a separate evidence class and must be recorded honestly rather than converted into hosted-CI claims.
+- repository hygiene;
+- Release build with no unexpected warnings/errors;
+- all Core/source tests;
+- real Compact ↔ Advanced WPF ShellSmoke;
+- complete visual-QA matrix with representative screenshots manually inspected;
+- Package ThinkControl including installer/service/IPC and oldest-supported updater compatibility;
+- exact final frozen-head CI + Package rerun after `releaseReady=true`;
+- final changed-file/diff/review-thread review;
+- expected-head merge;
+- post-merge `main` verification;
+- immutable `v0.1.0-alpha.43` promotion;
+- exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`;
+- checksum verification of published Setup/Payload.
+
+Physical Touchpad, Audio Safety, battery charging and X9 cooling checks remain separate evidence classes and must be recorded honestly rather than converted into hosted-CI claims.

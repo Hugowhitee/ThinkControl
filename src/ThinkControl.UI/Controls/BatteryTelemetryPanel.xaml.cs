@@ -131,7 +131,7 @@ public partial class BatteryTelemetryPanel : UserControl
             Child = grid
         };
 
-        // Keep Recent sessions as the final full-width history section, with the
+        // Keep battery history as the final full-width history section, with the
         // local-history footer underneath it.
         int insert = Math.Max(0, root.Children.Count - 2);
         root.Children.Insert(insert, card);
@@ -156,7 +156,8 @@ public partial class BatteryTelemetryPanel : UserControl
         if (WpfApplication.Current is not App app)
             return;
 
-        IReadOnlyList<BatteryDaySummary> days = app.BatteryHistoryService.GetRecentDays(14);
+        IReadOnlyList<BatteryDaySummary> availableDays = app.BatteryHistoryService.GetRecentDays(14);
+        IReadOnlyList<BatteryDaySummary> days = availableDays.Take(_historyVisibleDays).ToArray();
         IReadOnlyList<TimeSeriesPoint> chargePercent = app.State.BatteryChargePercentTimeline;
         IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
         IReadOnlyList<TimeSeriesPoint> dischargePercent = app.BatteryHistoryService.GetLatestDischargePercentTimeline();
@@ -165,6 +166,7 @@ public partial class BatteryTelemetryPanel : UserControl
         DischargeChart.Values = dischargePower;
         DischargePercentChart.Values = dischargePercent;
         DischargeSummaryText.Text = app.BatteryHistoryService.GetLatestDischargeSummary();
+        UpdateHistoryRangeButton(availableDays.Count);
 
         RecentSessionItems.Children.Clear();
         if (days.Count == 0)
@@ -263,6 +265,22 @@ public partial class BatteryTelemetryPanel : UserControl
             charge.Duration, discharge.Duration, [charge, discharge], false);
         RecentSessionItems.Children.Clear();
         RecentSessionItems.Children.Add(CreateDayRow(today));
+        HistoryRangeButton.Visibility = Visibility.Collapsed;
+
+        _syncingChargeProtection = true;
+        try
+        {
+            ChargeProtectionComboBox.IsEnabled = true;
+            ChargeProtectionComboBox.SelectedItem = FindChargeProtectionPreset(75, 85);
+        }
+        finally
+        {
+            _syncingChargeProtection = false;
+        }
+        ChargeProtectionStateText.Text = "75–85% · active";
+        ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(75, 85);
+        ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
+        ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
     }
 
     internal void ExpandSnapshotHistory()
@@ -408,25 +426,6 @@ public partial class BatteryTelemetryPanel : UserControl
             if (nested is not null) return nested;
         }
         return null;
-    }
-
-    private void ClearHistory_Click(object sender, RoutedEventArgs e)
-    {
-        if (WpfApplication.Current is not App app)
-            return;
-
-        MessageBoxResult answer = MessageBox.Show(
-            "Clear ThinkControl's locally stored battery charge and discharge history?\n\nCurrent Windows battery health and cycle-count values are not changed.",
-            "ThinkControl · Clear battery history",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (answer != MessageBoxResult.Yes)
-            return;
-
-        BatteryHistoryView view = app.BatteryHistoryService.Clear();
-        app.State.ApplyBatteryHistory(view);
-        app.BatteryTelemetryService.SetHistoricalChargePower(view.TypicalChargePowerWatts);
-        RefreshHistoryUi();
     }
 
     private void OpenVantage_Click(object sender, RoutedEventArgs e)

@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.Core.Audio;
 
 namespace ThinkControl.UI;
 
@@ -73,6 +74,14 @@ public partial class AdvancedWindow
             AudioPanelControl.PrepareFusionForSnapshot();
         else
             AudioPanelControl.PrepareForSnapshot(providersAvailable);
+    }
+
+    internal void PrepareAudioSafetyForSnapshot(AudioSafetyMode mode, bool audioPage)
+    {
+        if (audioPage)
+            AudioPanelControl.PrepareAudioSafetyForSnapshot(mode);
+        else
+            PrepareAudioSafetyForSnapshot(mode);
     }
 
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
