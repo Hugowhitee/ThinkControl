@@ -316,10 +316,6 @@ internal sealed class ServiceEngine : IDisposable
         bool fanCalibrationRequired = fanCalibrationSupported &&
                                       (cooling.Characterization.Running || !completeCalibration);
 
-        // Repeated user-session effects require a provider whose direct/static write
-        // contract can be called rapidly without invoking an OEM popup. Keep this
-        // provider-specific decision on the service side; generic UI consumes only
-        // the capability bit and never infers support from a vendor/backend label.
         bool keyboardEffects = status.CanKeyboardBacklight &&
                                !status.KeyboardBackend.Contains("Vantage", StringComparison.OrdinalIgnoreCase) &&
                                !status.KeyboardBackend.Equals("Not exposed", StringComparison.OrdinalIgnoreCase);
@@ -414,9 +410,6 @@ internal sealed class ServiceEngine : IDisposable
     {
         if (!_fanSupervisor.ReturnToAuto(out string? fanError))
             return Error(fanError ?? "Lenovo Auto rejected.");
-        // Explicit Auto is also the recovery path after a service/app restart lost
-        // in-memory ownership of an alpha.41 full-speed override. The coordinator
-        // touches only the exact known boolean feature and verifies the release.
         if (!_coolingPolicy.RequestFirmwareAuto(out string? policyError))
             return Error(policyError ?? "Lenovo firmware cooling profile could not return to Auto.");
         return RefreshAndReturnStatus();
@@ -435,9 +428,6 @@ internal sealed class ServiceEngine : IDisposable
         LenovoHardwareStatus status = _hardware.ReadStatus();
         if (_coolingPolicy.Supported && !status.CanFanControl && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
         {
-            // Release any stale ThinkControl-owned direct target first. The profile
-            // itself is then owned and smoothed by Lenovo firmware/LITSSvc instead of
-            // the physically rejected target-RPM writer or the inferior EC fallback.
             if (!_fanSupervisor.ReturnToAuto(out string? handoffError))
                 return Error(handoffError ?? "Could not return direct fan ownership to Lenovo Auto before applying the firmware profile.");
             return _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError)
@@ -535,13 +525,16 @@ internal sealed class ServiceEngine : IDisposable
         else
         {
             string[] parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-            // Compatibility for an unreleased early alpha.43 client that only knew
-            // an 80% ceiling: turn it into a conservative 75–80% hysteresis window.
             if (parts.Length == 1 && int.TryParse(parts[0], out int legacyStop) && legacyStop == 80)
                 parts = ["75", "80"];
 
-            if (parts.Length != 2 || !int.TryParse(parts[0], out int start) || !int.TryParse(parts[1], out int stop) ||
-                !LenovoBatteryChargeProtectionService.TryValidatePair(start, stop, out string? validation))
+            int start = 0;
+            int stop = 0;
+            string? validation = null;
+            bool parsed = parts.Length == 2 &&
+                          int.TryParse(parts[0], out start) &&
+                          int.TryParse(parts[1], out stop);
+            if (!parsed || !LenovoBatteryChargeProtectionService.TryValidatePair(start, stop, out validation))
             {
                 return Error(validation ?? "Battery charge protection expects an ordered start,stop threshold pair or 'off'.");
             }
