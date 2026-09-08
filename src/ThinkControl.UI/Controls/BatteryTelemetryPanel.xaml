@@ -94,6 +94,7 @@
                     </Grid>
                     <TextBlock Text="Keep the battery away from a constantly full state when you do not need maximum unplugged runtime." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                     <ComboBox x:Name="ChargeProtectionComboBox"
+                              Style="{StaticResource TcComboBox}"
                               Margin="0,10,0,0"
                               MinHeight="38"
                               IsEnabled="False"
@@ -133,7 +134,7 @@
                                 <TextBlock Text="Detailed graphs" FontWeight="SemiBold" FontSize="{x:Static ui:TypographyScale.Secondary}" />
                                 <TextBlock Text="Older sessions are automatically compacted into small summaries instead of staying as an endless raw list." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,3,0,0" />
                             </StackPanel>
-                            <ComboBox x:Name="BatteryHistoryRetentionComboBox" Grid.Column="1" Width="150" MinHeight="38" SelectionChanged="BatteryHistoryRetention_SelectionChanged">
+                            <ComboBox x:Name="BatteryHistoryRetentionComboBox" Grid.Column="1" Style="{StaticResource TcComboBox}" Width="150" MinHeight="38" SelectionChanged="BatteryHistoryRetention_SelectionChanged">
                                 <ComboBoxItem Content="7 days" Tag="7" />
                                 <ComboBoxItem Content="14 days" Tag="14" />
                                 <ComboBoxItem Content="30 days" Tag="30" />
