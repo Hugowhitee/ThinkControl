@@ -193,7 +193,10 @@ public partial class App : System.Windows.Application
 
             ThinkControlPowerMode? mode = PowerModeService.GetCurrent(!battery.OnAc);
             if (mode.HasValue)
+            {
                 State.SelectedMode = mode.Value.ToString();
+                MarkCoolingThermalBaselineReady();
+            }
 
             DisplaySnapshot display = await Task.Run(DisplayService.Read);
             State.CurrentRefreshHz = display.CurrentRefreshHz;
