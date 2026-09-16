@@ -20,6 +20,7 @@ public sealed class TouchpadSafetySourceTests
 
         Assert.Contains("ContinuousVolumeLeadLimit = 8", host, StringComparison.Ordinal);
         Assert.Contains("ContinuousBrightnessLeadLimit = 10", host, StringComparison.Ordinal);
+        Assert.Contains("_nativeInput.TryGetVolumePercent", host, StringComparison.Ordinal);
         Assert.Contains("QueueGestureVolume", host, StringComparison.Ordinal);
         Assert.Contains("QueueGestureBrightness", host, StringComparison.Ordinal);
         Assert.Contains("Interlocked.Exchange(ref _pendingVolume, -1)", host, StringComparison.Ordinal);
