@@ -99,6 +99,9 @@ internal sealed class GestureOsdService : IDisposable
         RestartHideTimer();
     }
 
+    internal void ShowStatus(string label) =>
+        ShowMediaCommand(label, ResolveResourceGeometry(SemanticIconKeys.Volume));
+
     internal void ShowTrack(bool next)
     {
         ShowMediaCommand(
