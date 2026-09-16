@@ -95,6 +95,7 @@ public partial class App : System.Windows.Application
         _statusTimer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, OnStatusTimer, Dispatcher);
         _statusTimer.Start();
         Task initialRefresh = RefreshStatusAsync(forceSystemInfo: true);
+        StartCoolingColdStartConvergence();
         PresentInitialShell(initialRefresh, synchronousStartup.Elapsed);
     }
 
