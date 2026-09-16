@@ -46,11 +46,31 @@ public sealed class TouchpadSafetySourceTests
         Assert.DoesNotContain("() => app.State.Brightness,\n            QueueGestureBrightness", host, StringComparison.Ordinal);
 
         Assert.Contains("TryGetVolumePercent()", native, StringComparison.Ordinal);
+        Assert.Contains("internal int? GetVolumePercent()", native, StringComparison.Ordinal);
+        Assert.Contains("return cached >= 0 ? cached : null;", native, StringComparison.Ordinal);
         Assert.Contains("return null;", native, StringComparison.Ordinal);
         Assert.DoesNotContain("return 50;", native, StringComparison.Ordinal);
+        Assert.DoesNotContain("return cached >= 0 ? cached : 0;", native, StringComparison.Ordinal);
         Assert.Contains("TrySetVolume(int percent, out int applied)", native, StringComparison.Ordinal);
         Assert.Contains("MasterVolumeLevelScalar * 100", native, StringComparison.Ordinal);
         Assert.Contains("_showValue?.Invoke(\"Volume\", applied)", native, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UnknownVolume_RemainsUnknownInTouchpadFeedbackAndBlockedOsd()
+    {
+        string root = FindRepositoryRoot();
+        string host = Read(root, "src", "ThinkControl.UI", "Services", "Touchpad", "TouchpadFeatureHost.cs");
+        string osd = Read(root, "src", "ThinkControl.UI", "Services", "Touchpad", "GestureOsdService.cs");
+        string feedback = Read(root, "src", "ThinkControl.UI", "Controls", "TouchpadPanel.ValueFeedback.cs");
+
+        Assert.Contains("internal int? ReadVolumePercent()", host, StringComparison.Ordinal);
+        Assert.Contains("if (ReadVolumePercent() is int volume)", host, StringComparison.Ordinal);
+        Assert.Contains("_osd.ShowStatus(label);", host, StringComparison.Ordinal);
+        Assert.Contains("internal void ShowStatus(string label)", osd, StringComparison.Ordinal);
+        Assert.Contains("FormatCurrentPercent(_host!.CurrentVolumeTarget, _host.ReadVolumePercent())", feedback, StringComparison.Ordinal);
+        Assert.Contains("return value is int known", feedback, StringComparison.Ordinal);
+        Assert.Contains(": \"—\";", feedback, StringComparison.Ordinal);
     }
 
     [Fact]
