@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.43**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.43` is the current published prerelease; `v0.1.0-alpha.42` is the previous immutable baseline.
+This document describes the current architecture at **v0.1.0-alpha.44**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.43` remains the current published prerelease while alpha.44 is the active development candidate.
 
 ## Process boundary
 
@@ -17,6 +17,8 @@ The UI remains `asInvoker`. Hardware operations that need elevated/device access
 ## Startup model
 
 Startup has a strict critical-path boundary: establish cheap identity and configured user-session input before rich WPF/hardware discovery. Alpha.41 tightened this after comparing the runtime shape with lightweight helper apps such as G-Helper. The useful principle is **input/tray first, discovery later**; ThinkControl does not copy G-Helper's single-process privilege model.
+
+Alpha.44 adds a second bounded startup responsibility for hardware readiness without putting hardware discovery back onto the UI critical path. After the initial status request, `App.Cooling` owns a finite cold-start convergence sequence for a saved cooling preference. Those lifecycle probes may bypass the client's ordinary offline backoff because the Windows service and UI are known to be racing during login. The sequence stops after its bounded window, on cancellation, after successful restore, or when the user changes the cooling selection. Normal hidden-tray runtime remains sparse and does not become a permanent fast hardware poller.
 
 `Start with Windows` remains one per-user HKCU Run entry launching `ThinkControl.UI.exe --tray`. During the earliest `Application.Startup` hook, `SystemStatusService.ReadStartupIdentity()` reads only firmware identity from `HKLM\HARDWARE\DESCRIPTION\System\BIOS`. If configured Touchpad gestures are enabled, `StartConfiguredTouchpadInputForStartup()` creates the existing gesture host and starts Raw Input immediately from that Startup hook instead of queueing registration behind normal WPF dispatcher shell work.
 
@@ -151,9 +153,11 @@ When enabled, the lane is **Previous | Play/Pause | Next**. The center uses the 
 
 When disabled, `TrackCenterPlayPauseEnabled` sanitizes false while the `PreviousNextTrack` binding remains in place. The visualizer does not draw the center fill, separators or Play/Pause icon, and recognition uses the same canonical configuration.
 
+Alpha.44 also hardens continuous edge controls. Claim is a clutch rather than an immediate write: Volume/Brightness need an additional 1.5 mm of post-claim motion. The router caps one frame's contribution, while `TouchpadFeatureHost` bounds pending gesture intent against the last confirmed OS value. CoreAudio volume writes are read back before they become the new confirmation point, and ending/cancelling the gesture discards pending gesture intent. This keeps lag in Windows/CoreAudio from accumulating into a delayed jump.
+
 The explicit opt-out defaults false so existing alpha.42 configurations keep their integrated center action. Explicitly disabling it persists even if Track is temporarily moved/removed and later assigned again.
 
-Once the hold slop is exceeded, normal edge direction recognition resumes; if the contact later reaches 9 mm, Previous/Next can still fire. A claimed Track swipe cannot also become Play/Pause on lift.
+Once the hold slop is exceeded, normal edge direction recognition resumes; if the contact later reaches 12 mm, Previous/Next can commit on release. A claimed Track swipe cannot also become Play/Pause on lift.
 
 Occupied edge assignment continues to swap action kinds rather than clearing the previous edge. Sensitivity and inversion remain properties of the physical edge.
 
