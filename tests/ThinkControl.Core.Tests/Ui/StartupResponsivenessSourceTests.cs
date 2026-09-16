@@ -74,6 +74,17 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("bypassRetryBackoff: true", cooling, StringComparison.Ordinal);
         Assert.Contains("(!bypassRetryBackoff && DateTimeOffset.UtcNow < _coolingPreferenceRetryAfter)", cooling, StringComparison.Ordinal);
         Assert.Contains("generation != Volatile.Read(ref _coolingSelectionGeneration)", cooling, StringComparison.Ordinal);
+        string convergence = cooling.Split("private async Task ConvergeCoolingPreferenceAfterColdStartAsync", StringSplitOptions.None)[1]
+            .Split("private async Task TryRestoreCoolingPreferenceAsync", StringSplitOptions.None)[0];
+        int statusAwait = convergence.IndexOf("await HardwareClient.GetStatusAsync", StringComparison.Ordinal);
+        int postAwaitGenerationCheck = convergence.IndexOf(
+            "generation != Volatile.Read(ref _coolingSelectionGeneration)",
+            statusAwait,
+            StringComparison.Ordinal);
+        int restoreCall = convergence.IndexOf(
+            "await TryRestoreCoolingPreferenceAsync(response, bypassRetryBackoff: true)",
+            StringComparison.Ordinal);
+        Assert.True(statusAwait >= 0 && postAwaitGenerationCheck > statusAwait && restoreCall > postAwaitGenerationCheck);
         Assert.Contains("_coolingPreferenceRestoreAttempted", cooling, StringComparison.Ordinal);
 
         Assert.Contains("bool bypassOfflineBackoff = false", client, StringComparison.Ordinal);
