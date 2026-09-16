@@ -24,7 +24,76 @@ Release completion:
 - merge commit / release tag target: `ba13fab6d5b47cf127f4b627976662678f2ec491`
 - the merged feature branch was removed by branch hygiene
 - issues #79 (Audio Safety feature) and #60 (historic `TargetParameterCountException`) were closed as completed with evidence/reopen guidance
-- no product-development candidate is active; the post-release docs change only records the completed immutable release
+- active development candidate: `v0.1.0-alpha.44` on `feat/alpha44-startup-input-safety`; `version.json.releaseReady=false` until exact-head implementation gates are green
+
+## Alpha.44 stabilization candidate
+
+Alpha.44 is intentionally narrow: cold-boot cooling convergence plus safer high-rate Touchpad controls. It does not broaden any low-level hardware writer.
+
+### Cold-boot cooling convergence
+
+Root cause on silent Windows startup: the UI can issue its first service status request before the auto-start hardware service/provider is ready. Hidden tray runtime intentionally avoids frequent hardware status polling, so a failed first request could leave the saved cooling profile unapplied until a later activation or resume.
+
+The candidate fixes this with one bounded lifecycle-owned convergence path:
+
+- the ordinary `HardwareServiceClient` offline backoff remains the default;
+- cold-start convergence may explicitly bypass that backoff only during its finite login window;
+- probes stop after success, cancellation, cooling-selection generation change or the bounded retry sequence;
+- successful status still routes through the canonical `TryRestoreCoolingPreferenceAsync` owner;
+- the existing seven-second firmware settle reassert remains the later one-shot convergence step after a successful restore;
+- normal tray runtime stays sparse; there is no permanent fast hardware poller.
+
+### Touchpad edge-control safety
+
+Continuous Volume/Brightness now separates recognition from writing:
+
+- an edge claim acts as a clutch and does not immediately change the setting;
+- an extra 1.5 mm post-claim dead zone must be crossed before continuous writes contribute;
+- accelerated contribution is capped to 6 percentage points per input frame;
+- gesture volume intent is limited to 8 points ahead of the last confirmed CoreAudio value;
+- CoreAudio writes are read back before becoming the next confirmation point;
+- brightness uses the same ownership model with a 10-point lead limit;
+- release/cancel clears pending gesture intent, preventing delayed catch-up after the finger leaves the pad.
+
+Track Previous/Next is also safer:
+
+- skip threshold increases from 9 mm to 12 mm;
+- crossing the threshold while the finger is still down does not skip;
+- one skip may commit on release after the deliberate threshold;
+- Track-center Play/Pause remains the existing 450 ms / ≤3 mm / release contract.
+
+### Alpha.44 implementation gate
+
+- [x] cold-start race traced through initial status → client offline backoff → tray-only sparse runtime → cooling restore
+- [x] bounded cold-start convergence implemented without adding a permanent polling loop
+- [x] cooling generation/cancellation guards preserved
+- [x] Volume/Brightness claim no longer performs an immediate write
+- [x] continuous post-claim dead zone and per-frame contribution cap implemented
+- [x] volume writes use CoreAudio readback and bounded confirmed-state lead
+- [x] release/cancel drops pending continuous gesture intent
+- [x] Track skip raised to 12 mm and moved to release-to-commit
+- [x] low-level fan/battery/provider safety boundaries unchanged
+- [ ] implementation-head CI green
+- [ ] implementation-head Package ThinkControl green
+- [ ] complete implementation diff/review backlog checked
+- [ ] freeze `version.json.releaseReady=true`
+- [ ] frozen-head CI + Package green
+- [ ] merge with exact expected-head SHA
+- [ ] immutable `v0.1.0-alpha.44` published and assets/checksums verified
+- [ ] post-merge main CI/promotion/branch hygiene green
+
+### Alpha.44 physical follow-up
+
+- [ ] full Windows restart with Start with Windows enabled and Quiet/Balanced saved converges without opening a ThinkControl window
+- [ ] delaying/restarting the hardware service during login still allows bounded convergence once it becomes ready
+- [ ] tray-only operation returns to normal sparse cadence after startup convergence
+- [ ] touching/claiming Volume or Brightness and immediately releasing does not alter the setting
+- [ ] small post-claim movement remains inactive; deliberate movement stays responsive
+- [ ] under a lagging/changing audio endpoint, extra movement cannot later catch up into a large volume jump
+- [ ] release/cancel produces no delayed Volume/Brightness write
+- [ ] Track movement below 12 mm never skips
+- [ ] Track crossing 12 mm skips once on release and never while still held
+- [ ] Track-center hold behavior remains deliberate and unchanged
 
 ## Alpha.43 product delta
 
@@ -195,7 +264,7 @@ Touchpad:
 - [ ] roughly half-second hold toggles once on release
 - [ ] nothing auto-fires while still held
 - [ ] >3 mm movement disarms the center hold for that contact
-- [ ] Previous/Next remains reliable at the 9 mm swipe threshold
+- [ ] Previous/Next remains reliable at the current 12 mm release-to-commit threshold
 - [ ] disabling Track Play/Pause removes the center visual and behavior while Previous/Next still work
 - [ ] reverse-close remains reliable across the inner half of both mirrored lanes
 
