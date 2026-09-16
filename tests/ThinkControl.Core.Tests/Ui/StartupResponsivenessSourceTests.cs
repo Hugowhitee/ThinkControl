@@ -86,6 +86,29 @@ public sealed class StartupResponsivenessSourceTests
             StringComparison.Ordinal);
         Assert.True(statusAwait >= 0 && postAwaitGenerationCheck > statusAwait && restoreCall > postAwaitGenerationCheck);
         Assert.Contains("_coolingPreferenceRestoreAttempted", cooling, StringComparison.Ordinal);
+        Assert.Contains("SemaphoreSlim _coolingWriteGate", cooling, StringComparison.Ordinal);
+        Assert.Contains("int generation = Interlocked.Increment(ref _coolingSelectionGeneration);", cooling, StringComparison.Ordinal);
+        Assert.Contains("await _coolingWriteGate.WaitAsync();", cooling, StringComparison.Ordinal);
+        Assert.Contains("await _coolingWriteGate.WaitAsync(_coolingLifetimeCts.Token);", cooling, StringComparison.Ordinal);
+        Assert.Contains("await _coolingWriteGate.WaitAsync(cancellationToken);", cooling, StringComparison.Ordinal);
+
+        string userSelection = cooling.Split("internal async Task<bool> SetCoolingProfileAsync", StringSplitOptions.None)[1]
+            .Split("private async Task<bool> SetCoolingProfileCoreAsync", StringSplitOptions.None)[0];
+        int userGeneration = userSelection.IndexOf("Interlocked.Increment(ref _coolingSelectionGeneration)", StringComparison.Ordinal);
+        int userGateWait = userSelection.IndexOf("await _coolingWriteGate.WaitAsync()", StringComparison.Ordinal);
+        Assert.True(userGeneration >= 0 && userGateWait > userGeneration);
+
+        string restore = cooling.Split("private async Task TryRestoreCoolingPreferenceAsync", StringSplitOptions.None)[1]
+            .Split("private void ScheduleFirmwareCoolingSettleReassert", StringSplitOptions.None)[0];
+        int restoreGateWait = restore.IndexOf("await _coolingWriteGate.WaitAsync(_coolingLifetimeCts.Token)", StringComparison.Ordinal);
+        int restoreGenerationCheck = restore.IndexOf(
+            "generation != Volatile.Read(ref _coolingSelectionGeneration)",
+            restoreGateWait,
+            StringComparison.Ordinal);
+        int restoreHardwareWrite = restore.IndexOf("HardwareClient.ReturnFanToAutoAsync()", StringComparison.Ordinal);
+        if (restoreHardwareWrite < 0)
+            restoreHardwareWrite = restore.IndexOf("HardwareClient.SetThermalModeAsync(State.SelectedMode)", StringComparison.Ordinal);
+        Assert.True(restoreGateWait >= 0 && restoreGenerationCheck > restoreGateWait && restoreHardwareWrite > restoreGenerationCheck);
 
         Assert.Contains("bool bypassOfflineBackoff = false", client, StringComparison.Ordinal);
         Assert.Contains("if (!bypassOfflineBackoff && now < _offlineRetryAfter)", client, StringComparison.Ordinal);
