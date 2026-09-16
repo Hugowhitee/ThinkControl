@@ -119,6 +119,36 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("ShouldRefreshHardwareRuntime()", runtime, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ColdBootCooling_UsesRealThermalBaselineAndQuitAwaitsDirectWriterHandoff()
+    {
+        string root = FindRepositoryRoot();
+        string app = Read(root, "src", "ThinkControl.UI", "App.xaml.cs");
+        string cooling = Read(root, "src", "ThinkControl.UI", "App.Cooling.cs");
+
+        int modeRead = app.IndexOf("ThinkControlPowerMode? mode = PowerModeService.GetCurrent(!battery.OnAc);", StringComparison.Ordinal);
+        int baselineReady = app.IndexOf("MarkCoolingThermalBaselineReady();", modeRead, StringComparison.Ordinal);
+        Assert.True(modeRead >= 0 && baselineReady > modeRead);
+
+        Assert.Contains("private bool CoolingThermalBaselineReady", cooling, StringComparison.Ordinal);
+        Assert.Contains("if (!wantsAuto && firmwarePolicy && !CoolingThermalBaselineReady)", cooling, StringComparison.Ordinal);
+
+        string restore = cooling.Split("private async Task TryRestoreCoolingPreferenceAsync", StringSplitOptions.None)[1]
+            .Split("private void ScheduleFirmwareCoolingSettleReassert", StringSplitOptions.None)[0];
+        int baselineGate = restore.IndexOf("!CoolingThermalBaselineReady", StringComparison.Ordinal);
+        int thermalWrite = restore.IndexOf("SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token)", StringComparison.Ordinal);
+        Assert.True(baselineGate >= 0 && thermalWrite > baselineGate);
+
+        Assert.Contains("public async void ExitApplication()", app, StringComparison.Ordinal);
+        Assert.Contains("await PrepareCoolingForApplicationExitAsync();", app, StringComparison.Ordinal);
+        Assert.Contains("internal async Task PrepareCoolingForApplicationExitAsync()", cooling, StringComparison.Ordinal);
+        Assert.Contains("_coolingLifetimeCts.Cancel();", cooling, StringComparison.Ordinal);
+        Assert.Contains("await _coolingWriteGate.WaitAsync(timeout.Token);", cooling, StringComparison.Ordinal);
+        Assert.Contains("await HardwareClient.ReturnFanToAutoAsync(timeout.Token);", cooling, StringComparison.Ordinal);
+        Assert.Contains("SetCoolingCurveAsync(definition, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
+        Assert.Contains("if (!_coolingWriteGate.Wait(0))", cooling, StringComparison.Ordinal);
+    }
+
     private static string Read(string root, params string[] path) =>
         File.ReadAllText(Path.Combine([root, .. path]));
 
