@@ -24,7 +24,7 @@ public sealed class CompactDashboardLayoutSourceTests
 
         Assert.DoesNotContain("CompactAudioSafetyCombo", cardLoop, StringComparison.Ordinal);
         Assert.Contains("CompactAudioSafetyCombo.Margin = new Thickness(0, 0, 10, 0);", geometry, StringComparison.Ordinal);
-        Assert.Contains("CompactAudioSafetyCombo.MinHeight = 28;", geometry, StringComparison.Ordinal);
+        Assert.Contains("CompactAudioSafetyCombo.MinHeight = 32;", geometry, StringComparison.Ordinal);
         Assert.Contains("CompactAudioSafetyCombo.VerticalAlignment = VerticalAlignment.Center;", geometry, StringComparison.Ordinal);
     }
 
