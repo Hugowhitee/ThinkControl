@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.43** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.44** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -39,6 +39,29 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 3. Repeat with microphone level.
 4. Confirm no delayed off-page write jumps a control later.
 5. Leave Audio idle and confirm live endpoint state continues refreshing after the navigation cycle.
+
+## Alpha.44 cold-start and edge-control stabilization
+
+### Windows cold boot / saved cooling
+
+1. Enable **Start with Windows**, save Quiet or Balanced, then perform a full Windows restart.
+2. Do not open Compact/Advanced after sign-in. Confirm the saved cooling intent converges once the hardware service/provider becomes ready rather than waiting for a later window activation or sleep/resume.
+3. Repeat with a deliberately delayed/restarted ThinkControl service during login. The bounded cold-start convergence may retry, but it must stop after its startup window and must not create permanent fast tray polling.
+4. Change cooling profile while startup convergence is still possible; an older saved generation must never overwrite the new user choice.
+5. Confirm runtime/service state—not merely settings JSON—reports the applied profile before treating the restore as successful.
+
+### Continuous edge controls
+
+1. Touch a configured Volume/Brightness edge, cross the normal recognition threshold and immediately release. Claim alone must not change the value.
+2. Move less than roughly **1.5 mm** beyond claim; no continuous write should commit.
+3. Move deliberately farther and confirm the control remains responsive and accelerates without large single-frame jumps.
+4. While Windows/CoreAudio is delayed or the output endpoint is changing, move farther and release. ThinkControl must not later catch up through a hidden queue toward 0/100%.
+5. After release/cancel, confirm no delayed gesture write remains pending.
+6. For Track Previous/Next, movement below **12 mm** then release does nothing.
+7. Cross **12 mm** deliberately; the skip commits once on release, not while the finger is still moving.
+8. Track-center Play/Pause remains 450 ms / ≤3 mm / release-to-commit.
+
+Hosted CI covers routing, bounds, readback ownership and lifecycle structure. Actual finger feel, audio-stack stalls and physical fan convergence remain real-device evidence.
 
 ## Audio Safety — alpha.43
 
@@ -87,7 +110,7 @@ Real endpoint switching/audible silence requires real Windows testing; hosted CI
 - Confirm a saved effect is not restored before provider capability is known.
 - The Lenovo Vantage fallback must not advertise repeated effects if doing so causes OEM popups.
 
-## Touchpad — alpha.43 physical focus
+## Touchpad — alpha.44 physical focus
 
 ### Six-zone editor/corners
 
@@ -107,7 +130,7 @@ Real endpoint switching/audible silence requires real Windows testing; hosted CI
 6. Holding one or two seconds without releasing must not auto-fire.
 7. Natural movement up to about **3 mm maximum radial excursion** remains eligible.
 8. Move beyond 3 mm, return near the start, release: Play/Pause remains disarmed.
-9. Previous/Next still needs **9 mm** and cannot also toggle Play/Pause on release.
+9. Previous/Next in the current alpha.44 candidate needs **12 mm**, commits on release, and cannot also toggle Play/Pause.
 10. OSD semantics remain **Playing + pause bars**, **Paused + play triangle**.
 
 Release-to-commit is intentional: release is the final intent confirmation so a resting touch cannot start global media simply because a timer elapsed.
@@ -117,7 +140,7 @@ Release-to-commit is intentional: release is the final intent confirmation so a 
 1. Turn the Track-local switch off.
 2. Center fill/separators/glyph disappear immediately.
 3. Tap/hold the physical center repeatedly; it must never act as an invisible Play/Pause target.
-4. Previous/Next continues with the same 9 mm threshold.
+4. Previous/Next continues with the current 12 mm release-to-commit threshold.
 5. Reopen Touchpad and confirm the choice persists.
 6. Move/remove/reassign Track and confirm the explicit Play/Pause-off choice survives.
 
@@ -142,7 +165,7 @@ Inspect exact-head renders for normal/minimum/wide/light Touchpad plus both sele
 
 ## Fans and hardware providers
 
-Alpha.43 preserves the alpha.42 cooling lifecycle and alpha.41 low-level safety boundary.
+Alpha.44 preserves the alpha.43/alpha.42 cooling lifecycle and alpha.41 low-level safety boundary.
 
 - The rejected per-fan `fanX_target` writer remains read-only.
 - `0x04020000` full speed remains a separately exact-X9-gated boolean semantic.
