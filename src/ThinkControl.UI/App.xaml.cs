@@ -21,6 +21,7 @@ public partial class App : System.Windows.Application
     private bool? _lastServiceOnline;
     private string _manufacturer = string.Empty;
     private AdvancedWindow? _advancedWindow;
+    private int _exitInProgress;
 
     public AppState State { get; } = new();
     public DisplayService DisplayService { get; } = new();
@@ -412,14 +413,23 @@ public partial class App : System.Windows.Application
         catch { }
     }
 
-    public void ExitApplication()
+    public async void ExitApplication()
     {
+        if (Interlocked.Exchange(ref _exitInProgress, 1) != 0)
+            return;
+
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "app.exit",
             ValidationState: GetCurrentDeviceValidationState(),
             Success: true));
         _statusTimer?.Stop();
+
+        // Complete direct/manual fan ownership handoff before WPF tears down the
+        // dispatcher. This lets in-flight restore writes observe cancellation and
+        // release the shared cooling gate before Lenovo Auto is requested.
+        await PrepareCoolingForApplicationExitAsync();
+
         try { KeyboardEffects?.Dispose(); } catch { }
         _trayIcon?.Dispose();
         _ownedTrayIcon?.Dispose();
