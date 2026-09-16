@@ -37,6 +37,11 @@ public sealed class TouchpadSafetySourceTests
         Assert.Contains("lock (_volumeWriteGate)", host, StringComparison.Ordinal);
         Assert.Contains("lock (_brightnessWriteGate)", host, StringComparison.Ordinal);
         Assert.Contains("_app.DisplayService.GetBrightness()", host, StringComparison.Ordinal);
+        Assert.Contains("() => app.DisplayService.GetBrightness()", host, StringComparison.Ordinal);
+        Assert.Contains("Interlocked.Exchange(ref _confirmedBrightness, -1)", host, StringComparison.Ordinal);
+        Assert.Contains("Func<int?> _getBrightness", router, StringComparison.Ordinal);
+        Assert.Contains("_getBrightness() is not int brightnessAtStart", router, StringComparison.Ordinal);
+        Assert.DoesNotContain("() => app.State.Brightness,\n            QueueGestureBrightness", host, StringComparison.Ordinal);
 
         Assert.Contains("TryGetVolumePercent()", native, StringComparison.Ordinal);
         Assert.Contains("return null;", native, StringComparison.Ordinal);
