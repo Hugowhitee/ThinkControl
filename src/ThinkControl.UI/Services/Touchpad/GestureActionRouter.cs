@@ -37,6 +37,7 @@ internal sealed class GestureActionRouter
     private long _lastMediaTimestamp;
     private bool _trackSwipeFired;
     private double _trackMaxTravelMm;
+    private double _trackPeakTravelMm;
     private double? _trackStartPosition01;
     private bool _trackStayedCandidate;
     private long _trackGestureStarted;
@@ -133,6 +134,7 @@ internal sealed class GestureActionRouter
         _setGestureActive(signal.Action, true);
         _trackSwipeFired = false;
         _trackMaxTravelMm = 0;
+        _trackPeakTravelMm = 0;
         _trackStartPosition01 = signal.EdgePosition01;
         _trackStayedCandidate = true;
         _trackGestureStarted = Stopwatch.GetTimestamp();
@@ -173,7 +175,7 @@ internal sealed class GestureActionRouter
                 _setGestureActive(signal.Action, true);
                 _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
-                _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(GetPhysicalTotalTravelMm(signal)));
+                ObserveTrackTravel(signal);
                 break;
             case GestureActionKind.PlayPause:
                 _ = TogglePlayPauseReliablyAsync();
@@ -205,7 +207,7 @@ internal sealed class GestureActionRouter
             case GestureActionKind.PreviousNextTrack:
                 _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
-                _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(GetPhysicalTotalTravelMm(signal)));
+                ObserveTrackTravel(signal);
                 break;
         }
     }
@@ -215,7 +217,7 @@ internal sealed class GestureActionRouter
         if (signal.Action == GestureActionKind.PreviousNextTrack)
         {
             _trackStartPosition01 ??= signal.EdgePosition01;
-            _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(GetPhysicalTotalTravelMm(signal)));
+            ObserveTrackTravel(signal);
             if (!_trackStayedCandidate)
                 TryFireTrackSwipe(signal);
             if (!_trackSwipeFired && _trackStayedCandidate)
@@ -224,12 +226,21 @@ internal sealed class GestureActionRouter
         End(signal.Action);
     }
 
+    private void ObserveTrackTravel(GestureSignal signal)
+    {
+        double signed = ToPositiveControlDelta(signal, GetPhysicalTotalTravelMm(signal));
+        double magnitude = Math.Abs(signed);
+        _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, magnitude);
+        if (magnitude > Math.Abs(_trackPeakTravelMm))
+            _trackPeakTravelMm = signed;
+    }
+
     private void TryFireTrackSwipe(GestureSignal signal)
     {
         if (_trackSwipeFired)
             return;
 
-        double signed = ToPositiveControlDelta(signal, GetPhysicalTotalTravelMm(signal));
+        double signed = _trackPeakTravelMm;
         double threshold = TrackCenterGesturePolicy.SwipeThresholdMm;
         if (Math.Abs(signed) < threshold)
             return;
@@ -422,6 +433,7 @@ internal sealed class GestureActionRouter
         {
             _trackSwipeFired = false;
             _trackMaxTravelMm = 0;
+            _trackPeakTravelMm = 0;
             _trackStartPosition01 = null;
             _trackStayedCandidate = false;
             _trackGestureStarted = 0;
