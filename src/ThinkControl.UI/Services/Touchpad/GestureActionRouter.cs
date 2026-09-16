@@ -16,7 +16,7 @@ internal sealed class GestureActionRouter
     private readonly Func<TouchpadGestureConfiguration> _getConfiguration;
     private readonly Func<AudioSafetyMode> _getAudioSafetyMode;
     private readonly Action<AudioSafetyMode> _showAudioSafetyBlocked;
-    private readonly Func<int> _getVolume;
+    private readonly Func<int?> _getVolume;
     private readonly Action<int> _queueVolume;
     private readonly Func<int> _getBrightness;
     private readonly Action<int> _queueBrightness;
@@ -48,7 +48,7 @@ internal sealed class GestureActionRouter
         Func<TouchpadGestureConfiguration> getConfiguration,
         Func<AudioSafetyMode> getAudioSafetyMode,
         Action<AudioSafetyMode> showAudioSafetyBlocked,
-        Func<int> getVolume,
+        Func<int?> getVolume,
         Action<int> queueVolume,
         Func<int> getBrightness,
         Action<int> queueBrightness,
@@ -150,7 +150,12 @@ internal sealed class GestureActionRouter
         {
             case GestureActionKind.Volume:
                 _setGestureActive(signal.Action, true);
-                _volumeAtStart = _getVolume();
+                if (_getVolume() is not int volumeAtStart)
+                {
+                    End(signal.Action);
+                    break;
+                }
+                _volumeAtStart = volumeAtStart;
                 BeginContinuous();
                 break;
             case GestureActionKind.Brightness:
