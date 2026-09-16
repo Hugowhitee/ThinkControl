@@ -13,8 +13,9 @@ public sealed class CompactDashboardLayoutSourceTests
 
         Assert.Contains("<RowDefinition Height=\"36\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("CompactAudioSafetyCombo", xaml, StringComparison.Ordinal);
-        Assert.Contains("Height=\"28\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"32\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Margin=\"0,-1,10,0\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Padding=\"10,4,32,4\"", xaml, StringComparison.Ordinal);
 
         string geometry = code.Split("private void ConfigureQuickControlGeometry()", StringSplitOptions.None)[1]
             .Split("internal void Initialize(App app)", StringSplitOptions.None)[0];
