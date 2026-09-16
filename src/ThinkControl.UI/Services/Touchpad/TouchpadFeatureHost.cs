@@ -346,19 +346,24 @@ internal sealed class TouchpadFeatureHost : IDisposable
                     break;
 
                 bool changed = _app.DisplayService.SetBrightness(target);
-                if (changed)
+                int? observed = changed ? _app.DisplayService.GetBrightness() : null;
+                if (observed is int observedBrightness)
                 {
-                    lastApplied = target;
-                    Interlocked.Exchange(ref _confirmedBrightness, target);
+                    int applied = Math.Clamp(observedBrightness, 0, 100);
+                    lastApplied = applied;
+                    Interlocked.Exchange(ref _confirmedBrightness, applied);
                     Interlocked.CompareExchange(ref _pendingBrightness, -1, target);
                     await _app.Dispatcher.InvokeAsync(() =>
                     {
-                        _app.State.Brightness = target;
-                        _osd.Show("Brightness", target);
+                        _app.State.Brightness = applied;
+                        _osd.Show("Brightness", applied);
                     });
                 }
                 else
                 {
+                    // A successful WMI invocation is not proof that the panel moved.
+                    // Without observable readback, fail closed and do not advance the
+                    // gesture's confirmed-state window from a speculative target.
                     Interlocked.CompareExchange(ref _pendingBrightness, -1, target);
                     break;
                 }
