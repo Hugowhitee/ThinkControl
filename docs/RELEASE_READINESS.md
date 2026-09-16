@@ -73,14 +73,41 @@ Track Previous/Next is also safer:
 - [x] release/cancel drops pending continuous gesture intent
 - [x] Track skip raised to 12 mm and moved to release-to-commit
 - [x] low-level fan/battery/provider safety boundaries unchanged
-- [ ] implementation-head CI green
-- [ ] implementation-head Package ThinkControl green
-- [ ] complete implementation diff/review backlog checked
+- [x] implementation-head CI green
+- [x] implementation-head Package ThinkControl green
+- [x] complete implementation diff/review backlog checked
 - [ ] freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
 - [ ] merge with exact expected-head SHA
 - [ ] immutable `v0.1.0-alpha.44` published and assets/checksums verified
 - [ ] post-merge main CI/promotion/branch hygiene green
+
+### Alpha.44 implementation-head evidence
+
+Implementation-review head: `812ff6160a740cea477236fbaee23ed0bd66b22b`.
+
+CI run `35133213130` (#1831) completed successfully on that exact head:
+
+- repository hygiene passed with 341 tracked paths / 27 Markdown files;
+- Release solution build succeeded;
+- Core tests: **198 passed, 0 failed, 0 skipped**;
+- real Compact ↔ Advanced ShellSmoke passed;
+- WPF visual QA rendered **85 snapshots**;
+- visual artifact `ThinkControl-Visual-QA`: artifact id `10462640566`, digest `sha256:12cd658268a4a9d85452810c4933024bdcaae488bda5c8564737bb47f4711e1d`.
+
+No XAML, visual resource, layout component or snapshot fixture is changed by alpha.44. The renderer is still green, but this candidate changes startup/input behavior rather than rendered UI, so there is no new visual surface requiring a separate manual visual-diff acceptance.
+
+Package ThinkControl run `35133213065` (#1541) also completed successfully on the same head:
+
+- version and canonical branding checks passed;
+- shared UI/service payload publishing and compact payload budgets passed;
+- web bootstrap installer built;
+- deep installer/service/IPC reliability smoke passed;
+- oldest-supported alpha.14.1 updater fixture verification and upgrade compatibility passed;
+- checksums were produced;
+- development artifact `ThinkControl-0.1.0-alpha.44-dev.1541`: artifact id `10462610511`, digest `sha256:c71bc98c5bb9df4ea7d6d9fb6c62a46d24d32ffbd569e270a074b610b72a381f`.
+
+Complete PR changed-file list was reviewed. PR #83 had no issue comments, review submissions or unresolved review threads at implementation freeze review. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path was introduced.
 
 ### Alpha.44 physical follow-up
 
