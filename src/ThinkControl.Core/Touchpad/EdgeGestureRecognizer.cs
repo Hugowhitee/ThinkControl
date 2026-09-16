@@ -28,6 +28,7 @@ public sealed class EdgeGestureRecognizer
     private GestureActionKind _claimedAction;
     private GesturePhase? _phase;
     private double _lastTotalTravelMm;
+    private double _lastPhysicalTotalTravelMm;
 
     public EdgeGestureRecognizer(TouchpadGestureConfiguration? configuration = null)
     {
@@ -78,7 +79,8 @@ public sealed class EdgeGestureRecognizer
                     ContactId: _contactId,
                     EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null,
                     Corner: corner,
-                    CornerDirection: _claimedCornerDirection);
+                    CornerDirection: _claimedCornerDirection,
+                    PhysicalTotalTravelMm: edge is not null ? _lastPhysicalTotalTravelMm : _lastTotalTravelMm);
                 Reset();
                 return released;
             }
@@ -96,7 +98,8 @@ public sealed class EdgeGestureRecognizer
                     action,
                     TotalTravelMm: _lastTotalTravelMm,
                     ContactId: _contactId,
-                    EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
+                    EdgePosition01: AlongEdgePosition01(edge, _startX, _startY),
+                    PhysicalTotalTravelMm: _lastTotalTravelMm);
                 Reset();
                 return released;
             }
@@ -167,6 +170,7 @@ public sealed class EdgeGestureRecognizer
             _startY = _lastY = contact.Y;
             _phase = GesturePhase.Candidate;
             _lastTotalTravelMm = 0;
+            _lastPhysicalTotalTravelMm = 0;
             return new GestureSignal(
                 GesturePhase.Candidate,
                 Edge: null,
@@ -200,6 +204,7 @@ public sealed class EdgeGestureRecognizer
         _startY = _lastY = contact.Y;
         _phase = GesturePhase.Candidate;
         _lastTotalTravelMm = 0;
+        _lastPhysicalTotalTravelMm = 0;
 
         GestureActionKind candidateAction = candidates.Count == 1
             ? _configuration.BindingFor(candidates[0]).Action
@@ -232,6 +237,7 @@ public sealed class EdgeGestureRecognizer
         // finger happened to return before lift. This keeps hold-to-Play/Pause safe:
         // moving away and back cannot erase evidence that the contact was not still.
         _lastTotalTravelMm = Math.Max(_lastTotalTravelMm, radialTravel);
+        _lastPhysicalTotalTravelMm = _lastTotalTravelMm;
 
         // A real finger cannot remain pixel-perfectly stationary. If Track started in
         // its visible center segment, reserve the contact through the small hold slop
@@ -268,12 +274,12 @@ public sealed class EdgeGestureRecognizer
         if (verticalIntent && !_candidateEdges.Any(IsVerticalEdge))
             return Cancel("Wrong direction");
 
-        double total = AxisTravelMm(chosen.Value, contact.X, contact.Y);
+        double physicalTotal = AxisTravelMm(chosen.Value, contact.X, contact.Y);
         TouchpadEdgeBinding binding = _configuration.BindingFor(chosen.Value);
         if (binding.Inverted)
-            total = -total;
-        total *= binding.Sensitivity;
-        return ClaimEdge(chosen.Value, contact, total);
+            physicalTotal = -physicalTotal;
+        double total = physicalTotal * binding.Sensitivity;
+        return ClaimEdge(chosen.Value, contact, total, physicalTotal);
     }
 
     private GestureSignal? ResolveCornerCandidate(
@@ -327,7 +333,11 @@ public sealed class EdgeGestureRecognizer
         return ClaimCorner(corner, direction, contact, combined);
     }
 
-    private GestureSignal ClaimEdge(TouchpadEdge edge, TouchContact contact, double total)
+    private GestureSignal ClaimEdge(
+        TouchpadEdge edge,
+        TouchContact contact,
+        double total,
+        double physicalTotal)
     {
         _claimedEdge = edge;
         _claimedCorner = null;
@@ -337,6 +347,7 @@ public sealed class EdgeGestureRecognizer
         _lastX = contact.X;
         _lastY = contact.Y;
         _lastTotalTravelMm = total;
+        _lastPhysicalTotalTravelMm = physicalTotal;
 
         return new GestureSignal(
             GesturePhase.Claimed,
@@ -345,7 +356,9 @@ public sealed class EdgeGestureRecognizer
             total,
             total,
             ContactId: contact.ContactId,
-            EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
+            EdgePosition01: AlongEdgePosition01(edge, _startX, _startY),
+            PhysicalTotalTravelMm: physicalTotal,
+            PhysicalDeltaMm: physicalTotal);
     }
 
     private GestureSignal ClaimCorner(
@@ -371,7 +384,9 @@ public sealed class EdgeGestureRecognizer
             DeltaMm: total,
             ContactId: contact.ContactId,
             Corner: corner,
-            CornerDirection: direction);
+            CornerDirection: direction,
+            PhysicalTotalTravelMm: total,
+            PhysicalDeltaMm: total);
     }
 
     private GestureSignal? UpdateActive(TouchContact contact)
@@ -402,7 +417,9 @@ public sealed class EdgeGestureRecognizer
                 DeltaMm: total - previous,
                 ContactId: contact.ContactId,
                 Corner: corner,
-                CornerDirection: direction);
+                CornerDirection: direction,
+                PhysicalTotalTravelMm: total,
+                PhysicalDeltaMm: total - previous);
         }
 
         TouchpadEdge edge = _claimedEdge!.Value;
@@ -412,20 +429,21 @@ public sealed class EdgeGestureRecognizer
         if (edgeGeometry.DistanceToEdgeMm(edge, contact.X, contact.Y) > _configuration.ContinuationToleranceMm)
             return Cancel("Gesture left edge tolerance");
 
-        double axisTotal = AxisTravelMm(edge, contact.X, contact.Y);
-        double delta = edge is TouchpadEdge.Left or TouchpadEdge.Right
+        double physicalTotal = AxisTravelMm(edge, contact.X, contact.Y);
+        double physicalDelta = edge is TouchpadEdge.Left or TouchpadEdge.Right
             ? edgeGeometry.DeltaYToMm(contact.Y - _lastY)
             : edgeGeometry.DeltaXToMm(contact.X - _lastX);
 
         if (binding.Inverted)
         {
-            axisTotal = -axisTotal;
-            delta = -delta;
+            physicalTotal = -physicalTotal;
+            physicalDelta = -physicalDelta;
         }
 
-        axisTotal *= binding.Sensitivity;
-        delta *= binding.Sensitivity;
+        double axisTotal = physicalTotal * binding.Sensitivity;
+        double delta = physicalDelta * binding.Sensitivity;
         _lastTotalTravelMm = axisTotal;
+        _lastPhysicalTotalTravelMm = physicalTotal;
         _lastX = contact.X;
         _lastY = contact.Y;
         _phase = GesturePhase.Active;
@@ -437,7 +455,9 @@ public sealed class EdgeGestureRecognizer
             axisTotal,
             delta,
             ContactId: contact.ContactId,
-            EdgePosition01: AlongEdgePosition01(edge, _startX, _startY));
+            EdgePosition01: AlongEdgePosition01(edge, _startX, _startY),
+            PhysicalTotalTravelMm: physicalTotal,
+            PhysicalDeltaMm: physicalDelta);
     }
 
     private bool IsTrackCenterTapCandidate()
@@ -513,7 +533,8 @@ public sealed class EdgeGestureRecognizer
             ContactId: _contactId,
             EdgePosition01: edge is TouchpadEdge resolved ? AlongEdgePosition01(resolved, _startX, _startY) : null,
             Corner: corner,
-            CornerDirection: cornerDirection);
+            CornerDirection: cornerDirection,
+            PhysicalTotalTravelMm: edge is not null ? _lastPhysicalTotalTravelMm : _lastTotalTravelMm);
 
         bool lockout = preserveLockout || _lockoutUntilAllLift;
         Reset();
@@ -533,6 +554,7 @@ public sealed class EdgeGestureRecognizer
         _claimedAction = GestureActionKind.Disabled;
         _phase = null;
         _lastTotalTravelMm = 0;
+        _lastPhysicalTotalTravelMm = 0;
         _startX = _startY = _lastX = _lastY = 0;
     }
 
