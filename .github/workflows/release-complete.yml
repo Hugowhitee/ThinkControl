@@ -139,13 +139,7 @@ jobs:
 
       - name: Create checksums
         shell: pwsh
-        run: |
-          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          $payload = Get-Item $env:PAYLOAD_PATH
-          @($setup, $payload) | ForEach-Object {
-            $hash = (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            "$hash  $($_.Name)"
-          } | Set-Content "artifacts/installer/SHA256SUMS.txt" -Encoding ascii
+        run: ./tools/release/Write-ReleaseChecksums.ps1
 
       - name: Publish complete immutable prerelease
         shell: pwsh
