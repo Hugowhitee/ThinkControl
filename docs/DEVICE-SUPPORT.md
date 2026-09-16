@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.43**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.43` is the current published prerelease; `v0.1.0-alpha.42` is the previous immutable baseline.
+This document describes the support model at **v0.1.0-alpha.44**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.43` remains the current published prerelease while alpha.44 is the active development candidate.
 
 ## Support levels
 
@@ -147,7 +147,7 @@ Track control remains one continuous edge action. Standalone current Play/Pause 
 
 Alpha.43 adds a **Play / Pause** switch only inside the selected Track-control editor. Existing alpha.42 settings default to enabled for backward compatibility. When enabled, the lane remains **Previous | Play/Pause | Next** and the center target stays **28%** of the Track edge (`0.36..0.64`). Play/Pause is deliberately **hold-to-release**: the contact must remain down at least **450 ms**, stay within **3 mm** maximum radial movement, and then release. Quick taps are ignored.
 
-When the Track-local switch is disabled, Track remains assigned but the center target is neither active nor visible: no center fill, separators or Play/Pause icon. Previous/Next keeps the unchanged **9 mm** threshold. The preference survives temporarily moving/removing Track.
+When the Track-local switch is disabled, Track remains assigned but the center target is neither active nor visible: no center fill, separators or Play/Pause icon. Previous/Next uses a **12 mm** deliberate threshold and commits only on release. The preference survives temporarily moving/removing Track.
 
 When reverse close is enabled for a top corner, the reverse start target is the **inner half of the already-visible diagonal lane**, not only the small rounded inner cap. The outer guard remains an inward-launch start, the right side remains mirrored, and no invisible reverse hit area exists beyond rendered geometry.
 
