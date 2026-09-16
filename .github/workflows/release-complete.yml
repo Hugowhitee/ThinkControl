@@ -38,16 +38,7 @@ jobs:
 
       - name: Verify canonical branding
         shell: pwsh
-        run: |
-          $pairs = @(
-            @('assets/brand/v3/windows/ThinkControl.ico', 'src/ThinkControl.UI/Assets/ThinkControl.ico'),
-            @('assets/brand/v3/windows/ThinkControl_mark.ico', 'src/ThinkControl.UI/Assets/tray.ico')
-          )
-          foreach ($pair in $pairs) {
-            if ((Get-FileHash $pair[0] -Algorithm SHA256).Hash -ne (Get-FileHash $pair[1] -Algorithm SHA256).Hash) {
-              throw "Branding drift: $($pair[1]) does not match the canonical v3 asset."
-            }
-          }
+        run: ./tools/release/Verify-Branding.ps1
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v6
