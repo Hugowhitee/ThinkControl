@@ -236,7 +236,7 @@ public sealed class EdgeGestureRecognizer
         // A real finger cannot remain pixel-perfectly stationary. If Track started in
         // its visible center segment, reserve the contact through the small hold slop
         // regardless of drift direction. Beyond that, ordinary edge recognition resumes;
-        // the separate 9 mm action threshold still decides deliberate Previous/Next.
+        // the separate 12 mm action threshold still decides deliberate Previous/Next.
         if (IsTrackCenterTapCandidate() &&
             radialTravel <= TrackCenterGesturePolicy.MovementToleranceMm)
         {
