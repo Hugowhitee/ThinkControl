@@ -50,7 +50,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
             () => app.AudioSafety.Mode,
             mode => app.Dispatcher.BeginInvoke(new Action(() =>
                 _osd.Show(AudioSafetyPolicy.DisplayName(mode) == "Silent" ? "Silent · media locked" : "Media locked", ReadVolumePercent()))),
-            _nativeInput.GetVolumePercent,
+            _nativeInput.TryGetVolumePercent,
             QueueGestureVolume,
             () => app.State.Brightness,
             QueueGestureBrightness,
@@ -198,7 +198,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
             Interlocked.Exchange(ref _pendingVolume, -1);
             if (active)
             {
-                Interlocked.Exchange(ref _confirmedVolume, _nativeInput.GetVolumePercent());
+                Interlocked.Exchange(ref _confirmedVolume, -1);
                 Volatile.Write(ref _volumeGestureActive, 1);
             }
             else
@@ -233,7 +233,9 @@ internal sealed class TouchpadFeatureHost : IDisposable
         int confirmed = Volatile.Read(ref _confirmedVolume);
         if (confirmed < 0)
         {
-            confirmed = _nativeInput.GetVolumePercent();
+            if (_nativeInput.TryGetVolumePercent() is not int live)
+                return;
+            confirmed = live;
             Interlocked.Exchange(ref _confirmedVolume, confirmed);
         }
 
