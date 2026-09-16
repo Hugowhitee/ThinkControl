@@ -6,219 +6,226 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.41`
-- immutable tag/release SHA `6088955eeab54d1af6506780fa7707df17fe11c3`
-- exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
-- preserved baseline for early tray/Raw-Input startup, X9 full-speed safety, rejected per-fan target writer, installer/updater and prior shell/crash fixes
+- `v0.1.0-alpha.42`
+- immutable tag/release SHA: `2d40dffebeb6f8327cd06403e076936c40d60497`
+- release is immutable and contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
+- alpha.41 remains separately immutable at `6088955eeab54d1af6506780fa7707df17fe11c3`
 
 Current candidate:
 
-- version `v0.1.0-alpha.42`
-- branch `fix/alpha42-touchpad-input-reliability`
-- PR #78, **Make Track Play/Pause and reverse close easier to trigger**
-- base `main` / alpha.41 at `6088955eeab54d1af6506780fa7707df17fe11c3`
-- validated implementation head `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf`
-- first frozen release-ready head `1cc66681944c690096889aa33f157423ae0f62fd`
-- `version.json.releaseReady=true`
-- CI #1754 and Package #1468 passed on `1cc66681944c690096889aa33f157423ae0f62fd`; this documentation-only handoff update must receive one final exact-head CI + Package pass before merge
+- version `v0.1.0-alpha.43`
+- branch `feat/alpha43-audio-safety`
+- PR #80, **Finish alpha.43 Audio Safety, Track control and Battery preservation**
+- base `main` / alpha.42 at `2d40dffebeb6f8327cd06403e076936c40d60497`
+- implementation-review head: `5501e0d0b9f211636f2106a0fe5eae418fc5caae`
+- `version.json.releaseReady=false` until the final freeze commit
 
-Alpha.42 was reopened twice before release for valid physical evidence: first because quick/automatic center Play/Pause was too easy to trigger accidentally, then because a saved X9 cooling profile such as Quiet could remain selected in UI while the physical machine had effectively returned to Auto/base policy after restart/lifecycle transitions. Neither superseded freeze is release evidence for the final candidate.
+## Alpha.43 product delta
 
-## Alpha.42 product delta
+### Audio Safety
 
-### Track center Play/Pause
+Alpha.43 adds one canonical **session-level** policy owner:
 
-Track remains one continuous **Previous | Play/Pause | Next** lane with one recognizer/router owner.
+- **Normal** — existing ThinkControl media/output behavior;
+- **Media lock** — blocks ThinkControl Touchpad Volume, Media scrub, Previous/Next and integrated Play/Pause while deliberate Windows/app audio remains available;
+- **Silent** — includes Media lock, mutes the Windows render endpoint and blocks ThinkControl output-volume/unmute writes.
 
-- center start region is 28% of the selected Track edge (`0.36..0.64`)
-- quick center taps intentionally do nothing
-- Play/Pause requires at least 450 ms hold time
-- maximum eligible radial excursion is 3 mm
-- maximum excursion is preserved, so moving away and returning cannot re-arm the hold
-- Play/Pause commits only on release
-- after leaving the hold envelope, normal Track recognition resumes
-- Previous/Next threshold remains 9 mm
-- a claimed Track swipe cannot also become Play/Pause on release
+The microphone stays independent. Silent records the previous mute state only for endpoints it actually encounters, restores those recorded states on exit/orderly shutdown, and reuses the existing runtime status cadence for default-output convergence. The state deliberately does not persist across process restart in alpha.43 because a new process cannot truthfully inherit the old process's mute ownership.
 
-### Reverse close
+### Track control
 
-- visible mirrored guard → diagonal lane → rounded end-cap geometry is unchanged
-- reverse-close ownership may start anywhere in the inner half of the already-visible diagonal lane
-- outer guard remains inward launch
-- no hidden hit area was added
-- rejected corner ownership remains locked until lift
+Track remains one edge action and one recognizer/router owner. A Track-local **Play / Pause** switch now controls the center behavior and visual together.
 
-### X9 firmware-profile runtime truth and persistence
+- enabled center: 28% lane region (`0.36..0.64`), at least 450 ms hold, at most 3 mm maximum radial movement, commit on release;
+- release is the final confirmation, so merely resting on the center cannot auto-start media when the timer elapses;
+- Previous/Next retains the deliberate 9 mm swipe threshold;
+- disabling Play/Pause removes the center hit target, fill/separators and Play/Pause glyph while leaving Previous/Next intact;
+- existing alpha.42 configurations default the center on for compatibility;
+- occupied edge assignments swap actions rather than clearing the previous edge;
+- reverse-close remains owned by the visible inner half of the corner lane.
 
-Physical pre-release testing found that a saved profile such as Quiet could appear selected after restart even though the fan audibly behaved like firmware Auto/base policy. Alpha.42 fixes the lifecycle without adding a new low-level writer.
+### Battery preservation
 
-- Fans initializes from service/runtime telemetry, not the persisted preference pretending to be applied state
-- saved firmware profiles are actively restored after capability discovery
-- one bounded 7-second startup-settle reassert handles a later Lenovo-service policy overwrite without creating a permanent polling fight
-- AC/DC, resume and Windows power-baseline transitions reassert the currently owned Quiet/Balanced/Max profile through the same reviewed source-specific LITSSvc path
-- closing/restarting only the WPF UI no longer releases a service-owned firmware profile to Auto
-- direct/manual fan ownership keeps the existing Auto-on-UI-exit/timeout safety class
-- service shutdown remains the final owner of firmware/full-speed/direct cleanup
-- rejected per-fan `fanX_target` remains read-only
-- Max still uses only the existing exact-X9 `0x04020000` boolean full-speed contract when its live/readback gates pass
-- no silent classic-EC or EnergyDrv writer fallback was introduced
+Alpha.43 adds a separate exact-X9 charge-threshold provider around Lenovo's installed Windows Power Manager stack. It does **not** guess an EC register, reuse the rejected fan writer or expose raw IOCTLs to the desktop client.
 
-## Implementation evidence
+Provider gate:
 
-Exact implementation head `388a676cfbc0e66b3a95bac1f7b7b7b062970ecf` passed both required PR pipelines after the cooling-persistence fix.
+- exact verified X9 identity (`21Q6/21Q7`);
+- real PWRMGRV battery configuration under `HKLM\SOFTWARE\WOW6432Node\Lenovo\PWRMGRV\ConfKeys\Data`;
+- live privileged `\\.\IBMPmDrv` access;
+- semantic threshold pairs only: start `40..90`, stop `45..95`, 5% steps, `start < stop`;
+- fixed reviewed Lenovo PM Device operations only;
+- Lenovo rejection handling plus PWRMGRV readback after a transition;
+- best-effort restore of the exact previous Lenovo state if a transition fails;
+- disabling preservation clears both threshold latches before selecting automatic/full charging.
 
-### CI #1751
+The Battery page exposes a small preset list rather than raw values:
 
-Run `34135415794` completed successfully on that exact head:
+- **Daily · 75–85% (recommended)**;
+- **Desk · 55–80%**;
+- **Maximum care · 40–60%**;
+- **Full charge · 100%**.
 
-- repository hygiene passed
-- Release build: **0 warnings, 0 errors**
-- Core/source tests: **177 passed, 0 failed, 0 skipped**
-- Compact/Advanced real WPF ShellSmoke passed
-- **85** deterministic WPF visual-QA snapshots rendered
-- visual artifact `10023821813`, `ThinkControl-Visual-QA`
-- artifact digest `cbc0a051cb1a5128b3d30436a0115a0e7505dee909e4a0ac28ac67826bb690d9`
+Existing non-preset Lenovo thresholds are shown truthfully as `Custom · start–stop%` and are not overwritten until the user deliberately chooses a preset. If the Lenovo PM Device is unavailable, the surface stays read-only and offers the Lenovo battery-settings fallback.
 
-The artifact was downloaded and manually inspected. `advanced-touchpad-wide.png` keeps Previous / Play-Pause / Next inside one continuous bottom band, the 28% center remains integrated rather than a separate pill, and the active Next treatment stays local. Top-left and top-right selected fixtures remain visually mirrored. Fans normal/manual/unavailable fixtures remain aligned; direct/manual controls still read as temporary/provider-specific rather than generic X9 controls. No screenshot regression was found from the persistence changes, which intentionally alter lifecycle/runtime truth rather than static Fans layout.
+The UI explicitly communicates the real benefit: limiting time at very high state of charge **reduces high-charge battery wear/stress** compared with routinely remaining near 100%. Stronger limits are described as greater qualitative wear reduction. ThinkControl deliberately does **not** claim a fixed `x fewer cycles` or battery-life multiplier because actual lifetime improvement also depends on temperature, chemistry, calendar time and usage/depth of discharge.
 
-### Package #1465
+### Battery history
 
-Run `34135415785` completed successfully on the same exact implementation head:
+Battery history no longer presents an ever-growing raw list as the normal experience.
 
-- UI publish passed
-- hardware-service publish passed
-- compact managed-payload checks passed
-- payload archive and web bootstrap installer built
-- deep installer/service/IPC reliability smoke passed
-- custom-location lifecycle passed
-- oldest-supported immutable alpha.14.1 updater compatibility passed
-- checksums generated
-- development artifact uploaded
-- package artifact `10023809253`, `ThinkControl-0.1.0-alpha.42-dev.1465`
-- artifact digest `1cf1de4e06113db6d4daf17e5a5c759f172af626ec4c0ffad25ccf1bb5a4d038`
+- seven days shown by default;
+- `Show older` expands to fourteen days without changing storage policy;
+- days remain compact summaries; opening a day reveals charge/discharge sessions, and a session opens its graph/statistics;
+- detailed graph retention can be 7 / 14 / 30 days;
+- older detailed samples compact automatically while summaries remain for one year;
+- destructive `Reset all history…` lives behind **Manage history** and warns that local summaries, graphs, health trend and learned estimates are reset while current firmware health, cycle count and charge-protection state are untouched.
 
-## Frozen release-head evidence
+## Carry-forward hardware boundary
 
-The release-ready freeze at `1cc66681944c690096889aa33f157423ae0f62fd` also passed the exact-head gates.
+Alpha.43 does not weaken the alpha.42 fan safety model.
 
-### CI #1754
+- alpha.38 Lenovo Other Mode `fanX_target` remains physically rejected/read-only;
+- native Lenovo fan telemetry remains available where real channels exist;
+- the native telemetry latch still prevents silent fallback to the known-inferior EC writer;
+- Quiet/Balanced firmware-policy persistence and bounded startup/AC/DC/resume reassertion remain intact;
+- exact-X9 full speed `0x04020000` remains a separate boolean/live/readback-gated semantic for Max cooling;
+- custom curves/manual percentages remain direct-writer capabilities and are not faked through firmware policy;
+- the new battery provider is a separate semantic writer and does not authorize arbitrary Lenovo PM Device, EC, ACPI or Other Mode commands.
 
-Run `34136818024` completed successfully:
+## Alpha.43 implementation-head evidence
 
-- repository hygiene passed
-- Release restore/build passed
-- all Core/source tests passed
-- Compact/Advanced ShellSmoke passed
-- all **85** WPF visual-QA snapshots rendered and uploaded
-- frozen-head visual artifact `10024353664`, `ThinkControl-Visual-QA`
-- artifact digest `205ac684ad4c78c000c17814d3726a34058ae50ea66d645598fc13e626bdbca5`
+Implementation-review head: `5501e0d0b9f211636f2106a0fe5eae418fc5caae`.
 
-The frozen-head artifact was downloaded and inspected. Representative Touchpad and Fans snapshots remained visually unchanged from the already-reviewed implementation artifact. The only compared PNG with a different binary hash was the top-right live-corner fixture; direct visual comparison showed the same mirrored geometry and state, consistent with nondeterministic WPF raster/compression detail rather than a product change.
+### CI #1808
 
-### Package #1468
+Run `34262191646` completed successfully on that exact head:
 
-Run `34136818032` completed successfully on the same frozen head:
+- repository hygiene passed;
+- Release restore/build passed with **0 warnings and 0 errors**;
+- Core tests: **195 passed, 0 failed, 0 skipped**;
+- real Compact ↔ Advanced ShellSmoke passed;
+- WPF visual QA rendered **85 snapshots** successfully;
+- visual artifact: `ThinkControl-Visual-QA`, artifact id `10070394833`, digest `sha256:a208c8995fc2b11541f0b0c52d2909595b358c6eba6fe15fcfeaff1069acb528`.
 
-- UI/service publish passed
-- compact managed-payload verification passed
-- payload/bootstrap construction passed
-- deep installer/service/IPC reliability smoke passed
-- oldest-supported alpha.14.1 updater compatibility passed
-- checksums generated
-- development artifact `10024350248`, `ThinkControl-0.1.0-alpha.42-dev.1468`
-- artifact digest `5bdf73d5f53a4e6c0fd5c10ed5ab86d7faec94d991b2c1b953943df8a96b7ca7`
+A preceding CI run correctly caught a 32 px Battery preservation selector against the shared 38 px selector contract. After fixing both new Battery ComboBoxes to the shared `TcComboBox` style and 38 px minimum height, CI #1808 passed.
 
-This handoff update changes documentation only. Because exact-head discipline applies to the actual merge SHA rather than a previous almost-identical head, CI + Package must pass once more on the resulting final PR head before merge.
+Manual inspection of the **exact-head** artifact completed for:
 
-## Source/safety review
+- `advanced-battery.png`, `advanced-battery-min.png`, `advanced-battery-wide.png` and `advanced-battery-day-expanded.png`;
+- `compact-dark.png` and `compact-light.png`;
+- `advanced-settings.png`;
+- `advanced-touchpad-wide.png` and `advanced-touchpad-light.png`.
 
-Focused review after the physical cooling report confirms:
+Findings:
 
-- `LenovoCoolingPolicyCoordinator.SetBasePowerMode` reasserts an active semantic profile through `SetBuiltInProfile`, so AC/DC/source-specific Lenovo commands converge without a second writer
-- `App.Cooling` owns one bounded startup-settle retry and has no `DispatcherTimer`/permanent enforcement loop
-- UI exit skips `ReturnFanToAuto` only for service-owned firmware policy; direct/manual paths retain cleanup
-- Fans selector initialization derives its current id from runtime profile state, not `UserSettings.Current.CoolingProfile`
-- four new source regression tests cover source/baseline reassertion, UI-exit ownership class, bounded startup settle and runtime selector truth
-- hardware safety docs, cooling design, architecture, device support and X9 research reflect the new lifecycle
+- Battery preservation now uses the shared dark selector treatment; the selected 75–85% preset is legible and aligned;
+- normal/minimum/wide Battery layouts remain scroll-safe with no horizontal escape;
+- grouped Battery history and expanded session rows remain readable and the destructive management surface is not part of routine history interaction;
+- Compact Audio Safety fits the existing 390×500 surface in both themes;
+- Settings Audio Safety and battery-history retention remain aligned with the shared control grammar;
+- Track control remains one continuous lane with the center Play/Pause option represented as one Track-local switch; no second overlay/pill returned.
 
-The actual root cause of any Lenovo-side overwrite is not claimed. The product fix only responds to the observed lifecycle failure with reviewed semantic reassertion.
+### Package #1521
 
-## Alpha.42 release gate
+Run `34262191737` completed successfully on the same exact head:
 
-Completed implementation and validation work:
+- canonical branding/version checks passed;
+- UI and hardware-service publish passed;
+- compact managed payload checks passed;
+- release payload and web bootstrap installer built;
+- deep installer/service/IPC reliability smoke passed;
+- oldest-supported alpha.14.1 updater fixture verification and upgrade compatibility passed;
+- checksums and development artifact were produced.
 
-- [x] Started from immutable alpha.41
-- [x] Kept one active branch/PR
-- [x] Final Track interaction uses 28% center + 450 ms hold + release + <=3 mm maximum excursion
-- [x] Previous/Next remains 9 mm and cannot overlap Play/Pause
-- [x] Reverse-close target widened only inside visible lane geometry
-- [x] Cooling selector/runtime truth no longer confuses persisted preference with applied state
-- [x] Saved firmware profiles actively restore after startup capability discovery
-- [x] Added one bounded 7-second startup-settle reassert
-- [x] Active firmware profile reasserts across AC/DC/resume/power-baseline changes
-- [x] WPF UI exit preserves service-owned firmware profile but direct/manual cleanup remains intact
-- [x] No rejected direct writer/EC fallback was reauthorized
-- [x] Implementation head passed CI + Package
-- [x] Implementation-head visual artifact downloaded and inspected
-- [x] Alpha testing guide updated for the new physical persistence regression
-- [x] Frozen `version.json.releaseReady=true`
-- [x] CI #1754 + Package #1468 passed on the first exact frozen head
-- [x] Frozen-head WPF artifact downloaded and inspected
-- [x] Complete PR changed-file list reviewed; scope is Touchpad, cooling lifecycle, tests/docs/version only
-- [x] PR conversation and inline review threads checked; no outstanding comments/threads at that point
+This implementation head is therefore suitable for the release freeze. It is not the final release evidence until `releaseReady=true` is committed and both workflows pass again on that exact frozen head.
 
-Remaining release steps:
+## Final alpha.43 release gate
 
-- [ ] Require CI + Package to pass on the **final documentation handoff head**
-- [ ] Mark PR #78 ready and merge with exact expected-head SHA
-- [ ] Verify post-merge `main`
-- [ ] Verify `Promote release-ready main` creates immutable `v0.1.0-alpha.42` at the merged commit
-- [ ] Verify exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
-- [ ] Verify published Setup/Payload SHA-256 checksums
-- [ ] Confirm immutable alpha.41 tag/release was not moved
+Implementation scope:
 
-## Physical X9 follow-up — separate evidence class
+- [x] Audio Safety Normal / Media lock / Silent implemented with one canonical session owner
+- [x] Silent endpoint ownership/restore and late-convergence race reviewed and serialized
+- [x] microphone remains independent
+- [x] Compact + Settings Audio Safety UI implemented
+- [x] Track-local Play/Pause switch implemented
+- [x] deliberate 450 ms / 3 mm / release center contract preserved
+- [x] center-off removes center behavior and visual together
+- [x] occupied edge assignment swaps rather than clearing another edge
+- [x] exact-X9 battery threshold provider implemented behind PWRMGRV + `IBMPmDrv` gates
+- [x] semantic 5% start/stop range, readback and rollback architecture covered by source tests
+- [x] Battery preset UI and qualitative wear-reduction explanation implemented without fake cycle multiplier
+- [x] Battery history grouped/compacted with bounded retention and destructive reset behind Manage history
+- [x] implementation-head CI #1808 passed
+- [x] implementation-head Package #1521 passed
+- [x] exact-head WPF artifact manually inspected
 
-Hosted CI cannot prove finger feel or Lenovo firmware acoustics. After installing the published alpha.42, record these separately.
+Freeze/promotion:
+
+- [ ] set `version.json.releaseReady=true`
+- [ ] require **CI + Package ThinkControl on the exact frozen head**
+- [ ] inspect the frozen-head WPF artifact and confirm the implementation visuals did not regress
+- [ ] review complete PR changed-file list, comments, reviews and review threads
+- [ ] mark PR #80 ready and merge using exact expected-head SHA
+- [ ] verify post-merge `main`
+- [ ] verify promotion creates immutable `v0.1.0-alpha.43` at the merged commit
+- [ ] verify exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
+- [ ] verify published Setup/Payload SHA-256 checksums
+- [ ] confirm immutable alpha.42 and alpha.41 tags/releases were not moved
+
+## Physical follow-up — separate evidence class
+
+Hosted CI cannot prove finger feel, audible silence, Lenovo fan acoustics or real battery charging behavior. These checks remain honest post-build physical evidence rather than hosted claims.
 
 Touchpad:
 
-- [ ] quick center tap does nothing
-- [ ] roughly half-second center hold toggles once on release
+- [ ] quick Track-center tap does nothing
+- [ ] roughly half-second hold toggles once on release
 - [ ] nothing auto-fires while still held
-- [ ] <=3 mm natural jitter remains usable
-- [ ] >3 mm movement permanently disarms the hold for that contact
-- [ ] 9 mm Previous/Next remains reliable without Play/Pause overlap
-- [ ] reverse close works across multiple points in the inner half of both mirrored lanes
-- [ ] outer guard still launches inward
+- [ ] >3 mm movement disarms the center hold for that contact
+- [ ] Previous/Next remains reliable at the 9 mm swipe threshold
+- [ ] disabling Track Play/Pause removes the center visual and behavior while Previous/Next still work
+- [ ] reverse-close remains reliable across the inner half of both mirrored lanes
 
-Cooling persistence:
+Audio Safety:
 
-- [ ] select Quiet and verify physical/runtime Quiet state
-- [ ] close/reopen only the UI while service remains running; Quiet remains active
-- [ ] reboot with Quiet saved; runtime UI remains truthful during restore and Quiet converges after startup
-- [ ] listen through the post-login settle window; no later silent return to Auto/base policy
-- [ ] unplug/replug AC while Quiet is active; Quiet remains active
-- [ ] sleep/resume while Quiet is active; Quiet remains active
-- [ ] change Windows performance preference while Quiet is active; Quiet remains override and Auto later restores the new baseline
-- [ ] repeat lifecycle with Balanced
-- [ ] repeat Max only if the existing exact full-speed safety gates pass
-- [ ] no alpha.38 target-RPM wave/re-kick behavior returns
+- [ ] Media lock blocks ThinkControl Touchpad media/volume actions while deliberate app/Windows audio remains available
+- [ ] Silent mutes current output and ThinkControl cannot unmute/change output while active
+- [ ] microphone stays independent
+- [ ] switching default output during Silent converges the new output without rapid polling
+- [ ] leaving Silent/orderly app exit restores each recorded endpoint to its prior mute state
+- [ ] restart begins at Normal as designed
+
+Battery preservation:
+
+- [ ] on the reference X9, select Daily 75–85% and confirm the runtime provider reports the same pair
+- [ ] on AC, confirm charging stops around the configured upper threshold rather than continuing toward 100%
+- [ ] after discharge, confirm charging does not resume until below the lower threshold
+- [ ] choose Full charge and confirm the threshold latches are released and normal charging can continue toward 100%
+- [ ] verify Vantage/Lenovo settings agree with the state ThinkControl reports
+- [ ] verify an unsupported/missing PM Device stays read-only instead of attempting another low-level path
+
+Cooling carry-forward:
+
+- [ ] saved Quiet remains physically active after UI close/reopen and converges after reboot
+- [ ] AC/DC and resume reassert the selected non-Auto firmware profile
+- [ ] Balanced/Max retain expected behavior under the existing gates
+- [ ] no alpha.38 per-fan target wave/re-kick behavior returns
 
 ## Release workflow principles
 
 For future releases:
 
-- recover current state from `main`, version, releases, active PR and this handoff
-- stabilize related regressions before expanding scope
-- improve existing owners instead of stacking helpers/timers/providers/overlays
-- keep generic UI capability-first and hardware writes provider-gated
-- separate hosted validation from physical evidence
-- inspect UI artifacts manually
-- freeze docs/version before exact final gates
-- merge with expected-head guard
-- verify promotion, immutable tag, assets and checksums
-- never move an existing immutable release tag
+- recover current state from `main`, version, releases, active PR and this handoff;
+- stabilize related regressions before expanding scope;
+- improve existing owners instead of stacking helpers/timers/providers/overlays;
+- keep generic UI capability-first and hardware writes provider-gated;
+- separate hosted validation from physical evidence;
+- inspect UI artifacts manually;
+- freeze docs/version before exact final gates;
+- merge with expected-head guard;
+- verify promotion, immutable tag, assets and checksums;
+- never move an existing immutable release tag.
 
 The reusable version-agnostic bootstrap is [`CHAT_STARTER.md`](CHAT_STARTER.md).
 
@@ -243,6 +250,8 @@ Do not mix commercial backend/licensing work into alpha hardware stabilization.
 - [x] X9 fan semantics distinguish telemetry, firmware policy, narrow global full speed, direct writers and discrete fallbacks.
 - [x] Fan calibration and Keyboard Effects are semantic capabilities.
 - [x] A physically rejected writer can remain telemetry-only without falling back to a known-inferior writer.
+- [x] Audio Safety is Windows-generic and does not mutate hardware capability boundaries.
+- [x] Battery preservation is a separate semantic capability and does not expose arbitrary driver commands.
 - [ ] Continue replacing residual device-name assumptions outside narrowly justified recovery/safety paths.
 - [ ] Never show EC/PWM/vendor wording unless the active provider exposes that exact semantic contract.
 - [ ] Unknown hardware remains read-only/safe until a reviewed write provider is verified.
@@ -282,4 +291,4 @@ Do not make source private while updater/build distribution still depends on pub
 
 ## Release principle
 
-A green compiler is not release readiness. Promotion requires exact-head build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review and immutable release verification. Physical hardware behavior remains a separate evidence class and must never be invented from hosted CI.
+A green compiler is not release readiness. Promotion requires exact-head build/test gates, real WPF lifecycle smoke, **inspected** visual QA, package/installer/updater verification, capability-safety review and immutable release verification. Physical hardware/audio/battery behavior remains a separate evidence class and must never be invented from hosted CI.

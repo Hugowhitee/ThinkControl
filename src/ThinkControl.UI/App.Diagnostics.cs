@@ -150,6 +150,7 @@ public partial class App
             "StopFanCharacterization" => ("fan.characterization_stopped", "FanControl", "FanSupervisor"),
             "SetKeyboardBacklight" => ("keyboard.level_set", "KeyboardBacklight", "Lenovo"),
             "SetThermalMode" => ("thermal.policy_set", "ThermalPolicy", "LenovoLITS"),
+            "SetBatteryChargeLimit" => ("battery.charge_limit_set", "BatteryChargeProtection", "LenovoOtherMode"),
             _ => ("hardware.operation", "Hardware", "ThinkControlService")
         };
 

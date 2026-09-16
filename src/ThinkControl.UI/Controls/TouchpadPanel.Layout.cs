@@ -43,15 +43,43 @@ public partial class TouchpadPanel
         bool tracks = ActionCombo.SelectedItem is ActionOption option &&
                       option.Action == GestureActionKind.PreviousNextTrack;
 
+        TrackPlayPauseRow.Visibility = tracks ? Visibility.Visible : Visibility.Collapsed;
+        TrackPlayPauseSwitch.IsChecked = tracks && _configuration.TrackCenterPlayPauseEnabled;
+
         if (tracks)
         {
-            ActionHelpText.Text =
-                "Use the left and right lane segments for Previous / Next. For Play / Pause, press and hold the center for about half a second, then release. Quick taps are ignored to prevent accidental playback.";
+            ActionHelpText.Text = _configuration.TrackCenterPlayPauseEnabled
+                ? "Swipe the lane for Previous / Next. Play / Pause uses the visible center segment: hold for about half a second, then release. Release confirms the action so a resting touch cannot start media accidentally."
+                : "Swipe the lane for Previous / Next. Play / Pause is off, so the center segment is not an active or visible control.";
         }
 
-        // Edge/corner rendering plus the integrated Track center segment share the
-        // canonical TouchpadVisualizer. There is no auxiliary center option/overlay.
+        // Edge/corner rendering plus the optional integrated Track center segment
+        // share the canonical TouchpadVisualizer. This toggle changes one Track
+        // affordance; it does not create a separate edge action or overlay owner.
         Visualizer.Configuration = _configuration;
+    }
+
+    private void TrackPlayPauseSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || _host is null || _selectedZone.Edge is null ||
+            _configuration.BindingFor(SelectedEdge).Action != GestureActionKind.PreviousNextTrack)
+        {
+            return;
+        }
+
+        bool enabled = TrackPlayPauseSwitch.IsChecked == true;
+        _configuration = (_configuration with
+        {
+            TrackCenterPlayPauseDisabled = !enabled
+        }).Sanitize();
+
+        _host.UpdateConfiguration(_configuration);
+        Visualizer.Configuration = _configuration;
+        SyncGestureZoneOverlay();
+        SyncTrackCenterOption();
+        GestureStatusText.Text = enabled
+            ? "Track control · Previous / Play-Pause / Next."
+            : "Track control · Previous / Next only.";
     }
 
     private static void EnsureValueColumnWidth(TextBlock value, double minimumWidth)

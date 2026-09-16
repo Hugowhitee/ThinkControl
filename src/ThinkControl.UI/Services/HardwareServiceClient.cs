@@ -143,6 +143,26 @@ public sealed class HardwareServiceClient
     public async Task<ServiceResponse?> SetThermalModeAsync(string value, CancellationToken cancellationToken = default) =>
         await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 3200);
 
+    public async Task<ServiceResponse?> SetBatteryChargeThresholdsAsync(
+        int startPercent,
+        int stopPercent,
+        CancellationToken cancellationToken = default)
+    {
+        if (startPercent < 40 || startPercent > 90 || stopPercent < 45 || stopPercent > 95 ||
+            startPercent % 5 != 0 || stopPercent % 5 != 0 || startPercent >= stopPercent)
+        {
+            throw new ArgumentOutOfRangeException(nameof(startPercent), "Battery thresholds must be ordered Lenovo-style 5% steps within the supported product range.");
+        }
+        return await SendTrackedAsync(
+            "SetBatteryChargeLimit",
+            $"{startPercent},{stopPercent}",
+            cancellationToken,
+            timeoutMs: 4500);
+    }
+
+    public async Task<ServiceResponse?> DisableBatteryChargeThresholdsAsync(CancellationToken cancellationToken = default) =>
+        await SendTrackedAsync("SetBatteryChargeLimit", "off", cancellationToken, timeoutMs: 4500);
+
     private async Task<ServiceResponse?> SendTrackedAsync(
         string operation,
         string? value,

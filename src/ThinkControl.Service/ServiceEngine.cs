@@ -13,15 +13,19 @@ internal sealed class ServiceEngine : IDisposable
 {
     private const int MaxRequestBytes = 8192;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly TimeSpan BatteryProtectionProbeInterval = TimeSpan.FromSeconds(30);
 
     private readonly LenovoHardwareController _hardware = new();
     private readonly FanSupervisor _fanSupervisor;
     private readonly LenovoCoolingPolicyCoordinator _coolingPolicy;
     private readonly CancellationTokenSource _disposeCts = new();
     private readonly object _statusGate = new();
+    private readonly object _batteryProtectionGate = new();
     private readonly SemaphoreSlim _statusWake = new(0, 1);
     private Task? _statusRefreshTask;
     private ServiceResponse? _lastStatus;
+    private LenovoBatteryChargeProtectionStatus? _batteryProtectionStatus;
+    private DateTimeOffset _batteryProtectionRefreshAfter = DateTimeOffset.MinValue;
     private bool _disposed;
 
     internal ServiceEngine()
@@ -192,6 +196,7 @@ internal sealed class ServiceEngine : IDisposable
                 "StopFanCharacterization" => StopFanCharacterization(),
                 "SetKeyboardBacklight" => SetKeyboardBacklight(request.Value),
                 "SetThermalMode" => SetThermalMode(request.Value),
+                "SetBatteryChargeLimit" => SetBatteryChargeLimit(request.Value),
                 _ => Error("Unsupported operation. Raw EC, port and IOCTL passthrough are never exposed by ThinkControl.")
             };
         }
@@ -221,6 +226,7 @@ internal sealed class ServiceEngine : IDisposable
                          (handoffError ?? "Retry Lenovo Auto, then refresh providers again."));
 
         _hardware.RefreshProviders();
+        ResetBatteryProtectionCache();
         ServiceResponse discovering = ProviderDiscoveryResponse("Providers recycled · re-detecting PawnIO/LHM, X9 EC and Lenovo keyboard backends");
         lock (_statusGate) _lastStatus = discovering;
         SignalStatusDemand();
@@ -256,6 +262,7 @@ internal sealed class ServiceEngine : IDisposable
         LenovoHardwareStatus status = _hardware.ReadStatus();
         CoolingSupervisorSnapshot cooling = _fanSupervisor.Snapshot();
         LenovoCoolingPolicySnapshot firmwareCooling = _coolingPolicy.Snapshot();
+        LenovoBatteryChargeProtectionStatus batteryProtection = ReadBatteryChargeProtection();
         bool firmwareOverride = firmwareCooling.OverrideActive;
         FanTelemetrySnapshot[] fans = status.Fans.Select((fan, index) =>
             new FanTelemetrySnapshot(fan.Id, fan.Label, fan.Rpm, fan.Source, index == 0)).ToArray();
@@ -284,7 +291,14 @@ internal sealed class ServiceEngine : IDisposable
             FanCharacterization: cooling.Characterization,
             CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
             CoolingAppliedPercent: firmwareOverride ? null : cooling.AppliedPercent,
-            KeyboardBackend: status.KeyboardBackend);
+            KeyboardBackend: status.KeyboardBackend,
+            BatteryChargeLimitPercent: batteryProtection.Available ? (batteryProtection.Enabled ? batteryProtection.StopPercent : 100) : null,
+            BatteryChargeProtectionSource: batteryProtection.Available ? batteryProtection.Provider : null,
+            BatteryChargeProtectionDetail: batteryProtection.Detail,
+            BatteryChargeProtectionEnabled: batteryProtection.Available ? batteryProtection.Enabled : null,
+            BatteryChargeStartPercent: batteryProtection.Available ? batteryProtection.StartPercent : null,
+            BatteryChargeStopPercent: batteryProtection.Available ? batteryProtection.StopPercent : null,
+            BatteryChargeProtectionProvider: batteryProtection.Available ? batteryProtection.Provider : null);
 
         bool firmwareProfileControl = firmwareCooling.Supported;
         bool productFanControl = status.CanFanControl || firmwareProfileControl;
@@ -302,10 +316,6 @@ internal sealed class ServiceEngine : IDisposable
         bool fanCalibrationRequired = fanCalibrationSupported &&
                                       (cooling.Characterization.Running || !completeCalibration);
 
-        // Repeated user-session effects require a provider whose direct/static write
-        // contract can be called rapidly without invoking an OEM popup. Keep this
-        // provider-specific decision on the service side; generic UI consumes only
-        // the capability bit and never infers support from a vendor/backend label.
         bool keyboardEffects = status.CanKeyboardBacklight &&
                                !status.KeyboardBackend.Contains("Vantage", StringComparison.OrdinalIgnoreCase) &&
                                !status.KeyboardBackend.Equals("Not exposed", StringComparison.OrdinalIgnoreCase);
@@ -320,8 +330,37 @@ internal sealed class ServiceEngine : IDisposable
             fanControlKind,
             FanCalibrationSupported: fanCalibrationSupported,
             FanCalibrationRequired: fanCalibrationRequired,
-            KeyboardEffects: keyboardEffects);
+            KeyboardEffects: keyboardEffects,
+            BatteryChargeProtection: batteryProtection.Available && batteryProtection.Writable,
+            BatteryCustomChargeThresholds: batteryProtection.Available && batteryProtection.Writable && batteryProtection.CustomThresholds);
         return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
+    }
+
+    private LenovoBatteryChargeProtectionStatus ReadBatteryChargeProtection(bool force = false)
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        lock (_batteryProtectionGate)
+        {
+            if (!force && _batteryProtectionStatus is not null && now < _batteryProtectionRefreshAfter)
+                return _batteryProtectionStatus;
+        }
+
+        LenovoBatteryChargeProtectionStatus current = LenovoBatteryChargeProtectionService.Read(_hardware.Identity);
+        lock (_batteryProtectionGate)
+        {
+            _batteryProtectionStatus = current;
+            _batteryProtectionRefreshAfter = now + BatteryProtectionProbeInterval;
+        }
+        return current;
+    }
+
+    private void ResetBatteryProtectionCache()
+    {
+        lock (_batteryProtectionGate)
+        {
+            _batteryProtectionStatus = null;
+            _batteryProtectionRefreshAfter = DateTimeOffset.MinValue;
+        }
     }
 
     private static string ToFanControlKind(LenovoFanControlKind kind) => kind switch
@@ -371,9 +410,6 @@ internal sealed class ServiceEngine : IDisposable
     {
         if (!_fanSupervisor.ReturnToAuto(out string? fanError))
             return Error(fanError ?? "Lenovo Auto rejected.");
-        // Explicit Auto is also the recovery path after a service/app restart lost
-        // in-memory ownership of an alpha.41 full-speed override. The coordinator
-        // touches only the exact known boolean feature and verifies the release.
         if (!_coolingPolicy.RequestFirmwareAuto(out string? policyError))
             return Error(policyError ?? "Lenovo firmware cooling profile could not return to Auto.");
         return RefreshAndReturnStatus();
@@ -392,9 +428,6 @@ internal sealed class ServiceEngine : IDisposable
         LenovoHardwareStatus status = _hardware.ReadStatus();
         if (_coolingPolicy.Supported && !status.CanFanControl && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
         {
-            // Release any stale ThinkControl-owned direct target first. The profile
-            // itself is then owned and smoothed by Lenovo firmware/LITSSvc instead of
-            // the physically rejected target-RPM writer or the inferior EC fallback.
             if (!_fanSupervisor.ReturnToAuto(out string? handoffError))
                 return Error(handoffError ?? "Could not return direct fan ownership to Lenovo Auto before applying the firmware profile.");
             return _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError)
@@ -477,6 +510,44 @@ internal sealed class ServiceEngine : IDisposable
         return _coolingPolicy.SetBasePowerMode(value, out string? detail)
             ? new ServiceResponse(ThinkControlProtocol.Version, true, detail)
             : Error(detail ?? "Lenovo thermal policy rejected the request.");
+    }
+
+    private ServiceResponse SetBatteryChargeLimit(string? value)
+    {
+        string raw = value?.Trim() ?? string.Empty;
+        bool success;
+        string? detail;
+
+        if (raw.Equals("off", StringComparison.OrdinalIgnoreCase) || raw == "100")
+        {
+            success = LenovoBatteryChargeProtectionService.TryDisable(_hardware.Identity, out _, out detail);
+        }
+        else
+        {
+            string[] parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 1 && int.TryParse(parts[0], out int legacyStop) && legacyStop == 80)
+                parts = ["75", "80"];
+
+            int start = 0;
+            int stop = 0;
+            string? validation = null;
+            bool parsed = parts.Length == 2 &&
+                          int.TryParse(parts[0], out start) &&
+                          int.TryParse(parts[1], out stop);
+            if (!parsed || !LenovoBatteryChargeProtectionService.TryValidatePair(start, stop, out validation))
+            {
+                return Error(validation ?? "Battery charge protection expects an ordered start,stop threshold pair or 'off'.");
+            }
+
+            success = LenovoBatteryChargeProtectionService.TrySetThresholds(_hardware.Identity, start, stop, out _, out detail);
+        }
+
+        if (!success)
+            return Error(detail ?? "Battery charge protection rejected the request.");
+
+        ResetBatteryProtectionCache();
+        ServiceLog.Write($"Battery charge protection changed through the verified Lenovo PM Device threshold contract: {detail}");
+        return RefreshAndReturnStatus();
     }
 
     private static ServiceResponse Error(string message) => new(ThinkControlProtocol.Version, false, message);

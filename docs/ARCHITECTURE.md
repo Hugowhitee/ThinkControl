@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.42**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt.
+This document describes the current architecture at **v0.1.0-alpha.43**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.42` remains the release baseline underneath this candidate.
 
 ## Process boundary
 
@@ -28,16 +28,17 @@ Windows itself may schedule HKCU Run programs later than another helper. ThinkCo
 
 Hardware support is capability-driven. Unknown hardware remains read-only/safe until an operation has a reviewed provider and validation gate. Generic UI consumes semantic capability state; it must not infer write support, calibration requirements or effect support by parsing model names or diagnostic provider strings.
 
-The ThinkPad X9 path separates four concepts:
+The ThinkPad X9 path separates five concepts:
 
 1. native fan telemetry;
 2. Lenovo firmware thermal policy;
 3. Lenovo's known global full-speed boolean semantic;
-4. direct per-fan output writers.
+4. direct per-fan output writers;
+5. Lenovo PM Device battery charge-threshold semantics.
 
-`LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate: fixed targets repeatedly re-kicked/waved and nominal 100% remained physically below naturally hot Lenovo Auto. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
+`LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
 
-Alpha.41 added a different exact-X9 semantic: Lenovo Other Mode feature **`0x04020000`**, treated only as a boolean full-speed override. `LenovoOtherModeFullSpeedService` is restricted to verified `21Q6/21Q7`, requires a live boolean read immediately around the transition, respects an explicitly present capability row, writes only `0`/`1`, and verifies the resulting state by readback. This is not used as evidence that per-fan target RPM is safe and is not generalized into arbitrary feature-ID passthrough.
+Alpha.41 added Lenovo Other Mode feature `0x04020000` as a narrow boolean full-speed override. Battery preservation is a separate provider. Alpha.43 uses the installed Lenovo Power Manager configuration plus the existing Lenovo PM kernel device (`PWRMGRV` + `\\.\IBMPmDrv`) to expose bounded start/stop charge windows on the verified X9. Raw IOCTLs and driver paths never cross the public IPC boundary.
 
 ## Cooling model
 
@@ -52,17 +53,13 @@ The service distinguishes firmware policy, optional full-speed override, and dir
 - **Balanced** — first release any ThinkControl-owned full-speed override, then request Lenovo Balanced thermal policy.
 - **Max cooling** — request Lenovo Performance policy, then request the exact-X9 `0x04020000 = 1` full-speed semantic when it is safely exposed and verify readback.
 
-The coordinator tracks whether **ThinkControl itself actually changed full-speed state**. It never claims ownership merely because a read observes that Lenovo/another component already has the feature enabled. Lower profiles and Auto only perform release behavior appropriate to that ownership model; service disposal also best-effort releases ThinkControl-owned full speed before restoring firmware policy.
+The coordinator tracks whether ThinkControl itself actually changed full-speed state. It never claims ownership merely because a read observes that Lenovo/another component already has the feature enabled.
 
-If the known full-speed feature is unavailable, non-writable, non-boolean or fails readback, the transition fails closed instead of guessing a larger RPM target, EC state or IOCTL. Quiet/Balanced remain ordinary Lenovo firmware-policy operations.
+Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through `SetThermalMode`. Lenovo's reviewed thermal commands are source-specific. Alpha.42 therefore treats a new power baseline as an event that must also reassert the active cooling override for the current source.
 
-Before applying a built-in profile, `App.Cooling` seeds the coordinator with the current Windows power preference through `SetThermalMode`. Lenovo's reviewed thermal commands are source-specific: AC uses 502/503/504 and DC uses 507/508/509. Alpha.42 therefore treats a new power baseline as an event that must also **reassert the active cooling override for the current source**. Merely retaining `_overrideProfile = "Quiet"` in memory is not enough because Lenovo/Windows may have changed the physical OEM policy underneath it during AC/DC or resume transitions.
+Startup restoration distinguishes a saved preference from applied state. The saved `CoolingProfile` is not painted as active merely because it exists in `UserSettings`. After the first successful restore, `App.Cooling` performs one bounded seven-second settle reassert to cover Lenovo login/service policy work. This is a one-shot convergence step, not a polling loop.
 
-Startup restoration also distinguishes a saved preference from applied state. The saved `CoolingProfile` is not painted as active merely because it exists in `UserSettings`. The Fans selector follows service/runtime state until the saved profile has actually been applied. After the first successful restore, `App.Cooling` performs one bounded seven-second settle reassert to cover Lenovo login/service policy work that may finish shortly after ThinkControl first becomes available. This is intentionally a one-shot convergence step, not a recurring policy fight or polling loop.
-
-Closing/restarting only the normal-user UI does not clear a firmware-policy profile. The privileged service owns that state and keeps Quiet/Balanced/Max active. Direct/manual fan output remains a different safety class and is returned to Auto when the UI exits. Normal service disposal still releases ThinkControl-owned firmware/full-speed state before hardware disposal.
-
-Firmware policy/full-speed profiles intentionally do not advertise applied percentage, EC state or editable curve semantics. Manual percentage tests, raw EC diagnostics and curve editing remain direct-provider features only.
+Closing/restarting only the normal-user UI does not clear a firmware-policy profile. The privileged service owns that state. Direct/manual fan output remains a different safety class and is returned to Auto when the UI exits. Normal service disposal still releases ThinkControl-owned firmware/full-speed state before hardware disposal.
 
 ### Direct-output profiles
 
@@ -74,17 +71,64 @@ The generic direct-output model remains:
 - `ReturnFanToAuto` for firmware/OEM ownership;
 - characterization operations only when the active direct provider advertises calibration.
 
-`FanSupervisor` remains the sole owner of direct percentage/discrete fan writes. A physically accepted continuous target provider may receive percentages directly; a discrete provider may map semantic targets through measured output states. The rejected X9 `fanX_target` implementation remains blocked even though alpha.41 has a separate full-speed boolean path.
+`FanSupervisor` remains the sole owner of direct percentage/discrete fan writes. The rejected X9 `fanX_target` implementation remains blocked even though alpha.41 has a separate full-speed boolean path.
 
-The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. Firmware-policy/full-speed profiles do not require direct calibration. The calibration task card is visible only while a relevant direct provider requires it or is actively running.
+The service exposes `FanCalibrationSupported` and `FanCalibrationRequired` in `HardwareCapabilitySnapshot`. Firmware-policy/full-speed profiles do not require direct calibration.
 
 ## Fan ownership and telemetry
 
 ThinkControl records only state it actually owns. Direct provider/channels are returned to OEM Auto on handoff/failure/disposal where supported. Target `0` on the rejected per-fan Other Mode path remains only for cleanup/reassertion of stale previously owned targets.
 
-Native two-fan evidence is latched for the current service lifetime so a transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer. Fan RPM telemetry is evidence about tachometer speed, not proof that a selected policy equals Lenovo's strongest physical cooling state; alpha.40 physical feedback specifically showed that high-looking RPM telemetry can coexist with weaker airflow than naturally hot Auto.
+Native two-fan evidence is latched for the current service lifetime so a transient OEM telemetry miss cannot silently re-enable the known-inferior EC writer. Fan RPM telemetry is evidence about tachometer speed, not proof that a selected policy equals Lenovo's strongest physical cooling state.
 
-For firmware profiles, telemetry is only truthful when the coordinator has successfully applied/reasserted the corresponding semantic policy in the current lifecycle. The UI no longer substitutes the persisted preference ID for a runtime Auto state during page initialization.
+## Battery charge-protection model
+
+`LenovoBatteryChargeProtectionService` is an exact-X9 provider, not a generic battery-threshold calculator. Its source of truth is Lenovo's installed Windows Power Manager configuration:
+
+```text
+HKLM\SOFTWARE\WOW6432Node\Lenovo\PWRMGRV\ConfKeys\Data\<battery>
+ChargeStartPercentage
+ChargeStopPercentage
+ChargeStartControl
+ChargeStopControl
+```
+
+When that configuration exists and the privileged service can open `\\.\IBMPmDrv`, the provider can apply the same semantic start/stop threshold family used by current Lenovo battery tooling. Driver constants are fixed inside the provider; the WPF client supplies only a validated start/stop pair or `off`.
+
+Product writes are deliberately narrower than the raw driver byte range. Alpha.43 accepts five-percent steps, start `40..90`, stop `45..95`, and requires `start < stop`. The normal UI exposes only a few named presets. Existing Lenovo thresholds remain source of truth; an unmatched pair is displayed as `Custom · start–stop%` rather than overwritten.
+
+A transition is transactional at the provider boundary:
+
+1. read the current PWRMGRV battery configuration;
+2. update the semantic registry state;
+3. send the fixed Lenovo PM Device mode/stop/start commands;
+4. reject a failed IOCTL or Lenovo result bit 31;
+5. re-read PWRMGRV and require an exact semantic match;
+6. broadcast the Lenovo setting change;
+7. on failure, request the exact previous registry/driver state again.
+
+Disabling preservation clears both driver threshold latches before selecting Lenovo automatic/full-charge mode. ThinkControl does not alter the Lenovo driver service startup type and does not try an EC/ACPI fallback if the PM device is unavailable.
+
+`ThinkControl.Service` keeps the existing semantic operation name `SetBatteryChargeLimit` for protocol compatibility but its current value is an ordered `start,stop` pair or `off`. Status exposes `BatteryChargeProtectionEnabled`, current start/stop percentages and a provider string. `BatteryChargeLimitPercent` remains only as a backwards-compatible stop-threshold summary.
+
+Battery-protection status uses the existing request-driven status model with a small service-side cache. The Battery page subscribes to `HardwareClient.StatusObserved` only while loaded; it does not create a polling loop. The charge window is not duplicated into `UserSettings`, so actual Lenovo state remains authoritative after restart or external Vantage changes.
+
+Other OEMs can later implement their own semantic provider without changing the shared Battery UI into vendor-specific pages.
+
+## Battery history model
+
+`BatteryHistoryService` stores local charge/discharge sessions with sparse detailed points plus compact summaries. The UI is aggregation-first: day -> session -> detail window. It is not a raw chronological log.
+
+Presentation and retention are intentionally separate:
+
+- normal page: most recent 7 days;
+- `Show older`: expand to 14 days without changing retention;
+- detailed graphs: normalized user choice (7 / 14 / 30 days);
+- compact summaries: one year under `BatteryHistoryRetentionPolicy.SummaryRetentionDays`.
+
+Automatic compaction clears old point arrays while preserving session summaries and useful learned estimates. Storage also has hard bounds, so users do not need to manually delete a growing raw log merely to keep the app healthy.
+
+`Manage history` owns destructive/retention actions. Reset is explicit and warns that local session summaries, graphs, health trend and learned charge/discharge priors are cleared. Firmware battery health, cycle count and OEM charge-threshold state are not part of this local history document and are unaffected.
 
 ## Keyboard model
 
@@ -99,33 +143,55 @@ Keyboard writes are serialized so firmware/static ownership and user-session ani
 
 ## Touchpad model
 
-The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. `TouchpadVisualizer` owns edge/corner rendering, selection and hit-testing. The right corner is an exact horizontal mirror of the left, and enabled corners share the same visual/recognition geometry rather than behaving like overlays.
+The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. `TouchpadVisualizer` owns edge/corner rendering, selection and hit-testing. The right corner is an exact horizontal mirror of the left.
 
-Track control is one continuous edge lane with three semantic segments: **Previous | Play/Pause | Next**. There is no standalone current Play/Pause edge action or second center toggle/recognizer. Legacy serialized PlayPause values sanitize into Track control.
+Track control remains one continuous edge affordance with one recognizer/router owner. Standalone current Play/Pause is not an edge action; legacy serialized PlayPause values sanitize into Track control. Alpha.43 adds a **Track-local Play/Pause option**, not a second center recognizer or overlay.
 
-Alpha.42 keeps the larger **28%** center start region (`0.36..0.64`) but intentionally changes Play/Pause from easy tap/button semantics into a **deliberate hold-to-release** action. `TrackCenterGesturePolicy` requires at least **450 ms** of hold time and no more than **3 mm** maximum radial movement. Brief center taps are ignored. The 9 mm Previous/Next threshold remains unchanged.
+When enabled, the lane is **Previous | Play/Pause | Next**. The center uses the 28% start region (`0.36..0.64`), requires at least 450 ms of hold time and no more than 3 mm maximum radial movement, and commits only on `Released`. Brief center taps are ignored; nothing auto-fires while the finger is still down.
 
-`EdgeGestureRecognizer` keeps a center-start contact in candidate state only through the 3 mm hold slop. While it remains a candidate, `_lastTotalTravelMm` stores the **maximum** radial excursion rather than the latest point, so moving away and returning cannot requalify a mobile contact as stationary. Once the hold slop is exceeded, normal edge direction recognition resumes; if the contact later reaches 9 mm, the existing Track swipe path can still fire Previous/Next.
+When disabled, `TrackCenterPlayPauseEnabled` sanitizes false while the `PreviousNextTrack` binding remains in place. The visualizer does not draw the center fill, separators or Play/Pause icon, and recognition uses the same canonical configuration.
 
-`GestureActionRouter` owns the temporal half of the contract with one `Stopwatch` timestamp from the original Track candidate. It evaluates the hold only on `Released`; there is no delayed worker, no auto-fire while the finger is still down, and no concurrent hold-vs-release arbitration state. A claimed Track swipe sets `_trackStayedCandidate=false`, so it cannot downgrade into Play/Pause on lift. This keeps one recognizer/router owner while making accidental playback materially harder.
+The explicit opt-out defaults false so existing alpha.42 configurations keep their integrated center action. Explicitly disabling it persists even if Track is temporarily moved/removed and later assigned again.
+
+Once the hold slop is exceeded, normal edge direction recognition resumes; if the contact later reaches 9 mm, Previous/Next can still fire. A claimed Track swipe cannot also become Play/Pause on lift.
 
 Occupied edge assignment continues to swap action kinds rather than clearing the previous edge. Sensitivity and inversion remain properties of the physical edge.
 
-Track OSD semantics remain: resulting **Playing → pause bars**, **Paused → play triangle**, and ambiguous virtual-key fallback stays `Playback toggled`.
+Enabled corner launches still use the canonical guard -> diagonal lane -> rounded end-cap recognizer geometry. Reverse close accepts the inner half of the already-visible diagonal lane when enabled; the outer guard remains an inward-launch start and no hidden geometry is added.
 
-Enabled corner launches still use the canonical guard → diagonal lane → rounded end-cap recognizer geometry. Alpha.42 changes only reverse-close start classification: when reverse close is enabled, the inner half of the **already-visible** diagonal lane is accepted as an outward start instead of requiring the small rounded cap. The outer guard remains an inward-launch start and no hidden geometry is added. Rejected corner ownership remains locked until lift and outward claim routes through the existing canonical hide-to-tray transition.
+Raw HID recognition receives every frame while WPF visualization is coalesced. Configured gesture recognition is application-level and starts during silent Windows startup.
 
-Raw HID recognition receives every frame while WPF visualization is coalesced. UI-only listeners remain attached only while the Touchpad page is visible; configured gesture recognition is application-level and starts during silent Windows startup.
+## Audio Safety model
 
-## Audio lifecycle
+Alpha.43 adds one Windows-generic, **session-level** policy owner for preventing accidental ThinkControl audio/media actions. It deliberately does not create a second Touchpad recognizer, separate Mute edge action or phone-style Focus Modes framework.
 
-Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state and are cleared when the Audio page becomes hidden so stale off-page writes cannot fire later.
+`ThinkControl.Core.Audio.AudioSafetyPolicy` defines three modes:
+
+- **Normal** — no Audio Safety restrictions;
+- **Media lock** — block ThinkControl Touchpad Volume, Media scrub and Track commands while leaving deliberate Windows/app audio untouched;
+- **Silent** — includes Media lock, requires the active Windows render endpoint to be muted, and blocks ThinkControl output-volume/unmute writes.
+
+`AudioSafetyService` is the canonical UI-process state owner. The mode is intentionally not persisted in alpha.43. Every new process starts in Normal so it cannot falsely claim ownership of mute state established by an earlier process.
+
+Entering Silent records the default render endpoint's prior mute state once, mutes it when needed and does not publish Silent if the initial mute cannot be established. While Silent remains active, the app reuses the existing status cadence to converge if Windows changes the default render endpoint; no second timer is created.
+
+Mute ownership is per endpoint ID. Leaving Silent/orderly app disposal restores only recorded states. Microphone (`DataFlow.Capture`) remains independent.
+
+The Touchpad router checks the policy at the existing action boundary. Volume, Media scrub, Previous/Next and integrated Play/Pause are suppressed in Media lock/Silent. Windows output helpers also check `AudioSafetyRuntimeState` immediately before output writes, so Silent is not merely a disabled UI control.
+
+Audio Safety currently composes no fan profile. A future user preset may request both Audio Safety and Quiet, but that would require explicit transactional ownership/restore semantics and capability gating rather than coupling cooling to silence implicitly.
+
+## Audio page lifecycle
+
+Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state and are cleared when the Audio page becomes hidden so stale off-page writes cannot fire later. Core Audio endpoint enumeration remains off the dispatcher because some OEM stacks can block.
 
 ## Status, diagnostics and discovery
 
 `HardwareServiceClient` caches a short last-known-good status snapshot and backs off after a confirmed offline service state. It publishes bounded status/operation events instead of letting pages create competing polling loops.
 
 Diagnostics are local-first and sanitized. Raw touch coordinates, personal file content, usernames, serial numbers and arbitrary memory/log dumps are outside the intended upload schema.
+
+Battery charge-threshold changes are classified as semantic hardware operations. Diagnostics do not expose the Lenovo registry path, device handle or generic IOCTL passthrough to the normal-user client.
 
 Repeated provider discovery is avoided where possible. The service keeps provider state; the UI consumes bounded status snapshots and uses targeted refresh operations for sensors, keyboard and full provider recovery.
 

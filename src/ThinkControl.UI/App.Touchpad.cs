@@ -39,5 +39,7 @@ public partial class App
     {
         try { _touchpadFeature?.Dispose(); }
         catch { }
+        try { DisposeAudioSafety(); }
+        catch { }
     }
 }

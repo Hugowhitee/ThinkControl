@@ -1,4 +1,5 @@
 using System.Windows.Threading;
+using ThinkControl.Core.Audio;
 using ThinkControl.Core.Touchpad;
 
 namespace ThinkControl.UI.Services.Touchpad;
@@ -23,8 +24,9 @@ internal sealed class TouchpadFeatureHost : IDisposable
         _app = app;
 
         GestureOsdService? osd = null;
-        _nativeInput = new NativeInputService((label, value) =>
-            app.Dispatcher.BeginInvoke(new Action(() => osd?.Show(label, value))));
+        _nativeInput = new NativeInputService(
+            (label, value) => app.Dispatcher.BeginInvoke(new Action(() => osd?.Show(label, value))),
+            () => !AudioSafetyPolicy.BlocksTouchpadAudio(app.AudioSafety.Mode));
         _osd = osd = new GestureOsdService(
             () => app.UserSettings.Current,
             ApplyOsdValue,
@@ -38,6 +40,9 @@ internal sealed class TouchpadFeatureHost : IDisposable
             _nativeInput,
             new MediaSessionService(),
             () => app.UserSettings.Current.TouchpadGestures ?? configuration,
+            () => app.AudioSafety.Mode,
+            mode => app.Dispatcher.BeginInvoke(new Action(() =>
+                _osd.Show(AudioSafetyPolicy.DisplayName(mode) == "Silent" ? "Silent · media locked" : "Media locked", ReadVolumePercent()))),
             _nativeInput.GetVolumePercent,
             QueueVolume,
             () => app.State.Brightness,
@@ -154,13 +159,20 @@ internal sealed class TouchpadFeatureHost : IDisposable
 
     internal void CancelCurrent(string reason) => _gestures.CancelCurrent(reason);
 
+    internal void CancelAudioActions()
+    {
+        Interlocked.Exchange(ref _pendingVolume, -1);
+        if (!_disposed)
+            _gestures.CancelCurrent("Audio safety mode changed");
+    }
+
     private bool ApplyOsdValue(string label, int value)
     {
         if (label.Contains("Volume", StringComparison.OrdinalIgnoreCase) ||
             label.Contains("Muted", StringComparison.OrdinalIgnoreCase))
         {
             QueueVolume(value);
-            return true;
+            return !AudioSafetyPolicy.BlocksTouchpadAudio(_app.AudioSafety.Mode);
         }
 
         if (label.Contains("Brightness", StringComparison.OrdinalIgnoreCase))
@@ -181,6 +193,12 @@ internal sealed class TouchpadFeatureHost : IDisposable
 
     private void QueueVolume(int value)
     {
+        if (AudioSafetyPolicy.BlocksTouchpadAudio(_app.AudioSafety.Mode))
+        {
+            Interlocked.Exchange(ref _pendingVolume, -1);
+            return;
+        }
+
         Interlocked.Exchange(ref _pendingVolume, Math.Clamp(value, 0, 100));
         if (Interlocked.CompareExchange(ref _volumeWorkerRunning, 1, 0) != 0)
             return;
@@ -195,6 +213,12 @@ internal sealed class TouchpadFeatureHost : IDisposable
         {
             while (!_disposed)
             {
+                if (AudioSafetyPolicy.BlocksTouchpadAudio(_app.AudioSafety.Mode))
+                {
+                    Interlocked.Exchange(ref _pendingVolume, -1);
+                    break;
+                }
+
                 int target = Volatile.Read(ref _pendingVolume);
                 if (target < 0 || target == lastApplied)
                     break;
@@ -217,6 +241,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
             Interlocked.Exchange(ref _volumeWorkerRunning, 0);
             int pending = Volatile.Read(ref _pendingVolume);
             if (!_disposed && pending >= 0 && pending != lastApplied &&
+                !AudioSafetyPolicy.BlocksTouchpadAudio(_app.AudioSafety.Mode) &&
                 Interlocked.CompareExchange(ref _volumeWorkerRunning, 1, 0) == 0)
             {
                 _ = Task.Run(ProcessVolumeQueueAsync);

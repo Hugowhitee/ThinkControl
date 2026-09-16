@@ -54,6 +54,23 @@ public sealed class TrackControlPolishSourceTests
     }
 
     [Fact]
+    public void PlayPauseToggleBelongsToTrackAndDisablesTheCenterRecognizerAndVisual()
+    {
+        string xaml = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadPanel.xaml");
+        string layout = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadPanel.Layout.cs");
+        string models = ReadSource("src", "ThinkControl.Core", "Touchpad", "GestureModels.cs");
+        string visualizer = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadVisualizer.cs");
+
+        Assert.Contains("x:Name=\"TrackPlayPauseRow\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"TrackPlayPauseSwitch\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TrackPlayPauseRow.Visibility = tracks ? Visibility.Visible : Visibility.Collapsed", layout, StringComparison.Ordinal);
+        Assert.Contains("TrackCenterPlayPauseDisabled = !enabled", layout, StringComparison.Ordinal);
+        Assert.Contains("trackAssigned && !TrackCenterPlayPauseDisabled", models, StringComparison.Ordinal);
+        Assert.Contains("if (!_configuration.TrackCenterPlayPauseEnabled)\n            return;", Normalize(visualizer), StringComparison.Ordinal);
+        Assert.Contains("bool integratedTrack = binding.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled", visualizer, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void OccupiedEdgeAssignment_SwapsActionsInsteadOfClearingPreviousEdge()
     {
         string panel = ReadSource("src", "ThinkControl.UI", "Controls", "TouchpadPanel.xaml.cs");
