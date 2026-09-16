@@ -71,6 +71,8 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("CoolingColdStartProbeDelays", cooling, StringComparison.Ordinal);
         Assert.Contains("ConvergeCoolingPreferenceAfterColdStartAsync", cooling, StringComparison.Ordinal);
         Assert.Contains("bypassOfflineBackoff: true", cooling, StringComparison.Ordinal);
+        Assert.Contains("bypassRetryBackoff: true", cooling, StringComparison.Ordinal);
+        Assert.Contains("(!bypassRetryBackoff && DateTimeOffset.UtcNow < _coolingPreferenceRetryAfter)", cooling, StringComparison.Ordinal);
         Assert.Contains("generation != Volatile.Read(ref _coolingSelectionGeneration)", cooling, StringComparison.Ordinal);
         Assert.Contains("_coolingPreferenceRestoreAttempted", cooling, StringComparison.Ordinal);
 
