@@ -20,6 +20,15 @@ public partial class App
 {
     private static readonly TimeSpan CoolingAutoRestoreRetryInterval = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan CoolingStartupSettleDelay = TimeSpan.FromSeconds(7);
+    private static readonly TimeSpan[] CoolingColdStartProbeDelays =
+    [
+        TimeSpan.FromMilliseconds(300),
+        TimeSpan.FromMilliseconds(650),
+        TimeSpan.FromSeconds(1.1),
+        TimeSpan.FromSeconds(2),
+        TimeSpan.FromSeconds(3.5),
+        TimeSpan.FromSeconds(5)
+    ];
 
     private readonly CancellationTokenSource _coolingLifetimeCts = new();
     private bool _coolingPreferenceRestoreAttempted;
@@ -265,6 +274,52 @@ public partial class App
         }
         State.HardwareAccess = response?.Error ?? "Fan calibration could not stop";
         return false;
+    }
+
+    internal void StartCoolingColdStartConvergence()
+    {
+        int generation = Volatile.Read(ref _coolingSelectionGeneration);
+        _ = ConvergeCoolingPreferenceAfterColdStartAsync(generation, _coolingLifetimeCts.Token);
+    }
+
+    private async Task ConvergeCoolingPreferenceAfterColdStartAsync(
+        int generation,
+        CancellationToken cancellationToken)
+    {
+        // A silent Windows login can race the auto-start hardware service. The normal
+        // tray runtime intentionally avoids hardware polling while no window is open,
+        // so one failed first status request used to leave the saved cooling preference
+        // unapplied until a later activation/resume. Keep the fix bounded and lifecycle-
+        // owned: retry only during the cold-start window, bypassing the client's normal
+        // offline backoff, then return to the low-impact runtime scheduler.
+        foreach (TimeSpan delay in CoolingColdStartProbeDelays)
+        {
+            if (cancellationToken.IsCancellationRequested ||
+                generation != Volatile.Read(ref _coolingSelectionGeneration) ||
+                _coolingPreferenceRestoreAttempted)
+            {
+                return;
+            }
+
+            try
+            {
+                await Task.Delay(delay, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            ServiceResponse? response = await HardwareClient.GetStatusAsync(
+                cancellationToken,
+                bypassOfflineBackoff: true);
+            if (response?.Success != true || response.Telemetry is null)
+                continue;
+
+            await TryRestoreCoolingPreferenceAsync(response);
+            if (_coolingPreferenceRestoreAttempted)
+                return;
+        }
     }
 
     private async Task TryRestoreCoolingPreferenceAsync(ServiceResponse response)
