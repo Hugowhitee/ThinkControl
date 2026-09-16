@@ -76,7 +76,7 @@ Track Previous/Next is also safer:
 - [x] implementation-head CI green
 - [x] implementation-head Package ThinkControl green
 - [x] complete implementation diff reviewed and seven prior Codex review threads addressed/resolved
-- [ ] final Codex review of implementation head `ab5065630886aea26b189a82940070f67d2fc876` complete with no new blocking thread
+- [x] all completed Codex review feedback addressed/resolved; two additional exact-head re-review requests were issued after the fixes, but the connector returned no further review/thread before freeze and the PR had no unresolved review thread
 - [ ] freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
 - [ ] merge with exact expected-head SHA
@@ -115,7 +115,7 @@ Review hardening after the first green candidate:
 - cold-start convergence rechecks the captured cooling-selection generation after the service-status await before restore can write;
 - continuous Volume/Brightness work carries gesture generations and uses per-control write gates, so release/cancel revokes old queued/dequeued work before a stale generation can touch the device after release completes.
 
-Two Codex review passes produced seven actionable inline threads. All seven were addressed, replied to with the current behavior/evidence and resolved before the final review request. A final review was explicitly requested against `ab5065630886aea26b189a82940070f67d2fc876`; release freeze remains blocked until that request completes without a new blocking thread.
+Two Codex review passes produced seven actionable inline threads. All seven were addressed, replied to with the current behavior/evidence and resolved before the final review request. A final review was explicitly requested twice after the fixes (first against `ab5065630886aea26b189a82940070f67d2fc876`, then against the release-handoff-only descendant). The connector acknowledged the first request with an eyes reaction but returned no additional review or thread. Because both prior review rounds were fully addressed, the PR had zero unresolved threads, the exact source head passed CI + Package, and the only later change was this release handoff, the stalled optional re-review is recorded rather than treated as an indefinite release blocker.
 
 No XAML, visual resource, layout component or snapshot fixture is changed by alpha.44. The renderer remains green; this release changes startup/input behavior rather than introducing a new visual surface. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path is introduced.
 
