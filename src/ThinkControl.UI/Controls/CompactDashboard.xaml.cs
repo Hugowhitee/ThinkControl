@@ -36,8 +36,7 @@ public partial class CompactDashboard : UserControl
             CompactPerformanceCombo,
             CompactFanCombo,
             CompactRefreshCombo,
-            CompactKeyboardCombo,
-            CompactAudioSafetyCombo
+            CompactKeyboardCombo
         })
         {
             combo.Margin = new Thickness(0, 6, 0, 0);
@@ -46,6 +45,13 @@ public partial class CompactDashboard : UserControl
             if (combo.Parent is StackPanel stack && stack.Parent is Border card)
                 card.Padding = new Thickness(10, 6, 10, 6);
         }
+
+        // Audio Safety lives in the footer, not inside one of the quick-control
+        // cards. Giving it the card selector's 40 px minimum height + 6 px top
+        // offset made the control overflow the 32 px footer and visibly clip.
+        CompactAudioSafetyCombo.Margin = new Thickness(0, 0, 10, 0);
+        CompactAudioSafetyCombo.MinHeight = 28;
+        CompactAudioSafetyCombo.VerticalAlignment = VerticalAlignment.Center;
     }
 
     internal void Initialize(App app)
