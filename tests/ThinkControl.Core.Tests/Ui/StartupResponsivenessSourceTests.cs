@@ -105,9 +105,11 @@ public sealed class StartupResponsivenessSourceTests
             "generation != Volatile.Read(ref _coolingSelectionGeneration)",
             restoreGateWait,
             StringComparison.Ordinal);
-        int restoreHardwareWrite = restore.IndexOf("HardwareClient.ReturnFanToAutoAsync()", StringComparison.Ordinal);
+        int restoreHardwareWrite = restore.IndexOf("HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token)", StringComparison.Ordinal);
         if (restoreHardwareWrite < 0)
-            restoreHardwareWrite = restore.IndexOf("HardwareClient.SetThermalModeAsync(State.SelectedMode)", StringComparison.Ordinal);
+            restoreHardwareWrite = restore.IndexOf(
+                "HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token)",
+                StringComparison.Ordinal);
         Assert.True(restoreGateWait >= 0 && restoreGenerationCheck > restoreGateWait && restoreHardwareWrite > restoreGenerationCheck);
 
         Assert.Contains("bool bypassOfflineBackoff = false", client, StringComparison.Ordinal);
