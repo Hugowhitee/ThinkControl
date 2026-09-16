@@ -75,8 +75,8 @@ Track Previous/Next is also safer:
 - [x] low-level fan/battery/provider safety boundaries unchanged
 - [x] implementation-head CI green
 - [x] implementation-head Package ThinkControl green
-- [x] complete implementation diff reviewed and seven prior Codex review threads addressed/resolved
-- [x] all completed Codex review feedback addressed/resolved; two additional exact-head re-review requests were issued after the fixes, but the connector returned no further review/thread before freeze and the PR had no unresolved review thread
+- [x] complete implementation diff reviewed and all substantive Codex review threads addressed/resolved
+- [x] final review feedback addressed/resolved; exact implementation head has zero unresolved review threads
 - [ ] freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
 - [ ] merge with exact expected-head SHA
@@ -85,25 +85,33 @@ Track Previous/Next is also safer:
 
 ### Alpha.44 implementation-head evidence
 
-Final implementation-review head before release-handoff-only edits: `a3971dc9226df66a87bdeb3e9daab00c40d873c4`.
+Final implementation-review head before release-handoff-only edits: `d029b947fdeb546b737310dfc59d82a97279da41`.
 
-CI run `35139966938` completed successfully on that exact head:
+CI run `35152197755` completed successfully on that exact head:
 
-- repository hygiene passed with 341 tracked paths / 27 Markdown files;
+- repository hygiene passed with 342 tracked paths / 27 Markdown files;
 - Release solution build succeeded;
-- Core tests: **199 passed, 0 failed, 0 skipped**;
+- Core tests: **202 passed, 0 failed, 0 skipped**;
 - real Compact ↔ Advanced ShellSmoke passed;
-- WPF visual QA rendered **85 snapshots**;
-- visual artifact `ThinkControl-Visual-QA`: artifact id `10464787172`, digest `sha256:39f8255b3a2850f482dc0c29dbb5e5e4cade30475a9e56f150ab707d53ab4f17`.
+- WPF visual QA rendered **85 snapshots**, including the corrected Compact footer;
+- visual artifact `ThinkControl-Visual-QA`: artifact id `10469288845`, digest `sha256:d00f2f5b74f1fba7b06951e2e3acbf099d52c8b9b0dbf84d1e878a844b9d1f2b`.
 
-Package ThinkControl run `35139966927` (#1564) completed successfully on the same exact head:
+Package ThinkControl run `35152197813` (#1591) completed successfully on the same exact head:
 
 - version and canonical branding checks passed;
 - release payload and web bootstrap installer built;
 - deep installer/service/IPC reliability smoke passed;
 - oldest-supported alpha.14.1 updater fixture verification and upgrade compatibility passed;
 - checksums were produced;
-- development artifact `ThinkControl-0.1.0-alpha.44-dev.1564`: artifact id `10464314386`, digest `sha256:ebeb2dc6a8e6de63c07149c0d396147b93ddb51daa1d2898c1bf9251dd2012e7`.
+- development artifact `ThinkControl-0.1.0-alpha.44-dev.1591`: artifact id `10469159099`, digest `sha256:2d6ba18c5c05cbde54c264be6727b3cb253495c7e611f19027c7645dbf9bd5ec`.
+
+Final implementation hardening after review and visual QA:
+
+- non-Auto firmware cooling restore now waits until the real current Windows power mode has been read; the default UI `Balanced` value is never used as a cold-start hardware baseline;
+- startup restore, manual/direct fan writes, delayed firmware reassert and explicit shutdown handoff share the serialized cooling writer; explicit Quit cancels restore work, awaits the gate and hands a direct writer back to Lenovo Auto before WPF shutdown;
+- unknown CoreAudio volume remains unknown: no live endpoint + no valid cache returns `null`, the Touchpad editor renders `—`, and blocked Audio Safety OSD uses status-only feedback rather than fabricating `0%`;
+- the Compact Audio Safety selector was confirmed genuinely clipped by visual QA: the runtime card-sizing path forced an incompatible geometry. It now has a dedicated footer, **44 px footer clearance** and a normal **40 px ComboBox**, with no card top-offset. The central UI layout contract and full WPF renderer both pass;
+- all three final review threads were replied to with the implemented behavior and resolved only after exact-head validation passed.
 
 Review hardening after the first green candidate:
 
@@ -116,11 +124,11 @@ Review hardening after the first green candidate:
 - continuous Volume/Brightness work carries gesture generations and uses per-control write gates, so release/cancel revokes old queued/dequeued work before a stale generation can touch the device after release completes;
 - startup restore, delayed firmware settle reassert and deliberate profile/curve selections share one serialized cooling-write gate. Manual selections increment the generation before waiting, guaranteeing that an older startup write cannot become the final physical state after a newer user choice.
 
-Two Codex review passes produced seven actionable inline threads. All seven were addressed, replied to with the current behavior/evidence and resolved. Additional exact-head re-review requests were then made, but GitHub's Codex connector reported that the configured code-review usage limit had been reached, so no third substantive automated review was available. That limit is recorded as a tooling constraint, not treated as implicit approval. The final source head above was therefore manually diff-reviewed again and passed exact-head CI + Package with zero unresolved review threads.
+Multiple Codex review passes produced the actionable inline threads recorded on PR #83. Every substantive thread was addressed, replied to with the implemented behavior/evidence and resolved. Later code-review requests also hit the configured Codex review usage limit; that is recorded as a tooling constraint, not treated as implicit approval. Final source was manually diff-reviewed again and the exact implementation head passed CI + Package with zero unresolved review threads.
 
 The earlier green implementation head `ab5065630886aea26b189a82940070f67d2fc876` was deliberately superseded after an additional manual exact-head review found two remaining safety opportunities: stale/default Brightness baseline use before the first display refresh, and a physical write-order race between startup cooling restoration and a newer manual profile choice. Neither earlier green run is used as final release evidence.
 
-No XAML, visual resource, layout component or snapshot fixture is changed by alpha.44. The renderer remains green; this release changes startup/input behavior rather than introducing a new visual surface. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path is introduced.
+Alpha.44 now includes one small Compact-dashboard XAML/layout correction prompted by physical screenshot feedback. The full WPF renderer is green on the final implementation head, including Compact dark/light snapshots. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path is introduced.
 
 ### Alpha.44 physical follow-up
 
