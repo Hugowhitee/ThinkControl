@@ -58,6 +58,31 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("private void OnTouchpadApplicationActivated", touchpad, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ColdBootCoolingRestore_HasABoundedServiceConvergencePathEvenWhileTrayOnly()
+    {
+        string root = FindRepositoryRoot();
+        string app = Read(root, "src", "ThinkControl.UI", "App.xaml.cs");
+        string cooling = Read(root, "src", "ThinkControl.UI", "App.Cooling.cs");
+        string client = Read(root, "src", "ThinkControl.UI", "Services", "HardwareServiceClient.cs");
+        string runtime = Read(root, "src", "ThinkControl.UI", "App.RuntimeRefresh.cs");
+
+        Assert.Contains("StartCoolingColdStartConvergence();", app, StringComparison.Ordinal);
+        Assert.Contains("CoolingColdStartProbeDelays", cooling, StringComparison.Ordinal);
+        Assert.Contains("ConvergeCoolingPreferenceAfterColdStartAsync", cooling, StringComparison.Ordinal);
+        Assert.Contains("bypassOfflineBackoff: true", cooling, StringComparison.Ordinal);
+        Assert.Contains("generation != Volatile.Read(ref _coolingSelectionGeneration)", cooling, StringComparison.Ordinal);
+        Assert.Contains("_coolingPreferenceRestoreAttempted", cooling, StringComparison.Ordinal);
+
+        Assert.Contains("bool bypassOfflineBackoff = false", client, StringComparison.Ordinal);
+        Assert.Contains("if (!bypassOfflineBackoff && now < _offlineRetryAfter)", client, StringComparison.Ordinal);
+
+        // Keep the normal tray runtime sparse; the cold-start convergence is bounded
+        // rather than turning background hardware discovery into permanent polling.
+        Assert.Contains("RuntimeBatteryTrayInterval = TimeSpan.FromMinutes(1)", runtime, StringComparison.Ordinal);
+        Assert.Contains("ShouldRefreshHardwareRuntime()", runtime, StringComparison.Ordinal);
+    }
+
     private static string Read(string root, params string[] path) =>
         File.ReadAllText(Path.Combine([root, .. path]));
 
