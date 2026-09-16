@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current architecture at **v0.1.0-alpha.43**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.42` remains the release baseline underneath this candidate.
+This document describes the current architecture at **v0.1.0-alpha.43**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.43` is the current published prerelease; `v0.1.0-alpha.42` is the previous immutable baseline.
 
 ## Process boundary
 
