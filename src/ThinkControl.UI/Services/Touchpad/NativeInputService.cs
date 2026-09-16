@@ -47,14 +47,14 @@ internal sealed class NativeInputService : IDisposable
         }
     }
 
-    internal int GetVolumePercent()
+    internal int? GetVolumePercent()
     {
         int? live = TryGetVolumePercent();
         if (live is int value)
             return value;
 
         int cached = Volatile.Read(ref _lastKnownVolume);
-        return cached >= 0 ? cached : 0;
+        return cached >= 0 ? cached : null;
     }
 
     internal bool TrySetVolume(int percent, out int applied)
