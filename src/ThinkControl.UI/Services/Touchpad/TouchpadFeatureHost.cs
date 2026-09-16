@@ -58,7 +58,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
                 _osd.Show(AudioSafetyPolicy.DisplayName(mode) == "Silent" ? "Silent · media locked" : "Media locked", ReadVolumePercent()))),
             _nativeInput.TryGetVolumePercent,
             QueueGestureVolume,
-            () => app.DisplayService.GetBrightness(),
+            ReadGestureBrightnessBaseline,
             QueueGestureBrightness,
             SetGestureActive,
             next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
@@ -261,6 +261,17 @@ internal sealed class TouchpadFeatureHost : IDisposable
             Math.Min(100, confirmed + ContinuousVolumeLeadLimit));
         int generation = Volatile.Read(ref _volumeGestureGeneration);
         QueueVolume(bounded, generation);
+    }
+
+    private int? ReadGestureBrightnessBaseline()
+    {
+        if (_app.DisplayService.GetBrightness() is not int observed)
+            return null;
+
+        int live = Math.Clamp(observed, 0, 100);
+        if (Volatile.Read(ref _brightnessGestureActive) != 0)
+            Interlocked.Exchange(ref _confirmedBrightness, live);
+        return live;
     }
 
     private void QueueGestureBrightness(int value)
