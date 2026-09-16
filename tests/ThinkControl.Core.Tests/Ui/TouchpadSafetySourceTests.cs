@@ -14,6 +14,9 @@ public sealed class TouchpadSafetySourceTests
 
         Assert.Contains("ContinuousCommitTravelMm = 1.5", router, StringComparison.Ordinal);
         Assert.Contains("ContinuousMaxFramePercent = 6.0", router, StringComparison.Ordinal);
+        Assert.Contains("PhysicalDeltaMm", router, StringComparison.Ordinal);
+        Assert.Contains("if (AdvanceContinuous(signal, VolumeBaseGain))", router, StringComparison.Ordinal);
+        Assert.Contains("if (AdvanceContinuous(signal, BrightnessBaseGain))", router, StringComparison.Ordinal);
         Assert.Contains("_continuousDeltaPercent = 0;", router, StringComparison.Ordinal);
         Assert.Contains("_continuousRawTravelMm = 0;", router, StringComparison.Ordinal);
         Assert.DoesNotContain("BeginContinuous(signal", router, StringComparison.Ordinal);
@@ -25,6 +28,15 @@ public sealed class TouchpadSafetySourceTests
         Assert.Contains("QueueGestureBrightness", host, StringComparison.Ordinal);
         Assert.Contains("Interlocked.Exchange(ref _pendingVolume, -1)", host, StringComparison.Ordinal);
         Assert.Contains("Interlocked.Exchange(ref _pendingBrightness, -1)", host, StringComparison.Ordinal);
+        Assert.Contains("_volumeWriteGate", host, StringComparison.Ordinal);
+        Assert.Contains("_brightnessWriteGate", host, StringComparison.Ordinal);
+        Assert.Contains("_volumeGestureGeneration", host, StringComparison.Ordinal);
+        Assert.Contains("_brightnessGestureGeneration", host, StringComparison.Ordinal);
+        Assert.Contains("_pendingVolumeGeneration", host, StringComparison.Ordinal);
+        Assert.Contains("_pendingBrightnessGeneration", host, StringComparison.Ordinal);
+        Assert.Contains("lock (_volumeWriteGate)", host, StringComparison.Ordinal);
+        Assert.Contains("lock (_brightnessWriteGate)", host, StringComparison.Ordinal);
+        Assert.Contains("_app.DisplayService.GetBrightness()", host, StringComparison.Ordinal);
 
         Assert.Contains("TryGetVolumePercent()", native, StringComparison.Ordinal);
         Assert.Contains("return null;", native, StringComparison.Ordinal);
@@ -51,6 +63,9 @@ public sealed class TouchpadSafetySourceTests
         Assert.DoesNotContain("TryFireTrackSwipe", begin, StringComparison.Ordinal);
         Assert.DoesNotContain("TryFireTrackSwipe", update, StringComparison.Ordinal);
         Assert.Contains("TryFireTrackSwipe(signal)", release, StringComparison.Ordinal);
+        Assert.Contains("_trackPeakTravelMm", router, StringComparison.Ordinal);
+        Assert.Contains("double signed = _trackPeakTravelMm;", router, StringComparison.Ordinal);
+        Assert.Contains("ObserveTrackTravel(signal);", release, StringComparison.Ordinal);
         Assert.Contains("SwipeThresholdMm = 12.0", policy, StringComparison.Ordinal);
     }
 
