@@ -41,8 +41,9 @@ internal sealed class NativeInputService : IDisposable
         }
     }
 
-    internal bool SetVolume(int percent)
+    internal bool TrySetVolume(int percent, out int applied)
     {
+        applied = Math.Clamp(percent, 0, 100);
         if (!AudioAllowed)
             return false;
 
@@ -51,18 +52,24 @@ internal sealed class NativeInputService : IDisposable
             try
             {
                 MMDevice device = OpenDefaultAudioEndpoint(refresh: false);
-                float next = Math.Clamp(percent, 0, 100) / 100f;
+                float next = applied / 100f;
                 device.AudioEndpointVolume.MasterVolumeLevelScalar = next;
                 if (device.AudioEndpointVolume.Mute && next > 0)
                     device.AudioEndpointVolume.Mute = false;
-                _showValue?.Invoke("Volume", (int)Math.Round(next * 100));
+
+                // Read the endpoint back before reporting success. Continuous gesture
+                // backpressure advances from this confirmed value rather than from a
+                // speculative queued target, so a stalled audio stack cannot build up
+                // a hidden jump toward 0 or 100 percent.
+                applied = Math.Clamp(
+                    (int)Math.Round(device.AudioEndpointVolume.MasterVolumeLevelScalar * 100),
+                    0,
+                    100);
+                _showValue?.Invoke("Volume", applied);
                 return true;
             }
             catch
             {
-                // Endpoint changes are uncommon during one gesture. If Windows did
-                // switch devices, discard the cached COM object and let the next
-                // gesture/read reopen the current default endpoint cleanly.
                 ResetAudioEndpoint();
                 return false;
             }
