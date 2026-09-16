@@ -24,7 +24,124 @@ Release completion:
 - merge commit / release tag target: `ba13fab6d5b47cf127f4b627976662678f2ec491`
 - the merged feature branch was removed by branch hygiene
 - issues #79 (Audio Safety feature) and #60 (historic `TargetParameterCountException`) were closed as completed with evidence/reopen guidance
-- no product-development candidate is active; the post-release docs change only records the completed immutable release
+- active development candidate: `v0.1.0-alpha.44` on `feat/alpha44-startup-input-safety`; `version.json.releaseReady=false` until exact-head implementation gates are green
+
+## Alpha.44 stabilization candidate
+
+Alpha.44 is intentionally narrow: cold-boot cooling convergence plus safer high-rate Touchpad controls. It does not broaden any low-level hardware writer.
+
+### Cold-boot cooling convergence
+
+Root cause on silent Windows startup: the UI can issue its first service status request before the auto-start hardware service/provider is ready. Hidden tray runtime intentionally avoids frequent hardware status polling, so a failed first request could leave the saved cooling profile unapplied until a later activation or resume.
+
+The candidate fixes this with one bounded lifecycle-owned convergence path:
+
+- the ordinary `HardwareServiceClient` offline backoff remains the default;
+- cold-start convergence may explicitly bypass that backoff only during its finite login window;
+- probes stop after success, cancellation, cooling-selection generation change or the bounded retry sequence;
+- successful status still routes through the canonical `TryRestoreCoolingPreferenceAsync` owner;
+- the existing seven-second firmware settle reassert remains the later one-shot convergence step after a successful restore;
+- normal tray runtime stays sparse; there is no permanent fast hardware poller.
+
+### Touchpad edge-control safety
+
+Continuous Volume/Brightness now separates recognition from writing:
+
+- an edge claim acts as a clutch and does not immediately change the setting;
+- an extra 1.5 mm post-claim dead zone must be crossed before continuous writes contribute;
+- accelerated contribution is capped to 6 percentage points per input frame;
+- gesture volume intent is limited to 8 points ahead of the last confirmed CoreAudio value;
+- CoreAudio writes are read back before becoming the next confirmation point;
+- brightness uses the same ownership model with a 10-point lead limit;
+- release/cancel clears pending gesture intent, preventing delayed catch-up after the finger leaves the pad.
+
+Track Previous/Next is also safer:
+
+- skip threshold increases from 9 mm to 12 mm;
+- crossing the threshold while the finger is still down does not skip;
+- one skip may commit on release after the deliberate threshold;
+- Track-center Play/Pause remains the existing 450 ms / ≤3 mm / release contract.
+
+### Alpha.44 implementation gate
+
+- [x] cold-start race traced through initial status → client offline backoff → tray-only sparse runtime → cooling restore
+- [x] bounded cold-start convergence implemented without adding a permanent polling loop
+- [x] cooling generation/cancellation guards preserved
+- [x] Volume/Brightness claim no longer performs an immediate write
+- [x] continuous post-claim dead zone and per-frame contribution cap implemented
+- [x] volume writes use CoreAudio readback and bounded confirmed-state lead
+- [x] release/cancel drops pending continuous gesture intent
+- [x] Track skip raised to 12 mm and moved to release-to-commit
+- [x] low-level fan/battery/provider safety boundaries unchanged
+- [x] implementation-head CI green
+- [x] implementation-head Package ThinkControl green
+- [x] complete implementation diff reviewed and all substantive Codex review threads addressed/resolved
+- [x] final review feedback addressed/resolved; exact implementation head has zero unresolved review threads
+- [ ] freeze `version.json.releaseReady=true`
+- [ ] frozen-head CI + Package green
+- [ ] merge with exact expected-head SHA
+- [ ] immutable `v0.1.0-alpha.44` published and assets/checksums verified
+- [ ] post-merge main CI/promotion/branch hygiene green
+
+### Alpha.44 implementation-head evidence
+
+Final implementation-review head before release-handoff-only edits: `d029b947fdeb546b737310dfc59d82a97279da41`.
+
+CI run `35152197755` completed successfully on that exact head:
+
+- repository hygiene passed with 342 tracked paths / 27 Markdown files;
+- Release solution build succeeded;
+- Core tests: **202 passed, 0 failed, 0 skipped**;
+- real Compact ↔ Advanced ShellSmoke passed;
+- WPF visual QA rendered **85 snapshots**, including the corrected Compact footer;
+- visual artifact `ThinkControl-Visual-QA`: artifact id `10469288845`, digest `sha256:d00f2f5b74f1fba7b06951e2e3acbf099d52c8b9b0dbf84d1e878a844b9d1f2b`.
+
+Package ThinkControl run `35152197813` (#1591) completed successfully on the same exact head:
+
+- version and canonical branding checks passed;
+- release payload and web bootstrap installer built;
+- deep installer/service/IPC reliability smoke passed;
+- oldest-supported alpha.14.1 updater fixture verification and upgrade compatibility passed;
+- checksums were produced;
+- development artifact `ThinkControl-0.1.0-alpha.44-dev.1591`: artifact id `10469159099`, digest `sha256:2d6ba18c5c05cbde54c264be6727b3cb253495c7e611f19027c7645dbf9bd5ec`.
+
+Final implementation hardening after review and visual QA:
+
+- non-Auto firmware cooling restore now waits until the real current Windows power mode has been read; the default UI `Balanced` value is never used as a cold-start hardware baseline;
+- startup restore, manual/direct fan writes, delayed firmware reassert and explicit shutdown handoff share the serialized cooling writer; explicit Quit cancels restore work, awaits the gate and hands a direct writer back to Lenovo Auto before WPF shutdown;
+- unknown CoreAudio volume remains unknown: no live endpoint + no valid cache returns `null`, the Touchpad editor renders `—`, and blocked Audio Safety OSD uses status-only feedback rather than fabricating `0%`;
+- the Compact Audio Safety selector was confirmed genuinely clipped by visual QA: the runtime card-sizing path forced an incompatible geometry. It now has a dedicated footer, **44 px footer clearance** and a normal **40 px ComboBox**, with no card top-offset. The central UI layout contract and full WPF renderer both pass;
+- all three final review threads were replied to with the implemented behavior and resolved only after exact-head validation passed.
+
+Review hardening after the first green candidate:
+
+- CoreAudio failure no longer fabricates a 50% starting volume; Volume fails closed without a real endpoint baseline.
+- the 1.5 mm clutch is measured in unscaled physical travel and sensitivity is applied only after the clutch;
+- staying inside the clutch performs no Volume/Brightness OS write;
+- Brightness starts from one live WMI baseline per gesture, fails closed when no live baseline exists, and advances confirmation only from post-write WMI readback; it never treats the early/default AppState brightness as hardware truth;
+- Track preserves a signed physical peak so crossing 12 mm and retracing still commits once on release;
+- cold-start convergence rechecks the captured cooling-selection generation after the service-status await before restore can write;
+- continuous Volume/Brightness work carries gesture generations and uses per-control write gates, so release/cancel revokes old queued/dequeued work before a stale generation can touch the device after release completes;
+- startup restore, delayed firmware settle reassert and deliberate profile/curve selections share one serialized cooling-write gate. Manual selections increment the generation before waiting, guaranteeing that an older startup write cannot become the final physical state after a newer user choice.
+
+Multiple Codex review passes produced the actionable inline threads recorded on PR #83. Every substantive thread was addressed, replied to with the implemented behavior/evidence and resolved. Later code-review requests also hit the configured Codex review usage limit; that is recorded as a tooling constraint, not treated as implicit approval. Final source was manually diff-reviewed again and the exact implementation head passed CI + Package with zero unresolved review threads.
+
+The earlier green implementation head `ab5065630886aea26b189a82940070f67d2fc876` was deliberately superseded after an additional manual exact-head review found two remaining safety opportunities: stale/default Brightness baseline use before the first display refresh, and a physical write-order race between startup cooling restoration and a newer manual profile choice. Neither earlier green run is used as final release evidence.
+
+Alpha.44 now includes one small Compact-dashboard XAML/layout correction prompted by physical screenshot feedback. The full WPF renderer is green on the final implementation head, including Compact dark/light snapshots. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path is introduced.
+
+### Alpha.44 physical follow-up
+
+- [ ] full Windows restart with Start with Windows enabled and Quiet/Balanced saved converges without opening a ThinkControl window
+- [ ] delaying/restarting the hardware service during login still allows bounded convergence once it becomes ready
+- [ ] tray-only operation returns to normal sparse cadence after startup convergence
+- [ ] touching/claiming Volume or Brightness and immediately releasing does not alter the setting
+- [ ] small post-claim movement remains inactive; deliberate movement stays responsive
+- [ ] under a lagging/changing audio endpoint, extra movement cannot later catch up into a large volume jump
+- [ ] release/cancel produces no delayed Volume/Brightness write
+- [ ] Track movement below 12 mm never skips
+- [ ] Track crossing 12 mm skips once on release and never while still held
+- [ ] Track-center hold behavior remains deliberate and unchanged
 
 ## Alpha.43 product delta
 
@@ -195,7 +312,7 @@ Touchpad:
 - [ ] roughly half-second hold toggles once on release
 - [ ] nothing auto-fires while still held
 - [ ] >3 mm movement disarms the center hold for that contact
-- [ ] Previous/Next remains reliable at the 9 mm swipe threshold
+- [ ] Previous/Next remains reliable at the current 12 mm release-to-commit threshold
 - [ ] disabling Track Play/Pause removes the center visual and behavior while Previous/Next still work
 - [ ] reverse-close remains reliable across the inner half of both mirrored lanes
 

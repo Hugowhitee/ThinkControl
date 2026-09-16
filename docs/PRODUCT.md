@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current immutable prerelease: `v0.1.0-alpha.43`.  
-Previous immutable baseline: `v0.1.0-alpha.42`.
+Current development candidate: `v0.1.0-alpha.44`.  
+Current immutable prerelease: `v0.1.0-alpha.43`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -25,6 +25,7 @@ The reference device is **not** the product boundary. Windows-safe features shou
 12. Treat one visible interaction as one product affordance: do not expose duplicate settings/actions for the same Touchpad behavior.
 13. Keep startup-critical user-session infrastructure ahead of optional discovery/polish work; helper-app responsiveness is a product requirement, not a reason to collapse the privileged service boundary.
 14. For cross-cutting safety modes, keep one canonical policy owner and compose existing controls through that policy instead of creating duplicate action systems.
+15. Continuous Touchpad controls must advance from confirmed OS state with bounded queued lead; a delayed backend must never turn extra finger movement into a later runaway jump.
 
 Implementation boundaries are defined in [Architecture](ARCHITECTURE.md), low-level rules in [Hardware Safety](HARDWARE-SAFETY.md), current support in [Device Support](DEVICE-SUPPORT.md), and Lenovo implementation evidence in [Lenovo provider research](research/lenovo-providers.md) plus [X9 research](research/x9-15-gen1.md).
 
@@ -136,7 +137,7 @@ With the switch **on**, the lane is **Previous | Play/Pause | Next**. The visibl
 
 The action deliberately commits **on release**. Reaching 450 ms while the finger is still down is not enough. Release acts as the final intent confirmation and prevents a resting/incidental touch from automatically starting global media merely because a timer expired. There is no delayed auto-fire worker.
 
-The recognizer records the **maximum** center excursion while the contact remains a candidate. Moving away and returning near the start cannot make a previously mobile contact look stationary at release. If movement exceeds the 3 mm hold slop, center Play/Pause is disarmed and normal Track direction recognition resumes. Previous/Next still requires the unchanged **9 mm** deliberate swipe threshold. A Track swipe never also toggles Play/Pause on release.
+The recognizer records the **maximum** center excursion while the contact remains a candidate. Moving away and returning near the start cannot make a previously mobile contact look stationary at release. If movement exceeds the 3 mm hold slop, center Play/Pause is disarmed and normal Track direction recognition resumes. Previous/Next requires a deliberate **12 mm** swipe and commits only on release. A Track swipe never also toggles Play/Pause on release.
 
 With the switch **off**, Track remains assigned but the center control disappears both visually and behaviorally. The center fill, separators and Play/Pause icon are not drawn; only Previous and Next remain in the edge lane. The explicit opt-out preference survives temporarily moving/removing Track so the user's choice is restored if Track is assigned again.
 

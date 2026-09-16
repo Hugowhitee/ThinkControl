@@ -8,15 +8,17 @@ internal sealed class GestureActionRouter
 {
     private const double VolumeBaseGain = 1.0;
     private const double BrightnessBaseGain = 1.15;
+    private const double ContinuousCommitTravelMm = 1.5;
+    private const double ContinuousMaxFramePercent = 6.0;
 
     private readonly NativeInputService _nativeInput;
     private readonly MediaSessionService _media;
     private readonly Func<TouchpadGestureConfiguration> _getConfiguration;
     private readonly Func<AudioSafetyMode> _getAudioSafetyMode;
     private readonly Action<AudioSafetyMode> _showAudioSafetyBlocked;
-    private readonly Func<int> _getVolume;
+    private readonly Func<int?> _getVolume;
     private readonly Action<int> _queueVolume;
-    private readonly Func<int> _getBrightness;
+    private readonly Func<int?> _getBrightness;
     private readonly Action<int> _queueBrightness;
     private readonly Action<GestureActionKind, bool> _setGestureActive;
     private readonly Action<bool> _showTrackOsd;
@@ -28,12 +30,14 @@ internal sealed class GestureActionRouter
     private int _volumeAtStart;
     private int _brightnessAtStart;
     private double _continuousDeltaPercent;
+    private double _continuousRawTravelMm;
     private long _lastContinuousTimestamp;
     private double _seekCumulativeSeconds;
     private Task<bool>? _mediaBeginTask;
     private long _lastMediaTimestamp;
     private bool _trackSwipeFired;
     private double _trackMaxTravelMm;
+    private double _trackPeakTravelMm;
     private double? _trackStartPosition01;
     private bool _trackStayedCandidate;
     private long _trackGestureStarted;
@@ -45,9 +49,9 @@ internal sealed class GestureActionRouter
         Func<TouchpadGestureConfiguration> getConfiguration,
         Func<AudioSafetyMode> getAudioSafetyMode,
         Action<AudioSafetyMode> showAudioSafetyBlocked,
-        Func<int> getVolume,
+        Func<int?> getVolume,
         Action<int> queueVolume,
-        Func<int> getBrightness,
+        Func<int?> getBrightness,
         Action<int> queueBrightness,
         Action<GestureActionKind, bool> setGestureActive,
         Action<bool> showTrackOsd,
@@ -130,6 +134,7 @@ internal sealed class GestureActionRouter
         _setGestureActive(signal.Action, true);
         _trackSwipeFired = false;
         _trackMaxTravelMm = 0;
+        _trackPeakTravelMm = 0;
         _trackStartPosition01 = signal.EdgePosition01;
         _trackStayedCandidate = true;
         _trackGestureStarted = Stopwatch.GetTimestamp();
@@ -147,15 +152,23 @@ internal sealed class GestureActionRouter
         {
             case GestureActionKind.Volume:
                 _setGestureActive(signal.Action, true);
-                _volumeAtStart = _getVolume();
-                BeginContinuous(signal, VolumeBaseGain);
-                QueueContinuousTarget(_volumeAtStart, _queueVolume);
+                if (_getVolume() is not int volumeAtStart)
+                {
+                    End(signal.Action);
+                    break;
+                }
+                _volumeAtStart = volumeAtStart;
+                BeginContinuous();
                 break;
             case GestureActionKind.Brightness:
                 _setGestureActive(signal.Action, true);
-                _brightnessAtStart = _getBrightness();
-                BeginContinuous(signal, BrightnessBaseGain);
-                QueueContinuousTarget(_brightnessAtStart, _queueBrightness);
+                if (_getBrightness() is not int brightnessAtStart)
+                {
+                    End(signal.Action);
+                    break;
+                }
+                _brightnessAtStart = Math.Clamp(brightnessAtStart, 0, 100);
+                BeginContinuous();
                 break;
             case GestureActionKind.MediaSeek:
                 _setGestureActive(signal.Action, true);
@@ -167,8 +180,7 @@ internal sealed class GestureActionRouter
                 _setGestureActive(signal.Action, true);
                 _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
-                _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
-                TryFireTrackSwipe(signal);
+                ObserveTrackTravel(signal);
                 break;
             case GestureActionKind.PlayPause:
                 _ = TogglePlayPauseReliablyAsync();
@@ -187,12 +199,12 @@ internal sealed class GestureActionRouter
         switch (signal.Action)
         {
             case GestureActionKind.Volume:
-                AdvanceContinuous(signal, VolumeBaseGain);
-                QueueContinuousTarget(_volumeAtStart, _queueVolume);
+                if (AdvanceContinuous(signal, VolumeBaseGain))
+                    QueueContinuousTarget(_volumeAtStart, _queueVolume);
                 break;
             case GestureActionKind.Brightness:
-                AdvanceContinuous(signal, BrightnessBaseGain);
-                QueueContinuousTarget(_brightnessAtStart, _queueBrightness);
+                if (AdvanceContinuous(signal, BrightnessBaseGain))
+                    QueueContinuousTarget(_brightnessAtStart, _queueBrightness);
                 break;
             case GestureActionKind.MediaSeek:
                 QueueMediaSeek(signal);
@@ -200,8 +212,7 @@ internal sealed class GestureActionRouter
             case GestureActionKind.PreviousNextTrack:
                 _trackStartPosition01 ??= signal.EdgePosition01;
                 _trackStayedCandidate = false;
-                _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
-                TryFireTrackSwipe(signal);
+                ObserveTrackTravel(signal);
                 break;
         }
     }
@@ -211,23 +222,30 @@ internal sealed class GestureActionRouter
         if (signal.Action == GestureActionKind.PreviousNextTrack)
         {
             _trackStartPosition01 ??= signal.EdgePosition01;
-            _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, Math.Abs(signal.TotalTravelMm));
+            ObserveTrackTravel(signal);
             if (!_trackStayedCandidate)
-                TryFireTrackSwipe(signal, allowReleaseFallback: true);
+                TryFireTrackSwipe(signal);
             if (!_trackSwipeFired && _trackStayedCandidate)
                 TryFireTrackCenterHold();
         }
         End(signal.Action);
     }
 
-    private void TryFireTrackSwipe(GestureSignal signal, bool allowReleaseFallback = false)
+    private void ObserveTrackTravel(GestureSignal signal)
+    {
+        double signed = ToPositiveControlDelta(signal, GetPhysicalTotalTravelMm(signal));
+        double magnitude = Math.Abs(signed);
+        _trackMaxTravelMm = Math.Max(_trackMaxTravelMm, magnitude);
+        if (magnitude > Math.Abs(_trackPeakTravelMm))
+            _trackPeakTravelMm = signed;
+    }
+
+    private void TryFireTrackSwipe(GestureSignal signal)
     {
         if (_trackSwipeFired)
             return;
 
-        double signed = ToPositiveControlDelta(signal, signal.TotalTravelMm);
-        // Release is allowed to finish a swipe that crossed the same deliberate
-        // threshold between input frames; it is not a shortcut to a smaller gesture.
+        double signed = _trackPeakTravelMm;
         double threshold = TrackCenterGesturePolicy.SwipeThresholdMm;
         if (Math.Abs(signed) < threshold)
             return;
@@ -292,16 +310,16 @@ internal sealed class GestureActionRouter
             _showTrackCenterOsd(result);
     }
 
-    private void BeginContinuous(GestureSignal signal, double baseGain)
+    private void BeginContinuous()
     {
-        _continuousDeltaPercent = Math.Clamp(
-            ToPositiveControlDelta(signal, signal.TotalTravelMm) * baseGain,
-            -100.0,
-            100.0);
+        // Claiming an edge is only the clutch. Do not change a setting until the
+        // finger continues deliberately beyond a small post-claim dead zone.
+        _continuousDeltaPercent = 0;
+        _continuousRawTravelMm = 0;
         _lastContinuousTimestamp = Stopwatch.GetTimestamp();
     }
 
-    private void AdvanceContinuous(GestureSignal signal, double baseGain)
+    private bool AdvanceContinuous(GestureSignal signal, double baseGain)
     {
         long now = Stopwatch.GetTimestamp();
         double elapsed = _lastContinuousTimestamp == 0
@@ -309,14 +327,61 @@ internal sealed class GestureActionRouter
             : Math.Clamp((now - _lastContinuousTimestamp) / (double)Stopwatch.Frequency, 1d / 240d, 0.20d);
         _lastContinuousTimestamp = now;
 
-        double deltaMm = ToPositiveControlDelta(signal, signal.DeltaMm);
-        double velocity = Math.Abs(deltaMm) / elapsed;
+        double physicalDeltaMm = ToPositiveControlDelta(signal, GetPhysicalDeltaMm(signal));
+        double previousEffective = ApplySignedDeadzone(_continuousRawTravelMm, ContinuousCommitTravelMm);
+        _continuousRawTravelMm += physicalDeltaMm;
+        double effective = ApplySignedDeadzone(_continuousRawTravelMm, ContinuousCommitTravelMm);
+        double committedPhysicalMm = effective - previousEffective;
+        if (Math.Abs(committedPhysicalMm) < 0.001)
+            return false;
+
+        double velocity = Math.Abs(physicalDeltaMm) / elapsed;
         double speed01 = Math.Clamp((velocity - 38.0) / 190.0, 0.0, 1.0);
         double acceleration = 1.0 + 1.9 * Math.Pow(speed01, 1.35);
+        double sensitivity = GetEdgeSensitivity(signal);
+        double contribution = Math.Clamp(
+            committedPhysicalMm * sensitivity * baseGain * acceleration,
+            -ContinuousMaxFramePercent,
+            ContinuousMaxFramePercent);
         _continuousDeltaPercent = Math.Clamp(
-            _continuousDeltaPercent + deltaMm * baseGain * acceleration,
+            _continuousDeltaPercent + contribution,
             -100.0,
             100.0);
+        return true;
+    }
+
+    private double GetPhysicalDeltaMm(GestureSignal signal)
+    {
+        if (signal.PhysicalDeltaMm is double physical && double.IsFinite(physical))
+            return physical;
+
+        double sensitivity = GetEdgeSensitivity(signal);
+        return signal.DeltaMm / Math.Max(0.01, sensitivity);
+    }
+
+    private double GetPhysicalTotalTravelMm(GestureSignal signal)
+    {
+        if (signal.PhysicalTotalTravelMm is double physical && double.IsFinite(physical))
+            return physical;
+
+        double sensitivity = GetEdgeSensitivity(signal);
+        return signal.TotalTravelMm / Math.Max(0.01, sensitivity);
+    }
+
+    private double GetEdgeSensitivity(GestureSignal signal)
+    {
+        if (signal.Edge is not TouchpadEdge edge)
+            return 1.0;
+
+        return _getConfiguration().Sanitize().BindingFor(edge).Sensitivity;
+    }
+
+    private static double ApplySignedDeadzone(double value, double deadzone)
+    {
+        double magnitude = Math.Abs(value);
+        if (magnitude <= deadzone)
+            return 0;
+        return Math.CopySign(magnitude - deadzone, value);
     }
 
     private void QueueContinuousTarget(int startValue, Action<int> queueTarget)
@@ -366,12 +431,14 @@ internal sealed class GestureActionRouter
     {
         _setGestureActive(action, false);
         _continuousDeltaPercent = 0;
+        _continuousRawTravelMm = 0;
         _lastContinuousTimestamp = 0;
 
         if (action == GestureActionKind.PreviousNextTrack)
         {
             _trackSwipeFired = false;
             _trackMaxTravelMm = 0;
+            _trackPeakTravelMm = 0;
             _trackStartPosition01 = null;
             _trackStayedCandidate = false;
             _trackGestureStarted = 0;

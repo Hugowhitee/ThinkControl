@@ -39,7 +39,7 @@ public sealed class TrackCenterGesturePolicyTests
     [Fact]
     public void HoldSlopIsSmallButAboveOrdinaryActivationNoise()
     {
-        Assert.Equal(9.0, TrackCenterGesturePolicy.SwipeThresholdMm);
+        Assert.Equal(12.0, TrackCenterGesturePolicy.SwipeThresholdMm);
         Assert.Equal(3.0, TrackCenterGesturePolicy.HoldMovementToleranceMm);
         Assert.Equal(TrackCenterGesturePolicy.HoldMovementToleranceMm, TrackCenterGesturePolicy.MovementToleranceMm);
         Assert.True(TrackCenterGesturePolicy.HoldMovementToleranceMm > TouchpadGestureConfiguration.Default.ActivationDistanceMm);

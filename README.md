@@ -23,12 +23,12 @@
   </a>
 </div>
 
-## ThinkControl alpha.43
+## ThinkControl alpha.44
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current immutable prerelease:** `v0.1.0-alpha.43`  
-**Previous immutable baseline:** `v0.1.0-alpha.42`
+**Current development candidate:** `v0.1.0-alpha.44`  
+**Current immutable prerelease:** `v0.1.0-alpha.43`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -63,6 +63,20 @@ For a normal install, Setup is the only file you need. A clean interactive insta
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
 
+## What alpha.44 changes
+
+Alpha.44 is a stabilization release focused on cold-boot control readiness and safer Touchpad edge gestures. It does not expand the low-level hardware write boundary.
+
+- **Saved cooling converges during a real Windows cold start.** A silent tray launch now owns one bounded startup-convergence window that can retry service/provider status while the auto-start hardware service is still coming online. This closes the race where the first status request could miss the service and tray-only mode would then avoid further hardware polling until a later activation or resume.
+- **Tray runtime stays low-impact.** Cold-start convergence is finite and cancellation/generation guarded; ThinkControl does not turn the normal hidden tray state into a fast permanent hardware poller.
+- **Volume and brightness use a deliberate clutch.** Claiming an edge no longer changes the setting immediately. The finger must continue about **1.5 mm** beyond claim before the continuous control starts contributing.
+- **A lagging Windows audio stack cannot build a hidden jump.** Touchpad volume writes are read back from the active CoreAudio endpoint, queued gesture intent is kept within **8 percentage points** of confirmed Windows volume, and pending gesture writes are discarded when the gesture ends. Brightness uses the same bounded model with a **10-point** lead limit.
+- **Continuous acceleration is bounded per input frame.** Fast intentional movement still accelerates, but one bad/coalesced input frame cannot contribute more than **6 percentage points**.
+- **Track skip is harder to trigger accidentally.** Previous/Next now requires a **12 mm** deliberate swipe and commits only when the finger is released. The Track-center Play/Pause contract remains the existing 450 ms hold, ≤3 mm movement and release-to-commit behavior.
+- **Hardware safety is unchanged.** The rejected Lenovo per-fan target writer remains read-only; no EC, EnergyDrv, Lenovo Other Mode or battery write capability is broadened by this release.
+
+The latest downloadable immutable build remains alpha.43 until this candidate passes the full release gates and is promoted.
+
 ## What alpha.43 changes
 
 Alpha.43 is a focused safety/usability follow-up to immutable alpha.42. It adds one canonical Audio Safety policy, makes the integrated Track-center Play/Pause optional, and adds a capability-gated battery-preservation surface without turning Battery into another OEM utility.
@@ -75,7 +89,7 @@ Alpha.43 is a focused safety/usability follow-up to immutable alpha.42. It adds 
 - **Compact gets one quick Audio Safety selector; Settings owns the explanation.** This is intentionally not a phone-style Focus Modes framework and not a grid of unrelated presets.
 - **Track Play/Pause is optional inside Track control.** When enabled, the lane remains `Previous | Play/Pause | Next`. When disabled, the center target, separators and Play/Pause icon disappear and the same edge becomes a clean `Previous / Next` control.
 - **Release-to-commit remains intentional.** With Play/Pause enabled, the center requires at least **450 ms** with no more than **3 mm** maximum radial movement and then commits on release. Release is the final intent confirmation so a resting/incidental touch cannot auto-start media merely because the hold timer elapsed.
-- **Previous/Next remains unchanged.** It keeps the deliberate **9 mm** swipe threshold and one recognizer/router owner.
+- **Alpha.43 Track behavior.** That immutable release used a deliberate **9 mm** swipe threshold; alpha.44 raises the current threshold to 12 mm and commits skip only on release.
 - **Battery preservation uses real Lenovo start/stop thresholds on the verified X9 path.** When the installed Lenovo PWRMGRV/`IBMPmDrv` contract is present, the Battery page can select a small set of Vantage-style windows such as **75–85%** or return to **Full charge · 100%**. The desktop UI never receives a raw driver command.
 - **No made-up battery-life multiplier.** The UI explains the actual stop threshold, start threshold and hysteresis instead of claiming “2× fewer cycles”. Battery wear depends on more than state of charge.
 - **Existing firmware state wins.** ThinkControl does not silently apply a preservation preset on first run. A non-preset Lenovo pair appears as `Custom · start–stop%` until the user deliberately chooses another preset.
@@ -122,7 +136,7 @@ On the current X9-15 reference path:
 - PawnIO registration/service/device readiness is distinguished instead of collapsed into one registry check;
 - sensor/provider failure is reported explicitly rather than replaced by synthetic values.
 
-Audio Safety is Windows-generic and does not grant or alter any low-level hardware capability. Automated CI does **not** prove physical-device behavior. Alpha.43 still needs real-X9 confirmation of Touchpad feel, cooling persistence and the physical battery threshold behavior, plus a real Windows audio check for Silent/default-output transitions. Hosted tests can prove policy routing, threshold validation/rollback architecture, ownership bookkeeping, build and deterministic UI behavior but cannot substitute for physical audio, fan or charging evidence.
+Audio Safety is Windows-generic and does not grant or alter any low-level hardware capability. Automated CI does **not** prove physical-device behavior. The current candidate still needs real-X9 confirmation of Touchpad feel, cooling persistence and the physical battery threshold behavior, plus a real Windows audio check for Silent/default-output transitions. Hosted tests can prove policy routing, threshold validation/rollback architecture, ownership bookkeeping, build and deterministic UI behavior but cannot substitute for physical audio, fan or charging evidence.
 
 See **[Device support](docs/DEVICE-SUPPORT.md)** and **[Hardware safety](docs/HARDWARE-SAFETY.md)**.
 

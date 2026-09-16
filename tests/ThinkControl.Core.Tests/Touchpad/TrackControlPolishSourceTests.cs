@@ -19,7 +19,7 @@ public sealed class TrackControlPolishSourceTests
         Assert.Contains("Stopwatch.GetTimestamp() - _trackGestureStarted", router, StringComparison.Ordinal);
         Assert.Contains("ShouldCommitHold(", router, StringComparison.Ordinal);
         Assert.Contains("HoldMovementToleranceMm = 3.0", policy, StringComparison.Ordinal);
-        Assert.Contains("SwipeThresholdMm = 9.0", policy, StringComparison.Ordinal);
+        Assert.Contains("SwipeThresholdMm = 12.0", policy, StringComparison.Ordinal);
         Assert.Contains("HoldMinimumMs = 450", policy, StringComparison.Ordinal);
         Assert.Contains("CenterZoneStart = 0.36", policy, StringComparison.Ordinal);
         Assert.Contains("CenterZoneEnd = 0.64", policy, StringComparison.Ordinal);

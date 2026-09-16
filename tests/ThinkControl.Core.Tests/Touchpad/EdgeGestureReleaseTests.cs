@@ -36,6 +36,31 @@ public sealed class EdgeGestureReleaseTests
     }
 
     [Fact]
+    public void EdgeSignal_PreservesPhysicalTravelBeforeSensitivityScaling()
+    {
+        var config = TouchpadGestureConfiguration.Default with
+        {
+            Bindings = new TouchpadGestureBindings(
+                new(GestureActionKind.Volume),
+                new(GestureActionKind.Brightness),
+                new(GestureActionKind.MediaSeek, Sensitivity: 4.0),
+                new(GestureActionKind.Disabled))
+        };
+        var recognizer = new EdgeGestureRecognizer(config);
+
+        recognizer.ProcessFrame([new TouchContact(1, 3500, 120, true)], Geometry);
+        GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 3850, 120, true)]);
+        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 3950, 120, true)]);
+
+        Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
+        Assert.InRange(claimed?.PhysicalTotalTravelMm ?? -1, 3.49, 3.51);
+        Assert.InRange(claimed?.TotalTravelMm ?? -1, 13.99, 14.01);
+        Assert.Equal(GesturePhase.Active, active?.Phase);
+        Assert.InRange(active?.PhysicalDeltaMm ?? -1, 0.99, 1.01);
+        Assert.InRange(active?.DeltaMm ?? -1, 3.99, 4.01);
+    }
+
+    [Fact]
     public void StationaryTrackCandidate_EmitsReleaseSoCenterHoldCanCommit()
     {
         var config = TouchpadGestureConfiguration.Default with
@@ -144,7 +169,7 @@ public sealed class EdgeGestureReleaseTests
 
         recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
         GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 7100, 7880, true)]);
-        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 7700, 7880, true)]);
+        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 8000, 7880, true)]);
 
         Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
         Assert.Equal(GestureActionKind.PreviousNextTrack, claimed?.Action);

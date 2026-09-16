@@ -51,7 +51,7 @@ public sealed class FanAutoHandoffSourceTests
         string cooling = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "App.Cooling.cs"));
 
         Assert.Contains("bool wantsAuto = selected.Equals(\"Lenovo Auto\"", cooling, StringComparison.Ordinal);
-        Assert.Contains("ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();", cooling, StringComparison.Ordinal);
+        Assert.Contains("ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token);", cooling, StringComparison.Ordinal);
         Assert.Contains("Saved firmware Auto preference could not be reasserted", cooling, StringComparison.Ordinal);
         Assert.Contains("State.CoolingProfile = \"Lenovo Auto\";", cooling, StringComparison.Ordinal);
 
@@ -59,8 +59,8 @@ public sealed class FanAutoHandoffSourceTests
         // normal profile restoration is capability-driven. Firmware-backed profiles
         // also seed the current Windows power mode as their restore baseline.
         Assert.Contains("if (response.Capabilities?.FanControl != true && !(wantsAuto && verifiedX9))", cooling, StringComparison.Ordinal);
-        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedMode)", cooling, StringComparison.Ordinal);
-        Assert.Contains("HardwareClient.SetCoolingProfileAsync(definition.Name)", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetCoolingProfileAsync(definition.Name, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
 
         // Do not regress to a UI-only restore that merely paints the selector as Auto
         // without asking the service/hardware to hand ownership back.

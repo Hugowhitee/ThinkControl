@@ -21,6 +21,7 @@ public partial class App : System.Windows.Application
     private bool? _lastServiceOnline;
     private string _manufacturer = string.Empty;
     private AdvancedWindow? _advancedWindow;
+    private int _exitInProgress;
 
     public AppState State { get; } = new();
     public DisplayService DisplayService { get; } = new();
@@ -95,6 +96,7 @@ public partial class App : System.Windows.Application
         _statusTimer = new DispatcherTimer(TimeSpan.FromSeconds(2), DispatcherPriority.Background, OnStatusTimer, Dispatcher);
         _statusTimer.Start();
         Task initialRefresh = RefreshStatusAsync(forceSystemInfo: true);
+        StartCoolingColdStartConvergence();
         PresentInitialShell(initialRefresh, synchronousStartup.Elapsed);
     }
 
@@ -192,7 +194,10 @@ public partial class App : System.Windows.Application
 
             ThinkControlPowerMode? mode = PowerModeService.GetCurrent(!battery.OnAc);
             if (mode.HasValue)
+            {
                 State.SelectedMode = mode.Value.ToString();
+                MarkCoolingThermalBaselineReady();
+            }
 
             DisplaySnapshot display = await Task.Run(DisplayService.Read);
             State.CurrentRefreshHz = display.CurrentRefreshHz;
@@ -408,14 +413,23 @@ public partial class App : System.Windows.Application
         catch { }
     }
 
-    public void ExitApplication()
+    public async void ExitApplication()
     {
+        if (Interlocked.Exchange(ref _exitInProgress, 1) != 0)
+            return;
+
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "app.exit",
             ValidationState: GetCurrentDeviceValidationState(),
             Success: true));
         _statusTimer?.Stop();
+
+        // Complete direct/manual fan ownership handoff before WPF tears down the
+        // dispatcher. This lets in-flight restore writes observe cancellation and
+        // release the shared cooling gate before Lenovo Auto is requested.
+        await PrepareCoolingForApplicationExitAsync();
+
         try { KeyboardEffects?.Dispose(); } catch { }
         _trayIcon?.Dispose();
         _ownedTrayIcon?.Dispose();

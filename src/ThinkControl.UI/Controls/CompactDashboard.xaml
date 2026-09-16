@@ -82,7 +82,7 @@
 
     <Border Background="{DynamicResource Tc.Window}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="8" Padding="12" SnapsToDevicePixels="True">
         <Grid>
-            <Grid.RowDefinitions><RowDefinition Height="50" /><RowDefinition Height="112" /><RowDefinition Height="172" /><RowDefinition Height="94" /><RowDefinition Height="32" /></Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="50" /><RowDefinition Height="112" /><RowDefinition Height="172" /><RowDefinition Height="90" /><RowDefinition Height="44" /></Grid.RowDefinitions>
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Margin="0,2,0,1"><controls:BrandWordmark Width="118" Height="36" Margin="-7,-1,0,0" HorizontalAlignment="Left" /><TextBlock Text="{Binding DeviceName}" Margin="2,-2,0,0" FontSize="{x:Static ui:TypographyScale.Secondary}" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" /></StackPanel>
@@ -140,10 +140,10 @@
                     <TextBlock Grid.Row="1" Text="Volume" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><Slider x:Name="CompactVolumeSlider" Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" PreviewMouseLeftButtonUp="CompactVolume_Commit" PreviewKeyUp="CompactVolume_KeyCommit" /><TextBlock x:Name="CompactVolumeText" Grid.Row="1" Grid.Column="2" Text="—" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
                 </Grid>
             </Border>
-            <Grid Grid.Row="4" Margin="3,4,3,0">
+            <Grid Grid.Row="4" Margin="3,4,3,0" VerticalAlignment="Stretch">
                 <TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <ComboBox x:Name="CompactAudioSafetyCombo" Style="{StaticResource TcComboBox}" Width="104" Height="26" Margin="0,-1,10,0" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Audio safety · Normal, Media lock or Silent" />
+                    <ComboBox x:Name="CompactAudioSafetyCombo" Style="{StaticResource TcComboBox}" Width="104" Height="40" MinHeight="40" Margin="0,0,10,0" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Audio safety · Normal, Media lock or Silent" />
                     <Button Style="{StaticResource CompactInlineButton}" Content="Audio" Tag="Audio" Click="OpenPage_Click" Margin="0,0,12,0" />
                     <Button Style="{StaticResource CompactInlineButton}" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" />
                 </StackPanel>

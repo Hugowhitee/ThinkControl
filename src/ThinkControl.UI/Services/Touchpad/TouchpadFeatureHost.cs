@@ -6,16 +6,29 @@ namespace ThinkControl.UI.Services.Touchpad;
 
 internal sealed class TouchpadFeatureHost : IDisposable
 {
+    private const int ContinuousVolumeLeadLimit = 8;
+    private const int ContinuousBrightnessLeadLimit = 10;
+
     private readonly App _app;
     private readonly TouchpadGestureService _gestures;
     private readonly TouchpadHapticsService _haptics = new();
     private readonly NativeInputService _nativeInput;
     private readonly GestureActionRouter _actions;
     private readonly GestureOsdService _osd;
+    private readonly object _volumeWriteGate = new();
+    private readonly object _brightnessWriteGate = new();
     private int _pendingVolume = -1;
     private int _volumeWorkerRunning;
+    private int _confirmedVolume = -1;
+    private int _volumeGestureActive;
+    private int _volumeGestureGeneration;
+    private int _pendingVolumeGeneration = -1;
     private int _pendingBrightness = -1;
     private int _brightnessWorkerRunning;
+    private int _confirmedBrightness = -1;
+    private int _brightnessGestureActive;
+    private int _brightnessGestureGeneration;
+    private int _pendingBrightnessGeneration = -1;
     private int _inputStartScheduled;
     private bool _disposed;
 
@@ -42,11 +55,19 @@ internal sealed class TouchpadFeatureHost : IDisposable
             () => app.UserSettings.Current.TouchpadGestures ?? configuration,
             () => app.AudioSafety.Mode,
             mode => app.Dispatcher.BeginInvoke(new Action(() =>
-                _osd.Show(AudioSafetyPolicy.DisplayName(mode) == "Silent" ? "Silent · media locked" : "Media locked", ReadVolumePercent()))),
-            _nativeInput.GetVolumePercent,
-            QueueVolume,
-            () => app.State.Brightness,
-            QueueBrightness,
+            {
+                string label = AudioSafetyPolicy.DisplayName(mode) == "Silent"
+                    ? "Silent · media locked"
+                    : "Media locked";
+                if (ReadVolumePercent() is int volume)
+                    _osd.Show(label, volume);
+                else
+                    _osd.ShowStatus(label);
+            })),
+            _nativeInput.TryGetVolumePercent,
+            QueueGestureVolume,
+            ReadGestureBrightnessBaseline,
+            QueueGestureBrightness,
             SetGestureActive,
             next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
             result => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrackCenter(result))),
@@ -75,7 +96,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     internal TouchpadGeometry? Geometry => _gestures.Geometry;
     internal bool IsInputRunning => _gestures.IsRunning;
     internal double CurrentSeekDeltaSeconds => _actions.CurrentSeekDeltaSeconds;
-    internal int ReadVolumePercent() => _nativeInput.GetVolumePercent();
+    internal int? ReadVolumePercent() => _nativeInput.GetVolumePercent();
     internal int? CurrentVolumeTarget
     {
         get
@@ -184,22 +205,130 @@ internal sealed class TouchpadFeatureHost : IDisposable
         return false;
     }
 
-    private static void SetGestureActive(GestureActionKind action, bool active)
+    private void SetGestureActive(GestureActionKind action, bool active)
     {
-        // Kept as the router's lifecycle hook so future bounded per-action state can
-        // be reset in one place. The removed keyboard/performance gesture workers no
-        // longer need hidden mutable state here.
-    }
-
-    private void QueueVolume(int value)
-    {
-        if (AudioSafetyPolicy.BlocksTouchpadAudio(_app.AudioSafety.Mode))
+        if (action == GestureActionKind.Volume)
         {
-            Interlocked.Exchange(ref _pendingVolume, -1);
+            lock (_volumeWriteGate)
+            {
+                Interlocked.Increment(ref _volumeGestureGeneration);
+                Interlocked.Exchange(ref _pendingVolume, -1);
+                Interlocked.Exchange(ref _pendingVolumeGeneration, -1);
+                if (active)
+                {
+                    Interlocked.Exchange(ref _confirmedVolume, -1);
+                    Volatile.Write(ref _volumeGestureActive, 1);
+                }
+                else
+                {
+                    Volatile.Write(ref _volumeGestureActive, 0);
+                    Interlocked.Exchange(ref _confirmedVolume, -1);
+                }
+            }
             return;
         }
 
-        Interlocked.Exchange(ref _pendingVolume, Math.Clamp(value, 0, 100));
+        if (action == GestureActionKind.Brightness)
+        {
+            lock (_brightnessWriteGate)
+            {
+                Interlocked.Increment(ref _brightnessGestureGeneration);
+                Interlocked.Exchange(ref _pendingBrightness, -1);
+                Interlocked.Exchange(ref _pendingBrightnessGeneration, -1);
+                if (active)
+                {
+                    Interlocked.Exchange(ref _confirmedBrightness, -1);
+                    Volatile.Write(ref _brightnessGestureActive, 1);
+                }
+                else
+                {
+                    Volatile.Write(ref _brightnessGestureActive, 0);
+                    Interlocked.Exchange(ref _confirmedBrightness, -1);
+                }
+            }
+        }
+    }
+
+    private void QueueGestureVolume(int value)
+    {
+        if (Volatile.Read(ref _volumeGestureActive) == 0)
+            return;
+
+        int confirmed = Volatile.Read(ref _confirmedVolume);
+        if (confirmed < 0)
+        {
+            if (_nativeInput.TryGetVolumePercent() is not int live)
+                return;
+            confirmed = live;
+            Interlocked.Exchange(ref _confirmedVolume, confirmed);
+        }
+
+        int bounded = Math.Clamp(
+            value,
+            Math.Max(0, confirmed - ContinuousVolumeLeadLimit),
+            Math.Min(100, confirmed + ContinuousVolumeLeadLimit));
+        int generation = Volatile.Read(ref _volumeGestureGeneration);
+        QueueVolume(bounded, generation);
+    }
+
+    private int? ReadGestureBrightnessBaseline()
+    {
+        if (_app.DisplayService.GetBrightness() is not int observed)
+            return null;
+
+        int live = Math.Clamp(observed, 0, 100);
+        if (Volatile.Read(ref _brightnessGestureActive) != 0)
+            Interlocked.Exchange(ref _confirmedBrightness, live);
+        return live;
+    }
+
+    private void QueueGestureBrightness(int value)
+    {
+        if (Volatile.Read(ref _brightnessGestureActive) == 0)
+            return;
+
+        int confirmed = Volatile.Read(ref _confirmedBrightness);
+        if (confirmed < 0)
+        {
+            if (_app.DisplayService.GetBrightness() is not int live)
+                return;
+            confirmed = Math.Clamp(live, 0, 100);
+            Interlocked.Exchange(ref _confirmedBrightness, confirmed);
+        }
+
+        int bounded = Math.Clamp(
+            value,
+            Math.Max(0, confirmed - ContinuousBrightnessLeadLimit),
+            Math.Min(100, confirmed + ContinuousBrightnessLeadLimit));
+        int generation = Volatile.Read(ref _brightnessGestureGeneration);
+        QueueBrightness(bounded, generation);
+    }
+
+    private void QueueVolume(int value, int gestureGeneration = -1)
+    {
+        if (AudioSafetyPolicy.BlocksTouchpadAudio(_app.AudioSafety.Mode))
+        {
+            lock (_volumeWriteGate)
+            {
+                Interlocked.Exchange(ref _pendingVolume, -1);
+                Interlocked.Exchange(ref _pendingVolumeGeneration, -1);
+            }
+            return;
+        }
+
+        lock (_volumeWriteGate)
+        {
+            if (gestureGeneration >= 0 &&
+                (Volatile.Read(ref _volumeGestureActive) == 0 ||
+                 gestureGeneration != Volatile.Read(ref _volumeGestureGeneration)))
+            {
+                return;
+            }
+
+            Interlocked.Exchange(ref _pendingVolume, Math.Clamp(value, 0, 100));
+            Interlocked.Exchange(ref _pendingVolumeGeneration, gestureGeneration);
+        }
+
         if (Interlocked.CompareExchange(ref _volumeWorkerRunning, 1, 0) != 0)
             return;
 
@@ -219,17 +348,58 @@ internal sealed class TouchpadFeatureHost : IDisposable
                     break;
                 }
 
-                int target = Volatile.Read(ref _pendingVolume);
-                if (target < 0 || target == lastApplied)
-                    break;
-
-                if (!_nativeInput.SetVolume(target))
+                int applied;
+                int target;
+                int generation;
+                bool accepted;
+                lock (_volumeWriteGate)
                 {
-                    Interlocked.CompareExchange(ref _pendingVolume, -1, target);
-                    break;
+                    target = Volatile.Read(ref _pendingVolume);
+                    generation = Volatile.Read(ref _pendingVolumeGeneration);
+                    if (target < 0 || target == lastApplied)
+                        break;
+
+                    if (generation >= 0 &&
+                        (Volatile.Read(ref _volumeGestureActive) == 0 ||
+                         generation != Volatile.Read(ref _volumeGestureGeneration)))
+                    {
+                        Interlocked.Exchange(ref _pendingVolume, -1);
+                        Interlocked.Exchange(ref _pendingVolumeGeneration, -1);
+                        break;
+                    }
+
+                    accepted = _nativeInput.TrySetVolume(target, out applied);
+                    if (!accepted)
+                    {
+                        if (target == Volatile.Read(ref _pendingVolume) &&
+                            generation == Volatile.Read(ref _pendingVolumeGeneration))
+                        {
+                            Interlocked.Exchange(ref _pendingVolume, -1);
+                            Interlocked.Exchange(ref _pendingVolumeGeneration, -1);
+                        }
+                    }
+                    else
+                    {
+                        lastApplied = applied;
+                        if (generation >= 0 &&
+                            generation == Volatile.Read(ref _volumeGestureGeneration) &&
+                            Volatile.Read(ref _volumeGestureActive) != 0)
+                        {
+                            Interlocked.Exchange(ref _confirmedVolume, applied);
+                        }
+
+                        if (target == Volatile.Read(ref _pendingVolume) &&
+                            generation == Volatile.Read(ref _pendingVolumeGeneration))
+                        {
+                            Interlocked.Exchange(ref _pendingVolume, -1);
+                            Interlocked.Exchange(ref _pendingVolumeGeneration, -1);
+                        }
+                    }
                 }
 
-                lastApplied = target;
+                if (!accepted)
+                    break;
+
                 await Task.Delay(36).ConfigureAwait(false);
             }
         }
@@ -249,9 +419,21 @@ internal sealed class TouchpadFeatureHost : IDisposable
         }
     }
 
-    private void QueueBrightness(int value)
+    private void QueueBrightness(int value, int gestureGeneration = -1)
     {
-        Interlocked.Exchange(ref _pendingBrightness, Math.Clamp(value, 0, 100));
+        lock (_brightnessWriteGate)
+        {
+            if (gestureGeneration >= 0 &&
+                (Volatile.Read(ref _brightnessGestureActive) == 0 ||
+                 gestureGeneration != Volatile.Read(ref _brightnessGestureGeneration)))
+            {
+                return;
+            }
+
+            Interlocked.Exchange(ref _pendingBrightness, Math.Clamp(value, 0, 100));
+            Interlocked.Exchange(ref _pendingBrightnessGeneration, gestureGeneration);
+        }
+
         if (Interlocked.CompareExchange(ref _brightnessWorkerRunning, 1, 0) != 0)
             return;
 
@@ -265,25 +447,63 @@ internal sealed class TouchpadFeatureHost : IDisposable
         {
             while (!_disposed)
             {
-                int target = Volatile.Read(ref _pendingBrightness);
-                if (target < 0 || target == lastApplied)
-                    break;
+                int target;
+                int generation;
+                int applied = -1;
+                bool accepted;
+                lock (_brightnessWriteGate)
+                {
+                    target = Volatile.Read(ref _pendingBrightness);
+                    generation = Volatile.Read(ref _pendingBrightnessGeneration);
+                    if (target < 0 || target == lastApplied)
+                        break;
 
-                bool changed = _app.DisplayService.SetBrightness(target);
-                if (changed)
-                {
-                    lastApplied = target;
-                    await _app.Dispatcher.InvokeAsync(() =>
+                    if (generation >= 0 &&
+                        (Volatile.Read(ref _brightnessGestureActive) == 0 ||
+                         generation != Volatile.Read(ref _brightnessGestureGeneration)))
                     {
-                        _app.State.Brightness = target;
-                        _osd.Show("Brightness", target);
-                    });
+                        Interlocked.Exchange(ref _pendingBrightness, -1);
+                        Interlocked.Exchange(ref _pendingBrightnessGeneration, -1);
+                        break;
+                    }
+
+                    bool changed = _app.DisplayService.SetBrightness(target);
+                    int? observed = changed ? _app.DisplayService.GetBrightness() : null;
+                    accepted = observed is int;
+                    if (observed is int observedBrightness)
+                    {
+                        applied = Math.Clamp(observedBrightness, 0, 100);
+                        lastApplied = applied;
+                        if (generation >= 0 &&
+                            generation == Volatile.Read(ref _brightnessGestureGeneration) &&
+                            Volatile.Read(ref _brightnessGestureActive) != 0)
+                        {
+                            Interlocked.Exchange(ref _confirmedBrightness, applied);
+                        }
+                    }
+
+                    if (target == Volatile.Read(ref _pendingBrightness) &&
+                        generation == Volatile.Read(ref _pendingBrightnessGeneration))
+                    {
+                        Interlocked.Exchange(ref _pendingBrightness, -1);
+                        Interlocked.Exchange(ref _pendingBrightnessGeneration, -1);
+                    }
                 }
-                else
+
+                if (!accepted)
                 {
-                    Interlocked.CompareExchange(ref _pendingBrightness, -1, target);
+                    // A successful WMI invocation is not proof that the panel moved.
+                    // Without observable readback, fail closed and do not advance the
+                    // gesture's confirmed-state window from a speculative target.
                     break;
                 }
+
+                int displayed = applied;
+                await _app.Dispatcher.InvokeAsync(() =>
+                {
+                    _app.State.Brightness = displayed;
+                    _osd.Show("Brightness", displayed);
+                });
 
                 await Task.Delay(36).ConfigureAwait(false);
             }
@@ -308,8 +528,22 @@ internal sealed class TouchpadFeatureHost : IDisposable
         if (_disposed)
             return;
         _disposed = true;
-        Interlocked.Exchange(ref _pendingVolume, -1);
-        Interlocked.Exchange(ref _pendingBrightness, -1);
+        Volatile.Write(ref _volumeGestureActive, 0);
+        Volatile.Write(ref _brightnessGestureActive, 0);
+        lock (_volumeWriteGate)
+        {
+            Interlocked.Increment(ref _volumeGestureGeneration);
+            Interlocked.Exchange(ref _pendingVolume, -1);
+            Interlocked.Exchange(ref _pendingVolumeGeneration, -1);
+            Interlocked.Exchange(ref _confirmedVolume, -1);
+        }
+        lock (_brightnessWriteGate)
+        {
+            Interlocked.Increment(ref _brightnessGestureGeneration);
+            Interlocked.Exchange(ref _pendingBrightness, -1);
+            Interlocked.Exchange(ref _pendingBrightnessGeneration, -1);
+            Interlocked.Exchange(ref _confirmedBrightness, -1);
+        }
         _gestures.Dispose();
         _nativeInput.Dispose();
         _osd.Dispose();

@@ -185,8 +185,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("_coolingPolicy.SetBasePowerMode", service, StringComparison.Ordinal);
 
         Assert.Contains("UsesFirmwareCoolingPolicy", cooling, StringComparison.Ordinal);
-        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedMode)", cooling, StringComparison.Ordinal);
-        Assert.Contains("HardwareClient.SetCoolingProfileAsync(definition.Name)", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetCoolingProfileAsync(definition.Name, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
         Assert.Contains("Custom fan curves require a physically accepted direct fan writer", cooling, StringComparison.Ordinal);
     }
 

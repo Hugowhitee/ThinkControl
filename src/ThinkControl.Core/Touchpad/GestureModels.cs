@@ -271,4 +271,6 @@ public sealed record GestureSignal(
     int? ContactId = null,
     double? EdgePosition01 = null,
     TouchpadCorner? Corner = null,
-    CornerGestureDirection? CornerDirection = null);
+    CornerGestureDirection? CornerDirection = null,
+    double? PhysicalTotalTravelMm = null,
+    double? PhysicalDeltaMm = null);

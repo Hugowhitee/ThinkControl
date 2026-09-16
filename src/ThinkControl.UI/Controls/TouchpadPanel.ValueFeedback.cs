@@ -424,8 +424,8 @@ public partial class TouchpadPanel
             return "Complete";
         return signal.Action switch
         {
-            GestureActionKind.Volume => $"{ResolveCurrentPercent(_host!.CurrentVolumeTarget, _host.ReadVolumePercent())}%",
-            GestureActionKind.Brightness => $"{ResolveCurrentPercent(_host!.CurrentBrightnessTarget, _app?.State.Brightness ?? 0)}%",
+            GestureActionKind.Volume => FormatCurrentPercent(_host!.CurrentVolumeTarget, _host.ReadVolumePercent()),
+            GestureActionKind.Brightness => FormatCurrentPercent(_host!.CurrentBrightnessTarget, _app?.State.Brightness),
             GestureActionKind.MediaSeek => FormatSeekDelta(_host!.CurrentSeekDeltaSeconds),
             GestureActionKind.PreviousNextTrack => Math.Abs(signal.TotalTravelMm) < 0.5
                 ? "Play / Pause"
@@ -449,10 +449,12 @@ public partial class TouchpadPanel
         };
     }
 
-    private int ResolveCurrentPercent(int? queuedTarget, int fallback)
+    private static string FormatCurrentPercent(int? queuedTarget, int? fallback)
     {
-        int value = queuedTarget ?? fallback;
-        return Math.Clamp(value, 0, 100);
+        int? value = queuedTarget ?? fallback;
+        return value is int known
+            ? $"{Math.Clamp(known, 0, 100)}%"
+            : "—";
     }
 
     private static string FormatSeekDelta(double seconds)

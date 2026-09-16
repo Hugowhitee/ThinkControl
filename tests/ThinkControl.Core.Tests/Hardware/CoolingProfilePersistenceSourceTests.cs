@@ -31,9 +31,10 @@ public sealed class CoolingProfilePersistenceSourceTests
             .Split("private void InitializeCoolingCoordinator()", StringSplitOptions.None)[1]
             .Split("private void CoolingStatusObserved", StringSplitOptions.None)[0];
 
-        Assert.Contains("if (UsesFirmwareCoolingPolicy)", initialize, StringComparison.Ordinal);
-        Assert.Contains("return;", initialize, StringComparison.Ordinal);
-        Assert.Contains("HardwareClient.ReturnFanToAutoAsync", initialize, StringComparison.Ordinal);
+        Assert.Contains("UsesFirmwareCoolingPolicy", initialize, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Read(ref _coolingShutdownPrepared)", initialize, StringComparison.Ordinal);
+        Assert.Contains("if (!_coolingWriteGate.Wait(0))", initialize, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.ReturnFanToAutoAsync(cts.Token)", initialize, StringComparison.Ordinal);
         Assert.Contains("_coolingLifetimeCts.Cancel()", initialize, StringComparison.Ordinal);
     }
 
