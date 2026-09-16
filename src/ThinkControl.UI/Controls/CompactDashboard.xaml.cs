@@ -50,7 +50,7 @@ public partial class CompactDashboard : UserControl
         // cards. Giving it the card selector's 40 px minimum height + 6 px top
         // offset made the control overflow the 32 px footer and visibly clip.
         CompactAudioSafetyCombo.Margin = new Thickness(0, 0, 10, 0);
-        CompactAudioSafetyCombo.MinHeight = 32;
+        CompactAudioSafetyCombo.MinHeight = 40;
         CompactAudioSafetyCombo.VerticalAlignment = VerticalAlignment.Center;
     }
 
