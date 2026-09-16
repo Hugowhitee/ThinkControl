@@ -31,17 +31,21 @@ public sealed class HardwareServiceClient
     public event EventHandler<HardwareOperationResult>? HardwareOperationCompleted;
     public event EventHandler<ServiceResponse?>? StatusObserved;
 
-    public async Task<ServiceResponse?> GetStatusAsync(CancellationToken cancellationToken = default)
+    public async Task<ServiceResponse?> GetStatusAsync(
+        CancellationToken cancellationToken = default,
+        bool bypassOfflineBackoff = false)
     {
-        ServiceResponse? response = await GetStatusCoreAsync(cancellationToken).ConfigureAwait(false);
+        ServiceResponse? response = await GetStatusCoreAsync(cancellationToken, bypassOfflineBackoff).ConfigureAwait(false);
         PublishStatusIfNeeded(response);
         return response;
     }
 
-    private async Task<ServiceResponse?> GetStatusCoreAsync(CancellationToken cancellationToken)
+    private async Task<ServiceResponse?> GetStatusCoreAsync(
+        CancellationToken cancellationToken,
+        bool bypassOfflineBackoff)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
-        if (now < _offlineRetryAfter)
+        if (!bypassOfflineBackoff && now < _offlineRetryAfter)
         {
             if (_lastValidStatus is not null && now - _lastValidStatusAt <= LastKnownGoodGrace)
             {
