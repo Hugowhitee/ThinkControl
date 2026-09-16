@@ -313,6 +313,12 @@ public partial class App
             ServiceResponse? response = await HardwareClient.GetStatusAsync(
                 cancellationToken,
                 bypassOfflineBackoff: true);
+            if (cancellationToken.IsCancellationRequested ||
+                generation != Volatile.Read(ref _coolingSelectionGeneration))
+            {
+                return;
+            }
+
             if (response?.Success != true || response.Telemetry is null)
                 continue;
 
