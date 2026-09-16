@@ -68,20 +68,7 @@ jobs:
 
       - name: Build web bootstrap installer
         shell: pwsh
-        run: |
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { throw "Inno Setup compiler not found" }
-          & $iscc `
-            "/DAppVersion=$env:APP_VERSION" `
-            "/DNumericVersion=$env:NUMERIC_VERSION" `
-            "/DPayloadFile=$env:PAYLOAD_FILE" `
-            "/DPayloadUrl=$env:PAYLOAD_URL" `
-            "/DPayloadSha256=$env:PAYLOAD_SHA256" `
-            "installer/ThinkControl.iss"
-          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed with exit code $LASTEXITCODE" }
-          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          if ($null -eq $setup) { throw "Installer was not produced" }
-          if ($setup.Length -gt 5MB) { throw "ThinkControl bootstrap installer exceeds the 5 MB budget." }
+        run: ./tools/release/Build-BootstrapInstaller.ps1
 
       - name: Smoke-test installer and service lifecycle
         shell: pwsh
