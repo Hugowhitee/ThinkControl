@@ -34,6 +34,7 @@ public partial class App
     private readonly SemaphoreSlim _coolingWriteGate = new(1, 1);
     private bool _coolingPreferenceRestoreAttempted;
     private bool _coolingPreferenceRestoreInFlight;
+    private int _coolingThermalBaselineReady;
     private DateTimeOffset _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
     private int _coolingSelectionGeneration;
     private FanProfileCatalog? _fanProfiles;
@@ -42,6 +43,12 @@ public partial class App
     public FanProfileCatalog FanProfiles => _fanProfiles ??= new FanProfileCatalog(UserSettings);
     internal FanCalibrationUiState FanCalibrationState => _fanCalibrationState;
     internal event EventHandler? FanCalibrationStateChanged;
+
+    internal void MarkCoolingThermalBaselineReady() =>
+        Volatile.Write(ref _coolingThermalBaselineReady, 1);
+
+    private bool CoolingThermalBaselineReady =>
+        Volatile.Read(ref _coolingThermalBaselineReady) != 0;
 
     private bool UsesFirmwareCoolingPolicy =>
         State.CanFanControl && string.Equals(State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
@@ -375,6 +382,17 @@ public partial class App
         bool wantsAuto = selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
                          selected.Equals("Auto", StringComparison.OrdinalIgnoreCase);
         bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType);
+        bool firmwarePolicy = string.Equals(
+            response.Capabilities?.FanControlKind,
+            FanControlKinds.FirmwarePolicy,
+            StringComparison.Ordinal);
+
+        // A non-Auto firmware profile needs the real current Windows overlay as its
+        // restore baseline. State.SelectedMode starts as a UI placeholder, so never
+        // seed Lenovo thermal policy from it before RefreshStatusAsync has confirmed
+        // the actual Windows mode. Auto/direct-provider restores do not depend on it.
+        if (!wantsAuto && firmwarePolicy && !CoolingThermalBaselineReady)
+            return;
 
         // Generic restoration follows the advertised cooling capability. The exact-X9
         // Auto exception remains only as a safety/recovery guard for a stale target
