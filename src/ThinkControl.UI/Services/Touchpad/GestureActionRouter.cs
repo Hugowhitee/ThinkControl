@@ -18,7 +18,7 @@ internal sealed class GestureActionRouter
     private readonly Action<AudioSafetyMode> _showAudioSafetyBlocked;
     private readonly Func<int?> _getVolume;
     private readonly Action<int> _queueVolume;
-    private readonly Func<int> _getBrightness;
+    private readonly Func<int?> _getBrightness;
     private readonly Action<int> _queueBrightness;
     private readonly Action<GestureActionKind, bool> _setGestureActive;
     private readonly Action<bool> _showTrackOsd;
@@ -51,7 +51,7 @@ internal sealed class GestureActionRouter
         Action<AudioSafetyMode> showAudioSafetyBlocked,
         Func<int?> getVolume,
         Action<int> queueVolume,
-        Func<int> getBrightness,
+        Func<int?> getBrightness,
         Action<int> queueBrightness,
         Action<GestureActionKind, bool> setGestureActive,
         Action<bool> showTrackOsd,
@@ -162,7 +162,12 @@ internal sealed class GestureActionRouter
                 break;
             case GestureActionKind.Brightness:
                 _setGestureActive(signal.Action, true);
-                _brightnessAtStart = _getBrightness();
+                if (_getBrightness() is not int brightnessAtStart)
+                {
+                    End(signal.Action);
+                    break;
+                }
+                _brightnessAtStart = Math.Clamp(brightnessAtStart, 0, 100);
                 BeginContinuous();
                 break;
             case GestureActionKind.MediaSeek:
