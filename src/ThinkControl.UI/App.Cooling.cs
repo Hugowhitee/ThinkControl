@@ -316,16 +316,18 @@ public partial class App
             if (response?.Success != true || response.Telemetry is null)
                 continue;
 
-            await TryRestoreCoolingPreferenceAsync(response);
+            await TryRestoreCoolingPreferenceAsync(response, bypassRetryBackoff: true);
             if (_coolingPreferenceRestoreAttempted)
                 return;
         }
     }
 
-    private async Task TryRestoreCoolingPreferenceAsync(ServiceResponse response)
+    private async Task TryRestoreCoolingPreferenceAsync(
+        ServiceResponse response,
+        bool bypassRetryBackoff = false)
     {
         if (_coolingPreferenceRestoreAttempted || _coolingPreferenceRestoreInFlight ||
-            DateTimeOffset.UtcNow < _coolingPreferenceRetryAfter)
+            (!bypassRetryBackoff && DateTimeOffset.UtcNow < _coolingPreferenceRetryAfter))
         {
             return;
         }
