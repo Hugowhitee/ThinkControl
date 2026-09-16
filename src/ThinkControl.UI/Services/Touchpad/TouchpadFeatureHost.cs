@@ -55,7 +55,15 @@ internal sealed class TouchpadFeatureHost : IDisposable
             () => app.UserSettings.Current.TouchpadGestures ?? configuration,
             () => app.AudioSafety.Mode,
             mode => app.Dispatcher.BeginInvoke(new Action(() =>
-                _osd.Show(AudioSafetyPolicy.DisplayName(mode) == "Silent" ? "Silent · media locked" : "Media locked", ReadVolumePercent()))),
+            {
+                string label = AudioSafetyPolicy.DisplayName(mode) == "Silent"
+                    ? "Silent · media locked"
+                    : "Media locked";
+                if (ReadVolumePercent() is int volume)
+                    _osd.Show(label, volume);
+                else
+                    _osd.ShowStatus(label);
+            })),
             _nativeInput.TryGetVolumePercent,
             QueueGestureVolume,
             ReadGestureBrightnessBaseline,
@@ -88,7 +96,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     internal TouchpadGeometry? Geometry => _gestures.Geometry;
     internal bool IsInputRunning => _gestures.IsRunning;
     internal double CurrentSeekDeltaSeconds => _actions.CurrentSeekDeltaSeconds;
-    internal int ReadVolumePercent() => _nativeInput.GetVolumePercent();
+    internal int? ReadVolumePercent() => _nativeInput.GetVolumePercent();
     internal int? CurrentVolumeTarget
     {
         get
