@@ -144,7 +144,7 @@ public sealed class EdgeGestureReleaseTests
 
         recognizer.ProcessFrame([new TouchContact(1, 6750, 7880, true)], Geometry);
         GestureSignal? claimed = recognizer.ProcessFrame([new TouchContact(1, 7100, 7880, true)]);
-        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 7700, 7880, true)]);
+        GestureSignal? active = recognizer.ProcessFrame([new TouchContact(1, 8000, 7880, true)]);
 
         Assert.Equal(GesturePhase.Claimed, claimed?.Phase);
         Assert.Equal(GestureActionKind.PreviousNextTrack, claimed?.Action);
