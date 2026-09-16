@@ -146,6 +146,8 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("await _coolingWriteGate.WaitAsync(timeout.Token);", cooling, StringComparison.Ordinal);
         Assert.Contains("await HardwareClient.ReturnFanToAutoAsync(timeout.Token);", cooling, StringComparison.Ordinal);
         Assert.Contains("SetCoolingCurveAsync(definition, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
+        Assert.Contains("SetCoolingCurveAsync(normalized, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
+        Assert.Contains("SetFanPercentAsync(percent, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
         Assert.Contains("if (!_coolingWriteGate.Wait(0))", cooling, StringComparison.Ordinal);
     }
 
