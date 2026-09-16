@@ -147,15 +147,7 @@ jobs:
 
       - name: Create checksums
         shell: pwsh
-        run: |
-          $setup = Get-ChildItem "artifacts/installer/ThinkControl-Setup-*.exe" | Select-Object -First 1
-          $payload = Get-Item $env:PAYLOAD_PATH
-          $lines = @()
-          foreach ($file in @($setup, $payload)) {
-            $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-            $lines += "$hash  $($file.Name)"
-          }
-          $lines | Set-Content "artifacts/installer/SHA256SUMS.txt" -Encoding ascii
+        run: ./tools/release/Write-ReleaseChecksums.ps1
 
       - name: Upload development artifact
         if: env.VERSIONED_RELEASE == '0'
