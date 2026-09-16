@@ -10,8 +10,9 @@ namespace ThinkControl.Core.Touchpad;
 /// </summary>
 public static class TrackCenterGesturePolicy
 {
-    // Previous/Next remains a deliberate movement gesture.
-    public const double SwipeThresholdMm = 9.0;
+    // Previous/Next is destructive to the current listening flow, so require a
+    // clearly deliberate swipe before release can commit it.
+    public const double SwipeThresholdMm = 12.0;
 
     // A single-finger hold cannot require perfect stillness because real touchpads
     // report small position deltas even when a finger feels stationary. Three mm keeps
