@@ -6,19 +6,25 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.42`
-- immutable tag/release SHA: `2d40dffebeb6f8327cd06403e076936c40d60497`
-- release is immutable and contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
+- `v0.1.0-alpha.43`
+- immutable tag/release SHA: `ba13fab6d5b47cf127f4b627976662678f2ec491`
+- published 2026-09-16 as an immutable prerelease
+- release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
+- GitHub asset digests:
+  - Setup: `sha256:5c34d92b7cd8b64ebdd0ec67139d1cf72d0c3eddc802e3d0518c6db0d496f97f`
+  - Payload: `sha256:7b922d03b123c6f83f112d8e7a7c461ae0e7eaac0d487f8377e748757cb9cf29`
+  - `SHA256SUMS.txt`: `sha256:fd6b853e4131c21087f458f0ffbed9fe2cb4b85ca5c09bf8d87c7347539a484f`
+  - `ui-overview.png`: `sha256:00440f220b0d9996e7a18a170ce33ea7c90cb273efd0cfaa28d861927bb32f82`
+- alpha.42 remains separately immutable at `2d40dffebeb6f8327cd06403e076936c40d60497`
 - alpha.41 remains separately immutable at `6088955eeab54d1af6506780fa7707df17fe11c3`
 
-Current candidate:
+Release completion:
 
-- version `v0.1.0-alpha.43`
-- branch `feat/alpha43-audio-safety`
-- PR #80, **Finish alpha.43 Audio Safety, Track control and Battery preservation**
-- base `main` / alpha.42 at `2d40dffebeb6f8327cd06403e076936c40d60497`
-- implementation-review head: `5501e0d0b9f211636f2106a0fe5eae418fc5caae`
-- `version.json.releaseReady=false` until the final freeze commit
+- PR #80, **Finish alpha.43 Audio Safety, Track control and Battery preservation**, merged with exact expected head `5f0c3af64f3fc94028567d9e057b4b4844c2a602`
+- merge commit / release tag target: `ba13fab6d5b47cf127f4b627976662678f2ec491`
+- the merged feature branch was removed by branch hygiene
+- issues #79 (Audio Safety feature) and #60 (historic `TargetParameterCountException`) were closed as completed with evidence/reopen guidance
+- no product-development candidate is active; the post-release docs change only records the completed immutable release
 
 ## Alpha.43 product delta
 
@@ -138,7 +144,7 @@ Run `34262191737` completed successfully on the same exact head:
 - oldest-supported alpha.14.1 updater fixture verification and upgrade compatibility passed;
 - checksums and development artifact were produced.
 
-This implementation head is therefore suitable for the release freeze. It is not the final release evidence until `releaseReady=true` is committed and both workflows pass again on that exact frozen head.
+This implementation head was used for the final visual review. The frozen head `5f0c3af64f3fc94028567d9e057b4b4844c2a602` then changed only release documentation and `version.json.releaseReady`; no UI/source file changed after the inspected implementation head. Frozen-head CI and Package both passed before merge.
 
 ## Final alpha.43 release gate
 
@@ -162,16 +168,22 @@ Implementation scope:
 
 Freeze/promotion:
 
-- [ ] set `version.json.releaseReady=true`
-- [ ] require **CI + Package ThinkControl on the exact frozen head**
-- [ ] inspect the frozen-head WPF artifact and confirm the implementation visuals did not regress
-- [ ] review complete PR changed-file list, comments, reviews and review threads
-- [ ] mark PR #80 ready and merge using exact expected-head SHA
-- [ ] verify post-merge `main`
-- [ ] verify promotion creates immutable `v0.1.0-alpha.43` at the merged commit
-- [ ] verify exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
-- [ ] verify published Setup/Payload SHA-256 checksums
-- [ ] confirm immutable alpha.42 and alpha.41 tags/releases were not moved
+- [x] set `version.json.releaseReady=true` on frozen head `5f0c3af64f3fc94028567d9e057b4b4844c2a602`
+- [x] frozen-head CI run `34262769539` completed successfully
+- [x] frozen-head Package ThinkControl run `34262769678` completed successfully
+- [x] visual equivalence confirmed: after manually inspected implementation head `5501e0d0b9f211636f2106a0fe5eae418fc5caae`, commit `8b0d9865f1bf87e034e350883fd1c8f9573fc9f8` changed only this release handoff and commit `5f0c3af64f3fc94028567d9e057b4b4844c2a602` changed only `version.json`; frozen-head CI also rendered the WPF QA matrix successfully
+- [x] complete PR changed-file list, comments, reviews and review threads reviewed; no review/comment backlog remained
+- [x] PR #80 marked ready and merged using exact expected-head SHA
+- [x] post-merge `main` verified at `ba13fab6d5b47cf127f4b627976662678f2ec491`
+- [x] promotion run `35124966419` completed successfully
+- [x] complete immutable release run `35124981334` completed successfully
+- [x] promotion created immutable `v0.1.0-alpha.43` at the merged commit
+- [x] release contains exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
+- [x] promotion re-downloaded the published assets and `sha256sum --check SHA256SUMS.txt` succeeded; GitHub also records the Setup/Payload digests above
+- [x] post-merge main CI run `35124966441` completed successfully, including build, tests, ShellSmoke and WPF rendering
+- [x] immutable alpha.42 and alpha.41 tag/release SHAs re-verified unchanged
+- [x] merged feature branch removed by branch hygiene
+- [x] release feature/regression issues #79 and #60 closed with completion evidence
 
 ## Physical follow-up — separate evidence class
 
