@@ -85,37 +85,40 @@ Track Previous/Next is also safer:
 
 ### Alpha.44 implementation-head evidence
 
-Final implementation-review head before release-handoff-only edits: `ab5065630886aea26b189a82940070f67d2fc876`.
+Final implementation-review head before release-handoff-only edits: `a3971dc9226df66a87bdeb3e9daab00c40d873c4`.
 
-CI run `35137673123` completed successfully on that exact head:
+CI run `35139966938` completed successfully on that exact head:
 
 - repository hygiene passed with 341 tracked paths / 27 Markdown files;
 - Release solution build succeeded;
 - Core tests: **199 passed, 0 failed, 0 skipped**;
 - real Compact ↔ Advanced ShellSmoke passed;
 - WPF visual QA rendered **85 snapshots**;
-- visual artifact `ThinkControl-Visual-QA`: artifact id `10463293573`, digest `sha256:52596d76ea492bb2ebbcefd51c78b5e5054785d521f67c08751b82dc187eed6a`.
+- visual artifact `ThinkControl-Visual-QA`: artifact id `10464787172`, digest `sha256:39f8255b3a2850f482dc0c29dbb5e5e4cade30475a9e56f150ab707d53ab4f17`.
 
-Package ThinkControl run `35137673131` (#1553) completed successfully on the same exact head:
+Package ThinkControl run `35139966927` (#1564) completed successfully on the same exact head:
 
 - version and canonical branding checks passed;
 - release payload and web bootstrap installer built;
 - deep installer/service/IPC reliability smoke passed;
 - oldest-supported alpha.14.1 updater fixture verification and upgrade compatibility passed;
 - checksums were produced;
-- development artifact `ThinkControl-0.1.0-alpha.44-dev.1553`: artifact id `10463588075`, digest `sha256:2953e91f2366c6fafe11ee00e3df9cae1a6f945f89ba233c5cd99dea6078eff5`.
+- development artifact `ThinkControl-0.1.0-alpha.44-dev.1564`: artifact id `10464314386`, digest `sha256:ebeb2dc6a8e6de63c07149c0d396147b93ddb51daa1d2898c1bf9251dd2012e7`.
 
 Review hardening after the first green candidate:
 
 - CoreAudio failure no longer fabricates a 50% starting volume; Volume fails closed without a real endpoint baseline.
 - the 1.5 mm clutch is measured in unscaled physical travel and sensitivity is applied only after the clutch;
 - staying inside the clutch performs no Volume/Brightness OS write;
-- brightness confirmation advances only from WMI readback after the write;
+- Brightness starts from one live WMI baseline per gesture, fails closed when no live baseline exists, and advances confirmation only from post-write WMI readback; it never treats the early/default AppState brightness as hardware truth;
 - Track preserves a signed physical peak so crossing 12 mm and retracing still commits once on release;
 - cold-start convergence rechecks the captured cooling-selection generation after the service-status await before restore can write;
-- continuous Volume/Brightness work carries gesture generations and uses per-control write gates, so release/cancel revokes old queued/dequeued work before a stale generation can touch the device after release completes.
+- continuous Volume/Brightness work carries gesture generations and uses per-control write gates, so release/cancel revokes old queued/dequeued work before a stale generation can touch the device after release completes;
+- startup restore, delayed firmware settle reassert and deliberate profile/curve selections share one serialized cooling-write gate. Manual selections increment the generation before waiting, guaranteeing that an older startup write cannot become the final physical state after a newer user choice.
 
 Two Codex review passes produced seven actionable inline threads. All seven were addressed, replied to with the current behavior/evidence and resolved before the final review request. A final review was explicitly requested twice after the fixes (first against `ab5065630886aea26b189a82940070f67d2fc876`, then against the release-handoff-only descendant). The connector acknowledged the first request with an eyes reaction but returned no additional review or thread. Because both prior review rounds were fully addressed, the PR had zero unresolved threads, the exact source head passed CI + Package, and the only later change was this release handoff, the stalled optional re-review is recorded rather than treated as an indefinite release blocker.
+
+The earlier green implementation head `ab5065630886aea26b189a82940070f67d2fc876` was deliberately superseded after an additional manual exact-head review found two remaining safety opportunities: stale/default Brightness baseline use before the first display refresh, and a physical write-order race between startup cooling restoration and a newer manual profile choice. Neither earlier green run is used as final release evidence.
 
 No XAML, visual resource, layout component or snapshot fixture is changed by alpha.44. The renderer remains green; this release changes startup/input behavior rather than introducing a new visual surface. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path is introduced.
 
