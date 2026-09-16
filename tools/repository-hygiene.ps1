@@ -69,12 +69,13 @@ try {
         }
     }
 
-    # Research scripts are part of the hardware-validation workflow and are often
-    # executed only on a physical Windows device. Parse them in hosted CI so a
-    # research-only syntax error cannot reach a tester just because normal product
-    # compilation does not load PowerShell files.
-    $researchScripts = @(& git ls-files -- 'tools/research/*.ps1')
-    foreach ($script in $researchScripts) {
+    # Product, release and research PowerShell helpers sit outside normal .NET
+    # compilation. Parse every tracked tools script in hosted CI so syntax drift in
+    # a rarely executed path cannot survive just because that path was not invoked.
+    $toolScripts = @(& git ls-files -- 'tools') | Where-Object {
+        $_.EndsWith('.ps1', [StringComparison]::OrdinalIgnoreCase)
+    }
+    foreach ($script in $toolScripts) {
         $tokens = $null
         $parseErrors = $null
         [void][System.Management.Automation.Language.Parser]::ParseFile(
