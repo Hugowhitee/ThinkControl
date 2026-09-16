@@ -35,6 +35,7 @@ public partial class App
     private bool _coolingPreferenceRestoreAttempted;
     private bool _coolingPreferenceRestoreInFlight;
     private int _coolingThermalBaselineReady;
+    private int _coolingShutdownPrepared;
     private DateTimeOffset _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
     private int _coolingSelectionGeneration;
     private FanProfileCatalog? _fanProfiles;
@@ -61,11 +62,13 @@ public partial class App
             HardwareClient.StatusObserved -= CoolingStatusObserved;
             _coolingLifetimeCts.Cancel();
 
-            // Firmware-policy profiles are durable user preferences owned by the
-            // privileged service. Closing/restarting only the UI must not silently
-            // turn Quiet/Balanced/Max back into Auto. Direct/manual writers remain a
-            // different safety class and are still released when the UI process exits.
-            if (UsesFirmwareCoolingPolicy)
+            // Normal explicit Quit calls PrepareCoolingForApplicationExitAsync before
+            // WPF shutdown. This Exit hook is only a last-chance path for external/
+            // session shutdown. Never block the UI thread waiting for an async restore
+            // continuation: take the gate only if it is immediately available.
+            if (Volatile.Read(ref _coolingShutdownPrepared) != 0 || UsesFirmwareCoolingPolicy)
+                return;
+            if (!_coolingWriteGate.Wait(0))
                 return;
 
             try
@@ -75,6 +78,10 @@ public partial class App
             }
             catch
             {
+            }
+            finally
+            {
+                _coolingWriteGate.Release();
             }
         };
     }
@@ -94,6 +101,38 @@ public partial class App
             Apply();
         else
             Dispatcher.BeginInvoke(Apply);
+    }
+
+    internal async Task PrepareCoolingForApplicationExitAsync()
+    {
+        if (Interlocked.Exchange(ref _coolingShutdownPrepared, 1) != 0)
+            return;
+
+        HardwareClient.StatusObserved -= CoolingStatusObserved;
+        _coolingLifetimeCts.Cancel();
+
+        // Firmware-policy profiles are durable preferences owned by the service.
+        // Direct/manual writers must hand ownership back to Lenovo Auto before the
+        // UI actually shuts down.
+        if (UsesFirmwareCoolingPolicy)
+            return;
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        bool gateHeld = false;
+        try
+        {
+            await _coolingWriteGate.WaitAsync(timeout.Token);
+            gateHeld = true;
+            await HardwareClient.ReturnFanToAutoAsync(timeout.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (gateHeld)
+                _coolingWriteGate.Release();
+        }
     }
 
     private static FanCalibrationUiState ResolveFanCalibrationState(ServiceResponse? response)
@@ -139,7 +178,7 @@ public partial class App
         if (raw.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
             raw.Equals("Auto", StringComparison.OrdinalIgnoreCase))
         {
-            ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+            ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token);
             if (auto?.Success != true)
             {
                 State.HardwareAccess = auto?.Error ?? "Firmware Auto unavailable";
@@ -182,14 +221,14 @@ public partial class App
             // the restore baseline before a cooling profile temporarily overrides
             // Lenovo's thermal policy. While the profile is active, later performance
             // and AC/DC changes reassert this cooling override for the current source.
-            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode);
+            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token);
             if (baseline?.Success != true)
             {
                 State.HardwareAccess = baseline?.Error ?? "Lenovo thermal-policy baseline unavailable";
                 return false;
             }
 
-            ServiceResponse? applied = await HardwareClient.SetCoolingProfileAsync(definition.Name);
+            ServiceResponse? applied = await HardwareClient.SetCoolingProfileAsync(definition.Name, _coolingLifetimeCts.Token);
             if (applied?.Success != true)
             {
                 State.HardwareAccess = applied?.Error ?? "Lenovo firmware cooling profile unavailable";
@@ -264,25 +303,34 @@ public partial class App
 
     internal async Task<bool> SetManualFanPercentAsync(int percent)
     {
-        if (UsesFirmwareCoolingPolicy)
+        Interlocked.Increment(ref _coolingSelectionGeneration);
+        await _coolingWriteGate.WaitAsync();
+        try
         {
-            State.HardwareAccess = "Temporary percentage targets require a physically accepted direct fan writer. Use Quiet, Balanced or Max cooling for Lenovo firmware-controlled cooling.";
+            if (UsesFirmwareCoolingPolicy)
+            {
+                State.HardwareAccess = "Temporary percentage targets require a physically accepted direct fan writer. Use Quiet, Balanced or Max cooling for Lenovo firmware-controlled cooling.";
+                return false;
+            }
+
+            if (FanCalibrationState.Required)
+            {
+                State.HardwareAccess = FanCalibrationState.Running
+                    ? "Fan calibration currently owns the active fan provider."
+                    : "The active fan provider requires calibration before percentage-based manual targets can be used.";
+                return false;
+            }
+
+            ServiceResponse? response = await HardwareClient.SetFanPercentAsync(percent);
+            if (response?.Success == true)
+                return true;
+            State.HardwareAccess = response?.Error ?? "Manual fan output unavailable";
             return false;
         }
-
-        if (FanCalibrationState.Required)
+        finally
         {
-            State.HardwareAccess = FanCalibrationState.Running
-                ? "Fan calibration currently owns the active fan provider."
-                : "The active fan provider requires calibration before percentage-based manual targets can be used.";
-            return false;
+            _coolingWriteGate.Release();
         }
-
-        ServiceResponse? response = await HardwareClient.SetFanPercentAsync(percent);
-        if (response?.Success == true)
-            return true;
-        State.HardwareAccess = response?.Error ?? "Manual fan output unavailable";
-        return false;
     }
 
     internal async Task<bool> StartFanCharacterizationAsync()
@@ -418,7 +466,7 @@ public partial class App
 
             if (wantsAuto)
             {
-                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token);
                 if (auto?.Success != true)
                 {
                     _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
@@ -436,7 +484,7 @@ public partial class App
             {
                 _coolingPreferenceRestoreAttempted = true;
                 State.HardwareAccess = "The active fan provider requires calibration before the saved percentage-based profile can be restored.";
-                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token);
                 if (auto?.Success == true)
                     State.CoolingProfile = "Lenovo Auto";
                 return;
@@ -453,7 +501,7 @@ public partial class App
                     return;
                 }
 
-                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token);
                 if (auto?.Success != true)
                 {
                     _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
@@ -471,7 +519,7 @@ public partial class App
                 if (!FanProfiles.IsBuiltIn(definition.Id))
                 {
                     UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
-                    ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
+                    ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token);
                     State.CoolingProfile = "Lenovo Auto";
                     State.HardwareAccess = auto?.Success == true
                         ? "The saved custom fan curve needs a direct fan writer, so Lenovo Auto was restored. Built-in firmware profiles remain available."
@@ -482,9 +530,9 @@ public partial class App
                     return;
                 }
 
-                ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode);
+                ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token);
                 ServiceResponse? applied = baseline?.Success == true
-                    ? await HardwareClient.SetCoolingProfileAsync(definition.Name)
+                    ? await HardwareClient.SetCoolingProfileAsync(definition.Name, _coolingLifetimeCts.Token)
                     : null;
                 if (baseline?.Success != true || applied?.Success != true)
                 {
@@ -508,7 +556,7 @@ public partial class App
                 return;
             }
 
-            ServiceResponse? directApplied = await HardwareClient.SetCoolingCurveAsync(definition);
+            ServiceResponse? directApplied = await HardwareClient.SetCoolingCurveAsync(definition, _coolingLifetimeCts.Token);
             if (directApplied?.Success != true)
             {
                 State.HardwareAccess = directApplied?.Error ?? "Saved fan profile could not be restored";
