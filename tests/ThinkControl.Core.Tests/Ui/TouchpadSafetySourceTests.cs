@@ -26,9 +26,12 @@ public sealed class TouchpadSafetySourceTests
         Assert.Contains("Interlocked.Exchange(ref _pendingVolume, -1)", host, StringComparison.Ordinal);
         Assert.Contains("Interlocked.Exchange(ref _pendingBrightness, -1)", host, StringComparison.Ordinal);
 
+        Assert.Contains("TryGetVolumePercent()", native, StringComparison.Ordinal);
+        Assert.Contains("return null;", native, StringComparison.Ordinal);
+        Assert.DoesNotContain("return 50;", native, StringComparison.Ordinal);
         Assert.Contains("TrySetVolume(int percent, out int applied)", native, StringComparison.Ordinal);
         Assert.Contains("MasterVolumeLevelScalar * 100", native, StringComparison.Ordinal);
-        Assert.Contains("_showValue?.Invoke("Volume", applied)", native, StringComparison.Ordinal);
+        Assert.Contains("_showValue?.Invoke(\"Volume\", applied)", native, StringComparison.Ordinal);
     }
 
     [Fact]
