@@ -6,27 +6,30 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.43`
-- immutable tag/release SHA: `ba13fab6d5b47cf127f4b627976662678f2ec491`
-- published 2026-09-16 as an immutable prerelease
+- `v0.1.0-alpha.44`
+- immutable tag/release SHA: `17abe5458a1f6f43f66383827d463bd1094498c2`
+- published 2026-09-16 at 22:09:48 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:5c34d92b7cd8b64ebdd0ec67139d1cf72d0c3eddc802e3d0518c6db0d496f97f`
-  - Payload: `sha256:7b922d03b123c6f83f112d8e7a7c461ae0e7eaac0d487f8377e748757cb9cf29`
-  - `SHA256SUMS.txt`: `sha256:fd6b853e4131c21087f458f0ffbed9fe2cb4b85ca5c09bf8d87c7347539a484f`
-  - `ui-overview.png`: `sha256:00440f220b0d9996e7a18a170ce33ea7c90cb273efd0cfaa28d861927bb32f82`
+  - Setup: `sha256:09397fb95fc04a987b172b2baf8cda2efb6e67943e489d74c3883af97dd5d858`
+  - Payload: `sha256:527c5d61e61c3233043bb8dba7be76af811b3fcced5e8a944965fcc5a95405b7`
+  - `SHA256SUMS.txt`: `sha256:743ef74c9f0a641ff5b6bba8af20694f790d4e17ef43c75f3b582fc8d5e87551`
+  - `ui-overview.png`: `sha256:e859f4a701f50e81dbc599b1cd429fe0f45d944a65b0a819b333cddea490f939`
+- alpha.43 remains separately immutable at `ba13fab6d5b47cf127f4b627976662678f2ec491`
 - alpha.42 remains separately immutable at `2d40dffebeb6f8327cd06403e076936c40d60497`
 - alpha.41 remains separately immutable at `6088955eeab54d1af6506780fa7707df17fe11c3`
 
 Release completion:
 
-- PR #80, **Finish alpha.43 Audio Safety, Track control and Battery preservation**, merged with exact expected head `5f0c3af64f3fc94028567d9e057b4b4844c2a602`
-- merge commit / release tag target: `ba13fab6d5b47cf127f4b627976662678f2ec491`
-- the merged feature branch was removed by branch hygiene
-- issues #79 (Audio Safety feature) and #60 (historic `TargetParameterCountException`) were closed as completed with evidence/reopen guidance
-- active development candidate: `v0.1.0-alpha.44` on `feat/alpha44-startup-input-safety`; `version.json.releaseReady=false` until exact-head implementation gates are green
+- PR #83, **Stabilize cold-start cooling and touchpad edge controls**, merged with exact expected head `7cd9de0a4c9ad85e0f83d9f68bad6aac29c92b98`
+- merge commit / immutable release tag target: `17abe5458a1f6f43f66383827d463bd1094498c2`
+- complete immutable release workflow run `35156064317` succeeded
+- promotion/checksum verification run `35156052870` succeeded after re-downloading the four published assets
+- post-merge main CI run `35156052891` succeeded
+- branch hygiene run `35156051821` succeeded and removed the merged feature branch
+- no product-development candidate is active; this post-release docs change only records the completed immutable release
 
-## Alpha.44 stabilization candidate
+## Alpha.44 stabilization release
 
 Alpha.44 is intentionally narrow: cold-boot cooling convergence plus safer high-rate Touchpad controls. It does not broaden any low-level hardware writer.
 
@@ -34,7 +37,7 @@ Alpha.44 is intentionally narrow: cold-boot cooling convergence plus safer high-
 
 Root cause on silent Windows startup: the UI can issue its first service status request before the auto-start hardware service/provider is ready. Hidden tray runtime intentionally avoids frequent hardware status polling, so a failed first request could leave the saved cooling profile unapplied until a later activation or resume.
 
-The candidate fixes this with one bounded lifecycle-owned convergence path:
+The release fixes this with one bounded lifecycle-owned convergence path:
 
 - the ordinary `HardwareServiceClient` offline backoff remains the default;
 - cold-start convergence may explicitly bypass that backoff only during its finite login window;
@@ -77,11 +80,11 @@ Track Previous/Next is also safer:
 - [x] implementation-head Package ThinkControl green
 - [x] complete implementation diff reviewed and all substantive Codex review threads addressed/resolved
 - [x] final review feedback addressed/resolved; exact implementation head has zero unresolved review threads
-- [ ] freeze `version.json.releaseReady=true`
-- [ ] frozen-head CI + Package green
-- [ ] merge with exact expected-head SHA
-- [ ] immutable `v0.1.0-alpha.44` published and assets/checksums verified
-- [ ] post-merge main CI/promotion/branch hygiene green
+- [x] freeze `version.json.releaseReady=true`
+- [x] frozen-head CI + Package green
+- [x] merge with exact expected-head SHA
+- [x] immutable `v0.1.0-alpha.44` published and assets/checksums verified
+- [x] post-merge main CI/promotion/branch hygiene green
 
 ### Alpha.44 implementation-head evidence
 
@@ -129,6 +132,22 @@ Multiple Codex review passes produced the actionable inline threads recorded on 
 The earlier green implementation head `ab5065630886aea26b189a82940070f67d2fc876` was deliberately superseded after an additional manual exact-head review found two remaining safety opportunities: stale/default Brightness baseline use before the first display refresh, and a physical write-order race between startup cooling restoration and a newer manual profile choice. Neither earlier green run is used as final release evidence.
 
 Alpha.44 now includes one small Compact-dashboard XAML/layout correction prompted by physical screenshot feedback. The full WPF renderer is green on the final implementation head, including Compact dark/light snapshots. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path is introduced.
+
+### Alpha.44 release completion evidence
+
+Frozen PR head: `7cd9de0a4c9ad85e0f83d9f68bad6aac29c92b98`.
+
+- frozen-head CI run `35154300313`: success;
+- frozen-head Package ThinkControl run `35154300283`: success;
+- exact-head merge commit: `17abe5458a1f6f43f66383827d463bd1094498c2`;
+- tag `v0.1.0-alpha.44` points exactly to that merge commit;
+- complete immutable release run `35156064317`: success;
+- post-merge main CI run `35156052891`: success;
+- promotion and public-asset checksum verifier run `35156052870`: success;
+- branch hygiene run `35156051821`: success;
+- published release is `prerelease=true`, `immutable=true`, with exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`.
+
+The release pipeline re-downloaded the published Setup/Payload/checksum/overview assets and completed `sha256sum --check SHA256SUMS.txt` successfully. Physical X9 behavior remains a separate real-device validation layer and is not inferred from hosted CI.
 
 ### Alpha.44 physical follow-up
 

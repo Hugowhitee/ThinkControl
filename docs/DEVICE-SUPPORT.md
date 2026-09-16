@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.44**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.43` remains the current published prerelease while alpha.44 is the active development candidate.
+This document describes the support model at **v0.1.0-alpha.44**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.44` is the current published prerelease; `v0.1.0-alpha.43` is the previous immutable baseline.
 
 ## Support levels
 

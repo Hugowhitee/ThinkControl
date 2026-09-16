@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current development candidate: `v0.1.0-alpha.44`.  
-Current immutable prerelease: `v0.1.0-alpha.43`.
+Current immutable prerelease: `v0.1.0-alpha.44`.  
+Previous immutable baseline: `v0.1.0-alpha.43`.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
