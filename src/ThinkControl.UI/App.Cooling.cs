@@ -285,7 +285,7 @@ public partial class App
         }
 
         var normalized = definition with { Points = points };
-        ServiceResponse? response = await HardwareClient.SetCoolingCurveAsync(normalized);
+        ServiceResponse? response = await HardwareClient.SetCoolingCurveAsync(normalized, _coolingLifetimeCts.Token);
         if (response?.Success != true)
         {
             State.HardwareAccess = response?.Error ?? "Fan curve unavailable";
@@ -321,7 +321,7 @@ public partial class App
                 return false;
             }
 
-            ServiceResponse? response = await HardwareClient.SetFanPercentAsync(percent);
+            ServiceResponse? response = await HardwareClient.SetFanPercentAsync(percent, _coolingLifetimeCts.Token);
             if (response?.Success == true)
                 return true;
             State.HardwareAccess = response?.Error ?? "Manual fan output unavailable";
