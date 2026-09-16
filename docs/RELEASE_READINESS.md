@@ -75,7 +75,8 @@ Track Previous/Next is also safer:
 - [x] low-level fan/battery/provider safety boundaries unchanged
 - [x] implementation-head CI green
 - [x] implementation-head Package ThinkControl green
-- [x] complete implementation diff/review backlog checked
+- [x] complete implementation diff reviewed and seven prior Codex review threads addressed/resolved
+- [ ] final Codex review of implementation head `ab5065630886aea26b189a82940070f67d2fc876` complete with no new blocking thread
 - [ ] freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
 - [ ] merge with exact expected-head SHA
@@ -84,30 +85,39 @@ Track Previous/Next is also safer:
 
 ### Alpha.44 implementation-head evidence
 
-Implementation-review head: `812ff6160a740cea477236fbaee23ed0bd66b22b`.
+Final implementation-review head before release-handoff-only edits: `ab5065630886aea26b189a82940070f67d2fc876`.
 
-CI run `35133213130` (#1831) completed successfully on that exact head:
+CI run `35137673123` completed successfully on that exact head:
 
 - repository hygiene passed with 341 tracked paths / 27 Markdown files;
 - Release solution build succeeded;
-- Core tests: **198 passed, 0 failed, 0 skipped**;
+- Core tests: **199 passed, 0 failed, 0 skipped**;
 - real Compact ↔ Advanced ShellSmoke passed;
 - WPF visual QA rendered **85 snapshots**;
-- visual artifact `ThinkControl-Visual-QA`: artifact id `10462640566`, digest `sha256:12cd658268a4a9d85452810c4933024bdcaae488bda5c8564737bb47f4711e1d`.
+- visual artifact `ThinkControl-Visual-QA`: artifact id `10463293573`, digest `sha256:52596d76ea492bb2ebbcefd51c78b5e5054785d521f67c08751b82dc187eed6a`.
 
-No XAML, visual resource, layout component or snapshot fixture is changed by alpha.44. The renderer is still green, but this candidate changes startup/input behavior rather than rendered UI, so there is no new visual surface requiring a separate manual visual-diff acceptance.
-
-Package ThinkControl run `35133213065` (#1541) also completed successfully on the same head:
+Package ThinkControl run `35137673131` (#1553) completed successfully on the same exact head:
 
 - version and canonical branding checks passed;
-- shared UI/service payload publishing and compact payload budgets passed;
-- web bootstrap installer built;
+- release payload and web bootstrap installer built;
 - deep installer/service/IPC reliability smoke passed;
 - oldest-supported alpha.14.1 updater fixture verification and upgrade compatibility passed;
 - checksums were produced;
-- development artifact `ThinkControl-0.1.0-alpha.44-dev.1541`: artifact id `10462610511`, digest `sha256:c71bc98c5bb9df4ea7d6d9fb6c62a46d24d32ffbd569e270a074b610b72a381f`.
+- development artifact `ThinkControl-0.1.0-alpha.44-dev.1553`: artifact id `10463588075`, digest `sha256:2953e91f2366c6fafe11ee00e3df9cae1a6f945f89ba233c5cd99dea6078eff5`.
 
-Complete PR changed-file list was reviewed. PR #83 had no issue comments, review submissions or unresolved review threads at implementation freeze review. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path was introduced.
+Review hardening after the first green candidate:
+
+- CoreAudio failure no longer fabricates a 50% starting volume; Volume fails closed without a real endpoint baseline.
+- the 1.5 mm clutch is measured in unscaled physical travel and sensitivity is applied only after the clutch;
+- staying inside the clutch performs no Volume/Brightness OS write;
+- brightness confirmation advances only from WMI readback after the write;
+- Track preserves a signed physical peak so crossing 12 mm and retracing still commits once on release;
+- cold-start convergence rechecks the captured cooling-selection generation after the service-status await before restore can write;
+- continuous Volume/Brightness work carries gesture generations and uses per-control write gates, so release/cancel revokes old queued/dequeued work before a stale generation can touch the device after release completes.
+
+Two Codex review passes produced seven actionable inline threads. All seven were addressed, replied to with the current behavior/evidence and resolved before the final review request. A final review was explicitly requested against `ab5065630886aea26b189a82940070f67d2fc876`; release freeze remains blocked until that request completes without a new blocking thread.
+
+No XAML, visual resource, layout component or snapshot fixture is changed by alpha.44. The renderer remains green; this release changes startup/input behavior rather than introducing a new visual surface. Hardware changes remain limited to existing semantic service/status/cooling interfaces; no new register, IOCTL, EnergyDrv, Other Mode or EC write path is introduced.
 
 ### Alpha.44 physical follow-up
 
