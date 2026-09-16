@@ -31,6 +31,7 @@ public partial class App
     ];
 
     private readonly CancellationTokenSource _coolingLifetimeCts = new();
+    private readonly SemaphoreSlim _coolingWriteGate = new(1, 1);
     private bool _coolingPreferenceRestoreAttempted;
     private bool _coolingPreferenceRestoreInFlight;
     private DateTimeOffset _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
@@ -109,7 +110,24 @@ public partial class App
 
     internal async Task<bool> SetCoolingProfileAsync(string profile)
     {
+        // Increment before waiting: this immediately invalidates any older startup
+        // restore/reassert that may currently own the serialized write gate. If the
+        // older write already started, this user request runs immediately after it
+        // and therefore becomes the final physical state.
         int generation = Interlocked.Increment(ref _coolingSelectionGeneration);
+        await _coolingWriteGate.WaitAsync();
+        try
+        {
+            return await SetCoolingProfileCoreAsync(profile, generation);
+        }
+        finally
+        {
+            _coolingWriteGate.Release();
+        }
+    }
+
+    private async Task<bool> SetCoolingProfileCoreAsync(string profile, int generation)
+    {
         string raw = profile?.Trim() ?? string.Empty;
         if (raw.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
             raw.Equals("Auto", StringComparison.OrdinalIgnoreCase))
@@ -179,19 +197,33 @@ public partial class App
             return true;
         }
 
-        return await ApplyFanCurveAsync(definition, persistSelection: true);
+        return await ApplyFanCurveCoreAsync(definition, persistSelection: true);
     }
 
     internal async Task<bool> ApplyFanCurveAsync(FanCurveDefinition definition, bool persistSelection)
     {
-        if (UsesFirmwareCoolingPolicy)
+        int generation = Interlocked.Increment(ref _coolingSelectionGeneration);
+        await _coolingWriteGate.WaitAsync();
+        try
         {
-            if (FanProfiles.IsBuiltIn(definition.Id))
-                return await SetCoolingProfileAsync(definition.Id);
-            State.HardwareAccess = "Custom fan curves are unavailable until a physically accepted direct fan writer is active. The built-in Lenovo firmware profiles still work.";
-            return false;
-        }
+            if (UsesFirmwareCoolingPolicy)
+            {
+                if (FanProfiles.IsBuiltIn(definition.Id))
+                    return await SetCoolingProfileCoreAsync(definition.Id, generation);
+                State.HardwareAccess = "Custom fan curves are unavailable until a physically accepted direct fan writer is active. The built-in Lenovo firmware profiles still work.";
+                return false;
+            }
 
+            return await ApplyFanCurveCoreAsync(definition, persistSelection);
+        }
+        finally
+        {
+            _coolingWriteGate.Release();
+        }
+    }
+
+    private async Task<bool> ApplyFanCurveCoreAsync(FanCurveDefinition definition, bool persistSelection)
+    {
         if (FanCalibrationState.Required)
         {
             State.HardwareAccess = FanCalibrationState.Running
@@ -351,8 +383,21 @@ public partial class App
             return;
 
         _coolingPreferenceRestoreInFlight = true;
+        bool writeGateHeld = false;
         try
         {
+            await _coolingWriteGate.WaitAsync(_coolingLifetimeCts.Token);
+            writeGateHeld = true;
+
+            // A manual profile selection increments generation before it waits for
+            // this gate. Revalidate only after owning the gate so an older startup
+            // task can never start another hardware write after the user's choice.
+            if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
+                !string.Equals(UserSettings.Current.CoolingProfile, selected, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
             if (wantsAuto)
             {
                 ServiceResponse? auto = await HardwareClient.ReturnFanToAutoAsync();
@@ -456,8 +501,14 @@ public partial class App
             _coolingPreferenceRestoreAttempted = true;
             _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
         }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
         finally
         {
+            if (writeGateHeld)
+                _coolingWriteGate.Release();
             _coolingPreferenceRestoreInFlight = false;
         }
     }
@@ -492,30 +543,52 @@ public partial class App
         if (definition is null || !FanProfiles.IsBuiltIn(definition.Id))
             return;
 
-        // Lenovo services can finish their own login/resume policy work shortly after
-        // ThinkControl first becomes available. Reassert once after startup settles so
-        // a successful early Quiet/Balanced/Max restore cannot be silently overwritten
-        // while our UI continues displaying the saved preference. This is deliberately
-        // one bounded retry, not a polling loop or a fight with firmware.
-        ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, cancellationToken);
-        ServiceResponse? applied = baseline?.Success == true
-            ? await HardwareClient.SetCoolingProfileAsync(definition.Name, cancellationToken)
-            : null;
+        bool writeGateHeld = false;
+        try
+        {
+            await _coolingWriteGate.WaitAsync(cancellationToken);
+            writeGateHeld = true;
 
-        if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
-            !string.Equals(UserSettings.Current.CoolingProfile, profileId, StringComparison.OrdinalIgnoreCase))
+            if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
+                !string.Equals(UserSettings.Current.CoolingProfile, profileId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            // Lenovo services can finish their own login/resume policy work shortly after
+            // ThinkControl first becomes available. Reassert once after startup settles so
+            // a successful early Quiet/Balanced/Max restore cannot be silently overwritten
+            // while our UI continues displaying the saved preference. This is deliberately
+            // one bounded retry, not a polling loop or a fight with firmware.
+            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, cancellationToken);
+            ServiceResponse? applied = baseline?.Success == true
+                ? await HardwareClient.SetCoolingProfileAsync(definition.Name, cancellationToken)
+                : null;
+
+            if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
+                !string.Equals(UserSettings.Current.CoolingProfile, profileId, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            if (baseline?.Success == true && applied?.Success == true)
+            {
+                State.CoolingProfile = definition.Name;
+                return;
+            }
+
+            State.HardwareAccess = baseline?.Error ?? applied?.Error ??
+                                   $"Saved {definition.Name} cooling could not be reasserted after startup settled.";
+        }
+        catch (OperationCanceledException)
         {
             return;
         }
-
-        if (baseline?.Success == true && applied?.Success == true)
+        finally
         {
-            State.CoolingProfile = definition.Name;
-            return;
+            if (writeGateHeld)
+                _coolingWriteGate.Release();
         }
-
-        State.HardwareAccess = baseline?.Error ?? applied?.Error ??
-                               $"Saved {definition.Name} cooling could not be reasserted after startup settled.";
     }
 
     private static string NormalizeProfileId(string profile) => profile switch
