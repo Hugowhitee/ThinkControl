@@ -28,20 +28,5 @@ public partial class AdvancedWindow
         Button? compact = buttons.FirstOrDefault(button => Equals(button.Tag, ShellUtilityOrder.ViewModeTag));
         if (compact is not null)
             compact.Margin = new Thickness(0, 0, 4, 0);
-
-        Button? notification = buttons.FirstOrDefault(button => !ReferenceEquals(button, compact));
-        if (notification?.Content is Grid notificationContent)
-        {
-            notificationContent.Width = 24;
-            notificationContent.Height = 24;
-            foreach (FrameworkElement glyph in notificationContent.Children.OfType<FrameworkElement>())
-            {
-                if (glyph.Width >= 17)
-                {
-                    glyph.Width = 19;
-                    glyph.Height = 19;
-                }
-            }
-        }
     }
 }
