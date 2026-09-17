@@ -116,7 +116,7 @@
                             <TextBlock x:Name="ClickForceValue" Grid.Column="1" HorizontalAlignment="Right" Style="{StaticResource TouchpadValue}" />
                         </Grid>
                         <Grid Margin="0,5,0,0">
-                            <Slider x:Name="ClickForceSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="50" SmallChange="50" LargeChange="50" IsSnapToTickEnabled="True" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
+                            <Slider x:Name="ClickForceSlider" Panel.ZIndex="1" Style="{StaticResource TcSlider}" Margin="0" TickFrequency="50" SmallChange="50" LargeChange="50" IsSnapToTickEnabled="True" IsDirectionReversed="False" FlowDirection="LeftToRight" ToolTip="Firm  ←  click sensitivity  →  Light" ValueChanged="HapticSlider_ValueChanged" PreviewMouseLeftButtonUp="HapticSlider_MouseUp" />
                             <Grid Panel.ZIndex="0" Margin="13,0" IsHitTestVisible="False">
                                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                 <Border Grid.Column="1" Width="2" Height="9" HorizontalAlignment="Left" VerticalAlignment="Center" Background="{DynamicResource Tc.BorderStrong}" CornerRadius="1" />
