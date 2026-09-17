@@ -39,20 +39,6 @@ public partial class AdvancedWindow
 
         _notificationButtonConfigured = true;
 
-        compactButton.Margin = new Thickness(0, 0, 4, 0);
-        compactButton.Background = Brushes.Transparent;
-        compactButton.BorderBrush = Brushes.Transparent;
-        compactButton.BorderThickness = new Thickness(0);
-        ShellUtilityOrder.ConfigureModeButton(
-            compactButton,
-            "Compact",
-            "CompactView",
-            (Brush)FindResource("Tc.TextMuted"));
-        TcToolTip.Apply(compactButton, "Compact view");
-
-        notificationButton.Width = 34;
-        notificationButton.Height = 34;
-        notificationButton.Padding = new Thickness(0);
         notificationButton.Margin = new Thickness(0);
         notificationButton.BorderThickness = new Thickness(0);
         notificationButton.BorderBrush = Brushes.Transparent;
@@ -66,8 +52,8 @@ public partial class AdvancedWindow
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
             Fill = Brushes.Transparent,
-            Width = 18,
-            Height = 18,
+            Width = 19,
+            Height = 19,
             Stretch = Stretch.Uniform,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center
@@ -87,7 +73,7 @@ public partial class AdvancedWindow
         _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
         _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Surface");
 
-        var content = new Grid { Width = 22, Height = 22 };
+        var content = new Grid { Width = 24, Height = 24 };
         content.Children.Add(bell);
         content.Children.Add(_notificationDot);
         notificationButton.Content = content;
