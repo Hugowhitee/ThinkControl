@@ -9,6 +9,7 @@ public partial class TouchpadPanel
     protected override void OnInitialized(EventArgs e)
     {
         base.OnInitialized(e);
+        ConfigureValueFeedback();
         ActionCombo.SelectionChanged += (_, _) => SyncTrackCenterOption();
         Loaded += (_, _) =>
         {
@@ -22,11 +23,6 @@ public partial class TouchpadPanel
 
     private void ApplyTouchpadLayout()
     {
-        // Windows exposes clickForceSensitivity as a 0..100 sensitivity value.
-        // Present it in the same direction as every other ThinkControl slider:
-        // Firm (low sensitivity) -> Medium -> Light (high sensitivity).
-        ClickForceSlider.IsDirectionReversed = false;
-
         // Values and their optional inline reset glyph share one compact metadata
         // column. This keeps the number readable without stealing track width.
         EnsureValueColumnWidth(SensitivityValue, 88);
