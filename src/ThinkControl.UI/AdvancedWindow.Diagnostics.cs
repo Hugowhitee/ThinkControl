@@ -25,7 +25,6 @@ public partial class AdvancedWindow
         ConfigureCopyPolish();
         ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
-        ConfigureTouchpadPolish();
         ConfigureWindowsSettingsLinks();
         ConfigureKeyboardAutoUi();
         ConfigureNotificationButton();
