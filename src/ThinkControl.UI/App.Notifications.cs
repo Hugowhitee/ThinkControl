@@ -4,12 +4,13 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
-    public void OpenNotificationCenter()
+    public void ToggleNotificationCenter()
     {
         // Notifications live inside the normal full ThinkControl window. If Compact
         // is visible, route through the same paint-before-hide transition used by
         // the explicit expand control rather than maintaining a second shell path.
-        if (_advancedWindow is null || !_advancedWindow.IsVisible)
+        bool showSheet = _advancedWindow is null || !_advancedWindow.IsVisible;
+        if (showSheet)
             OpenAdvancedSafely("Home");
 
         // DispatcherPriority must be the first argument. Putting it after a
@@ -18,22 +19,11 @@ public partial class App
         // argument and crashes with TargetParameterCountException.
         Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
         {
-            _advancedWindow?.ShowNotificationSheet();
-            _advancedWindow?.Activate();
-        }));
-    }
+            if (showSheet)
+                _advancedWindow?.ShowNotificationSheet();
+            else
+                _advancedWindow?.ToggleNotificationSheet();
 
-    public void ToggleNotificationCenter()
-    {
-        if (_advancedWindow is null || !_advancedWindow.IsVisible)
-        {
-            OpenNotificationCenter();
-            return;
-        }
-
-        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
-        {
-            _advancedWindow?.ToggleNotificationSheet();
             _advancedWindow?.Activate();
         }));
     }
