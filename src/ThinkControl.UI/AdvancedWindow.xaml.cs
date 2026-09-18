@@ -5,7 +5,6 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Shell;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
@@ -14,7 +13,6 @@ using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfGrid = System.Windows.Controls.Grid;
 using WpfSlider = System.Windows.Controls.Slider;
 using WpfStackPanel = System.Windows.Controls.StackPanel;
-using WpfTextBlock = System.Windows.Controls.TextBlock;
 
 namespace ThinkControl.UI;
 
@@ -32,83 +30,57 @@ public partial class AdvancedWindow : Window
     {
         _app = app;
         InitializeComponent();
-        ConfigureNativeWindow();
+        AddShellUtilityRow();
         Loaded += OnLoaded;
         Closing += OnClosing;
         SourceInitialized += (_, _) => ApplyThemeToChrome();
     }
 
-    private void ConfigureNativeWindow()
-    {
-        WindowChrome.SetWindowChrome(this, null);
-        WindowStyle = WindowStyle.SingleBorderWindow;
-        ResizeMode = ResizeMode.CanResize;
-        ShowInTaskbar = true;
-
-        if (Content is System.Windows.Controls.Border rootBorder)
-        {
-            rootBorder.CornerRadius = new CornerRadius(0);
-            rootBorder.BorderThickness = new Thickness(0);
-            if (rootBorder.Child is WpfGrid rootGrid && rootGrid.RowDefinitions.Count >= 2)
-                rootGrid.RowDefinitions[0].Height = new GridLength(0);
-        }
-
-        AddDockControl();
-    }
-
-    private void AddDockControl()
+    private void AddShellUtilityRow()
     {
         if (NavHome.Parent is not WpfStackPanel navStack)
             return;
 
-        var dockRow = new WpfGrid
+        if (navStack.Children.OfType<WpfGrid>()
+            .Any(grid => Equals(grid.Tag, "ThinkControl.UtilityRow")))
         {
-            Height = 40,
-            Margin = new Thickness(10, 2, 8, 2)
-        };
-        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
-        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
-        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
+            return;
+        }
 
-        var label = new WpfTextBlock
+        var utilityRow = new WpfGrid
         {
-            Text = "Advanced",
-            FontSize = TypographyScale.Caption,
-            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextFaint"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0, 0, 0)
+            Tag = "ThinkControl.UtilityRow",
+            Height = 46,
+            Margin = new Thickness(13, 3, 10, 3),
+            HorizontalAlignment = HorizontalAlignment.Left
         };
-        dockRow.Children.Add(label);
 
-        var notificationSlot = new WpfButton
+        var notificationButton = new WpfButton
         {
-            Width = 30,
-            Height = 30,
-            Tag = "ThinkControl.NotificationSlot",
-            Style = (Style)FindResource("TcIconButton")
+            Tag = ShellUtilityOrder.NotificationTag,
+            Style = (Style)FindResource("TcIconButton"),
+            Width = 38,
+            Height = 38,
+            Padding = new Thickness(0)
         };
-        WpfGrid.SetColumn(notificationSlot, 1);
-        dockRow.Children.Add(notificationSlot);
 
-        var viewbox = new PackIconLucide
+        var compactButton = new WpfButton
         {
-            Kind = "ViewSidebar",
-            Width = 16,
-            Height = 16,
-            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextMuted")
+            Margin = new Thickness(0, 0, 4, 0),
+            BorderThickness = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent
         };
-        var button = new WpfButton
-        {
-            Width = 32,
-            Height = 32,
-            ToolTip = "Switch to compact layout",
-            Content = viewbox,
-            Style = (Style)FindResource("TcIconButton")
-        };
-        button.Click += Dock_Click;
-        WpfGrid.SetColumn(button, 2);
-        dockRow.Children.Add(button);
-        navStack.Children.Insert(0, dockRow);
+        ShellUtilityOrder.ConfigureModeButton(
+            compactButton,
+            "Compact",
+            "CompactView",
+            (Brush)FindResource("Tc.TextMuted"));
+        TcToolTip.Apply(compactButton, "Compact view");
+        compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
+
+        ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
+        navStack.Children.Insert(0, utilityRow);
     }
 
     private void InitializeFeaturePanels()
@@ -340,11 +312,6 @@ public partial class AdvancedWindow : Window
         if (sender is FrameworkElement { Tag: string page })
             Navigate(page);
     }
-
-    private void Dock_Click(object sender, RoutedEventArgs e) => _app.ReturnToCompact();
-    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-    private void Close_Click(object sender, RoutedEventArgs e) => _app.HideAdvancedToTray();
 
     private void Mode_Click(object sender, RoutedEventArgs e)
     {

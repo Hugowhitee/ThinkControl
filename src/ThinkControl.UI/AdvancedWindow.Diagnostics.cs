@@ -28,7 +28,6 @@ public partial class AdvancedWindow
         ConfigureWindowsSettingsLinks();
         ConfigureKeyboardAutoUi();
         ConfigureNotificationButton();
-        ConfigureShellUtilitySizing();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();

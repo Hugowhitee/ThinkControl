@@ -17,8 +17,6 @@ public partial class AdvancedWindow
 
     private void ConfigureNotificationButton()
     {
-        ConfigureShellChromePolish();
-
         if (_notificationButtonConfigured)
         {
             SyncNotificationIndicator();

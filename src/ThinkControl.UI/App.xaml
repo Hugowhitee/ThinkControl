@@ -134,17 +134,6 @@
                 <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.BodyLarge}" />
             </Style>
 
-            <!-- Caption buttons keep a Windows-sized hit target while their glyphs
-                 stay quiet. Keeping this separate from general icon actions makes
-                 the title bars feel aligned without changing page toolbars. -->
-            <Style x:Key="TcCaptionButton" TargetType="Button" BasedOn="{StaticResource TcIconButton}">
-                <Setter Property="Width" Value="36" />
-                <Setter Property="Height" Value="36" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="BorderBrush" Value="Transparent" />
-            </Style>
-
             <Style x:Key="TcShellModeButton" TargetType="Button">
                 <Setter Property="Width" Value="108" />
                 <Setter Property="Height" Value="38" />
