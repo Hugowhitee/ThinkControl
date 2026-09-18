@@ -36,7 +36,7 @@ Alpha.45 is a behavior-preserving cleanup/hardening release built on immutable a
 Candidate state:
 
 - source version: `v0.1.0-alpha.45`
-- `version.json.releaseReady=false` until the exact candidate head passes the release gates
+- candidate validation passed; the next commit freezes `version.json.releaseReady=true`
 - cleanup baseline on `main`: `8fb1fc885e7d25511a2ed4fedaec38ea5fa9a6dc`
 - immutable behavior baseline: `v0.1.0-alpha.44`
 
@@ -64,6 +64,21 @@ Latest cleanup-head evidence before the release handoff:
   - oldest-supported alpha.14.1 upgrade compatibility: success
   - development checksums/artifact produced
 
+Candidate-head release-handoff evidence:
+
+- exact candidate head: `39318de85500d8522df34a8c2dd0a4cdaaf3ffc4`
+- CI run `35315422765`: success
+  - repository hygiene: success
+  - build: success
+  - Core tests: **203 passed, 0 failed, 0 skipped**
+  - real Compact ↔ Advanced ShellSmoke: success
+  - complete WPF visual QA matrix: success, including notification-sheet states
+- Package ThinkControl run `35315422845`: success
+  - release payload and bootstrap installer built
+  - deep installer + sibling-payload discovery + custom-location persistence + IPC + clean uninstall lifecycle: success
+  - oldest-supported alpha.14.1 upgrade compatibility: success
+  - checksums and development artifact produced
+
 Release gate:
 
 - [x] cleanup series merged to `main`
@@ -71,9 +86,9 @@ Release gate:
 - [x] exact cleanup head CI green
 - [x] exact cleanup head Package ThinkControl green
 - [x] cleanup regression tests added for Advanced shell ownership
-- [ ] alpha.45 candidate-head CI green
-- [ ] alpha.45 candidate-head Package ThinkControl green
-- [ ] freeze `version.json.releaseReady=true` only after candidate evidence is green
+- [x] alpha.45 candidate-head CI green
+- [x] alpha.45 candidate-head Package ThinkControl green
+- [x] candidate evidence is green; freeze `version.json.releaseReady=true` in the next commit
 - [ ] frozen-head CI + Package green
 - [ ] merge release handoff with exact expected-head SHA
 - [ ] immutable `v0.1.0-alpha.45` published with exactly four managed assets
