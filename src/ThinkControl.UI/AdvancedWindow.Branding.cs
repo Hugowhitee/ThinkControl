@@ -95,11 +95,7 @@ public partial class AdvancedWindow
         }
 
         if (notificationButton is not null)
-        {
-            notificationButton.Width = 38;
-            notificationButton.Height = 38;
             utilityRow.Children.Add(notificationButton);
-        }
 
         if (notificationButton is not null && compactButton is not null)
         {
