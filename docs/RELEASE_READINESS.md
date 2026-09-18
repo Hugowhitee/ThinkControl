@@ -29,6 +29,58 @@ Release completion:
 - branch hygiene run `35156051821` succeeded and removed the merged feature branch
 - no product-development candidate is active; this post-release docs change only records the completed immutable release
 
+## Alpha.45 maintenance release candidate
+
+Alpha.45 is a behavior-preserving cleanup/hardening release built on immutable alpha.44. It does **not** broaden EC, Lenovo Other Mode, EnergyDrv, battery, keyboard or Touchpad hardware-write semantics.
+
+Candidate state:
+
+- source version: `v0.1.0-alpha.45`
+- `version.json.releaseReady=false` until the exact candidate head passes the release gates
+- cleanup baseline on `main`: `8fb1fc885e7d25511a2ed4fedaec38ea5fa9a6dc`
+- immutable behavior baseline: `v0.1.0-alpha.44`
+
+Cleanup series included in the candidate:
+
+- PR #85 **Clean up touchpad UI ownership**
+- PR #86 **Consolidate notification sheet entrypoint**
+- PR #87 **Consolidate shell utility ownership**
+- PR #88 **Consolidate Advanced shell construction**
+- removed the superseded zero-height custom Advanced caption and its runtime chrome-polish path
+- replaced obsolete titlebar/body row-index discovery with the named canonical `AdvancedBody`
+
+Latest cleanup-head evidence before the release handoff:
+
+- PR #88 exact head: `83e867280ad46b9df50e80375e476ebbb635ed37`
+- CI run `35315051447`: success
+  - repository hygiene: success
+  - build: success, 0 warnings / 0 errors
+  - Core tests: **203 passed, 0 failed, 0 skipped**
+  - real Compact ↔ Advanced ShellSmoke: success
+  - WPF visual QA: success, including Notifications after the canonical-body fix
+- Package ThinkControl run `35315051441`: success
+  - payload and bootstrap installer built
+  - deep installer/service/IPC smoke: success
+  - oldest-supported alpha.14.1 upgrade compatibility: success
+  - development checksums/artifact produced
+
+Release gate:
+
+- [x] cleanup series merged to `main`
+- [x] no low-level hardware capability expanded
+- [x] exact cleanup head CI green
+- [x] exact cleanup head Package ThinkControl green
+- [x] cleanup regression tests added for Advanced shell ownership
+- [ ] alpha.45 candidate-head CI green
+- [ ] alpha.45 candidate-head Package ThinkControl green
+- [ ] freeze `version.json.releaseReady=true` only after candidate evidence is green
+- [ ] frozen-head CI + Package green
+- [ ] merge release handoff with exact expected-head SHA
+- [ ] immutable `v0.1.0-alpha.45` published with exactly four managed assets
+- [ ] published checksums re-downloaded and verified
+- [ ] post-merge main CI/promotion/branch hygiene green
+- [ ] post-release docs record the immutable tag SHA and final workflow evidence
+
 ## Alpha.44 stabilization release
 
 Alpha.44 is intentionally narrow: cold-boot cooling convergence plus safer high-rate Touchpad controls. It does not broaden any low-level hardware writer.
