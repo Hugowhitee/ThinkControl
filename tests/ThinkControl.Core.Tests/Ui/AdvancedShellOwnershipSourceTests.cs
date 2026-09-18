@@ -20,6 +20,10 @@ public sealed class AdvancedShellOwnershipSourceTests
         Assert.DoesNotContain("AddDockControl", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("ThinkControl.NotificationSlot", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Text = \"Advanced\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConfigureShellUtilitySizing", shell, StringComparison.Ordinal);
+        Assert.Contains("Width = 38", shell, StringComparison.Ordinal);
+        Assert.Contains("Height = 38", shell, StringComparison.Ordinal);
+        Assert.Contains("Margin = new Thickness(0, 0, 4, 0)", shell, StringComparison.Ordinal);
 
         Assert.Contains("Tag = \"ThinkControl.BrandRow\"", branding, StringComparison.Ordinal);
         Assert.DoesNotContain("dockRow.Children.Remove", branding, StringComparison.Ordinal);
