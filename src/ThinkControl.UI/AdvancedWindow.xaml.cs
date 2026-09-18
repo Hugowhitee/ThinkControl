@@ -14,7 +14,6 @@ using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfGrid = System.Windows.Controls.Grid;
 using WpfSlider = System.Windows.Controls.Slider;
 using WpfStackPanel = System.Windows.Controls.StackPanel;
-using WpfTextBlock = System.Windows.Controls.TextBlock;
 
 namespace ThinkControl.UI;
 
@@ -53,62 +52,51 @@ public partial class AdvancedWindow : Window
                 rootGrid.RowDefinitions[0].Height = new GridLength(0);
         }
 
-        AddDockControl();
+        AddShellUtilityRow();
     }
 
-    private void AddDockControl()
+    private void AddShellUtilityRow()
     {
         if (NavHome.Parent is not WpfStackPanel navStack)
             return;
 
-        var dockRow = new WpfGrid
+        if (navStack.Children.OfType<WpfGrid>()
+            .Any(grid => Equals(grid.Tag, "ThinkControl.UtilityRow")))
         {
-            Height = 40,
-            Margin = new Thickness(10, 2, 8, 2)
-        };
-        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition());
-        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
-        dockRow.ColumnDefinitions.Add(new System.Windows.Controls.ColumnDefinition { Width = GridLength.Auto });
+            return;
+        }
 
-        var label = new WpfTextBlock
+        var utilityRow = new WpfGrid
         {
-            Text = "Advanced",
-            FontSize = TypographyScale.Caption,
-            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextFaint"),
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(4, 0, 0, 0)
+            Tag = "ThinkControl.UtilityRow",
+            Height = 46,
+            Margin = new Thickness(13, 3, 10, 3),
+            HorizontalAlignment = HorizontalAlignment.Left
         };
-        dockRow.Children.Add(label);
 
-        var notificationSlot = new WpfButton
+        var notificationButton = new WpfButton
         {
-            Width = 30,
-            Height = 30,
-            Tag = "ThinkControl.NotificationSlot",
+            Tag = ShellUtilityOrder.NotificationTag,
             Style = (Style)FindResource("TcIconButton")
         };
-        WpfGrid.SetColumn(notificationSlot, 1);
-        dockRow.Children.Add(notificationSlot);
 
-        var viewbox = new PackIconLucide
+        var compactButton = new WpfButton
         {
-            Kind = "ViewSidebar",
-            Width = 16,
-            Height = 16,
-            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextMuted")
+            BorderThickness = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderBrush = Brushes.Transparent
         };
-        var button = new WpfButton
-        {
-            Width = 32,
-            Height = 32,
-            ToolTip = "Switch to compact layout",
-            Content = viewbox,
-            Style = (Style)FindResource("TcIconButton")
-        };
-        button.Click += Dock_Click;
-        WpfGrid.SetColumn(button, 2);
-        dockRow.Children.Add(button);
-        navStack.Children.Insert(0, dockRow);
+        ShellUtilityOrder.ConfigureModeButton(
+            compactButton,
+            "Compact",
+            "CompactView",
+            (Brush)FindResource("Tc.TextMuted"));
+        TcToolTip.Apply(compactButton, "Compact view");
+        compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
+
+        ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
+        navStack.Children.Insert(0, utilityRow);
+        ConfigureShellUtilitySizing();
     }
 
     private void InitializeFeaturePanels()
