@@ -58,11 +58,15 @@ public partial class AdvancedWindow : Window
         var notificationButton = new WpfButton
         {
             Tag = ShellUtilityOrder.NotificationTag,
-            Style = (Style)FindResource("TcIconButton")
+            Style = (Style)FindResource("TcIconButton"),
+            Width = 38,
+            Height = 38,
+            Padding = new Thickness(0)
         };
 
         var compactButton = new WpfButton
         {
+            Margin = new Thickness(0, 0, 4, 0),
             BorderThickness = new Thickness(0),
             Background = Brushes.Transparent,
             BorderBrush = Brushes.Transparent
@@ -77,7 +81,6 @@ public partial class AdvancedWindow : Window
 
         ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
         navStack.Children.Insert(0, utilityRow);
-        ConfigureShellUtilitySizing();
     }
 
     private void InitializeFeaturePanels()
