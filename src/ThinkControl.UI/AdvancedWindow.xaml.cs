@@ -5,7 +5,6 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Shell;
 using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
@@ -31,28 +30,10 @@ public partial class AdvancedWindow : Window
     {
         _app = app;
         InitializeComponent();
-        ConfigureNativeWindow();
+        AddShellUtilityRow();
         Loaded += OnLoaded;
         Closing += OnClosing;
         SourceInitialized += (_, _) => ApplyThemeToChrome();
-    }
-
-    private void ConfigureNativeWindow()
-    {
-        WindowChrome.SetWindowChrome(this, null);
-        WindowStyle = WindowStyle.SingleBorderWindow;
-        ResizeMode = ResizeMode.CanResize;
-        ShowInTaskbar = true;
-
-        if (Content is System.Windows.Controls.Border rootBorder)
-        {
-            rootBorder.CornerRadius = new CornerRadius(0);
-            rootBorder.BorderThickness = new Thickness(0);
-            if (rootBorder.Child is WpfGrid rootGrid && rootGrid.RowDefinitions.Count >= 2)
-                rootGrid.RowDefinitions[0].Height = new GridLength(0);
-        }
-
-        AddShellUtilityRow();
     }
 
     private void AddShellUtilityRow()
@@ -328,11 +309,6 @@ public partial class AdvancedWindow : Window
         if (sender is FrameworkElement { Tag: string page })
             Navigate(page);
     }
-
-    private void Dock_Click(object sender, RoutedEventArgs e) => _app.ReturnToCompact();
-    private void Minimize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
-    private void Maximize_Click(object sender, RoutedEventArgs e) => WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
-    private void Close_Click(object sender, RoutedEventArgs e) => _app.HideAdvancedToTray();
 
     private void Mode_Click(object sender, RoutedEventArgs e)
     {
