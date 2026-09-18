@@ -23,12 +23,12 @@
   </a>
 </div>
 
-## ThinkControl alpha.44
+## ThinkControl alpha.45
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current immutable prerelease:** `v0.1.0-alpha.44`  
-**Previous immutable baseline:** `v0.1.0-alpha.43`
+**Release target:** `v0.1.0-alpha.45`  
+**Current immutable prerelease:** `v0.1.0-alpha.44`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -56,12 +56,23 @@ The release pipeline renders the real WPF interface across dark/light themes and
 Download the newest setup from **[GitHub Releases](https://github.com/Hugowhitee/ThinkControl/releases)**. The current setup is:
 
 ```text
-ThinkControl-Setup-0.1.0-alpha.43.exe
+ThinkControl-Setup-<version>.exe
 ```
 
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.45 changes
+
+Alpha.45 is a maintenance release focused on reducing duplicate UI ownership after alpha.44. It does not broaden low-level hardware access or change the verified fan, battery, keyboard or touchpad provider safety boundaries.
+
+- **Touchpad UI ownership is simpler.** Superseded release-polish code and duplicate feedback setup are gone; the active Touchpad panel owns its current controls directly.
+- **Notifications have one entrypoint.** The app no longer keeps parallel notification-sheet open/toggle paths.
+- **Advanced shell utilities have one owner.** Notification and Compact-view controls are created in their final semantic order and geometry instead of being built as temporary controls and mutated after first render.
+- **The hidden custom caption is gone.** Advanced uses the native Windows title bar declaratively; the old zero-height custom caption, runtime chrome-polish pass and caption-only handlers/styles have been removed.
+- **Advanced body lookups are explicit.** Notification-sheet and sidebar-palette code target the named canonical `AdvancedBody` instead of relying on the obsolete titlebar/body row index.
+- **Release behavior remains fully gated.** Build/tests, real Compact ↔ Advanced ShellSmoke, WPF visual QA, packaging, installer/service/IPC smoke and oldest-supported upgrade compatibility remain mandatory before promotion.
 
 ## What alpha.44 changes
 
@@ -75,7 +86,7 @@ Alpha.44 is a stabilization release focused on cold-boot control readiness and s
 - **Track skip is harder to trigger accidentally.** Previous/Next now requires a **12 mm** deliberate swipe and commits only when the finger is released. The Track-center Play/Pause contract remains the existing 450 ms hold, ≤3 mm movement and release-to-commit behavior.
 - **Hardware safety is unchanged.** The rejected Lenovo per-fan target writer remains read-only; no EC, EnergyDrv, Lenovo Other Mode or battery write capability is broadened by this release.
 
-The latest downloadable immutable build remains alpha.43 until this candidate passes the full release gates and is promoted.
+Alpha.44 is the immutable behavior baseline for the alpha.45 maintenance candidate.
 
 ## What alpha.43 changes
 
