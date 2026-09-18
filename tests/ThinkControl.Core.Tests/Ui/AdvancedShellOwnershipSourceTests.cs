@@ -11,6 +11,8 @@ public sealed class AdvancedShellOwnershipSourceTests
         string shell = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml.cs"));
         string branding = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Branding.cs"));
         string surface = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Diagnostics.cs"));
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+        string appXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.xaml"));
 
         Assert.Contains("AddShellUtilityRow();", shell, StringComparison.Ordinal);
         Assert.Contains("Tag = \"ThinkControl.UtilityRow\"", shell, StringComparison.Ordinal);
@@ -24,6 +26,15 @@ public sealed class AdvancedShellOwnershipSourceTests
         Assert.DoesNotContain("var utilityRow = new Grid", branding, StringComparison.Ordinal);
 
         Assert.DoesNotContain("ConfigureShellUtilitySizing();", surface, StringComparison.Ordinal);
+
+        Assert.Contains("WindowStyle=\"SingleBorderWindow\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("WindowChrome", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TcCaptionButton", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Dock_Click", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Minimize_Click", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Maximize_Click", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Close_Click", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TcCaptionButton", appXaml, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
