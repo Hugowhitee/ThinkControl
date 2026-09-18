@@ -40,6 +40,7 @@ try {
         'src/ThinkControl.UI/AdvancedWindow.NotificationPolish.cs',
         'src/ThinkControl.UI/AdvancedWindow.ShellChromePolish.cs',
         'src/ThinkControl.UI/AdvancedWindow.ShellChrome.cs',
+        'src/ThinkControl.UI/AdvancedWindow.ShellUtilitySizing.cs',
         'src/ThinkControl.UI/AdvancedWindow.TouchpadPolish.cs',
         'src/ThinkControl.UI/App.TrayIconPolish.cs',
         'src/ThinkControl.UI/Controls/CompactDashboard.Alpha30Polish.cs',
