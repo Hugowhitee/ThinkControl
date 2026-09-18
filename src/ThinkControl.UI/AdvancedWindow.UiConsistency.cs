@@ -90,13 +90,7 @@ public partial class AdvancedWindow
 
     private void ApplySidebarPalette()
     {
-        if (Content is not Border { Child: Grid rootGrid })
-            return;
-
-        Grid? body = rootGrid.Children
-            .OfType<Grid>()
-            .FirstOrDefault(grid => Grid.GetRow(grid) == 1);
-        Border? sidebar = body?.Children
+        Border? sidebar = AdvancedBody.Children
             .OfType<Border>()
             .FirstOrDefault(border => Grid.GetColumn(border) == 0);
 
