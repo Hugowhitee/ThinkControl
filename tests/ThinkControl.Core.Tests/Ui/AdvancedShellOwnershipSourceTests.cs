@@ -13,6 +13,7 @@ public sealed class AdvancedShellOwnershipSourceTests
         string surface = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Diagnostics.cs"));
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
         string appXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.xaml"));
+        string notificationSheet = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.NotificationSheet.cs"));
 
         Assert.Contains("AddShellUtilityRow();", shell, StringComparison.Ordinal);
         Assert.Contains("Tag = \"ThinkControl.UtilityRow\"", shell, StringComparison.Ordinal);
@@ -39,6 +40,10 @@ public sealed class AdvancedShellOwnershipSourceTests
         Assert.DoesNotContain("Maximize_Click", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Close_Click", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("TcCaptionButton", appXaml, StringComparison.Ordinal);
+
+        Assert.Contains("x:Name=\"AdvancedBody\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Grid body = AdvancedBody;", notificationSheet, StringComparison.Ordinal);
+        Assert.DoesNotContain("Grid.GetRow(grid) == 1", notificationSheet, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
