@@ -83,12 +83,10 @@ public partial class AdvancedWindow
 
     private void EnsureNotificationSheet()
     {
-        if (_notificationOverlay is not null ||
-            Content is not Border { Child: Grid root } ||
-            root.Children.OfType<Grid>().FirstOrDefault(grid => Grid.GetRow(grid) == 1) is not Grid body)
-        {
+        if (_notificationOverlay is not null)
             return;
-        }
+
+        Grid body = AdvancedBody;
 
         var backdrop = new Border
         {
