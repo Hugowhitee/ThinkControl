@@ -1,9 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ThinkControl.UI.Controls;
-using WpfButton = System.Windows.Controls.Button;
 
 namespace ThinkControl.UI;
 
@@ -23,88 +21,36 @@ public partial class AdvancedWindow
         catch { }
 
         if (NavHome.Parent is not StackPanel navStack ||
-            navStack.Children.OfType<Grid>().FirstOrDefault() is not Grid dockRow)
+            navStack.Children.OfType<Grid>()
+                .FirstOrDefault(grid => Equals(grid.Tag, "ThinkControl.UtilityRow")) is not Grid utilityRow)
         {
             return;
         }
 
         navStack.Margin = new Thickness(0);
-        dockRow.Tag = "ThinkControl.BrandRow";
-        dockRow.Height = 64;
-        dockRow.Margin = new Thickness(14, 5, 10, 0);
 
-        WpfButton? notificationButton = dockRow.Children
-            .OfType<WpfButton>()
-            .FirstOrDefault(child => child.Tag as string == "ThinkControl.NotificationSlot");
-        WpfButton? compactButton = dockRow.Children
-            .OfType<WpfButton>()
-            .FirstOrDefault(child => !ReferenceEquals(child, notificationButton));
-
-        FrameworkElement[] legacy = dockRow.Children
-            .OfType<FrameworkElement>()
-            .Where(child => !ReferenceEquals(child, notificationButton) && !ReferenceEquals(child, compactButton))
-            .ToArray();
-        foreach (FrameworkElement element in legacy)
-            dockRow.Children.Remove(element);
-
-        if (notificationButton is not null)
-            dockRow.Children.Remove(notificationButton);
-        if (compactButton is not null)
-            dockRow.Children.Remove(compactButton);
-
-        var wordmark = new BrandWordmark
+        var brandRow = new Grid
+        {
+            Tag = "ThinkControl.BrandRow",
+            Height = 64,
+            Margin = new Thickness(14, 5, 10, 0)
+        };
+        brandRow.Children.Add(new BrandWordmark
         {
             Width = 150,
             Height = 48,
             Margin = new Thickness(-4, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(wordmark, 0);
-        Grid.SetColumnSpan(wordmark, Math.Max(1, dockRow.ColumnDefinitions.Count));
-        dockRow.Children.Add(wordmark);
+        });
 
-        Border brandDivider = CreateSidebarDivider("ThinkControl.BrandDivider");
-        navStack.Children.Insert(1, brandDivider);
+        navStack.Children.Insert(0, brandRow);
+        navStack.Children.Insert(1, CreateSidebarDivider("ThinkControl.BrandDivider"));
 
-        var utilityRow = new Grid
-        {
-            Tag = "ThinkControl.UtilityRow",
-            Height = 46,
-            Margin = new Thickness(13, 3, 10, 3),
-            HorizontalAlignment = HorizontalAlignment.Left
-        };
-        utilityRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        utilityRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        if (compactButton is not null)
-        {
-            compactButton.Margin = new Thickness(0, 0, 4, 0);
-            compactButton.BorderThickness = new Thickness(0);
-            compactButton.Background = Brushes.Transparent;
-            compactButton.BorderBrush = Brushes.Transparent;
-            ShellUtilityOrder.ConfigureModeButton(
-                compactButton,
-                "Compact",
-                "CompactView",
-                (Brush)FindResource("Tc.TextMuted"));
-            TcToolTip.Apply(compactButton, "Compact view");
-            compactButton.Click -= Dock_Click;
-            compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
-            utilityRow.Children.Add(compactButton);
-        }
-
-        if (notificationButton is not null)
-            utilityRow.Children.Add(notificationButton);
-
-        if (notificationButton is not null && compactButton is not null)
-        {
-            notificationButton.Tag = ShellUtilityOrder.NotificationTag;
-            ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
-        }
-
-        navStack.Children.Insert(2, utilityRow);
-        navStack.Children.Insert(3, CreateSidebarDivider("ThinkControl.NavigationDivider"));
+        int utilityIndex = navStack.Children.IndexOf(utilityRow);
+        navStack.Children.Insert(
+            Math.Min(navStack.Children.Count, utilityIndex + 1),
+            CreateSidebarDivider("ThinkControl.NavigationDivider"));
 
         if (navStack.Parent is Grid sidebarGrid)
         {
