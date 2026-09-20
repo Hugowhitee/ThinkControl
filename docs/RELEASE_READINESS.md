@@ -39,9 +39,9 @@ Alpha.46 is intentionally narrow: it repairs one Advanced shell regression left 
 Candidate state:
 
 - source version: `v0.1.0-alpha.46`
-- `version.json.releaseReady=false` until exact-head candidate evidence is green
+- `version.json.releaseReady=true`; candidate evidence is green and the release scope is frozen
 - immutable base: `v0.1.0-alpha.45` at `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- active release/fix PR: #90 **Restore Advanced device-learning status after shell cleanup**
+- active release/fix PR: #90 **Prepare ThinkControl 0.1.0-alpha.46 shell regression repair**
 
 Root cause and repair:
 
