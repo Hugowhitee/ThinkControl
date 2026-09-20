@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -9,21 +8,20 @@ public partial class AdvancedWindow
 {
     private const string DeviceLearningStatusResourceKey = "ThinkControl.DeviceLearningStatus";
     private Button? _deviceLearningStatusButton;
-    private TextBlock? _deviceLearningBaseLabel;
     private bool _deviceLearningStatusSubscribed;
 
     private void ConfigureDeviceLearningIndicator()
     {
         if (_deviceLearningStatusButton is null)
         {
-            Button? notificationSlot = FindVisualChildren<Button>(this)
-                .FirstOrDefault(button => Equals(button.Tag, "ThinkControl.NotificationSlot"));
-            if (notificationSlot?.Parent is not Grid dockRow)
+            if (NavHome.Parent is not StackPanel navStack)
                 return;
 
-            _deviceLearningBaseLabel = dockRow.Children
-                .OfType<TextBlock>()
-                .FirstOrDefault(text => string.Equals(text.Text, "Advanced", StringComparison.Ordinal));
+            Grid? utilityRow = navStack.Children
+                .OfType<Grid>()
+                .FirstOrDefault(grid => Equals(grid.Tag, "ThinkControl.UtilityRow"));
+            if (utilityRow is null)
+                return;
 
             _deviceLearningStatusButton = new Button
             {
@@ -32,16 +30,18 @@ public partial class AdvancedWindow
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
                 Padding = new Thickness(4, 3, 4, 3),
-                Margin = new Thickness(0),
+                Margin = new Thickness(17, 0, 12, 6),
                 FontSize = TypographyScale.Caption,
-                MaxWidth = 108,
+                MaxWidth = 158,
                 Visibility = Visibility.Collapsed,
                 ToolTip = "Compatibility learning runs quietly in the background while you use ThinkControl. Nothing is uploaded automatically."
             };
             _deviceLearningStatusButton.Click += (_, _) => Navigate("Settings");
-            Grid.SetColumn(_deviceLearningStatusButton, 0);
-            Panel.SetZIndex(_deviceLearningStatusButton, 2);
-            dockRow.Children.Add(_deviceLearningStatusButton);
+
+            int utilityIndex = navStack.Children.IndexOf(utilityRow);
+            navStack.Children.Insert(
+                Math.Min(navStack.Children.Count, utilityIndex + 1),
+                _deviceLearningStatusButton);
             Resources[DeviceLearningStatusResourceKey] = _deviceLearningStatusButton;
         }
 
@@ -67,6 +67,7 @@ public partial class AdvancedWindow
             Dispatcher.BeginInvoke(RefreshDeviceLearningIndicator);
             return;
         }
+
         RefreshDeviceLearningIndicator();
     }
 
@@ -78,8 +79,6 @@ public partial class AdvancedWindow
         DeviceSupportStatus status = _app.DeviceSupportStatus;
         bool visible = status.Phase is DeviceSupportPhase.Learning or DeviceSupportPhase.ReadyToShare;
         _deviceLearningStatusButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        if (_deviceLearningBaseLabel is not null)
-            _deviceLearningBaseLabel.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
 
         if (!visible)
             return;
