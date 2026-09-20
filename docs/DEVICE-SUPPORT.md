@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.45**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Alpha.45 is a maintenance release; immutable `v0.1.0-alpha.44` remains its hardware-behavior baseline and no low-level write capability is broadened.
+This document describes the support model at **v0.1.0-alpha.46**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.45` is the current published prerelease. Alpha.46 only repairs Advanced shell status ownership; alpha.44 remains the hardware-behavior baseline and no low-level write capability is broadened.
 
 ## Support levels
 
