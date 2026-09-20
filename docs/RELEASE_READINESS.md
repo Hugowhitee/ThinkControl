@@ -52,6 +52,14 @@ Root cause and repair:
 - source regression coverage rejects a return to `ThinkControl.NotificationSlot`;
 - WPF visual QA now includes a dark minimum-window learning snapshot and a light report-ready snapshot.
 
+Candidate-head evidence before release freeze:
+
+- exact candidate head: `ceada5576ef643247ce64e02ea0d937eec358b22`
+- CI run `35529249954`: success
+- Package ThinkControl run `35529249947`: success
+- exact-head visual-QA artifact `10610473640`, digest `sha256:d85ca1498d0243cf8048f435d796ea6755388cec4b9a8e2e94508c08d14f3987`
+- manual visual inspection passed for `advanced-home-device-learning-min.png`, `advanced-home-device-report-ready-light.png` and the normal minimum-window baseline: no added sidebar row, clipping or overlap was observed
+
 Release gate:
 
 - [x] alpha.45 immutable release state reconciled in the persistent handoff
@@ -61,10 +69,10 @@ Release gate:
 - [x] source regression guard added for the removed placeholder and canonical lifecycle
 - [x] dedicated WPF visual fixtures added for learning/report-ready shell states
 - [x] no low-level hardware capability expanded
-- [ ] exact alpha.46 candidate-head CI green
-- [ ] exact alpha.46 candidate-head Package ThinkControl green
-- [ ] exact-head WPF artifact manually inspected, including the two new device-learning snapshots
-- [ ] freeze `version.json.releaseReady=true`
+- [x] exact alpha.46 candidate-head CI green
+- [x] exact alpha.46 candidate-head Package ThinkControl green
+- [x] exact-head WPF artifact manually inspected, including the two new device-learning snapshots
+- [x] freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
 - [ ] merge PR #90 with exact expected-head SHA
 - [ ] immutable `v0.1.0-alpha.46` published with exactly four managed assets
