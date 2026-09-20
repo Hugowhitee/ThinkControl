@@ -35,8 +35,9 @@ public sealed class AdvancedShellOwnershipSourceTests
 
         Assert.DoesNotContain("ConfigureShellUtilitySizing();", surface, StringComparison.Ordinal);
         Assert.Contains("ConfigureDeviceLearningIndicator();", surface, StringComparison.Ordinal);
-        Assert.Contains("ThinkControl.UtilityRow", deviceLearning, StringComparison.Ordinal);
-        Assert.Contains("navStack.Children.Insert", deviceLearning, StringComparison.Ordinal);
+        Assert.Contains("ThinkControl.BrandRow", deviceLearning, StringComparison.Ordinal);
+        Assert.Contains("brandRow.Children.Add", deviceLearning, StringComparison.Ordinal);
+        Assert.Contains("BrandWordmark", deviceLearning, StringComparison.Ordinal);
         Assert.DoesNotContain("ThinkControl.NotificationSlot", deviceLearning, StringComparison.Ordinal);
         Assert.DoesNotContain("ConfigureDeviceLearningIndicator", shellIcon, StringComparison.Ordinal);
 
