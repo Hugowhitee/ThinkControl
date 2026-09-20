@@ -15,6 +15,8 @@ public sealed class AdvancedShellOwnershipSourceTests
         string appXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.xaml"));
         string notificationSheet = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.NotificationSheet.cs"));
         string uiConsistency = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.UiConsistency.cs"));
+        string deviceLearning = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.DeviceLearning.cs"));
+        string shellIcon = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.ShellIcon.cs"));
 
         Assert.Contains("AddShellUtilityRow();", shell, StringComparison.Ordinal);
         Assert.Contains("Tag = \"ThinkControl.UtilityRow\"", shell, StringComparison.Ordinal);
@@ -32,6 +34,11 @@ public sealed class AdvancedShellOwnershipSourceTests
         Assert.DoesNotContain("var utilityRow = new Grid", branding, StringComparison.Ordinal);
 
         Assert.DoesNotContain("ConfigureShellUtilitySizing();", surface, StringComparison.Ordinal);
+        Assert.Contains("ConfigureDeviceLearningIndicator();", surface, StringComparison.Ordinal);
+        Assert.Contains("ThinkControl.UtilityRow", deviceLearning, StringComparison.Ordinal);
+        Assert.Contains("navStack.Children.Insert", deviceLearning, StringComparison.Ordinal);
+        Assert.DoesNotContain("ThinkControl.NotificationSlot", deviceLearning, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConfigureDeviceLearningIndicator", shellIcon, StringComparison.Ordinal);
 
         Assert.Contains("WindowStyle=\"SingleBorderWindow\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("WindowChrome", xaml, StringComparison.Ordinal);
