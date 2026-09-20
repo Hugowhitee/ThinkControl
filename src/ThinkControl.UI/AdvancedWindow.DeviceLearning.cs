@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.UI.Controls;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -8,6 +9,7 @@ public partial class AdvancedWindow
 {
     private const string DeviceLearningStatusResourceKey = "ThinkControl.DeviceLearningStatus";
     private Button? _deviceLearningStatusButton;
+    private BrandWordmark? _deviceLearningBaseBrand;
     private bool _deviceLearningStatusSubscribed;
 
     private void ConfigureDeviceLearningIndicator()
@@ -17,11 +19,15 @@ public partial class AdvancedWindow
             if (NavHome.Parent is not StackPanel navStack)
                 return;
 
-            Grid? utilityRow = navStack.Children
+            Grid? brandRow = navStack.Children
                 .OfType<Grid>()
-                .FirstOrDefault(grid => Equals(grid.Tag, "ThinkControl.UtilityRow"));
-            if (utilityRow is null)
+                .FirstOrDefault(grid => Equals(grid.Tag, "ThinkControl.BrandRow"));
+            if (brandRow is null)
                 return;
+
+            _deviceLearningBaseBrand = brandRow.Children
+                .OfType<BrandWordmark>()
+                .FirstOrDefault();
 
             _deviceLearningStatusButton = new Button
             {
@@ -30,18 +36,14 @@ public partial class AdvancedWindow
                 HorizontalAlignment = HorizontalAlignment.Left,
                 VerticalAlignment = VerticalAlignment.Center,
                 Padding = new Thickness(4, 3, 4, 3),
-                Margin = new Thickness(17, 0, 12, 6),
+                Margin = new Thickness(0),
                 FontSize = TypographyScale.Caption,
                 MaxWidth = 158,
                 Visibility = Visibility.Collapsed,
                 ToolTip = "Compatibility learning runs quietly in the background while you use ThinkControl. Nothing is uploaded automatically."
             };
             _deviceLearningStatusButton.Click += (_, _) => Navigate("Settings");
-
-            int utilityIndex = navStack.Children.IndexOf(utilityRow);
-            navStack.Children.Insert(
-                Math.Min(navStack.Children.Count, utilityIndex + 1),
-                _deviceLearningStatusButton);
+            brandRow.Children.Add(_deviceLearningStatusButton);
             Resources[DeviceLearningStatusResourceKey] = _deviceLearningStatusButton;
         }
 
@@ -79,6 +81,8 @@ public partial class AdvancedWindow
         DeviceSupportStatus status = _app.DeviceSupportStatus;
         bool visible = status.Phase is DeviceSupportPhase.Learning or DeviceSupportPhase.ReadyToShare;
         _deviceLearningStatusButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        if (_deviceLearningBaseBrand is not null)
+            _deviceLearningBaseBrand.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
 
         if (!visible)
             return;
