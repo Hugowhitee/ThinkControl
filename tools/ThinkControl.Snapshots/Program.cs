@@ -102,6 +102,8 @@ internal static class Program
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
+        RenderAdvanced(app, unknownReady, "Home", 980, 650, output, snapshots,
+            "advanced-home-device-learning-min.png", "new-device learning · minimum window", deviceLearning: true);
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1720, 980, output, snapshots, $"advanced-{page.ToLowerInvariant()}-wide.png", "wide window");
@@ -166,6 +168,8 @@ internal static class Program
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
+        RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
+            "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
@@ -359,11 +363,15 @@ internal static class Program
         bool expandBatteryDay = false,
         TouchpadCorner? touchpadCorner = null,
         bool touchpadCornerLive = false,
-        bool fanManualTest = false)
+        bool fanManualTest = false,
+        bool deviceLearning = false,
+        bool deviceReportReady = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
+        if (deviceLearning)
+            window.PrepareDeviceLearningForSnapshot(deviceReportReady);
         if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)
             app.State.BatteryTemperatureC = null;
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
