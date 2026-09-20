@@ -6,92 +6,76 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.44`
-- immutable tag/release SHA: `17abe5458a1f6f43f66383827d463bd1094498c2`
-- published 2026-09-16 at 22:09:48 UTC as an immutable prerelease
+- `v0.1.0-alpha.45`
+- immutable tag/release SHA: `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
+- published 2026-09-18 at 06:41:38 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:09397fb95fc04a987b172b2baf8cda2efb6e67943e489d74c3883af97dd5d858`
-  - Payload: `sha256:527c5d61e61c3233043bb8dba7be76af811b3fcced5e8a944965fcc5a95405b7`
-  - `SHA256SUMS.txt`: `sha256:743ef74c9f0a641ff5b6bba8af20694f790d4e17ef43c75f3b582fc8d5e87551`
-  - `ui-overview.png`: `sha256:e859f4a701f50e81dbc599b1cd429fe0f45d944a65b0a819b333cddea490f939`
+  - Setup: `sha256:77c4ed343a35b4b1cb413e59bc1eb9f13069c13d4a488edc0687b91b055b4350`
+  - Payload: `sha256:6774e344c0dc398b10082c43627574109d5f9bc4bb72f84e07edd11f5d13f164`
+  - `SHA256SUMS.txt`: `sha256:9ae2c73940d35d4a2451669edb1eecafc7ac29b5c20d582c7aeea2f9692ae942`
+  - `ui-overview.png`: `sha256:15f4e314a2d7eef430ae01b6086ef5fb62d56dddded660758a105fc2f86f8403`
+- alpha.44 remains separately immutable at `17abe5458a1f6f43f66383827d463bd1094498c2`
 - alpha.43 remains separately immutable at `ba13fab6d5b47cf127f4b627976662678f2ec491`
 - alpha.42 remains separately immutable at `2d40dffebeb6f8327cd06403e076936c40d60497`
 - alpha.41 remains separately immutable at `6088955eeab54d1af6506780fa7707df17fe11c3`
 
-Release completion:
+Alpha.45 completion:
 
-- PR #83, **Stabilize cold-start cooling and touchpad edge controls**, merged with exact expected head `7cd9de0a4c9ad85e0f83d9f68bad6aac29c92b98`
-- merge commit / immutable release tag target: `17abe5458a1f6f43f66383827d463bd1094498c2`
-- complete immutable release workflow run `35156064317` succeeded
-- promotion/checksum verification run `35156052870` succeeded after re-downloading the four published assets
-- post-merge main CI run `35156052891` succeeded
-- branch hygiene run `35156051821` succeeded and removed the merged feature branch
-- no product-development candidate is active; this post-release docs change only records the completed immutable release
+- PR #89, **Prepare ThinkControl 0.1.0-alpha.45 maintenance release**, merged with frozen head `43e293d701d849c0d92d8b19dd9c76c9e0837206`
+- frozen-head CI run `35315622906`: success
+- frozen-head Package ThinkControl run `35315622936`: success
+- merge commit / immutable release tag target: `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
+- post-merge main CI run `35315795686`: success
+- promotion/checksum verification run `35315795660`: success
+- complete immutable release run `35315808774`: success
+- branch hygiene run `35315796232`: success
+- promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 
-## Alpha.45 maintenance release candidate
+## Alpha.46 Advanced shell regression repair candidate
 
-Alpha.45 is a behavior-preserving cleanup/hardening release built on immutable alpha.44. It does **not** broaden EC, Lenovo Other Mode, EnergyDrv, battery, keyboard or Touchpad hardware-write semantics.
+Alpha.46 is intentionally narrow: it repairs one Advanced shell regression left by the alpha.45 ownership cleanup. It does **not** broaden EC, Lenovo Other Mode, EnergyDrv, battery, keyboard, audio or Touchpad hardware-write semantics.
 
 Candidate state:
 
-- source version: `v0.1.0-alpha.45`
-- candidate validation passed; the next commit freezes `version.json.releaseReady=true`
-- cleanup baseline on `main`: `8fb1fc885e7d25511a2ed4fedaec38ea5fa9a6dc`
-- immutable behavior baseline: `v0.1.0-alpha.44`
+- source version: `v0.1.0-alpha.46`
+- `version.json.releaseReady=true`; candidate evidence is green and the release scope is frozen
+- immutable base: `v0.1.0-alpha.45` at `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
+- active release/fix PR: #90 **Prepare ThinkControl 0.1.0-alpha.46 shell regression repair**
 
-Cleanup series included in the candidate:
+Root cause and repair:
 
-- PR #85 **Clean up touchpad UI ownership**
-- PR #86 **Consolidate notification sheet entrypoint**
-- PR #87 **Consolidate shell utility ownership**
-- PR #88 **Consolidate Advanced shell construction**
-- removed the superseded zero-height custom Advanced caption and its runtime chrome-polish path
-- replaced obsolete titlebar/body row-index discovery with the named canonical `AdvancedBody`
+- alpha.45 removed the temporary Advanced dock row and `ThinkControl.NotificationSlot`, but `AdvancedWindow.DeviceLearning.cs` still searched for that deleted placeholder;
+- learning/report-ready state therefore could not construct its Advanced status button on the cleaned shell;
+- the status now uses the canonical `ThinkControl.BrandRow`, temporarily replacing the wordmark without adding another sidebar row;
+- initialization is owned by the canonical Advanced surface setup rather than a separate `Loaded` hook;
+- source regression coverage rejects a return to `ThinkControl.NotificationSlot`;
+- WPF visual QA now includes a dark minimum-window learning snapshot and a light report-ready snapshot.
 
-Latest cleanup-head evidence before the release handoff:
+Candidate-head evidence before release freeze:
 
-- PR #88 exact head: `83e867280ad46b9df50e80375e476ebbb635ed37`
-- CI run `35315051447`: success
-  - repository hygiene: success
-  - build: success, 0 warnings / 0 errors
-  - Core tests: **203 passed, 0 failed, 0 skipped**
-  - real Compact ↔ Advanced ShellSmoke: success
-  - WPF visual QA: success, including Notifications after the canonical-body fix
-- Package ThinkControl run `35315051441`: success
-  - payload and bootstrap installer built
-  - deep installer/service/IPC smoke: success
-  - oldest-supported alpha.14.1 upgrade compatibility: success
-  - development checksums/artifact produced
-
-Candidate-head release-handoff evidence:
-
-- exact candidate head: `39318de85500d8522df34a8c2dd0a4cdaaf3ffc4`
-- CI run `35315422765`: success
-  - repository hygiene: success
-  - build: success
-  - Core tests: **203 passed, 0 failed, 0 skipped**
-  - real Compact ↔ Advanced ShellSmoke: success
-  - complete WPF visual QA matrix: success, including notification-sheet states
-- Package ThinkControl run `35315422845`: success
-  - release payload and bootstrap installer built
-  - deep installer + sibling-payload discovery + custom-location persistence + IPC + clean uninstall lifecycle: success
-  - oldest-supported alpha.14.1 upgrade compatibility: success
-  - checksums and development artifact produced
+- exact candidate head: `ceada5576ef643247ce64e02ea0d937eec358b22`
+- CI run `35529249954`: success
+- Package ThinkControl run `35529249947`: success
+- exact-head visual-QA artifact `10610473640`, digest `sha256:d85ca1498d0243cf8048f435d796ea6755388cec4b9a8e2e94508c08d14f3987`
+- manual visual inspection passed for `advanced-home-device-learning-min.png`, `advanced-home-device-report-ready-light.png` and the normal minimum-window baseline: no added sidebar row, clipping or overlap was observed
 
 Release gate:
 
-- [x] cleanup series merged to `main`
+- [x] alpha.45 immutable release state reconciled in the persistent handoff
+- [x] stale post-cleanup shell dependency identified from a fresh residue scan
+- [x] Advanced learning/report-ready status restored to a canonical shell owner
+- [x] fixed-height placement avoids adding another navigation/sidebar row
+- [x] source regression guard added for the removed placeholder and canonical lifecycle
+- [x] dedicated WPF visual fixtures added for learning/report-ready shell states
 - [x] no low-level hardware capability expanded
-- [x] exact cleanup head CI green
-- [x] exact cleanup head Package ThinkControl green
-- [x] cleanup regression tests added for Advanced shell ownership
-- [x] alpha.45 candidate-head CI green
-- [x] alpha.45 candidate-head Package ThinkControl green
-- [x] candidate evidence is green; freeze `version.json.releaseReady=true` in the next commit
+- [x] exact alpha.46 candidate-head CI green
+- [x] exact alpha.46 candidate-head Package ThinkControl green
+- [x] exact-head WPF artifact manually inspected, including the two new device-learning snapshots
+- [x] freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
-- [ ] merge release handoff with exact expected-head SHA
-- [ ] immutable `v0.1.0-alpha.45` published with exactly four managed assets
+- [ ] merge PR #90 with exact expected-head SHA
+- [ ] immutable `v0.1.0-alpha.46` published with exactly four managed assets
 - [ ] published checksums re-downloaded and verified
 - [ ] post-merge main CI/promotion/branch hygiene green
 - [ ] post-release docs record the immutable tag SHA and final workflow evidence

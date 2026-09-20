@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.45** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.46** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -31,6 +31,15 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 - Navigate Compact → Advanced → Compact several times.
 - Open/dismiss the Inbox/notification sheet.
 - Retain crash-report/journal evidence if a failure occurs; one later clean session is not proof the root cause disappeared.
+
+## Alpha.46 Advanced shell regression
+
+1. On a new/unknown-device learning state, Advanced must show `New device · completed/total` in the existing brand-row footprint rather than adding another sidebar row.
+2. At the documented minimum Advanced window size, the learning indicator must remain fully visible and the navigation must not gain new clipping.
+3. When the report becomes ready, the same surface must show `Report ready` and remain clickable to Settings.
+4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
+5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
+6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
 
 ## Audio lifecycle regression
 
