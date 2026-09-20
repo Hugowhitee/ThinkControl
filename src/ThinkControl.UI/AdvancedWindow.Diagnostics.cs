@@ -18,6 +18,7 @@ public partial class AdvancedWindow
     {
         InitializeFeaturePanels();
         ConfigureAdvancedBranding();
+        ConfigureDeviceLearningIndicator();
         ConfigureAdvancedUiConsistency();
         ConfigureInteractionPolish();
         ConfigureResetDefaults();
