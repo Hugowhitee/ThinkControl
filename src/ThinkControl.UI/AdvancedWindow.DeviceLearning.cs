@@ -62,6 +62,22 @@ public partial class AdvancedWindow
         RefreshDeviceLearningIndicator();
     }
 
+    public void PrepareDeviceLearningForSnapshot(bool reportReady = false)
+    {
+        ConfigureDeviceLearningIndicator();
+        if (_deviceLearningStatusButton is null)
+            throw new InvalidOperationException("Advanced device-learning indicator was not initialized.");
+
+        _deviceLearningStatusButton.Visibility = Visibility.Visible;
+        if (_deviceLearningBaseBrand is not null)
+            _deviceLearningBaseBrand.Visibility = Visibility.Collapsed;
+
+        _deviceLearningStatusButton.Content = reportReady ? "Report ready" : "New device · 2/4";
+        _deviceLearningStatusButton.SetResourceReference(
+            Control.ForegroundProperty,
+            reportReady ? "Tc.Accent" : "Tc.TextMuted");
+    }
+
     private void DeviceLearningStatusChanged(object? sender, EventArgs e)
     {
         if (!Dispatcher.CheckAccess())
