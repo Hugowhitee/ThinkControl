@@ -118,6 +118,26 @@ public partial class CompactDashboard
     private static bool IsManualFanState(string? value) =>
         !string.IsNullOrWhiteSpace(value) && value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase);
 
+    internal void PrepareAudioSafetyForSnapshot(AudioSafetyMode mode)
+    {
+        EnsureQuickControls();
+        _syncingQuickControls = true;
+        try
+        {
+            CompactAudioSafetyCombo.SelectedItem = AudioSafetyPolicy.DisplayName(mode);
+            bool silent = mode == AudioSafetyMode.Silent;
+            if (silent)
+            {
+                CompactVolumeSlider.IsEnabled = false;
+                CompactVolumeText.Text = "Silent";
+            }
+        }
+        finally
+        {
+            _syncingQuickControls = false;
+        }
+    }
+
     private void CompactPerformance_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingQuickControls || _app is null || CompactPerformanceCombo.SelectedItem is not string raw)
