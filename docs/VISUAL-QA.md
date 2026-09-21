@@ -42,7 +42,8 @@ Check at minimum:
 7. Touchpad visible gesture zones match the recognizer's real physical hit geometry;
 8. dark/light contrast and hierarchy remain usable;
 9. startup and Compact ↔ Advanced transitions always provide an immediately painted surface;
-10. overlays/popups intended to block interaction appear above Compact as well as Advanced.\n11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Media lock / Silent remain legible without footer clipping in both themes.
+10. overlays/popups intended to block interaction appear above Compact as well as Advanced.
+11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Media lock / Silent remain legible without footer clipping in both themes.
 
 ## Artifact ownership
 
