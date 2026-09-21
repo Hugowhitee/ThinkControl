@@ -23,12 +23,12 @@
   </a>
 </div>
 
-## ThinkControl alpha.46
+## ThinkControl alpha.47
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.46`  
-**Current immutable prerelease:** `v0.1.0-alpha.45`
+**Release target:** `v0.1.0-alpha.47`  
+**Current immutable prerelease:** `v0.1.0-alpha.46`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -38,8 +38,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.45/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.45/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.46/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.46/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -62,6 +62,16 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.47 changes
+
+Alpha.47 is a focused interface-consistency and visual-verification follow-up to immutable alpha.46. It does not change the hardware safety boundary or add another product mode.
+
+- **Compact / Advanced now use one vocabulary.** The app-opening preference says `Compact` / `Advanced`, matching the shell, documentation and navigation instead of mixing `Full` into the same concept.
+- **The important mode states are reviewed directly.** WPF visual QA now renders Compact `Media lock` and `Silent`, including light theme, plus Settings with Advanced selected and Silent active.
+- **Audio Safety stays one canonical session mode.** `Normal`, `Media lock` and `Silent` still use the existing shared policy owner; this release only tightens visible consistency and verification.
+- **Shell regression coverage uses the same names users see.** Lifecycle smoke now describes the resizable surface as Advanced everywhere.
+- **Hardware behavior is unchanged.** No fan, battery, keyboard, audio backend, Touchpad recognizer, provider, EC or IOCTL contract is broadened.
 
 ## What alpha.46 changes
 
@@ -96,7 +106,7 @@ Alpha.44 is a stabilization release focused on cold-boot control readiness and s
 - **Track skip is harder to trigger accidentally.** Previous/Next now requires a **12 mm** deliberate swipe and commits only when the finger is released. The Track-center Play/Pause contract remains the existing 450 ms hold, ≤3 mm movement and release-to-commit behavior.
 - **Hardware safety is unchanged.** The rejected Lenovo per-fan target writer remains read-only; no EC, EnergyDrv, Lenovo Other Mode or battery write capability is broadened by this release.
 
-Alpha.45 is the current immutable maintenance baseline for alpha.46. Alpha.44 remains the last release that changed the X9 cold-start and Touchpad edge-control behavior described above.
+Alpha.46 is the current immutable shell-maintenance baseline for alpha.47. Alpha.44 remains the last release that changed the X9 cold-start and Touchpad edge-control behavior described above.
 
 ## What alpha.43 changes
 
