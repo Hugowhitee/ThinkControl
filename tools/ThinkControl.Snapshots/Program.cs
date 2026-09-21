@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ThinkControl.Core.Audio;
 using ThinkControl.Core.Ipc;
 using ThinkControl.Core.Touchpad;
 using ThinkControl.UI;
@@ -90,11 +91,17 @@ internal static class Program
         ThemeService.Apply(ThemeMode.Dark);
         RenderBootstrap(output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
+        RenderCompact(app, charging, output, snapshots, "compact-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+        RenderCompact(app, charging, output, snapshots, "compact-silent.png", "Audio safety · Silent", audioSafetyMode: AudioSafetyMode.Silent);
         RenderCompact(app, charging, output, snapshots, "compact-metrics-editor.png", "charging · metric editor", editMetrics: true);
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
+        RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
+            "advanced-settings-opening-advanced.png", "app icon opens · Advanced", openingView: "Advanced");
+        RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
+            "advanced-settings-audio-silent.png", "Audio safety · Silent", settingsAudioSafety: AudioSafetyMode.Silent);
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
@@ -167,7 +174,10 @@ internal static class Program
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
+        RenderCompact(app, charging, output, snapshots, "compact-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
+        RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
+            "advanced-settings-light.png", "Advanced opening mode · light", openingView: "Advanced");
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
             "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
@@ -336,12 +346,15 @@ internal static class Program
         ICollection<SnapshotEntry> snapshots,
         string fileName,
         string stateName,
-        bool editMetrics = false)
+        bool editMetrics = false,
+        AudioSafetyMode? audioSafetyMode = null)
     {
         const int width = 390;
         const int height = 500;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
+        if (audioSafetyMode is AudioSafetyMode mode)
+            window.PrepareAudioSafetyForSnapshot(mode);
         if (editMetrics)
             window.PrepareMetricEditorForSnapshot();
         RenderWindowContent(window, Path.Combine(output, fileName));
@@ -365,13 +378,19 @@ internal static class Program
         bool touchpadCornerLive = false,
         bool fanManualTest = false,
         bool deviceLearning = false,
-        bool deviceReportReady = false)
+        bool deviceReportReady = false,
+        string? openingView = null,
+        AudioSafetyMode? settingsAudioSafety = null)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
         if (deviceLearning)
             window.PrepareDeviceLearningForSnapshot(deviceReportReady);
+        if (openingView is not null)
+            window.PrepareOpeningViewForSnapshot(openingView);
+        if (settingsAudioSafety is AudioSafetyMode audioSafety)
+            window.PrepareAudioSafetyForSnapshot(audioSafety);
         if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)
             app.State.BatteryTemperatureC = null;
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
