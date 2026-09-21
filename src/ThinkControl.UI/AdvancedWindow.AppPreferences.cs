@@ -287,7 +287,7 @@ public partial class AdvancedWindow
         _openingAdvanced = new RadioButton
         {
             GroupName = "DefaultOpeningView",
-            Content = "Full",
+            Content = "Advanced",
             Tag = "Advanced",
             Style = TryFindResource("TcSegment") as Style,
             Margin = new Thickness(4, 0, 0, 0)
@@ -360,6 +360,18 @@ public partial class AdvancedWindow
 
         _app.UserSettings.Update(settings => settings with { DefaultOpeningView = view });
         RefreshOpeningViewSelection();
+    }
+
+    internal void PrepareOpeningViewForSnapshot(string view)
+    {
+        if (_openingCompact is null || _openingAdvanced is null)
+            ConfigureAppPreferencesUi();
+
+        bool advanced = string.Equals(view, "Advanced", StringComparison.OrdinalIgnoreCase);
+        if (_openingCompact is not null)
+            _openingCompact.IsChecked = !advanced;
+        if (_openingAdvanced is not null)
+            _openingAdvanced.IsChecked = advanced;
     }
 
     private void RefreshOpeningViewSelection()
