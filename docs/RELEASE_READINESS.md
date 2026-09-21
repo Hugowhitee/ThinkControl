@@ -6,76 +6,70 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.45`
-- immutable tag/release SHA: `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- published 2026-09-18 at 06:41:38 UTC as an immutable prerelease
+- `v0.1.0-alpha.46`
+- immutable tag/release SHA: `ccca29ed696d422b21f96589b972fbee5884b291`
+- published 2026-09-20 at 18:39:17 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:77c4ed343a35b4b1cb413e59bc1eb9f13069c13d4a488edc0687b91b055b4350`
-  - Payload: `sha256:6774e344c0dc398b10082c43627574109d5f9bc4bb72f84e07edd11f5d13f164`
-  - `SHA256SUMS.txt`: `sha256:9ae2c73940d35d4a2451669edb1eecafc7ac29b5c20d582c7aeea2f9692ae942`
-  - `ui-overview.png`: `sha256:15f4e314a2d7eef430ae01b6086ef5fb62d56dddded660758a105fc2f86f8403`
+  - Setup: `sha256:4baa95fa1575d9d995ecad1b9c51dbdc53b73f4b2bd7a17c9f158aaf6231a45a`
+  - Payload: `sha256:e7a2d5e0756b900a58fcf101c5146d15b75071ecd7afae1b26f4d4acdd668153`
+  - `SHA256SUMS.txt`: `sha256:126a78c0920f512ff28f3656f98dba00e7b40ac4fdd69a8cd3fe84f3bc1a001a`
+  - `ui-overview.png`: `sha256:ad829a8cde69279f8f2443c838c6d83b7f6a761c2024a76950ef9ecfe4c4a651`
+- alpha.45 remains separately immutable at `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
 - alpha.44 remains separately immutable at `17abe5458a1f6f43f66383827d463bd1094498c2`
 - alpha.43 remains separately immutable at `ba13fab6d5b47cf127f4b627976662678f2ec491`
-- alpha.42 remains separately immutable at `2d40dffebeb6f8327cd06403e076936c40d60497`
-- alpha.41 remains separately immutable at `6088955eeab54d1af6506780fa7707df17fe11c3`
 
-Alpha.45 completion:
+Alpha.46 completion:
 
-- PR #89, **Prepare ThinkControl 0.1.0-alpha.45 maintenance release**, merged with frozen head `43e293d701d849c0d92d8b19dd9c76c9e0837206`
-- frozen-head CI run `35315622906`: success
-- frozen-head Package ThinkControl run `35315622936`: success
-- merge commit / immutable release tag target: `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- post-merge main CI run `35315795686`: success
-- promotion/checksum verification run `35315795660`: success
-- complete immutable release run `35315808774`: success
-- branch hygiene run `35315796232`: success
+- PR #90, **Prepare ThinkControl 0.1.0-alpha.46 shell regression repair**, merged with frozen head `1b3cd07722259ed05ca43942248c6d8c86df6fcf`
+- frozen-head CI run `35529489572`: success
+- frozen-head Package ThinkControl run `35529489569`: success
+- merge commit / immutable release tag target: `ccca29ed696d422b21f96589b972fbee5884b291`
+- post-merge main CI run `35529618038`: success
+- promotion/checksum verification run `35529618037`: success
+- complete immutable release run `35529626686`: success
+- branch hygiene run `35529620904`: success
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
+- post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.46 Advanced shell regression repair candidate
+## Alpha.47 mode and visual polish candidate
 
-Alpha.46 is intentionally narrow: it repairs one Advanced shell regression left by the alpha.45 ownership cleanup. It does **not** broaden EC, Lenovo Other Mode, EnergyDrv, battery, keyboard, audio or Touchpad hardware-write semantics.
+Alpha.47 is a narrow interface-consistency release on immutable alpha.46. It does **not** broaden any low-level hardware write contract.
 
 Candidate state:
 
-- source version: `v0.1.0-alpha.46`
-- `version.json.releaseReady=true`; candidate evidence is green and the release scope is frozen
-- immutable base: `v0.1.0-alpha.45` at `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- active release/fix PR: #90 **Prepare ThinkControl 0.1.0-alpha.46 shell regression repair**
+- source version: `v0.1.0-alpha.47`
+- `version.json.releaseReady=false` until exact-head code, package and visual evidence are green
+- immutable base: `v0.1.0-alpha.46` at `ccca29ed696d422b21f96589b972fbee5884b291`
+- active branch: `polish/alpha47-mode-visuals`
 
-Root cause and repair:
+Scope:
 
-- alpha.45 removed the temporary Advanced dock row and `ThinkControl.NotificationSlot`, but `AdvancedWindow.DeviceLearning.cs` still searched for that deleted placeholder;
-- learning/report-ready state therefore could not construct its Advanced status button on the cleaned shell;
-- the status now uses the canonical `ThinkControl.BrandRow`, temporarily replacing the wordmark without adding another sidebar row;
-- initialization is owned by the canonical Advanced surface setup rather than a separate `Loaded` hook;
-- source regression coverage rejects a return to `ThinkControl.NotificationSlot`;
-- WPF visual QA now includes a dark minimum-window learning snapshot and a light report-ready snapshot.
-
-Candidate-head evidence before release freeze:
-
-- exact candidate head: `ceada5576ef643247ce64e02ea0d937eec358b22`
-- CI run `35529249954`: success
-- Package ThinkControl run `35529249947`: success
-- exact-head visual-QA artifact `10610473640`, digest `sha256:d85ca1498d0243cf8048f435d796ea6755388cec4b9a8e2e94508c08d14f3987`
-- manual visual inspection passed for `advanced-home-device-learning-min.png`, `advanced-home-device-report-ready-light.png` and the normal minimum-window baseline: no added sidebar row, clipping or overlap was observed
+- use one user-facing shell vocabulary: `Compact` / `Advanced`, removing the stray `Full` label from App icon opening preferences and shell-smoke descriptions;
+- keep Audio Safety as the existing canonical `Normal` / `Media lock` / `Silent` session mode, with no new mode/state owner;
+- add deterministic Compact Media-lock/Silent visual states, including light theme;
+- add Settings visual states for Advanced opening preference, Silent and light theme;
+- strengthen source tests so the visible naming and required mode screenshots cannot silently regress;
+- preserve all alpha.46 hardware/provider, startup, installer and safety behavior.
 
 Release gate:
 
-- [x] alpha.45 immutable release state reconciled in the persistent handoff
-- [x] stale post-cleanup shell dependency identified from a fresh residue scan
-- [x] Advanced learning/report-ready status restored to a canonical shell owner
-- [x] fixed-height placement avoids adding another navigation/sidebar row
-- [x] source regression guard added for the removed placeholder and canonical lifecycle
-- [x] dedicated WPF visual fixtures added for learning/report-ready shell states
+- [x] alpha.46 immutable release state reconciled in the persistent handoff
+- [x] strict alpha.46 full-resolution visual pass completed before starting this candidate
+- [x] Compact / Advanced visible naming unified in the opening preference
+- [x] shell-smoke stage naming aligned with Advanced
+- [x] Compact Audio Safety mode snapshots added
+- [x] Advanced Settings mode/light snapshots added
+- [x] source regression coverage added for mode vocabulary and visual matrix
 - [x] no low-level hardware capability expanded
-- [x] exact alpha.46 candidate-head CI green
-- [x] exact alpha.46 candidate-head Package ThinkControl green
-- [x] exact-head WPF artifact manually inspected, including the two new device-learning snapshots
-- [x] freeze `version.json.releaseReady=true`
+- [ ] exact alpha.47 implementation-head CI green
+- [ ] exact alpha.47 implementation-head Package ThinkControl green
+- [ ] exact-head WPF artifact manually inspected under strict visual criteria
+- [ ] review comments/threads resolved
+- [ ] record implementation-head evidence and freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
-- [ ] merge PR #90 with exact expected-head SHA
-- [ ] immutable `v0.1.0-alpha.46` published with exactly four managed assets
+- [ ] merge alpha.47 PR with exact expected-head SHA
+- [ ] immutable `v0.1.0-alpha.47` published with exactly four managed assets
 - [ ] published checksums re-downloaded and verified
 - [ ] post-merge main CI/promotion/branch hygiene green
 - [ ] post-release docs record the immutable tag SHA and final workflow evidence
