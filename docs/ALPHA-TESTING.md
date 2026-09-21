@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.46** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.47** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -40,6 +40,15 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
+
+## Alpha.47 mode and visual polish
+
+1. Settings → **App icon opens** must use exactly `Compact` / `Advanced`; `Full` must not reappear as a competing user-facing name for Advanced.
+2. Select Advanced as the opening preference and confirm Start/desktop/taskbar/second-launch routing opens Advanced while the tray icon still owns Compact.
+3. In Compact, inspect `Normal`, `Media lock` and `Silent`; the selector and footer links must remain aligned with no clipping at the fixed production size.
+4. Repeat the Compact Silent state in light theme and confirm the disabled volume state remains readable without looking broken.
+5. In Advanced → Settings, inspect the Advanced-opening selection and Silent state in dark and light themes. Segment geometry, helper copy and active-state hierarchy must match the shared design system.
+6. Review the dedicated WPF mode-state snapshots before promotion; green rendering alone is not sufficient.
 
 ## Audio lifecycle regression
 
