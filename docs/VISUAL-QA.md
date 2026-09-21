@@ -16,9 +16,9 @@ Use `-NoBuild` when the solution is already built and `-NoOpen` when only the fi
 
 The snapshot renderer covers:
 
-- Compact at its production fixed size, including battery/charging states;
+- Compact at its production fixed size, including battery/charging and Audio Safety states;
 - every Advanced page at minimum, normal and wide viewports;
-- selected light-theme states;
+- selected light-theme states, including Compact and Settings mode surfaces;
 - important provider unavailable/offline states;
 - hardware setup and diagnostics states;
 - temporary manual fan-test safety UI;
@@ -42,7 +42,7 @@ Check at minimum:
 7. Touchpad visible gesture zones match the recognizer's real physical hit geometry;
 8. dark/light contrast and hierarchy remain usable;
 9. startup and Compact ↔ Advanced transitions always provide an immediately painted surface;
-10. overlays/popups intended to block interaction appear above Compact as well as Advanced.
+10. overlays/popups intended to block interaction appear above Compact as well as Advanced.\n11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Media lock / Silent remain legible without footer clipping in both themes.
 
 ## Artifact ownership
 
