@@ -58,7 +58,7 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Full/Compact routing, passive-update dismissal on Full transition, diagnostics Ready/Shared/Verified lifecycle, repeated real Compact/Full routing, notification activation/action/dismiss, minimized Touchpad recovery, bounded page-navigation latency, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Advanced/Compact routing, passive-update dismissal on Full transition, diagnostics Ready/Shared/Verified lifecycle, repeated real Compact/Full routing, notification activation/action/dismiss, minimized Touchpad recovery, bounded page-navigation latency, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
         catch (Exception ex)
@@ -141,8 +141,8 @@ internal static class Program
         // preference must own Start/desktop/taskbar re-activation in both directions.
         app.ApplyPreferredDesktopLaunchForShellSmoke("Advanced");
         Pump(app.Dispatcher);
-        AssertPrimarySurface(app, compact: false, full: true, "preferred app-icon Full");
-        AssertAlive(app, "preferred app-icon Full");
+        AssertPrimarySurface(app, compact: false, full: true, "preferred app-icon Advanced");
+        AssertAlive(app, "preferred app-icon Advanced");
 
         app.ApplyPreferredDesktopLaunchForShellSmoke("Compact");
         Pump(app.Dispatcher);
@@ -162,10 +162,10 @@ internal static class Program
 
         InvokeButton(app.CompactWindow.ExpandButtonForShellSmoke);
         Pump(app.Dispatcher);
-        AssertPrimarySurface(app, compact: false, full: true, "passive update -> Full");
+        AssertPrimarySurface(app, compact: false, full: true, "passive update -> Advanced");
         if (passiveToast.IsVisible)
             throw new InvalidOperationException("Passive update smoke: confirmation remained visible over Advanced.");
-        AssertAlive(app, "passive update -> Full");
+        AssertAlive(app, "passive update -> Advanced");
 
         app.SwitchAdvancedToCompact();
         Pump(app.Dispatcher);
@@ -274,7 +274,7 @@ internal static class Program
         InvokeButton(app.CompactWindow.ExpandButtonForShellSmoke);
         Pump(app.Dispatcher);
         AssertPrimarySurface(app, compact: false, full: true, "post-notification real expand click");
-        AssertAlive(app, "post-notification Full");
+        AssertAlive(app, "post-notification Advanced");
 
         ValidatePageNavigation(app);
     }
