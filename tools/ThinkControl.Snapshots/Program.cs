@@ -98,10 +98,14 @@ internal static class Program
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
+        RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
+            "advanced-home-audio-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+        RenderAdvanced(app, charging, "Home", 980, 650, output, snapshots,
+            "advanced-home-audio-silent-min.png", "Audio safety · Silent · minimum window", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
             "advanced-settings-opening-advanced.png", "app icon opens · Advanced", openingView: "Advanced");
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
-            "advanced-settings-audio-silent.png", "Audio safety · Silent", settingsAudioSafety: AudioSafetyMode.Silent);
+            "advanced-settings-audio-silent.png", "Audio safety · Silent", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
@@ -176,6 +180,8 @@ internal static class Program
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
         RenderCompact(app, charging, output, snapshots, "compact-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
+        RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
+            "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
             "advanced-settings-light.png", "Advanced opening mode · light", openingView: "Advanced");
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
@@ -380,7 +386,7 @@ internal static class Program
         bool deviceLearning = false,
         bool deviceReportReady = false,
         string? openingView = null,
-        AudioSafetyMode? settingsAudioSafety = null)
+        AudioSafetyMode? audioSafetyMode = null)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -389,7 +395,7 @@ internal static class Program
             window.PrepareDeviceLearningForSnapshot(deviceReportReady);
         if (openingView is not null)
             window.PrepareOpeningViewForSnapshot(openingView);
-        if (settingsAudioSafety is AudioSafetyMode audioSafety)
+        if (audioSafetyMode is AudioSafetyMode audioSafety)
             window.PrepareAudioSafetyForSnapshot(audioSafety);
         if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)
             app.State.BatteryTemperatureC = null;
