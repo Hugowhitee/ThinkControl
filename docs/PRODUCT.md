@@ -189,7 +189,7 @@ ThinkControl separates compatibility learning, crash recovery and troubleshootin
 
 The current alpha series uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
-When automatic update checks are enabled, ThinkControl checks once shortly after startup. Tray-only startup remains silent while no window is visible; if that check finds a newer release, the first later visible Compact or Advanced session offers **Install now** or **Later**. Later suppresses repeat interruption for that exact version but leaves the release visible in Notifications and Updates. A newer version can prompt again.
+When automatic update checks are enabled, ThinkControl checks once shortly after startup. Tray-only startup remains silent while no window is visible; if that check finds a newer release, the first later visible Compact or Advanced session offers **Install now** or **Later** and keeps that decision prompt visible until one is chosen. Later suppresses repeat interruption for that exact version but leaves the release visible in Notifications and Updates. A newer version can prompt again.
 
 Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is persisted for the next session. When Home already knows an update is available, its update affordance opens Updates directly instead of performing another redundant check.
 
