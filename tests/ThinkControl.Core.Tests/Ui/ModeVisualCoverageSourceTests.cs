@@ -23,6 +23,7 @@ public sealed class ModeVisualCoverageSourceTests
         string root = FindRepositoryRoot();
         string snapshots = File.ReadAllText(Path.Combine(root, "tools", "ThinkControl.Snapshots", "Program.cs"));
 
+        Assert.Contains("update-attention-first-seen.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-media-lock.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-silent.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-silent-light.png", snapshots, StringComparison.Ordinal);
