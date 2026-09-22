@@ -342,10 +342,4 @@ public partial class AdvancedWindow
     }
 
     private void HomeBattery_Click(object sender, MouseButtonEventArgs e) => Navigate("Battery");
-
-    private void BatteryProtectionJump_Click(object sender, RoutedEventArgs e)
-    {
-        BatteryTelemetryPanelControl.BringIntoView();
-        BatteryTelemetryPanelControl.Focus();
-    }
 }
