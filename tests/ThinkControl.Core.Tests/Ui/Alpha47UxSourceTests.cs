@@ -104,6 +104,10 @@ public sealed class Alpha47UxSourceTests
 
         Assert.Contains("List<BatteryHealthSample> HealthSamples", history, StringComparison.Ordinal);
         Assert.Contains("SchemaVersion { get; set; } = 5", history, StringComparison.Ordinal);
+        string runtime = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.RuntimeRefresh.cs"));
+        string app = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.xaml.cs"));
+        Assert.Contains("_runtimeBatteryDesignWh", runtime, StringComparison.Ordinal);
+        Assert.Contains("battery.DesignCapacityWh is > 0", app, StringComparison.Ordinal);
         Assert.Contains("A charge cap such as 80–90% does not need to be disabled", xaml, StringComparison.Ordinal);
     }
 
