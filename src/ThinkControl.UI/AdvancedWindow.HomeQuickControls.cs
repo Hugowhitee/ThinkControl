@@ -334,6 +334,13 @@ public partial class AdvancedWindow
         HomeAudioSafetySilent.IsEnabled = enabled;
     }
 
+    private void BatteryProtectionJump_Click(object sender, RoutedEventArgs e)
+    {
+        Navigate("Battery");
+        Dispatcher.BeginInvoke(new Action(() => BatteryTelemetryPanelControl?.BringPreservationIntoView()),
+            System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
     private void HomeBattery_Click(object sender, MouseButtonEventArgs e) => Navigate("Battery");
 
     private void BatteryProtectionJump_Click(object sender, RoutedEventArgs e)
