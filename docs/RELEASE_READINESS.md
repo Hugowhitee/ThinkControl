@@ -32,18 +32,20 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.47 mode and visual polish candidate
+## Alpha.47 published release
 
-Alpha.47 is an interface-consistency, feedback and clarity release on immutable alpha.46. It does **not** add a new low-level hardware command surface.
+Alpha.47 is the immutable interface-consistency, feedback and clarity release on alpha.46. It does **not** add a new low-level hardware command surface.
 
-Candidate state:
+Published state:
 
 - source version: `v0.1.0-alpha.47`
-- `version.json.releaseReady=true` on the frozen candidate after exact-head code, package and visual evidence completed
+- `version.json.releaseReady=true`
 - immutable base: `v0.1.0-alpha.46` at `ccca29ed696d422b21f96589b972fbee5884b291`
-- active branch / PR: `polish/alpha47-mode-visuals` / #91
-- current implementation scope is frozen except for evidenced CI/review/visual defects
-- this document is the single persistent handoff: a future chat should restore live repo/PR state, read this section and continue the unchecked release gates rather than reconstructing intent from chat history
+- release PR: #91, merged with exact expected head `34576eec7599a00eee4ab5bff2f9da977cc7859b`
+- merge commit / immutable tag target: `f00a11ca789e0d360051bae9358e4312316cde59`
+- immutable tag: `v0.1.0-alpha.47`
+- public prerelease contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`
+- the implementation/release scope is closed; future changes belong to a later version
 
 Scope:
 
@@ -69,36 +71,40 @@ Release gate:
 - [x] Home update availability made directly actionable
 - [x] duplicate Audio Safety editor removed from Settings; one canonical owner remains
 - [x] Compact Media safety moved out of the footer and into the Volume/control cluster
-- [x] Advanced Home now exposes independent Battery and Plugged-in power preferences
+- [x] Advanced Home exposes independent Battery and Plugged-in power preferences
 - [x] Home fan Auto switch and real More profiles menu implemented without a second fan-state owner
 - [x] Battery Preservation live state + applied/disabled + pause/resume feedback implemented
 - [x] battery-health trend decoupled from full-charge completion and long-lived runtime keeps design-capacity context
 - [x] Keyboard Effects marked Experimental with session-only warned fallback opt-in
-- [x] deterministic QA fixtures added/updated for the new alpha.47 states
-- [x] source regression coverage expanded for the new UX contracts
+- [x] deterministic QA fixtures and source regression coverage expanded
 - [x] no new low-level hardware command or provider capability introduced
-- [x] exact final implementation-head CI green
-- [x] exact final implementation-head Package ThinkControl green
-- [x] exact-head WPF artifact manually inspected at full resolution: Compact control cluster/footer, Advanced Home power/fan/Audio Safety cards, Battery Preservation paused state, Keyboard Experimental state, update popup, minimum window and light theme
-- [x] review gate reconciled: zero review threads; Codex review requests were blocked by the configured usage limit, so approval was not inferred and manual exact-head diff/visual review was used instead
-- [x] record final implementation-head evidence and freeze `version.json.releaseReady=true`
-### Alpha.47 implementation-head evidence
+- [x] exact final implementation-head CI + Package green
+- [x] exact-head WPF artifact manually inspected at full resolution, including minimum and light layouts
+- [x] review gate reconciled: zero review threads; Codex review requests were blocked by the configured usage limit, so approval was not inferred
+- [x] release-ready metadata freeze completed
+- [x] frozen-head CI + Package green
+- [x] PR #91 merged with exact expected-head SHA
+- [x] immutable `v0.1.0-alpha.47` published with exactly four managed assets
+- [x] published assets re-downloaded and SHA-256 verified
+- [x] post-merge main CI, release promotion and branch hygiene green
+- [x] post-release documentation records the immutable tag SHA and final workflow evidence
 
-Final implementation head before the release-ready metadata freeze: `a1bd7f136aaa50bb15b2fac30157aa24778abba5`.
+### Alpha.47 final evidence
 
-- CI run `35788158995`: success; repository hygiene, Release build, **213 tests**, real Compact ↔ Advanced shell smoke and WPF renderer all passed.
-- Package ThinkControl run `35788159070`: success; payload build, bootstrap installer, deep installer/IPC smoke, oldest-supported alpha.14.1 updater compatibility and checksum creation all passed.
-- exact-head visual artifact `10720992192`, digest `sha256:4c09d4e8a2e852774acc121b0f03af22ee4d08a5101d05f6bb0a83739f2978b7`, contains **99 deterministic screenshots**.
-- full-resolution manual review covered Compact dark/light + Media lock/Silent, Advanced Home normal/minimum/light + manual fan + Audio Safety, Battery Preservation paused state, Experimental keyboard fallback, first-seen update attention and Settings cleanup.
-- the final minimum-width pass found and fixed clipped Home `Performance` labels; the replacement artifact on the exact implementation head shows both Battery and Plugged-in rows fully readable.
-- PR #91 has zero review threads. Repeated Codex review requests returned the explicit code-review usage-limit message, which is recorded as a tooling constraint rather than treated as review approval.
+Implementation head before the release-ready metadata freeze: `a1bd7f136aaa50bb15b2fac30157aa24778abba5`.
 
-- [ ] frozen-head CI + Package green
-- [ ] merge alpha.47 PR with exact expected-head SHA
-- [ ] immutable `v0.1.0-alpha.47` published with exactly four managed assets
-- [ ] published checksums re-downloaded and verified
-- [ ] post-merge main CI/promotion/branch hygiene green
-- [ ] post-release docs record the immutable tag SHA and final workflow evidence
+- implementation CI `35788158995`: success; repository hygiene, Release build, **213 tests**, real Compact ↔ Advanced shell smoke and WPF renderer passed;
+- implementation Package `35788159070`: success; payload, bootstrap installer, deep installer/IPC smoke, oldest-supported alpha.14.1 updater compatibility and checksums passed;
+- exact-head visual artifact `10720992192`, digest `sha256:4c09d4e8a2e852774acc121b0f03af22ee4d08a5101d05f6bb0a83739f2978b7`: **99 deterministic screenshots**, manually inspected at full resolution;
+- frozen candidate head `34576eec7599a00eee4ab5bff2f9da977cc7859b`;
+- frozen-head CI `35788527824`: success;
+- frozen-head Package `35788527725`: success;
+- exact expected-head merge commit / tag target `f00a11ca789e0d360051bae9358e4312316cde59`;
+- post-merge main CI `35799444416`: success;
+- branch hygiene `35799443578`: success;
+- complete immutable tagged release `35799456825`: success;
+- promotion / public re-download / checksum verification `35799444386`: success;
+- public release `v0.1.0-alpha.47` published on 2026-09-22 UTC with exactly four managed assets.
 
 ## Alpha.44 stabilization release
 
