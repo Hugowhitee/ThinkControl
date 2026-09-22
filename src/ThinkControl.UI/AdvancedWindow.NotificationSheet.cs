@@ -227,7 +227,7 @@ public partial class AdvancedWindow
                     _app.UserSettings.Current.DismissedUpdateVersion);
                 string detail = $"{transition}. " +
                     (promptDismissed
-                        ? "The startup prompt was dismissed, but the update remains available here until you install it or a newer release replaces it."
+                        ? "The update was postponed, but it remains available here until you install it or a newer release replaces it."
                         : "A newer release is ready. Open Updates to review and install it.");
                 messages.Add(new(
                     "ThinkControl update available",
