@@ -13,6 +13,9 @@ public sealed class Alpha47UxSourceTests
 
         Assert.Contains("ready ? \"Install now\" : \"Open Updates\"", attention, StringComparison.Ordinal);
         Assert.Contains("dismissText: \"Later\"", attention, StringComparison.Ordinal);
+        Assert.Contains("autoHide: false", attention, StringComparison.Ordinal);
+        string toast = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Services", "AttentionToastService.cs"));
+        Assert.Contains("if (_autoHidePresentation)", toast, StringComparison.Ordinal);
 
         string visibility = attention.Split("private bool CanShowAttentionNow()", StringSplitOptions.None)[1]
             .Split("private static bool NeedsProactiveHardwareAttention", StringSplitOptions.None)[0];
