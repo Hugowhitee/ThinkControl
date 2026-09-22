@@ -217,9 +217,14 @@ public partial class AdvancedWindow : Window
         try
         {
             ThinkControlPowerMode batteryPreference = _app.GetPowerPreference(onBattery: true);
+            ThinkControlPowerMode acPreference = _app.GetPowerPreference(onBattery: false);
             HomeQuiet.IsChecked = batteryPreference == ThinkControlPowerMode.Quiet;
             HomeBalanced.IsChecked = batteryPreference == ThinkControlPowerMode.Balanced;
             HomePerformance.IsChecked = batteryPreference == ThinkControlPowerMode.Performance;
+            HomeAcQuiet.IsChecked = acPreference == ThinkControlPowerMode.Quiet;
+            HomeAcBalanced.IsChecked = acPreference == ThinkControlPowerMode.Balanced;
+            HomeAcPerformance.IsChecked = acPreference == ThinkControlPowerMode.Performance;
+            HomePowerSummary.Text = $"Battery {PowerShortName(batteryPreference)} · AC {PowerShortName(acPreference)}";
 
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);
