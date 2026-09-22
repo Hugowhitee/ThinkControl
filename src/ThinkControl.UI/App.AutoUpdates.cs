@@ -5,6 +5,8 @@ namespace ThinkControl.UI;
 
 public partial class App
 {
+    private static readonly TimeSpan AutomaticUpdateCheckStaleAfter = TimeSpan.FromHours(4);
+
     private bool _automaticUpdateBusy;
     private bool _startupUpdateCheckScheduled;
 
@@ -19,16 +21,34 @@ public partial class App
 
     private async Task CheckForUpdatesAfterStartupAsync()
     {
-        // Let the shell paint and hardware discovery begin first. Unlike alpha.28,
-        // this is intentionally a single startup check rather than a six-hour
-        // polling timer; manual Check for updates remains available at any time.
+        // Let the shell paint and hardware discovery begin first. Automatic update
+        // discovery is event-driven rather than timer-driven: startup gets one stale
+        // check, while later activation/resume events may request another only after
+        // the persisted check timestamp is old enough.
         await Task.Delay(TimeSpan.FromSeconds(6)).ConfigureAwait(false);
         if (Dispatcher.HasShutdownStarted || Dispatcher.HasShutdownFinished)
             return;
 
         await Dispatcher.InvokeAsync(
-            () => _ = CheckForUpdatesAutomaticallyAsync(),
+            RequestAutomaticUpdateCheckIfStale,
             DispatcherPriority.Background);
+    }
+
+    private void RequestAutomaticUpdateCheckIfStale()
+    {
+        if (_automaticUpdateBusy || !UserSettings.Current.AutomaticUpdates)
+            return;
+
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset? last = UpdateCheckHistoryService.Read();
+        if (last is DateTimeOffset checkedAt &&
+            now - checkedAt >= TimeSpan.Zero &&
+            now - checkedAt < AutomaticUpdateCheckStaleAfter)
+        {
+            return;
+        }
+
+        _ = CheckForUpdatesAutomaticallyAsync();
     }
 
     private async Task CheckForUpdatesAutomaticallyAsync()
@@ -54,8 +74,10 @@ public partial class App
         }
         catch
         {
+            // Record the attempt so repeated activations during an outage do not
+            // hammer the release endpoint. A later stale activation/resume retries.
             UpdateCheckHistoryService.Record(DateTimeOffset.UtcNow);
-            State.UpdateStatus = "Startup update check failed safely";
+            State.UpdateStatus = "Automatic update check failed safely";
         }
         finally
         {
