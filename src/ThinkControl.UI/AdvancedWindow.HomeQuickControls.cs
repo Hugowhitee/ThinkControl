@@ -19,18 +19,6 @@ public partial class AdvancedWindow
         if (!_homeQuickControlsConfigured)
         {
             _homeQuickControlsConfigured = true;
-
-            // Home has one deliberately simple power control, so it always edits the
-            // battery preference. The full Performance page remains the source for
-            // independent AC/DC configuration. Detach the generic current-source
-            // handler that XAML wires for these three Home buttons.
-            HomeQuiet.Click -= Mode_Click;
-            HomeBalanced.Click -= Mode_Click;
-            HomePerformance.Click -= Mode_Click;
-            HomeQuiet.Click += HomeBatteryMode_Click;
-            HomeBalanced.Click += HomeBatteryMode_Click;
-            HomePerformance.Click += HomeBatteryMode_Click;
-
             _app.State.PropertyChanged += HomeQuickState_PropertyChanged;
             _app.AudioSafety.ModeChanged += HomeAudioSafety_ModeChanged;
             Closed += (_, _) =>
@@ -40,7 +28,7 @@ public partial class AdvancedWindow
             };
         }
 
-        SyncHomeBatteryMode();
+        SyncHomePowerModes();
         RefreshHomeFanProfiles();
         RefreshHomeAudioSafety();
     }
@@ -51,56 +39,62 @@ public partial class AdvancedWindow
             nameof(ViewModels.AppState.CanFanControl) or
             nameof(ViewModels.AppState.FanControlKind))
         {
-            // Rebuild after capability/profile changes so Home never advertises a
-            // custom path the active provider cannot actually own.
             Dispatcher.BeginInvoke(new Action(RefreshHomeFanProfiles));
             return;
         }
 
-        if (e.PropertyName != nameof(ViewModels.AppState.SelectedMode))
-            return;
-
-        // AdvancedWindow.SyncControls is subscribed earlier and mirrors the current
-        // source into both sets of controls. Re-apply Home's battery-only meaning on
-        // the next dispatcher turn so AC state can never make this card lie.
-        Dispatcher.BeginInvoke(new Action(SyncHomeBatteryMode));
+        if (e.PropertyName == nameof(ViewModels.AppState.SelectedMode))
+            Dispatcher.BeginInvoke(new Action(SyncHomePowerModes));
     }
 
-    private void HomeBatteryMode_Click(object sender, RoutedEventArgs e)
+    private void HomePowerMode_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || sender is not FrameworkElement { Tag: string tag } ||
-            !Enum.TryParse(tag, out ThinkControlPowerMode mode))
+        if (_syncing || sender is not FrameworkElement { Tag: string tag })
+            return;
+
+        string[] parts = tag.Split(':', 2);
+        if (parts.Length != 2 || !Enum.TryParse(parts[1], true, out ThinkControlPowerMode mode))
+            return;
+
+        bool onBattery = parts[0].Equals("Battery", StringComparison.OrdinalIgnoreCase);
+        _ = _app.SetPowerPreference(mode, onBattery);
+        SyncHomePowerModes();
+    }
+
+    private void SyncHomePowerModes()
+    {
+        if (HomeQuiet is null || HomeBalanced is null || HomePerformance is null ||
+            HomeAcQuiet is null || HomeAcBalanced is null || HomeAcPerformance is null)
         {
             return;
         }
-
-        if (!_app.SetPowerPreference(mode, onBattery: true))
-        {
-            SyncHomeBatteryMode();
-            return;
-        }
-
-        SyncHomeBatteryMode();
-    }
-
-    private void SyncHomeBatteryMode()
-    {
-        if (HomeQuiet is null || HomeBalanced is null || HomePerformance is null)
-            return;
 
         ThinkControlPowerMode battery = _app.GetPowerPreference(onBattery: true);
+        ThinkControlPowerMode ac = _app.GetPowerPreference(onBattery: false);
         _syncing = true;
         try
         {
             HomeQuiet.IsChecked = battery == ThinkControlPowerMode.Quiet;
             HomeBalanced.IsChecked = battery == ThinkControlPowerMode.Balanced;
             HomePerformance.IsChecked = battery == ThinkControlPowerMode.Performance;
+            HomeAcQuiet.IsChecked = ac == ThinkControlPowerMode.Quiet;
+            HomeAcBalanced.IsChecked = ac == ThinkControlPowerMode.Balanced;
+            HomeAcPerformance.IsChecked = ac == ThinkControlPowerMode.Performance;
+            if (HomePowerSummary is not null)
+                HomePowerSummary.Text = $"Battery {PowerShortName(battery)} · AC {PowerShortName(ac)}";
         }
         finally
         {
             _syncing = false;
         }
     }
+
+    private static string PowerShortName(ThinkControlPowerMode mode) => mode switch
+    {
+        ThinkControlPowerMode.Quiet => "Efficiency",
+        ThinkControlPowerMode.Performance => "Fast",
+        _ => "Balanced"
+    };
 
     private void RefreshHomeFanProfiles()
     {
