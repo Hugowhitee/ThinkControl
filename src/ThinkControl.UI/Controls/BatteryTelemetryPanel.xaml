@@ -81,9 +81,10 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="3*" /><ColumnDefinition Width="2*" /></Grid.ColumnDefinitions>
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
                 <Grid>
-                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="125" /></Grid.RowDefinitions>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="125" /></Grid.RowDefinitions>
                     <Grid><TextBlock Text="Battery health trend" FontWeight="SemiBold" /><TextBlock Text="{Binding BatteryHealthTrendText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /></Grid>
-                    <controls:TimeSeriesChart Grid.Row="1" Margin="0,8,0,0" Values="{Binding BatteryHealthTrendTimeline}" Unit="%" ValueFormat="0.0" IncludeZero="False" />
+                    <TextBlock Grid.Row="1" Text="Uses firmware full-charge versus design capacity. A charge cap such as 80–90% does not need to be disabled for this trend." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <controls:TimeSeriesChart Grid.Row="2" Margin="0,8,0,0" Values="{Binding BatteryHealthTrendTimeline}" Unit="%" ValueFormat="0.0" IncludeZero="False" />
                 </Grid>
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
