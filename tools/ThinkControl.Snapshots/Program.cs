@@ -49,6 +49,19 @@ internal static class Program
         unknownOffline.MachineType = "QA-UNKNOWN";
         AppState batteryDeviceTemperature = CreateDemoState(charging: true, hardwareReady: true);
         batteryDeviceTemperature.BatteryTemperatureC = null;
+        AppState batteryProtectionPaused = CreateDemoState(charging: false, hardwareReady: true);
+        batteryProtectionPaused.BatteryPercent = 90;
+        batteryProtectionPaused.BatteryCharging = false;
+        batteryProtectionPaused.BatteryStatus = "Plugged in";
+        batteryProtectionPaused.BatteryProtectionEnabled = true;
+        batteryProtectionPaused.BatteryProtectionStartPercent = 80;
+        batteryProtectionPaused.BatteryProtectionStopPercent = 90;
+        batteryProtectionPaused.BatteryProtectionWritable = true;
+        AppState keyboardExperimentalFallback = CreateDemoState(charging: true, hardwareReady: true);
+        keyboardExperimentalFallback.CanKeyboardEffects = false;
+        keyboardExperimentalFallback.ExperimentalKeyboardEffectsEnabled = true;
+        keyboardExperimentalFallback.KeyboardBackend = "Lenovo Vantage fallback";
+        keyboardExperimentalFallback.KeyboardMode = "Breathing";
         AppState activeFanCurve = CreateDemoState(charging: true, hardwareReady: true);
         activeFanCurve.CoolingProfile = "Balanced";
         AppState homeManualFan = CreateDemoState(charging: true, hardwareReady: true);
@@ -110,10 +123,12 @@ internal static class Program
             "advanced-home-audio-silent-min.png", "Audio safety · Silent · minimum window", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
             "advanced-settings-opening-advanced.png", "app icon opens · Advanced", openingView: "Advanced");
-        RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
-            "advanced-settings-audio-silent.png", "Audio safety · Silent", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
+        RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
+            "advanced-battery-preservation-paused.png", "80–90% preservation · charging paused");
+        RenderAdvanced(app, keyboardExperimentalFallback, "Keyboard", 1160, 760, output, snapshots,
+            "advanced-keyboard-experimental-fallback.png", "Experimental fallback · session enabled");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
             "advanced-battery-day-expanded.png", "expanded daily session detail", expandBatteryDay: true);
 
@@ -278,6 +293,11 @@ internal static class Program
             CanFanControl = hardwareReady,
             CanFanTelemetry = hardwareReady,
             CanKeyboardBacklight = hardwareReady,
+            CanKeyboardEffects = hardwareReady,
+            BatteryProtectionEnabled = hardwareReady ? true : null,
+            BatteryProtectionStartPercent = hardwareReady ? 75 : null,
+            BatteryProtectionStopPercent = hardwareReady ? 85 : null,
+            BatteryProtectionWritable = hardwareReady,
             CanCpuTemperature = hardwareReady,
             CanSensorTelemetry = hardwareReady
         };
