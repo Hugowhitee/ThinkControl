@@ -26,7 +26,7 @@ public partial class CompactDashboard
             CompactFanCombo.ItemsSource = BuildFanOptions();
             CompactRefreshCombo.ItemsSource = BuildRefreshOptions();
             CompactKeyboardCombo.ItemsSource = new[] { "Off", "Low", "High", "Auto" };
-            CompactAudioSafetyCombo.ItemsSource = new[] { "Normal", "Media lock", "Silent" };
+            CompactAudioSafetyCombo.ItemsSource = new[] { "Audio · Normal", "Audio · Media lock", "Audio · Silent" };
         }
         finally
         {
@@ -96,7 +96,7 @@ public partial class CompactDashboard
                 : _app.State.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase) ? "High"
                 : null;
 
-            CompactAudioSafetyCombo.SelectedItem = AudioSafetyPolicy.DisplayName(_app.AudioSafety.Mode);
+            CompactAudioSafetyCombo.SelectedItem = CompactAudioSafetyLabel(_app.AudioSafety.Mode);
         }
         finally
         {
@@ -105,6 +105,9 @@ public partial class CompactDashboard
 
         RefreshCompactVolume();
     }
+
+    private static string CompactAudioSafetyLabel(AudioSafetyMode mode) =>
+        $"Audio · {AudioSafetyPolicy.DisplayName(mode)}";
 
     private static string DisplayFanName(string? raw) => raw?.Trim() switch
     {
@@ -124,7 +127,7 @@ public partial class CompactDashboard
         _syncingQuickControls = true;
         try
         {
-            CompactAudioSafetyCombo.SelectedItem = AudioSafetyPolicy.DisplayName(mode);
+            CompactAudioSafetyCombo.SelectedItem = CompactAudioSafetyLabel(mode);
             bool silent = mode == AudioSafetyMode.Silent;
             if (silent)
             {
@@ -193,8 +196,8 @@ public partial class CompactDashboard
 
         AudioSafetyMode mode = raw switch
         {
-            "Media lock" => AudioSafetyMode.MediaLock,
-            "Silent" => AudioSafetyMode.Silent,
+            _ when raw.Contains("Media lock", StringComparison.OrdinalIgnoreCase) => AudioSafetyMode.MediaLock,
+            _ when raw.Contains("Silent", StringComparison.OrdinalIgnoreCase) => AudioSafetyMode.Silent,
             _ => AudioSafetyMode.Normal
         };
 
