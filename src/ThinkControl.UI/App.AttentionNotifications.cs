@@ -182,12 +182,12 @@ public partial class App
             key,
             "ThinkControl update available",
             detail,
-            ready ? "Update" : "Open Updates",
+            ready ? "Install now" : "Open Updates",
             ready
                 ? () => _ = InstallUpdateFromAttentionAsync(update)
                 : () => OpenAdvancedSafely("Updates"),
             () => DismissUpdatePrompt(update),
-            dismissText: "Dismiss");
+            dismissText: "Later");
         if (version.Length > 0)
             _shownUpdateVersionThisRun = version;
     }
@@ -277,9 +277,9 @@ public partial class App
 
     private bool CanShowAttentionNow()
     {
-        if (IsTrayOnlyLaunch())
-            return false;
-
+        // A process started with --tray must stay quiet while no window is visible,
+        // but that launch argument must not suppress attention forever. Once the user
+        // opens Compact or Advanced, pending first-seen update attention is allowed.
         return CompactWindow?.IsVisible == true || _advancedWindow?.IsVisible == true;
     }
 
