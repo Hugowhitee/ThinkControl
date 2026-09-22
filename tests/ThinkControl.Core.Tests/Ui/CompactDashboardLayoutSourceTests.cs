@@ -5,27 +5,31 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class CompactDashboardLayoutSourceTests
 {
     [Fact]
-    public void FooterAudioSafetySelector_HasDedicatedGeometryAndDoesNotUseCardComboSizing()
+    public void MediaSafety_LivesWithVolumeAndNotInTheFooter()
     {
         string root = FindRepositoryRoot();
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.xaml"));
         string code = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.xaml.cs"));
+        string window = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "MainWindow.xaml"));
 
-        Assert.Contains("<RowDefinition Height=\"44\" />", xaml, StringComparison.Ordinal);
-        Assert.Contains("CompactAudioSafetyCombo", xaml, StringComparison.Ordinal);
-        Assert.Contains("Height=\"40\"", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("Margin=\"0,-1,10,0\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("<RowDefinition Height=\"122\" />", xaml, StringComparison.Ordinal);
+        Assert.Contains("<RowDefinition Height=\"34\" />", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Media safety\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Grid.Row=\"2\" Grid.Column=\"1\" Grid.ColumnSpan=\"2\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"38\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Height=\"520\"", window, StringComparison.Ordinal);
+
+        int footer = xaml.IndexOf("<Grid Grid.Row=\"4\"", StringComparison.Ordinal);
+        Assert.True(footer >= 0);
+        string footerBlock = xaml[footer..];
+        Assert.DoesNotContain("CompactAudioSafetyCombo", footerBlock, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Audio\"", footerBlock, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Settings  ›\"", footerBlock, StringComparison.Ordinal);
 
         string geometry = code.Split("private void ConfigureQuickControlGeometry()", StringSplitOptions.None)[1]
             .Split("internal void Initialize(App app)", StringSplitOptions.None)[0];
-
-        string cardLoop = geometry.Split("foreach (ComboBox combo in new[]", StringSplitOptions.None)[1]
-            .Split("})", StringSplitOptions.None)[0];
-
-        Assert.DoesNotContain("CompactAudioSafetyCombo", cardLoop, StringComparison.Ordinal);
-        Assert.Contains("CompactAudioSafetyCombo.Margin = new Thickness(0, 0, 10, 0);", geometry, StringComparison.Ordinal);
-        Assert.Contains("CompactAudioSafetyCombo.MinHeight = 40;", geometry, StringComparison.Ordinal);
-        Assert.Contains("CompactAudioSafetyCombo.VerticalAlignment = VerticalAlignment.Center;", geometry, StringComparison.Ordinal);
+        Assert.Contains("CompactAudioSafetyCombo.MinHeight = 38;", geometry, StringComparison.Ordinal);
+        Assert.Contains("CompactAudioSafetyCombo.Margin = new Thickness(0);", geometry, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()
