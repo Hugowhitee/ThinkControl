@@ -93,6 +93,7 @@ internal static class Program
 
         ThemeService.Apply(ThemeMode.Dark);
         RenderBootstrap(output, snapshots);
+        RenderUpdateAttention(app, output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
         RenderCompact(app, charging, output, snapshots, "compact-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
         RenderCompact(app, charging, output, snapshots, "compact-silent.png", "Audio safety · Silent", audioSafetyMode: AudioSafetyMode.Silent);
@@ -464,6 +465,33 @@ internal static class Program
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, $"Advanced · {page}", stateName, width, height));
         window.ForceClose();
+    }
+
+    private static void RenderUpdateAttention(
+        App app,
+        string output,
+        ICollection<SnapshotEntry> snapshots)
+    {
+        Window toast = app.PrepareUpdateAttentionForSnapshot();
+        if (toast.Content is not FrameworkElement root)
+            throw new InvalidOperationException("Update attention window has no renderable content.");
+
+        const double width = 390;
+        root.Measure(new Size(width, double.PositiveInfinity));
+        double height = Math.Clamp(Math.Ceiling(root.DesiredSize.Height), toast.MinHeight, toast.MaxHeight);
+        toast.SizeToContent = SizeToContent.Manual;
+        toast.Width = width;
+        toast.Height = height;
+
+        const string fileName = "update-attention-first-seen.png";
+        RenderWindowContent(toast, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(
+            fileName,
+            "Update attention",
+            "first seen · Install now / Later",
+            (int)width,
+            (int)height));
+        toast.Hide();
     }
 
     private static void RenderNotificationSheet(
