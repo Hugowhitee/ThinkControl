@@ -142,6 +142,11 @@ public partial class BatteryTelemetryPanel
 
             if (response?.Success == true)
             {
+                if (tag.Equals("off", StringComparison.OrdinalIgnoreCase))
+                    app.ShowBatteryPreservationDisabled();
+                else if (TryParseThresholdPair(tag, out int appliedStart, out int appliedStop))
+                    app.ShowBatteryPreservationApplied(appliedStart, appliedStop);
+
                 ApplyBatteryProtectionStatus(response);
                 return;
             }
