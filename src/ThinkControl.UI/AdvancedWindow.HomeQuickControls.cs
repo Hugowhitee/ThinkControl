@@ -128,16 +128,24 @@ public partial class AdvancedWindow
                 selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
             HomeFanAutoSwitch.IsEnabled = enabled;
 
-            HomeFanMoreButton.IsEnabled = enabled && extraProfiles.Length > 0;
-            HomeFanMoreButton.Content = extraProfiles.Length switch
-            {
-                0 => "No extra profiles",
-                1 => "More profile  ▾",
-                _ => $"More profiles ({extraProfiles.Length})  ▾"
-            };
-            HomeFanMoreButton.ToolTip = extraProfiles.Length > 0
-                ? "Show additional saved fan profiles without leaving Home"
-                : "No additional saved fan profiles are available for the current fan provider";
+            int selectableExtraCount = extraProfiles.Count(profile => !IsManualHomeFanState(profile));
+            bool currentUsesMore = extraProfiles.Contains(selected, StringComparer.OrdinalIgnoreCase);
+            HomeFanMoreButton.IsEnabled = enabled && selectableExtraCount > 0;
+            HomeFanMoreButton.Content = currentUsesMore
+                ? $"{selected}  ▾"
+                : selectableExtraCount switch
+                {
+                    0 => "No extra profiles",
+                    1 => "More profile  ▾",
+                    _ => $"More profiles ({selectableExtraCount})  ▾"
+                };
+            HomeFanMoreButton.ToolTip = currentUsesMore && IsManualHomeFanState(selected)
+                ? selectableExtraCount > 0
+                    ? "Current manual fan output · choose a saved profile from this menu"
+                    : "Current manual fan output · no additional saved profiles are available"
+                : selectableExtraCount > 0
+                    ? "Show additional saved fan profiles without leaving Home"
+                    : "No additional saved fan profiles are available for the current fan provider";
         }
         finally
         {
