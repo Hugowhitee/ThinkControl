@@ -51,6 +51,9 @@ internal static class Program
         batteryDeviceTemperature.BatteryTemperatureC = null;
         AppState activeFanCurve = CreateDemoState(charging: true, hardwareReady: true);
         activeFanCurve.CoolingProfile = "Balanced";
+        AppState homeManualFan = CreateDemoState(charging: true, hardwareReady: true);
+        homeManualFan.CoolingProfile = "Manual 55%";
+        homeManualFan.FanControlKind = FanControlKinds.DiscreteEc;
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
         pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
         pawnIoRepair.HardwareAccess =
@@ -100,6 +103,8 @@ internal static class Program
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
             "advanced-home-audio-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+        RenderAdvanced(app, homeManualFan, "Home", 1160, 760, output, snapshots,
+            "advanced-home-fan-manual.png", "manual fan output · Home state clarity");
         RenderAdvanced(app, charging, "Home", 980, 650, output, snapshots,
             "advanced-home-audio-silent-min.png", "Audio safety · Silent · minimum window", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
