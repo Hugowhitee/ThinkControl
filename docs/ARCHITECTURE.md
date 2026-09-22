@@ -130,6 +130,8 @@ Presentation and retention are intentionally separate:
 
 Automatic compaction clears old point arrays while preserving session summaries and useful learned estimates. Storage also has hard bounds, so users do not need to manually delete a growing raw log merely to keep the app healthy.
 
+Battery-health history is a separate compact daily series inside the same local document. When firmware exposes both full-charge and design capacity, ThinkControl records at most one capacity-derived health observation per UTC day regardless of whether the machine is charging, discharging or parked at an OEM charge threshold. Legacy finalized-session observations remain readable and are merged by day for display. This keeps an 80–90% preservation cap from accidentally blocking health-trend learning without inventing a wear model.
+
 `Manage history` owns destructive/retention actions. Reset is explicit and warns that local session summaries, graphs, health trend and learned charge/discharge priors are cleared. Firmware battery health, cycle count and OEM charge-threshold state are not part of this local history document and are unaffected.
 
 ## Keyboard model
