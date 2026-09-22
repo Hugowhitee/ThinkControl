@@ -198,6 +198,8 @@ public partial class AdvancedWindow
                     ? "Media lock active · intentional Windows/app audio remains available."
                     : "Normal · ThinkControl media and volume controls are available.";
         }
+
+        PrepareHomeAudioSafetyForSnapshot(mode);
     }
 
     private Border CreateBatteryRetentionCard()
