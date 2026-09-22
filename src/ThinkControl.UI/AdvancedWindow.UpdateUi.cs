@@ -113,6 +113,12 @@ public partial class AdvancedWindow
         if (_homeUpdateCheckButton is null || IsUpdateCheckInProgress())
             return;
 
+        if (_app.LatestUpdateResult is { Available: true })
+        {
+            Navigate("Updates");
+            return;
+        }
+
         _homeUpdateCheckButton.IsEnabled = false;
         _app.State.UpdateStatus = "Checking for updates…";
         try
@@ -143,9 +149,11 @@ public partial class AdvancedWindow
 
         if (result is { Available: true })
         {
-            _homeUpdateCheckButton.Content = "Update available";
-            _homeUpdateCheckButton.IsEnabled = false;
-            _homeUpdateCheckButton.ToolTip = "A newer version is available. Use the update notification or Updates page to install it.";
+            _homeUpdateCheckButton.Content = "Install update  ›";
+            _homeUpdateCheckButton.IsEnabled = !IsUpdateInstallInProgress();
+            _homeUpdateCheckButton.ToolTip = string.IsNullOrWhiteSpace(result.Version)
+                ? "A newer ThinkControl release is ready. Open Updates to install it."
+                : $"{result.Version} is ready. Open Updates to install it.";
             return;
         }
 

@@ -54,6 +54,7 @@ public sealed record BatteryDaySummary(
 public sealed class BatteryHistoryService
 {
     private const int MaximumSessionSummaries = 240;
+    private const int MaximumHealthSamples = 400;
     private const int MaximumPointsPerSession = 900;
     private const long MaximumHistoryBytes = 1024 * 1024;
     private static readonly TimeSpan SampleInterval = TimeSpan.FromSeconds(10);
@@ -92,7 +93,10 @@ public sealed class BatteryHistoryService
         // DischargeRate. Session ownership must follow the actual AC state so
         // percentage history remains useful even when power telemetry is absent.
         bool discharging = !charging && onBattery;
-        bool changed = false;
+        // Battery health is derived from firmware-reported full-charge capacity versus
+        // design capacity. Sample that independently of charge-session completion so
+        // a deliberate 80–90% charge limit does not prevent the health trend learning.
+        bool changed = RecordHealthSample(now, fullChargeWh, designWh);
 
         if (charging)
         {
@@ -236,6 +240,32 @@ public sealed class BatteryHistoryService
         }
 
         return BuildView();
+    }
+
+    private bool RecordHealthSample(DateTimeOffset now, double? fullChargeWh, double? designWh)
+    {
+        if (fullChargeWh is not > 0 || designWh is not > 0)
+            return false;
+
+        double health = fullChargeWh.Value / designWh.Value * 100d;
+        if (health is <= 0 or > 130)
+            return false;
+
+        DateOnly today = DateOnly.FromDateTime(now.UtcDateTime);
+        BatteryHealthSample? latest = _document.HealthSamples
+            .OrderByDescending(sample => sample.At)
+            .FirstOrDefault();
+        if (latest is not null && DateOnly.FromDateTime(latest.At.UtcDateTime) == today)
+            return false;
+
+        _document.HealthSamples.Add(new BatteryHealthSample
+        {
+            At = now,
+            FullChargeCapacityWh = fullChargeWh.Value,
+            DesignCapacityWh = designWh.Value,
+            HealthPercent = health
+        });
+        return true;
     }
 
     private bool RecordCharge(
@@ -418,6 +448,14 @@ public sealed class BatteryHistoryService
             !BatteryHistoryRetentionPolicy.KeepSummary(session.EndedAt ?? session.StartedAt, now));
         _document.DischargeSessions.RemoveAll(session =>
             !BatteryHistoryRetentionPolicy.KeepSummary(session.EndedAt ?? session.StartedAt, now));
+        _document.HealthSamples.RemoveAll(sample =>
+            !BatteryHistoryRetentionPolicy.KeepSummary(sample.At, now));
+
+        _document.HealthSamples = _document.HealthSamples
+            .OrderByDescending(sample => sample.At)
+            .Take(MaximumHealthSamples)
+            .OrderBy(sample => sample.At)
+            .ToList();
 
         _document.Sessions = _document.Sessions
             .OrderByDescending(session => session.EndedAt ?? session.StartedAt)
@@ -489,13 +527,24 @@ public sealed class BatteryHistoryService
             ? $"Typical {typical:0.#} W · {usefulChargePowers.Length} sessions"
             : "Typical charge · learning";
 
-        ChargeSession[] healthSessions = _document.Sessions
+        // Keep legacy session-derived observations for existing installs, then merge
+        // them with the new cap-independent daily capacity samples. One point per UTC
+        // day prevents dense polling from masquerading as a meaningful trend.
+        var healthObservations = _document.Sessions
             .Where(session => session.HealthPercent is > 0 and <= 130)
-            .OrderBy(session => session.EndedAt ?? session.StartedAt)
+            .Select(session => (
+                At: session.EndedAt ?? session.StartedAt,
+                Health: session.HealthPercent!.Value))
+            .Concat(_document.HealthSamples
+                .Where(sample => sample.HealthPercent is > 0 and <= 130)
+                .Select(sample => (At: sample.At, Health: sample.HealthPercent)))
+            .OrderBy(observation => observation.At)
+            .GroupBy(observation => DateOnly.FromDateTime(observation.At.UtcDateTime))
+            .Select(group => group.Last())
             .ToArray();
-        double[] health = healthSessions.Select(session => session.HealthPercent!.Value).ToArray();
-        IReadOnlyList<TimeSeriesPoint> healthTimeline = healthSessions
-            .Select(session => new TimeSeriesPoint(session.EndedAt ?? session.StartedAt, session.HealthPercent!.Value))
+        double[] health = healthObservations.Select(observation => observation.Health).ToArray();
+        IReadOnlyList<TimeSeriesPoint> healthTimeline = healthObservations
+            .Select(observation => new TimeSeriesPoint(observation.At, observation.Health))
             .ToArray();
 
         RefreshPriors();
@@ -626,13 +675,13 @@ public sealed class BatteryHistoryService
 
     private static string FormatHealthTrend(IReadOnlyList<double> health)
     {
-        if (health.Count == 0) return "Health trend · learning";
-        if (health.Count == 1) return $"Health trend · {health[0]:0.#}%";
+        if (health.Count == 0) return "Health trend · waiting for capacity data";
+        if (health.Count == 1) return $"Health trend · {health[0]:0.#}% · 1 daily sample";
         double recent = health[^1];
         int compareIndex = Math.Max(0, health.Count - Math.Min(10, health.Count));
         double delta = recent - health[compareIndex];
         string trend = Math.Abs(delta) < 0.15 ? "stable" : delta > 0 ? $"+{delta:0.#} pp" : $"{delta:0.#} pp";
-        return $"Health trend · {recent:0.#}% · {trend}";
+        return $"Health trend · {recent:0.#}% · {trend} · {health.Count} daily samples";
     }
 
     private static double? AveragePointPower(IReadOnlyList<ChargePoint> points, double? fallback)
@@ -674,7 +723,11 @@ public sealed class BatteryHistoryService
                 return new HistoryDocument();
             }
             string json = File.ReadAllText(_path);
-            return JsonSerializer.Deserialize<HistoryDocument>(json) ?? new HistoryDocument();
+            HistoryDocument document = JsonSerializer.Deserialize<HistoryDocument>(json) ?? new HistoryDocument();
+            document.Sessions ??= [];
+            document.DischargeSessions ??= [];
+            document.HealthSamples ??= [];
+            return document;
         }
         catch
         {
@@ -723,11 +776,20 @@ public sealed class BatteryHistoryService
 
     private sealed class HistoryDocument
     {
-        public int SchemaVersion { get; set; } = 4;
+        public int SchemaVersion { get; set; } = 5;
         public ChargeSession? ActiveSession { get; set; }
         public List<ChargeSession> Sessions { get; set; } = [];
         public DischargeSession? ActiveDischargeSession { get; set; }
         public List<DischargeSession> DischargeSessions { get; set; } = [];
+        public List<BatteryHealthSample> HealthSamples { get; set; } = [];
+    }
+
+    private sealed class BatteryHealthSample
+    {
+        public DateTimeOffset At { get; set; }
+        public double FullChargeCapacityWh { get; set; }
+        public double DesignCapacityWh { get; set; }
+        public double HealthPercent { get; set; }
     }
 
     private sealed class ChargeSession

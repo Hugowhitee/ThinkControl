@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.46`.  
-Current immutable prerelease: `v0.1.0-alpha.45`. Alpha.44 remains the hardware-behavior baseline for the narrow alpha.45/alpha.46 shell-maintenance series.
+Current source release target: `v0.1.0-alpha.47`.  
+Current immutable prerelease: `v0.1.0-alpha.46`. Alpha.44 remains the hardware-behavior baseline for the narrow alpha.45–alpha.47 shell/interface maintenance series.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -41,10 +41,10 @@ Compact contains the controls and telemetry most useful during normal operation:
 - display refresh controls;
 - brightness and volume;
 - keyboard backlight when supported;
-- one quick **Audio Safety** selector (`Normal` / `Media lock` / `Silent`);
+- one **Media safety** selector (`Normal` / `Media lock` / `Silent`) grouped with Brightness/Volume rather than detached in the footer;
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Audio Safety deliberately appears as one compact state selector rather than turning Compact into a phone-style modes dashboard.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Media safety remains one compact session state, but its placement follows the controls it actually affects instead of reading like a global footer mode.
 
 ### Advanced
 
@@ -52,13 +52,13 @@ Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, To
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
-Settings owns the explanatory Audio Safety controls and copy. Compact and Settings reflect the same canonical session state rather than maintaining independent selections.
+Audio Safety has one canonical session owner. Advanced Home exposes the explanatory Normal / Media lock / Silent quick card, Compact exposes the same state as Media safety beside Volume, and the Audio page carries the deeper audio context. Settings does not duplicate the mode editor.
 
 ## Performance and power
 
 User-facing Windows power terminology is consistently **Efficiency / Balanced / Performance** even where internal Windows/provider contracts retain older enum names.
 
-Battery and plugged-in preferences are stored separately. Compact and Home intentionally expose the battery preference as the quick control; the full Performance page is the source of truth for configuring both battery and AC behavior independently.
+Battery and plugged-in preferences are stored separately. Compact remains the single fast battery-profile selector; Advanced Home exposes both Battery and Plugged-in preferences because the space is available and the distinction matters. The full Performance page remains the detailed source of truth and reset surface for both.
 
 On the X9 firmware cooling backend, ThinkControl keeps the active cooling profile and Windows performance preference as separate user-facing settings even though both coordinate through Lenovo policy. Before a built-in fan profile is selected, the current power preference becomes the restore baseline. A later power-mode change updates that baseline without cancelling the fan profile; selecting Auto clears ThinkControl-owned cooling overrides and restores the latest baseline.
 
@@ -121,6 +121,9 @@ Hardware backlight states and user-session effects are separate capabilities. Of
 
 Breathing, Reactive and Audio are bounded local effects and require `KeyboardEffects`. A fallback provider that cannot safely accept repeated changes does not advertise that capability. Saved effects are restored only after provider capability is known.
 
+
+Keyboard effects are labeled **EXPERIMENTAL**. When the active provider explicitly advertises repeated-write effect capability, ThinkControl uses that reviewed path. When only ordinary static Off / Low / High control exists, the user may deliberately enable a **session-only experimental fallback** after a warning. That fallback does not unlock a new command surface: it reuses the existing bounded, deduplicated backlight writes and may still produce OEM brightness pop-ups, ignored writes or less-smooth animation. The opt-in is never persisted across ThinkControl restarts.
+
 ## Touchpad
 
 The Touchpad page shows real contact points, bounded recent trails, configurable precision edge gestures, deliberate top-corner launch zones, haptic settings where Windows/provider support exists, and bounded OSD feedback.
@@ -155,6 +158,11 @@ Live input has two rates by design: recognition consumes every raw HID frame, wh
 
 ThinkControl can display percentage, charging state, live/smoothed watts, remaining/full-charge Wh, health, cycle count when exposed, filtered ETA and battery temperature only when a credible battery-specific provider supplies it. Charge/discharge history is local and bounded; Windows remains the owner of system sleep/screen/presence policy.
 
+Battery health history samples firmware-reported full-charge capacity versus design capacity at most once per day when both values are available. This sampling is independent of completing a charging session or reaching 100%, so an intentional 80–90% preservation threshold does not need to be disabled for the trend to learn. The trend is capacity telemetry, not a fabricated wear/lifetime prediction.
+
+
+Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging paused near 90% · resumes below 80%**). Applying or disabling a preset produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
+
 ## Startup and shell reliability
 
 A dedicated painted loading surface appears before synchronous startup work on normal visible launches. Rich WMI inventory is not on the process-start critical path: a fast firmware-registry/power preflight runs first and the full inventory refreshes on a worker.
@@ -185,9 +193,11 @@ ThinkControl separates compatibility learning, crash recovery and troubleshootin
 
 ## Installation and updates
 
-Alpha.43 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+The current alpha series uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
-Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is persisted for the next session.
+When automatic update checks are enabled, ThinkControl performs a stale-gated check shortly after startup and may re-check on app activation or resume once the last attempt is at least four hours old. There is no permanent update polling timer. Tray-only startup remains silent while no window is visible; if a check finds a newer release, the first later visible Compact or Advanced session offers **Install now** or **Later** and keeps that decision prompt visible until one is chosen. Later suppresses repeat interruption for that exact version but leaves the release visible in Notifications and Updates. A newer version can prompt again.
+
+Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is persisted for the next session. When Home already knows an update is available, its update affordance opens Updates directly instead of performing another redundant check.
 
 Packaging/installer CI validates payload construction, custom-location install/update behavior, service startup/IPC, compatibility with the oldest supported updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 

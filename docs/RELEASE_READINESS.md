@@ -6,76 +6,96 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.45`
-- immutable tag/release SHA: `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- published 2026-09-18 at 06:41:38 UTC as an immutable prerelease
+- `v0.1.0-alpha.46`
+- immutable tag/release SHA: `ccca29ed696d422b21f96589b972fbee5884b291`
+- published 2026-09-20 at 18:39:17 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:77c4ed343a35b4b1cb413e59bc1eb9f13069c13d4a488edc0687b91b055b4350`
-  - Payload: `sha256:6774e344c0dc398b10082c43627574109d5f9bc4bb72f84e07edd11f5d13f164`
-  - `SHA256SUMS.txt`: `sha256:9ae2c73940d35d4a2451669edb1eecafc7ac29b5c20d582c7aeea2f9692ae942`
-  - `ui-overview.png`: `sha256:15f4e314a2d7eef430ae01b6086ef5fb62d56dddded660758a105fc2f86f8403`
+  - Setup: `sha256:4baa95fa1575d9d995ecad1b9c51dbdc53b73f4b2bd7a17c9f158aaf6231a45a`
+  - Payload: `sha256:e7a2d5e0756b900a58fcf101c5146d15b75071ecd7afae1b26f4d4acdd668153`
+  - `SHA256SUMS.txt`: `sha256:126a78c0920f512ff28f3656f98dba00e7b40ac4fdd69a8cd3fe84f3bc1a001a`
+  - `ui-overview.png`: `sha256:ad829a8cde69279f8f2443c838c6d83b7f6a761c2024a76950ef9ecfe4c4a651`
+- alpha.45 remains separately immutable at `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
 - alpha.44 remains separately immutable at `17abe5458a1f6f43f66383827d463bd1094498c2`
 - alpha.43 remains separately immutable at `ba13fab6d5b47cf127f4b627976662678f2ec491`
-- alpha.42 remains separately immutable at `2d40dffebeb6f8327cd06403e076936c40d60497`
-- alpha.41 remains separately immutable at `6088955eeab54d1af6506780fa7707df17fe11c3`
 
-Alpha.45 completion:
+Alpha.46 completion:
 
-- PR #89, **Prepare ThinkControl 0.1.0-alpha.45 maintenance release**, merged with frozen head `43e293d701d849c0d92d8b19dd9c76c9e0837206`
-- frozen-head CI run `35315622906`: success
-- frozen-head Package ThinkControl run `35315622936`: success
-- merge commit / immutable release tag target: `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- post-merge main CI run `35315795686`: success
-- promotion/checksum verification run `35315795660`: success
-- complete immutable release run `35315808774`: success
-- branch hygiene run `35315796232`: success
+- PR #90, **Prepare ThinkControl 0.1.0-alpha.46 shell regression repair**, merged with frozen head `1b3cd07722259ed05ca43942248c6d8c86df6fcf`
+- frozen-head CI run `35529489572`: success
+- frozen-head Package ThinkControl run `35529489569`: success
+- merge commit / immutable release tag target: `ccca29ed696d422b21f96589b972fbee5884b291`
+- post-merge main CI run `35529618038`: success
+- promotion/checksum verification run `35529618037`: success
+- complete immutable release run `35529626686`: success
+- branch hygiene run `35529620904`: success
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
+- post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.46 Advanced shell regression repair candidate
+## Alpha.47 mode and visual polish candidate
 
-Alpha.46 is intentionally narrow: it repairs one Advanced shell regression left by the alpha.45 ownership cleanup. It does **not** broaden EC, Lenovo Other Mode, EnergyDrv, battery, keyboard, audio or Touchpad hardware-write semantics.
+Alpha.47 is an interface-consistency, feedback and clarity release on immutable alpha.46. It does **not** add a new low-level hardware command surface.
 
 Candidate state:
 
-- source version: `v0.1.0-alpha.46`
-- `version.json.releaseReady=true`; candidate evidence is green and the release scope is frozen
-- immutable base: `v0.1.0-alpha.45` at `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- active release/fix PR: #90 **Prepare ThinkControl 0.1.0-alpha.46 shell regression repair**
+- source version: `v0.1.0-alpha.47`
+- `version.json.releaseReady=true` on the frozen candidate after exact-head code, package and visual evidence completed
+- immutable base: `v0.1.0-alpha.46` at `ccca29ed696d422b21f96589b972fbee5884b291`
+- active branch / PR: `polish/alpha47-mode-visuals` / #91
+- current implementation scope is frozen except for evidenced CI/review/visual defects
+- this document is the single persistent handoff: a future chat should restore live repo/PR state, read this section and continue the unchecked release gates rather than reconstructing intent from chat history
 
-Root cause and repair:
+Scope:
 
-- alpha.45 removed the temporary Advanced dock row and `ThinkControl.NotificationSlot`, but `AdvancedWindow.DeviceLearning.cs` still searched for that deleted placeholder;
-- learning/report-ready state therefore could not construct its Advanced status button on the cleaned shell;
-- the status now uses the canonical `ThinkControl.BrandRow`, temporarily replacing the wordmark without adding another sidebar row;
-- initialization is owned by the canonical Advanced surface setup rather than a separate `Loaded` hook;
-- source regression coverage rejects a return to `ThinkControl.NotificationSlot`;
-- WPF visual QA now includes a dark minimum-window learning snapshot and a light report-ready snapshot.
-
-Candidate-head evidence before release freeze:
-
-- exact candidate head: `ceada5576ef643247ce64e02ea0d937eec358b22`
-- CI run `35529249954`: success
-- Package ThinkControl run `35529249947`: success
-- exact-head visual-QA artifact `10610473640`, digest `sha256:d85ca1498d0243cf8048f435d796ea6755388cec4b9a8e2e94508c08d14f3987`
-- manual visual inspection passed for `advanced-home-device-learning-min.png`, `advanced-home-device-report-ready-light.png` and the normal minimum-window baseline: no added sidebar row, clipping or overlap was observed
+- use one user-facing shell vocabulary: `Compact` / `Advanced`;
+- keep Audio Safety as one session owner, expose it where it is operationally useful (Advanced Home, Compact media controls and Audio) and remove the duplicate Settings editor;
+- place Compact `Media safety` inside the Brightness/Volume control cluster instead of the footer; the footer returns to version + Audio + Settings;
+- expose both **Battery** and **Plugged in** Windows power preferences directly on Advanced Home while keeping the full Performance page;
+- make update discovery reliable for long-lived tray sessions: startup plus stale-gated activation/resume checks (minimum four hours apart, no polling timer), followed by a persistent first-seen **Install now** / **Later** prompt once a ThinkControl window is visible;
+- replace the Home fan `More…` sentinel with a real saved-profile menu, keep manual state truthful, and expose firmware/OEM `Auto` beside the presets;
+- make Battery Preservation visibly trustworthy: mirror the live threshold state into AppState, replace the stale disabled Battery placeholder, confirm applied/disabled thresholds, and notify when charging actually pauses at the stop threshold or resumes below the start threshold;
+- sample battery health from firmware full-charge/design capacity independently of completing a charge session and carry design capacity into long-lived tray sampling, so an 80–90% preservation cap does not stop the health trend learning;
+- label Keyboard Effects **EXPERIMENTAL** and add a session-only, explicit-warning fallback opt-in when static backlight control exists but the provider does not advertise native effect capability; keep the existing deduplication/rate limit and existing Off/Low/High command surface;
+- expand deterministic visual QA for the actual first-seen update popup, Compact modes, Home power/fan/Audio Safety states, Battery Preservation paused state, Experimental keyboard fallback and minimum/light layouts;
+- preserve all alpha.46 low-level fan/battery/provider/startup/installer safety boundaries.
 
 Release gate:
 
-- [x] alpha.45 immutable release state reconciled in the persistent handoff
-- [x] stale post-cleanup shell dependency identified from a fresh residue scan
-- [x] Advanced learning/report-ready status restored to a canonical shell owner
-- [x] fixed-height placement avoids adding another navigation/sidebar row
-- [x] source regression guard added for the removed placeholder and canonical lifecycle
-- [x] dedicated WPF visual fixtures added for learning/report-ready shell states
-- [x] no low-level hardware capability expanded
-- [x] exact alpha.46 candidate-head CI green
-- [x] exact alpha.46 candidate-head Package ThinkControl green
-- [x] exact-head WPF artifact manually inspected, including the two new device-learning snapshots
-- [x] freeze `version.json.releaseReady=true`
+- [x] alpha.46 immutable release state reconciled in the persistent handoff
+- [x] strict alpha.46 full-resolution visual pass completed before starting this candidate
+- [x] Compact / Advanced visible naming unified
+- [x] automatic update discovery made stale-aware on startup/activation/resume without a permanent poller
+- [x] first-seen update decision made persistent with Install now / Later
+- [x] Home update availability made directly actionable
+- [x] duplicate Audio Safety editor removed from Settings; one canonical owner remains
+- [x] Compact Media safety moved out of the footer and into the Volume/control cluster
+- [x] Advanced Home now exposes independent Battery and Plugged-in power preferences
+- [x] Home fan Auto switch and real More profiles menu implemented without a second fan-state owner
+- [x] Battery Preservation live state + applied/disabled + pause/resume feedback implemented
+- [x] battery-health trend decoupled from full-charge completion and long-lived runtime keeps design-capacity context
+- [x] Keyboard Effects marked Experimental with session-only warned fallback opt-in
+- [x] deterministic QA fixtures added/updated for the new alpha.47 states
+- [x] source regression coverage expanded for the new UX contracts
+- [x] no new low-level hardware command or provider capability introduced
+- [x] exact final implementation-head CI green
+- [x] exact final implementation-head Package ThinkControl green
+- [x] exact-head WPF artifact manually inspected at full resolution: Compact control cluster/footer, Advanced Home power/fan/Audio Safety cards, Battery Preservation paused state, Keyboard Experimental state, update popup, minimum window and light theme
+- [x] review gate reconciled: zero review threads; Codex review requests were blocked by the configured usage limit, so approval was not inferred and manual exact-head diff/visual review was used instead
+- [x] record final implementation-head evidence and freeze `version.json.releaseReady=true`
+### Alpha.47 implementation-head evidence
+
+Final implementation head before the release-ready metadata freeze: `a1bd7f136aaa50bb15b2fac30157aa24778abba5`.
+
+- CI run `35788158995`: success; repository hygiene, Release build, **213 tests**, real Compact ↔ Advanced shell smoke and WPF renderer all passed.
+- Package ThinkControl run `35788159070`: success; payload build, bootstrap installer, deep installer/IPC smoke, oldest-supported alpha.14.1 updater compatibility and checksum creation all passed.
+- exact-head visual artifact `10720992192`, digest `sha256:4c09d4e8a2e852774acc121b0f03af22ee4d08a5101d05f6bb0a83739f2978b7`, contains **99 deterministic screenshots**.
+- full-resolution manual review covered Compact dark/light + Media lock/Silent, Advanced Home normal/minimum/light + manual fan + Audio Safety, Battery Preservation paused state, Experimental keyboard fallback, first-seen update attention and Settings cleanup.
+- the final minimum-width pass found and fixed clipped Home `Performance` labels; the replacement artifact on the exact implementation head shows both Battery and Plugged-in rows fully readable.
+- PR #91 has zero review threads. Repeated Codex review requests returned the explicit code-review usage-limit message, which is recorded as a tooling constraint rather than treated as review approval.
+
 - [ ] frozen-head CI + Package green
-- [ ] merge PR #90 with exact expected-head SHA
-- [ ] immutable `v0.1.0-alpha.46` published with exactly four managed assets
+- [ ] merge alpha.47 PR with exact expected-head SHA
+- [ ] immutable `v0.1.0-alpha.47` published with exactly four managed assets
 - [ ] published checksums re-downloaded and verified
 - [ ] post-merge main CI/promotion/branch hygiene green
 - [ ] post-release docs record the immutable tag SHA and final workflow evidence

@@ -5,19 +5,19 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class AudioSafetySourceTests
 {
     [Fact]
-    public void AudioSafety_IsOneSessionOwnerAcrossCompactSettingsAndTouchpad()
+    public void AudioSafety_IsOneSessionOwnerAcrossCompactHomeAndTouchpad()
     {
         string root = FindRepositoryRoot();
         string app = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.AudioSafety.cs"));
         string compact = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
-        string settings = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.AppPreferences.cs"));
+        string home = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
         string touchpad = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Services", "Touchpad", "GestureActionRouter.cs"));
 
         Assert.Contains("internal AudioSafetyService AudioSafety { get; } = new();", app, StringComparison.Ordinal);
         Assert.Contains("_app.AudioSafety.Mode", compact, StringComparison.Ordinal);
         Assert.Contains("_app.SetAudioSafetyModeAsync", compact, StringComparison.Ordinal);
-        Assert.Contains("_app.AudioSafety.Mode", settings, StringComparison.Ordinal);
-        Assert.Contains("_app.SetAudioSafetyModeAsync", settings, StringComparison.Ordinal);
+        Assert.Contains("_app.AudioSafety.Mode", home, StringComparison.Ordinal);
+        Assert.Contains("_app.SetAudioSafetyModeAsync", home, StringComparison.Ordinal);
         Assert.Contains("AudioSafetyPolicy.BlocksTouchpadAudio", touchpad, StringComparison.Ordinal);
     }
 

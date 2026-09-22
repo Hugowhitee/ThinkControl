@@ -267,18 +267,27 @@ public partial class BatteryTelemetryPanel : UserControl
         RecentSessionItems.Children.Add(CreateDayRow(today));
         HistoryRangeButton.Visibility = Visibility.Collapsed;
 
+        int snapshotStart = state.BatteryProtectionStartPercent ?? 75;
+        int snapshotStop = state.BatteryProtectionStopPercent ?? 85;
+        bool snapshotProtection = state.BatteryProtectionEnabled != false;
         _syncingChargeProtection = true;
         try
         {
-            ChargeProtectionComboBox.IsEnabled = true;
-            ChargeProtectionComboBox.SelectedItem = FindChargeProtectionPreset(75, 85);
+            ChargeProtectionComboBox.IsEnabled = state.BatteryProtectionWritable;
+            ChargeProtectionComboBox.SelectedItem = snapshotProtection
+                ? FindChargeProtectionPreset(snapshotStart, snapshotStop)
+                : FindChargeProtectionPreset(enabled: false);
         }
         finally
         {
             _syncingChargeProtection = false;
         }
-        ChargeProtectionStateText.Text = "75–85% · active";
-        ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(75, 85);
+        ChargeProtectionStateText.Text = snapshotProtection
+            ? $"{snapshotStart}–{snapshotStop}% · active"
+            : "Full charge · active";
+        ChargeProtectionImpactText.Text = snapshotProtection
+            ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
+            : "No charge ceiling is active.";
         ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
     }

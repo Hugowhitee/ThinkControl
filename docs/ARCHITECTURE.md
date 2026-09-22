@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.46**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.45` is the current published prerelease; alpha.44 remains the hardware-behavior baseline for the narrow alpha.45/alpha.46 shell-maintenance series.
+This document describes the current source architecture at **v0.1.0-alpha.47**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.46` is the current published prerelease; alpha.44 remains the hardware-behavior baseline for the narrow alpha.45–alpha.47 shell/interface maintenance series.
 
 ## Process boundary
 
@@ -129,6 +129,8 @@ Presentation and retention are intentionally separate:
 - compact summaries: one year under `BatteryHistoryRetentionPolicy.SummaryRetentionDays`.
 
 Automatic compaction clears old point arrays while preserving session summaries and useful learned estimates. Storage also has hard bounds, so users do not need to manually delete a growing raw log merely to keep the app healthy.
+
+Battery-health history is a separate compact daily series inside the same local document. When firmware exposes both full-charge and design capacity, ThinkControl records at most one capacity-derived health observation per UTC day regardless of whether the machine is charging, discharging or parked at an OEM charge threshold. Legacy finalized-session observations remain readable and are merged by day for display. This keeps an 80–90% preservation cap from accidentally blocking health-trend learning without inventing a wear model.
 
 `Manage history` owns destructive/retention actions. Reset is explicit and warns that local session summaries, graphs, health trend and learned charge/discharge priors are cleared. Firmware battery health, cycle count and OEM charge-threshold state are not part of this local history document and are unaffected.
 

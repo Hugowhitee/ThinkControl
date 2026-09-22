@@ -162,9 +162,12 @@ public partial class App : System.Windows.Application
             State.BatteryTemperatureC = battery.TemperatureC ?? ResolveCredibleBatteryTemperature(State.Sensors);
             State.BatteryRemainingWh = battery.RemainingCapacityWh;
             State.BatteryFullWh = battery.FullChargeCapacityWh;
+            if (battery.DesignCapacityWh is > 0)
+                _runtimeBatteryDesignWh = battery.DesignCapacityWh;
             State.BatteryEtaToFull = battery.EstimatedTimeToFull;
             State.BatteryEtaRemaining = battery.EstimatedTimeRemaining;
             State.BatterySource = battery.Source;
+            ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
 
             if (!_batteryCycleRead)
             {
@@ -371,7 +374,12 @@ public partial class App : System.Windows.Application
     public async Task SetKeyboardModeAsync(string mode)
     {
         await KeyboardEffects.SetModeAsync(mode);
-        UserSettings.Update(settings => settings with { KeyboardMode = State.KeyboardMode });
+        bool experimentalFallbackActive =
+            !State.CanKeyboardEffects &&
+            State.ExperimentalKeyboardEffectsEnabled &&
+            State.KeyboardMode is "Breathing" or "Reactive" or "Audio";
+        string persistedMode = experimentalFallbackActive ? "Static" : State.KeyboardMode;
+        UserSettings.Update(settings => settings with { KeyboardMode = persistedMode });
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "keyboard.effect_mode_set",

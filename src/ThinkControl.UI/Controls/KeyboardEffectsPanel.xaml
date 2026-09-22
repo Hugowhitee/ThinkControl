@@ -11,26 +11,57 @@
              MinWidth="520">
     <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
         <StackPanel>
-            <TextBlock Text="Effects" FontWeight="SemiBold" />
+            <Grid>
+                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <TextBlock Text="Effects" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <Border Grid.Column="1"
+                        Padding="7,3"
+                        Background="{DynamicResource Tc.SurfaceAlt}"
+                        BorderBrush="{DynamicResource Tc.BorderStrong}"
+                        BorderThickness="1"
+                        CornerRadius="4">
+                    <TextBlock Text="EXPERIMENTAL"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               FontWeight="SemiBold"
+                               Foreground="{DynamicResource Tc.TextMuted}" />
+                </Border>
+            </Grid>
 
-            <TextBlock Margin="0,7,0,12"
+            <TextBlock Margin="0,7,0,0"
                        Text="{Binding KeyboardEffectsSupportText}"
                        Foreground="{DynamicResource Tc.TextMuted}"
                        FontSize="{x:Static ui:TypographyScale.Caption}"
                        TextWrapping="Wrap" />
 
-            <Grid>
+            <Grid x:Name="ExperimentalFallbackRow" Margin="0,12,0,0" Visibility="Collapsed">
+                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <StackPanel Margin="0,0,18,0">
+                    <TextBlock Text="Enable experimental fallback" FontWeight="SemiBold" FontSize="{x:Static ui:TypographyScale.Secondary}" />
+                    <TextBlock Text="Session only · may trigger Lenovo's own keyboard-brightness OSD or behave inconsistently on this provider."
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+                </StackPanel>
+                <CheckBox x:Name="ExperimentalEffectsSwitch"
+                          Grid.Column="1"
+                          Style="{StaticResource TcSwitch}"
+                          VerticalAlignment="Center"
+                          Click="ExperimentalEffects_Click" />
+            </Grid>
+
+            <Grid x:Name="EffectChoicesGrid" Margin="0,14,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition />
                     <ColumnDefinition />
                     <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <RadioButton x:Name="EffectBreathing" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Breathing" Tag="Breathing" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="0,0,5,0" />
-                <RadioButton x:Name="EffectReactive" Grid.Column="1" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Reactive" Tag="Reactive" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="2,0" />
-                <RadioButton x:Name="EffectAudio" Grid.Column="2" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Audio" Tag="Audio" Click="Effect_Click" IsEnabled="{Binding CanKeyboardEffects}" d:IsEnabled="True" Margin="5,0,0,0" />
+                <RadioButton x:Name="EffectBreathing" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Breathing" Tag="Breathing" Click="Effect_Click" d:IsEnabled="True" Margin="0,0,5,0" />
+                <RadioButton x:Name="EffectReactive" Grid.Column="1" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Reactive" Tag="Reactive" Click="Effect_Click" d:IsEnabled="True" Margin="2,0" />
+                <RadioButton x:Name="EffectAudio" Grid.Column="2" GroupName="AdvancedKeyboardEffect" Style="{StaticResource TcSegment}" Content="Audio" Tag="Audio" Click="Effect_Click" d:IsEnabled="True" Margin="5,0,0,0" />
             </Grid>
 
-            <Grid Margin="0,14,0,0" IsEnabled="{Binding CanKeyboardEffects}">
+            <Grid x:Name="EffectBaseGrid" Margin="0,14,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="140" />
                     <ColumnDefinition />
@@ -56,7 +87,6 @@
                         LargeChange="0.25"
                         Value="{Binding KeyboardEffectSpeed, Mode=OneWay}"
                         Style="{StaticResource TcSlider}"
-                        IsEnabled="{Binding CanKeyboardEffects}"
                         Margin="0,0,12,0"
                         ValueChanged="EffectSpeed_ValueChanged" />
                 <TextBlock Grid.Column="2"
@@ -66,7 +96,7 @@
             </Grid>
 
             <TextBlock Margin="0,10,0,0"
-                       Text="Reactive responds to keyboard activity only. Audio reads local loopback level data and stores no audio. Effect writes are bounded, deduplicated and rate-limited by the active provider contract."
+                       Text="Reactive listens only for keyboard activity. Audio reads local loopback level data and stores no audio. ThinkControl deduplicates effect writes and never writes faster than the existing hardware safety interval."
                        Foreground="{DynamicResource Tc.TextFaint}"
                        FontSize="{x:Static ui:TypographyScale.Caption}"
                        TextWrapping="Wrap" />

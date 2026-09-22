@@ -54,7 +54,8 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
             or nameof(AppState.KeyboardBaseLevel)
             or nameof(AppState.KeyboardEffectSpeed)
             or nameof(AppState.CanKeyboardBacklight)
-            or nameof(AppState.CanKeyboardEffects))
+            or nameof(AppState.CanKeyboardEffects)
+            or nameof(AppState.ExperimentalKeyboardEffectsEnabled))
         {
             Dispatcher.Invoke(SyncControls);
         }
@@ -73,6 +74,16 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
             EffectAudio.IsChecked = _state.KeyboardMode == "Audio";
             BaseLow.IsChecked = _state.KeyboardBaseLevel == "Low";
             BaseHigh.IsChecked = _state.KeyboardBaseLevel == "High";
+
+            bool fallbackAvailable = _state.CanKeyboardBacklight && !_state.CanKeyboardEffects;
+            ExperimentalFallbackRow.Visibility = fallbackAvailable ? Visibility.Visible : Visibility.Collapsed;
+            ExperimentalEffectsSwitch.IsChecked = _state.ExperimentalKeyboardEffectsEnabled;
+            ExperimentalEffectsSwitch.IsEnabled = fallbackAvailable;
+
+            bool usable = _state.KeyboardEffectsUsable;
+            EffectChoicesGrid.IsEnabled = usable;
+            EffectBaseGrid.IsEnabled = usable;
+            EffectSpeed.IsEnabled = usable;
             if (!EffectSpeed.IsMouseCaptureWithin)
                 EffectSpeed.Value = _state.KeyboardEffectSpeed;
         }
@@ -82,9 +93,33 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
         }
     }
 
+    private async void ExperimentalEffects_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || _state is null || AppHost is null || _state.CanKeyboardEffects || !_state.CanKeyboardBacklight)
+            return;
+
+        bool enable = ExperimentalEffectsSwitch.IsChecked == true;
+        if (enable)
+        {
+            MessageBoxResult answer = MessageBox.Show(
+                "Experimental keyboard effects will reuse ThinkControl's existing Off / Low / High backlight commands at a bounded rate.\n\nOn this provider Lenovo may show its own keyboard-brightness popup, ignore some writes, or look less smooth than the native effect path. No new low-level command is enabled.\n\nEnable experimental effects for this ThinkControl session?",
+                "ThinkControl · Experimental keyboard effects",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (answer != MessageBoxResult.Yes)
+                enable = false;
+        }
+
+        _state.ExperimentalKeyboardEffectsEnabled = enable;
+        if (!enable && _state.KeyboardMode is "Breathing" or "Reactive" or "Audio")
+            await AppHost.SetKeyboardModeAsync("Static");
+
+        SyncControls();
+    }
+
     private async void Effect_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || AppHost is null || _state?.CanKeyboardEffects != true ||
+        if (_syncing || AppHost is null || _state?.KeyboardEffectsUsable != true ||
             sender is not FrameworkElement { Tag: string mode })
         {
             return;
@@ -96,7 +131,7 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
 
     private void BaseLevel_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || AppHost is null || _state?.CanKeyboardEffects != true ||
+        if (_syncing || AppHost is null || _state?.KeyboardEffectsUsable != true ||
             sender is not FrameworkElement { Tag: string level })
         {
             return;
@@ -108,7 +143,7 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
 
     private void EffectSpeed_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_syncing || !IsLoaded || AppHost is null || _state?.CanKeyboardEffects != true ||
+        if (_syncing || !IsLoaded || AppHost is null || _state?.KeyboardEffectsUsable != true ||
             sender is not Slider slider || !slider.IsMouseCaptureWithin)
         {
             return;

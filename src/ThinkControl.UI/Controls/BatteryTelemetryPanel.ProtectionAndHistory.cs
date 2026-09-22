@@ -13,6 +13,12 @@ public partial class BatteryTelemetryPanel
     private bool _syncingHistoryRetention;
     private int _historyVisibleDays = 7;
 
+    internal void BringPreservationIntoView()
+    {
+        ChargeProtectionComboBox.BringIntoView();
+        ChargeProtectionComboBox.Focus();
+    }
+
     private void BatteryTelemetryPanel_Loaded(object sender, RoutedEventArgs e)
     {
         SyncHistoryManagementUi();
@@ -142,6 +148,11 @@ public partial class BatteryTelemetryPanel
 
             if (response?.Success == true)
             {
+                if (tag.Equals("off", StringComparison.OrdinalIgnoreCase))
+                    app.ShowBatteryPreservationDisabled();
+                else if (TryParseThresholdPair(tag, out int appliedStart, out int appliedStop))
+                    app.ShowBatteryPreservationApplied(appliedStart, appliedStop);
+
                 ApplyBatteryProtectionStatus(response);
                 return;
             }

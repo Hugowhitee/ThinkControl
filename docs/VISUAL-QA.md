@@ -16,14 +16,14 @@ Use `-NoBuild` when the solution is already built and `-NoOpen` when only the fi
 
 The snapshot renderer covers:
 
-- Compact at its production fixed size, including battery/charging states;
+- Compact at its production fixed size, including battery/charging and Audio Safety states;
 - every Advanced page at minimum, normal and wide viewports;
-- selected light-theme states;
+- selected light-theme states, including Compact, Advanced Home and Settings mode surfaces;
 - important provider unavailable/offline states;
 - hardware setup and diagnostics states;
 - temporary manual fan-test safety UI;
 - Touchpad normal, Track-center and active corner-launch states;
-- startup/loading and gesture OSD surfaces.
+- startup/loading, the first-seen update decision popup and gesture OSD surfaces.
 
 Snapshot telemetry is deterministic fixture data. It proves rendering/state composition only and must never be described as physical hardware evidence.
 
@@ -43,6 +43,9 @@ Check at minimum:
 8. dark/light contrast and hierarchy remain usable;
 9. startup and Compact ↔ Advanced transitions always provide an immediately painted surface;
 10. overlays/popups intended to block interaction appear above Compact as well as Advanced.
+11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Media lock / Silent remain legible without footer clipping in both themes.
+12. Advanced Home's Audio Safety card, fan Auto row and More-profiles affordance remain aligned and understandable at minimum, normal and light-theme states; Battery health-trend explanation must not collide with the chart/status copy.
+13. The first-seen update popup must show the full transition/copy and both **Install now** / **Later** actions without clipping or implying an automatic install.
 
 ## Artifact ownership
 

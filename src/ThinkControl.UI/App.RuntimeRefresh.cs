@@ -18,6 +18,7 @@ public partial class App
 
     private readonly WindowsBatteryStateService _runtimeBattery = new();
     private readonly BatteryEtaEstimator _runtimeBatteryEta = new();
+    private double? _runtimeBatteryDesignWh;
     private DispatcherTimer? _runtimeStatusTimer;
     private bool _runtimeRefreshBusy;
     private bool _runtimeEventsAttached;
@@ -83,6 +84,7 @@ public partial class App
                     _runtimeStatusTimer.Start();
                 }
                 _ = RefreshRuntimeStatusAsync();
+                RequestAutomaticUpdateCheckIfStale();
             }));
         }
     }
@@ -90,6 +92,7 @@ public partial class App
     private void Runtime_Activated(object? sender, EventArgs e)
     {
         UpdateRuntimeTimerCadence();
+        RequestAutomaticUpdateCheckIfStale();
         if (ShouldRefreshHardwareRuntime())
             _ = HardwareClient.GetStatusAsync();
     }
@@ -140,6 +143,7 @@ public partial class App
             State.BatteryEtaToFull = eta.ToFull;
             State.BatteryEtaRemaining = eta.Remaining;
             State.BatterySource = battery.Source;
+            ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
 
             State.BatterySmoothedPowerWatts = eta.SmoothedPowerWatts;
 
@@ -149,7 +153,7 @@ public partial class App
                 battery.PowerWatts,
                 battery.RemainingWh,
                 battery.FullWh,
-                designWh: null);
+                _runtimeBatteryDesignWh);
             State.ApplyBatteryHistory(history);
             BatteryTelemetryService.SetHistoricalChargePower(history.TypicalChargePowerWatts);
 

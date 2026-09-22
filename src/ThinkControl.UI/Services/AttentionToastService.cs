@@ -22,6 +22,7 @@ internal sealed class AttentionToastService : IDisposable
     private string _lastKey = string.Empty;
     private DateTimeOffset _lastShown = DateTimeOffset.MinValue;
     private bool _passivePresentation;
+    private bool _autoHidePresentation = true;
 
     internal Window? WindowForShellSmoke => _window;
     internal Button? ActionButtonForShellSmoke => _action;
@@ -35,12 +36,13 @@ internal sealed class AttentionToastService : IDisposable
         _hideTimer.Tick += (_, _) => Hide();
     }
 
-    internal void Show(string key, string title, string message, string actionText, Action action, Action? dismissed = null, string dismissText = "Later")
+    internal void Show(string key, string title, string message, string actionText, Action action, Action? dismissed = null, string dismissText = "Later", bool autoHide = true)
     {
         if (!Prepare(key, title, message))
             return;
 
         _passivePresentation = false;
+        _autoHidePresentation = autoHide;
         _action!.Content = actionText;
         _action.Visibility = Visibility.Visible;
         _dismiss!.Content = dismissText;
@@ -58,6 +60,7 @@ internal sealed class AttentionToastService : IDisposable
             return;
 
         _passivePresentation = true;
+        _autoHidePresentation = true;
         _actionCallback = null;
         _dismissCallback = null;
         _action!.Visibility = Visibility.Collapsed;
@@ -131,7 +134,8 @@ internal sealed class AttentionToastService : IDisposable
         }
 
         _hideTimer.Stop();
-        _hideTimer.Start();
+        if (_autoHidePresentation)
+            _hideTimer.Start();
     }
 
     private Window? ResolveOwner()
@@ -272,7 +276,8 @@ internal sealed class AttentionToastService : IDisposable
         shell.MouseLeave += (_, _) =>
         {
             _hideTimer.Stop();
-            _hideTimer.Start();
+            if (_autoHidePresentation)
+                _hideTimer.Start();
         };
         shell.MouseLeftButtonUp += (_, e) =>
         {
@@ -330,6 +335,7 @@ internal sealed class AttentionToastService : IDisposable
     {
         _hideTimer.Stop();
         _passivePresentation = false;
+        _autoHidePresentation = true;
         if (_window is null || !_window.IsVisible)
             return;
 

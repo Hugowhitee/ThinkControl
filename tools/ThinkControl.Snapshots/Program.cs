@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ThinkControl.Core.Audio;
 using ThinkControl.Core.Ipc;
 using ThinkControl.Core.Touchpad;
 using ThinkControl.UI;
@@ -48,8 +49,24 @@ internal static class Program
         unknownOffline.MachineType = "QA-UNKNOWN";
         AppState batteryDeviceTemperature = CreateDemoState(charging: true, hardwareReady: true);
         batteryDeviceTemperature.BatteryTemperatureC = null;
+        AppState batteryProtectionPaused = CreateDemoState(charging: false, hardwareReady: true);
+        batteryProtectionPaused.BatteryPercent = 90;
+        batteryProtectionPaused.BatteryCharging = false;
+        batteryProtectionPaused.BatteryStatus = "Plugged in";
+        batteryProtectionPaused.BatteryProtectionEnabled = true;
+        batteryProtectionPaused.BatteryProtectionStartPercent = 80;
+        batteryProtectionPaused.BatteryProtectionStopPercent = 90;
+        batteryProtectionPaused.BatteryProtectionWritable = true;
+        AppState keyboardExperimentalFallback = CreateDemoState(charging: true, hardwareReady: true);
+        keyboardExperimentalFallback.CanKeyboardEffects = false;
+        keyboardExperimentalFallback.ExperimentalKeyboardEffectsEnabled = true;
+        keyboardExperimentalFallback.KeyboardBackend = "Lenovo Vantage fallback";
+        keyboardExperimentalFallback.KeyboardMode = "Breathing";
         AppState activeFanCurve = CreateDemoState(charging: true, hardwareReady: true);
         activeFanCurve.CoolingProfile = "Balanced";
+        AppState homeManualFan = CreateDemoState(charging: true, hardwareReady: true);
+        homeManualFan.CoolingProfile = "Manual 55%";
+        homeManualFan.FanControlKind = FanControlKinds.DiscreteEc;
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
         pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
         pawnIoRepair.HardwareAccess =
@@ -89,14 +106,29 @@ internal static class Program
 
         ThemeService.Apply(ThemeMode.Dark);
         RenderBootstrap(output, snapshots);
+        RenderUpdateAttention(app, output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
+        RenderCompact(app, charging, output, snapshots, "compact-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+        RenderCompact(app, charging, output, snapshots, "compact-silent.png", "Audio safety · Silent", audioSafetyMode: AudioSafetyMode.Silent);
         RenderCompact(app, charging, output, snapshots, "compact-metrics-editor.png", "charging · metric editor", editMetrics: true);
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
+        RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
+            "advanced-home-audio-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+        RenderAdvanced(app, homeManualFan, "Home", 1160, 760, output, snapshots,
+            "advanced-home-fan-manual.png", "manual fan output · Home state clarity");
+        RenderAdvanced(app, charging, "Home", 980, 650, output, snapshots,
+            "advanced-home-audio-silent-min.png", "Audio safety · Silent · minimum window", audioSafetyMode: AudioSafetyMode.Silent);
+        RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
+            "advanced-settings-opening-advanced.png", "app icon opens · Advanced", openingView: "Advanced");
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
+        RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
+            "advanced-battery-preservation-paused.png", "80–90% preservation · charging paused");
+        RenderAdvanced(app, keyboardExperimentalFallback, "Keyboard", 1160, 760, output, snapshots,
+            "advanced-keyboard-experimental-fallback.png", "Experimental fallback · session enabled");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
             "advanced-battery-day-expanded.png", "expanded daily session detail", expandBatteryDay: true);
 
@@ -167,7 +199,12 @@ internal static class Program
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
+        RenderCompact(app, charging, output, snapshots, "compact-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
+        RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
+            "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
+        RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
+            "advanced-settings-light.png", "Advanced opening mode · light", openingView: "Advanced");
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
             "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
         RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
@@ -225,7 +262,7 @@ internal static class Program
             BatteryChargeCurveLabel = "Current charge · full session curve",
             BatteryCurrentSessionText = "61% → 78% · 43 min · 17.8 W avg · +12.1 Wh",
             BatteryTypicalChargeText = "Typical 18.1 W · 8 sessions",
-            BatteryHealthTrendText = "Health trend · 97.6% · stable",
+            BatteryHealthTrendText = "Health trend · 97.6% · stable · 8 daily samples",
             BatterySource = "Windows ACPI battery",
             Brightness = 68,
             BrightnessAvailable = true,
@@ -256,6 +293,11 @@ internal static class Program
             CanFanControl = hardwareReady,
             CanFanTelemetry = hardwareReady,
             CanKeyboardBacklight = hardwareReady,
+            CanKeyboardEffects = hardwareReady,
+            BatteryProtectionEnabled = hardwareReady ? true : null,
+            BatteryProtectionStartPercent = hardwareReady ? 75 : null,
+            BatteryProtectionStopPercent = hardwareReady ? 85 : null,
+            BatteryProtectionWritable = hardwareReady,
             CanCpuTemperature = hardwareReady,
             CanSensorTelemetry = hardwareReady
         };
@@ -336,12 +378,15 @@ internal static class Program
         ICollection<SnapshotEntry> snapshots,
         string fileName,
         string stateName,
-        bool editMetrics = false)
+        bool editMetrics = false,
+        AudioSafetyMode? audioSafetyMode = null)
     {
         const int width = 390;
-        const int height = 500;
+        const int height = 520;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
+        if (audioSafetyMode is AudioSafetyMode mode)
+            window.PrepareAudioSafetyForSnapshot(mode);
         if (editMetrics)
             window.PrepareMetricEditorForSnapshot();
         RenderWindowContent(window, Path.Combine(output, fileName));
@@ -365,7 +410,9 @@ internal static class Program
         bool touchpadCornerLive = false,
         bool fanManualTest = false,
         bool deviceLearning = false,
-        bool deviceReportReady = false)
+        bool deviceReportReady = false,
+        string? openingView = null,
+        AudioSafetyMode? audioSafetyMode = null)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -387,6 +434,16 @@ internal static class Program
         }
         else
             window.Navigate(page);
+
+        // Page navigation refreshes a few Settings/Home selectors from the real app
+        // state. Apply deterministic visual-only overrides after navigation so the
+        // screenshot name and the actually rendered selection cannot disagree.
+        if (openingView is not null)
+            window.PrepareOpeningViewForSnapshot(openingView);
+        if (audioSafetyMode is AudioSafetyMode audioSafety)
+            window.PrepareAudioSafetyForSnapshot(
+                audioSafety,
+                audioPage: string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase));
 
         if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
             window.PreparePerformanceForSnapshot();
@@ -434,6 +491,33 @@ internal static class Program
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, $"Advanced · {page}", stateName, width, height));
         window.ForceClose();
+    }
+
+    private static void RenderUpdateAttention(
+        App app,
+        string output,
+        ICollection<SnapshotEntry> snapshots)
+    {
+        Window toast = app.PrepareUpdateAttentionForSnapshot();
+        if (toast.Content is not FrameworkElement root)
+            throw new InvalidOperationException("Update attention window has no renderable content.");
+
+        const double width = 390;
+        root.Measure(new Size(width, double.PositiveInfinity));
+        double height = Math.Clamp(Math.Ceiling(root.DesiredSize.Height), toast.MinHeight, toast.MaxHeight);
+        toast.SizeToContent = SizeToContent.Manual;
+        toast.Width = width;
+        toast.Height = height;
+
+        const string fileName = "update-attention-first-seen.png";
+        RenderWindowContent(toast, Path.Combine(output, fileName));
+        snapshots.Add(new SnapshotEntry(
+            fileName,
+            "Update attention",
+            "first seen · Install now / Later",
+            (int)width,
+            (int)height));
+        toast.Hide();
     }
 
     private static void RenderNotificationSheet(

@@ -217,9 +217,14 @@ public partial class AdvancedWindow : Window
         try
         {
             ThinkControlPowerMode batteryPreference = _app.GetPowerPreference(onBattery: true);
+            ThinkControlPowerMode acPreference = _app.GetPowerPreference(onBattery: false);
             HomeQuiet.IsChecked = batteryPreference == ThinkControlPowerMode.Quiet;
             HomeBalanced.IsChecked = batteryPreference == ThinkControlPowerMode.Balanced;
             HomePerformance.IsChecked = batteryPreference == ThinkControlPowerMode.Performance;
+            HomeAcQuiet.IsChecked = acPreference == ThinkControlPowerMode.Quiet;
+            HomeAcBalanced.IsChecked = acPreference == ThinkControlPowerMode.Balanced;
+            HomeAcPerformance.IsChecked = acPreference == ThinkControlPowerMode.Performance;
+            HomePowerSummary.Text = $"Battery {PowerShortName(batteryPreference)} · AC {PowerShortName(acPreference)}";
 
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);
@@ -240,12 +245,10 @@ public partial class AdvancedWindow : Window
             HomeKeyboardHigh.IsChecked = AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
             HomeKeyboardAuto.IsChecked = AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
 
-            if (HomeFanProfileCombo is not null)
+            if (HomeFanAutoSwitch is not null)
             {
-                HomeFanProfileCombo.IsEnabled = state.CanFanControl;
-                HomeFanProfileCombo.SelectedItem = state.CoolingProfileDisplay;
-                if (HomeFanProfileCombo.SelectedItem is null)
-                    HomeFanProfileCombo.SelectedItem = "Auto";
+                HomeFanAutoSwitch.IsEnabled = state.CanFanControl;
+                HomeFanMoreButton.IsEnabled = state.CanFanControl;
             }
         }
         finally

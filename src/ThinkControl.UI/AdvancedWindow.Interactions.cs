@@ -121,10 +121,10 @@ public partial class AdvancedWindow
             _app.UserSettings.Update(settings => settings with { AutomaticUpdates = autoSwitch.IsChecked == true });
 
         var copy = new StackPanel();
-        copy.Children.Add(new TextBlock { Text = "Check for updates at startup", FontWeight = FontWeights.SemiBold });
+        copy.Children.Add(new TextBlock { Text = "Automatic update checks", FontWeight = FontWeights.SemiBold });
         var detail = new TextBlock
         {
-            Text = "Check once shortly after ThinkControl starts. A newer release appears as an Update / Dismiss prompt and remains available in Notifications and Updates. ThinkControl never installs or opens an administrator prompt on its own.",
+            Text = "Check shortly after startup and again on activation or resume only when the last attempt is at least four hours old. A newer release appears as an Install now / Later prompt and remains available in Notifications and Updates. ThinkControl never installs or opens an administrator prompt on its own.",
             FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 4, 80, 0),
             TextWrapping = TextWrapping.Wrap
