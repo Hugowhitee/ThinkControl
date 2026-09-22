@@ -143,6 +143,7 @@ public partial class App
             State.BatteryEtaToFull = eta.ToFull;
             State.BatteryEtaRemaining = eta.Remaining;
             State.BatterySource = battery.Source;
+            ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
 
             State.BatterySmoothedPowerWatts = eta.SmoothedPowerWatts;
 
