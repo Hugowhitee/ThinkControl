@@ -362,7 +362,7 @@ internal static class Program
         AudioSafetyMode? audioSafetyMode = null)
     {
         const int width = 390;
-        const int height = 500;
+        const int height = 520;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
         if (audioSafetyMode is AudioSafetyMode mode)
