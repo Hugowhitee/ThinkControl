@@ -194,7 +194,8 @@ public partial class AdvancedWindow
                 Header = profile,
                 Tag = profile,
                 IsCheckable = true,
-                IsChecked = profile.Equals(selected, StringComparison.OrdinalIgnoreCase)
+                IsChecked = profile.Equals(selected, StringComparison.OrdinalIgnoreCase),
+                IsEnabled = !IsManualHomeFanState(profile)
             };
             item.Click += HomeFanMoreProfile_Click;
             menu.Items.Add(item);
