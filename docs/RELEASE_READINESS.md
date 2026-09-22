@@ -34,7 +34,7 @@ Alpha.46 completion:
 
 ## Alpha.47 mode and visual polish candidate
 
-Alpha.47 is an interface-consistency and clarity release on immutable alpha.46. It does **not** broaden any low-level hardware write contract.
+Alpha.47 is an interface-consistency, feedback and clarity release on immutable alpha.46. It does **not** add a new low-level hardware command surface.
 
 Candidate state:
 
@@ -42,40 +42,46 @@ Candidate state:
 - `version.json.releaseReady=false` until exact-head code, package and visual evidence are green
 - immutable base: `v0.1.0-alpha.46` at `ccca29ed696d422b21f96589b972fbee5884b291`
 - active branch / PR: `polish/alpha47-mode-visuals` / #91
-- this document remains the single persistent handoff: a future chat should restore live repo/PR state, read this section and continue the unchecked release gates rather than relying on old chat history
+- current implementation scope is frozen except for evidenced CI/review/visual defects
+- this document is the single persistent handoff: a future chat should restore live repo/PR state, read this section and continue the unchecked release gates rather than reconstructing intent from chat history
 
 Scope:
 
-- use one user-facing shell vocabulary: `Compact` / `Advanced`, removing the stray `Full` label from App icon opening preferences and shell-smoke descriptions;
-- keep Audio Safety as the existing canonical `Normal` / `Media lock` / `Silent` session owner, make its purpose explicit in Compact and surface the same state directly on Advanced Home instead of hiding it behind Settings;
-- make update discovery reliable for long-lived tray sessions: startup plus stale-gated activation/resume checks (minimum four hours apart, no polling timer) can discover newer releases; attention stays silent while no window is visible, then offers a persistent **Install now** / **Later** prompt when the user next opens Compact or Advanced; postponing suppresses repeat interruption for that exact version without hiding the update;
-- make Advanced Home's update state actionable instead of disabling an ambiguous `Update available` button;
-- replace the Home fan `More…` sentinel with an actual inline saved-profile menu and expose firmware/OEM `Auto` as a Home switch alongside the quick presets;
-- sample battery health from firmware full-charge/design capacity once per day independently of charge-session completion, so an intentional 80–90% charge cap does not stop the health trend learning;
-- add deterministic Compact and Advanced Home/Settings mode visual states, including minimum-window and light-theme coverage;
-- strengthen source tests so update attention, fan controls, battery-health sampling, shared Audio Safety ownership and required visual states cannot silently regress;
-- preserve all alpha.46 low-level hardware/provider, startup, installer and safety boundaries.
+- use one user-facing shell vocabulary: `Compact` / `Advanced`;
+- keep Audio Safety as one session owner, expose it where it is operationally useful (Advanced Home, Compact media controls and Audio) and remove the duplicate Settings editor;
+- place Compact `Media safety` inside the Brightness/Volume control cluster instead of the footer; the footer returns to version + Audio + Settings;
+- expose both **Battery** and **Plugged in** Windows power preferences directly on Advanced Home while keeping the full Performance page;
+- make update discovery reliable for long-lived tray sessions: startup plus stale-gated activation/resume checks (minimum four hours apart, no polling timer), followed by a persistent first-seen **Install now** / **Later** prompt once a ThinkControl window is visible;
+- replace the Home fan `More…` sentinel with a real saved-profile menu, keep manual state truthful, and expose firmware/OEM `Auto` beside the presets;
+- make Battery Preservation visibly trustworthy: mirror the live threshold state into AppState, replace the stale disabled Battery placeholder, confirm applied/disabled thresholds, and notify when charging actually pauses at the stop threshold or resumes below the start threshold;
+- sample battery health from firmware full-charge/design capacity independently of completing a charge session and carry design capacity into long-lived tray sampling, so an 80–90% preservation cap does not stop the health trend learning;
+- label Keyboard Effects **EXPERIMENTAL** and add a session-only, explicit-warning fallback opt-in when static backlight control exists but the provider does not advertise native effect capability; keep the existing deduplication/rate limit and existing Off/Low/High command surface;
+- expand deterministic visual QA for the actual first-seen update popup, Compact modes, Home power/fan/Audio Safety states, Battery Preservation paused state, Experimental keyboard fallback and minimum/light layouts;
+- preserve all alpha.46 low-level fan/battery/provider/startup/installer safety boundaries.
 
 Release gate:
 
 - [x] alpha.46 immutable release state reconciled in the persistent handoff
 - [x] strict alpha.46 full-resolution visual pass completed before starting this candidate
-- [x] Compact / Advanced visible naming unified in the opening preference
-- [x] shell-smoke stage naming aligned with Advanced
+- [x] Compact / Advanced visible naming unified
 - [x] automatic update discovery made stale-aware on startup/activation/resume without a permanent poller
-- [x] first-seen update prompt repaired for tray-started sessions with Install now / Later actions
+- [x] first-seen update decision made persistent with Install now / Later
 - [x] Home update availability made directly actionable
-- [x] Compact Audio Safety purpose made explicit and Advanced Home wired to the same session owner
-- [x] Home fan Auto switch and real More profiles menu implemented without a second fan state owner
-- [x] battery-health trend decoupled from reaching/completing a full charge session
-- [x] Compact Audio Safety mode snapshots retained and Advanced Home mode/minimum/light snapshots added
-- [x] source regression coverage added for the new alpha.47 UX contracts
-- [x] no low-level hardware capability expanded
-- [ ] exact alpha.47 implementation-head CI green
-- [ ] exact alpha.47 implementation-head Package ThinkControl green
-- [ ] exact-head WPF artifact manually inspected under strict visual criteria, including Compact footer, Advanced Home mode card, Home fan row and Battery trend copy
+- [x] duplicate Audio Safety editor removed from Settings; one canonical owner remains
+- [x] Compact Media safety moved out of the footer and into the Volume/control cluster
+- [x] Advanced Home now exposes independent Battery and Plugged-in power preferences
+- [x] Home fan Auto switch and real More profiles menu implemented without a second fan-state owner
+- [x] Battery Preservation live state + applied/disabled + pause/resume feedback implemented
+- [x] battery-health trend decoupled from full-charge completion and long-lived runtime keeps design-capacity context
+- [x] Keyboard Effects marked Experimental with session-only warned fallback opt-in
+- [x] deterministic QA fixtures added/updated for the new alpha.47 states
+- [x] source regression coverage expanded for the new UX contracts
+- [x] no new low-level hardware command or provider capability introduced
+- [ ] exact final implementation-head CI green
+- [ ] exact final implementation-head Package ThinkControl green
+- [ ] exact-head WPF artifact manually inspected at full resolution: Compact control cluster/footer, Advanced Home power/fan/Audio Safety cards, Battery Preservation paused state, Keyboard Experimental state, update popup, minimum window and light theme
 - [ ] review comments/threads resolved
-- [ ] record implementation-head evidence and freeze `version.json.releaseReady=true`
+- [ ] record final implementation-head evidence and freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
 - [ ] merge alpha.47 PR with exact expected-head SHA
 - [ ] immutable `v0.1.0-alpha.47` published with exactly four managed assets
