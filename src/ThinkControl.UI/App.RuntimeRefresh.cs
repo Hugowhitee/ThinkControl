@@ -18,6 +18,7 @@ public partial class App
 
     private readonly WindowsBatteryStateService _runtimeBattery = new();
     private readonly BatteryEtaEstimator _runtimeBatteryEta = new();
+    private double? _runtimeBatteryDesignWh;
     private DispatcherTimer? _runtimeStatusTimer;
     private bool _runtimeRefreshBusy;
     private bool _runtimeEventsAttached;
@@ -151,7 +152,7 @@ public partial class App
                 battery.PowerWatts,
                 battery.RemainingWh,
                 battery.FullWh,
-                designWh: null);
+                _runtimeBatteryDesignWh);
             State.ApplyBatteryHistory(history);
             BatteryTelemetryService.SetHistoricalChargePower(history.TypicalChargePowerWatts);
 
