@@ -18,7 +18,7 @@ public sealed class ModeVisualCoverageSourceTests
     }
 
     [Fact]
-    public void VisualQa_CoversOpeningAndAudioSafetyModes()
+    public void VisualQa_CoversOpeningSafetyPreservationAndExperimentalStates()
     {
         string root = FindRepositoryRoot();
         string snapshots = File.ReadAllText(Path.Combine(root, "tools", "ThinkControl.Snapshots", "Program.cs"));
@@ -32,8 +32,10 @@ public sealed class ModeVisualCoverageSourceTests
         Assert.Contains("advanced-home-audio-silent-min.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-audio-silent-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-settings-opening-advanced.png", snapshots, StringComparison.Ordinal);
-        Assert.Contains("advanced-settings-audio-silent.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-battery-preservation-paused.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-keyboard-experimental-fallback.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-settings-light.png", snapshots, StringComparison.Ordinal);
+        Assert.DoesNotContain("advanced-settings-audio-silent.png", snapshots, StringComparison.Ordinal);
 
         int navigateIndex = snapshots.IndexOf("window.Navigate(page);", StringComparison.Ordinal);
         int openingOverrideIndex = snapshots.IndexOf("window.PrepareOpeningViewForSnapshot(openingView);", StringComparison.Ordinal);
