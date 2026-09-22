@@ -81,7 +81,7 @@ public partial class AdvancedWindow
         if (audioPage)
             AudioPanelControl.PrepareAudioSafetyForSnapshot(mode);
         else
-            PrepareAudioSafetyForSnapshot(mode);
+            PrepareHomeAudioSafetyForSnapshot(mode);
     }
 
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
