@@ -240,12 +240,10 @@ public partial class AdvancedWindow : Window
             HomeKeyboardHigh.IsChecked = AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
             HomeKeyboardAuto.IsChecked = AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
 
-            if (HomeFanProfileCombo is not null)
+            if (HomeFanAutoSwitch is not null)
             {
-                HomeFanProfileCombo.IsEnabled = state.CanFanControl;
-                HomeFanProfileCombo.SelectedItem = state.CoolingProfileDisplay;
-                if (HomeFanProfileCombo.SelectedItem is null)
-                    HomeFanProfileCombo.SelectedItem = "Auto";
+                HomeFanAutoSwitch.IsEnabled = state.CanFanControl;
+                HomeFanMoreButton.IsEnabled = state.CanFanControl;
             }
         }
         finally
