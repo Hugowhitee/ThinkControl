@@ -187,7 +187,8 @@ public partial class App
                 ? () => _ = InstallUpdateFromAttentionAsync(update)
                 : () => OpenAdvancedSafely("Updates"),
             () => DismissUpdatePrompt(update),
-            dismissText: "Later");
+            dismissText: "Later",
+            autoHide: false);
         if (version.Length > 0)
             _shownUpdateVersionThisRun = version;
     }
