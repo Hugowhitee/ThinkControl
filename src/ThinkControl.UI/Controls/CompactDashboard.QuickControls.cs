@@ -26,7 +26,7 @@ public partial class CompactDashboard
             CompactFanCombo.ItemsSource = BuildFanOptions();
             CompactRefreshCombo.ItemsSource = BuildRefreshOptions();
             CompactKeyboardCombo.ItemsSource = new[] { "Off", "Low", "High", "Auto" };
-            CompactAudioSafetyCombo.ItemsSource = new[] { "Audio · Normal", "Audio · Media lock", "Audio · Silent" };
+            CompactAudioSafetyCombo.ItemsSource = new[] { "Normal", "Media lock", "Silent" };
         }
         finally
         {
@@ -107,7 +107,7 @@ public partial class CompactDashboard
     }
 
     private static string CompactAudioSafetyLabel(AudioSafetyMode mode) =>
-        $"Audio · {AudioSafetyPolicy.DisplayName(mode)}";
+        AudioSafetyPolicy.DisplayName(mode);
 
     private static string DisplayFanName(string? raw) => raw?.Trim() switch
     {
