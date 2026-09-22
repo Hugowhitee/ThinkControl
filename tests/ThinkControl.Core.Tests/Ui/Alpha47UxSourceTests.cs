@@ -52,6 +52,24 @@ public sealed class Alpha47UxSourceTests
     }
 
     [Fact]
+    public void AdvancedHome_PowerProfilesCoverBatteryAndPluggedIn()
+    {
+        string root = FindRepositoryRoot();
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+        string code = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
+
+        Assert.Contains("x:Name=\"HomeQuiet\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Battery:Quiet\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"HomeAcQuiet\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Ac:Quiet\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"HomeAcPerformance\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"HomePowerMode_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("_app.GetPowerPreference(onBattery: true)", code, StringComparison.Ordinal);
+        Assert.Contains("_app.GetPowerPreference(onBattery: false)", code, StringComparison.Ordinal);
+        Assert.Contains("_app.SetPowerPreference(mode, onBattery)", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdvancedHome_FanAutoAndMoreProfilesAreRealControls()
     {
         string root = FindRepositoryRoot();
@@ -62,7 +80,6 @@ public sealed class Alpha47UxSourceTests
         Assert.Contains("x:Name=\"HomeFanMoreButton\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Click=\"HomeFanAuto_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Click=\"HomeFanMore_Click\"", xaml, StringComparison.Ordinal);
-
         Assert.Contains("new ContextMenu", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanAutoSwitch.IsChecked == true ? \"Auto\" : \"Balanced\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MoreFanProfilesLabel", code, StringComparison.Ordinal);
@@ -70,23 +87,62 @@ public sealed class Alpha47UxSourceTests
     }
 
     [Fact]
-    public void AudioSafety_IsNamedInCompactAndVisibleOnAdvancedHome()
+    public void AudioSafety_LivesOnHomeAndMediaControls_NotSettings()
     {
         string root = FindRepositoryRoot();
         string compactXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.xaml"));
         string compactCode = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
         string advancedXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+        string preferences = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.AppPreferences.cs"));
 
-        Assert.Contains("Width=\"164\"", compactXaml, StringComparison.Ordinal);
-        Assert.Contains("Audio safety: blocks accidental ThinkControl volume/media actions", compactXaml, StringComparison.Ordinal);
-        Assert.Contains("\"Audio · Normal\"", compactCode, StringComparison.Ordinal);
-        Assert.Contains("\"Audio · Media lock\"", compactCode, StringComparison.Ordinal);
-        Assert.Contains("\"Audio · Silent\"", compactCode, StringComparison.Ordinal);
-
+        Assert.Contains("Text=\"Media safety\"", compactXaml, StringComparison.Ordinal);
+        Assert.Contains("\"Normal\", \"Media lock\", \"Silent\"", compactCode, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HomeAudioSafetyNormal\"", advancedXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HomeAudioSafetyMediaLock\"", advancedXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HomeAudioSafetySilent\"", advancedXaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Audio safety\"", advancedXaml, StringComparison.Ordinal);
+
+        Assert.DoesNotContain("CreateAudioSafetyCard", preferences, StringComparison.Ordinal);
+        Assert.DoesNotContain("ThinkControl.Settings.AudioSafety", preferences, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void BatteryPreservation_HasLiveStateAndTransitionFeedback()
+    {
+        string root = FindRepositoryRoot();
+        string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
+        string attention = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.BatteryProtectionAttention.cs"));
+        string panel = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.ProtectionAndHistory.cs"));
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+
+        Assert.Contains("BatteryProtectionSummaryText", state, StringComparison.Ordinal);
+        Assert.Contains("Charging paused near", state, StringComparison.Ordinal);
+        Assert.Contains("Battery preservation paused charging", attention, StringComparison.Ordinal);
+        Assert.Contains("Battery preservation resumed charging", attention, StringComparison.Ordinal);
+        Assert.Contains("ShowBatteryPreservationApplied", panel, StringComparison.Ordinal);
+        Assert.Contains("ShowBatteryPreservationDisabled", panel, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Battery preservation\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("BatteryProtectionBehaviorText", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"Set limit\" Style=\"{StaticResource TcButton}\" IsEnabled=\"False\"", xaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void KeyboardEffects_ExperimentalFallbackRequiresExplicitSessionOptIn()
+    {
+        string root = FindRepositoryRoot();
+        string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "KeyboardEffectsPanel.xaml"));
+        string code = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "KeyboardEffectsPanel.xaml.cs"));
+        string service = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Services", "KeyboardEffectService.cs"));
+
+        Assert.Contains("ExperimentalKeyboardEffectsEnabled", state, StringComparison.Ordinal);
+        Assert.Contains("KeyboardEffectsUsable", state, StringComparison.Ordinal);
+        Assert.Contains("Text=\"EXPERIMENTAL\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ExperimentalEffectsSwitch\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("MessageBoxButton.YesNo", code, StringComparison.Ordinal);
+        Assert.Contains("for this ThinkControl session", code, StringComparison.Ordinal);
+        Assert.Contains("_state.KeyboardEffectsUsable", service, StringComparison.Ordinal);
+        Assert.Contains("MinHardwareWriteInterval = TimeSpan.FromMilliseconds(260)", service, StringComparison.Ordinal);
     }
 
     [Fact]
