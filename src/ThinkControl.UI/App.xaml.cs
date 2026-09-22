@@ -162,6 +162,8 @@ public partial class App : System.Windows.Application
             State.BatteryTemperatureC = battery.TemperatureC ?? ResolveCredibleBatteryTemperature(State.Sensors);
             State.BatteryRemainingWh = battery.RemainingCapacityWh;
             State.BatteryFullWh = battery.FullChargeCapacityWh;
+            if (battery.DesignCapacityWh is > 0)
+                _runtimeBatteryDesignWh = battery.DesignCapacityWh;
             State.BatteryEtaToFull = battery.EstimatedTimeToFull;
             State.BatteryEtaRemaining = battery.EstimatedTimeRemaining;
             State.BatterySource = battery.Source;
