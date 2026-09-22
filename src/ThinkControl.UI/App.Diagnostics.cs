@@ -53,6 +53,10 @@ public partial class App
                 State.CoolingProfile = telemetry.CoolingProfile;
                 State.KeyboardStatus = telemetry.KeyboardBacklight;
                 State.KeyboardBackend = telemetry.KeyboardBackend ?? "Not exposed";
+                State.BatteryProtectionEnabled = telemetry.BatteryChargeProtectionEnabled ??
+                    (telemetry.BatteryChargeLimitPercent is int limit ? limit < 100 : null);
+                State.BatteryProtectionStartPercent = telemetry.BatteryChargeStartPercent;
+                State.BatteryProtectionStopPercent = telemetry.BatteryChargeStopPercent ?? telemetry.BatteryChargeLimitPercent;
                 if (!string.IsNullOrWhiteSpace(telemetry.ThermalSolutionVersion))
                     State.ThermalSolution = telemetry.ThermalSolutionVersion!;
 
@@ -68,6 +72,8 @@ public partial class App
                     State.FanControlKind = capabilities.FanControlKind;
                     State.CanKeyboardBacklight = capabilities.KeyboardBacklight;
                     State.CanKeyboardEffects = capabilities.KeyboardEffects;
+                    State.BatteryProtectionWritable = capabilities.BatteryChargeProtection &&
+                                                      capabilities.BatteryCustomChargeThresholds;
                     State.CanCpuTemperature = capabilities.CpuTemperature;
                 }
                 else
@@ -76,6 +82,7 @@ public partial class App
                     State.CanFanTelemetry = State.Fans.Count > 0;
                     State.FanControlKind = FanControlKinds.None;
                     State.CanKeyboardEffects = false;
+                    State.BatteryProtectionWritable = false;
                 }
 
                 RecordFanTelemetrySample(telemetry);
@@ -102,6 +109,7 @@ public partial class App
             State.FanControlKind = FanControlKinds.None;
             State.CanKeyboardBacklight = false;
             State.CanKeyboardEffects = false;
+            State.BatteryProtectionWritable = false;
             State.CanCpuTemperature = false;
             State.ClearHardwareTelemetry();
         }
