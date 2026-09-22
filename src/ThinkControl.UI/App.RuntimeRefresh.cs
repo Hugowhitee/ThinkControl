@@ -83,6 +83,7 @@ public partial class App
                     _runtimeStatusTimer.Start();
                 }
                 _ = RefreshRuntimeStatusAsync();
+                RequestAutomaticUpdateCheckIfStale();
             }));
         }
     }
@@ -90,6 +91,7 @@ public partial class App
     private void Runtime_Activated(object? sender, EventArgs e)
     {
         UpdateRuntimeTimerCadence();
+        RequestAutomaticUpdateCheckIfStale();
         if (ShouldRefreshHardwareRuntime())
             _ = HardwareClient.GetStatusAsync();
     }
