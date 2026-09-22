@@ -34,6 +34,12 @@ public sealed class ModeVisualCoverageSourceTests
         Assert.Contains("advanced-settings-opening-advanced.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-settings-audio-silent.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-settings-light.png", snapshots, StringComparison.Ordinal);
+
+        int navigateIndex = snapshots.IndexOf("window.Navigate(page);", StringComparison.Ordinal);
+        int openingOverrideIndex = snapshots.IndexOf("window.PrepareOpeningViewForSnapshot(openingView);", StringComparison.Ordinal);
+        int audioOverrideIndex = snapshots.IndexOf("window.PrepareAudioSafetyForSnapshot(audioSafety);", StringComparison.Ordinal);
+        Assert.True(navigateIndex >= 0 && openingOverrideIndex > navigateIndex);
+        Assert.True(navigateIndex >= 0 && audioOverrideIndex > navigateIndex);
     }
 
     private static string FindRepositoryRoot()
