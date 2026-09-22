@@ -48,7 +48,7 @@ Scope:
 
 - use one user-facing shell vocabulary: `Compact` / `Advanced`, removing the stray `Full` label from App icon opening preferences and shell-smoke descriptions;
 - keep Audio Safety as the existing canonical `Normal` / `Media lock` / `Silent` session owner, make its purpose explicit in Compact and surface the same state directly on Advanced Home instead of hiding it behind Settings;
-- make first-seen update attention reliable after Windows tray startup: automatic discovery stays silent while no window is visible, then offers a persistent **Install now** / **Later** prompt when the user next opens Compact or Advanced; postponing suppresses repeat interruption for that exact version without hiding the update;
+- make update discovery reliable for long-lived tray sessions: startup plus stale-gated activation/resume checks (minimum four hours apart, no polling timer) can discover newer releases; attention stays silent while no window is visible, then offers a persistent **Install now** / **Later** prompt when the user next opens Compact or Advanced; postponing suppresses repeat interruption for that exact version without hiding the update;
 - make Advanced Home's update state actionable instead of disabling an ambiguous `Update available` button;
 - replace the Home fan `More…` sentinel with an actual inline saved-profile menu and expose firmware/OEM `Auto` as a Home switch alongside the quick presets;
 - sample battery health from firmware full-charge/design capacity once per day independently of charge-session completion, so an intentional 80–90% charge cap does not stop the health trend learning;
@@ -62,6 +62,7 @@ Release gate:
 - [x] strict alpha.46 full-resolution visual pass completed before starting this candidate
 - [x] Compact / Advanced visible naming unified in the opening preference
 - [x] shell-smoke stage naming aligned with Advanced
+- [x] automatic update discovery made stale-aware on startup/activation/resume without a permanent poller
 - [x] first-seen update prompt repaired for tray-started sessions with Install now / Later actions
 - [x] Home update availability made directly actionable
 - [x] Compact Audio Safety purpose made explicit and Advanced Home wired to the same session owner
