@@ -18,7 +18,7 @@ The snapshot renderer covers:
 
 - Compact at its production fixed size, including battery/charging and Audio Safety states;
 - every Advanced page at minimum, normal and wide viewports;
-- selected light-theme states, including Compact and Settings mode surfaces;
+- selected light-theme states, including Compact, Advanced Home and Settings mode surfaces;
 - important provider unavailable/offline states;
 - hardware setup and diagnostics states;
 - temporary manual fan-test safety UI;
@@ -44,6 +44,7 @@ Check at minimum:
 9. startup and Compact ↔ Advanced transitions always provide an immediately painted surface;
 10. overlays/popups intended to block interaction appear above Compact as well as Advanced.
 11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Media lock / Silent remain legible without footer clipping in both themes.
+12. Advanced Home's Audio Safety card, fan Auto row and More-profiles affordance remain aligned and understandable at minimum, normal and light-theme states; Battery health-trend explanation must not collide with the chart/status copy.
 
 ## Artifact ownership
 
