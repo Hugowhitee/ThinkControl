@@ -39,7 +39,7 @@ Alpha.47 is an interface-consistency, feedback and clarity release on immutable 
 Candidate state:
 
 - source version: `v0.1.0-alpha.47`
-- `version.json.releaseReady=false` until exact-head code, package and visual evidence are green
+- `version.json.releaseReady=true` on the frozen candidate after exact-head code, package and visual evidence completed
 - immutable base: `v0.1.0-alpha.46` at `ccca29ed696d422b21f96589b972fbee5884b291`
 - active branch / PR: `polish/alpha47-mode-visuals` / #91
 - current implementation scope is frozen except for evidenced CI/review/visual defects
@@ -77,11 +77,22 @@ Release gate:
 - [x] deterministic QA fixtures added/updated for the new alpha.47 states
 - [x] source regression coverage expanded for the new UX contracts
 - [x] no new low-level hardware command or provider capability introduced
-- [ ] exact final implementation-head CI green
-- [ ] exact final implementation-head Package ThinkControl green
-- [ ] exact-head WPF artifact manually inspected at full resolution: Compact control cluster/footer, Advanced Home power/fan/Audio Safety cards, Battery Preservation paused state, Keyboard Experimental state, update popup, minimum window and light theme
-- [ ] review comments/threads resolved
-- [ ] record final implementation-head evidence and freeze `version.json.releaseReady=true`
+- [x] exact final implementation-head CI green
+- [x] exact final implementation-head Package ThinkControl green
+- [x] exact-head WPF artifact manually inspected at full resolution: Compact control cluster/footer, Advanced Home power/fan/Audio Safety cards, Battery Preservation paused state, Keyboard Experimental state, update popup, minimum window and light theme
+- [x] review gate reconciled: zero review threads; Codex review requests were blocked by the configured usage limit, so approval was not inferred and manual exact-head diff/visual review was used instead
+- [x] record final implementation-head evidence and freeze `version.json.releaseReady=true`
+### Alpha.47 implementation-head evidence
+
+Final implementation head before the release-ready metadata freeze: `a1bd7f136aaa50bb15b2fac30157aa24778abba5`.
+
+- CI run `35788158995`: success; repository hygiene, Release build, **213 tests**, real Compact ↔ Advanced shell smoke and WPF renderer all passed.
+- Package ThinkControl run `35788159070`: success; payload build, bootstrap installer, deep installer/IPC smoke, oldest-supported alpha.14.1 updater compatibility and checksum creation all passed.
+- exact-head visual artifact `10720992192`, digest `sha256:4c09d4e8a2e852774acc121b0f03af22ee4d08a5101d05f6bb0a83739f2978b7`, contains **99 deterministic screenshots**.
+- full-resolution manual review covered Compact dark/light + Media lock/Silent, Advanced Home normal/minimum/light + manual fan + Audio Safety, Battery Preservation paused state, Experimental keyboard fallback, first-seen update attention and Settings cleanup.
+- the final minimum-width pass found and fixed clipped Home `Performance` labels; the replacement artifact on the exact implementation head shows both Battery and Plugged-in rows fully readable.
+- PR #91 has zero review threads. Repeated Codex review requests returned the explicit code-review usage-limit message, which is recorded as a tooling constraint rather than treated as review approval.
+
 - [ ] frozen-head CI + Package green
 - [ ] merge alpha.47 PR with exact expected-head SHA
 - [ ] immutable `v0.1.0-alpha.47` published with exactly four managed assets
