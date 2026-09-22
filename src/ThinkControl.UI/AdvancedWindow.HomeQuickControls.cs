@@ -285,6 +285,19 @@ public partial class AdvancedWindow
         };
     }
 
+    internal void PrepareHomeAudioSafetyForSnapshot(AudioSafetyMode mode)
+    {
+        HomeAudioSafetyNormal.IsChecked = mode == AudioSafetyMode.Normal;
+        HomeAudioSafetyMediaLock.IsChecked = mode == AudioSafetyMode.MediaLock;
+        HomeAudioSafetySilent.IsChecked = mode == AudioSafetyMode.Silent;
+        HomeAudioSafetyStatus.Text = mode switch
+        {
+            AudioSafetyMode.MediaLock => "Media lock active · Windows/app audio still works; ThinkControl media and volume gestures are locked.",
+            AudioSafetyMode.Silent => "Silent active · output is muted and ThinkControl media/output actions are locked.",
+            _ => "Normal · ThinkControl media and volume controls are available."
+        };
+    }
+
     private async void HomeAudioSafety_Click(object sender, RoutedEventArgs e)
     {
         if (_homeAudioSafetyBusy || sender is not FrameworkElement { Tag: string raw })
