@@ -13,6 +13,12 @@ public partial class BatteryTelemetryPanel
     private bool _syncingHistoryRetention;
     private int _historyVisibleDays = 7;
 
+    internal void BringPreservationIntoView()
+    {
+        ChargeProtectionComboBox.BringIntoView();
+        ChargeProtectionComboBox.Focus();
+    }
+
     private void BatteryTelemetryPanel_Loaded(object sender, RoutedEventArgs e)
     {
         SyncHistoryManagementUi();
