@@ -143,7 +143,7 @@
             <Grid Grid.Row="4" Margin="3,4,3,0" VerticalAlignment="Stretch">
                 <TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <ComboBox x:Name="CompactAudioSafetyCombo" Style="{StaticResource TcComboBox}" Width="138" Height="40" MinHeight="40" Margin="0,0,10,0" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Audio safety: blocks accidental ThinkControl volume/media actions; Silent also mutes output" />
+                    <ComboBox x:Name="CompactAudioSafetyCombo" Style="{StaticResource TcComboBox}" Width="164" Height="40" MinHeight="40" Margin="0,0,10,0" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Audio safety: blocks accidental ThinkControl volume/media actions; Silent also mutes output" />
                     <Button Style="{StaticResource CompactInlineButton}" Content="Audio" Tag="Audio" Click="OpenPage_Click" Margin="0,0,12,0" />
                     <Button Style="{StaticResource CompactInlineButton}" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" />
                 </StackPanel>
