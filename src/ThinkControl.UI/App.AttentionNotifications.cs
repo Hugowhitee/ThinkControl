@@ -173,10 +173,7 @@ public partial class App
                      !string.IsNullOrWhiteSpace(update.PayloadUrl) &&
                      !string.IsNullOrWhiteSpace(update.ChecksumUrl);
         string key = "update:" + (version.Length > 0 ? version : update.Status);
-        string transition = UpdatePromptPolicy.Transition(UpdateService.CurrentVersion, version);
-        string detail = ready
-            ? $"{transition}\nReady to update. Download and SHA-256 verification start only after you choose Update; Windows asks once for administrator approval."
-            : $"{transition}\n{update.Status}";
+        string detail = BuildUpdateAttentionDetail(update, ready);
 
         _attentionToast.Show(
             key,
@@ -191,6 +188,38 @@ public partial class App
             autoHide: false);
         if (version.Length > 0)
             _shownUpdateVersionThisRun = version;
+    }
+
+    private static string BuildUpdateAttentionDetail(UpdateCheckResult update, bool ready)
+    {
+        string version = update.Version?.Trim() ?? string.Empty;
+        string transition = UpdatePromptPolicy.Transition(UpdateService.CurrentVersion, version);
+        return ready
+            ? $"{transition}\nReady to update. Download and SHA-256 verification start only after you choose Install now; Windows asks once for administrator approval."
+            : $"{transition}\n{update.Status}";
+    }
+
+    internal System.Windows.Window PrepareUpdateAttentionForSnapshot()
+    {
+        var update = new UpdateCheckResult(
+            Available: true,
+            Status: "Update ready",
+            Version: "v0.1.0-alpha.48",
+            Url: "https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.48",
+            InstallerUrl: "https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ThinkControl-Setup.exe",
+            PayloadUrl: "https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ThinkControl.zip",
+            ChecksumUrl: "https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/checksums.txt");
+        _attentionToast.Show(
+            "visual-qa-update-attention",
+            "ThinkControl update available",
+            BuildUpdateAttentionDetail(update, ready: true),
+            "Install now",
+            static () => { },
+            static () => { },
+            dismissText: "Later",
+            autoHide: false);
+        return _attentionToast.WindowForShellSmoke
+            ?? throw new InvalidOperationException("Update attention window could not be prepared for visual QA.");
     }
 
     private void DismissUpdatePrompt(UpdateCheckResult update)
