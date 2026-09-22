@@ -374,7 +374,12 @@ public partial class App : System.Windows.Application
     public async Task SetKeyboardModeAsync(string mode)
     {
         await KeyboardEffects.SetModeAsync(mode);
-        UserSettings.Update(settings => settings with { KeyboardMode = State.KeyboardMode });
+        bool experimentalFallbackActive =
+            !State.CanKeyboardEffects &&
+            State.ExperimentalKeyboardEffectsEnabled &&
+            State.KeyboardMode is "Breathing" or "Reactive" or "Audio";
+        string persistedMode = experimentalFallbackActive ? "Static" : State.KeyboardMode;
+        UserSettings.Update(settings => settings with { KeyboardMode = persistedMode });
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "keyboard.effect_mode_set",
