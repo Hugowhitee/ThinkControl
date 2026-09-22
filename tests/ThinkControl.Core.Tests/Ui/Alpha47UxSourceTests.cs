@@ -56,7 +56,7 @@ public sealed class Alpha47UxSourceTests
         string compactCode = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
         string advancedXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
 
-        Assert.Contains("Width=\"138\"", compactXaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"164\"", compactXaml, StringComparison.Ordinal);
         Assert.Contains("Audio safety: blocks accidental ThinkControl volume/media actions", compactXaml, StringComparison.Ordinal);
         Assert.Contains("\"Audio · Normal\"", compactCode, StringComparison.Ordinal);
         Assert.Contains("\"Audio · Media lock\"", compactCode, StringComparison.Ordinal);
