@@ -41,10 +41,10 @@ Compact contains the controls and telemetry most useful during normal operation:
 - display refresh controls;
 - brightness and volume;
 - keyboard backlight when supported;
-- one quick **Audio Safety** selector (`Normal` / `Media lock` / `Silent`);
+- one **Media safety** selector (`Normal` / `Media lock` / `Silent`) grouped with Brightness/Volume rather than detached in the footer;
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Audio Safety deliberately appears as one compact state selector rather than turning Compact into a phone-style modes dashboard.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Media safety remains one compact session state, but its placement follows the controls it actually affects instead of reading like a global footer mode.
 
 ### Advanced
 
@@ -52,13 +52,13 @@ Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, To
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
-Settings owns the full explanatory Audio Safety copy. Compact names the quick selector explicitly as Audio Safety, while Advanced Home exposes the same Normal / Media lock / Silent state as a visible quick card. Compact, Home and Settings all reflect one canonical session owner rather than maintaining independent selections.
+Audio Safety has one canonical session owner. Advanced Home exposes the explanatory Normal / Media lock / Silent quick card, Compact exposes the same state as Media safety beside Volume, and the Audio page carries the deeper audio context. Settings does not duplicate the mode editor.
 
 ## Performance and power
 
 User-facing Windows power terminology is consistently **Efficiency / Balanced / Performance** even where internal Windows/provider contracts retain older enum names.
 
-Battery and plugged-in preferences are stored separately. Compact and Home intentionally expose the battery preference as the quick control; the full Performance page is the source of truth for configuring both battery and AC behavior independently.
+Battery and plugged-in preferences are stored separately. Compact remains the single fast battery-profile selector; Advanced Home exposes both Battery and Plugged-in preferences because the space is available and the distinction matters. The full Performance page remains the detailed source of truth and reset surface for both.
 
 On the X9 firmware cooling backend, ThinkControl keeps the active cooling profile and Windows performance preference as separate user-facing settings even though both coordinate through Lenovo policy. Before a built-in fan profile is selected, the current power preference becomes the restore baseline. A later power-mode change updates that baseline without cancelling the fan profile; selecting Auto clears ThinkControl-owned cooling overrides and restores the latest baseline.
 
@@ -121,6 +121,9 @@ Hardware backlight states and user-session effects are separate capabilities. Of
 
 Breathing, Reactive and Audio are bounded local effects and require `KeyboardEffects`. A fallback provider that cannot safely accept repeated changes does not advertise that capability. Saved effects are restored only after provider capability is known.
 
+
+Keyboard effects are labeled **EXPERIMENTAL**. When the active provider explicitly advertises repeated-write effect capability, ThinkControl uses that reviewed path. When only ordinary static Off / Low / High control exists, the user may deliberately enable a **session-only experimental fallback** after a warning. That fallback does not unlock a new command surface: it reuses the existing bounded, deduplicated backlight writes and may still produce OEM brightness pop-ups, ignored writes or less-smooth animation. The opt-in is never persisted across ThinkControl restarts.
+
 ## Touchpad
 
 The Touchpad page shows real contact points, bounded recent trails, configurable precision edge gestures, deliberate top-corner launch zones, haptic settings where Windows/provider support exists, and bounded OSD feedback.
@@ -156,6 +159,9 @@ Live input has two rates by design: recognition consumes every raw HID frame, wh
 ThinkControl can display percentage, charging state, live/smoothed watts, remaining/full-charge Wh, health, cycle count when exposed, filtered ETA and battery temperature only when a credible battery-specific provider supplies it. Charge/discharge history is local and bounded; Windows remains the owner of system sleep/screen/presence policy.
 
 Battery health history samples firmware-reported full-charge capacity versus design capacity at most once per day when both values are available. This sampling is independent of completing a charging session or reaching 100%, so an intentional 80–90% preservation threshold does not need to be disabled for the trend to learn. The trend is capacity telemetry, not a fabricated wear/lifetime prediction.
+
+
+Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging paused near 90% · resumes below 80%**). Applying or disabling a preset produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
 
 ## Startup and shell reliability
 
