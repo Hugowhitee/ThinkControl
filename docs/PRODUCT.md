@@ -52,7 +52,7 @@ Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, To
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
-Settings owns the explanatory Audio Safety controls and copy. Compact and Settings reflect the same canonical session state rather than maintaining independent selections.
+Settings owns the full explanatory Audio Safety copy. Compact names the quick selector explicitly as Audio Safety, while Advanced Home exposes the same Normal / Media lock / Silent state as a visible quick card. Compact, Home and Settings all reflect one canonical session owner rather than maintaining independent selections.
 
 ## Performance and power
 
@@ -155,6 +155,8 @@ Live input has two rates by design: recognition consumes every raw HID frame, wh
 
 ThinkControl can display percentage, charging state, live/smoothed watts, remaining/full-charge Wh, health, cycle count when exposed, filtered ETA and battery temperature only when a credible battery-specific provider supplies it. Charge/discharge history is local and bounded; Windows remains the owner of system sleep/screen/presence policy.
 
+Battery health history samples firmware-reported full-charge capacity versus design capacity at most once per day when both values are available. This sampling is independent of completing a charging session or reaching 100%, so an intentional 80–90% preservation threshold does not need to be disabled for the trend to learn. The trend is capacity telemetry, not a fabricated wear/lifetime prediction.
+
 ## Startup and shell reliability
 
 A dedicated painted loading surface appears before synchronous startup work on normal visible launches. Rich WMI inventory is not on the process-start critical path: a fast firmware-registry/power preflight runs first and the full inventory refreshes on a worker.
@@ -185,9 +187,11 @@ ThinkControl separates compatibility learning, crash recovery and troubleshootin
 
 ## Installation and updates
 
-Alpha.43 uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
+The current alpha series uses the existing small installer/bootstrap plus application payload. In-app updates obtain Setup + Payload + checksums, verify the managed files and only then perform an explicit elevation handoff. Background checks never install software or trigger UAC by themselves.
 
-Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is persisted for the next session.
+When automatic update checks are enabled, ThinkControl checks once shortly after startup. Tray-only startup remains silent while no window is visible; if that check finds a newer release, the first later visible Compact or Advanced session offers **Install now** or **Later**. Later suppresses repeat interruption for that exact version but leaves the release visible in Notifications and Updates. A newer version can prompt again.
+
+Manual checks on Home and Updates publish one shared result and update one Last-checked timestamp owner immediately when the check completes; the timestamp is persisted for the next session. When Home already knows an update is available, its update affordance opens Updates directly instead of performing another redundant check.
 
 Packaging/installer CI validates payload construction, custom-location install/update behavior, service startup/IPC, compatibility with the oldest supported updater fixture and uninstall cleanup. `version.json` remains the build/release version source of truth.
 
