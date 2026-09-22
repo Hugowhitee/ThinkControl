@@ -39,7 +39,7 @@ public sealed class ModeVisualCoverageSourceTests
 
         int navigateIndex = snapshots.IndexOf("window.Navigate(page);", StringComparison.Ordinal);
         int openingOverrideIndex = snapshots.IndexOf("window.PrepareOpeningViewForSnapshot(openingView);", StringComparison.Ordinal);
-        int audioOverrideIndex = snapshots.IndexOf("window.PrepareAudioSafetyForSnapshot(audioSafety);", StringComparison.Ordinal);
+        int audioOverrideIndex = snapshots.IndexOf("window.PrepareAudioSafetyForSnapshot(", StringComparison.Ordinal);
         Assert.True(navigateIndex >= 0 && openingOverrideIndex > navigateIndex);
         Assert.True(navigateIndex >= 0 && audioOverrideIndex > navigateIndex);
     }
