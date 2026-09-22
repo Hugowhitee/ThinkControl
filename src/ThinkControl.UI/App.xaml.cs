@@ -167,6 +167,7 @@ public partial class App : System.Windows.Application
             State.BatteryEtaToFull = battery.EstimatedTimeToFull;
             State.BatteryEtaRemaining = battery.EstimatedTimeRemaining;
             State.BatterySource = battery.Source;
+            ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
 
             if (!_batteryCycleRead)
             {
