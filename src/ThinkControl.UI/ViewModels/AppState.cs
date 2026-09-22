@@ -65,6 +65,7 @@ public sealed class AppState : INotifyPropertyChanged
     private string _fanControlKind = FanControlKinds.None;
     private bool _canKeyboardBacklight;
     private bool _canKeyboardEffects;
+    private bool _experimentalKeyboardEffectsEnabled;
     private bool _canCpuTemperature;
     private bool _canSensorTelemetry;
 
@@ -133,14 +134,18 @@ public sealed class AppState : INotifyPropertyChanged
     public string FanControlKind { get => _fanControlKind; set => Set(ref _fanControlKind, string.IsNullOrWhiteSpace(value) ? FanControlKinds.None : value); }
     public bool CanKeyboardBacklight { get => _canKeyboardBacklight; set => Set(ref _canKeyboardBacklight, value); }
     public bool CanKeyboardEffects { get => _canKeyboardEffects; set => Set(ref _canKeyboardEffects, value); }
+    public bool ExperimentalKeyboardEffectsEnabled { get => _experimentalKeyboardEffectsEnabled; set => Set(ref _experimentalKeyboardEffectsEnabled, value); }
+    public bool KeyboardEffectsUsable => CanKeyboardEffects || (CanKeyboardBacklight && ExperimentalKeyboardEffectsEnabled);
     public bool CanCpuTemperature { get => _canCpuTemperature; set => Set(ref _canCpuTemperature, value); }
     public bool CanSensorTelemetry { get => _canSensorTelemetry; set => Set(ref _canSensorTelemetry, value); }
 
     public string KeyboardEffectsSupportText => CanKeyboardEffects
-        ? "The active keyboard provider supports bounded repeated level writes, so Breathing, Reactive and Audio can run without a separate OEM control path."
-        : CanKeyboardBacklight
-            ? $"Static backlight control is available through {KeyboardBackend}, but this provider does not advertise safe repeated writes for effects."
-            : "The active hardware provider does not currently expose keyboard effects.";
+        ? "Experimental effects are available through the active direct provider. Writes remain deduplicated and rate-limited."
+        : CanKeyboardBacklight && ExperimentalKeyboardEffectsEnabled
+            ? $"Experimental fallback enabled for this session through {KeyboardBackend}. Lenovo may show its own brightness OSD, flicker or ignore repeated writes."
+            : CanKeyboardBacklight
+                ? $"Static backlight control is available through {KeyboardBackend}. Effects can be enabled experimentally for this session after acknowledging the fallback warning."
+                : "The active hardware provider does not currently expose keyboard effects.";
 
     public string AppVersion => $"v{UpdateService.CurrentVersion}";
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
@@ -341,8 +346,11 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(MaxRefreshText));
         else if (propertyName is nameof(KeyboardMode) or nameof(KeyboardBaseLevel) or nameof(KeyboardStatus))
             OnPropertyChanged(nameof(KeyboardModeText));
-        else if (propertyName is nameof(KeyboardBackend) or nameof(CanKeyboardBacklight) or nameof(CanKeyboardEffects))
+        else if (propertyName is nameof(KeyboardBackend) or nameof(CanKeyboardBacklight) or nameof(CanKeyboardEffects) or nameof(ExperimentalKeyboardEffectsEnabled))
+        {
             OnPropertyChanged(nameof(KeyboardEffectsSupportText));
+            OnPropertyChanged(nameof(KeyboardEffectsUsable));
+        }
 
         return true;
     }
