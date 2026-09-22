@@ -55,6 +55,7 @@ public partial class AdvancedWindow
             // reviewed direct keyboard provider. Make its effect capability explicit
             // so Keyboard screenshots validate the capability-driven enabled state.
             if (snapshotState.CanKeyboardBacklight &&
+                !snapshotState.ExperimentalKeyboardEffectsEnabled &&
                 !snapshotState.KeyboardBackend.Equals("Not exposed", StringComparison.OrdinalIgnoreCase))
             {
                 snapshotState.CanKeyboardEffects = true;
