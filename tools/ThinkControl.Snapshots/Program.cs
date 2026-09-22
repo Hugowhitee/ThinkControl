@@ -399,10 +399,6 @@ internal static class Program
         window.PrepareEnhancedUiForSnapshot();
         if (deviceLearning)
             window.PrepareDeviceLearningForSnapshot(deviceReportReady);
-        if (openingView is not null)
-            window.PrepareOpeningViewForSnapshot(openingView);
-        if (audioSafetyMode is AudioSafetyMode audioSafety)
-            window.PrepareAudioSafetyForSnapshot(audioSafety);
         if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)
             app.State.BatteryTemperatureC = null;
         if (string.Equals(page, "Touchpad", StringComparison.OrdinalIgnoreCase))
@@ -418,6 +414,14 @@ internal static class Program
         }
         else
             window.Navigate(page);
+
+        // Page navigation refreshes a few Settings/Home selectors from the real app
+        // state. Apply deterministic visual-only overrides after navigation so the
+        // screenshot name and the actually rendered selection cannot disagree.
+        if (openingView is not null)
+            window.PrepareOpeningViewForSnapshot(openingView);
+        if (audioSafetyMode is AudioSafetyMode audioSafety)
+            window.PrepareAudioSafetyForSnapshot(audioSafety);
 
         if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
             window.PreparePerformanceForSnapshot();
