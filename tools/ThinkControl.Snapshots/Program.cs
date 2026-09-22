@@ -246,7 +246,7 @@ internal static class Program
             BatteryChargeCurveLabel = "Current charge · full session curve",
             BatteryCurrentSessionText = "61% → 78% · 43 min · 17.8 W avg · +12.1 Wh",
             BatteryTypicalChargeText = "Typical 18.1 W · 8 sessions",
-            BatteryHealthTrendText = "Health trend · 97.6% · stable",
+            BatteryHealthTrendText = "Health trend · 97.6% · stable · 8 daily samples",
             BatterySource = "Windows ACPI battery",
             Brightness = 68,
             BrightnessAvailable = true,
