@@ -3,7 +3,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
-             MinWidth="356" MinHeight="494"
+             MinWidth="356" MinHeight="514"
              UseLayoutRounding="True"
              SnapsToDevicePixels="True">
     <UserControl.Resources>
@@ -82,7 +82,7 @@
 
     <Border Background="{DynamicResource Tc.Window}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="8" Padding="12" SnapsToDevicePixels="True">
         <Grid>
-            <Grid.RowDefinitions><RowDefinition Height="50" /><RowDefinition Height="112" /><RowDefinition Height="172" /><RowDefinition Height="90" /><RowDefinition Height="44" /></Grid.RowDefinitions>
+            <Grid.RowDefinitions><RowDefinition Height="50" /><RowDefinition Height="112" /><RowDefinition Height="172" /><RowDefinition Height="122" /><RowDefinition Height="34" /></Grid.RowDefinitions>
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel VerticalAlignment="Center" Margin="0,2,0,1"><controls:BrandWordmark Width="118" Height="36" Margin="-7,-1,0,0" HorizontalAlignment="Left" /><TextBlock Text="{Binding DeviceName}" Margin="2,-2,0,0" FontSize="{x:Static ui:TypographyScale.Secondary}" Foreground="{DynamicResource Tc.TextFaint}" TextTrimming="CharacterEllipsis" /></StackPanel>
@@ -135,15 +135,24 @@
                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource CompactQuickCard}" Margin="4,4,0,0"><StackPanel><StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Keyboard" Width="13" Height="13" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Keyboard" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Margin="7,0,0,0" /></StackPanel><ComboBox x:Name="CompactKeyboardCombo" Style="{StaticResource TcComboBox}" Margin="0,7,0,0" SelectionChanged="CompactKeyboard_SelectionChanged" /></StackPanel></Border>
             </Grid>
             <Border Grid.Row="3" Style="{StaticResource TcSection}" Padding="10,7">
-                <Grid><Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="72" /><ColumnDefinition /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
-                    <TextBlock Text="Brightness" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><Slider x:Name="CompactBrightnessSlider" Grid.Column="1" Style="{StaticResource TcSlider}" Value="{Binding Brightness}" IsEnabled="{Binding BrightnessAvailable}" PreviewMouseLeftButtonUp="CompactBrightness_Commit" PreviewKeyUp="CompactBrightness_KeyCommit" /><TextBlock Grid.Column="2" Text="{Binding BrightnessText}" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
-                    <TextBlock Grid.Row="1" Text="Volume" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" /><Slider x:Name="CompactVolumeSlider" Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" PreviewMouseLeftButtonUp="CompactVolume_Commit" PreviewKeyUp="CompactVolume_KeyCommit" /><TextBlock x:Name="CompactVolumeText" Grid.Row="1" Grid.Column="2" Text="—" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                <Grid>
+                    <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition Height="42" /></Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="78" /><ColumnDefinition /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
+                    <TextBlock Text="Brightness" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
+                    <Slider x:Name="CompactBrightnessSlider" Grid.Column="1" Style="{StaticResource TcSlider}" Value="{Binding Brightness}" IsEnabled="{Binding BrightnessAvailable}" PreviewMouseLeftButtonUp="CompactBrightness_Commit" PreviewKeyUp="CompactBrightness_KeyCommit" />
+                    <TextBlock Grid.Column="2" Text="{Binding BrightnessText}" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+                    <TextBlock Grid.Row="1" Text="Volume" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
+                    <Slider x:Name="CompactVolumeSlider" Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" PreviewMouseLeftButtonUp="CompactVolume_Commit" PreviewKeyUp="CompactVolume_KeyCommit" />
+                    <TextBlock x:Name="CompactVolumeText" Grid.Row="1" Grid.Column="2" Text="—" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+                    <TextBlock Grid.Row="2" Text="Media safety" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
+                    <ComboBox x:Name="CompactAudioSafetyCombo" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource TcComboBox}" Height="38" MinHeight="38" HorizontalAlignment="Stretch" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Normal, Media lock or Silent. Media lock prevents accidental ThinkControl volume/media actions; Silent also mutes output." />
                 </Grid>
             </Border>
-            <Grid Grid.Row="4" Margin="3,4,3,0" VerticalAlignment="Stretch">
+            <Grid Grid.Row="4" Margin="3,2,3,0" VerticalAlignment="Stretch">
                 <TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <ComboBox x:Name="CompactAudioSafetyCombo" Style="{StaticResource TcComboBox}" Width="164" Height="40" MinHeight="40" Margin="0,0,10,0" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Audio safety: blocks accidental ThinkControl volume/media actions; Silent also mutes output" />
                     <Button Style="{StaticResource CompactInlineButton}" Content="Audio" Tag="Audio" Click="OpenPage_Click" Margin="0,0,12,0" />
                     <Button Style="{StaticResource CompactInlineButton}" Content="Settings  ›" Tag="Settings" Click="OpenPage_Click" />
                 </StackPanel>
