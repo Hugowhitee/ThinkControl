@@ -37,9 +37,11 @@ public sealed class ModeVisualCoverageSourceTests
         Assert.Contains("advanced-settings-light.png", snapshots, StringComparison.Ordinal);
         Assert.DoesNotContain("advanced-settings-audio-silent.png", snapshots, StringComparison.Ordinal);
 
-        int navigateIndex = snapshots.IndexOf("window.Navigate(page);", StringComparison.Ordinal);
-        int openingOverrideIndex = snapshots.IndexOf("window.PrepareOpeningViewForSnapshot(openingView);", StringComparison.Ordinal);
-        int audioOverrideIndex = snapshots.IndexOf("window.PrepareAudioSafetyForSnapshot(", StringComparison.Ordinal);
+        string renderAdvanced = snapshots.Split("private static void RenderAdvanced(", StringSplitOptions.None)[1]
+            .Split("private static void RenderUpdateAttention(", StringSplitOptions.None)[0];
+        int navigateIndex = renderAdvanced.IndexOf("window.Navigate(page);", StringComparison.Ordinal);
+        int openingOverrideIndex = renderAdvanced.IndexOf("window.PrepareOpeningViewForSnapshot(openingView);", StringComparison.Ordinal);
+        int audioOverrideIndex = renderAdvanced.IndexOf("window.PrepareAudioSafetyForSnapshot(", StringComparison.Ordinal);
         Assert.True(navigateIndex >= 0 && openingOverrideIndex > navigateIndex);
         Assert.True(navigateIndex >= 0 && audioOverrideIndex > navigateIndex);
     }
