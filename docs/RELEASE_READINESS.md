@@ -34,23 +34,27 @@ Alpha.46 completion:
 
 ## Alpha.47 mode and visual polish candidate
 
-Alpha.47 is a narrow interface-consistency release on immutable alpha.46. It does **not** broaden any low-level hardware write contract.
+Alpha.47 is an interface-consistency and clarity release on immutable alpha.46. It does **not** broaden any low-level hardware write contract.
 
 Candidate state:
 
 - source version: `v0.1.0-alpha.47`
 - `version.json.releaseReady=false` until exact-head code, package and visual evidence are green
 - immutable base: `v0.1.0-alpha.46` at `ccca29ed696d422b21f96589b972fbee5884b291`
-- active branch: `polish/alpha47-mode-visuals`
+- active branch / PR: `polish/alpha47-mode-visuals` / #91
+- this document remains the single persistent handoff: a future chat should restore live repo/PR state, read this section and continue the unchecked release gates rather than relying on old chat history
 
 Scope:
 
 - use one user-facing shell vocabulary: `Compact` / `Advanced`, removing the stray `Full` label from App icon opening preferences and shell-smoke descriptions;
-- keep Audio Safety as the existing canonical `Normal` / `Media lock` / `Silent` session mode, with no new mode/state owner;
-- add deterministic Compact Media-lock/Silent visual states, including light theme;
-- add Settings visual states for Advanced opening preference, Silent and light theme;
-- strengthen source tests so the visible naming and required mode screenshots cannot silently regress;
-- preserve all alpha.46 hardware/provider, startup, installer and safety behavior.
+- keep Audio Safety as the existing canonical `Normal` / `Media lock` / `Silent` session owner, make its purpose explicit in Compact and surface the same state directly on Advanced Home instead of hiding it behind Settings;
+- make first-seen update attention reliable after Windows tray startup: automatic discovery stays silent while no window is visible, then offers **Install now** / **Later** when the user next opens Compact or Advanced; postponing suppresses repeat interruption for that exact version without hiding the update;
+- make Advanced Home's update state actionable instead of disabling an ambiguous `Update available` button;
+- replace the Home fan `More…` sentinel with an actual inline saved-profile menu and expose firmware/OEM `Auto` as a Home switch alongside the quick presets;
+- sample battery health from firmware full-charge/design capacity once per day independently of charge-session completion, so an intentional 80–90% charge cap does not stop the health trend learning;
+- add deterministic Compact and Advanced Home/Settings mode visual states, including minimum-window and light-theme coverage;
+- strengthen source tests so update attention, fan controls, battery-health sampling, shared Audio Safety ownership and required visual states cannot silently regress;
+- preserve all alpha.46 low-level hardware/provider, startup, installer and safety boundaries.
 
 Release gate:
 
@@ -58,13 +62,17 @@ Release gate:
 - [x] strict alpha.46 full-resolution visual pass completed before starting this candidate
 - [x] Compact / Advanced visible naming unified in the opening preference
 - [x] shell-smoke stage naming aligned with Advanced
-- [x] Compact Audio Safety mode snapshots added
-- [x] Advanced Settings mode/light snapshots added
-- [x] source regression coverage added for mode vocabulary and visual matrix
+- [x] first-seen update prompt repaired for tray-started sessions with Install now / Later actions
+- [x] Home update availability made directly actionable
+- [x] Compact Audio Safety purpose made explicit and Advanced Home wired to the same session owner
+- [x] Home fan Auto switch and real More profiles menu implemented without a second fan state owner
+- [x] battery-health trend decoupled from reaching/completing a full charge session
+- [x] Compact Audio Safety mode snapshots retained and Advanced Home mode/minimum/light snapshots added
+- [x] source regression coverage added for the new alpha.47 UX contracts
 - [x] no low-level hardware capability expanded
 - [ ] exact alpha.47 implementation-head CI green
 - [ ] exact alpha.47 implementation-head Package ThinkControl green
-- [ ] exact-head WPF artifact manually inspected under strict visual criteria
+- [ ] exact-head WPF artifact manually inspected under strict visual criteria, including Compact footer, Advanced Home mode card, Home fan row and Battery trend copy
 - [ ] review comments/threads resolved
 - [ ] record implementation-head evidence and freeze `version.json.releaseReady=true`
 - [ ] frozen-head CI + Package green
