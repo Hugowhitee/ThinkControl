@@ -31,6 +31,27 @@ public sealed class Alpha47UxSourceTests
     }
 
     [Fact]
+    public void AutomaticUpdates_RecheckOnlyWhenRuntimeStateIsStale()
+    {
+        string root = FindRepositoryRoot();
+        string updates = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.AutoUpdates.cs"));
+        string runtime = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.RuntimeRefresh.cs"));
+
+        Assert.Contains("AutomaticUpdateCheckStaleAfter = TimeSpan.FromHours(4)", updates, StringComparison.Ordinal);
+        Assert.Contains("UpdateCheckHistoryService.Read()", updates, StringComparison.Ordinal);
+        Assert.Contains("RequestAutomaticUpdateCheckIfStale", updates, StringComparison.Ordinal);
+        Assert.DoesNotContain("DispatcherTimer", updates, StringComparison.Ordinal);
+
+        string activation = runtime.Split("private void Runtime_Activated", StringSplitOptions.None)[1]
+            .Split("private void Runtime_Exit", StringSplitOptions.None)[0];
+        Assert.Contains("RequestAutomaticUpdateCheckIfStale();", activation, StringComparison.Ordinal);
+
+        string resume = runtime.Split("if (e.Mode == PowerModes.Resume)", StringSplitOptions.None)[1]
+            .Split("private void Runtime_Activated", StringSplitOptions.None)[0];
+        Assert.Contains("RequestAutomaticUpdateCheckIfStale();", resume, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AdvancedHome_FanAutoAndMoreProfilesAreRealControls()
     {
         string root = FindRepositoryRoot();
