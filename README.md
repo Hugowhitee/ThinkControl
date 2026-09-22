@@ -28,7 +28,7 @@
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
 **Release target:** `v0.1.0-alpha.47`  
-**Current immutable prerelease:** `v0.1.0-alpha.46`
+**Current immutable prerelease:** `v0.1.0-alpha.47`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -38,8 +38,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.46/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.46/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.47/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.47/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -65,13 +65,17 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 
 ## What alpha.47 changes
 
-Alpha.47 is a focused interface-consistency and visual-verification follow-up to immutable alpha.46. It does not change the hardware safety boundary or add another product mode.
+Alpha.47 is a focused interface-consistency, feedback and visual-verification follow-up to immutable alpha.46. It preserves the existing hardware safety boundary.
 
-- **Compact / Advanced now use one vocabulary.** The app-opening preference says `Compact` / `Advanced`, matching the shell, documentation and navigation instead of mixing `Full` into the same concept.
-- **The important mode states are reviewed directly.** WPF visual QA now renders Compact `Media lock` and `Silent`, including light theme, plus Settings with Advanced selected and Silent active.
-- **Audio Safety stays one canonical session mode.** `Normal`, `Media lock` and `Silent` still use the existing shared policy owner; this release only tightens visible consistency and verification.
-- **Shell regression coverage uses the same names users see.** Lifecycle smoke now describes the resizable surface as Advanced everywhere.
-- **Hardware behavior is unchanged.** No fan, battery, keyboard, audio backend, Touchpad recognizer, provider, EC or IOCTL contract is broadened.
+- **Compact is cleaner and safer for media controls.** `Media safety` now sits with Brightness and Volume instead of looking like a detached footer mode, while the footer returns to version + Audio + Settings.
+- **Advanced Home exposes the controls that matter immediately.** Battery and Plugged-in power preferences are both visible, fan Auto and saved profiles are real controls, and manual fan state stays truthful.
+- **Audio Safety has one owner.** `Normal`, `Media lock` and `Silent` stay session-only and synchronized across Compact, Home and Audio; the duplicate Settings editor is gone.
+- **Battery Preservation now explains what the machine is doing.** The live threshold window is visible, applying/disabling a preset is confirmed, and real pause/resume charging transitions produce passive feedback.
+- **Long-lived tray sessions learn battery health correctly.** Capacity sampling no longer depends on completing a full-charge session, so a preservation cap does not block health-trend learning.
+- **Keyboard effects are explicitly Experimental.** A session-only warned fallback can reuse the already bounded Off/Low/High backlight path when native effect capability is not advertised; it does not unlock a new low-level command surface.
+- **Updates are harder to miss without becoming noisy.** Startup plus stale-gated activation/resume checks can surface a persistent first-seen **Install now / Later** decision, with no permanent polling timer or automatic UAC.
+- **Visual and release QA is broader.** The final matrix covers the real update prompt, Compact safety states, Home power/fan states, Battery Preservation, Experimental keyboard fallback, minimum layouts and light theme; the immutable release is also re-downloaded and checksum-verified after publication.
+- **Hardware behavior remains bounded.** No fan, battery, keyboard, audio backend, Touchpad recognizer, provider, EC or arbitrary IOCTL contract is broadened.
 
 ## What alpha.46 changes
 
