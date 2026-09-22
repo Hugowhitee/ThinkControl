@@ -441,7 +441,9 @@ internal static class Program
         if (openingView is not null)
             window.PrepareOpeningViewForSnapshot(openingView);
         if (audioSafetyMode is AudioSafetyMode audioSafety)
-            window.PrepareAudioSafetyForSnapshot(audioSafety);
+            window.PrepareAudioSafetyForSnapshot(
+                audioSafety,
+                audioPage: string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase));
 
         if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
             window.PreparePerformanceForSnapshot();
