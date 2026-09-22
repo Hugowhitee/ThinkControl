@@ -29,6 +29,10 @@ public sealed class AppState : INotifyPropertyChanged
     private TimeSpan? _batteryEtaToFull;
     private TimeSpan? _batteryEtaRemaining;
     private int? _batteryCycleCount;
+    private bool? _batteryProtectionEnabled;
+    private int? _batteryProtectionStartPercent;
+    private int? _batteryProtectionStopPercent;
+    private bool _batteryProtectionWritable;
     private string _batteryChargeCurveLabel = "Charge curve · learning";
     private string _batteryCurrentSessionText = "No active charge session";
     private string _batteryTypicalChargeText = "Typical charge · learning";
@@ -93,6 +97,10 @@ public sealed class AppState : INotifyPropertyChanged
     public TimeSpan? BatteryEtaToFull { get => _batteryEtaToFull; set => Set(ref _batteryEtaToFull, value); }
     public TimeSpan? BatteryEtaRemaining { get => _batteryEtaRemaining; set => Set(ref _batteryEtaRemaining, value); }
     public int? BatteryCycleCount { get => _batteryCycleCount; set => Set(ref _batteryCycleCount, value); }
+    public bool? BatteryProtectionEnabled { get => _batteryProtectionEnabled; set => Set(ref _batteryProtectionEnabled, value); }
+    public int? BatteryProtectionStartPercent { get => _batteryProtectionStartPercent; set => Set(ref _batteryProtectionStartPercent, value); }
+    public int? BatteryProtectionStopPercent { get => _batteryProtectionStopPercent; set => Set(ref _batteryProtectionStopPercent, value); }
+    public bool BatteryProtectionWritable { get => _batteryProtectionWritable; set => Set(ref _batteryProtectionWritable, value); }
     public string BatteryChargeCurveLabel { get => _batteryChargeCurveLabel; set => Set(ref _batteryChargeCurveLabel, value); }
     public string BatteryCurrentSessionText { get => _batteryCurrentSessionText; set => Set(ref _batteryCurrentSessionText, value); }
     public string BatteryTypicalChargeText { get => _batteryTypicalChargeText; set => Set(ref _batteryTypicalChargeText, value); }
@@ -168,6 +176,35 @@ public sealed class AppState : INotifyPropertyChanged
         ? $"{batteryTemperature:0.#} °C"
         : ControlTemperatureC is double deviceTemperature ? $"{deviceTemperature:0.#} °C" : "Not exposed";
     public string BatteryCycleCountText => BatteryCycleCount is int cycles ? $"{cycles:N0} cycles" : "Cycles —";
+    public string BatteryProtectionSummaryText => BatteryProtectionEnabled switch
+    {
+        true when BatteryProtectionStartPercent is int start && BatteryProtectionStopPercent is int stop => $"{start}–{stop}% · active",
+        true => "Preservation · active",
+        false => "Full charge · no limit",
+        _ => "Protection · unavailable"
+    };
+    public string BatteryProtectionBehaviorText
+    {
+        get
+        {
+            if (BatteryProtectionEnabled != true)
+                return BatteryProtectionEnabled == false
+                    ? "Charging is allowed to 100%."
+                    : "Waiting for a verified Lenovo battery-threshold provider.";
+
+            if (BatteryProtectionStartPercent is not int start || BatteryProtectionStopPercent is not int stop)
+                return "Battery preservation is enabled.";
+
+            bool pluggedIn = BatteryStatus.Contains("Plugged in", StringComparison.OrdinalIgnoreCase) ||
+                             BatteryStatus.Contains("Fully charged", StringComparison.OrdinalIgnoreCase) ||
+                             BatteryCharging;
+            if (pluggedIn && !BatteryCharging && BatteryPercent >= stop - 2)
+                return $"Charging paused near {stop}% · resumes below {start}%.";
+            if (pluggedIn && BatteryCharging)
+                return $"Charging now · stops near {stop}% and resumes below {start}%.";
+            return $"Stops near {stop}% · resumes below {start}% when plugged in.";
+        }
+    }
     public string BatteryCapacityText => BatteryRemainingWh is double remaining && BatteryFullWh is double full
         ? $"{remaining:0.#} / {full:0.#} Wh"
         : "Capacity —";
@@ -265,13 +302,19 @@ public sealed class AppState : INotifyPropertyChanged
         else if (propertyName == nameof(CoolingProfile))
             OnPropertyChanged(nameof(CoolingProfileDisplay));
         else if (propertyName == nameof(BatteryPercent))
+        {
             OnPropertyChanged(nameof(BatteryPercentText));
+            OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
+        }
         else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToFull) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))
         {
             OnPropertyChanged(nameof(BatteryPowerText));
             OnPropertyChanged(nameof(BatteryEtaText));
             OnPropertyChanged(nameof(BatteryCompactLine));
+            OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
         }
+        else if (propertyName == nameof(BatteryCharging))
+            OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
         else if (propertyName == nameof(BatterySmoothedPowerWatts))
             OnPropertyChanged(nameof(BatteryAveragePowerText));
         else if (propertyName == nameof(BatteryHealthPercent))
@@ -283,6 +326,11 @@ public sealed class AppState : INotifyPropertyChanged
         }
         else if (propertyName == nameof(BatteryCycleCount))
             OnPropertyChanged(nameof(BatteryCycleCountText));
+        else if (propertyName is nameof(BatteryProtectionEnabled) or nameof(BatteryProtectionStartPercent) or nameof(BatteryProtectionStopPercent) or nameof(BatteryProtectionWritable))
+        {
+            OnPropertyChanged(nameof(BatteryProtectionSummaryText));
+            OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
+        }
         else if (propertyName is nameof(BatteryRemainingWh) or nameof(BatteryFullWh))
             OnPropertyChanged(nameof(BatteryCapacityText));
         else if (propertyName == nameof(Brightness))
