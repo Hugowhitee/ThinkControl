@@ -46,11 +46,11 @@ public partial class CompactDashboard : UserControl
                 card.Padding = new Thickness(10, 6, 10, 6);
         }
 
-        // Audio Safety lives in the footer, not inside one of the quick-control
-        // cards. Giving it the card selector's 40 px minimum height + 6 px top
-        // offset made the control overflow the 32 px footer and visibly clip.
-        CompactAudioSafetyCombo.Margin = new Thickness(0, 0, 10, 0);
-        CompactAudioSafetyCombo.MinHeight = 40;
+        // Media safety is grouped with Brightness/Volume rather than the footer.
+        // Keep it slightly shorter than the card selectors so the three-row control
+        // cluster stays balanced without clipping at Compact's fixed height.
+        CompactAudioSafetyCombo.Margin = new Thickness(0);
+        CompactAudioSafetyCombo.MinHeight = 38;
         CompactAudioSafetyCombo.VerticalAlignment = VerticalAlignment.Center;
     }
 
