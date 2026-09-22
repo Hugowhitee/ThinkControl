@@ -537,7 +537,7 @@ public sealed class BatteryHistoryService
                 Health: session.HealthPercent!.Value))
             .Concat(_document.HealthSamples
                 .Where(sample => sample.HealthPercent is > 0 and <= 130)
-                .Select(sample => (sample.At, sample.HealthPercent)))
+                .Select(sample => (At: sample.At, Health: sample.HealthPercent)))
             .OrderBy(observation => observation.At)
             .GroupBy(observation => DateOnly.FromDateTime(observation.At.UtcDateTime))
             .Select(group => group.Last())
