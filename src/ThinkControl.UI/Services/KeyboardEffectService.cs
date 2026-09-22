@@ -85,10 +85,11 @@ public sealed class KeyboardEffectService : IDisposable
             return;
         }
 
-        // Animated effects are allowed only through the direct provider. AppState's
-        // CanKeyboardEffects explicitly excludes the Vantage fallback because its
-        // repeated writes can show Lenovo's own brightness pop-up.
-        if (!_state.CanKeyboardEffects)
+        // Native effects use a provider that explicitly advertises bounded repeated
+        // writes. A non-native provider is allowed only after the user enables the
+        // session-only Experimental fallback; the same deduplication/rate limit and
+        // ordinary Off/Low/High command surface remain in force.
+        if (!_state.KeyboardEffectsUsable)
         {
             _state.KeyboardMode = "Static";
             return;
@@ -172,7 +173,7 @@ public sealed class KeyboardEffectService : IDisposable
 
     private async Task TickEffectAsync(CancellationToken cancellationToken)
     {
-        if (!_state.CanKeyboardEffects)
+        if (!_state.KeyboardEffectsUsable)
             return;
 
         string? target = _state.KeyboardMode switch
