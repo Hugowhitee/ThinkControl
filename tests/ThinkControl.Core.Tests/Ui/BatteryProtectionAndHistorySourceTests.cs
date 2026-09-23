@@ -22,7 +22,15 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("StartPercent=\"{Binding BatteryProtectionStartPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("StopPercent=\"{Binding BatteryProtectionStopPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CurrentPercent=\"{Binding BatteryPercent}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Stops at {stop}% · resumes below {start}%.", code, StringComparison.Ordinal);
+        Assert.Contains("Resumes below {start}% · stops at {stop}%.", code, StringComparison.Ordinal);
+        string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
+        Assert.Contains("Tc.Success", gauge, StringComparison.Ordinal);
+        Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);
+        Assert.Contains("Tc.Accent", gauge, StringComparison.Ordinal);
+        Assert.Contains("DrawLightning", gauge, StringComparison.Ordinal);
+        Assert.Contains("DrawPause", gauge, StringComparison.Ordinal);
+        Assert.DoesNotContain("for (int step = 0; step <= 10; step++)", gauge, StringComparison.Ordinal);
+        Assert.DoesNotContain("DrawLock", gauge, StringComparison.Ordinal);
         Assert.Contains("_batteryProtectionWritable", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Battery wear stress:", code, StringComparison.Ordinal);
         Assert.DoesNotContain("hysteresis avoids constant tiny top-ups", code, StringComparison.Ordinal);
