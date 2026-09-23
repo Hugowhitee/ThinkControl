@@ -32,17 +32,20 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("BatteryPreservationImpactModel.LimitationsText", code, StringComparison.Ordinal);
 
         string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
+        Assert.Contains("Tc.Success", gauge, StringComparison.Ordinal);
         Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);
         Assert.Contains("Tc.Accent", gauge, StringComparison.Ordinal);
         Assert.Contains("ResolveFillBrush", gauge, StringComparison.Ordinal);
         Assert.Contains("DrawThreshold", gauge, StringComparison.Ordinal);
         Assert.Contains("current marker sits exactly on the end of the fill", gauge, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Tc.Success", gauge, StringComparison.Ordinal);
+        Assert.Contains("if (IsCharging)", gauge, StringComparison.Ordinal);
+        Assert.Contains("return success;", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawLightning", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawPause", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawLock", gauge, StringComparison.Ordinal);
 
         Assert.Contains("_batteryProtectionWritable", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Custom ·", code, StringComparison.Ordinal);
         Assert.DoesNotContain(" · active", code, StringComparison.Ordinal);
         Assert.DoesNotContain(" · read-only", code, StringComparison.Ordinal);
         Assert.DoesNotContain("× fewer", xaml, StringComparison.OrdinalIgnoreCase);
