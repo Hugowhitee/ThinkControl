@@ -13,6 +13,8 @@ namespace ThinkControl.UI.Services;
 internal sealed class SilentVolumeKeyBlocker : IDisposable
 {
     private const int WhKeyboardLl = 13;
+    private const uint WmKeyDown = 0x0100;
+    private const uint WmSysKeyDown = 0x0104;
     private const uint VkVolumeMute = 0xAD;
     private const uint VkVolumeDown = 0xAE;
     private const uint VkVolumeUp = 0xAF;
@@ -37,11 +39,18 @@ internal sealed class SilentVolumeKeyBlocker : IDisposable
         if (code >= 0)
         {
             uint vkCode = unchecked((uint)Marshal.ReadInt32(lParam));
-            if (vkCode is VkVolumeMute or VkVolumeDown or VkVolumeUp)
+            uint message = unchecked((uint)wParam.ToInt64());
+            bool volumeKey = vkCode is VkVolumeMute or VkVolumeDown or VkVolumeUp;
+            bool keyDown = message is WmKeyDown or WmSysKeyDown;
+
+            if (volumeKey && keyDown)
             {
-                // Returning non-zero is the documented WH_KEYBOARD_LL way to mark
-                // the input handled, preventing the shell from toggling/unmuting
-                // the endpoint before Silent has to correct it afterwards.
+                // Suppress only key-down/repeat events. Key-up is deliberately allowed
+                // through. If Silent is enabled while the user is already holding a
+                // volume key, swallowing the release event can leave Windows behaving
+                // as if that pre-hook key press is still held. Blocking future key-down
+                // repeats is enough to stop new volume changes while preserving a clean
+                // release for an activation-race key that started before the hook.
                 return (IntPtr)1;
             }
         }
