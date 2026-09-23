@@ -2,21 +2,24 @@ namespace ThinkControl.Core.Battery;
 
 /// <summary>
 /// Comparative Battery Preservation context calculated from the configured
-/// start/stop thresholds.
+/// thresholds and current charge level.
 ///
-/// The wear-cycle estimate follows the same broad idea AccuBattery documents:
-/// lower end-of-charge voltage costs a fraction of a full high-voltage cycle.
-/// ThinkControl cannot measure the exact per-cell voltage curve of every laptop,
-/// so percentage is mapped to a transparent generic Li-ion voltage curve first.
-/// The result is useful for comparing presets, not a laboratory prediction for
-/// one specific battery pack.
+/// AccuBattery's public methodology is the presentation reference: map state of
+/// charge onto an idealized Li-ion end voltage, use the published high-voltage
+/// cycle-life relation above ~3.95 V, and treat lower-voltage wear as a small
+/// linear baseline. ThinkControl does not know the installed pack's exact
+/// per-cell voltage curve, so these are comparison estimates rather than measured
+/// firmware cycles.
 /// </summary>
 public static class BatteryPreservationImpactModel
 {
     private const double MinIdealizedCellVoltage = 3.52;
     private const double MaxIdealizedCellVoltage = 4.35;
+    private const double HighVoltageWearThreshold = 3.95;
+    private const int HighVoltageWearThresholdPercent = 80;
     private const double VoltageCurveLinearWeight = 0.28;
     private const double VoltageCurveTopWeight = 0.72;
+    private const double WearAtHighVoltageThreshold = 1d / 16d; // 0.40 V below 4.35 => 2^4 life factor.
 
     public static BatteryPreservationImpact Estimate(int startPercent, int stopPercent, bool enabled = true)
     {
@@ -32,10 +35,8 @@ public static class BatteryPreservationImpactModel
         int headroom = Math.Max(0, 100 - stop);
         int rechargeWindow = Math.Max(0, stop - start);
         double endVoltage = EstimateIdealizedEndVoltage(stop);
-        double wearCycles = EstimateWearCyclesTo(stop);
-        int wearReduction = (int)Math.Round(
-            Math.Clamp((1d - wearCycles) * 100d, 0d, 100d),
-            MidpointRounding.AwayFromZero);
+        double wearToStop = EstimateCumulativeWearTo(stop);
+        double windowWear = EstimateWearBetween(start, stop);
 
         return new BatteryPreservationImpact(
             Enabled: enabled && stop < 100,
@@ -44,14 +45,13 @@ public static class BatteryPreservationImpactModel
             TopEndHeadroomPercent: headroom,
             RechargeWindowPercent: rechargeWindow,
             EstimatedEndVoltage: endVoltage,
-            EstimatedWearCycles: wearCycles,
-            EstimatedWearReductionPercent: wearReduction);
+            EstimatedWearToStop: wearToStop,
+            EstimatedRechargeWindowWear: windowWear);
     }
 
     /// <summary>
-    /// Generic smooth SOC-to-cell-voltage approximation. It deliberately rises much
-    /// faster near the top of charge, where lithium-ion voltage stress also rises.
-    /// 0% maps to 3.52 V and 100% to 4.35 V.
+    /// Generic smooth SOC-to-cell-voltage approximation. It rises more quickly
+    /// near full charge and maps 0% to 3.52 V and 100% to 4.35 V.
     /// </summary>
     public static double EstimateIdealizedEndVoltage(int percent)
     {
@@ -63,32 +63,58 @@ public static class BatteryPreservationImpactModel
     }
 
     /// <summary>
-    /// Relative wear-cycle cost, normalized so charging to 100% is 1.00.
-    /// The voltage relationship uses the published rule of thumb that a 0.10 V
-    /// decrease in end-of-charge voltage roughly doubles cycle life. The tiny
-    /// non-zero baseline of the idealized curve is removed so 0% maps to 0.
+    /// Cumulative comparative wear index from 0% to a target percentage.
+    /// 100% is normalized to 1.00. Above ~3.95 V the public AccuBattery/Choi
+    /// rule of thumb is used: every 0.10 V lower end voltage roughly doubles
+    /// cycle life. Below that region a small linear baseline joins continuously.
     /// </summary>
-    public static double EstimateWearCyclesTo(int stopPercent)
+    public static double EstimateCumulativeWearTo(int percent)
     {
-        double endVoltage = EstimateIdealizedEndVoltage(stopPercent);
-        double raw = Math.Pow(2d, -10d * (MaxIdealizedCellVoltage - endVoltage));
-        double baseline = Math.Pow(
-            2d,
-            -10d * (MaxIdealizedCellVoltage - MinIdealizedCellVoltage));
-        double normalized = (raw - baseline) / (1d - baseline);
-        return Math.Clamp(normalized, 0d, 1d);
+        int clamped = Math.Clamp(percent, 0, 100);
+        double voltage = EstimateIdealizedEndVoltage(clamped);
+
+        if (voltage < HighVoltageWearThreshold)
+        {
+            double fraction = clamped / (double)HighVoltageWearThresholdPercent;
+            return Math.Clamp(WearAtHighVoltageThreshold * fraction, 0d, WearAtHighVoltageThreshold);
+        }
+
+        return Math.Clamp(
+            Math.Pow(2d, -10d * (MaxIdealizedCellVoltage - voltage)),
+            WearAtHighVoltageThreshold,
+            1d);
+    }
+
+    public static double EstimateWearBetween(int fromPercent, int toPercent)
+    {
+        int from = Math.Clamp(fromPercent, 0, 100);
+        int to = Math.Clamp(toPercent, 0, 100);
+        if (to <= from)
+            return 0d;
+
+        return Math.Max(0d, EstimateCumulativeWearTo(to) - EstimateCumulativeWearTo(from));
     }
 
     public const string LimitationsText =
-        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage cycle-life research. Actual pack wear varies with chemistry, temperature, charge rate and use.";
+        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage cycle-life research. Actual pack wear varies with chemistry, real voltage mapping, temperature, charge rate and use.";
+
+    public static string DescribeChargeWear(int currentPercent, int targetPercent)
+    {
+        int current = Math.Clamp(currentPercent, 0, 100);
+        int target = Math.Clamp(targetPercent, 0, 100);
+        int from = Math.Min(current, target);
+        double wear = EstimateWearBetween(from, target);
+
+        return $"Charging {from}→{target}%: ~{wear:0.00} wear cycles (estimate).";
+    }
 
     public static string DescribeWearContext(int startPercent, int stopPercent, bool enabled = true)
     {
         BatteryPreservationImpact impact = Estimate(startPercent, stopPercent, enabled);
         if (!impact.Enabled)
-            return "Estimated wear to 100%: 1.00 wear cycle baseline.";
+            return "Full 0→100% charge: 1.00 wear-cycle baseline.";
 
-        return $"Estimated wear to {impact.StopPercent}%: {impact.EstimatedWearCycles:0.00} wear cycles, about {impact.EstimatedWearReductionPercent}% less than 100%.";
+        return $"Typical {impact.StartPercent}→{impact.StopPercent}% recharge: ~{impact.EstimatedRechargeWindowWear:0.00} wear cycles (estimate).";
     }
 
     public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>
@@ -102,5 +128,5 @@ public sealed record BatteryPreservationImpact(
     int TopEndHeadroomPercent,
     int RechargeWindowPercent,
     double EstimatedEndVoltage,
-    double EstimatedWearCycles,
-    int EstimatedWearReductionPercent);
+    double EstimatedWearToStop,
+    double EstimatedRechargeWindowWear);
