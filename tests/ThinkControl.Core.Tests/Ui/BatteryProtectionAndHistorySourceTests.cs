@@ -37,11 +37,12 @@ public sealed class BatteryProtectionAndHistorySourceTests
         string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
         Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);
         Assert.Contains("Tc.Accent", gauge, StringComparison.Ordinal);
+        Assert.Contains("Tc.Success", gauge, StringComparison.Ordinal);
         Assert.Contains("ResolveFillBrush", gauge, StringComparison.Ordinal);
         Assert.Contains("DrawThreshold", gauge, StringComparison.Ordinal);
         Assert.Contains("current marker sits exactly on the end of the fill", gauge, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("if (IsCharging)", gauge, StringComparison.Ordinal);
-        Assert.DoesNotContain("Tc.Success", gauge, StringComparison.Ordinal);
+        Assert.Contains("return success;", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawLightning", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawPause", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawLock", gauge, StringComparison.Ordinal);
