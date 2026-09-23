@@ -16,6 +16,7 @@ internal sealed class AudioSafetyService : IDisposable
     private readonly SemaphoreSlim _transitionGate = new(1, 1);
     private readonly object _ownershipGate = new();
     private readonly Dictionary<string, bool> _priorMuteByEndpoint = new(StringComparer.OrdinalIgnoreCase);
+    private MMDevice? _silentObservedDevice;
     private int _mode = (int)AudioSafetyMode.Normal;
     private int _enforcementRunning;
     private bool _disposed;
@@ -122,8 +123,7 @@ internal sealed class AudioSafetyService : IDisposable
     {
         try
         {
-            using var enumerator = new MMDeviceEnumerator();
-            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            MMDevice device = GetObservedDefaultOutput();
             RememberPriorMute(device);
             if (!device.AudioEndpointVolume.Mute)
                 device.AudioEndpointVolume.Mute = true;
@@ -131,6 +131,7 @@ internal sealed class AudioSafetyService : IDisposable
         }
         catch
         {
+            ReleaseSilentOutputObserver();
             lock (_ownershipGate)
                 _priorMuteByEndpoint.Clear();
             return false;
@@ -141,16 +142,51 @@ internal sealed class AudioSafetyService : IDisposable
     {
         try
         {
-            using var enumerator = new MMDeviceEnumerator();
-            using MMDevice device = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+            MMDevice device = GetObservedDefaultOutput();
             RememberPriorMute(device);
             if (!device.AudioEndpointVolume.Mute)
                 device.AudioEndpointVolume.Mute = true;
         }
         catch
         {
-            // Silent remains the requested policy. The next bounded application
-            // status tick retries after transient endpoint/device transitions.
+            // Silent remains the requested policy. Endpoint notifications normally
+            // correct keyboard/app unmute attempts immediately; the existing bounded
+            // status cadence remains the fallback across transient device changes.
+        }
+    }
+
+    private MMDevice GetObservedDefaultOutput()
+    {
+        using var enumerator = new MMDeviceEnumerator();
+        MMDevice current = enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+
+        lock (_ownershipGate)
+        {
+            if (_silentObservedDevice is not null &&
+                _silentObservedDevice.ID.Equals(current.ID, StringComparison.OrdinalIgnoreCase))
+            {
+                current.Dispose();
+                return _silentObservedDevice;
+            }
+
+            _silentObservedDevice?.Dispose();
+            _silentObservedDevice = current;
+
+            // CoreAudio notifies on physical keyboard volume/mute keys as well as
+            // deliberate Windows/app changes. Silent therefore reasserts mute from
+            // the event instead of waiting for the application's multi-second status
+            // refresh. The worker is already coalesced and transition-serialized.
+            _silentObservedDevice.AudioEndpointVolume.OnVolumeNotification += _ => EnsureSilentOutput();
+            return _silentObservedDevice;
+        }
+    }
+
+    private void ReleaseSilentOutputObserver()
+    {
+        lock (_ownershipGate)
+        {
+            _silentObservedDevice?.Dispose();
+            _silentObservedDevice = null;
         }
     }
 
@@ -165,6 +201,7 @@ internal sealed class AudioSafetyService : IDisposable
 
     private void RestoreOwnedMuteStates()
     {
+        ReleaseSilentOutputObserver();
         KeyValuePair<string, bool>[] owned;
         lock (_ownershipGate)
         {
@@ -199,9 +236,9 @@ internal sealed class AudioSafetyService : IDisposable
 
     private static string Describe(AudioSafetyMode mode) => mode switch
     {
-        AudioSafetyMode.MediaLock => "Touchpad volume, track and seek actions are locked. Windows audio remains available for deliberate use.",
-        AudioSafetyMode.Silent => "ThinkControl media actions are locked and the active Windows output is kept muted for this session.",
-        _ => "Touchpad media and volume actions work normally."
+        AudioSafetyMode.MediaLock => "Gesture lock blocks ThinkControl touchpad volume, track and seek actions. Keyboard and Windows/app audio controls still work.",
+        AudioSafetyMode.Silent => "Silent blocks ThinkControl media actions and keeps the active Windows output muted, including after keyboard/app unmute attempts.",
+        _ => "ThinkControl touchpad media and volume actions work normally."
     };
 
     public void Dispose()
