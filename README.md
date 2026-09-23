@@ -23,13 +23,13 @@
   </a>
 </div>
 
-## ThinkControl alpha.49
+## ThinkControl alpha.50 development
 
-Alpha.49 is a focused Battery Preservation visual-clarity follow-up. The threshold graphic now uses semantic charge/hold/stop zones, a charge-resume lightning marker and a stop/pause marker at the actual thresholds. Generic ruler ticks and the ambiguous lock glyph are removed; the only remaining live marker is the current battery position.
+Alpha.50 hardens Silent so a physical volume key cannot punch through the mode, and replaces static Battery Preservation wear copy with a threshold-derived impact model that stays truthful for named and future custom presets.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.49`  
+**Release target:** `v0.1.0-alpha.50`  
 **Current immutable prerelease:** `v0.1.0-alpha.49`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -41,7 +41,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 
 <p align="center">
   <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.49/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ui-overview.png" alt="ThinkControl interface overview" width="920">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.49/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -64,6 +64,18 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.50 changes
+
+- **Silent owns the physical volume-key path.** While Silent is active, Windows `VK_VOLUME_MUTE / DOWN / UP` keys are swallowed before the shell can unmute the endpoint. CoreAudio callbacks remain the second line of defense for app/Windows changes.
+- **Repeated unmute events are no longer coalesced away.** A pending-bit enforcement loop guarantees another pass when an event arrives while re-muting is already in progress, closing the held-key race.
+- **Default-output switches are event-driven.** A persistent CoreAudio device notification client immediately rebinds Silent to a changed render endpoint, with only a short bounded retry burst while a new device becomes ready.
+- **Battery Preservation impact is calculated, not canned.** The selected start/stop pair now drives top-end headroom, recharge-window and high-SOC-band context. ThinkControl does not invent a literal “cycles saved” number because chemistry, temperature, depth of discharge and calendar aging also matter.
+- **Research and regression coverage are explicit.** The audio enforcement model and the threshold-only battery impact formula are documented and source-tested.
+
+## What alpha.49 changes
+
+Alpha.49 made Battery Preservation easier to read: semantic charge/hold/stop zones, explicit start/stop icons and no generic ruler ticks or ambiguous lock glyph.
 
 ## What alpha.48 changes
 
