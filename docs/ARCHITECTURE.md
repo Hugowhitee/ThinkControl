@@ -115,7 +115,9 @@ Disabling preservation clears both driver threshold latches before selecting Len
 
 Battery-protection status uses the existing request-driven status model with a small service-side cache. The Battery page subscribes to `HardwareClient.StatusObserved` only while loaded; it does not create a polling loop. The charge window is not duplicated into `UserSettings`, so actual Lenovo state remains authoritative after restart or external Vantage changes.
 
-Alpha.50 keeps the provider contract unchanged and adds `BatteryPreservationImpactModel` in Core for threshold-only explanatory context. It derives top-end headroom (`100 - stop`), recharge-window width, omitted equivalent full-charge throughput, and the share of a transparent >70% high-SOC reference band omitted by the cap. The 70% line is a UI reference band rather than a chemistry-specific degradation knee. No threshold-only model is allowed to print a literal cycle-count saving because pack chemistry, voltage mapping, temperature, charge rate, depth of discharge and calendar time are not known from the Lenovo percentage pair alone.
+Alpha.50 keeps the provider contract unchanged and adds `BatteryPreservationImpactModel` in Core for comparative charge-wear context. It maps the selected stop percentage onto a documented generic Li-ion 3.52–4.35 V idealized curve, then applies the published end-of-charge relation that roughly 0.10 V lower end voltage doubles cycle life. The result is normalized so 100% = 1.00 comparative wear cycle and is used only to compare charge caps. It is explicitly not a measured cycle count for the installed pack because chemistry, real cell voltage mapping, temperature, charge rate, depth of discharge and calendar time remain unknown.
+
+The Battery Preservation gauge itself is deliberately simpler than alpha.49: one rounded current-level fill, two aligned threshold markers and state-dependent accent/warning color. There are no permanent green/amber/red zones or decorative lightning/pause glyphs.
 
 Other OEMs can later implement their own semantic provider without changing the shared Battery UI into vendor-specific pages.
 
