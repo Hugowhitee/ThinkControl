@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.48** and later candidates built from immutable alpha.47. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.49** and later candidates built from immutable alpha.48. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
