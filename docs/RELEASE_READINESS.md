@@ -52,7 +52,11 @@ Scope:
 - preserve per-endpoint mute ownership/restore and microphone independence;
 - replace canned Battery Preservation wear wording with `BatteryPreservationImpactModel`, calculated from the actual start/stop pair and valid for future custom presets;
 - report top-end headroom and omitted >70% high-SOC reference-band share while explicitly refusing to invent a literal cycles-saved count;
-- document the Windows CoreAudio/keyboard-hook contracts and lithium-ion aging evidence used for these choices.
+- document the Windows CoreAudio/keyboard-hook contracts and lithium-ion aging evidence used for these choices;
+- prevent fan Auto from bouncing through stale Max/Quiet telemetry by keeping the user's pending intent authoritative until the serialized write finishes;
+- prioritize release of an active firmware/full-speed cooling override before wider stale direct-provider Auto recovery;
+- suppress only Lenovo `tposd.exe` backlight windows created during automatic experimental-effect writes;
+- repair keyboard Audio mode for WASAPI `WAVE_FORMAT_EXTENSIBLE` output, adaptive loopback levels and bounded capture restart.
 
 Release gate:
 
@@ -65,10 +69,16 @@ Release gate:
 - [x] threshold-derived Battery Preservation impact model implemented in Core
 - [x] exact cycle-count/lifetime multiplier remains prohibited without chemistry/temperature/voltage evidence
 - [x] alpha.50 research note and regression/unit tests added
+- [x] fan pending-intent masking and firmware-first Auto release implemented
+- [x] automatic keyboard effect OSD suppression is scoped to new `tposd.exe` windows during effect-write bursts
+- [x] keyboard Audio mode handles extensible float/PCM loopback, adaptive level context and bounded unexpected-stop restart
 - [ ] exact implementation-head CI + Package green
 - [ ] full-resolution Silent + Battery Preservation dark/light visual review
 - [ ] physical Windows/X9 check: held Volume Up/Down/Mute cannot escape Silent; keys work again immediately after leaving Silent
 - [ ] physical Windows check: app/mixer unmute and default-output changes reconverge without a multi-second audible escape
+- [ ] physical X9 fan check: Max → Auto changes promptly, never visually bounces back to Max while pending, and releases full-speed ownership
+- [ ] physical X9 keyboard check: automatic effects hide Lenovo backlight OSD while Fn+Space feedback outside effect writes remains normal
+- [ ] physical Windows keyboard-Audio check: Audio mode follows quiet/normal system output and survives an output/capture transition
 - [ ] release-ready metadata freeze
 - [ ] frozen-head CI + Package green
 - [ ] expected-head merge and immutable alpha.50 GitHub release/update verification
