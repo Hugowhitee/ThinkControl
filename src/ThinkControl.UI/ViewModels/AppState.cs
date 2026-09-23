@@ -183,10 +183,10 @@ public sealed class AppState : INotifyPropertyChanged
     public string BatteryCycleCountText => BatteryCycleCount is int cycles ? $"{cycles:N0} cycles" : "Cycles —";
     public string BatteryProtectionSummaryText => BatteryProtectionEnabled switch
     {
-        true when BatteryProtectionStartPercent is int start && BatteryProtectionStopPercent is int stop => $"{start}–{stop}% · active",
-        true => "Preservation · active",
-        false => "Full charge · no limit",
-        _ => "Protection · unavailable"
+        true when BatteryProtectionStartPercent is int start && BatteryProtectionStopPercent is int stop => $"{start}–{stop}% active",
+        true => "Preservation active",
+        false => "Full charge, no limit",
+        _ => "Protection unavailable"
     };
     public string BatteryProtectionBehaviorText
     {
