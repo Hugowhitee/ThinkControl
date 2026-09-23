@@ -97,11 +97,13 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionStateText.Text = "Not exposed";
             ChargeProtectionImpactText.Text = "Charge limits are not available on the active hardware provider.";
+            ChargeProtectionWearText.Text = "Wear context unavailable";
         }
         else if (!enabled)
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge · active" : "Full charge · read-only";
-            ChargeProtectionImpactText.Text = BatteryPreservationImpactModel.Describe(100, 100, enabled: false);
+            ChargeProtectionImpactText.Text = "Charges normally to 100%.";
+            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false);
         }
         else
         {
@@ -109,7 +111,10 @@ public partial class BatteryTelemetryPanel
                 ? $"{start}–{stop}% · active"
                 : $"{start}–{stop}% · read-only";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
+            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(start, stop);
         }
+
+        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
 
         ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
             "Verified OEM charge-threshold provider.";
@@ -162,6 +167,7 @@ public partial class BatteryTelemetryPanel
 
             ChargeProtectionStateText.Text = "Change rejected";
             ChargeProtectionImpactText.Text = response?.Error ?? "The hardware service did not return a verified battery-threshold result.";
+            ChargeProtectionWearText.Text = "Wear context will refresh with the verified threshold state.";
             ServiceResponse? current = await app.HardwareClient.GetStatusAsync();
             ApplyBatteryProtectionStatus(current);
         }
@@ -199,12 +205,8 @@ public partial class BatteryTelemetryPanel
         return parts.Length == 2 && int.TryParse(parts[0], out start) && int.TryParse(parts[1], out stop) && start < stop;
     }
 
-    private static string DescribeChargeProtectionImpact(int start, int stop)
-    {
-        string thresholds = $"Resumes below {start}% · stops at {stop}%.";
-        string impact = BatteryPreservationImpactModel.Describe(start, stop);
-        return $"{thresholds} {impact}";
-    }
+    private static string DescribeChargeProtectionImpact(int start, int stop) =>
+        $"Resumes below {start}% · stops at {stop}%.";
 
     private void SyncHistoryManagementUi()
     {
