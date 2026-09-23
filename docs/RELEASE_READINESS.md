@@ -57,11 +57,11 @@ Release gate:
 - [x] Battery Preservation threshold ruler implemented and verbose normal-state copy removed
 - [x] live theme resource/chrome refresh repaired for the reported light → dark artifacts
 - [x] source regression coverage updated for the changed contracts
-- [ ] exact implementation-head CI green
-- [ ] Package ThinkControl green
-- [ ] full-resolution WPF visual artifact manually inspected, including fan Auto dark/light, Compact Audio Safety, Silent light and Battery Preservation
-- [ ] physical X9 check: Gesture lock keyboard semantics and Silent keyboard/app re-mute behavior
-- [ ] final review/release-ready metadata freeze
+- [x] exact implementation-head CI green · run `35845736667` / CI #2017
+- [x] Package ThinkControl green · run `35845736662` / Package #1717
+- [x] full-resolution WPF visual artifact manually inspected, including fan Auto dark/light, Compact Audio Safety, Silent light and Battery Preservation · artifact `10742907974`, digest `sha256:2c17e0f8c36d52554b6baacf19070ddf58ed18eab9b09673872a49a8974937d0`
+- [ ] post-release physical X9 follow-up: confirm Gesture lock keyboard semantics and Silent keyboard/app re-mute behavior on the reference machine; this remains real-device evidence and is not inferred from hosted CI
+- [x] final review/release-ready metadata freeze
 - [ ] frozen-head CI + Package green
 - [ ] expected-head merge, immutable alpha.48 release and public checksum verification
 
