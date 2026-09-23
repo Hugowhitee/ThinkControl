@@ -126,6 +126,7 @@ public partial class AdvancedWindow
             int selectableExtraCount = extraProfiles.Count(profile => !IsManualHomeFanState(profile));
             bool currentUsesMore = extraProfiles.Contains(selected, StringComparer.OrdinalIgnoreCase);
             HomeFanMoreButton.IsEnabled = enabled && !autoActive && selectableExtraCount > 0;
+            HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42;
             HomeFanMoreButton.Content = currentUsesMore
                 ? $"{selected}  ▾"
                 : selectableExtraCount switch
