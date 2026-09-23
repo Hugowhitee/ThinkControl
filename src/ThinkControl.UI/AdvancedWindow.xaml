@@ -122,12 +122,12 @@
                                             <RadioButton x:Name="HomeFanMax" Grid.Column="2" GroupName="HomeFan" Style="{StaticResource TcSegment}" Content="Max" Tag="Max cooling" Click="HomeFanQuick_Click" Padding="7,6" Margin="4,0,0,0" />
                                         </Grid>
                                         <Grid Margin="0,8,0,0">
-                                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="116" /></Grid.ColumnDefinitions>
+                                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                             <Button x:Name="HomeFanMoreButton" Content="More profiles  ▾" Style="{StaticResource TcButton}" HorizontalAlignment="Stretch" Padding="10,6" Click="HomeFanMore_Click" ToolTip="Show the additional saved fan profiles available on this device" />
-                                            <Grid Grid.Column="1" Margin="12,0,0,0" ToolTip="Let the firmware or OEM policy take fan ownership">
-                                                <TextBlock Text="Auto" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                                                <CheckBox x:Name="HomeFanAutoSwitch" HorizontalAlignment="Right" Style="{StaticResource TcSwitch}" Click="HomeFanAuto_Click" />
-                                            </Grid>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="14,0,0,0" VerticalAlignment="Center" ToolTip="Let the firmware or OEM policy take fan ownership">
+                                                <TextBlock Text="Auto" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,0,9,0" />
+                                                <CheckBox x:Name="HomeFanAutoSwitch" VerticalAlignment="Center" Style="{StaticResource TcSwitch}" Click="HomeFanAuto_Click" />
+                                            </StackPanel>
                                         </Grid>
                                     </StackPanel>
                                 </Border>
@@ -140,13 +140,13 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="1.25*" /></Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,28,0">
                                         <StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Audio" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Audio safety" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel>
-                                        <TextBlock Text="Prevents accidental ThinkControl volume, track and seek actions. Media lock keeps normal Windows/app audio; Silent also mutes output." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                        <TextBlock Text="Prevents accidental ThinkControl volume, track and seek actions. Gesture lock blocks only those touchpad actions; keyboard and Windows/app audio still work. Silent also keeps Windows output muted." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <Grid>
                                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                             <RadioButton x:Name="HomeAudioSafetyNormal" GroupName="HomeAudioSafetyMode" Style="{StaticResource TcSegment}" Content="Normal" Tag="Normal" Click="HomeAudioSafety_Click" Margin="0,0,4,0" />
-                                            <RadioButton x:Name="HomeAudioSafetyMediaLock" Grid.Column="1" GroupName="HomeAudioSafetyMode" Style="{StaticResource TcSegment}" Content="Media lock" Tag="MediaLock" Click="HomeAudioSafety_Click" Margin="2,0" />
+                                            <RadioButton x:Name="HomeAudioSafetyMediaLock" Grid.Column="1" GroupName="HomeAudioSafetyMode" Style="{StaticResource TcSegment}" Content="Gesture lock" Tag="MediaLock" Click="HomeAudioSafety_Click" Margin="2,0" />
                                             <RadioButton x:Name="HomeAudioSafetySilent" Grid.Column="2" GroupName="HomeAudioSafetyMode" Style="{StaticResource TcSegment}" Content="Silent" Tag="Silent" Click="HomeAudioSafety_Click" Margin="4,0,0,0" />
                                         </Grid>
                                         <TextBlock x:Name="HomeAudioSafetyStatus" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
