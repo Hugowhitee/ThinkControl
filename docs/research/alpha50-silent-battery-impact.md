@@ -53,3 +53,31 @@ Instead, `BatteryPreservationImpactModel` calculates threshold-derived quantitie
 - **share of a transparent >70% high-SOC reference band omitted** = `clamp((100 - stopPercent) / 30, 0, 1)`.
 
 The 70% line is a UI reference band, not a chemistry-specific aging knee. The visible sentence always says that exact cycle-life gain varies with chemistry and temperature. If a future provider exposes cell chemistry, voltage mapping and trustworthy pack temperature/history, a richer aging model can replace this proxy without changing the Battery page contract.
+
+
+## Fan Auto: keep command intent stable while service state converges
+
+The reported Max → Auto behavior exposed two separate latency/ownership issues rather than one visual toggle bug.
+
+First, status snapshots can arrive while a serialized user write is still waiting or executing. Painting every snapshot immediately lets an older Max/Quiet result overwrite the user's just-selected Auto state, then jump forward again when the later response arrives. Alpha.50 therefore records one generation-scoped pending cooling intent. The UI shows that intent immediately and masks stale cooling-profile telemetry only until that exact write completes. A rejection clears the pending owner and requests fresh status instead of pretending Auto succeeded.
+
+Second, the explicit service Auto path previously called the generic FanSupervisor Auto handoff before releasing a known live Lenovo firmware/full-speed override. On an X9 whose FanSupervisor was already logically Auto while Max was owned by the firmware coordinator, that recovery probe was unnecessary work ahead of the operation the user actually requested. Alpha.50 releases the known active firmware override first, then performs direct-provider cleanup only if direct state is actually owned. The wider stale-provider recovery remains available when there is no live firmware override.
+
+This does not weaken the full-speed readback/ownership rules and does not create a periodic policy fight with Lenovo firmware.
+
+## Experimental keyboard effects: Lenovo OSD and Windows loopback
+
+Independent ThinkPad keyboard-backlight work documents the same Lenovo behavior seen on the reference machine: changing the backlight through the Lenovo PM/ACPI path can trigger the Lenovo `tposd.exe` notification even when no Fn key is simulated. The narrow practical mitigation is to snapshot visible `tposd` windows immediately before an automatic write and hide only newly visible windows for a short interval afterwards.
+
+Reference implementation/evidence:
+
+- https://github.com/4piu/thinkpad-kbd-light
+- https://github.com/4piu/thinkpad-kbd-light/blob/master/src/osd.rs
+
+Alpha.50 keeps suppression in the normal user-session UI process, not in the privileged Session-0 hardware service. Only automatic effect writes arm it. The watcher targets `tposd.exe` specifically, preserves windows that were already visible before the write, and expires after a short burst; it is not a global Lenovo-OSD kill switch.
+
+The inert Audio effect had a separate software cause. NAudio's shared-mode WASAPI loopback can expose the endpoint format as `WaveFormatExtensible` even when the actual subtype is 32-bit IEEE float or PCM. Treating only a top-level `WaveFormatEncoding.IeeeFloat` value as audio makes those extensible buffers calculate as zero RMS. NAudio itself provides `WaveFormatExtensible.ToStandardWaveFormat()` for recognized PCM/IEEE-float subtypes:
+
+- https://github.com/naudio/NAudio/blob/v2.2.1/NAudio.Core/Wave/WaveFormats/WaveFormatExtensible.cs
+
+Alpha.50 normalizes extensible formats before RMS decoding, supports 16/24/32-bit PCM and 32-bit float, publishes the capture object before recording starts so the first buffer is not discarded, and restarts once after an unexpected capture stop only while Audio mode remains active. Effect thresholds use the smoothed current RMS relative to a decaying local peak plus a small absolute floor, so ordinary low-volume system audio can drive the three-state white backlight without treating background noise as music.
