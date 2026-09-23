@@ -31,29 +31,39 @@ Alpha.50 therefore uses three layers while Silent is active:
 
 The enforcement worker uses a pending bit rather than dropping callbacks while one pass is already running. This closes the held-key race where another unmute could otherwise arrive between a re-mute write and worker shutdown. There is still no permanent fast polling timer.
 
-## Battery Preservation: do not invent a cycle-count formula
+## Battery Preservation: comparative wear cycles without pretending they are measured
 
-Published lithium-ion aging work consistently shows that degradation depends on more than the configured upper SOC threshold. Temperature, charge/discharge rate, depth of discharge, mean SOC, chemistry and calendar time all matter. High SOC generally increases aging stress, but there is no chemistry-independent conversion such as “85% cap = N cycles saved” that can be inferred from Lenovo's start/stop percentages alone.
+The reference-device review showed that the earlier "top-end headroom / >70% exposure" sentence was technically cautious but not very understandable. AccuBattery's public methodology is a better presentation model: express the selected charge ceiling as an estimated fraction of one full high-voltage wear cycle, then keep the modeling assumptions visible.
 
-Relevant evidence:
+AccuBattery documents two useful ideas:
 
-- Maheshwari, Heck & Santarelli, *Electrochimica Acta* (2018): capacity fade and impedance rise strongly depend on temperature, current rate, depth of discharge and mean SOC. https://doi.org/10.1016/j.electacta.2018.04.045
-- Keil et al., *Journal of Power Sources* (2014): both calendar and cycle aging vary with voltage/SOC range and cycle depth. https://doi.org/10.1016/j.jpowsour.2013.09.143
-- Schmalstieg et al., *Journal of Power Sources* (2014): a holistic aging model needs multiple stress factors rather than one charge-limit percentage. https://doi.org/10.1016/j.jpowsour.2014.02.012
-- Wang et al., *Journal of Power Sources* (2018): among equal 20%-DoD windows, the 80–100% SOC range produced more capacity loss than the lower windows. https://doi.org/10.1016/j.jpowsour.2018.07.018
-- Review evidence also reports materially faster aging at high storage SOC and emphasizes chemistry dependence. https://www.mdpi.com/2313-0105/10/11/374
+- charging to a lower maximum percentage reduces wear;
+- its wear-cycle estimate maps percentage to an idealized end voltage and then applies the observation that roughly **0.10 V lower end-of-charge voltage doubles cycle life**.
 
-So alpha.50 deliberately does **not** print “cycles saved” or a fake life multiplier.
+Source:
 
-Instead, `BatteryPreservationImpactModel` calculates threshold-derived quantities that are true for named and future custom presets:
+- https://accubattery.zendesk.com/hc/en-us/articles/210224725-Charging-research-and-methodology
 
-- **top-end headroom** = `100 - stopPercent`;
-- **recharge window** = `stopPercent - startPercent`;
-- **equivalent full-charge throughput omitted per 0→100-sized top-up** = `(100 - stopPercent) / 100`;
-- **share of a transparent >70% high-SOC reference band omitted** = `clamp((100 - stopPercent) / 30, 0, 1)`.
+AccuBattery has device-scale discharge-curve data and a phone-oriented voltage model. ThinkControl does **not** have the exact per-cell voltage curve, chemistry or end-of-charge voltage for every laptop pack, so copying its proprietary percentage-to-voltage lookup would create false precision.
 
-The 70% line is a UI reference band, not a chemistry-specific aging knee. The visible sentence always says that exact cycle-life gain varies with chemistry and temperature. If a future provider exposes cell chemistry, voltage mapping and trustworthy pack temperature/history, a richer aging model can replace this proxy without changing the Battery page contract.
+Alpha.50 therefore uses the same *comparative* concept with a transparent generic laptop-safe approximation:
 
+- 0% is mapped to an idealized 3.52 V/cell;
+- 100% is mapped to 4.35 V/cell;
+- the curve rises slowly through the middle and more sharply near full charge using `0.28 × SOC + 0.72 × SOC^4`;
+- relative wear is `2^(-10 × (4.35 - Vend))`, with the tiny 0%-SOC baseline removed;
+- the result is normalized so **100% = 1.00 wear cycle**.
+
+That produces the current UI comparisons:
+
+- 85% ≈ **0.11 wear cycles** (about 89% less than the 100% baseline);
+- 80% ≈ **0.06** (about 94% less);
+- 60% ≈ **0.01** (about 99% less);
+- 100% = **1.00 baseline**.
+
+These values are a simple way to compare charge-limit choices, not measured degradation of the installed X9 battery. The tooltip explicitly says actual pack wear still varies with chemistry, real voltage mapping, temperature, charge rate and use. Firmware cycle count and ThinkControl's capacity-health trend remain separate real measurements.
+
+The visual was simplified at the same time. Alpha.49's permanent green/amber/red regions and charge/pause glyphs made the card read like a diagram instead of a live battery control. Alpha.50 now uses one current-level fill whose color reacts to charging/limit state, with only two aligned threshold markers for resume and cap.
 
 ## Fan Auto: keep command intent stable while service state converges
 
