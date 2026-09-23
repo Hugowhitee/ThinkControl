@@ -61,6 +61,27 @@ public partial class BatteryTelemetryPanel : UserControl
         {
             QueueHistoryRefresh();
         }
+
+        if (e.PropertyName is nameof(AppState.BatteryPercent) or
+            nameof(AppState.BatteryProtectionEnabled) or
+            nameof(AppState.BatteryProtectionStartPercent) or
+            nameof(AppState.BatteryProtectionStopPercent))
+        {
+            RefreshChargeProtectionWearEstimate();
+        }
+    }
+
+    private void RefreshChargeProtectionWearEstimate()
+    {
+        if (_subscribedState is not AppState state)
+            return;
+
+        int target = state.BatteryProtectionEnabled == true
+            ? state.BatteryProtectionStopPercent ?? 100
+            : 100;
+        ChargeProtectionWearText.Text =
+            BatteryPreservationImpactModel.DescribeChargeWear(state.BatteryPercent, target);
+        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
     }
 
     private void QueueHistoryRefresh()
