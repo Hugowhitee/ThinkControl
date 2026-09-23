@@ -28,6 +28,8 @@ public sealed class ModeVisualCoverageSourceTests
         Assert.Contains("compact-silent.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-silent-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-audio-media-lock.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-home-fan-auto.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-home-fan-auto-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-fan-manual.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-audio-silent-min.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-audio-silent-light.png", snapshots, StringComparison.Ordinal);
