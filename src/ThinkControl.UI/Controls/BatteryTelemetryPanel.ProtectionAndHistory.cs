@@ -79,7 +79,7 @@ public partial class BatteryTelemetryPanel
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom · {start}–{stop}%",
+                    Content = $"Custom {start}–{stop}%",
                     Tag = $"custom:{start},{stop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
