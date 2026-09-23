@@ -235,16 +235,15 @@ public sealed class KeyboardEffectService : IDisposable
         double rms = Volatile.Read(ref _audioRms);
         double peak = Volatile.Read(ref _audioPeakRms);
 
-        // WASAPI levels vary substantially between endpoints and Windows volume.
-        // Compare the recent smoothed level with a decaying local peak instead of
-        // requiring one large fixed RMS value that can make normal system audio look
-        // permanently silent. Keep a tiny absolute floor so background noise cannot
-        // drive the keyboard by itself.
-        if (peak >= 0.006 && rms >= 0.012 && rms / peak >= 0.58)
+        // This backend only exposes Off / Low / High, so make Audio visibly reactive
+        // across those three safe states instead of leaving silence parked at Low.
+        // Relative-to-recent-peak thresholds keep quiet Windows output useful while
+        // the small absolute floor prevents idle/noise from flashing the keyboard.
+        if (peak >= 0.0035 && rms >= 0.004 && rms / peak >= 0.52)
             return "High";
-        if (rms >= 0.004)
+        if (rms >= 0.0012)
             return "Low";
-        return NormalizeLevel(_state.KeyboardBaseLevel) == "Off" ? "Off" : "Low";
+        return "Off";
     }
 
     private async Task ApplyLevelAsync(string level, bool force, CancellationToken cancellationToken)
