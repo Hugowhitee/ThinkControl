@@ -45,10 +45,35 @@ public sealed class AudioSafetySourceTests
         Assert.Contains("_priorMuteByEndpoint[device.ID] = device.AudioEndpointVolume.Mute", service, StringComparison.Ordinal);
         Assert.Contains("device.AudioEndpointVolume.Mute = priorMuted", service, StringComparison.Ordinal);
         Assert.Contains("OnVolumeNotification += _ => EnsureSilentOutput()", service, StringComparison.Ordinal);
+        Assert.Contains("RegisterEndpointNotificationCallback", service, StringComparison.Ordinal);
+        Assert.Contains("OnDefaultDeviceChanged", service, StringComparison.Ordinal);
         Assert.Contains("MMDevice? _silentObservedDevice", service, StringComparison.Ordinal);
+        Assert.Contains("Interlocked.Exchange(ref _enforcementPending, 1)", service, StringComparison.Ordinal);
+        Assert.Contains("Volatile.Read(ref _enforcementPending)", service, StringComparison.Ordinal);
+        Assert.Contains("new SilentVolumeKeyBlocker()", service, StringComparison.Ordinal);
         Assert.Contains("HardwareClient.StatusObserved += AudioSafety_StatusObserved", app, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherTimer", service, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Threading.Timer", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Silent_VolumeKeyGuardSuppressesOnlyWindowsVolumeKeys()
+    {
+        string root = FindRepositoryRoot();
+        string blocker = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Services", "SilentVolumeKeyBlocker.cs"));
+
+        Assert.Contains("WhKeyboardLl = 13", blocker, StringComparison.Ordinal);
+        Assert.Contains("VkVolumeMute = 0xAD", blocker, StringComparison.Ordinal);
+        Assert.Contains("VkVolumeDown = 0xAE", blocker, StringComparison.Ordinal);
+        Assert.Contains("VkVolumeUp = 0xAF", blocker, StringComparison.Ordinal);
+        Assert.Contains("WmKeyDown = 0x0100", blocker, StringComparison.Ordinal);
+        Assert.Contains("WmSysKeyDown = 0x0104", blocker, StringComparison.Ordinal);
+        Assert.Contains("volumeKey && keyDown", blocker, StringComparison.Ordinal);
+        Assert.DoesNotContain("WmKeyUp", blocker, StringComparison.Ordinal);
+        Assert.Contains("return (IntPtr)1;", blocker, StringComparison.Ordinal);
+        Assert.Contains("CallNextHookEx", blocker, StringComparison.Ordinal);
+        Assert.DoesNotContain("VkMediaPlay", blocker, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("VkMediaNext", blocker, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

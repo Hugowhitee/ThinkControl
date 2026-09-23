@@ -102,7 +102,7 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
         if (enable)
         {
             MessageBoxResult answer = MessageBox.Show(
-                "Experimental keyboard effects will reuse ThinkControl's existing Off / Low / High backlight commands at a bounded rate.\n\nOn this provider Lenovo may show its own keyboard-brightness popup, ignore some writes, or look less smooth than the native effect path. No new low-level command is enabled.\n\nEnable experimental effects for this ThinkControl session?",
+                "Experimental keyboard effects reuse ThinkControl's existing Off / Low / High backlight commands at a bounded rate.\n\nThinkControl hides Lenovo's tposd backlight popup only around its own automatic effect writes when that OSD is present. This provider can still smooth or ignore some rapid writes. No new low-level command is enabled.\n\nEnable experimental effects for this ThinkControl session?",
                 "ThinkControl · Experimental keyboard effects",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Warning);

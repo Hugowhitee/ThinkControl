@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using ThinkControl.Core.Battery;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfApplication = System.Windows.Application;
@@ -60,6 +61,27 @@ public partial class BatteryTelemetryPanel : UserControl
         {
             QueueHistoryRefresh();
         }
+
+        if (e.PropertyName is nameof(AppState.BatteryPercent) or
+            nameof(AppState.BatteryProtectionEnabled) or
+            nameof(AppState.BatteryProtectionStartPercent) or
+            nameof(AppState.BatteryProtectionStopPercent))
+        {
+            RefreshChargeProtectionWearEstimate();
+        }
+    }
+
+    private void RefreshChargeProtectionWearEstimate()
+    {
+        if (_subscribedState is not AppState state)
+            return;
+
+        int target = state.BatteryProtectionEnabled == true
+            ? state.BatteryProtectionStopPercent ?? 100
+            : 100;
+        ChargeProtectionWearText.Text =
+            BatteryPreservationImpactModel.DescribeChargeWear(state.BatteryPercent, target);
+        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
     }
 
     private void QueueHistoryRefresh()
@@ -282,7 +304,7 @@ public partial class BatteryTelemetryPanel : UserControl
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom · {snapshotStart}–{snapshotStop}%",
+                    Content = $"Custom {snapshotStart}–{snapshotStop}%",
                     Tag = $"custom:{snapshotStart},{snapshotStop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
@@ -294,11 +316,15 @@ public partial class BatteryTelemetryPanel : UserControl
             _syncingChargeProtection = false;
         }
         ChargeProtectionStateText.Text = snapshotProtection
-            ? $"{snapshotStart}–{snapshotStop}% · active"
-            : "Full charge · active";
+            ? $"{snapshotStart}–{snapshotStop}% active"
+            : "Full charge active";
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
-            : "No charge ceiling is active.";
+            : "Charges normally to 100%.";
+        ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
+            state.BatteryPercent,
+            snapshotProtection ? snapshotStop : 100);
+        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
         ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
     }

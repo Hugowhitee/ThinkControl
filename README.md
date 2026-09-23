@@ -23,13 +23,13 @@
   </a>
 </div>
 
-## ThinkControl alpha.49
+## ThinkControl alpha.50 development
 
-Alpha.49 is a focused Battery Preservation visual-clarity follow-up. The threshold graphic now uses semantic charge/hold/stop zones, a charge-resume lightning marker and a stop/pause marker at the actual thresholds. Generic ruler ticks and the ambiguous lock glyph are removed; the only remaining live marker is the current battery position.
+Alpha.50 is a runtime-reliability pass: Silent owns the Windows volume-key path without trapping a key held during activation, Home fan Auto stays stable while service telemetry catches up, keyboard Audio reacts to real loopback output, and Battery Preservation uses a cleaner state-reactive gauge plus a comparative wear-cycle estimate.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.49`  
+**Release target:** `v0.1.0-alpha.50`  
 **Current immutable prerelease:** `v0.1.0-alpha.49`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -41,7 +41,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 
 <p align="center">
   <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.49/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ui-overview.png" alt="ThinkControl interface overview" width="920">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.49/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -64,6 +64,22 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.50 changes
+
+- **Silent owns the physical volume-key path.** While Silent is active, Windows `VK_VOLUME_MUTE / DOWN / UP` keys are swallowed before the shell can unmute the endpoint. CoreAudio callbacks remain the second line of defense for app/Windows changes.
+- **Repeated unmute events are no longer coalesced away.** A pending-bit enforcement loop guarantees another pass when an event arrives while re-muting is already in progress, closing the held-key race.
+- **Default-output switches are event-driven.** A persistent CoreAudio device notification client immediately rebinds Silent to a changed render endpoint, with only a short bounded retry burst while a new device becomes ready.
+- **Battery Preservation reads like a battery control, not a diagram.** One current-level fill reacts to charging/limit state, the start/stop thresholds are quiet aligned markers, and the old permanent green/amber/red zones plus lightning/pause glyphs are gone. Preset copy uses an AccuBattery-style comparative wear estimate (for example, estimated wear to 85% versus the 1.00 full-charge baseline) with an explicit generic-model caveat.
+- **Fan Auto no longer visually bounces through stale state.** A user selection owns both its in-flight state and a short post-success confirmation lease, so stale Max/Quiet telemetry cannot repaint the Home switch before fresh status confirms Auto. An active firmware/full-speed override is released before unrelated Auto recovery probes.
+- **Experimental keyboard effects suppress Lenovo's own backlight popup around automatic writes.** The suppression is deliberately limited to newly shown `tposd.exe` windows during an effect-write burst, so ordinary keyboard feedback outside that burst is not globally disabled. Audio now uses Off / Low / High as a visible three-state response to the active Windows output instead of idling at Low.
+- **Dev builds can upgrade to their matching public release.** A manually installed `alpha.N-dev.BUILD` is deliberately lower-precedence than canonical `alpha.N`, so testing a dev package cannot strand the updater on that build.
+- **Audio keyboard effects use the actual Windows loopback format.** WAVE_FORMAT_EXTENSIBLE float/PCM streams are decoded correctly, level thresholds adapt to the recent output peak, and an unexpectedly stopped loopback capture performs one bounded restart while Audio mode remains active.
+- **Research and regression coverage are explicit.** Silent, Battery Preservation, fan convergence and keyboard effect behavior are source-tested and documented.
+
+## What alpha.49 changes
+
+Alpha.49 made Battery Preservation easier to read: semantic charge/hold/stop zones, explicit start/stop icons and no generic ruler ticks or ambiguous lock glyph.
 
 ## What alpha.48 changes
 
@@ -140,7 +156,7 @@ Alpha.43 is a focused safety/usability follow-up to immutable alpha.42. It adds 
 - **Release-to-commit remains intentional.** With Play/Pause enabled, the center requires at least **450 ms** with no more than **3 mm** maximum radial movement and then commits on release. Release is the final intent confirmation so a resting/incidental touch cannot auto-start media merely because the hold timer elapsed.
 - **Alpha.43 Track behavior.** That immutable release used a deliberate **9 mm** swipe threshold; alpha.44 raises the current threshold to 12 mm and commits skip only on release.
 - **Battery preservation uses real Lenovo start/stop thresholds on the verified X9 path.** When the installed Lenovo PWRMGRV/`IBMPmDrv` contract is present, the Battery page can select a small set of Vantage-style windows such as **75–85%** or return to **Full charge · 100%**. The desktop UI never receives a raw driver command.
-- **No made-up battery-life multiplier.** The UI explains the actual stop threshold, start threshold and hysteresis instead of claiming “2× fewer cycles”. Battery wear depends on more than state of charge.
+- **Battery wear is comparative, not a promise.** The UI can show the selected cap as an estimated fraction of a 1.00 full-charge wear-cycle baseline, with the generic Li-ion voltage model disclosed. It does not present that number as measured degradation or guaranteed battery lifetime.
 - **Existing firmware state wins.** ThinkControl does not silently apply a preservation preset on first run. A non-preset Lenovo pair appears as `Custom · start–stop%` until the user deliberately chooses another preset.
 - **Battery history stays useful without becoming an endless page.** The normal view shows seven recent days, `Show older` expands to 14, detailed retention remains selectable at 7/14/30 days, older data compacts into summaries, and destructive reset lives behind `Manage history` with a clear warning about relearning local estimates.
 

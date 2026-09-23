@@ -140,7 +140,7 @@
                                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="1.25*" /></Grid.ColumnDefinitions>
                                     <StackPanel VerticalAlignment="Center" Margin="0,0,28,0">
                                         <StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Audio" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Audio safety" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel>
-                                        <TextBlock Text="Gesture lock blocks ThinkControl touchpad audio/media gestures. Silent also keeps Windows output muted." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                        <TextBlock Text="Gesture lock blocks ThinkControl touchpad audio/media gestures. Silent also keeps Windows output muted and ignores volume keys." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <Grid>

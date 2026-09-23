@@ -108,7 +108,7 @@ ThinkControl snapshots the previous Lenovo configuration before a transition. A 
 
 ThinkControl does **not** alter the Lenovo driver service startup type. If the PM device/configuration is missing or inaccessible, the product remains read-only/fallback-only instead of trying another Lenovo EC/ACPI path.
 
-The UI exposes named charge windows rather than the raw supported byte range. Existing non-preset Lenovo thresholds are shown truthfully as Custom and are not overwritten until the user makes an explicit selection. Battery-preservation UI must not claim a fabricated wear multiplier or “x fewer cycles”; actual wear depends on chemistry, temperature, calendar time and depth of discharge.
+The UI exposes named charge windows rather than the raw supported byte range. Existing non-preset Lenovo thresholds are shown truthfully as Custom and are not overwritten until the user makes an explicit selection. Battery Preservation may show a **comparative modeled wear-cycle cost** only when the formula and assumptions are explicit and 100% is the stated baseline; it must never present that estimate as measured pack degradation or guaranteed lifetime. Actual wear still depends on chemistry, real cell-voltage mapping, temperature, charge rate, calendar time and depth of discharge.
 
 See `docs/research/x9-alpha43-battery-care.md` for the protocol evidence and product gate.
 
@@ -180,6 +180,6 @@ Device-learning states are conceptually `Observed → Candidate → Verified →
 
 A green compiler, snapshot or hosted CI runner is not physical hardware verification. Hardware-write claims require appropriate real-device evidence in addition to software gates.
 
-For alpha.43, automated validation can prove the battery provider's identity/range/constant/rollback architecture, fan ownership architecture, session Audio Safety, startup behavior, build and deterministic UI. It cannot prove that the reference X9 physically starts and stops charging at a selected threshold pair, nor can it prove real fan/acoustic behavior. Those remain separate physical evidence items and must not be converted into hosted-CI claims.
+Automated validation can prove the battery provider's identity/range/constant/rollback architecture, fan ownership architecture, session Audio Safety routing, keyboard-hook filtering, update/installer behavior, build and deterministic UI. It cannot prove that the reference X9 physically starts and stops charging at a selected threshold pair, that a real keyboard/audio stack never produces an audible Silent escape, or that fan/acoustic behavior matches intent. Those remain separate physical evidence items and must not be converted into hosted-CI claims.
 
 Before release promotion, follow [Release readiness](RELEASE_READINESS.md) and [Alpha testing](ALPHA-TESTING.md). Do not weaken safety or backwards-compatibility contracts merely to make the implementation simpler.

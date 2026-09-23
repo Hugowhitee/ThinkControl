@@ -39,6 +39,52 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
+## Alpha.50 candidate — Silent ownership and calculated preservation context
+
+Alpha.50 is a Windows-generic audio-safety and Battery Preservation explanation follow-up on immutable alpha.49. It does **not** change Lenovo threshold writes, fan providers or any privileged hardware command surface.
+
+Scope:
+
+- make Silent authoritative against physical Windows volume keys by swallowing only `VK_VOLUME_MUTE / DOWN / UP` with a session-scoped low-level keyboard hook;
+- retain CoreAudio endpoint-volume notifications for app/SndVol changes while ensuring callbacks arriving during an existing re-mute pass are not lost;
+- subscribe to default-device notifications so Silent follows a changed render endpoint immediately instead of relying on the normal multi-second status cadence;
+- allow only a short bounded retry burst when a newly announced default endpoint is temporarily not ready; do not add a permanent polling timer;
+- preserve per-endpoint mute ownership/restore and microphone independence;
+- replace the alpha.49 three-zone Battery Preservation diagram with one state-reactive current-level fill and two aligned threshold markers;
+- calculate an AccuBattery-style comparative wear-cycle estimate from the current battery level to the selected stop threshold, with full 0→100% normalized to a 1.00 baseline and clearly labeled as a generic Li-ion model rather than measured pack wear;
+- document the Windows CoreAudio/keyboard-hook contracts and lithium-ion aging evidence used for these choices;
+- prevent fan Auto from bouncing through stale Max/Quiet telemetry by keeping the user's pending intent authoritative until the serialized write finishes;
+- prioritize release of an active firmware/full-speed cooling override before wider stale direct-provider Auto recovery;
+- suppress only Lenovo `tposd.exe` backlight windows created during automatic experimental-effect writes;
+- repair keyboard Audio mode for WASAPI `WAVE_FORMAT_EXTENSIBLE` output, adaptive loopback levels and bounded capture restart.
+
+Release gate:
+
+- [x] alpha.50 isolated from immutable alpha.49
+- [x] Silent standard volume-key guard implemented on the WPF dispatcher thread
+- [x] endpoint-volume enforcement uses a pending pass so repeated/held-key races cannot be coalesced away
+- [x] default render endpoint changes are event-driven through `IMMNotificationClient`
+- [x] transient endpoint replacement uses only bounded 40/120/350 ms retry delays
+- [x] existing per-endpoint mute restore and microphone independence preserved
+- [x] comparative Battery Preservation wear-cycle model implemented in Core with a 1.00 full-charge baseline
+- [x] wear estimate remains explicitly comparative and documents generic SOC/voltage assumptions instead of claiming measured pack wear
+- [x] preservation visual simplified to one reactive fill, two aligned threshold markers and no permanent color zones/icons
+- [x] same-base public release is ordered above `alpha.N-dev.BUILD` so dev testers still receive the canonical update
+- [x] alpha.50 research note and regression/unit tests added
+- [x] fan pending-intent masking, short post-success telemetry-confirmation lease and firmware-first Auto release implemented
+- [x] automatic keyboard effect OSD suppression is scoped to new `tposd.exe` windows during effect-write bursts
+- [x] keyboard Audio mode handles extensible float/PCM loopback, adaptive level context and bounded unexpected-stop restart
+- [x] exact implementation-head CI + Package green · head `d4e1de924e02b130f80144b1e3325c3548882202` · CI `35930413152` / #2115 · Package `35930412970` / #1812
+- [x] full-resolution Silent + Battery Preservation + fan Auto + experimental keyboard-effect visual review · artifact `10780372906`, digest `sha256:492f5585e592be233cdba0534a96e9257c849b9c3a06ec70eaf4bd27793dd6ab`
+- [x] exact implementation-head development installer/payload checksums re-verified after download · Package artifact `10780387836`, digest `sha256:6537d00a9aef2df99355868d4ddfc046648ca20a7d110e8cc423168317532296`
+- [x] user-reported physical baseline recorded honestly: settled Silent stayed silent and the Fans-page Auto path worked; the activation-edge and Home-switch bounce failures were reproduced by the user's prior candidate and directly drive the current fixes
+- [x] post-report Silent activation fix is source-regressed: only key-down/repeat is swallowed, key-up always passes, the hook is installed before the final mute write, and CoreAudio remains authoritative
+- [x] post-report Home fan fix is source-regressed and visually reviewed: in-flight busy ownership plus a four-second expected-state lease prevents crossed stale telemetry from repainting Max/Quiet over Auto
+- [x] keyboard OSD suppression and Audio response remain explicitly Experimental; alpha.50 is the physical feedback vehicle rather than pretending hosted CI proves Lenovo popup/audio behavior
+- [x] release-ready metadata freeze
+- [ ] frozen-head CI + Package green
+- [ ] expected-head merge and immutable alpha.50 GitHub release/update verification
+
 ## Alpha.49 published release — Battery Preservation visual semantics
 
 Alpha.49 is a narrow UI follow-up on the alpha.48 release line. It does not change Lenovo charge-threshold writes or any low-level hardware contract.

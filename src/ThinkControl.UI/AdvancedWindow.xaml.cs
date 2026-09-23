@@ -247,8 +247,8 @@ public partial class AdvancedWindow : Window
 
             if (HomeFanAutoSwitch is not null)
             {
-                HomeFanAutoSwitch.IsEnabled = state.CanFanControl;
-                HomeFanMoreButton.IsEnabled = state.CanFanControl;
+                HomeFanAutoSwitch.IsEnabled = state.CanFanControl && !_homeFanBusy;
+                HomeFanMoreButton.IsEnabled = state.CanFanControl && !_homeFanBusy;
             }
         }
         finally

@@ -38,6 +38,11 @@ public partial class App
     private int _coolingShutdownPrepared;
     private DateTimeOffset _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
     private int _coolingSelectionGeneration;
+    private readonly object _coolingPendingGate = new();
+    private int _coolingPendingGeneration = -1;
+    private string? _coolingPendingDisplayProfile;
+    private string? _coolingExpectedDisplayProfile;
+    private DateTimeOffset _coolingExpectedUntil = DateTimeOffset.MinValue;
     private FanProfileCatalog? _fanProfiles;
     private FanCalibrationUiState _fanCalibrationState = FanCalibrationUiState.None;
 
@@ -161,16 +166,126 @@ public partial class App
         // older write already started, this user request runs immediately after it
         // and therefore becomes the final physical state.
         int generation = Interlocked.Increment(ref _coolingSelectionGeneration);
+        string pendingDisplay = CoolingDisplayNameForRequest(profile);
+        SetPendingCoolingProfile(generation, pendingDisplay);
+
+        bool success = false;
         await _coolingWriteGate.WaitAsync();
         try
         {
-            return await SetCoolingProfileCoreAsync(profile, generation);
+            success = await SetCoolingProfileCoreAsync(profile, generation);
+            if (success && generation == Volatile.Read(ref _coolingSelectionGeneration))
+                SetExpectedCoolingProfile(generation, pendingDisplay);
+            return success;
         }
         finally
         {
             _coolingWriteGate.Release();
+            ClearPendingCoolingProfile(generation);
+
+            // A command response and the next periodic status can cross on the pipe.
+            // Always request one fresh status after the write. Successful selections
+            // keep their short expected-state lease until telemetry confirms them;
+            // failures immediately fall back to the real service state.
+            if (generation == Volatile.Read(ref _coolingSelectionGeneration))
+                _ = HardwareClient.GetStatusAsync();
         }
     }
+
+    internal bool TryGetPendingCoolingProfile(out string profile)
+    {
+        lock (_coolingPendingGate)
+        {
+            if (_coolingPendingDisplayProfile is not null)
+            {
+                profile = _coolingPendingDisplayProfile;
+                return true;
+            }
+        }
+
+        profile = string.Empty;
+        return false;
+    }
+
+    internal string ResolveCoolingProfileForTelemetry(string? telemetryProfile)
+    {
+        string actual = CoolingDisplayNameForRequest(telemetryProfile);
+
+        lock (_coolingPendingGate)
+        {
+            if (_coolingPendingDisplayProfile is not null)
+                return _coolingPendingDisplayProfile;
+
+            if (_coolingExpectedDisplayProfile is null)
+                return telemetryProfile ?? actual;
+
+            if (actual.Equals(_coolingExpectedDisplayProfile, StringComparison.OrdinalIgnoreCase))
+            {
+                _coolingExpectedDisplayProfile = null;
+                _coolingExpectedUntil = DateTimeOffset.MinValue;
+                return telemetryProfile ?? actual;
+            }
+
+            if (DateTimeOffset.UtcNow < _coolingExpectedUntil)
+                return _coolingExpectedDisplayProfile;
+
+            _coolingExpectedDisplayProfile = null;
+            _coolingExpectedUntil = DateTimeOffset.MinValue;
+            return telemetryProfile ?? actual;
+        }
+    }
+
+    private void SetPendingCoolingProfile(int generation, string displayProfile)
+    {
+        lock (_coolingPendingGate)
+        {
+            _coolingPendingGeneration = generation;
+            _coolingPendingDisplayProfile = displayProfile;
+            _coolingExpectedDisplayProfile = null;
+            _coolingExpectedUntil = DateTimeOffset.MinValue;
+        }
+
+        // User intent should be visible immediately. Service telemetry received while
+        // the write is in flight is intentionally masked by TryGetPendingCoolingProfile
+        // so an old Max/Quiet snapshot cannot make the control jump backwards and then
+        // forward again a few seconds later.
+        State.CoolingProfile = displayProfile;
+    }
+
+    private void ClearPendingCoolingProfile(int generation)
+    {
+        lock (_coolingPendingGate)
+        {
+            if (_coolingPendingGeneration != generation)
+                return;
+
+            _coolingPendingGeneration = -1;
+            _coolingPendingDisplayProfile = null;
+        }
+    }
+
+    private void SetExpectedCoolingProfile(int generation, string displayProfile)
+    {
+        lock (_coolingPendingGate)
+        {
+            if (_coolingPendingGeneration != generation)
+                return;
+
+            _coolingExpectedDisplayProfile = displayProfile;
+            _coolingExpectedUntil = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(4);
+        }
+    }
+
+    private static string CoolingDisplayNameForRequest(string? profile) =>
+        profile?.Trim().ToLowerInvariant() switch
+        {
+            "auto" or "lenovo auto" => "Lenovo Auto",
+            "silent" or "quiet" or FanCurveDefaults.QuietId => "Quiet",
+            "normal" or "balanced" or FanCurveDefaults.BalancedId => "Balanced",
+            "cool" or "maxcooling" or "max cooling" or FanCurveDefaults.MaxCoolingId => "Max cooling",
+            null or "" => "Lenovo Auto",
+            _ => profile!.Trim()
+        };
 
     private async Task<bool> SetCoolingProfileCoreAsync(string profile, int generation)
     {

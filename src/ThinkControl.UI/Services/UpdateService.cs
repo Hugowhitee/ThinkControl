@@ -6,6 +6,7 @@ using System.Net.Http.Headers;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
+using ThinkControl.Core.Updates;
 
 namespace ThinkControl.UI.Services;
 
@@ -66,9 +67,9 @@ public sealed class UpdateService
             if (json.RootElement.ValueKind != JsonValueKind.Array)
                 return new(false, "Release channel returned an unexpected response", Url: ReleasesPage);
 
-            SemanticVersion current = SemanticVersion.Parse(CurrentVersion);
-            bool allowPrerelease = current.PreRelease.Count > 0;
-            SemanticVersion? newestVersion = null;
+            ThinkControlVersion current = ThinkControlVersion.Parse(CurrentVersion);
+            bool allowPrerelease = current.IsPrerelease;
+            ThinkControlVersion? newestVersion = null;
             UpdateCheckResult? newestResult = null;
 
             foreach (JsonElement release in json.RootElement.EnumerateArray())
@@ -83,10 +84,10 @@ public sealed class UpdateService
                 if (string.IsNullOrWhiteSpace(tag))
                     continue;
 
-                SemanticVersion candidate;
+                ThinkControlVersion candidate;
                 try
                 {
-                    candidate = SemanticVersion.Parse(tag.TrimStart('v', 'V'));
+                    candidate = ThinkControlVersion.Parse(tag.TrimStart('v', 'V'));
                 }
                 catch (FormatException)
                 {
@@ -360,63 +361,5 @@ public sealed class UpdateService
     {
         string sanitized = new(version.Where(ch => char.IsLetterOrDigit(ch) || ch is '.' or '-' or '_').ToArray());
         return string.IsNullOrWhiteSpace(sanitized) ? "0.1.0" : sanitized;
-    }
-
-    private sealed record SemanticVersion(int Major, int Minor, int Patch, IReadOnlyList<string> PreRelease) : IComparable<SemanticVersion>
-    {
-        internal static SemanticVersion Parse(string raw)
-        {
-            string withoutBuild = raw.Split('+')[0];
-            string[] versionAndPre = withoutBuild.Split('-', 2);
-            string[] core = versionAndPre[0].Split('.');
-            if (core.Length < 3 ||
-                !int.TryParse(core[0], out int major) ||
-                !int.TryParse(core[1], out int minor) ||
-                !int.TryParse(core[2], out int patch))
-            {
-                throw new FormatException($"Invalid semantic version '{raw}'.");
-            }
-
-            IReadOnlyList<string> pre = versionAndPre.Length == 2
-                ? versionAndPre[1].Split('.', StringSplitOptions.RemoveEmptyEntries)
-                : Array.Empty<string>();
-            return new SemanticVersion(major, minor, patch, pre);
-        }
-
-        public int CompareTo(SemanticVersion? other)
-        {
-            if (other is null) return 1;
-            int core = Major.CompareTo(other.Major);
-            if (core == 0) core = Minor.CompareTo(other.Minor);
-            if (core == 0) core = Patch.CompareTo(other.Patch);
-            if (core != 0) return core;
-
-            if (PreRelease.Count == 0 && other.PreRelease.Count == 0) return 0;
-            if (PreRelease.Count == 0) return 1;
-            if (other.PreRelease.Count == 0) return -1;
-
-            int count = Math.Max(PreRelease.Count, other.PreRelease.Count);
-            for (int i = 0; i < count; i++)
-            {
-                if (i >= PreRelease.Count) return -1;
-                if (i >= other.PreRelease.Count) return 1;
-
-                string left = PreRelease[i];
-                string right = other.PreRelease[i];
-                bool leftNumeric = int.TryParse(left, out int leftNumber);
-                bool rightNumeric = int.TryParse(right, out int rightNumber);
-
-                int part = leftNumeric && rightNumeric
-                    ? leftNumber.CompareTo(rightNumber)
-                    : leftNumeric
-                        ? -1
-                        : rightNumeric
-                            ? 1
-                            : string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
-                if (part != 0) return part;
-            }
-
-            return 0;
-        }
     }
 }

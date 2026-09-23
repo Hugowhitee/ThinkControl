@@ -50,7 +50,7 @@ public partial class App
                 State.ControlTemperatureSource = telemetry.ControlTemperatureSource ?? "Unavailable";
                 State.FanRpm = telemetry.FanRpm;
                 State.FanStateText = telemetry.FanState;
-                State.CoolingProfile = telemetry.CoolingProfile;
+                State.CoolingProfile = ResolveCoolingProfileForTelemetry(telemetry.CoolingProfile);
                 State.KeyboardStatus = telemetry.KeyboardBacklight;
                 State.KeyboardBackend = telemetry.KeyboardBackend ?? "Not exposed";
                 State.BatteryProtectionEnabled = telemetry.BatteryChargeProtectionEnabled ??

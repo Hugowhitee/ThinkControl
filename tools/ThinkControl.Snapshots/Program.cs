@@ -50,7 +50,7 @@ internal static class Program
         AppState batteryDeviceTemperature = CreateDemoState(charging: true, hardwareReady: true);
         batteryDeviceTemperature.BatteryTemperatureC = null;
         AppState batteryProtectionPaused = CreateDemoState(charging: false, hardwareReady: true);
-        batteryProtectionPaused.BatteryPercent = 85;
+        batteryProtectionPaused.BatteryPercent = 90;
         batteryProtectionPaused.BatteryCharging = false;
         batteryProtectionPaused.BatteryStatus = "Plugged in";
         batteryProtectionPaused.BatteryProtectionEnabled = true;

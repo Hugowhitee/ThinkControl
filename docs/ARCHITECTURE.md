@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.49**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.49` is the current published prerelease; alpha.49 is a narrow Battery Preservation/release-verification UI follow-up and alpha.44 remains the hardware-behavior baseline.
+This document describes the current source architecture at **v0.1.0-alpha.50**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.49` is the current published prerelease; alpha.50 hardens Windows-generic Silent ownership and adds a threshold-derived Battery Preservation impact model without changing low-level hardware writers.
 
 ## Process boundary
 
@@ -115,6 +115,10 @@ Disabling preservation clears both driver threshold latches before selecting Len
 
 Battery-protection status uses the existing request-driven status model with a small service-side cache. The Battery page subscribes to `HardwareClient.StatusObserved` only while loaded; it does not create a polling loop. The charge window is not duplicated into `UserSettings`, so actual Lenovo state remains authoritative after restart or external Vantage changes.
 
+Alpha.50 keeps the provider contract unchanged and adds `BatteryPreservationImpactModel` in Core for comparative charge-wear context. It maps the selected stop percentage onto a documented generic Li-ion 3.52–4.35 V idealized curve, then applies the published end-of-charge relation that roughly 0.10 V lower end voltage doubles cycle life. The result is normalized so 100% = 1.00 comparative wear cycle and is used only to compare charge caps. It is explicitly not a measured cycle count for the installed pack because chemistry, real cell voltage mapping, temperature, charge rate, depth of discharge and calendar time remain unknown.
+
+The Battery Preservation gauge itself is deliberately simpler than alpha.49: one rounded current-level fill, two aligned threshold markers and state-dependent accent/warning color. There are no permanent green/amber/red zones or decorative lightning/pause glyphs.
+
 Other OEMs can later implement their own semantic provider without changing the shared Battery UI into vendor-specific pages.
 
 ## Battery history model
@@ -144,6 +148,8 @@ Keyboard brightness and effects deliberately have different ownership.
 - A fallback provider that cannot safely accept repeated changes does not advertise effects.
 
 Keyboard writes are serialized so firmware/static ownership and user-session animation do not fight each other. Saved effect state is restored only after provider capability is known.
+
+Alpha.50 keeps experimental white-backlight effects on the existing Off/Low/High semantic writer. Automatic effect writes arm a user-session `tposd.exe` suppressor immediately before the hardware write; it hides only newly visible Lenovo OSD windows inside the short effect burst and does not globally disable OSD feedback. Audio mode uses WASAPI loopback from the active Windows render endpoint. `WAVE_FORMAT_EXTENSIBLE` is normalized to its PCM/IEEE-float subtype before RMS calculation, 16/24/32-bit PCM and 32-bit float are supported, level decisions use a smoothed RMS relative to a decaying local peak, and an unexpected capture stop gets a bounded restart only while Audio mode remains selected.
 
 ## Touchpad model
 
@@ -175,11 +181,13 @@ Alpha.43 adds one Windows-generic, **session-level** policy owner for preventing
 
 - **Normal** — no Audio Safety restrictions;
 - **Gesture lock** (internal `MediaLock`) — block ThinkControl Touchpad Volume, Media scrub and Track commands while leaving deliberate keyboard and Windows/app audio untouched;
-- **Silent** — includes Gesture lock, requires the active Windows render endpoint to be muted, and blocks ThinkControl output-volume/unmute writes.
+- **Silent** — includes Gesture lock, requires the active Windows render endpoint to remain muted, blocks ThinkControl output-volume/unmute writes, and temporarily swallows the standard Windows volume virtual keys while active.
 
 `AudioSafetyService` is the canonical UI-process state owner. The mode is intentionally not persisted in alpha.43. Every new process starts in Normal so it cannot falsely claim ownership of mute state established by an earlier process.
 
-Entering Silent records the default render endpoint's prior mute state once, mutes it when needed and does not publish Silent if the initial mute cannot be established. While Silent remains active, the observed CoreAudio endpoint notifies ThinkControl of keyboard/app volume or mute changes so mute can be reasserted immediately. The existing bounded status cadence remains the fallback for default-endpoint changes; no second timer is created.
+Entering Silent records the default render endpoint's prior mute state once, mutes it when needed and does not publish Silent unless it can also install the session-scoped volume-key guard. The guard is a minimal `WH_KEYBOARD_LL` hook installed on the WPF dispatcher thread and swallows only `VK_VOLUME_MUTE`, `VK_VOLUME_DOWN` and `VK_VOLUME_UP`; other keyboard/media keys continue normally.
+
+While Silent remains active, the observed `IAudioEndpointVolumeCallback` queues mute convergence for app/Windows changes, and a persistent `IMMNotificationClient` immediately queues convergence when the default render endpoint changes. The worker uses a pending bit so callbacks arriving during an existing re-mute pass are not lost. A newly selected endpoint gets only a short bounded retry burst (40/120/350 ms) if CoreAudio has announced it before it is ready. The existing application status cadence remains an additional fallback; no permanent audio polling timer is created.
 
 Mute ownership is per endpoint ID. Leaving Silent/orderly app disposal restores only recorded states. Microphone (`DataFlow.Capture`) remains independent.
 

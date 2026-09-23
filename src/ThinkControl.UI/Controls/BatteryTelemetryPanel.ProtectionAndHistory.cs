@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.Core.Battery;
 using ThinkControl.Core.Ipc;
 using WpfApplication = System.Windows.Application;
 
@@ -78,7 +79,7 @@ public partial class BatteryTelemetryPanel
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom · {start}–{stop}%",
+                    Content = $"Custom {start}–{stop}%",
                     Tag = $"custom:{start},{stop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
@@ -96,19 +97,28 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionStateText.Text = "Not exposed";
             ChargeProtectionImpactText.Text = "Charge limits are not available on the active hardware provider.";
+            ChargeProtectionWearText.Text = "Wear context unavailable";
         }
         else if (!enabled)
         {
-            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge · active" : "Full charge · read-only";
+            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge active" : "Full charge read-only";
             ChargeProtectionImpactText.Text = "Charges normally to 100%.";
+            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
+                _subscribedState?.BatteryPercent ?? 0,
+                100);
         }
         else
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable
-                ? $"{start}–{stop}% · active"
-                : $"{start}–{stop}% · read-only";
+                ? $"{start}–{stop}% active"
+                : $"{start}–{stop}% read-only";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
+            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
+                _subscribedState?.BatteryPercent ?? start,
+                stop);
         }
+
+        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
 
         ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
             "Verified OEM charge-threshold provider.";
@@ -161,6 +171,7 @@ public partial class BatteryTelemetryPanel
 
             ChargeProtectionStateText.Text = "Change rejected";
             ChargeProtectionImpactText.Text = response?.Error ?? "The hardware service did not return a verified battery-threshold result.";
+            ChargeProtectionWearText.Text = "Wear context will refresh with the verified threshold state.";
             ServiceResponse? current = await app.HardwareClient.GetStatusAsync();
             ApplyBatteryProtectionStatus(current);
         }
@@ -199,7 +210,7 @@ public partial class BatteryTelemetryPanel
     }
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
-        $"Resumes below {start}% · stops at {stop}%.";
+        $"Charging resumes below {start}% and pauses at {stop}%.";
 
     private void SyncHistoryManagementUi()
     {

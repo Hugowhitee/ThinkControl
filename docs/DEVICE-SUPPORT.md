@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.49**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.49` is the current published prerelease; alpha.49 changes only Battery Preservation presentation and release-verification resilience and does not broaden low-level hardware writes.
+This document describes the support model at **v0.1.0-alpha.50**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.49` is the current published prerelease; alpha.50 changes Windows-generic Silent enforcement, fan/UI convergence, updater version ordering, experimental keyboard behavior and Battery Preservation presentation without broadening low-level hardware writes.
 
 ## Support levels
 
@@ -17,7 +17,7 @@ Available without vendor-specific write access where Windows exposes the informa
 - local battery-history aggregation/retention management;
 - diagnostics/report preview and explicit sharing controls.
 
-Audio Safety is a Windows-user-session policy and does **not** grant any low-level device write capability. Gesture lock only suppresses ThinkControl Touchpad media/output actions; physical keyboard and ordinary Windows/app audio controls remain deliberate controls. Silent additionally keeps the current Windows render endpoint muted while leaving microphone input independent.
+Audio Safety is a Windows-user-session policy and does **not** grant any low-level device write capability. Gesture lock only suppresses ThinkControl Touchpad media/output actions; physical keyboard and ordinary Windows/app audio controls remain deliberate controls. Silent additionally keeps the current Windows render endpoint muted, suppresses only the standard Windows volume keys while the mode is active, and leaves microphone input independent.
 
 ### Provider-backed read-only
 
@@ -76,7 +76,7 @@ ThinkControl does **not** silently apply one of these on first run. Existing Len
 
 A write is authorized only on the verified X9 identity when the PWRMGRV battery configuration exists, `IBMPmDrv` is writable, the semantic pair passes ThinkControl's bounded range rules, the fixed Lenovo PM Device commands succeed without the rejection bit, and PWRMGRV readback matches. A failure requests rollback to the state observed before the change. ThinkControl does not alter the Lenovo driver service start type and does not try an EC/ACPI fallback.
 
-The UI deliberately does not promise “x fewer cycles”. A lower upper threshold reduces time at high state of charge, but real wear also depends on chemistry, temperature, calendar time, depth of discharge and workload. Firmware cycle count and ThinkControl health trend remain separate measurements.
+Alpha.50 shows a comparative **wear-cycle estimate** for charging from the current battery level to the selected upper threshold. The model is intentionally simple and transparent: percentage is mapped onto a generic Li-ion voltage curve, the published high-voltage end-of-charge/cycle-life relation is applied above ~3.95 V with a small linear baseline below it, and a full 0→100% charge is normalized to 1.00. This is similar in purpose to AccuBattery's charge-wear presentation, but it is not measured wear for the installed Lenovo pack. Real cycle/calendar aging still depends on chemistry, actual cell voltage mapping, temperature, charge rate, depth of discharge and time. Firmware cycle count and ThinkControl health trend remain separate measurements.
 
 Other OEMs or future Lenovo providers can expose their own semantic threshold set without changing the shared Battery page into a vendor-specific page.
 
@@ -159,10 +159,10 @@ Audio Safety is available anywhere the normal Windows output endpoint can be acc
 
 - **Normal** — ThinkControl audio/media controls behave normally.
 - **Gesture lock** — ThinkControl Touchpad Volume, Media scrub and Track media commands are blocked. It does not mute Windows output or block physical keyboard/Windows/app controls.
-- **Silent** — includes Gesture lock, mutes the current Windows render endpoint and blocks ThinkControl output-volume/unmute writes.
+- **Silent** — includes Gesture lock, keeps the current Windows render endpoint muted, blocks ThinkControl output-volume/unmute writes, and suppresses `VK_VOLUME_MUTE / DOWN / UP` until Silent is left.
 - **Microphone** — capture/input state remains independent in all three modes.
 
-Alpha.43 keeps Audio Safety **session-only**. Restart starts in Normal because a new process cannot safely claim ownership of mute state created by the old process. While Silent is active, ThinkControl records the prior mute state of each default output endpoint it actually encounters and restores only those states when leaving Silent/orderly exit. CoreAudio endpoint notifications reassert Silent promptly after keyboard/app mute changes on the active endpoint; the existing app status cadence remains the fallback for default-output convergence rather than adding another polling loop.
+Audio Safety remains **session-only**. Restart starts in Normal because a new process cannot safely claim ownership of mute state created by the old process. While Silent is active, ThinkControl records the prior mute state of each default output endpoint it actually encounters and restores only those states when leaving Silent/orderly exit. Alpha.50 blocks standard volume keys before Windows can unmute the endpoint, keeps CoreAudio volume/mute callbacks for app/SndVol changes, and uses default-device notifications for immediate endpoint rebinding. Repeated callbacks set a pending pass instead of being dropped; transient endpoint replacement gets only a short bounded retry burst, not a permanent polling loop.
 
 ## Unknown/new hardware
 

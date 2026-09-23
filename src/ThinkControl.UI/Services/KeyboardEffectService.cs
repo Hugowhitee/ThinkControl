@@ -13,6 +13,7 @@ public sealed class KeyboardEffectService : IDisposable
     private readonly AppState _state;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly object _runtimeGate = new();
+    private readonly LenovoKeyboardOsdSuppressor _osdSuppressor = new();
 
     private KeyboardActivityHook? _keyboardHook;
     private CancellationTokenSource? _effectCts;
@@ -23,6 +24,8 @@ public sealed class KeyboardEffectService : IDisposable
     private string? _lastAppliedLevel;
     private WasapiLoopbackCapture? _audioCapture;
     private double _audioRms;
+    private double _audioPeakRms;
+    private int _audioRestartGeneration;
     private bool _disposed;
 
     public KeyboardEffectService(HardwareServiceClient hardware, AppState state)
@@ -230,11 +233,17 @@ public sealed class KeyboardEffectService : IDisposable
     private string AudioTarget()
     {
         double rms = Volatile.Read(ref _audioRms);
-        if (rms >= 0.16)
+        double peak = Volatile.Read(ref _audioPeakRms);
+
+        // This backend only exposes Off / Low / High, so make Audio visibly reactive
+        // across those three safe states instead of leaving silence parked at Low.
+        // Relative-to-recent-peak thresholds keep quiet Windows output useful while
+        // the small absolute floor prevents idle/noise from flashing the keyboard.
+        if (peak >= 0.0035 && rms >= 0.004 && rms / peak >= 0.52)
             return "High";
-        if (rms >= 0.035)
+        if (rms >= 0.0012)
             return "Low";
-        return NormalizeLevel(_state.KeyboardBaseLevel) == "Off" ? "Off" : "Low";
+        return "Off";
     }
 
     private async Task ApplyLevelAsync(string level, bool force, CancellationToken cancellationToken)
@@ -264,6 +273,13 @@ public sealed class KeyboardEffectService : IDisposable
 
         try
         {
+            // Lenovo's tposd.exe is firmware-notification driven and can show an OSD
+            // for every automatic backlight write. Hide only OSD windows created in
+            // the short interval around effect writes; explicit static clicks and
+            // ordinary Fn+Space feedback remain outside this suppression path.
+            if (!force)
+                _osdSuppressor.Arm();
+
             ServiceResponse? result = await _hardware.SetKeyboardBacklightAsync(level, cancellationToken).ConfigureAwait(false);
             _lastHardwareWrite = DateTimeOffset.UtcNow;
             if (result?.Success == true)
@@ -317,28 +333,64 @@ public sealed class KeyboardEffectService : IDisposable
 
     private void StartAudioCapture()
     {
-        if (_audioCapture is not null)
+        if (_disposed || _state.KeyboardMode != "Audio" || !_state.KeyboardEffectsUsable)
             return;
 
+        WasapiLoopbackCapture? capture = null;
         try
         {
-            var capture = new WasapiLoopbackCapture();
-            capture.DataAvailable += Audio_DataAvailable;
-            capture.RecordingStopped += Audio_RecordingStopped;
+            capture = new WasapiLoopbackCapture();
+
+            lock (_runtimeGate)
+            {
+                if (_audioCapture is not null)
+                {
+                    capture.Dispose();
+                    return;
+                }
+
+                // Publish the instance before StartRecording. Some WASAPI endpoints
+                // can produce the first DataAvailable callback immediately; assigning
+                // it afterwards made those first buffers look like no active capture.
+                _audioCapture = capture;
+                capture.DataAvailable += Audio_DataAvailable;
+                capture.RecordingStopped += Audio_RecordingStopped;
+            }
+
+            // Do not hold _runtimeGate while starting WASAPI. DataAvailable itself
+            // takes that gate to validate ownership, and a backend that delivers its
+            // first callback synchronously must never be able to deadlock startup.
             capture.StartRecording();
-            _audioCapture = capture;
         }
         catch
         {
-            StopAudioCapture();
+            if (capture is null)
+                return;
+
+            lock (_runtimeGate)
+            {
+                if (ReferenceEquals(_audioCapture, capture))
+                    _audioCapture = null;
+            }
+            try { capture.DataAvailable -= Audio_DataAvailable; } catch { }
+            try { capture.RecordingStopped -= Audio_RecordingStopped; } catch { }
+            try { capture.Dispose(); } catch { }
         }
     }
 
     private void StopAudioCapture()
     {
-        WasapiLoopbackCapture? capture = _audioCapture;
-        _audioCapture = null;
+        Interlocked.Increment(ref _audioRestartGeneration);
+
+        WasapiLoopbackCapture? capture;
+        lock (_runtimeGate)
+        {
+            capture = _audioCapture;
+            _audioCapture = null;
+        }
+
         Volatile.Write(ref _audioRms, 0d);
+        Volatile.Write(ref _audioPeakRms, 0d);
         if (capture is null)
             return;
 
@@ -350,24 +402,78 @@ public sealed class KeyboardEffectService : IDisposable
 
     private void Audio_DataAvailable(object? sender, WaveInEventArgs e)
     {
-        WasapiLoopbackCapture? capture = _audioCapture;
-        if (capture is null || e.BytesRecorded <= 0)
+        if (sender is not WasapiLoopbackCapture capture || e.BytesRecorded <= 0)
             return;
+
+        lock (_runtimeGate)
+        {
+            if (!ReferenceEquals(capture, _audioCapture))
+                return;
+        }
 
         double rms = CalculateRms(e.Buffer, e.BytesRecorded, capture.WaveFormat);
         double previous = Volatile.Read(ref _audioRms);
-        double smoothed = previous * 0.70 + rms * 0.30;
+        double smoothed = previous * 0.55 + rms * 0.45;
         Volatile.Write(ref _audioRms, smoothed);
+
+        double previousPeak = Volatile.Read(ref _audioPeakRms);
+        double peak = Math.Max(rms, previousPeak * 0.965);
+        Volatile.Write(ref _audioPeakRms, peak);
     }
 
     private void Audio_RecordingStopped(object? sender, StoppedEventArgs e)
     {
+        if (sender is not WasapiLoopbackCapture stopped)
+            return;
+
+        bool wasActive;
+        lock (_runtimeGate)
+        {
+            wasActive = ReferenceEquals(stopped, _audioCapture);
+            if (wasActive)
+                _audioCapture = null;
+        }
+
+        if (!wasActive)
+            return;
+
+        try { stopped.DataAvailable -= Audio_DataAvailable; } catch { }
+        try { stopped.RecordingStopped -= Audio_RecordingStopped; } catch { }
+        try { stopped.Dispose(); } catch { }
+
         Volatile.Write(ref _audioRms, 0d);
+        Volatile.Write(ref _audioPeakRms, 0d);
+
+        int generation = Interlocked.Increment(ref _audioRestartGeneration);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(250).ConfigureAwait(false);
+                if (_disposed || generation != Volatile.Read(ref _audioRestartGeneration) ||
+                    _state.KeyboardMode != "Audio" || !_state.KeyboardEffectsUsable)
+                {
+                    return;
+                }
+
+                StartAudioCapture();
+            }
+            catch
+            {
+            }
+        });
     }
 
-    private static double CalculateRms(byte[] buffer, int bytesRecorded, WaveFormat format)
+    internal static double CalculateRms(byte[] buffer, int bytesRecorded, WaveFormat format)
     {
-        if (format.Encoding == WaveFormatEncoding.IeeeFloat && format.BitsPerSample == 32)
+        // Shared-mode WASAPI very commonly reports WAVE_FORMAT_EXTENSIBLE even when
+        // the underlying sample format is 32-bit IEEE float. Treat the recognized
+        // extensible PCM/float subtype as its standard equivalent before decoding.
+        WaveFormat sampleFormat = format is WaveFormatExtensible extensible
+            ? extensible.ToStandardWaveFormat()
+            : format;
+
+        if (sampleFormat.Encoding == WaveFormatEncoding.IeeeFloat && sampleFormat.BitsPerSample == 32)
         {
             int samples = bytesRecorded / 4;
             if (samples <= 0) return 0;
@@ -375,12 +481,13 @@ public sealed class KeyboardEffectService : IDisposable
             for (int i = 0; i < samples; i++)
             {
                 float value = BitConverter.ToSingle(buffer, i * 4);
-                sum += value * value;
+                if (float.IsFinite(value))
+                    sum += value * value;
             }
             return Math.Sqrt(sum / samples);
         }
 
-        if (format.BitsPerSample == 16)
+        if (sampleFormat.Encoding == WaveFormatEncoding.Pcm && sampleFormat.BitsPerSample == 16)
         {
             int samples = bytesRecorded / 2;
             if (samples <= 0) return 0;
@@ -389,6 +496,37 @@ public sealed class KeyboardEffectService : IDisposable
             {
                 short sample = BitConverter.ToInt16(buffer, i * 2);
                 double value = sample / 32768d;
+                sum += value * value;
+            }
+            return Math.Sqrt(sum / samples);
+        }
+
+        if (sampleFormat.Encoding == WaveFormatEncoding.Pcm && sampleFormat.BitsPerSample == 24)
+        {
+            int samples = bytesRecorded / 3;
+            if (samples <= 0) return 0;
+            double sum = 0;
+            for (int i = 0; i < samples; i++)
+            {
+                int offset = i * 3;
+                int sample = buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16);
+                if ((sample & 0x00800000) != 0)
+                    sample |= unchecked((int)0xFF000000);
+                double value = sample / 8388608d;
+                sum += value * value;
+            }
+            return Math.Sqrt(sum / samples);
+        }
+
+        if (sampleFormat.Encoding == WaveFormatEncoding.Pcm && sampleFormat.BitsPerSample == 32)
+        {
+            int samples = bytesRecorded / 4;
+            if (samples <= 0) return 0;
+            double sum = 0;
+            for (int i = 0; i < samples; i++)
+            {
+                int sample = BitConverter.ToInt32(buffer, i * 4);
+                double value = sample / 2147483648d;
                 sum += value * value;
             }
             return Math.Sqrt(sum / samples);
@@ -405,6 +543,7 @@ public sealed class KeyboardEffectService : IDisposable
         try { StopEffectRuntimeAsync().GetAwaiter().GetResult(); } catch { }
         StopAudioCapture();
         StopKeyboardHook();
+        _osdSuppressor.Dispose();
         _writeGate.Dispose();
     }
 }
