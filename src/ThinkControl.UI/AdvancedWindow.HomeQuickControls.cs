@@ -296,9 +296,9 @@ public partial class AdvancedWindow
         HomeAudioSafetySilent.IsChecked = mode == AudioSafetyMode.Silent;
         HomeAudioSafetyStatus.Text = mode switch
         {
-            AudioSafetyMode.MediaLock => "Media lock active · Windows/app audio still works; ThinkControl media and volume gestures are locked.",
-            AudioSafetyMode.Silent => "Silent active · output is muted and ThinkControl media/output actions are locked.",
-            _ => "Normal · ThinkControl media and volume controls are available."
+            AudioSafetyMode.MediaLock => "Gesture lock · touchpad volume/track/seek actions are blocked; keyboard and Windows/app audio still work.",
+            AudioSafetyMode.Silent => "Silent · touchpad media actions are blocked and Windows output is kept muted, including after keyboard/app unmute attempts.",
+            _ => "Normal · ThinkControl touchpad media and volume actions are available."
         };
     }
 
