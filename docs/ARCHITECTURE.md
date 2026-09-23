@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.49**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.48` is the current published prerelease; alpha.49 is a narrow Battery Preservation/release-verification UI follow-up and alpha.44 remains the hardware-behavior baseline.
+This document describes the current source architecture at **v0.1.0-alpha.49**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.49` is the current published prerelease; alpha.49 is a narrow Battery Preservation/release-verification UI follow-up and alpha.44 remains the hardware-behavior baseline.
 
 ## Process boundary
 

@@ -6,20 +6,25 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.48`
-- immutable tag/release SHA: `9997f750113588ee51fa3c840c8b14ed58d6d743`
-- published 2026-09-23 at 10:26:42 UTC as an immutable prerelease
+- `v0.1.0-alpha.49`
+- immutable tag/release SHA: `263c1c280d3a08a5bcc21d374c45a5fb2d1414cc`
+- published 2026-09-23 at 10:49:27 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:8339dced7e4fd67a03967e5d4fb86129aa055206e91469131f4e2ee5046b0c52`
-  - Payload: `sha256:c770bcea263c288682e4c572d7c741982fe13b2f3c627daf5c7e42a29cb4247e`
-  - `SHA256SUMS.txt`: `sha256:91171135bdfe92e638bdc48c3309be53843d0271027c681d791f70cddb9610fc`
-  - `ui-overview.png`: `sha256:de434f2aa0e816380772a382a063a5e57a32064e853545e4eca8b1485418651b`
-- post-merge main CI `35848573477`: success
-- complete immutable release run `35848588547`: success
-- promotion/checksum verification run `35848573576`: first attempt hit a transient GitHub asset propagation race; attempt 2 succeeded after the assets were publicly downloadable. Alpha.49 hardens that retry path.
+  - Setup: `sha256:817142ec7814292cc882cbefc5527f50db411fc626b6ddedcf9edb9cce1ec491`
+  - Payload: `sha256:577e5f24ff9307d7c8ee357a1f215964e86712fc5e357681b4b9d62369fcf285`
+  - `SHA256SUMS.txt`: `sha256:8d5567a6403f587ceb8564c90ad174ed8b29bf277c1a0e0e46b873138f283e17`
+  - `ui-overview.png`: `sha256:131bfc4ed4defbfd3659748261e781fffb12697ba13f5003a3d78499200d3d84`
+- frozen-head CI `35850320116` / #2036: success
+- frozen-head Package ThinkControl `35850320099` / #1735: success
+- exact frozen-head visual artifact `10745496257`, digest `sha256:debde84852626754a8f16826ca45cb32aec22eae4edd9c64dbbeed5fc72de390`: dark/light Battery Preservation inspected at full resolution
+- PR #94 merged with expected head `6c00e3f7b59d4d0dedadbcfeccaa1d0f738b3c51`
+- post-merge main CI `35850715490`: success
+- branch hygiene `35850715721`: success
+- complete immutable release run `35850728731`: success
+- promotion/public re-download/checksum verification run `35850715487`: success
+- alpha.48 remains separately immutable at `9997f750113588ee51fa3c840c8b14ed58d6d743`
 - alpha.47 remains separately immutable at `f00a11ca789e0d360051bae9358e4312316cde59`
-- alpha.46 remains separately immutable at `ccca29ed696d422b21f96589b972fbee5884b291`
 
 Alpha.46 completion:
 
@@ -34,7 +39,7 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.49 release-ready — Battery Preservation visual semantics
+## Alpha.49 published release — Battery Preservation visual semantics
 
 Alpha.49 is a narrow UI follow-up on the alpha.48 release line. It does not change Lenovo charge-threshold writes or any low-level hardware contract.
 
@@ -55,12 +60,12 @@ Release gate:
 - [x] exact implementation-head CI + Package green · CI `35849670151` / #2034 · Package `35849670147` / #1733
 - [x] dark/light preservation snapshots manually inspected at full resolution · artifact `10745092844`, digest `sha256:dc903e31387248ffe901ae16fe8c3c2296f9ccb58c6d88bf13cc0e63982e7dd0`
 - [x] release-ready metadata freeze
-- [ ] frozen-head CI + Package green
-- [ ] expected-head merge and immutable alpha.49 GitHub release verification
+- [x] frozen-head CI + Package green · CI #2036 / Package #1735
+- [x] expected-head merge and immutable alpha.49 GitHub release verification
 
-## Alpha.48 release-ready — UX clarity and live state
+## Alpha.48 published release — UX clarity and live state
 
-Alpha.48 is the active candidate on immutable alpha.47. It does **not** add a new low-level hardware command surface.
+Alpha.48 is the immutable UX-clarity release on alpha.47. It does **not** add a new low-level hardware command surface.
 
 Scope:
 
