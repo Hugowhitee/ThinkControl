@@ -50,7 +50,7 @@ internal static class Program
         AppState batteryDeviceTemperature = CreateDemoState(charging: true, hardwareReady: true);
         batteryDeviceTemperature.BatteryTemperatureC = null;
         AppState batteryProtectionPaused = CreateDemoState(charging: false, hardwareReady: true);
-        batteryProtectionPaused.BatteryPercent = 90;
+        batteryProtectionPaused.BatteryPercent = 88;
         batteryProtectionPaused.BatteryCharging = false;
         batteryProtectionPaused.BatteryStatus = "Plugged in";
         batteryProtectionPaused.BatteryProtectionEnabled = true;
@@ -130,7 +130,7 @@ internal static class Program
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
-            "advanced-battery-preservation-paused.png", "80–90% preservation · charging paused");
+            "advanced-battery-preservation-paused.png", "80–90% preservation · 88% current · charging paused");
         RenderAdvanced(app, keyboardExperimentalFallback, "Keyboard", 1160, 760, output, snapshots,
             "advanced-keyboard-experimental-fallback.png", "Experimental fallback · session enabled");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
@@ -210,7 +210,7 @@ internal static class Program
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
             "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
-            "advanced-battery-preservation-paused-light.png", "80–90% preservation · charging paused · light");
+            "advanced-battery-preservation-paused-light.png", "80–90% preservation · 88% current · charging paused · light");
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
             "advanced-settings-light.png", "Advanced opening mode · light", openingView: "Advanced");
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
