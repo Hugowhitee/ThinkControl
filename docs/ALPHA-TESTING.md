@@ -43,20 +43,22 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 
 ## Alpha.50 Silent ownership and preservation-impact regression
 
-1. Enable **Silent** while audio is playing. Press and hold the physical Volume Up key, then Volume Down and Mute. Windows must not unmute or change the endpoint from those standard volume-key events while Silent remains active.
+1. Enable **Silent** while audio is playing. Test both a normal click and the activation race: start holding Volume Up just before clicking Silent, release it after Silent becomes active, then repeat with Volume Down/Mute. The laptop must end muted, future repeats must be blocked, and releasing a key that began before the hook must never leave Windows behaving as if that key is still held.
 2. While Silent is active, try changing mute/volume from Windows Settings, the system mixer and a normal app. A deliberate external unmute may momentarily request a state change, but CoreAudio must reassert mute promptly; no multi-second audible escape is acceptable.
 3. Repeat step 2 rapidly while holding/repeating a control. The final state must still be muted; an event arriving during an existing enforcement pass must not be lost.
 4. Change the default render endpoint while Silent is active. The new default output must become muted without waiting for the normal multi-second app status cadence. A brief not-ready device transition may use only the bounded 40/120/350 ms retry burst.
 5. Leave Silent. The standard volume keys must work immediately again, and only endpoint mute states actually remembered by ThinkControl may be restored.
 6. Confirm Gesture lock is unchanged: physical keyboard and Windows/app volume controls still work in Gesture lock.
-7. On Battery Preservation, verify calculated impact copy follows the actual thresholds rather than the preset name. Daily 75–85% should report 15% top-end headroom and about 50% of the >70% reference band omitted; Desk 55–80% should report 20% and about 67%; Maximum care 40–60% should report 40% and all of that reference band.
-8. Verify an unmatched custom threshold pair produces the corresponding calculated values automatically. Full charge must show no preservation benefit.
-9. The UI must never claim a literal number of cycles saved or an x-times lifetime multiplier from thresholds alone. It must say exact cycle-life gain varies with chemistry/temperature.
-10. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The calculated wear-context line must stay visually secondary and must not clip, collide with the selector, or make the card dense.
-11. From **Max cooling**, click fan **Auto** several times under live telemetry. Auto must become the visible pending intent immediately and must not jump back to Max/Quiet while the hardware write is still in flight. When the service confirms the change, Auto remains selected; on a real rejection, fresh status must restore the actual state promptly.
-12. With Breathing or Reactive active through the experimental fallback, automatic level changes must not leave Lenovo's keyboard-backlight popup on screen. Pressing Fn+Space outside an automatic effect write must still retain ordinary Lenovo/Windows feedback.
-13. Select keyboard **Audio**, play quiet then normal/loud system audio, and confirm the keyboard follows the active render output rather than staying at one level. Repeat after changing the default output device or after a stop/restart of playback.
-14. Audio mode must store no audio and a loopback failure must not create a permanent restart loop; switching away from Audio must cancel any pending restart.
+7. On Battery Preservation, verify the graphic is a single current-level fill with exactly two aligned threshold markers. There must be no permanent three-color zones and no lightning/pause glyphs. While charging, the fill uses the normal accent; when parked at the upper cap it may switch to the warning state.
+8. Verify the copy is plain language: for 75–85% it reads **Charging resumes below 75% and pauses at 85%.** No centered-dot sentence fragments should return.
+9. Verify the comparative wear estimate follows the actual stop threshold rather than the preset name: Daily 75–85% ≈ **0.11 wear cycles / 89% less than 100%**; Desk 55–80% ≈ **0.06 / 94% less**; Maximum care 40–60% ≈ **0.01 / 99% less**; Full charge = **1.00 baseline**. A custom threshold must calculate automatically.
+10. The wear line must remain explicitly comparative rather than claiming measured pack wear. Its tooltip/caveat must mention the generic Li-ion SOC/voltage model and pack-dependent chemistry/temperature/use.
+11. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The wear line must stay visually secondary and the shorter gauge must not clip/collide with the selector.
+12. From **Max cooling**, click fan **Auto** several times under live telemetry from **Home** as well as the Fans page. Home Auto must become the visible intent immediately, stay disabled while the write is in flight, and remain selected during the short post-success confirmation lease rather than bouncing back to stale Max/Quiet telemetry.
+13. With Breathing or Reactive active through the experimental fallback, automatic level changes must not leave Lenovo's keyboard-backlight popup on screen. Pressing Fn+Space outside an automatic effect write must still retain ordinary Lenovo/Windows feedback.
+14. Select keyboard **Audio**, play silence, quiet audio and louder audio. The fallback should visibly move through Off / Low / High instead of idling at Low; repeat after changing the default output device or after a stop/restart of playback.
+15. Audio mode must store no audio and a loopback failure must not create a permanent restart loop; switching away from Audio must cancel any pending restart.
+16. Install an `alpha.50-dev.N` package, then publish/check against canonical `alpha.50`. The updater must treat the public alpha.50 as newer. A dev test build must never strand the user from the matching public release.
 
 ## Alpha.49 Battery Preservation visual clarity
 
