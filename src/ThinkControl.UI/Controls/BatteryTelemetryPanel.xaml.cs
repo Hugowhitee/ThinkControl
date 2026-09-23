@@ -295,8 +295,8 @@ public partial class BatteryTelemetryPanel : UserControl
             _syncingChargeProtection = false;
         }
         ChargeProtectionStateText.Text = snapshotProtection
-            ? $"{snapshotStart}–{snapshotStop}% · active"
-            : "Full charge · active";
+            ? $"{snapshotStart}–{snapshotStop}% active"
+            : "Full charge active";
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
             : "Charges normally to 100%.";
