@@ -34,7 +34,7 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.49 candidate — Battery Preservation visual semantics
+## Alpha.49 release-ready — Battery Preservation visual semantics
 
 Alpha.49 is a narrow UI follow-up on the alpha.48 release line. It does not change Lenovo charge-threshold writes or any low-level hardware contract.
 
@@ -52,10 +52,10 @@ Release gate:
 - [x] alpha.49 isolated from the immutable alpha.48 tag line
 - [x] semantic preservation gauge implemented without changing threshold hardware behavior
 - [x] source regression coverage updated for colors/icons and removal of generic ticks/lock
-- [ ] exact implementation-head CI + Package green
-- [ ] dark/light preservation snapshots manually inspected at full resolution
-- [ ] release-ready metadata freeze
-- [x] frozen-head CI + Package green · CI #2022 / Package #1722
+- [x] exact implementation-head CI + Package green · CI `35849670151` / #2034 · Package `35849670147` / #1733
+- [x] dark/light preservation snapshots manually inspected at full resolution · artifact `10745092844`, digest `sha256:dc903e31387248ffe901ae16fe8c3c2296f9ccb58c6d88bf13cc0e63982e7dd0`
+- [x] release-ready metadata freeze
+- [ ] frozen-head CI + Package green
 - [ ] expected-head merge and immutable alpha.49 GitHub release verification
 
 ## Alpha.48 release-ready — UX clarity and live state
@@ -88,7 +88,7 @@ Release gate:
 - [x] full-resolution WPF visual artifact manually inspected, including fan Auto dark/light, Compact Audio Safety, Silent light and Battery Preservation · artifact `10742907974`, digest `sha256:2c17e0f8c36d52554b6baacf19070ddf58ed18eab9b09673872a49a8974937d0`
 - [ ] post-release physical X9 follow-up: confirm Gesture lock keyboard semantics and Silent keyboard/app re-mute behavior on the reference machine; this remains real-device evidence and is not inferred from hosted CI
 - [x] final review/release-ready metadata freeze
-- [ ] frozen-head CI + Package green
+- [x] frozen-head CI + Package green · CI #2022 / Package #1722
 - [x] expected-head merge, immutable alpha.48 release and public checksum verification
 
 ## Alpha.47 published release
