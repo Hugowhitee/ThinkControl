@@ -13,6 +13,7 @@ public partial class AdvancedWindow
 {
     private bool _homeQuickControlsConfigured;
     private bool _homeAudioSafetyBusy;
+    private bool _homeFanBusy;
 
     private void ConfigureHomeQuickControls()
     {
@@ -115,17 +116,17 @@ public partial class AdvancedWindow
         _syncing = true;
         try
         {
-            HomeFanQuickGrid.IsEnabled = enabled && !autoActive;
+            HomeFanQuickGrid.IsEnabled = enabled && !autoActive && !_homeFanBusy;
             HomeFanQuiet.IsChecked = selected.Equals("Quiet", StringComparison.OrdinalIgnoreCase);
             HomeFanBalanced.IsChecked = selected.Equals("Balanced", StringComparison.OrdinalIgnoreCase);
             HomeFanMax.IsChecked = selected.Equals("Max cooling", StringComparison.OrdinalIgnoreCase);
 
             HomeFanAutoSwitch.IsChecked = autoActive;
-            HomeFanAutoSwitch.IsEnabled = enabled;
+            HomeFanAutoSwitch.IsEnabled = enabled && !_homeFanBusy;
 
             int selectableExtraCount = extraProfiles.Count(profile => !IsManualHomeFanState(profile));
             bool currentUsesMore = extraProfiles.Contains(selected, StringComparer.OrdinalIgnoreCase);
-            HomeFanMoreButton.IsEnabled = enabled && !autoActive && selectableExtraCount > 0;
+            HomeFanMoreButton.IsEnabled = enabled && !autoActive && !_homeFanBusy && selectableExtraCount > 0;
             HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42;
             HomeFanMoreButton.Content = currentUsesMore
                 ? $"{selected}  ▾"
@@ -211,9 +212,10 @@ public partial class AdvancedWindow
 
     private async void HomeFanMoreProfile_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: string profile })
+        if (_homeFanBusy || sender is not FrameworkElement { Tag: string profile })
             return;
 
+        _homeFanBusy = true;
         SetHomeFanControlsEnabled(false);
         try
         {
@@ -221,18 +223,20 @@ public partial class AdvancedWindow
         }
         finally
         {
+            _homeFanBusy = false;
             RefreshHomeFanProfiles();
         }
     }
 
     private async void HomeFanAuto_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing)
+        if (_syncing || _homeFanBusy)
             return;
 
         // Like Adaptive brightness, Auto is a real on/off control. Leaving Auto
         // returns to the neutral Balanced preset rather than silently doing nothing.
         string profile = HomeFanAutoSwitch.IsChecked == true ? "Auto" : "Balanced";
+        _homeFanBusy = true;
         SetHomeFanControlsEnabled(false);
         try
         {
@@ -240,15 +244,17 @@ public partial class AdvancedWindow
         }
         finally
         {
+            _homeFanBusy = false;
             RefreshHomeFanProfiles();
         }
     }
 
     private async void HomeFanQuick_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || sender is not FrameworkElement { Tag: string profile })
+        if (_syncing || _homeFanBusy || sender is not FrameworkElement { Tag: string profile })
             return;
 
+        _homeFanBusy = true;
         SetHomeFanControlsEnabled(false);
         try
         {
@@ -256,6 +262,7 @@ public partial class AdvancedWindow
         }
         finally
         {
+            _homeFanBusy = false;
             RefreshHomeFanProfiles();
         }
     }
