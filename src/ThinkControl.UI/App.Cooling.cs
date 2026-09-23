@@ -41,6 +41,8 @@ public partial class App
     private readonly object _coolingPendingGate = new();
     private int _coolingPendingGeneration = -1;
     private string? _coolingPendingDisplayProfile;
+    private string? _coolingExpectedDisplayProfile;
+    private DateTimeOffset _coolingExpectedUntil = DateTimeOffset.MinValue;
     private FanProfileCatalog? _fanProfiles;
     private FanCalibrationUiState _fanCalibrationState = FanCalibrationUiState.None;
 
@@ -172,6 +174,8 @@ public partial class App
         try
         {
             success = await SetCoolingProfileCoreAsync(profile, generation);
+            if (success && generation == Volatile.Read(ref _coolingSelectionGeneration))
+                SetExpectedCoolingProfile(generation, pendingDisplay);
             return success;
         }
         finally
@@ -179,10 +183,11 @@ public partial class App
             _coolingWriteGate.Release();
             ClearPendingCoolingProfile(generation);
 
-            // A failed request can leave the optimistic pending label on screen until
-            // telemetry catches up. Ask for one fresh status immediately so failure
-            // converges to the actual service state instead of looking randomly stale.
-            if (!success && generation == Volatile.Read(ref _coolingSelectionGeneration))
+            // A command response and the next periodic status can cross on the pipe.
+            // Always request one fresh status after the write. Successful selections
+            // keep their short expected-state lease until telemetry confirms them;
+            // failures immediately fall back to the real service state.
+            if (generation == Volatile.Read(ref _coolingSelectionGeneration))
                 _ = HardwareClient.GetStatusAsync();
         }
     }
@@ -202,12 +207,42 @@ public partial class App
         return false;
     }
 
+    internal string ResolveCoolingProfileForTelemetry(string? telemetryProfile)
+    {
+        string actual = CoolingDisplayNameForRequest(telemetryProfile);
+
+        lock (_coolingPendingGate)
+        {
+            if (_coolingPendingDisplayProfile is not null)
+                return _coolingPendingDisplayProfile;
+
+            if (_coolingExpectedDisplayProfile is null)
+                return telemetryProfile ?? actual;
+
+            if (actual.Equals(_coolingExpectedDisplayProfile, StringComparison.OrdinalIgnoreCase))
+            {
+                _coolingExpectedDisplayProfile = null;
+                _coolingExpectedUntil = DateTimeOffset.MinValue;
+                return telemetryProfile ?? actual;
+            }
+
+            if (DateTimeOffset.UtcNow < _coolingExpectedUntil)
+                return _coolingExpectedDisplayProfile;
+
+            _coolingExpectedDisplayProfile = null;
+            _coolingExpectedUntil = DateTimeOffset.MinValue;
+            return telemetryProfile ?? actual;
+        }
+    }
+
     private void SetPendingCoolingProfile(int generation, string displayProfile)
     {
         lock (_coolingPendingGate)
         {
             _coolingPendingGeneration = generation;
             _coolingPendingDisplayProfile = displayProfile;
+            _coolingExpectedDisplayProfile = null;
+            _coolingExpectedUntil = DateTimeOffset.MinValue;
         }
 
         // User intent should be visible immediately. Service telemetry received while
@@ -226,6 +261,18 @@ public partial class App
 
             _coolingPendingGeneration = -1;
             _coolingPendingDisplayProfile = null;
+        }
+    }
+
+    private void SetExpectedCoolingProfile(int generation, string displayProfile)
+    {
+        lock (_coolingPendingGate)
+        {
+            if (_coolingPendingGeneration != generation)
+                return;
+
+            _coolingExpectedDisplayProfile = displayProfile;
+            _coolingExpectedUntil = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(4);
         }
     }
 
