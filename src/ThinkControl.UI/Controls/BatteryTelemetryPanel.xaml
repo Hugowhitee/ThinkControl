@@ -98,7 +98,8 @@
                                                      ProtectionEnabled="{Binding BatteryProtectionEnabled}"
                                                      StartPercent="{Binding BatteryProtectionStartPercent}"
                                                      StopPercent="{Binding BatteryProtectionStopPercent}"
-                                                     CurrentPercent="{Binding BatteryPercent}" />
+                                                     CurrentPercent="{Binding BatteryPercent}"
+                                                     ToolTip="Green: charging resumes below the left threshold. Amber: hold window. Red: charging pauses at the right threshold. White marker: current battery level." />
                     <ComboBox x:Name="ChargeProtectionComboBox"
                               Style="{StaticResource TcComboBox}"
                               Margin="0,7,0,0"
