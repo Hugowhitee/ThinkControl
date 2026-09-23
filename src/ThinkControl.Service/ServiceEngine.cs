@@ -408,10 +408,34 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse ReturnFanToAuto()
     {
+        LenovoCoolingPolicySnapshot firmware = _coolingPolicy.Snapshot();
+
+        // When a firmware override (especially Max/full-speed) is the active owner,
+        // release that owner first. Previously the generic direct-fan recovery probe
+        // ran first even though FanSupervisor was already Auto; that could make a
+        // physical Auto click feel delayed while Max remained visibly/audibly active.
+        if (firmware.OverrideActive)
+        {
+            if (!_coolingPolicy.RequestFirmwareAuto(out string? policyError))
+                return Error(policyError ?? "Lenovo firmware cooling profile could not return to Auto.");
+
+            CoolingSupervisorSnapshot direct = _fanSupervisor.Snapshot();
+            if (!direct.Profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) &&
+                !_fanSupervisor.ReturnToAuto(out string? ownedFanError))
+            {
+                return Error(ownedFanError ?? "Direct fan ownership could not return to Lenovo Auto.");
+            }
+
+            return RefreshAndReturnStatus();
+        }
+
+        // With no live firmware override, preserve the wider explicit-Auto recovery:
+        // verify/release any direct/stale provider state first, then clear any verified
+        // stale full-speed bit that may have survived an earlier service instance.
         if (!_fanSupervisor.ReturnToAuto(out string? fanError))
             return Error(fanError ?? "Lenovo Auto rejected.");
-        if (!_coolingPolicy.RequestFirmwareAuto(out string? policyError))
-            return Error(policyError ?? "Lenovo firmware cooling profile could not return to Auto.");
+        if (!_coolingPolicy.RequestFirmwareAuto(out string? fallbackPolicyError))
+            return Error(fallbackPolicyError ?? "Lenovo firmware cooling profile could not return to Auto.");
         return RefreshAndReturnStatus();
     }
 
