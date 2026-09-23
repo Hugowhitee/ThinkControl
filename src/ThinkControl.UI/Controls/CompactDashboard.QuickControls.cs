@@ -26,7 +26,7 @@ public partial class CompactDashboard
             CompactFanCombo.ItemsSource = BuildFanOptions();
             CompactRefreshCombo.ItemsSource = BuildRefreshOptions();
             CompactKeyboardCombo.ItemsSource = new[] { "Off", "Low", "High", "Auto" };
-            CompactAudioSafetyCombo.ItemsSource = new[] { "Normal", "Media lock", "Silent" };
+            CompactAudioSafetyCombo.ItemsSource = new[] { "Normal", "Gesture lock", "Silent" };
         }
         finally
         {
