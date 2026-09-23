@@ -32,6 +32,30 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
+## Alpha.49 candidate — Battery Preservation visual semantics
+
+Alpha.49 is a narrow UI follow-up on the alpha.48 release line. It does not change Lenovo charge-threshold writes or any low-level hardware contract.
+
+Scope:
+
+- remove the ambiguous lock glyph and generic 10% ruler ticks from Battery Preservation;
+- show three semantic threshold zones using existing theme colors: charge-resume range, hysteresis/hold band and stop/high-charge range;
+- mark the start threshold with a lightning/charge symbol and the stop threshold with a pause/stop symbol;
+- retain one high-contrast live battery-position marker;
+- order the concise helper copy left-to-right with the visual: resume below start, stop at upper threshold;
+- verify the preservation card in dark and light WPF snapshots before promotion.
+
+Release gate:
+
+- [x] alpha.49 isolated from the immutable alpha.48 tag line
+- [x] semantic preservation gauge implemented without changing threshold hardware behavior
+- [x] source regression coverage updated for colors/icons and removal of generic ticks/lock
+- [ ] exact implementation-head CI + Package green
+- [ ] dark/light preservation snapshots manually inspected at full resolution
+- [ ] release-ready metadata freeze
+- [ ] frozen-head CI + Package green
+- [ ] expected-head merge and immutable alpha.49 GitHub release verification
+
 ## Alpha.48 release-ready — UX clarity and live state
 
 Alpha.48 is the active candidate on immutable alpha.47. It does **not** add a new low-level hardware command surface.
@@ -42,7 +66,7 @@ Scope:
 - rename the user-facing Audio Safety middle state from **Media lock** to **Gesture lock** without changing its internal serialized/session enum, so keyboard and Windows/app audio behavior is explicit;
 - reassert Silent from CoreAudio endpoint notifications after keyboard/app unmute attempts while retaining the existing bounded status cadence for endpoint convergence;
 - tighten Compact Audio Safety width, label alignment and explanatory copy;
-- replace Battery Preservation's text-heavy explanation with a themed start/stop ruler, lock, ticks and current-position marker plus one concise state sentence;
+- replace Battery Preservation's text-heavy explanation with a compact threshold view and current-position marker plus one concise state sentence;
 - keep shell-mode and native Advanced chrome colors live across light/dark theme switches;
 - add deterministic dark/light visual coverage for fan Auto and retain existing safety/preservation snapshots.
 
