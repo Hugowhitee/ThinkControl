@@ -59,7 +59,7 @@ public static class BatteryPreservationImpactModel
             ? $"all of the >{HighSocReferencePercent}% high-SOC band"
             : $"~{impact.HighSocBandAvoidedPercent}% of the >{HighSocReferencePercent}% high-SOC band";
 
-        return $"{impact.StopPercent}% cap avoids {impact.TopEndHeadroomPercent}% top-end capacity and {band}. Exact cycle-life gain varies with pack chemistry, temperature and use.";
+        return $"{impact.StopPercent}% cap · avoids {impact.TopEndHeadroomPercent}% top-end capacity · {band}. Exact cycle-life gain varies with chemistry and temperature.";
     }
 }
 
