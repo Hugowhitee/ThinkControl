@@ -112,6 +112,13 @@
                         <ComboBoxItem Content="Full charge · 100%" Tag="off" />
                     </ComboBox>
                     <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active firmware setting…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock x:Name="ChargeProtectionWearText"
+                               Text="Wear context · calculating from the active thresholds…"
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0"
+                               ToolTip="Exact cycle-life gain cannot be derived from charge thresholds alone; chemistry, temperature and usage also matter." />
                     <TextBlock x:Name="ChargeProtectionProviderText" Text="Verified OEM charge-threshold provider." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="Collapsed" />
                     <Button x:Name="ChargeProtectionFallbackButton" Content="Lenovo battery settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="-7,7,0,0" Click="OpenVantage_Click" />
                 </StackPanel>
