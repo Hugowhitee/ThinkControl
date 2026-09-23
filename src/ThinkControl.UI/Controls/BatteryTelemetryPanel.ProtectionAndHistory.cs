@@ -101,15 +101,15 @@ public partial class BatteryTelemetryPanel
         }
         else if (!enabled)
         {
-            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge · active" : "Full charge · read-only";
+            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge active" : "Full charge read-only";
             ChargeProtectionImpactText.Text = "Charges normally to 100%.";
             ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false);
         }
         else
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable
-                ? $"{start}–{stop}% · active"
-                : $"{start}–{stop}% · read-only";
+                ? $"{start}–{stop}% active"
+                : $"{start}–{stop}% read-only";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
             ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(start, stop);
         }
@@ -206,7 +206,7 @@ public partial class BatteryTelemetryPanel
     }
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
-        $"Resumes below {start}% · stops at {stop}%.";
+        $"Charging resumes below {start}% and pauses at {stop}%.";
 
     private void SyncHistoryManagementUi()
     {
