@@ -406,6 +406,7 @@ public partial class App : System.Windows.Application
     public void ApplyTheme(ThinkControl.UI.Services.ThemeMode mode)
     {
         ThemeService.Apply(mode);
+        _advancedWindow?.ApplyThemeToChrome();
         UserSettings.Update(settings => settings with { Theme = mode });
     }
 
