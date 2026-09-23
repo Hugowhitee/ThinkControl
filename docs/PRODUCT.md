@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.49`.  
-Current immutable prerelease: `v0.1.0-alpha.49`. Alpha.49 is the published Battery Preservation/release-verification follow-up; alpha.44 remains the hardware-behavior baseline.
+Current source release target: `v0.1.0-alpha.50`.  
+Current immutable prerelease: `v0.1.0-alpha.49`. Alpha.50 hardens Silent input/endpoint ownership and adds a threshold-derived Battery Preservation impact model; alpha.44 remains the hardware-behavior baseline.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -44,7 +44,7 @@ Compact contains the controls and telemetry most useful during normal operation:
 - one **Audio safety** selector (`Normal` / `Gesture lock` / `Silent`) grouped with Brightness/Volume rather than detached in the footer;
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Audio safety remains one compact session state. Gesture lock blocks only ThinkControl touchpad audio/media gestures; Silent additionally keeps Windows output muted.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Audio safety remains one compact session state. Gesture lock blocks only ThinkControl touchpad audio/media gestures; Silent additionally keeps Windows output muted, swallows the standard Windows volume keys while active, and re-mutes app/Windows unmute attempts from CoreAudio notifications.
 
 ### Advanced
 
@@ -52,7 +52,7 @@ Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, To
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
-Audio Safety has one canonical session owner. Advanced Home exposes the explanatory Normal / Media lock / Silent quick card, Compact exposes the same state as Media safety beside Volume, and the Audio page carries the deeper audio context. Settings does not duplicate the mode editor.
+Audio Safety has one canonical session owner. Advanced Home exposes the explanatory Normal / Gesture lock / Silent quick card, Compact exposes the same state beside Volume, and the Audio page carries the deeper audio context. Settings does not duplicate the mode editor. Silent installs only a session-scoped `WH_KEYBOARD_LL` guard for `VK_VOLUME_MUTE / DOWN / UP`; other keyboard/media keys are not swallowed.
 
 ## Performance and power
 
@@ -161,7 +161,7 @@ ThinkControl can display percentage, charging state, live/smoothed watts, remain
 Battery health history samples firmware-reported full-charge capacity versus design capacity at most once per day when both values are available. This sampling is independent of completing a charging session or reaching 100%, so an intentional 80–90% preservation threshold does not need to be disabled for the trend to learn. The trend is capacity telemetry, not a fabricated wear/lifetime prediction.
 
 
-Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging paused near 90% · resumes below 80%**). Applying or disabling a preset produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
+Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging paused near 90% · resumes below 80%**). Alpha.50 adds calculated threshold context: top-end headroom, recharge window and the share of a transparent >70% high-SOC reference band omitted. It deliberately does not convert those percentages into a literal “cycles saved” claim because chemistry, temperature, charge rate, depth of discharge and calendar time also affect aging. Applying or disabling a preset produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
 
 ## Startup and shell reliability
 
