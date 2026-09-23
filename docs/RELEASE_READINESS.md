@@ -50,8 +50,8 @@ Scope:
 - subscribe to default-device notifications so Silent follows a changed render endpoint immediately instead of relying on the normal multi-second status cadence;
 - allow only a short bounded retry burst when a newly announced default endpoint is temporarily not ready; do not add a permanent polling timer;
 - preserve per-endpoint mute ownership/restore and microphone independence;
-- replace canned Battery Preservation wear wording with `BatteryPreservationImpactModel`, calculated from the actual start/stop pair and valid for future custom presets;
-- report top-end headroom and omitted >70% high-SOC reference-band share while explicitly refusing to invent a literal cycles-saved count;
+- replace the alpha.49 three-zone Battery Preservation diagram with one state-reactive current-level fill and two aligned threshold markers;
+- calculate an AccuBattery-style comparative wear-cycle estimate from the actual stop threshold, normalized to a 1.00 full-charge baseline and clearly labeled as a generic Li-ion model rather than measured pack wear;
 - document the Windows CoreAudio/keyboard-hook contracts and lithium-ion aging evidence used for these choices;
 - prevent fan Auto from bouncing through stale Max/Quiet telemetry by keeping the user's pending intent authoritative until the serialized write finishes;
 - prioritize release of an active firmware/full-speed cooling override before wider stale direct-provider Auto recovery;
@@ -66,20 +66,23 @@ Release gate:
 - [x] default render endpoint changes are event-driven through `IMMNotificationClient`
 - [x] transient endpoint replacement uses only bounded 40/120/350 ms retry delays
 - [x] existing per-endpoint mute restore and microphone independence preserved
-- [x] threshold-derived Battery Preservation impact model implemented in Core
-- [x] exact cycle-count/lifetime multiplier remains prohibited without chemistry/temperature/voltage evidence
+- [x] comparative Battery Preservation wear-cycle model implemented in Core with a 1.00 full-charge baseline
+- [x] wear estimate remains explicitly comparative and documents generic SOC/voltage assumptions instead of claiming measured pack wear
+- [x] preservation visual simplified to one reactive fill, two aligned threshold markers and no permanent color zones/icons
+- [x] same-base public release is ordered above `alpha.N-dev.BUILD` so dev testers still receive the canonical update
 - [x] alpha.50 research note and regression/unit tests added
-- [x] fan pending-intent masking and firmware-first Auto release implemented
+- [x] fan pending-intent masking, short post-success telemetry-confirmation lease and firmware-first Auto release implemented
 - [x] automatic keyboard effect OSD suppression is scoped to new `tposd.exe` windows during effect-write bursts
 - [x] keyboard Audio mode handles extensible float/PCM loopback, adaptive level context and bounded unexpected-stop restart
 - [x] exact implementation-head CI + Package green · head `a5aea658992922c7450cb84965aac53ded91519a` · CI `35912241943` / #2069 · Package `35912241923` / #1766
 - [x] full-resolution Silent + Battery Preservation + fan Auto + experimental keyboard-effect visual review · artifact `10774165120`, digest `sha256:7ba918e6af1c9e1a04b70ae4597195890fd56ed31a864a98c3f8d7224ca65c09`
 - [x] exact implementation-head development installer/payload checksums re-verified after download · Package artifact `10773603466`, digest `sha256:6338198bbaf3f05a0a16781eb34f835249659a0af47850bdbb16167eac500ed4`
-- [ ] physical Windows/X9 check: held Volume Up/Down/Mute cannot escape Silent; keys work again immediately after leaving Silent
-- [ ] physical Windows check: app/mixer unmute and default-output changes reconverge without a multi-second audible escape
-- [ ] physical X9 fan check: Max → Auto changes promptly, never visually bounces back to Max while pending, and releases full-speed ownership
+- [ ] physical Windows/X9 recheck after activation-race fix: a volume key already held while Silent turns on must release cleanly, future repeats stay blocked, and output remains muted
+- [x] physical Windows check on previous candidate: once Silent had settled, volume keys stayed blocked and output stayed silent; activation-edge behavior required the current key-up fix
+- [ ] physical X9 Home fan recheck after confirmation-lease fix: Max → Auto must stay selected and disabled while pending, then remain Auto when stale telemetry arrives
+- [x] physical X9 Fans-page Auto path worked on the previous candidate
 - [ ] physical X9 keyboard check: automatic effects hide Lenovo backlight OSD while Fn+Space feedback outside effect writes remains normal
-- [ ] physical Windows keyboard-Audio check: Audio mode follows quiet/normal system output and survives an output/capture transition
+- [ ] physical Windows keyboard-Audio recheck after Off/Low/High response changes: Audio mode must visibly follow silence/quiet/loud output and survive an output/capture transition
 - [ ] release-ready metadata freeze
 - [ ] frozen-head CI + Package green
 - [ ] expected-head merge and immutable alpha.50 GitHub release/update verification
