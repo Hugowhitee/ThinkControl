@@ -23,7 +23,7 @@
   </a>
 </div>
 
-## ThinkControl alpha.48 development
+## ThinkControl alpha.48
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
