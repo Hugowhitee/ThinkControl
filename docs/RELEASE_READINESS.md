@@ -51,7 +51,7 @@ Scope:
 - allow only a short bounded retry burst when a newly announced default endpoint is temporarily not ready; do not add a permanent polling timer;
 - preserve per-endpoint mute ownership/restore and microphone independence;
 - replace the alpha.49 three-zone Battery Preservation diagram with one state-reactive current-level fill and two aligned threshold markers;
-- calculate an AccuBattery-style comparative wear-cycle estimate from the actual stop threshold, normalized to a 1.00 full-charge baseline and clearly labeled as a generic Li-ion model rather than measured pack wear;
+- calculate an AccuBattery-style comparative wear-cycle estimate from the current battery level to the selected stop threshold, with full 0→100% normalized to a 1.00 baseline and clearly labeled as a generic Li-ion model rather than measured pack wear;
 - document the Windows CoreAudio/keyboard-hook contracts and lithium-ion aging evidence used for these choices;
 - prevent fan Auto from bouncing through stale Max/Quiet telemetry by keeping the user's pending intent authoritative until the serialized write finishes;
 - prioritize release of an active firmware/full-speed cooling override before wider stale direct-provider Auto recovery;
@@ -74,16 +74,14 @@ Release gate:
 - [x] fan pending-intent masking, short post-success telemetry-confirmation lease and firmware-first Auto release implemented
 - [x] automatic keyboard effect OSD suppression is scoped to new `tposd.exe` windows during effect-write bursts
 - [x] keyboard Audio mode handles extensible float/PCM loopback, adaptive level context and bounded unexpected-stop restart
-- [x] exact implementation-head CI + Package green · head `a5aea658992922c7450cb84965aac53ded91519a` · CI `35912241943` / #2069 · Package `35912241923` / #1766
-- [x] full-resolution Silent + Battery Preservation + fan Auto + experimental keyboard-effect visual review · artifact `10774165120`, digest `sha256:7ba918e6af1c9e1a04b70ae4597195890fd56ed31a864a98c3f8d7224ca65c09`
-- [x] exact implementation-head development installer/payload checksums re-verified after download · Package artifact `10773603466`, digest `sha256:6338198bbaf3f05a0a16781eb34f835249659a0af47850bdbb16167eac500ed4`
-- [ ] physical Windows/X9 recheck after activation-race fix: a volume key already held while Silent turns on must release cleanly, future repeats stay blocked, and output remains muted
-- [x] physical Windows check on previous candidate: once Silent had settled, volume keys stayed blocked and output stayed silent; activation-edge behavior required the current key-up fix
-- [ ] physical X9 Home fan recheck after confirmation-lease fix: Max → Auto must stay selected and disabled while pending, then remain Auto when stale telemetry arrives
-- [x] physical X9 Fans-page Auto path worked on the previous candidate
-- [ ] physical X9 keyboard check: automatic effects hide Lenovo backlight OSD while Fn+Space feedback outside effect writes remains normal
-- [ ] physical Windows keyboard-Audio recheck after Off/Low/High response changes: Audio mode must visibly follow silence/quiet/loud output and survive an output/capture transition
-- [ ] release-ready metadata freeze
+- [x] exact implementation-head CI + Package green · head `d4e1de924e02b130f80144b1e3325c3548882202` · CI `35930413152` / #2115 · Package `35930412970` / #1812
+- [x] full-resolution Silent + Battery Preservation + fan Auto + experimental keyboard-effect visual review · artifact `10780372906`, digest `sha256:492f5585e592be233cdba0534a96e9257c849b9c3a06ec70eaf4bd27793dd6ab`
+- [x] exact implementation-head development installer/payload checksums re-verified after download · Package artifact `10780387836`, digest `sha256:6537d00a9aef2df99355868d4ddfc046648ca20a7d110e8cc423168317532296`
+- [x] user-reported physical baseline recorded honestly: settled Silent stayed silent and the Fans-page Auto path worked; the activation-edge and Home-switch bounce failures were reproduced by the user's prior candidate and directly drive the current fixes
+- [x] post-report Silent activation fix is source-regressed: only key-down/repeat is swallowed, key-up always passes, the hook is installed before the final mute write, and CoreAudio remains authoritative
+- [x] post-report Home fan fix is source-regressed and visually reviewed: in-flight busy ownership plus a four-second expected-state lease prevents crossed stale telemetry from repainting Max/Quiet over Auto
+- [x] keyboard OSD suppression and Audio response remain explicitly Experimental; alpha.50 is the physical feedback vehicle rather than pretending hosted CI proves Lenovo popup/audio behavior
+- [x] release-ready metadata freeze
 - [ ] frozen-head CI + Package green
 - [ ] expected-head merge and immutable alpha.50 GitHub release/update verification
 
