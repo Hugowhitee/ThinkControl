@@ -209,6 +209,8 @@ internal static class Program
             "advanced-home-fan-auto-light.png", "firmware Auto · presets disabled · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
             "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
+        RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
+            "advanced-battery-preservation-paused-light.png", "80–90% preservation · charging paused · light");
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
             "advanced-settings-light.png", "Advanced opening mode · light", openingView: "Advanced");
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
