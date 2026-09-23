@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using ThinkControl.Core.Battery;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using WpfApplication = System.Windows.Application;
@@ -298,7 +299,12 @@ public partial class BatteryTelemetryPanel : UserControl
             : "Full charge · active";
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
-            : "No charge ceiling is active.";
+            : "Charges normally to 100%.";
+        ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(
+            snapshotStart,
+            snapshotStop,
+            enabled: snapshotProtection);
+        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
         ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
     }
