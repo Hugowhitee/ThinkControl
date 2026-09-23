@@ -32,7 +32,7 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.48 candidate — UX clarity and live state
+## Alpha.48 release-ready — UX clarity and live state
 
 Alpha.48 is the active candidate on immutable alpha.47. It does **not** add a new low-level hardware command surface.
 
