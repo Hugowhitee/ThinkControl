@@ -199,13 +199,21 @@ internal sealed class AudioSafetyService : IDisposable
         try
         {
             EnsureSilentObserverInfrastructure();
+
+            // Own future volume-key down/repeat events before changing mute. If the
+            // user was already holding a key when Silent was clicked, the blocker
+            // still lets that key's release through, while this final mute write wins
+            // over any pre-hook key-down that slipped through during activation.
+            if (!ActivateVolumeKeyBlocker())
+                throw new InvalidOperationException("Silent could not secure volume-key ownership.");
+
             MMDevice device = GetObservedDefaultOutput();
             RememberPriorMute(device);
             if (!device.AudioEndpointVolume.Mute)
                 device.AudioEndpointVolume.Mute = true;
 
-            if (!device.AudioEndpointVolume.Mute || !ActivateVolumeKeyBlocker())
-                throw new InvalidOperationException("Silent could not secure mute/key ownership.");
+            if (!device.AudioEndpointVolume.Mute)
+                throw new InvalidOperationException("Silent could not secure output mute ownership.");
 
             return true;
         }
