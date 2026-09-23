@@ -147,6 +147,8 @@ Keyboard brightness and effects deliberately have different ownership.
 
 Keyboard writes are serialized so firmware/static ownership and user-session animation do not fight each other. Saved effect state is restored only after provider capability is known.
 
+Alpha.50 keeps experimental white-backlight effects on the existing Off/Low/High semantic writer. Automatic effect writes arm a user-session `tposd.exe` suppressor immediately before the hardware write; it hides only newly visible Lenovo OSD windows inside the short effect burst and does not globally disable OSD feedback. Audio mode uses WASAPI loopback from the active Windows render endpoint. `WAVE_FORMAT_EXTENSIBLE` is normalized to its PCM/IEEE-float subtype before RMS calculation, 16/24/32-bit PCM and 32-bit float are supported, level decisions use a smoothed RMS relative to a decaying local peak, and an unexpected capture stop gets a bounded restart only while Audio mode remains selected.
+
 ## Touchpad model
 
 The Advanced Touchpad editor exposes one six-zone selection model: Top, Bottom, Left, Right, Top-left and Top-right. `TouchpadVisualizer` owns edge/corner rendering, selection and hit-testing. The right corner is an exact horizontal mirror of the left.
