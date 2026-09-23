@@ -84,6 +84,7 @@ public sealed class Alpha47UxSourceTests
         Assert.Contains("HomeFanAutoSwitch.IsChecked == true ? \"Auto\" : \"Balanced\"", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanMoreButton.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MoreFanProfilesLabel", code, StringComparison.Ordinal);
         Assert.DoesNotContain("HomeFanProfileCombo", code, StringComparison.Ordinal);
     }
