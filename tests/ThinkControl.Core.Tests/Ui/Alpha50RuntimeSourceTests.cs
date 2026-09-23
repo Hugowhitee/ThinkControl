@@ -12,8 +12,9 @@ public sealed class Alpha50RuntimeSourceTests
         string service = Read("src", "ThinkControl.Service", "ServiceEngine.cs");
 
         Assert.Contains("SetPendingCoolingProfile(generation, pendingDisplay)", cooling, StringComparison.Ordinal);
-        Assert.Contains("TryGetPendingCoolingProfile(out string pendingCooling)", diagnostics, StringComparison.Ordinal);
-        Assert.Contains("? pendingCooling", diagnostics, StringComparison.Ordinal);
+        Assert.Contains("ResolveCoolingProfileForTelemetry(telemetry.CoolingProfile)", diagnostics, StringComparison.Ordinal);
+        Assert.Contains("SetExpectedCoolingProfile(generation, pendingDisplay)", cooling, StringComparison.Ordinal);
+        Assert.Contains("_coolingExpectedUntil = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(4)", cooling, StringComparison.Ordinal);
         Assert.Contains("ClearPendingCoolingProfile(generation)", cooling, StringComparison.Ordinal);
         Assert.Contains("_ = HardwareClient.GetStatusAsync();", cooling, StringComparison.Ordinal);
 
@@ -42,7 +43,8 @@ public sealed class Alpha50RuntimeSourceTests
         Assert.Contains("capture.StartRecording();", service, StringComparison.Ordinal);
         Assert.Contains("_audioRestartGeneration", service, StringComparison.Ordinal);
         Assert.Contains("await Task.Delay(250)", service, StringComparison.Ordinal);
-        Assert.Contains("rms / peak >= 0.58", service, StringComparison.Ordinal);
+        Assert.Contains("rms / peak >= 0.52", service, StringComparison.Ordinal);
+        Assert.Contains("return \"Off\";", service, StringComparison.Ordinal);
     }
 
     [Fact]
