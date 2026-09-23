@@ -6,18 +6,20 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.46`
-- immutable tag/release SHA: `ccca29ed696d422b21f96589b972fbee5884b291`
-- published 2026-09-20 at 18:39:17 UTC as an immutable prerelease
+- `v0.1.0-alpha.48`
+- immutable tag/release SHA: `9997f750113588ee51fa3c840c8b14ed58d6d743`
+- published 2026-09-23 at 10:26:42 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:4baa95fa1575d9d995ecad1b9c51dbdc53b73f4b2bd7a17c9f158aaf6231a45a`
-  - Payload: `sha256:e7a2d5e0756b900a58fcf101c5146d15b75071ecd7afae1b26f4d4acdd668153`
-  - `SHA256SUMS.txt`: `sha256:126a78c0920f512ff28f3656f98dba00e7b40ac4fdd69a8cd3fe84f3bc1a001a`
-  - `ui-overview.png`: `sha256:ad829a8cde69279f8f2443c838c6d83b7f6a761c2024a76950ef9ecfe4c4a651`
-- alpha.45 remains separately immutable at `310d505b66e7be90ae97ed30ae16e39e6ddd72c8`
-- alpha.44 remains separately immutable at `17abe5458a1f6f43f66383827d463bd1094498c2`
-- alpha.43 remains separately immutable at `ba13fab6d5b47cf127f4b627976662678f2ec491`
+  - Setup: `sha256:8339dced7e4fd67a03967e5d4fb86129aa055206e91469131f4e2ee5046b0c52`
+  - Payload: `sha256:c770bcea263c288682e4c572d7c741982fe13b2f3c627daf5c7e42a29cb4247e`
+  - `SHA256SUMS.txt`: `sha256:91171135bdfe92e638bdc48c3309be53843d0271027c681d791f70cddb9610fc`
+  - `ui-overview.png`: `sha256:de434f2aa0e816380772a382a063a5e57a32064e853545e4eca8b1485418651b`
+- post-merge main CI `35848573477`: success
+- complete immutable release run `35848588547`: success
+- promotion/checksum verification run `35848573576`: first attempt hit a transient GitHub asset propagation race; attempt 2 succeeded after the assets were publicly downloadable. Alpha.49 hardens that retry path.
+- alpha.47 remains separately immutable at `f00a11ca789e0d360051bae9358e4312316cde59`
+- alpha.46 remains separately immutable at `ccca29ed696d422b21f96589b972fbee5884b291`
 
 Alpha.46 completion:
 
@@ -53,7 +55,7 @@ Release gate:
 - [ ] exact implementation-head CI + Package green
 - [ ] dark/light preservation snapshots manually inspected at full resolution
 - [ ] release-ready metadata freeze
-- [ ] frozen-head CI + Package green
+- [x] frozen-head CI + Package green · CI #2022 / Package #1722
 - [ ] expected-head merge and immutable alpha.49 GitHub release verification
 
 ## Alpha.48 release-ready — UX clarity and live state
@@ -87,7 +89,7 @@ Release gate:
 - [ ] post-release physical X9 follow-up: confirm Gesture lock keyboard semantics and Silent keyboard/app re-mute behavior on the reference machine; this remains real-device evidence and is not inferred from hosted CI
 - [x] final review/release-ready metadata freeze
 - [ ] frozen-head CI + Package green
-- [ ] expected-head merge, immutable alpha.48 release and public checksum verification
+- [x] expected-head merge, immutable alpha.48 release and public checksum verification
 
 ## Alpha.47 published release
 
