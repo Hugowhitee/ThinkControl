@@ -51,14 +51,12 @@ internal static class ShellUtilityOrder
                     Kind = iconKind,
                     Width = 18,
                     Height = 18,
-                    Foreground = foreground,
                     Margin = new Thickness(0, 0, 7, 0)
                 },
                 new TextBlock
                 {
                     Text = label,
                     FontSize = TypographyScale.ControlText,
-                    Foreground = foreground,
                     VerticalAlignment = VerticalAlignment.Center
                 }
             }
