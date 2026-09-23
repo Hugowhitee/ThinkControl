@@ -23,6 +23,8 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("StopPercent=\"{Binding BatteryProtectionStopPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CurrentPercent=\"{Binding BatteryPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Resumes below {start}% · stops at {stop}%.", code, StringComparison.Ordinal);
+        Assert.Contains("BatteryPreservationImpactModel.Describe(start, stop)", code, StringComparison.Ordinal);
+        Assert.Contains("BatteryPreservationImpactModel.Describe(100, 100, enabled: false)", code, StringComparison.Ordinal);
         string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
         Assert.Contains("Tc.Success", gauge, StringComparison.Ordinal);
         Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);
