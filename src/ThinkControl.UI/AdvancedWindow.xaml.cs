@@ -74,8 +74,7 @@ public partial class AdvancedWindow : Window
         ShellUtilityOrder.ConfigureModeButton(
             compactButton,
             "Compact",
-            "CompactView",
-            (Brush)FindResource("Tc.TextMuted"));
+            "CompactView");
         TcToolTip.Apply(compactButton, "Compact view");
         compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
 
