@@ -56,13 +56,13 @@ public static class BatteryPreservationImpactModel
     {
         BatteryPreservationImpact impact = Estimate(startPercent, stopPercent, enabled);
         if (!impact.Enabled)
-            return "Wear context · no top-end charge headroom";
+            return "Wear · no top-end headroom";
 
         string band = impact.HighSocBandAvoidedPercent >= 100
-            ? $"all of >{HighSocReferencePercent}% high-SOC band avoided"
-            : $"~{impact.HighSocBandAvoidedPercent}% of >{HighSocReferencePercent}% high-SOC band avoided";
+            ? $"all >{HighSocReferencePercent}% exposure avoided"
+            : $"~{impact.HighSocBandAvoidedPercent}% less >{HighSocReferencePercent}% exposure";
 
-        return $"Wear context · {impact.TopEndHeadroomPercent}% top-end headroom · {band}";
+        return $"Wear · {impact.TopEndHeadroomPercent}% top-end headroom · {band}";
     }
 
     public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>
