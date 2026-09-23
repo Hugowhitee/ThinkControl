@@ -1,72 +1,98 @@
 namespace ThinkControl.Core.Battery;
 
 /// <summary>
-/// Transparent threshold-only context for Battery Preservation.
+/// Comparative Battery Preservation context calculated from the configured
+/// start/stop thresholds.
 ///
-/// This intentionally does NOT predict literal battery cycles. Real lithium-ion
-/// ageing depends on cell chemistry, voltage mapping, temperature, charge rate,
-/// depth of discharge and calendar time. The model exposes quantities that can be
-/// calculated honestly from the configured thresholds and remain valid for custom
-/// future presets.
-///
-/// The 70% reference marks the start of a deliberately broad "high-SOC" band for
-/// the UI exposure metric. It is not a chemistry-specific knee or lifetime claim.
+/// The wear-cycle estimate follows the same broad idea AccuBattery documents:
+/// lower end-of-charge voltage costs a fraction of a full high-voltage cycle.
+/// ThinkControl cannot measure the exact per-cell voltage curve of every laptop,
+/// so percentage is mapped to a transparent generic Li-ion voltage curve first.
+/// The result is useful for comparing presets, not a laboratory prediction for
+/// one specific battery pack.
 /// </summary>
 public static class BatteryPreservationImpactModel
 {
-    public const int HighSocReferencePercent = 70;
+    private const double MinIdealizedCellVoltage = 3.52;
+    private const double MaxIdealizedCellVoltage = 4.35;
+    private const double VoltageCurveLinearWeight = 0.28;
+    private const double VoltageCurveTopWeight = 0.72;
 
     public static BatteryPreservationImpact Estimate(int startPercent, int stopPercent, bool enabled = true)
     {
         int start = Math.Clamp(startPercent, 0, 100);
         int stop = Math.Clamp(stopPercent, start, 100);
 
-        if (!enabled || stop >= 100)
+        if (!enabled)
         {
-            return new BatteryPreservationImpact(
-                Enabled: false,
-                StartPercent: 100,
-                StopPercent: 100,
-                TopEndHeadroomPercent: 0,
-                HighSocBandAvoidedPercent: 0,
-                RechargeWindowPercent: 0,
-                EquivalentFullChargeThroughputAvoided: 0m);
+            stop = 100;
+            start = 100;
         }
 
-        int headroom = 100 - stop;
-        int highSocBandWidth = 100 - HighSocReferencePercent;
-        int highSocBandAvoided = (int)Math.Round(
-            Math.Clamp(headroom / (double)highSocBandWidth, 0d, 1d) * 100d,
+        int headroom = Math.Max(0, 100 - stop);
+        int rechargeWindow = Math.Max(0, stop - start);
+        double endVoltage = EstimateIdealizedEndVoltage(stop);
+        double wearCycles = EstimateWearCyclesTo(stop);
+        int wearReduction = (int)Math.Round(
+            Math.Clamp((1d - wearCycles) * 100d, 0d, 100d),
             MidpointRounding.AwayFromZero);
 
         return new BatteryPreservationImpact(
-            Enabled: true,
+            Enabled: enabled && stop < 100,
             StartPercent: start,
             StopPercent: stop,
             TopEndHeadroomPercent: headroom,
-            HighSocBandAvoidedPercent: highSocBandAvoided,
-            RechargeWindowPercent: Math.Max(0, stop - start),
-            EquivalentFullChargeThroughputAvoided: Math.Round(headroom / 100m, 2));
+            RechargeWindowPercent: rechargeWindow,
+            EstimatedEndVoltage: endVoltage,
+            EstimatedWearCycles: wearCycles,
+            EstimatedWearReductionPercent: wearReduction);
+    }
+
+    /// <summary>
+    /// Generic smooth SOC-to-cell-voltage approximation. It deliberately rises much
+    /// faster near the top of charge, where lithium-ion voltage stress also rises.
+    /// 0% maps to 3.52 V and 100% to 4.35 V.
+    /// </summary>
+    public static double EstimateIdealizedEndVoltage(int percent)
+    {
+        double soc = Math.Clamp(percent, 0, 100) / 100d;
+        double shaped = VoltageCurveLinearWeight * soc +
+                        VoltageCurveTopWeight * Math.Pow(soc, 4);
+        return MinIdealizedCellVoltage +
+               (MaxIdealizedCellVoltage - MinIdealizedCellVoltage) * shaped;
+    }
+
+    /// <summary>
+    /// Relative wear-cycle cost, normalized so charging to 100% is 1.00.
+    /// The voltage relationship uses the published rule of thumb that a 0.10 V
+    /// decrease in end-of-charge voltage roughly doubles cycle life. The tiny
+    /// non-zero baseline of the idealized curve is removed so 0% maps to 0.
+    /// </summary>
+    public static double EstimateWearCyclesTo(int stopPercent)
+    {
+        double endVoltage = EstimateIdealizedEndVoltage(stopPercent);
+        double raw = Math.Pow(2d, -10d * (MaxIdealizedCellVoltage - endVoltage));
+        double baseline = Math.Pow(
+            2d,
+            -10d * (MaxIdealizedCellVoltage - MinIdealizedCellVoltage));
+        double normalized = (raw - baseline) / (1d - baseline);
+        return Math.Clamp(normalized, 0d, 1d);
     }
 
     public const string LimitationsText =
-        "Exact cycle-life gain cannot be derived from charge thresholds alone; chemistry, temperature and usage also matter.";
+        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage cycle-life research. Actual pack wear varies with chemistry, temperature, charge rate and use.";
 
     public static string DescribeWearContext(int startPercent, int stopPercent, bool enabled = true)
     {
         BatteryPreservationImpact impact = Estimate(startPercent, stopPercent, enabled);
         if (!impact.Enabled)
-            return "Wear · no top-end headroom";
+            return "Estimated wear to 100%: 1.00 wear cycle baseline.";
 
-        string band = impact.HighSocBandAvoidedPercent >= 100
-            ? $"all >{HighSocReferencePercent}% exposure avoided"
-            : $"~{impact.HighSocBandAvoidedPercent}% less >{HighSocReferencePercent}% exposure";
-
-        return $"Wear · {impact.TopEndHeadroomPercent}% top-end headroom · {band}";
+        return $"Estimated wear to {impact.StopPercent}%: {impact.EstimatedWearCycles:0.00} wear cycles, about {impact.EstimatedWearReductionPercent}% less than 100%.";
     }
 
     public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>
-        $"{DescribeWearContext(startPercent, stopPercent, enabled)}. {LimitationsText}";
+        $"{DescribeWearContext(startPercent, stopPercent, enabled)} {LimitationsText}";
 }
 
 public sealed record BatteryPreservationImpact(
@@ -74,6 +100,7 @@ public sealed record BatteryPreservationImpact(
     int StartPercent,
     int StopPercent,
     int TopEndHeadroomPercent,
-    int HighSocBandAvoidedPercent,
     int RechargeWindowPercent,
-    decimal EquivalentFullChargeThroughputAvoided);
+    double EstimatedEndVoltage,
+    double EstimatedWearCycles,
+    int EstimatedWearReductionPercent);
