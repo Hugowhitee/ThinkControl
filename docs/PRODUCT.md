@@ -3,7 +3,7 @@
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
 Current source release target: `v0.1.0-alpha.50`.  
-Current immutable prerelease: `v0.1.0-alpha.49`. Alpha.50 hardens Silent input/endpoint ownership and adds a threshold-derived Battery Preservation impact model; alpha.44 remains the hardware-behavior baseline.
+Current immutable prerelease: `v0.1.0-alpha.49`. Alpha.50 hardens Silent input/endpoint ownership, fan-mode convergence and experimental keyboard effects, and adds a threshold-derived Battery Preservation impact model; alpha.44 remains the hardware-behavior baseline.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -63,6 +63,8 @@ Battery and plugged-in preferences are stored separately. Compact remains the si
 On the X9 firmware cooling backend, ThinkControl keeps the active cooling profile and Windows performance preference as separate user-facing settings even though both coordinate through Lenovo policy. Before a built-in fan profile is selected, the current power preference becomes the restore baseline. A later power-mode change updates that baseline without cancelling the fan profile; selecting Auto clears ThinkControl-owned cooling overrides and restores the latest baseline.
 
 Audio Safety is intentionally separate from cooling. `Silent` does **not** silently force fan Quiet. A future custom preset may compose those intents only if every changed subsystem has explicit capability, ownership and rollback semantics.
+
+A deliberate fan selection also owns its short in-flight UI state. While a serialized fan write is pending, older service telemetry cannot repaint a previous Max/Quiet state over the user's Auto request. For an active firmware override, explicit Auto releases the firmware/full-speed owner before running any wider stale direct-provider recovery path; a failed request immediately requests fresh status so the UI returns to actual runtime truth rather than remaining optimistically selected.
 
 ## Fans, PawnIO and temperatures
 
