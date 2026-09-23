@@ -174,16 +174,16 @@ Alpha.43 adds one Windows-generic, **session-level** policy owner for preventing
 `ThinkControl.Core.Audio.AudioSafetyPolicy` defines three modes:
 
 - **Normal** — no Audio Safety restrictions;
-- **Media lock** — block ThinkControl Touchpad Volume, Media scrub and Track commands while leaving deliberate Windows/app audio untouched;
-- **Silent** — includes Media lock, requires the active Windows render endpoint to be muted, and blocks ThinkControl output-volume/unmute writes.
+- **Gesture lock** (internal `MediaLock`) — block ThinkControl Touchpad Volume, Media scrub and Track commands while leaving deliberate keyboard and Windows/app audio untouched;
+- **Silent** — includes Gesture lock, requires the active Windows render endpoint to be muted, and blocks ThinkControl output-volume/unmute writes.
 
 `AudioSafetyService` is the canonical UI-process state owner. The mode is intentionally not persisted in alpha.43. Every new process starts in Normal so it cannot falsely claim ownership of mute state established by an earlier process.
 
-Entering Silent records the default render endpoint's prior mute state once, mutes it when needed and does not publish Silent if the initial mute cannot be established. While Silent remains active, the app reuses the existing status cadence to converge if Windows changes the default render endpoint; no second timer is created.
+Entering Silent records the default render endpoint's prior mute state once, mutes it when needed and does not publish Silent if the initial mute cannot be established. While Silent remains active, the observed CoreAudio endpoint notifies ThinkControl of keyboard/app volume or mute changes so mute can be reasserted immediately. The existing bounded status cadence remains the fallback for default-endpoint changes; no second timer is created.
 
 Mute ownership is per endpoint ID. Leaving Silent/orderly app disposal restores only recorded states. Microphone (`DataFlow.Capture`) remains independent.
 
-The Touchpad router checks the policy at the existing action boundary. Volume, Media scrub, Previous/Next and integrated Play/Pause are suppressed in Media lock/Silent. Windows output helpers also check `AudioSafetyRuntimeState` immediately before output writes, so Silent is not merely a disabled UI control.
+The Touchpad router checks the policy at the existing action boundary. Volume, Media scrub, Previous/Next and integrated Play/Pause are suppressed in Gesture lock/Silent. Windows output helpers also check `AudioSafetyRuntimeState` immediately before output writes, so Silent is not merely a disabled UI control.
 
 Audio Safety currently composes no fan profile. A future user preset may request both Audio Safety and Quiet, but that would require explicit transactional ownership/restore semantics and capability gating rather than coupling cooling to silence implicitly.
 
