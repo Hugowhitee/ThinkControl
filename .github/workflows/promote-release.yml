@@ -112,19 +112,30 @@ jobs:
               if [[ "$missing" == "0" ]]; then
                 rm -rf /tmp/thinkcontrol-release-verify
                 mkdir -p /tmp/thinkcontrol-release-verify
-                cd /tmp/thinkcontrol-release-verify
-                gh release download "$tag" --repo "$repo" \
+
+                # The Releases API can expose uploaded asset metadata a few seconds
+                # before the release-download endpoint serves those same assets.
+                # Treat that propagation gap as transient instead of failing an
+                # otherwise complete immutable release.
+                if gh release download "$tag" --repo "$repo" \
+                  --dir /tmp/thinkcontrol-release-verify \
                   --pattern "$setup" \
                   --pattern "$payload" \
                   --pattern "SHA256SUMS.txt" \
-                  --pattern "$overview"
-                sha256sum --check SHA256SUMS.txt
-                if [[ ! -s "$overview" ]]; then
-                  echo "Release UI overview is missing or empty."
-                  exit 1
+                  --pattern "$overview"; then
+                  if (
+                    cd /tmp/thinkcontrol-release-verify
+                    sha256sum --check SHA256SUMS.txt
+                    [[ -s "$overview" ]]
+                  ); then
+                    echo "Verified $tag prerelease, checksums and exactly four managed public assets including the UI overview."
+                    exit 0
+                  fi
+
+                  echo "Release assets downloaded but verification is not complete yet; retrying."
+                else
+                  echo "Release asset metadata is present but downloads are not ready yet; retrying."
                 fi
-                echo "Verified $tag prerelease, checksums and exactly four managed public assets including the UI overview."
-                exit 0
               fi
             fi
 

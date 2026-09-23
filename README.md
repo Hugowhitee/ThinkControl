@@ -23,11 +23,13 @@
   </a>
 </div>
 
-## ThinkControl alpha.48
+## ThinkControl alpha.49
+
+Alpha.49 is a focused Battery Preservation visual-clarity follow-up. The threshold graphic now uses semantic charge/hold/stop zones, a charge-resume lightning marker and a stop/pause marker at the actual thresholds. Generic ruler ticks and the ambiguous lock glyph are removed; the only remaining live marker is the current battery position.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.48`  
+**Release target:** `v0.1.0-alpha.49`  
 **Current immutable prerelease:** `v0.1.0-alpha.48`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -38,8 +40,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.47/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.47/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -71,7 +73,7 @@ Alpha.48 is a focused UX-clarity and state-feedback follow-up to immutable alpha
 - **Audio Safety says what it actually controls.** The former `Media lock` user-facing label is now **Gesture lock**: ThinkControl touchpad volume/track/seek actions are blocked while deliberate keyboard and Windows/app audio controls remain available.
 - **Silent reacts to external volume controls immediately.** CoreAudio endpoint notifications reassert mute after keyboard/app unmute attempts instead of waiting for the next multi-second status refresh. Existing bounded status refresh remains only as the fallback for endpoint changes.
 - **Compact Audio Safety is smaller and better aligned.** The selector no longer stretches across the full remaining row and its tooltip explains Normal / Gesture lock / Silent behavior.
-- **Battery Preservation becomes visual instead of text-heavy.** A themed threshold ruler shows the active start/stop window, lock and current battery position; the card keeps only the essential stop/resume sentence.
+- **Battery Preservation becomes visual instead of text-heavy.** A compact threshold view shows the active start/stop window and current battery position; alpha.49 further clarifies those semantics with charge/hold/stop zones and explicit threshold icons.
 - **Theme changes stay live.** Shell-mode labels use dynamic theme resources and Advanced refreshes native caption/text/border colors immediately when switching light/dark mode.
 - **Visual QA explicitly covers firmware Auto in dark and light themes** in addition to the existing Compact/Silent/Preservation matrix.
 

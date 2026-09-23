@@ -199,7 +199,7 @@ public partial class BatteryTelemetryPanel
     }
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
-        $"Stops at {stop}% · resumes below {start}%.";
+        $"Resumes below {start}% · stops at {stop}%.";
 
     private void SyncHistoryManagementUi()
     {

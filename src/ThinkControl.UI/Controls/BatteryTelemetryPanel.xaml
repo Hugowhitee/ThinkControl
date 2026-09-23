@@ -93,12 +93,13 @@
                         <TextBlock Text="Battery preservation" FontWeight="SemiBold" />
                         <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                     </Grid>
-                    <controls:BatteryProtectionGauge Height="54"
+                    <controls:BatteryProtectionGauge Height="62"
                                                      Margin="0,7,0,0"
                                                      ProtectionEnabled="{Binding BatteryProtectionEnabled}"
                                                      StartPercent="{Binding BatteryProtectionStartPercent}"
                                                      StopPercent="{Binding BatteryProtectionStopPercent}"
-                                                     CurrentPercent="{Binding BatteryPercent}" />
+                                                     CurrentPercent="{Binding BatteryPercent}"
+                                                     ToolTip="Green: charging resumes below the left threshold. Amber: hold window. Red: charging pauses at the right threshold. White marker: current battery level." />
                     <ComboBox x:Name="ChargeProtectionComboBox"
                               Style="{StaticResource TcComboBox}"
                               Margin="0,7,0,0"
