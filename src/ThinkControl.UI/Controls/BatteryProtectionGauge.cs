@@ -92,6 +92,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         WpfBrush faint = ResourceBrush("Tc.TextFaint", WpfBrushes.Gray);
         WpfBrush muted = ResourceBrush("Tc.TextMuted", WpfBrushes.Gray);
         WpfBrush accent = ResourceBrush("Tc.Accent", WpfBrushes.DodgerBlue);
+        WpfBrush success = ResourceBrush("Tc.Success", WpfBrushes.ForestGreen);
         WpfBrush warning = ResourceBrush("Tc.Warning", WpfBrushes.Goldenrod);
 
         const double left = 8;
@@ -110,7 +111,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             ? Math.Clamp(rawStop, start ?? 0, 100)
             : null;
 
-        WpfBrush fill = ResolveFillBrush(current, start, stop, accent, warning, muted);
+        WpfBrush fill = ResolveFillBrush(current, start, stop, accent, success, warning, muted);
 
         dc.DrawRoundedRectangle(surface, null, track, 5, 5);
 
@@ -130,7 +131,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             double startX = PercentX(startValue);
             double stopX = PercentX(stopValue);
 
-            WpfBrush startMarker = IsCharging && current <= startValue ? accent : faint;
+            WpfBrush startMarker = IsCharging && current <= startValue ? success : faint;
             WpfBrush stopMarker = !IsCharging && current >= stopValue ? warning : faint;
 
             DrawThreshold(dc, startX, track, startMarker, 1.15);
@@ -166,6 +167,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         int? start,
         int? stop,
         WpfBrush accent,
+        WpfBrush success,
         WpfBrush warning,
         WpfBrush muted)
     {
@@ -176,7 +178,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             return warning;
 
         if (IsCharging)
-            return accent;
+            return success;
 
         // Inside the hold window the same accent remains, just quieter. Color now
         // communicates state rather than permanently painting three unrelated zones.
