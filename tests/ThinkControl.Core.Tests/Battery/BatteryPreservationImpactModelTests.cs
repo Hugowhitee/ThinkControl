@@ -34,13 +34,13 @@ public sealed class BatteryPreservationImpactModelTests
         string care = BatteryPreservationImpactModel.Describe(40, 60);
 
         Assert.Contains("15% top-end headroom", daily, StringComparison.Ordinal);
-        Assert.Contains("~50% of >70% high-SOC band avoided", daily, StringComparison.Ordinal);
+        Assert.Contains("~50% less >70% exposure", daily, StringComparison.Ordinal);
 
         Assert.Contains("20% top-end headroom", desk, StringComparison.Ordinal);
-        Assert.Contains("~67% of >70% high-SOC band avoided", desk, StringComparison.Ordinal);
+        Assert.Contains("~67% less >70% exposure", desk, StringComparison.Ordinal);
 
         Assert.Contains("40% top-end headroom", care, StringComparison.Ordinal);
-        Assert.Contains("all of >70% high-SOC band avoided", care, StringComparison.Ordinal);
+        Assert.Contains("all >70% exposure avoided", care, StringComparison.Ordinal);
 
         Assert.Contains("Exact cycle-life gain cannot be derived", daily, StringComparison.Ordinal);
         Assert.DoesNotContain("cycles saved", daily, StringComparison.OrdinalIgnoreCase);
@@ -57,7 +57,7 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(0m, result.EquivalentFullChargeThroughputAvoided);
 
         Assert.Contains(
-            "Wear context · no top-end charge headroom",
+            "Wear · no top-end headroom",
             BatteryPreservationImpactModel.Describe(100, 100, enabled: false),
             StringComparison.Ordinal);
     }
