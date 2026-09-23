@@ -25,7 +25,7 @@
 
 ## ThinkControl alpha.50 development
 
-Alpha.50 hardens Silent so a physical volume key cannot punch through the mode, and replaces static Battery Preservation wear copy with a threshold-derived impact model that stays truthful for named and future custom presets.
+Alpha.50 is a runtime-reliability pass: Silent owns the Windows volume-key path without trapping a key held during activation, Home fan Auto stays stable while service telemetry catches up, keyboard Audio reacts to real loopback output, and Battery Preservation uses a cleaner state-reactive gauge plus a comparative wear-cycle estimate.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
@@ -70,9 +70,10 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 - **Silent owns the physical volume-key path.** While Silent is active, Windows `VK_VOLUME_MUTE / DOWN / UP` keys are swallowed before the shell can unmute the endpoint. CoreAudio callbacks remain the second line of defense for app/Windows changes.
 - **Repeated unmute events are no longer coalesced away.** A pending-bit enforcement loop guarantees another pass when an event arrives while re-muting is already in progress, closing the held-key race.
 - **Default-output switches are event-driven.** A persistent CoreAudio device notification client immediately rebinds Silent to a changed render endpoint, with only a short bounded retry burst while a new device becomes ready.
-- **Battery Preservation impact is calculated, not canned.** The selected start/stop pair drives top-end headroom and high-SOC-band context on a separate quiet line, while the normal resume/stop sentence stays short. ThinkControl does not invent a literal “cycles saved” number because chemistry, temperature, depth of discharge and calendar aging also matter.
-- **Fan Auto no longer visually bounces through stale state.** A user selection owns a short pending state while the serialized hardware write completes, stale telemetry cannot repaint Max/Quiet over it, and a firmware override is released before unrelated Auto recovery probes.
-- **Experimental keyboard effects suppress Lenovo's own backlight popup around automatic writes.** The suppression is deliberately limited to newly shown `tposd.exe` windows during an effect-write burst, so ordinary keyboard feedback outside that burst is not globally disabled.
+- **Battery Preservation reads like a battery control, not a diagram.** One current-level fill reacts to charging/limit state, the start/stop thresholds are quiet aligned markers, and the old permanent green/amber/red zones plus lightning/pause glyphs are gone. Preset copy uses an AccuBattery-style comparative wear estimate (for example, estimated wear to 85% versus the 1.00 full-charge baseline) with an explicit generic-model caveat.
+- **Fan Auto no longer visually bounces through stale state.** A user selection owns both its in-flight state and a short post-success confirmation lease, so stale Max/Quiet telemetry cannot repaint the Home switch before fresh status confirms Auto. An active firmware/full-speed override is released before unrelated Auto recovery probes.
+- **Experimental keyboard effects suppress Lenovo's own backlight popup around automatic writes.** The suppression is deliberately limited to newly shown `tposd.exe` windows during an effect-write burst, so ordinary keyboard feedback outside that burst is not globally disabled. Audio now uses Off / Low / High as a visible three-state response to the active Windows output instead of idling at Low.
+- **Dev builds can upgrade to their matching public release.** A manually installed `alpha.N-dev.BUILD` is deliberately lower-precedence than canonical `alpha.N`, so testing a dev package cannot strand the updater on that build.
 - **Audio keyboard effects use the actual Windows loopback format.** WAVE_FORMAT_EXTENSIBLE float/PCM streams are decoded correctly, level thresholds adapt to the recent output peak, and an unexpectedly stopped loopback capture performs one bounded restart while Audio mode remains active.
 - **Research and regression coverage are explicit.** Silent, Battery Preservation, fan convergence and keyboard effect behavior are source-tested and documented.
 
