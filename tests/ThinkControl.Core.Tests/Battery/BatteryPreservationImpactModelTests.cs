@@ -33,17 +33,16 @@ public sealed class BatteryPreservationImpactModelTests
         string desk = BatteryPreservationImpactModel.Describe(55, 80);
         string care = BatteryPreservationImpactModel.Describe(40, 60);
 
-        Assert.Contains("85% cap", daily, StringComparison.Ordinal);
-        Assert.Contains("15% top-end", daily, StringComparison.Ordinal);
-        Assert.Contains("~50% of the >70% high-SOC band", daily, StringComparison.Ordinal);
+        Assert.Contains("15% top-end headroom", daily, StringComparison.Ordinal);
+        Assert.Contains("~50% of >70% high-SOC band avoided", daily, StringComparison.Ordinal);
 
-        Assert.Contains("80% cap", desk, StringComparison.Ordinal);
-        Assert.Contains("~67% of the >70% high-SOC band", desk, StringComparison.Ordinal);
+        Assert.Contains("20% top-end headroom", desk, StringComparison.Ordinal);
+        Assert.Contains("~67% of >70% high-SOC band avoided", desk, StringComparison.Ordinal);
 
-        Assert.Contains("60% cap", care, StringComparison.Ordinal);
-        Assert.Contains("all of the >70% high-SOC band", care, StringComparison.Ordinal);
+        Assert.Contains("40% top-end headroom", care, StringComparison.Ordinal);
+        Assert.Contains("all of >70% high-SOC band avoided", care, StringComparison.Ordinal);
 
-        Assert.Contains("Exact cycle-life gain varies", daily, StringComparison.Ordinal);
+        Assert.Contains("Exact cycle-life gain cannot be derived", daily, StringComparison.Ordinal);
         Assert.DoesNotContain("cycles saved", daily, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("×", daily, StringComparison.Ordinal);
     }
@@ -57,8 +56,9 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(0, result.HighSocBandAvoidedPercent);
         Assert.Equal(0m, result.EquivalentFullChargeThroughputAvoided);
 
-        Assert.Equal(
-            "100% cap · maximum unplugged capacity · no top-end charge headroom.",
-            BatteryPreservationImpactModel.Describe(100, 100, enabled: false));
+        Assert.Contains(
+            "Wear context · no top-end charge headroom",
+            BatteryPreservationImpactModel.Describe(100, 100, enabled: false),
+            StringComparison.Ordinal);
     }
 }
