@@ -337,24 +337,27 @@ public sealed class KeyboardEffectService : IDisposable
         if (_disposed || _state.KeyboardMode != "Audio" || !_state.KeyboardEffectsUsable)
             return;
 
-        WasapiLoopbackCapture capture;
-        lock (_runtimeGate)
-        {
-            if (_audioCapture is not null)
-                return;
-
-            capture = new WasapiLoopbackCapture();
-
-            // Publish the instance before StartRecording. Some WASAPI endpoints can
-            // produce the first DataAvailable callback immediately; assigning it
-            // afterwards made those first buffers look like no active capture.
-            _audioCapture = capture;
-            capture.DataAvailable += Audio_DataAvailable;
-            capture.RecordingStopped += Audio_RecordingStopped;
-        }
-
+        WasapiLoopbackCapture? capture = null;
         try
         {
+            capture = new WasapiLoopbackCapture();
+
+            lock (_runtimeGate)
+            {
+                if (_audioCapture is not null)
+                {
+                    capture.Dispose();
+                    return;
+                }
+
+                // Publish the instance before StartRecording. Some WASAPI endpoints
+                // can produce the first DataAvailable callback immediately; assigning
+                // it afterwards made those first buffers look like no active capture.
+                _audioCapture = capture;
+                capture.DataAvailable += Audio_DataAvailable;
+                capture.RecordingStopped += Audio_RecordingStopped;
+            }
+
             // Do not hold _runtimeGate while starting WASAPI. DataAvailable itself
             // takes that gate to validate ownership, and a backend that delivers its
             // first callback synchronously must never be able to deadlock startup.
@@ -362,6 +365,9 @@ public sealed class KeyboardEffectService : IDisposable
         }
         catch
         {
+            if (capture is null)
+                return;
+
             lock (_runtimeGate)
             {
                 if (ReferenceEquals(_audioCapture, capture))
