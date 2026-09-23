@@ -93,7 +93,7 @@
                         <TextBlock Text="Battery preservation" FontWeight="SemiBold" />
                         <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                     </Grid>
-                    <controls:BatteryProtectionGauge Height="54"
+                    <controls:BatteryProtectionGauge Height="62"
                                                      Margin="0,7,0,0"
                                                      ProtectionEnabled="{Binding BatteryProtectionEnabled}"
                                                      StartPercent="{Binding BatteryProtectionStartPercent}"
