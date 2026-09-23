@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.47`.  
-Current immutable prerelease: `v0.1.0-alpha.47`. Alpha.44 remains the hardware-behavior baseline for the narrow alpha.45–alpha.47 shell/interface maintenance series.
+Current source release target: `v0.1.0-alpha.48`.  
+Current immutable prerelease: `v0.1.0-alpha.47`. Alpha.44 remains the hardware-behavior baseline for the narrow alpha.45–alpha.48 shell/interface maintenance series.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -41,10 +41,10 @@ Compact contains the controls and telemetry most useful during normal operation:
 - display refresh controls;
 - brightness and volume;
 - keyboard backlight when supported;
-- one **Media safety** selector (`Normal` / `Media lock` / `Silent`) grouped with Brightness/Volume rather than detached in the footer;
+- one **Audio safety** selector (`Normal` / `Gesture lock` / `Silent`) grouped with Brightness/Volume rather than detached in the footer;
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Media safety remains one compact session state, but its placement follows the controls it actually affects instead of reading like a global footer mode.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Audio safety remains one compact session state. Gesture lock blocks only ThinkControl touchpad audio/media gestures; Silent additionally keeps Windows output muted.
 
 ### Advanced
 
