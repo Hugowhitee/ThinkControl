@@ -25,11 +25,13 @@ Sources:
 
 Alpha.50 therefore uses three layers while Silent is active:
 
-1. block only the three Windows volume virtual keys before the shell can unmute the endpoint;
+1. install the Windows volume-key guard before the final mute write and block only volume **key-down/repeat** events;
 2. keep the CoreAudio endpoint-volume callback as the authority for app/SndVol/unexpected changes;
 3. keep a persistent device notification client so a new default render endpoint is picked up immediately, with a short bounded retry burst for the transient period in which a newly selected device is not yet ready.
 
-The enforcement worker uses a pending bit rather than dropping callbacks while one pass is already running. This closes the held-key race where another unmute could otherwise arrive between a re-mute write and worker shutdown. There is still no permanent fast polling timer.
+The key-up detail matters. Physical testing found an activation-edge case where a volume key pressed just before Silent could begin outside ThinkControl and then have its release swallowed after the hook appeared, making Windows behave as if the old press was still held. The current guard therefore always lets key-up pass through while suppressing later volume key-down/repeat events. Silent installs the guard before its final mute write, so that final mute wins over a pre-hook key-down without trapping the corresponding release.
+
+The enforcement worker uses a pending bit rather than dropping callbacks while one pass is already running. This closes the repeated-unmute race where another change could otherwise arrive between a re-mute write and worker shutdown. There is still no permanent fast polling timer.
 
 ## Battery Preservation: comparative wear cycles without pretending they are measured
 
@@ -69,7 +71,7 @@ The visual was simplified at the same time. Alpha.49's permanent green/amber/red
 
 The reported Max → Auto behavior exposed two separate latency/ownership issues rather than one visual toggle bug.
 
-First, status snapshots can arrive while a serialized user write is still waiting or executing. Painting every snapshot immediately lets an older Max/Quiet result overwrite the user's just-selected Auto state, then jump forward again when the later response arrives. Alpha.50 therefore records one generation-scoped pending cooling intent. The UI shows that intent immediately and masks stale cooling-profile telemetry only until that exact write completes. A rejection clears the pending owner and requests fresh status instead of pretending Auto succeeded.
+First, status snapshots can arrive while a serialized user write is still waiting or executing. Painting every snapshot immediately lets an older Max/Quiet result overwrite the user's just-selected Auto state, then jump forward again when the later response arrives. Alpha.50 therefore records one generation-scoped pending cooling intent. The UI shows that intent immediately and masks stale cooling-profile telemetry while that exact write runs. After a successful write, the same intent gets a short four-second confirmation lease: matching fresh telemetry clears it immediately, while an older Max/Quiet snapshot cannot bounce Home back before the service catches up. A rejection clears the optimistic state and requests fresh status instead of pretending Auto succeeded.
 
 Second, the explicit service Auto path previously called the generic FanSupervisor Auto handoff before releasing a known live Lenovo firmware/full-speed override. On an X9 whose FanSupervisor was already logically Auto while Max was owned by the firmware coordinator, that recovery probe was unnecessary work ahead of the operation the user actually requested. Alpha.50 releases the known active firmware override first, then performs direct-provider cleanup only if direct state is actually owned. The wider stale-provider recovery remains available when there is no live firmware override.
 
