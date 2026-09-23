@@ -50,7 +50,7 @@ internal static class Program
         AppState batteryDeviceTemperature = CreateDemoState(charging: true, hardwareReady: true);
         batteryDeviceTemperature.BatteryTemperatureC = null;
         AppState batteryProtectionPaused = CreateDemoState(charging: false, hardwareReady: true);
-        batteryProtectionPaused.BatteryPercent = 88;
+        batteryProtectionPaused.BatteryPercent = 85;
         batteryProtectionPaused.BatteryCharging = false;
         batteryProtectionPaused.BatteryStatus = "Plugged in";
         batteryProtectionPaused.BatteryProtectionEnabled = true;
@@ -130,7 +130,7 @@ internal static class Program
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
-            "advanced-battery-preservation-paused.png", "80–90% preservation · 88% current · charging paused");
+            "advanced-battery-preservation-paused.png", "80–90% preservation · 85% current · charging paused");
         RenderAdvanced(app, keyboardExperimentalFallback, "Keyboard", 1160, 760, output, snapshots,
             "advanced-keyboard-experimental-fallback.png", "Experimental fallback · session enabled");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
