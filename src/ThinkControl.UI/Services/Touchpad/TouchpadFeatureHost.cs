@@ -57,8 +57,8 @@ internal sealed class TouchpadFeatureHost : IDisposable
             mode => app.Dispatcher.BeginInvoke(new Action(() =>
             {
                 string label = AudioSafetyPolicy.DisplayName(mode) == "Silent"
-                    ? "Silent · media locked"
-                    : "Media locked";
+                    ? "Silent · output muted"
+                    : "Gesture lock";
                 if (ReadVolumePercent() is int volume)
                     _osd.Show(label, volume);
                 else
