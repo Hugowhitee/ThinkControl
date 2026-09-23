@@ -63,8 +63,7 @@ public partial class CompactDashboard
         ShellUtilityOrder.ConfigureModeButton(
             CompactExpandButton,
             "Advanced",
-            "FullView",
-            (Brush)FindResource("Tc.TextMuted"));
+            "FullView");
         ShellUtilityOrder.Apply(
             actions,
             _hardwareAlertButton,
