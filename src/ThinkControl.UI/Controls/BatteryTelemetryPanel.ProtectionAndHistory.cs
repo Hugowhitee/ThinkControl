@@ -103,7 +103,9 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge active" : "Full charge read-only";
             ChargeProtectionImpactText.Text = "Charges normally to 100%.";
-            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false);
+            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
+                _subscribedState?.BatteryPercent ?? 0,
+                100);
         }
         else
         {
@@ -111,7 +113,9 @@ public partial class BatteryTelemetryPanel
                 ? $"{start}–{stop}% active"
                 : $"{start}–{stop}% read-only";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
-            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(start, stop);
+            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
+                _subscribedState?.BatteryPercent ?? start,
+                stop);
         }
 
         ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
