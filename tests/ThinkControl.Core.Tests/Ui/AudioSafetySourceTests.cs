@@ -66,6 +66,10 @@ public sealed class AudioSafetySourceTests
         Assert.Contains("VkVolumeMute = 0xAD", blocker, StringComparison.Ordinal);
         Assert.Contains("VkVolumeDown = 0xAE", blocker, StringComparison.Ordinal);
         Assert.Contains("VkVolumeUp = 0xAF", blocker, StringComparison.Ordinal);
+        Assert.Contains("WmKeyDown = 0x0100", blocker, StringComparison.Ordinal);
+        Assert.Contains("WmSysKeyDown = 0x0104", blocker, StringComparison.Ordinal);
+        Assert.Contains("volumeKey && keyDown", blocker, StringComparison.Ordinal);
+        Assert.DoesNotContain("WmKeyUp", blocker, StringComparison.Ordinal);
         Assert.Contains("return (IntPtr)1;", blocker, StringComparison.Ordinal);
         Assert.Contains("CallNextHookEx", blocker, StringComparison.Ordinal);
         Assert.DoesNotContain("VkMediaPlay", blocker, StringComparison.OrdinalIgnoreCase);
