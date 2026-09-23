@@ -37,6 +37,7 @@ These files preserve evidence that still explains provider behavior. They are re
 | [ThinkPad X9-15 Gen 1 research](research/x9-15-gen1.md) | Physical/driver evidence behind the verified X9 provider |
 | [X9 alpha.41 full-speed addendum](research/x9-alpha41-full-speed.md) | Focused evidence and safety model for the exact-X9 `0x04020000` Max-cooling semantic |
 | [Lenovo provider research](research/lenovo-providers.md) | Known Lenovo provider families and capability boundaries |
+| [Alpha.50 Silent + battery impact research](research/alpha50-silent-battery-impact.md) | Windows CoreAudio/volume-key evidence and rationale for threshold-only preservation context |
 
 ## Documentation ownership
 
