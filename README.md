@@ -40,8 +40,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.47/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.47/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.48/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
