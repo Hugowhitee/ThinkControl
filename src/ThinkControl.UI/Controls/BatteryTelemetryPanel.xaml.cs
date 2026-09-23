@@ -321,10 +321,9 @@ public partial class BatteryTelemetryPanel : UserControl
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
             : "Charges normally to 100%.";
-        ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(
-            snapshotStart,
-            snapshotStop,
-            enabled: snapshotProtection);
+        ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
+            state.BatteryPercent,
+            snapshotProtection ? snapshotStop : 100);
         ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
         ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
