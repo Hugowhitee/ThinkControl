@@ -67,6 +67,8 @@ internal static class Program
         AppState homeManualFan = CreateDemoState(charging: true, hardwareReady: true);
         homeManualFan.CoolingProfile = "Manual 55%";
         homeManualFan.FanControlKind = FanControlKinds.DiscreteEc;
+        AppState homeFanAuto = CreateDemoState(charging: true, hardwareReady: true);
+        homeFanAuto.CoolingProfile = "Lenovo Auto";
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
         pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
         pawnIoRepair.HardwareAccess =
@@ -108,7 +110,7 @@ internal static class Program
         RenderBootstrap(output, snapshots);
         RenderUpdateAttention(app, output, snapshots);
         RenderCompact(app, charging, output, snapshots, "compact-dark.png", "charging");
-        RenderCompact(app, charging, output, snapshots, "compact-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+        RenderCompact(app, charging, output, snapshots, "compact-media-lock.png", "Audio safety · Gesture lock", audioSafetyMode: AudioSafetyMode.MediaLock);
         RenderCompact(app, charging, output, snapshots, "compact-silent.png", "Audio safety · Silent", audioSafetyMode: AudioSafetyMode.Silent);
         RenderCompact(app, charging, output, snapshots, "compact-metrics-editor.png", "charging · metric editor", editMetrics: true);
         RenderCompact(app, onBattery, output, snapshots, "compact-on-battery.png", "on battery");
@@ -116,7 +118,9 @@ internal static class Program
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
-            "advanced-home-audio-media-lock.png", "Audio safety · Media lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+            "advanced-home-audio-media-lock.png", "Audio safety · Gesture lock", audioSafetyMode: AudioSafetyMode.MediaLock);
+        RenderAdvanced(app, homeFanAuto, "Home", 1160, 760, output, snapshots,
+            "advanced-home-fan-auto.png", "firmware Auto · presets disabled");
         RenderAdvanced(app, homeManualFan, "Home", 1160, 760, output, snapshots,
             "advanced-home-fan-manual.png", "manual fan output · Home state clarity");
         RenderAdvanced(app, charging, "Home", 980, 650, output, snapshots,
@@ -201,6 +205,8 @@ internal static class Program
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
         RenderCompact(app, charging, output, snapshots, "compact-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
+        RenderAdvanced(app, homeFanAuto, "Home", 1160, 760, output, snapshots,
+            "advanced-home-fan-auto-light.png", "firmware Auto · presets disabled · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
             "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
