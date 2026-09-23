@@ -49,18 +49,24 @@ public static class BatteryPreservationImpactModel
             EquivalentFullChargeThroughputAvoided: Math.Round(headroom / 100m, 2));
     }
 
-    public static string Describe(int startPercent, int stopPercent, bool enabled = true)
+    public const string LimitationsText =
+        "Exact cycle-life gain cannot be derived from charge thresholds alone; chemistry, temperature and usage also matter.";
+
+    public static string DescribeWearContext(int startPercent, int stopPercent, bool enabled = true)
     {
         BatteryPreservationImpact impact = Estimate(startPercent, stopPercent, enabled);
         if (!impact.Enabled)
-            return "100% cap · maximum unplugged capacity · no top-end charge headroom.";
+            return "Wear context · no top-end charge headroom";
 
         string band = impact.HighSocBandAvoidedPercent >= 100
-            ? $"all of the >{HighSocReferencePercent}% high-SOC band"
-            : $"~{impact.HighSocBandAvoidedPercent}% of the >{HighSocReferencePercent}% high-SOC band";
+            ? $"all of >{HighSocReferencePercent}% high-SOC band avoided"
+            : $"~{impact.HighSocBandAvoidedPercent}% of >{HighSocReferencePercent}% high-SOC band avoided";
 
-        return $"{impact.StopPercent}% cap · avoids {impact.TopEndHeadroomPercent}% top-end capacity · {band}. Exact cycle-life gain varies with chemistry and temperature.";
+        return $"Wear context · {impact.TopEndHeadroomPercent}% top-end headroom · {band}";
     }
+
+    public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>
+        $"{DescribeWearContext(startPercent, stopPercent, enabled)}. {LimitationsText}"
 }
 
 public sealed record BatteryPreservationImpact(
