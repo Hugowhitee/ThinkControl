@@ -108,7 +108,7 @@ ThinkControl snapshots the previous Lenovo configuration before a transition. A 
 
 ThinkControl does **not** alter the Lenovo driver service startup type. If the PM device/configuration is missing or inaccessible, the product remains read-only/fallback-only instead of trying another Lenovo EC/ACPI path.
 
-The UI exposes named charge windows rather than the raw supported byte range. Existing non-preset Lenovo thresholds are shown truthfully as Custom and are not overwritten until the user makes an explicit selection. Battery-preservation UI must not claim a fabricated wear multiplier or literal cycles-saved count; actual wear depends on chemistry, temperature, calendar time, charge rate and depth of discharge. Alpha.50 may calculate only transparent threshold-derived context (top-end headroom, recharge-window width, omitted equivalent full-charge throughput and omitted share of the >70% UI reference band).
+The UI exposes named charge windows rather than the raw supported byte range. Existing non-preset Lenovo thresholds are shown truthfully as Custom and are not overwritten until the user makes an explicit selection. Battery Preservation may show a **comparative modeled wear-cycle cost** only when the formula and assumptions are explicit and 100% is the stated baseline; it must never present that estimate as measured pack degradation or guaranteed lifetime. Actual wear still depends on chemistry, real cell-voltage mapping, temperature, charge rate, calendar time and depth of discharge.
 
 See `docs/research/x9-alpha43-battery-care.md` for the protocol evidence and product gate.
 
