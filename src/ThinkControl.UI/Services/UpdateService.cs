@@ -362,11 +362,32 @@ public sealed class UpdateService
         return string.IsNullOrWhiteSpace(sanitized) ? "0.1.0" : sanitized;
     }
 
-    private sealed record SemanticVersion(int Major, int Minor, int Patch, IReadOnlyList<string> PreRelease) : IComparable<SemanticVersion>
+    private sealed record SemanticVersion(
+        int Major,
+        int Minor,
+        int Patch,
+        IReadOnlyList<string> PreRelease,
+        int? DevelopmentBuild) : IComparable<SemanticVersion>
     {
         internal static SemanticVersion Parse(string raw)
         {
             string withoutBuild = raw.Split('+')[0];
+            int? developmentBuild = null;
+
+            // Package CI versions look like 0.1.0-alpha.50-dev.1767.
+            // Plain SemVer interprets the non-numeric "50-dev" identifier as newer
+            // than alpha.50, which can strand somebody on a manually installed dev
+            // build once the canonical release is published. Treat ThinkControl's
+            // trailing -dev.N marker as a lower-precedence qualifier of the same
+            // base prerelease instead.
+            int devIndex = withoutBuild.LastIndexOf("-dev.", StringComparison.OrdinalIgnoreCase);
+            if (devIndex > 0 &&
+                int.TryParse(withoutBuild[(devIndex + 5)..], out int parsedDevelopmentBuild))
+            {
+                developmentBuild = parsedDevelopmentBuild;
+                withoutBuild = withoutBuild[..devIndex];
+            }
+
             string[] versionAndPre = withoutBuild.Split('-', 2);
             string[] core = versionAndPre[0].Split('.');
             if (core.Length < 3 ||
@@ -380,7 +401,7 @@ public sealed class UpdateService
             IReadOnlyList<string> pre = versionAndPre.Length == 2
                 ? versionAndPre[1].Split('.', StringSplitOptions.RemoveEmptyEntries)
                 : Array.Empty<string>();
-            return new SemanticVersion(major, minor, patch, pre);
+            return new SemanticVersion(major, minor, patch, pre, developmentBuild);
         }
 
         public int CompareTo(SemanticVersion? other)
@@ -391,7 +412,8 @@ public sealed class UpdateService
             if (core == 0) core = Patch.CompareTo(other.Patch);
             if (core != 0) return core;
 
-            if (PreRelease.Count == 0 && other.PreRelease.Count == 0) return 0;
+            if (PreRelease.Count == 0 && other.PreRelease.Count == 0)
+                return CompareDevelopment(other);
             if (PreRelease.Count == 0) return 1;
             if (other.PreRelease.Count == 0) return -1;
 
@@ -415,6 +437,17 @@ public sealed class UpdateService
                             : string.Compare(left, right, StringComparison.OrdinalIgnoreCase);
                 if (part != 0) return part;
             }
+
+            return CompareDevelopment(other);
+        }
+
+        private int CompareDevelopment(SemanticVersion other)
+        {
+            if (DevelopmentBuild.HasValue != other.DevelopmentBuild.HasValue)
+                return DevelopmentBuild.HasValue ? -1 : 1;
+
+            if (DevelopmentBuild is int leftDev && other.DevelopmentBuild is int rightDev)
+                return leftDev.CompareTo(rightDev);
 
             return 0;
         }
