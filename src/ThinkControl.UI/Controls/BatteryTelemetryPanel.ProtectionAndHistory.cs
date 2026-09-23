@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ThinkControl.Core.Battery;
 using ThinkControl.Core.Ipc;
 using WpfApplication = System.Windows.Application;
 
@@ -100,7 +101,7 @@ public partial class BatteryTelemetryPanel
         else if (!enabled)
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Full charge · active" : "Full charge · read-only";
-            ChargeProtectionImpactText.Text = "Charges normally to 100%.";
+            ChargeProtectionImpactText.Text = BatteryPreservationImpactModel.Describe(100, 100, enabled: false);
         }
         else
         {
@@ -198,8 +199,12 @@ public partial class BatteryTelemetryPanel
         return parts.Length == 2 && int.TryParse(parts[0], out start) && int.TryParse(parts[1], out stop) && start < stop;
     }
 
-    private static string DescribeChargeProtectionImpact(int start, int stop) =>
-        $"Resumes below {start}% · stops at {stop}%.";
+    private static string DescribeChargeProtectionImpact(int start, int stop)
+    {
+        string thresholds = $"Resumes below {start}% · stops at {stop}%.";
+        string impact = BatteryPreservationImpactModel.Describe(start, stop);
+        return $"{thresholds} {impact}";
+    }
 
     private void SyncHistoryManagementUi()
     {
