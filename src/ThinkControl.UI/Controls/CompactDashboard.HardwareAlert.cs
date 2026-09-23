@@ -24,27 +24,28 @@ public partial class CompactDashboard
             return;
 
         var icon = new Grid { Width = 19, Height = 19 };
-        icon.Children.Add(new Path
+        var bellPath = new Path
         {
             Data = Geometry.Parse("M9.5,2.2 C6.2,2.2 4.7,4.7 4.7,7.5 V10.2 L3.1,12.7 H15.9 L14.3,10.2 V7.5 C14.3,4.7 12.8,2.2 9.5,2.2 Z M7.4,14.5 C7.8,15.6 8.5,16.1 9.5,16.1 C10.5,16.1 11.2,15.6 11.6,14.5"),
-            Stroke = (Brush)FindResource("Tc.TextMuted"),
             StrokeThickness = 1.55,
             StrokeStartLineCap = PenLineCap.Round,
             StrokeEndLineCap = PenLineCap.Round,
             StrokeLineJoin = PenLineJoin.Round,
             Fill = Brushes.Transparent
-        });
+        };
+        bellPath.SetResourceReference(Shape.StrokeProperty, "Tc.TextMuted");
+        icon.Children.Add(bellPath);
         _hardwareAlertDot = new Ellipse
         {
             Width = 6,
             Height = 6,
-            Fill = (Brush)FindResource("Tc.Accent"),
-            Stroke = (Brush)FindResource("Tc.Window"),
             StrokeThickness = 1,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Top,
             Margin = new Thickness(0, 1, 1, 0)
         };
+        _hardwareAlertDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
+        _hardwareAlertDot.SetResourceReference(Shape.StrokeProperty, "Tc.Window");
         icon.Children.Add(_hardwareAlertDot);
 
         _hardwareAlertButton = new WpfButton
@@ -62,8 +63,7 @@ public partial class CompactDashboard
         ShellUtilityOrder.ConfigureModeButton(
             CompactExpandButton,
             "Advanced",
-            "FullView",
-            (Brush)FindResource("Tc.TextMuted"));
+            "FullView");
         ShellUtilityOrder.Apply(
             actions,
             _hardwareAlertButton,

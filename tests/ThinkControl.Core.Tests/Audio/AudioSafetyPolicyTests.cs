@@ -22,7 +22,7 @@ public sealed class AudioSafetyPolicyTests
 
     [Theory]
     [InlineData(AudioSafetyMode.Normal, "Normal")]
-    [InlineData(AudioSafetyMode.MediaLock, "Media lock")]
+    [InlineData(AudioSafetyMode.MediaLock, "Gesture lock")]
     [InlineData(AudioSafetyMode.Silent, "Silent")]
     public void DisplayName_IsStable(AudioSafetyMode mode, string expected) =>
         Assert.Equal(expected, AudioSafetyPolicy.DisplayName(mode));

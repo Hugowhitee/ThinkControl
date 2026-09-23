@@ -28,11 +28,14 @@ public sealed class ModeVisualCoverageSourceTests
         Assert.Contains("compact-silent.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-silent-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-audio-media-lock.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-home-fan-auto.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-home-fan-auto-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-fan-manual.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-audio-silent-min.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-audio-silent-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-settings-opening-advanced.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-battery-preservation-paused.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-battery-preservation-paused-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-keyboard-experimental-fallback.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-settings-light.png", snapshots, StringComparison.Ordinal);
         Assert.DoesNotContain("advanced-settings-audio-silent.png", snapshots, StringComparison.Ordinal);

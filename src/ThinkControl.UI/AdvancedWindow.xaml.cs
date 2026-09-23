@@ -74,8 +74,7 @@ public partial class AdvancedWindow : Window
         ShellUtilityOrder.ConfigureModeButton(
             compactButton,
             "Compact",
-            "CompactView",
-            (Brush)FindResource("Tc.TextMuted"));
+            "CompactView");
         TcToolTip.Apply(compactButton, "Compact view");
         compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
 
@@ -101,6 +100,7 @@ public partial class AdvancedWindow : Window
             IntPtr hwnd = new WindowInteropHelper(this).Handle;
             int useDark = ThemeService.IsLightEffective ? 0 : 1;
             _ = DwmSetWindowAttribute(hwnd, DwmwaUseImmersiveDarkMode, ref useDark, sizeof(int));
+            ApplyConsistentCaptionPalette();
         }
         catch
         {

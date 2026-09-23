@@ -93,10 +93,15 @@
                         <TextBlock Text="Battery preservation" FontWeight="SemiBold" />
                         <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                     </Grid>
-                    <TextBlock Text="Keep the battery away from a constantly full state when you do not need maximum unplugged runtime." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <controls:BatteryProtectionGauge Height="54"
+                                                     Margin="0,7,0,0"
+                                                     ProtectionEnabled="{Binding BatteryProtectionEnabled}"
+                                                     StartPercent="{Binding BatteryProtectionStartPercent}"
+                                                     StopPercent="{Binding BatteryProtectionStopPercent}"
+                                                     CurrentPercent="{Binding BatteryPercent}" />
                     <ComboBox x:Name="ChargeProtectionComboBox"
                               Style="{StaticResource TcComboBox}"
-                              Margin="0,10,0,0"
+                              Margin="0,7,0,0"
                               MinHeight="38"
                               IsEnabled="False"
                               SelectionChanged="ChargeProtection_SelectionChanged">
@@ -105,8 +110,8 @@
                         <ComboBoxItem Content="Maximum care · 40–60%" Tag="40,60" />
                         <ComboBoxItem Content="Full charge · 100%" Tag="off" />
                     </ComboBox>
-                    <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active firmware setting…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                    <TextBlock x:Name="ChargeProtectionProviderText" Text="ThinkControl changes only a verified OEM threshold provider; it never estimates a battery-life multiplier." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active firmware setting…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
+                    <TextBlock x:Name="ChargeProtectionProviderText" Text="Verified OEM charge-threshold provider." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="Collapsed" />
                     <Button x:Name="ChargeProtectionFallbackButton" Content="Lenovo battery settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="-7,7,0,0" Click="OpenVantage_Click" />
                 </StackPanel>
             </Border>

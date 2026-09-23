@@ -32,6 +32,39 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
+## Alpha.48 release-ready — UX clarity and live state
+
+Alpha.48 is the active candidate on immutable alpha.47. It does **not** add a new low-level hardware command surface.
+
+Scope:
+
+- make Home fan Auto visually and behaviorally exclusive by disabling competing presets while firmware/OEM Auto owns cooling;
+- rename the user-facing Audio Safety middle state from **Media lock** to **Gesture lock** without changing its internal serialized/session enum, so keyboard and Windows/app audio behavior is explicit;
+- reassert Silent from CoreAudio endpoint notifications after keyboard/app unmute attempts while retaining the existing bounded status cadence for endpoint convergence;
+- tighten Compact Audio Safety width, label alignment and explanatory copy;
+- replace Battery Preservation's text-heavy explanation with a themed start/stop ruler, lock, ticks and current-position marker plus one concise state sentence;
+- keep shell-mode and native Advanced chrome colors live across light/dark theme switches;
+- add deterministic dark/light visual coverage for fan Auto and retain existing safety/preservation snapshots.
+
+Release gate:
+
+- [x] alpha.47 immutable release remains the implementation base
+- [x] implementation branch isolates alpha.48 from immutable alpha.47
+- [x] fan Auto competing controls disable from canonical cooling state
+- [x] Gesture lock naming/copy matches actual touchpad-only boundary
+- [x] Silent external-volume event enforcement implemented without a polling timer
+- [x] Compact Audio Safety geometry tightened
+- [x] Battery Preservation threshold ruler implemented and verbose normal-state copy removed
+- [x] live theme resource/chrome refresh repaired for the reported light → dark artifacts
+- [x] source regression coverage updated for the changed contracts
+- [x] exact implementation-head CI green · run `35845736667` / CI #2017
+- [x] Package ThinkControl green · run `35845736662` / Package #1717
+- [x] full-resolution WPF visual artifact manually inspected, including fan Auto dark/light, Compact Audio Safety, Silent light and Battery Preservation · artifact `10742907974`, digest `sha256:2c17e0f8c36d52554b6baacf19070ddf58ed18eab9b09673872a49a8974937d0`
+- [ ] post-release physical X9 follow-up: confirm Gesture lock keyboard semantics and Silent keyboard/app re-mute behavior on the reference machine; this remains real-device evidence and is not inferred from hosted CI
+- [x] final review/release-ready metadata freeze
+- [ ] frozen-head CI + Package green
+- [ ] expected-head merge, immutable alpha.48 release and public checksum verification
+
 ## Alpha.47 published release
 
 Alpha.47 is the immutable interface-consistency, feedback and clarity release on alpha.46. It does **not** add a new low-level hardware command surface.

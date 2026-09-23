@@ -46,14 +46,15 @@ public partial class AdvancedWindow
         header.Children.Add(actions);
         content.Children.Add(header);
 
-        content.Children.Add(new TextBlock
+        var subtitle = new TextBlock
         {
             Text = "Live Windows/ACPI battery data plus local charging history and Windows-owned power controls.",
             FontSize = TypographyScale.Body,
-            Foreground = (System.Windows.Media.Brush)FindResource("Tc.TextMuted"),
             Margin = new Thickness(0, 7, 0, 18),
             TextWrapping = TextWrapping.Wrap
-        });
+        };
+        subtitle.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        content.Children.Add(subtitle);
         content.Children.Add(new BatteryTelemetryPanel());
         PageBattery.Content = content;
     }

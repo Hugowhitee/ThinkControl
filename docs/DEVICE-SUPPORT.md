@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.47**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.46` is the current published prerelease. Alpha.47 only tightens shell/mode naming and visual verification; alpha.44 remains the hardware-behavior baseline and no low-level write capability is broadened.
+This document describes the support model at **v0.1.0-alpha.48**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.48` is the current published prerelease; alpha.48 is a UI/Windows-audio behavior follow-up and does not broaden low-level hardware writes.
 
 ## Support levels
 
@@ -12,12 +12,12 @@ Available without vendor-specific write access where Windows exposes the informa
 - update/install flow;
 - Windows power-policy integration;
 - display/audio pages backed by Windows-visible capabilities;
-- alpha.43 **Audio Safety** (`Normal` / `Media lock` / `Silent`) using Windows semantic audio APIs;
+- **Audio Safety** (`Normal` / `Gesture lock` / `Silent`) using Windows semantic audio APIs;
 - battery and generic telemetry that Windows/providers expose;
 - local battery-history aggregation/retention management;
 - diagnostics/report preview and explicit sharing controls.
 
-Audio Safety is a Windows-user-session policy and does **not** grant any low-level device write capability. Media lock only suppresses ThinkControl Touchpad media/output actions. Silent additionally mutes the current Windows render endpoint and blocks ThinkControl output writes while leaving microphone input independent.
+Audio Safety is a Windows-user-session policy and does **not** grant any low-level device write capability. Gesture lock only suppresses ThinkControl Touchpad media/output actions; physical keyboard and ordinary Windows/app audio controls remain deliberate controls. Silent additionally keeps the current Windows render endpoint muted while leaving microphone input independent.
 
 ### Provider-backed read-only
 
@@ -158,11 +158,11 @@ Occupied edge actions swap instead of destructively clearing the previous edge. 
 Audio Safety is available anywhere the normal Windows output endpoint can be accessed; it is not an OEM capability.
 
 - **Normal** — ThinkControl audio/media controls behave normally.
-- **Media lock** — ThinkControl Touchpad Volume, Media scrub and Track media commands are blocked. It does not mute Windows output or stop audio started elsewhere.
-- **Silent** — includes Media lock, mutes the current Windows render endpoint and blocks ThinkControl output-volume/unmute writes.
+- **Gesture lock** — ThinkControl Touchpad Volume, Media scrub and Track media commands are blocked. It does not mute Windows output or block physical keyboard/Windows/app controls.
+- **Silent** — includes Gesture lock, mutes the current Windows render endpoint and blocks ThinkControl output-volume/unmute writes.
 - **Microphone** — capture/input state remains independent in all three modes.
 
-Alpha.43 keeps Audio Safety **session-only**. Restart starts in Normal because a new process cannot safely claim ownership of mute state created by the old process. While Silent is active, ThinkControl records the prior mute state of each default output endpoint it actually encounters and restores only those states when leaving Silent/orderly exit. Default-output convergence reuses the existing app status cadence rather than adding another polling loop.
+Alpha.43 keeps Audio Safety **session-only**. Restart starts in Normal because a new process cannot safely claim ownership of mute state created by the old process. While Silent is active, ThinkControl records the prior mute state of each default output endpoint it actually encounters and restores only those states when leaving Silent/orderly exit. CoreAudio endpoint notifications reassert Silent promptly after keyboard/app mute changes on the active endpoint; the existing app status cadence remains the fallback for default-output convergence rather than adding another polling loop.
 
 ## Unknown/new hardware
 

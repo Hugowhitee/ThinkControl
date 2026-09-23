@@ -43,9 +43,11 @@ Check at minimum:
 8. dark/light contrast and hierarchy remain usable;
 9. startup and Compact ↔ Advanced transitions always provide an immediately painted surface;
 10. overlays/popups intended to block interaction appear above Compact as well as Advanced.
-11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Media lock / Silent remain legible without footer clipping in both themes.
-12. Advanced Home's Audio Safety card, fan Auto row and More-profiles affordance remain aligned and understandable at minimum, normal and light-theme states; Battery health-trend explanation must not collide with the chart/status copy.
-13. The first-seen update popup must show the full transition/copy and both **Install now** / **Later** actions without clipping or implying an automatic install.
+11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Gesture lock / Silent remain legible without footer clipping in both themes.
+12. Advanced Home's Audio Safety card, fan Auto row and More-profiles affordance remain aligned and understandable at minimum, normal and light-theme states; Auto must visibly disable competing fan presets; Battery health-trend explanation must not collide with the chart/status copy.
+13. Battery Preservation threshold ruler, lock, ticks and current-position marker must remain legible without crowding its selector or state copy in dark/light themes.
+14. Theme changes must repaint shell-mode labels and native Advanced caption colors immediately without minimize/reopen.
+15. The first-seen update popup must show the full transition/copy and both **Install now** / **Later** actions without clipping or implying an automatic install.
 
 ## Artifact ownership
 

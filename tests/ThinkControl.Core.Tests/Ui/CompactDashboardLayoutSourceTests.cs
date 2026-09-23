@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class CompactDashboardLayoutSourceTests
 {
     [Fact]
-    public void MediaSafety_LivesWithVolumeAndNotInTheFooter()
+    public void AudioSafety_LivesWithVolumeAndUsesCompactGeometry()
     {
         string root = FindRepositoryRoot();
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.xaml"));
@@ -14,9 +14,11 @@ public sealed class CompactDashboardLayoutSourceTests
 
         Assert.Contains("<RowDefinition Height=\"122\" />", xaml, StringComparison.Ordinal);
         Assert.Contains("<RowDefinition Height=\"34\" />", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Media safety\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Audio safety\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Row=\"2\" Grid.Column=\"1\" Grid.ColumnSpan=\"2\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Height=\"38\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"168\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("HorizontalAlignment=\"Left\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Height=\"520\"", window, StringComparison.Ordinal);
 
         int footer = xaml.IndexOf("<Grid Grid.Row=\"4\"", StringComparison.Ordinal);

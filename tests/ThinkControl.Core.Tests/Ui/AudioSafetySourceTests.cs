@@ -44,6 +44,8 @@ public sealed class AudioSafetySourceTests
         Assert.Contains("Dictionary<string, bool> _priorMuteByEndpoint", service, StringComparison.Ordinal);
         Assert.Contains("_priorMuteByEndpoint[device.ID] = device.AudioEndpointVolume.Mute", service, StringComparison.Ordinal);
         Assert.Contains("device.AudioEndpointVolume.Mute = priorMuted", service, StringComparison.Ordinal);
+        Assert.Contains("OnVolumeNotification += _ => EnsureSilentOutput()", service, StringComparison.Ordinal);
+        Assert.Contains("MMDevice? _silentObservedDevice", service, StringComparison.Ordinal);
         Assert.Contains("HardwareClient.StatusObserved += AudioSafety_StatusObserved", app, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherTimer", service, StringComparison.Ordinal);
         Assert.DoesNotContain("System.Threading.Timer", service, StringComparison.Ordinal);

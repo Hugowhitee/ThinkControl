@@ -24,7 +24,7 @@ public static class AudioSafetyPolicy
 
     public static string DisplayName(AudioSafetyMode mode) => mode switch
     {
-        AudioSafetyMode.MediaLock => "Media lock",
+        AudioSafetyMode.MediaLock => "Gesture lock",
         AudioSafetyMode.Silent => "Silent",
         _ => "Normal"
     };

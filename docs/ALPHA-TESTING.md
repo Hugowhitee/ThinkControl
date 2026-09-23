@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.47** and later candidates built from it. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.48** and later candidates built from immutable alpha.47. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -40,6 +40,17 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
+
+## Alpha.48 UX clarity and live-state regression
+
+1. On Advanced Home, enable fan **Auto**. Quiet / Balanced / Max and **More profiles** must become visibly disabled while the Auto switch remains enabled and clearly paired with its label. Turn Auto off and confirm Balanced becomes the deliberate fallback.
+2. Inspect Compact Audio Safety in dark and light themes. The selector must be compact, aligned with its label and show `Normal / Gesture lock / Silent` without clipping.
+3. Enable **Gesture lock**. ThinkControl Touchpad Volume, seek and Track media actions must be blocked, while the physical keyboard volume keys and ordinary Windows/app audio controls must still work. The UI/OSD must say Gesture lock rather than implying a global media lock.
+4. Enable **Silent**, then use the physical keyboard volume/mute controls and an app/Windows volume control. The active output must remain/re-converge muted immediately from CoreAudio notification handling; a visible multi-second audible escape is a failure.
+5. While Silent is active, switch the default output endpoint. The existing bounded status path may perform endpoint convergence; no new polling timer is allowed.
+6. On Battery, inspect Battery Preservation with a live start/stop pair. The threshold ruler, lock, vertical ticks and current battery marker must be legible; the card should need only the concise stop/resume sentence in normal writable state.
+7. Switch light → dark and dark → light while Advanced remains open. Sidebar shell-mode controls and the native caption/text/border must repaint immediately without minimize/reopen.
+8. Review `advanced-home-fan-auto.png`, `advanced-home-fan-auto-light.png`, Compact safety states and Battery Preservation snapshots at full resolution before promotion.
 
 ## Alpha.47 mode and visual polish
 

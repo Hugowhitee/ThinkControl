@@ -137,7 +137,7 @@
             <Border Grid.Row="3" Style="{StaticResource TcSection}" Padding="10,7">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition Height="42" /></Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="78" /><ColumnDefinition /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="92" /><ColumnDefinition /><ColumnDefinition Width="42" /></Grid.ColumnDefinitions>
                     <TextBlock Text="Brightness" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
                     <Slider x:Name="CompactBrightnessSlider" Grid.Column="1" Style="{StaticResource TcSlider}" Value="{Binding Brightness}" IsEnabled="{Binding BrightnessAvailable}" PreviewMouseLeftButtonUp="CompactBrightness_Commit" PreviewKeyUp="CompactBrightness_KeyCommit" />
                     <TextBlock Grid.Column="2" Text="{Binding BrightnessText}" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
@@ -146,8 +146,8 @@
                     <Slider x:Name="CompactVolumeSlider" Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" PreviewMouseLeftButtonUp="CompactVolume_Commit" PreviewKeyUp="CompactVolume_KeyCommit" />
                     <TextBlock x:Name="CompactVolumeText" Grid.Row="1" Grid.Column="2" Text="—" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
 
-                    <TextBlock Grid.Row="2" Text="Media safety" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
-                    <ComboBox x:Name="CompactAudioSafetyCombo" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource TcComboBox}" Height="38" MinHeight="38" HorizontalAlignment="Stretch" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Normal, Media lock or Silent. Media lock prevents accidental ThinkControl volume/media actions; Silent also mutes output." />
+                    <TextBlock Grid.Row="2" Text="Audio safety" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
+                    <ComboBox x:Name="CompactAudioSafetyCombo" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource TcComboBox}" Width="168" Height="38" MinHeight="38" HorizontalAlignment="Left" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Normal: all ThinkControl media gestures work. Gesture lock: touchpad volume/track/seek gestures are blocked, but keyboard and Windows/app audio still work. Silent: those gestures are blocked and Windows output is kept muted." />
                 </Grid>
             </Border>
             <Grid Grid.Row="4" Margin="3,2,3,0" VerticalAlignment="Stretch">
