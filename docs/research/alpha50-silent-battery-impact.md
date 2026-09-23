@@ -53,17 +53,20 @@ Alpha.50 therefore uses the same *comparative* concept with a transparent generi
 - 0% is mapped to an idealized 3.52 V/cell;
 - 100% is mapped to 4.35 V/cell;
 - the curve rises slowly through the middle and more sharply near full charge using `0.28 × SOC + 0.72 × SOC^4`;
-- relative wear is `2^(-10 × (4.35 - Vend))`, with the tiny 0%-SOC baseline removed;
-- the result is normalized so **100% = 1.00 wear cycle**.
+- above about 3.95 V, cumulative wear follows `2^(-10 × (4.35 - Vend))`;
+- below that high-voltage region, the model joins to a small linear baseline instead of extending the exponential into a chemistry regime the cited work does not quantify the same way;
+- a full 0→100% charge is normalized to **1.00 wear cycle** for comparison.
 
-That produces the current UI comparisons:
+The visible number follows AccuBattery's charging-screen idea: it is the **incremental wear from the current battery level to the selected charge limit**, not just a static property of the preset. If current level already equals the limit, the estimate is therefore ~0.00.
 
-- 85% ≈ **0.11 wear cycles** (about 89% less than the 100% baseline);
-- 80% ≈ **0.06** (about 94% less);
-- 60% ≈ **0.01** (about 99% less);
-- 100% = **1.00 baseline**.
+For the normal preservation windows, the model gives roughly:
 
-These values are a simple way to compare charge-limit choices, not measured degradation of the installed X9 battery. The tooltip explicitly says actual pack wear still varies with chemistry, real voltage mapping, temperature, charge rate and use. Firmware cycle count and ThinkControl's capacity-health trend remain separate real measurements.
+- 75→85% recharge: **0.05 wear cycles**;
+- 55→80% recharge: **0.02**;
+- 40→60% recharge: **0.02**;
+- 0→100% full charge: **1.00 baseline**.
+
+These values are a simple way to compare charging choices, not measured degradation of the installed X9 battery. The tooltip explicitly says actual pack wear still varies with chemistry, real voltage mapping, temperature, charge rate and use. Firmware cycle count and ThinkControl's capacity-health trend remain separate real measurements.
 
 The visual was simplified at the same time. Alpha.49's permanent green/amber/red regions and charge/pause glyphs made the card read like a diagram instead of a live battery control. Alpha.50 now uses one current-level fill whose color reacts to charging/limit state, with only two aligned threshold markers for resume and cap.
 
