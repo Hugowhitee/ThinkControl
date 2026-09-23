@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -31,7 +30,7 @@ internal static class ShellUtilityOrder
         }
     }
 
-    internal static void ConfigureModeButton(Button button, string label, string iconKind, Brush foreground)
+    internal static void ConfigureModeButton(Button button, string label, string iconKind)
     {
         button.Tag = ViewModeTag;
         if (Application.Current?.TryFindResource("TcShellModeButton") is Style shellStyle)
