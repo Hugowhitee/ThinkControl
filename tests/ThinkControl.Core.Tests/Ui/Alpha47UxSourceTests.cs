@@ -82,6 +82,8 @@ public sealed class Alpha47UxSourceTests
         Assert.Contains("Click=\"HomeFanMore_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("new ContextMenu", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanAutoSwitch.IsChecked == true ? \"Auto\" : \"Balanced\"", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanMoreButton.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MoreFanProfilesLabel", code, StringComparison.Ordinal);
         Assert.DoesNotContain("HomeFanProfileCombo", code, StringComparison.Ordinal);
     }
@@ -95,8 +97,9 @@ public sealed class Alpha47UxSourceTests
         string advancedXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
         string preferences = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.AppPreferences.cs"));
 
-        Assert.Contains("Text=\"Media safety\"", compactXaml, StringComparison.Ordinal);
-        Assert.Contains("\"Normal\", \"Media lock\", \"Silent\"", compactCode, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Audio safety\"", compactXaml, StringComparison.Ordinal);
+        Assert.Contains("\"Normal\", \"Gesture lock\", \"Silent\"", compactCode, StringComparison.Ordinal);
+        Assert.Contains("keyboard and Windows/app audio still work", compactXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HomeAudioSafetyNormal\"", advancedXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HomeAudioSafetyMediaLock\"", advancedXaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"HomeAudioSafetySilent\"", advancedXaml, StringComparison.Ordinal);
