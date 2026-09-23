@@ -72,8 +72,8 @@ Release gate:
 - [x] fan pending-intent masking and firmware-first Auto release implemented
 - [x] automatic keyboard effect OSD suppression is scoped to new `tposd.exe` windows during effect-write bursts
 - [x] keyboard Audio mode handles extensible float/PCM loopback, adaptive level context and bounded unexpected-stop restart
-- [ ] exact implementation-head CI + Package green
-- [ ] full-resolution Silent + Battery Preservation dark/light visual review
+- [x] exact implementation-head CI + Package green · head `76ba78ebcf9f674ddf6067e06578fd9f7f145c10` · CI `35874139702` / #2067 · Package `35874139683` / #1764
+- [x] full-resolution Silent + Battery Preservation + fan Auto + experimental keyboard-effect visual review · artifact `10756256695`, digest `sha256:463c3204f153c94bf17cb12e9491bd7ccd2f55904355c2f15a4743800fd19cea`
 - [ ] physical Windows/X9 check: held Volume Up/Down/Mute cannot escape Silent; keys work again immediately after leaving Silent
 - [ ] physical Windows check: app/mixer unmute and default-output changes reconverge without a multi-second audible escape
 - [ ] physical X9 fan check: Max → Auto changes promptly, never visually bounces back to Max while pending, and releases full-speed ownership
