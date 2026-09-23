@@ -52,7 +52,11 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 7. On Battery Preservation, verify calculated impact copy follows the actual thresholds rather than the preset name. Daily 75–85% should report 15% top-end headroom and about 50% of the >70% reference band omitted; Desk 55–80% should report 20% and about 67%; Maximum care 40–60% should report 40% and all of that reference band.
 8. Verify an unmatched custom threshold pair produces the corresponding calculated values automatically. Full charge must show no preservation benefit.
 9. The UI must never claim a literal number of cycles saved or an x-times lifetime multiplier from thresholds alone. It must say exact cycle-life gain varies with chemistry/temperature.
-10. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The longer calculated line may wrap, but must not clip, collide with the selector, or make the card visually dense.
+10. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The calculated wear-context line must stay visually secondary and must not clip, collide with the selector, or make the card dense.
+11. From **Max cooling**, click fan **Auto** several times under live telemetry. Auto must become the visible pending intent immediately and must not jump back to Max/Quiet while the hardware write is still in flight. When the service confirms the change, Auto remains selected; on a real rejection, fresh status must restore the actual state promptly.
+12. With Breathing or Reactive active through the experimental fallback, automatic level changes must not leave Lenovo's keyboard-backlight popup on screen. Pressing Fn+Space outside an automatic effect write must still retain ordinary Lenovo/Windows feedback.
+13. Select keyboard **Audio**, play quiet then normal/loud system audio, and confirm the keyboard follows the active render output rather than staying at one level. Repeat after changing the default output device or after a stop/restart of playback.
+14. Audio mode must store no audio and a loopback failure must not create a permanent restart loop; switching away from Audio must cancel any pending restart.
 
 ## Alpha.49 Battery Preservation visual clarity
 
