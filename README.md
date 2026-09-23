@@ -23,7 +23,7 @@
   </a>
 </div>
 
-## ThinkControl alpha.49 development
+## ThinkControl alpha.49
 
 Alpha.49 is a focused Battery Preservation visual-clarity follow-up. The threshold graphic now uses semantic charge/hold/stop zones, a charge-resume lightning marker and a stop/pause marker at the actual thresholds. Generic ruler ticks and the ambiguous lock glyph are removed; the only remaining live marker is the current battery position.
 
