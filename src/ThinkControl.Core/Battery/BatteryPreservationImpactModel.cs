@@ -66,7 +66,7 @@ public static class BatteryPreservationImpactModel
     }
 
     public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>
-        $"{DescribeWearContext(startPercent, stopPercent, enabled)}. {LimitationsText}"
+        $"{DescribeWearContext(startPercent, stopPercent, enabled)}. {LimitationsText}";
 }
 
 public sealed record BatteryPreservationImpact(
