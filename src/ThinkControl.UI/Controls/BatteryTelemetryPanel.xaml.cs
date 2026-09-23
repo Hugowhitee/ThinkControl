@@ -273,10 +273,21 @@ public partial class BatteryTelemetryPanel : UserControl
         _syncingChargeProtection = true;
         try
         {
+            RemoveDynamicChargeProtectionPreset();
             ChargeProtectionComboBox.IsEnabled = state.BatteryProtectionWritable;
-            ChargeProtectionComboBox.SelectedItem = snapshotProtection
+            ComboBoxItem? selected = snapshotProtection
                 ? FindChargeProtectionPreset(snapshotStart, snapshotStop)
                 : FindChargeProtectionPreset(enabled: false);
+            if (snapshotProtection && selected is null)
+            {
+                selected = new ComboBoxItem
+                {
+                    Content = $"Custom · {snapshotStart}–{snapshotStop}%",
+                    Tag = $"custom:{snapshotStart},{snapshotStop}"
+                };
+                ChargeProtectionComboBox.Items.Insert(0, selected);
+            }
+            ChargeProtectionComboBox.SelectedItem = selected;
         }
         finally
         {
