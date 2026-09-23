@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.49** and later candidates built from immutable alpha.48. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.50** and later candidates built from immutable alpha.49. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -40,6 +40,19 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
+
+## Alpha.50 Silent ownership and preservation-impact regression
+
+1. Enable **Silent** while audio is playing. Press and hold the physical Volume Up key, then Volume Down and Mute. Windows must not unmute or change the endpoint from those standard volume-key events while Silent remains active.
+2. While Silent is active, try changing mute/volume from Windows Settings, the system mixer and a normal app. A deliberate external unmute may momentarily request a state change, but CoreAudio must reassert mute promptly; no multi-second audible escape is acceptable.
+3. Repeat step 2 rapidly while holding/repeating a control. The final state must still be muted; an event arriving during an existing enforcement pass must not be lost.
+4. Change the default render endpoint while Silent is active. The new default output must become muted without waiting for the normal multi-second app status cadence. A brief not-ready device transition may use only the bounded 40/120/350 ms retry burst.
+5. Leave Silent. The standard volume keys must work immediately again, and only endpoint mute states actually remembered by ThinkControl may be restored.
+6. Confirm Gesture lock is unchanged: physical keyboard and Windows/app volume controls still work in Gesture lock.
+7. On Battery Preservation, verify calculated impact copy follows the actual thresholds rather than the preset name. Daily 75–85% should report 15% top-end headroom and about 50% of the >70% reference band omitted; Desk 55–80% should report 20% and about 67%; Maximum care 40–60% should report 40% and all of that reference band.
+8. Verify an unmatched custom threshold pair produces the corresponding calculated values automatically. Full charge must show no preservation benefit.
+9. The UI must never claim a literal number of cycles saved or an x-times lifetime multiplier from thresholds alone. It must say exact cycle-life gain varies with chemistry/temperature.
+10. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The longer calculated line may wrap, but must not clip, collide with the selector, or make the card visually dense.
 
 ## Alpha.49 Battery Preservation visual clarity
 
