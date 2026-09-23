@@ -70,8 +70,11 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 - **Silent owns the physical volume-key path.** While Silent is active, Windows `VK_VOLUME_MUTE / DOWN / UP` keys are swallowed before the shell can unmute the endpoint. CoreAudio callbacks remain the second line of defense for app/Windows changes.
 - **Repeated unmute events are no longer coalesced away.** A pending-bit enforcement loop guarantees another pass when an event arrives while re-muting is already in progress, closing the held-key race.
 - **Default-output switches are event-driven.** A persistent CoreAudio device notification client immediately rebinds Silent to a changed render endpoint, with only a short bounded retry burst while a new device becomes ready.
-- **Battery Preservation impact is calculated, not canned.** The selected start/stop pair now drives top-end headroom, recharge-window and high-SOC-band context. ThinkControl does not invent a literal “cycles saved” number because chemistry, temperature, depth of discharge and calendar aging also matter.
-- **Research and regression coverage are explicit.** The audio enforcement model and the threshold-only battery impact formula are documented and source-tested.
+- **Battery Preservation impact is calculated, not canned.** The selected start/stop pair drives top-end headroom and high-SOC-band context on a separate quiet line, while the normal resume/stop sentence stays short. ThinkControl does not invent a literal “cycles saved” number because chemistry, temperature, depth of discharge and calendar aging also matter.
+- **Fan Auto no longer visually bounces through stale state.** A user selection owns a short pending state while the serialized hardware write completes, stale telemetry cannot repaint Max/Quiet over it, and a firmware override is released before unrelated Auto recovery probes.
+- **Experimental keyboard effects suppress Lenovo's own backlight popup around automatic writes.** The suppression is deliberately limited to newly shown `tposd.exe` windows during an effect-write burst, so ordinary keyboard feedback outside that burst is not globally disabled.
+- **Audio keyboard effects use the actual Windows loopback format.** WAVE_FORMAT_EXTENSIBLE float/PCM streams are decoded correctly, level thresholds adapt to the recent output peak, and an unexpectedly stopped loopback capture performs one bounded restart while Audio mode remains active.
+- **Research and regression coverage are explicit.** Silent, Battery Preservation, fan convergence and keyboard effect behavior are source-tested and documented.
 
 ## What alpha.49 changes
 
