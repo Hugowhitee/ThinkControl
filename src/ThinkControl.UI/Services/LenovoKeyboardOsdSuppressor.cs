@@ -100,8 +100,11 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
         DateTimeOffset now = DateTimeOffset.UtcNow;
         lock (_gate)
         {
-            if (_tposdPid.HasValue && now - _pidCheckedAt < ProcessCacheLifetime)
+            if (_pidCheckedAt != DateTimeOffset.MinValue &&
+                now - _pidCheckedAt < ProcessCacheLifetime)
+            {
                 return _tposdPid;
+            }
         }
 
         int? pid = null;
