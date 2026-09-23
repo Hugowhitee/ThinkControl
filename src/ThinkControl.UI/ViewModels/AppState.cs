@@ -142,7 +142,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string KeyboardEffectsSupportText => CanKeyboardEffects
         ? "Experimental effects are available through the active direct provider. Writes remain deduplicated and rate-limited."
         : CanKeyboardBacklight && ExperimentalKeyboardEffectsEnabled
-            ? $"Experimental fallback enabled for this session through {KeyboardBackend}. Lenovo may show its own brightness OSD, flicker or ignore repeated writes."
+            ? $"Experimental fallback enabled for this session through {KeyboardBackend}. ThinkControl suppresses Lenovo's backlight OSD around automatic effect writes when tposd is present; the provider may still ignore or smooth some rapid changes."
             : CanKeyboardBacklight
                 ? $"Static backlight control is available through {KeyboardBackend}. Effects can be enabled experimentally for this session after acknowledging the fallback warning."
                 : "The active hardware provider does not currently expose keyboard effects.";
