@@ -337,31 +337,39 @@ public sealed class KeyboardEffectService : IDisposable
         if (_disposed || _state.KeyboardMode != "Audio" || !_state.KeyboardEffectsUsable)
             return;
 
+        WasapiLoopbackCapture capture;
         lock (_runtimeGate)
         {
             if (_audioCapture is not null)
                 return;
 
-            WasapiLoopbackCapture? capture = null;
-            try
-            {
-                capture = new WasapiLoopbackCapture();
+            capture = new WasapiLoopbackCapture();
 
-                // Publish the instance before StartRecording. Some WASAPI endpoints
-                // can produce the first DataAvailable callback immediately; assigning
-                // it afterwards made those first buffers look like they belonged to
-                // no active capture.
-                _audioCapture = capture;
-                capture.DataAvailable += Audio_DataAvailable;
-                capture.RecordingStopped += Audio_RecordingStopped;
-                capture.StartRecording();
-            }
-            catch
+            // Publish the instance before StartRecording. Some WASAPI endpoints can
+            // produce the first DataAvailable callback immediately; assigning it
+            // afterwards made those first buffers look like no active capture.
+            _audioCapture = capture;
+            capture.DataAvailable += Audio_DataAvailable;
+            capture.RecordingStopped += Audio_RecordingStopped;
+        }
+
+        try
+        {
+            // Do not hold _runtimeGate while starting WASAPI. DataAvailable itself
+            // takes that gate to validate ownership, and a backend that delivers its
+            // first callback synchronously must never be able to deadlock startup.
+            capture.StartRecording();
+        }
+        catch
+        {
+            lock (_runtimeGate)
             {
                 if (ReferenceEquals(_audioCapture, capture))
                     _audioCapture = null;
-                try { capture?.Dispose(); } catch { }
             }
+            try { capture.DataAvailable -= Audio_DataAvailable; } catch { }
+            try { capture.RecordingStopped -= Audio_RecordingStopped; } catch { }
+            try { capture.Dispose(); } catch { }
         }
     }
 
