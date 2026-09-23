@@ -283,7 +283,7 @@ public partial class BatteryTelemetryPanel : UserControl
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom · {snapshotStart}–{snapshotStop}%",
+                    Content = $"Custom {snapshotStart}–{snapshotStop}%",
                     Tag = $"custom:{snapshotStart},{snapshotStop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
