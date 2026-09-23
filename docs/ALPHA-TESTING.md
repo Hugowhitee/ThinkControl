@@ -41,6 +41,15 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
 
+## Alpha.49 Battery Preservation visual clarity
+
+1. On Battery with preservation enabled, the bar must have exactly three semantic regions: green below the resume threshold, amber between resume/stop, and subdued red above the stop threshold.
+2. The resume threshold must have a lightning/charge cue and its percentage; the stop threshold must have a pause/stop cue and its percentage. There must be no generic 10% ruler ticks and no lock glyph.
+3. The live battery position must remain a distinct high-contrast marker and must not be mistaken for either threshold.
+4. Verify the normal writable card in both dark and light theme at full resolution. Colors must remain distinguishable without becoming a traffic-light dashboard or overwhelming the rest of Battery.
+5. The visible helper copy must stay concise and follow the same left-to-right meaning as the graphic: resume below start, stop at upper threshold.
+6. Re-run the GitHub release promotion source regression: transient release-asset metadata/download propagation must retry rather than fail a valid immutable release.
+
 ## Alpha.48 UX clarity and live-state regression
 
 1. On Advanced Home, enable fan **Auto**. Quiet / Balanced / Max and **More profiles** must become visibly disabled while the Auto switch remains enabled and clearly paired with its label. Turn Auto off and confirm Balanced becomes the deliberate fallback.
@@ -48,7 +57,7 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 3. Enable **Gesture lock**. ThinkControl Touchpad Volume, seek and Track media actions must be blocked, while the physical keyboard volume keys and ordinary Windows/app audio controls must still work. The UI/OSD must say Gesture lock rather than implying a global media lock.
 4. Enable **Silent**, then use the physical keyboard volume/mute controls and an app/Windows volume control. The active output must remain/re-converge muted immediately from CoreAudio notification handling; a visible multi-second audible escape is a failure.
 5. While Silent is active, switch the default output endpoint. The existing bounded status path may perform endpoint convergence; no new polling timer is allowed.
-6. On Battery, inspect Battery Preservation with a live start/stop pair. The threshold ruler, lock, vertical ticks and current battery marker must be legible; the card should need only the concise stop/resume sentence in normal writable state.
+6. On Battery, inspect Battery Preservation with a live start/stop pair. The threshold view and current battery marker must be legible; the card should need only the concise stop/resume sentence in normal writable state.
 7. Switch light → dark and dark → light while Advanced remains open. Sidebar shell-mode controls and the native caption/text/border must repaint immediately without minimize/reopen.
 8. Review `advanced-home-fan-auto.png`, `advanced-home-fan-auto-light.png`, Compact safety states and Battery Preservation snapshots at full resolution before promotion.
 
