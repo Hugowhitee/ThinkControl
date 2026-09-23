@@ -39,6 +39,40 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
+## Alpha.50 candidate — Silent ownership and calculated preservation context
+
+Alpha.50 is a Windows-generic audio-safety and Battery Preservation explanation follow-up on immutable alpha.49. It does **not** change Lenovo threshold writes, fan providers or any privileged hardware command surface.
+
+Scope:
+
+- make Silent authoritative against physical Windows volume keys by swallowing only `VK_VOLUME_MUTE / DOWN / UP` with a session-scoped low-level keyboard hook;
+- retain CoreAudio endpoint-volume notifications for app/SndVol changes while ensuring callbacks arriving during an existing re-mute pass are not lost;
+- subscribe to default-device notifications so Silent follows a changed render endpoint immediately instead of relying on the normal multi-second status cadence;
+- allow only a short bounded retry burst when a newly announced default endpoint is temporarily not ready; do not add a permanent polling timer;
+- preserve per-endpoint mute ownership/restore and microphone independence;
+- replace canned Battery Preservation wear wording with `BatteryPreservationImpactModel`, calculated from the actual start/stop pair and valid for future custom presets;
+- report top-end headroom and omitted >70% high-SOC reference-band share while explicitly refusing to invent a literal cycles-saved count;
+- document the Windows CoreAudio/keyboard-hook contracts and lithium-ion aging evidence used for these choices.
+
+Release gate:
+
+- [x] alpha.50 isolated from immutable alpha.49
+- [x] Silent standard volume-key guard implemented on the WPF dispatcher thread
+- [x] endpoint-volume enforcement uses a pending pass so repeated/held-key races cannot be coalesced away
+- [x] default render endpoint changes are event-driven through `IMMNotificationClient`
+- [x] transient endpoint replacement uses only bounded 40/120/350 ms retry delays
+- [x] existing per-endpoint mute restore and microphone independence preserved
+- [x] threshold-derived Battery Preservation impact model implemented in Core
+- [x] exact cycle-count/lifetime multiplier remains prohibited without chemistry/temperature/voltage evidence
+- [x] alpha.50 research note and regression/unit tests added
+- [ ] exact implementation-head CI + Package green
+- [ ] full-resolution Silent + Battery Preservation dark/light visual review
+- [ ] physical Windows/X9 check: held Volume Up/Down/Mute cannot escape Silent; keys work again immediately after leaving Silent
+- [ ] physical Windows check: app/mixer unmute and default-output changes reconverge without a multi-second audible escape
+- [ ] release-ready metadata freeze
+- [ ] frozen-head CI + Package green
+- [ ] expected-head merge and immutable alpha.50 GitHub release/update verification
+
 ## Alpha.49 published release — Battery Preservation visual semantics
 
 Alpha.49 is a narrow UI follow-up on the alpha.48 release line. It does not change Lenovo charge-threshold writes or any low-level hardware contract.
