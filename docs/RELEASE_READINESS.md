@@ -6,27 +6,27 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.50`
-- immutable tag/release SHA: `a56df08ec756261472fc4362e7473e9482ffd7fe`
-- published 2026-09-23 at 23:00:10 UTC as an immutable prerelease
+- `v0.1.0-alpha.51`
+- immutable tag/release SHA: `46bd09bb8556966b49413f7d7115d581c1b4c107`
+- published 2026-09-24 at 01:27:47 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:b777c71bbd92eeb31774de635b6c403ff9f746f6df4e534a8a8c22f2a8ed7295`
-  - Payload: `sha256:ba6dd0ad9692292642d162c2c2b6dcbb1c27c9af5f4b3495af073b2887585478`
-  - `SHA256SUMS.txt`: `sha256:d374c6d1c767068e7a6779e284c60d92ffdf142672da9f0b76c3217839927131`
-  - `ui-overview.png`: `sha256:d80bdbb01f938708600f8ecda75a1d3f7a128fd648214b211d3e74f2b73313d4`
-- frozen-head SHA: `20b3da44fb006443b24723b89eaeb022ca71c80d`
-- frozen-head CI `35930818160` / #2116: success
-- frozen-head Package ThinkControl `35930818064` / #1813: success
-- frozen-head visual artifact `10781016962`, digest `sha256:904882a7abc83965ca6c36145646f57008f1dcfb88133f7076d201622b7e4b61`
-- PR #96 merged with expected head `20b3da44fb006443b24723b89eaeb022ca71c80d`
-- merge commit / immutable tag target: `a56df08ec756261472fc4362e7473e9482ffd7fe`
-- post-merge main CI `35931058345` / #2117: success
-- branch hygiene `35931056687` / #81: success
-- complete immutable release run `35931073957` / #39: success
-- promotion/public re-download/checksum verification run `35931058527` / #60: success
+  - Setup: `sha256:64dd93b6c641c5997018d40a718096336f4156a02e56d6ca9e0f32f41eab8ff6`
+  - Payload: `sha256:c70a687560d99dc98270ab942c290783caea65d9e670c261feb00764a7354d07`
+  - `SHA256SUMS.txt`: `sha256:e96e2a54ab27a952f513a999c2596d2c45a7de80d41bbd972af185aef0a7180d`
+  - `ui-overview.png`: `sha256:2654ab352e7c355138530c0eae0959c3fdb97154ad7272630f8fe13542ce17ac`
+- frozen-head SHA: `3e3d422d75e6bd03bf9f73f6e341deedfbeb68b9`
+- frozen-head CI `35942610435` / #2121: success
+- frozen-head Package ThinkControl `35942610387` / #1816: success
+- frozen-head visual artifact `10785567971`, digest `sha256:cb8165826cff0ce698eb69d8d57aa7da45956d2d30f19816c4e2c127344e65aa`
+- PR #98 merged with expected head `3e3d422d75e6bd03bf9f73f6e341deedfbeb68b9`
+- merge commit / immutable tag target: `46bd09bb8556966b49413f7d7115d581c1b4c107`
+- post-merge main CI `35942842319` / #2122: success
+- branch hygiene `35942842317` / #83: success
+- complete immutable release run `35942852253` / #40: success
+- promotion/public re-download/checksum verification run `35942842366` / #62: success
+- alpha.50 remains separately immutable at `a56df08ec756261472fc4362e7473e9482ffd7fe`
 - alpha.49 remains separately immutable at `263c1c280d3a08a5bcc21d374c45a5fb2d1414cc`
-- alpha.48 remains separately immutable at `9997f750113588ee51fa3c840c8b14ed58d6d743`
 
 Alpha.46 completion:
 
@@ -41,7 +41,7 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.51 candidate — Compact dropdown dismiss state
+## Alpha.51 published release — Compact dropdown dismiss state
 
 Alpha.51 is a narrow user-session UI hotfix on immutable alpha.50. No hardware provider, Windows service, updater, installer, fan, battery, audio-safety or keyboard-effect contract changes.
 
@@ -62,8 +62,8 @@ Release gate:
 - [x] exact implementation-head CI + Package green · head `500c7649a5fdd1048a323fb17a6543bfe2480147` · CI `35942349214` / #2120 · Package `35942349175` / #1815
 - [x] Compact dark/light visual artifact reviewed for unchanged layout/styling · artifact `10785183982`, digest `sha256:a6c8d78b98c7c035e4a2f46e92647c308fad360d2fbe82bb87d91b4f0030caac`
 - [x] release-ready metadata freeze
-- [ ] frozen-head CI + Package green
-- [ ] expected-head merge and immutable alpha.51 GitHub release/update verification
+- [x] frozen-head CI + Package green · CI `35942610435` / #2121 · Package `35942610387` / #1816
+- [x] expected-head merge and immutable alpha.51 GitHub release/update verification · merge/tag `46bd09bb8556966b49413f7d7115d581c1b4c107` · release/promotion runs `35942852253` / `35942842366`
 
 ## Alpha.50 published release — runtime reliability
 
