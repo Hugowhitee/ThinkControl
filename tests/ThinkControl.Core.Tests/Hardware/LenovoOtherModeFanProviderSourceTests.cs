@@ -138,8 +138,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
 
         Assert.Contains("bool oemFanControl = _identity.IsVerifiedX9 && oemFanStatus.CanControl;", source, StringComparison.Ordinal);
-        Assert.Contains("if (_identity.IsVerifiedX9 && nativeOemSafetyBoundary)", source, StringComparison.Ordinal);
-        Assert.Contains("return LenovoFanControlKind.None;", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveFanControlKind(oemFanControl)", source, StringComparison.Ordinal);
+        Assert.Contains("The exact X9 EC path is intentionally telemetry/Auto-recovery only", source, StringComparison.Ordinal);
         Assert.Contains("_nativeOemFanTelemetryConfirmed = true", source, StringComparison.Ordinal);
         Assert.Contains("transient provider miss must never silently", source, StringComparison.Ordinal);
         Assert.Contains("re-authorize the known-inferior EC writer", source, StringComparison.Ordinal);
@@ -224,6 +224,9 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
         Assert.Contains("Temporary fan test", xaml, StringComparison.Ordinal);
         Assert.Contains("Raw EC diagnostics", xaml, StringComparison.Ordinal);
+        string manualSafety = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.ManualTestSafety.cs");
+        Assert.DoesNotContain("_manualFanEndButton", manualSafety, StringComparison.Ordinal);
+        Assert.Contains("_manualFanApplyButton.Content = _manualFanTestActive ? \"End test\" : \"Start test\"", manualSafety, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", editor, StringComparison.Ordinal);
         Assert.Contains("Lenovo OEM target-RPM", editor, StringComparison.Ordinal);
     }
