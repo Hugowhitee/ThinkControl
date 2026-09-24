@@ -23,7 +23,7 @@
                         <Button x:Name="MuteButton" Content="Mute" Style="{StaticResource TcButton}" Padding="10,4" Click="Mute_Click" />
                     </StackPanel>
                 </Grid>
-                <Slider x:Name="VolumeSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="VolumeSlider_ValueChanged" PreviewMouseLeftButtonDown="VolumeSlider_MouseDown" PreviewMouseLeftButtonUp="VolumeSlider_MouseUp" PreviewKeyUp="VolumeSlider_KeyUp" />
+                <Slider x:Name="VolumeSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="VolumeSlider_ValueChanged" PreviewMouseLeftButtonDown="VolumeSlider_MouseDown" PreviewMouseLeftButtonUp="VolumeSlider_MouseUp" PreviewKeyDown="VolumeSlider_KeyDown" PreviewKeyUp="VolumeSlider_KeyUp" />
             </StackPanel>
         </Border>
 
@@ -40,7 +40,7 @@
                         <Button x:Name="MicrophoneMuteButton" Content="Mute" Style="{StaticResource TcButton}" Padding="10,4" Click="MicrophoneMute_Click" />
                     </StackPanel>
                 </Grid>
-                <Slider x:Name="MicrophoneSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="MicrophoneSlider_ValueChanged" PreviewMouseLeftButtonDown="MicrophoneSlider_MouseDown" PreviewMouseLeftButtonUp="MicrophoneSlider_MouseUp" PreviewKeyUp="MicrophoneSlider_KeyUp" />
+                <Slider x:Name="MicrophoneSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" TickFrequency="1" Margin="0,14,0,0" ValueChanged="MicrophoneSlider_ValueChanged" PreviewMouseLeftButtonDown="MicrophoneSlider_MouseDown" PreviewMouseLeftButtonUp="MicrophoneSlider_MouseUp" PreviewKeyDown="MicrophoneSlider_KeyDown" PreviewKeyUp="MicrophoneSlider_KeyUp" />
                 <TextBlock Text="Windows endpoint input gain. Some microphone arrays expose additional processing only in Windows Sound settings or the OEM audio app."
                            Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" TextWrapping="Wrap" />
             </StackPanel>

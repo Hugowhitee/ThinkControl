@@ -431,12 +431,19 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
+    private void VolumeSlider_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (IsSliderAdjustmentKey(e.Key))
+            _volumeDragging = true;
+    }
+
     private void VolumeSlider_KeyUp(object sender, KeyEventArgs e)
     {
         if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
 
         ApplyVolumeSlider();
+        _volumeDragging = false;
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
@@ -520,12 +527,19 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
+    private void MicrophoneSlider_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (IsSliderAdjustmentKey(e.Key))
+            _microphoneDragging = true;
+    }
+
     private void MicrophoneSlider_KeyUp(object sender, KeyEventArgs e)
     {
         if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
 
         ApplyMicrophoneSlider();
+        _microphoneDragging = false;
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 

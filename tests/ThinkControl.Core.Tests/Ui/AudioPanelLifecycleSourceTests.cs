@@ -23,8 +23,10 @@ public sealed class AudioPanelLifecycleSourceTests
         Assert.Contains("if (!_volumeDragging)", panel, StringComparison.Ordinal);
         Assert.Contains("if (!_microphoneDragging)", panel, StringComparison.Ordinal);
         Assert.Contains("PreviewMouseLeftButtonDown=\"VolumeSlider_MouseDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewKeyDown=\"VolumeSlider_KeyDown\"", xaml, StringComparison.Ordinal);
         Assert.Contains("PreviewKeyUp=\"VolumeSlider_KeyUp\"", xaml, StringComparison.Ordinal);
         Assert.Contains("PreviewMouseLeftButtonDown=\"MicrophoneSlider_MouseDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewKeyDown=\"MicrophoneSlider_KeyDown\"", xaml, StringComparison.Ordinal);
         Assert.Contains("PreviewKeyUp=\"MicrophoneSlider_KeyUp\"", xaml, StringComparison.Ordinal);
     }
 
