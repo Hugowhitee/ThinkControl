@@ -92,17 +92,23 @@
                     <Grid>
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <TextBlock Text="Battery preservation" FontWeight="SemiBold" VerticalAlignment="Center" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" VerticalAlignment="Center" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,0,9,0" />
-                            <CheckBox x:Name="ChargeProtectionSwitch"
-                                      Style="{StaticResource TcSwitch}"
-                                      IsEnabled="False"
-                                      Click="ChargeProtectionSwitch_Click"
-                                      ToolTip="Turn the verified OEM battery charge window on or off" />
-                        </StackPanel>
+                        <CheckBox x:Name="ChargeProtectionSwitch"
+                                  Grid.Column="1"
+                                  Style="{StaticResource TcSwitch}"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Center"
+                                  IsEnabled="False"
+                                  Click="ChargeProtectionSwitch_Click"
+                                  ToolTip="Turn the verified OEM battery charge window on or off" />
                     </Grid>
+                    <TextBlock x:Name="ChargeProtectionStateText"
+                               Text="Checking…"
+                               HorizontalAlignment="Right"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               Margin="0,3,0,0" />
                     <controls:BatteryProtectionGauge Height="48"
-                                                     Margin="0,7,0,0"
+                                                     Margin="0,5,0,0"
                                                      ProtectionEnabled="{Binding BatteryProtectionEnabled}"
                                                      StartPercent="{Binding BatteryProtectionStartPercent}"
                                                      StopPercent="{Binding BatteryProtectionStopPercent}"

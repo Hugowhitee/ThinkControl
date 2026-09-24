@@ -142,8 +142,8 @@ public partial class BatteryTelemetryPanel
 
     private async void ChargeProtectionSwitch_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncingChargeProtection || !_batteryProtectionWritable || WpfApplication.Current is not App app ||
-            sender is not CheckBox toggle)
+        if (_syncingChargeProtection || _batteryProtectionWriteInFlight || !_batteryProtectionWritable ||
+            WpfApplication.Current is not App app || sender is not CheckBox toggle)
         {
             return;
         }
@@ -205,8 +205,8 @@ public partial class BatteryTelemetryPanel
 
     private async void ChargeProtection_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncingChargeProtection || !_batteryProtectionWritable || ChargeProtectionSwitch.IsChecked != true ||
-            WpfApplication.Current is not App app ||
+        if (_syncingChargeProtection || _batteryProtectionWriteInFlight || !_batteryProtectionWritable ||
+            ChargeProtectionSwitch.IsChecked != true || WpfApplication.Current is not App app ||
             ChargeProtectionComboBox.SelectedItem is not ComboBoxItem item)
         {
             return;
