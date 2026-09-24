@@ -74,6 +74,10 @@ Current gate:
 - [x] first candidate build exposed the stale snapshot call `FindChargeProtectionPreset(enabled: false)`; the branch fixture was repaired to the new switch/preset contract
 - [x] source/static regression guards cover Battery switch/ETA semantics, Audio slider ownership, fan writer boundary and one-button temporary test
 - [x] Home Sensors and Touchpad reverse-close now have dedicated source regression guards
+- [x] preservation ETA is state-aware: charge-to-cap only while charging, paused/hysteresis copy on AC, normal remaining-runtime ETA while unplugged
+- [x] disabled Lenovo preservation retains the verified stored start/stop pair separately from the enabled flag, so re-enabling can restore the previous window
+- [x] targeted static source-regression audit caught and repaired stale Battery/X9 assertions after the refactor; no hosted result is inferred from that audit
+- [x] PR #100 is Draft and follow-up commits use `[skip ci]` while the Actions-minute constraint is active
 - [ ] real-device check: Audio output/microphone slider feel and endpoint convergence
 - [ ] real-device check: preservation switch, stop-target ETA and physical threshold behavior
 - [ ] real-device check: built-in Auto / Quiet / Balanced / Max behavior remains correct after direct-EC capability removal
