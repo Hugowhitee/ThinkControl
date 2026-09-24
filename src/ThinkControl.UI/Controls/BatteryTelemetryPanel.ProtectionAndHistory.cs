@@ -117,7 +117,7 @@ public partial class BatteryTelemetryPanel
         }
         else if (!enabled)
         {
-            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Off" : "Off · read-only";
+            ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Off" : "Off (read-only)";
             ChargeProtectionImpactText.Text = "Preservation is off; charging is allowed to 100%.";
             ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false);
         }
