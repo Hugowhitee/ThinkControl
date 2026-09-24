@@ -10,8 +10,11 @@ public partial class BatteryTelemetryPanel
 {
     private bool _batteryProtectionStatusSubscribed;
     private bool _batteryProtectionWritable;
+    private bool _batteryProtectionWriteInFlight;
     private bool _syncingChargeProtection;
     private bool _syncingHistoryRetention;
+    private int _lastChargeProtectionStart = 75;
+    private int _lastChargeProtectionStop = 85;
     private int _historyVisibleDays = 7;
 
     internal void BringPreservationIntoView()
@@ -53,6 +56,9 @@ public partial class BatteryTelemetryPanel
             Dispatcher.BeginInvoke(() => BatteryProtection_StatusObserved(sender, response));
             return;
         }
+        if (_batteryProtectionWriteInFlight)
+            return;
+
         ApplyBatteryProtectionStatus(response);
     }
 
@@ -68,19 +74,26 @@ public partial class BatteryTelemetryPanel
             ? telemetry?.BatteryChargeStopPercent ?? telemetry?.BatteryChargeLimitPercent ?? 85
             : 100;
 
+        if (enabled)
+        {
+            _lastChargeProtectionStart = start;
+            _lastChargeProtectionStop = stop;
+        }
+
+        int selectedStart = enabled ? start : _lastChargeProtectionStart;
+        int selectedStop = enabled ? stop : _lastChargeProtectionStop;
+
         _syncingChargeProtection = true;
         try
         {
             RemoveDynamicChargeProtectionPreset();
-            ComboBoxItem? selected = enabled
-                ? FindChargeProtectionPreset(start, stop)
-                : FindChargeProtectionPreset(75, 85);
-            if (enabled && selected is null && available)
+            ComboBoxItem? selected = FindChargeProtectionPreset(selectedStart, selectedStop);
+            if (selected is null && available)
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom {start}–{stop}%",
-                    Tag = $"custom:{start},{stop}"
+                    Content = $"Custom {selectedStart}–{selectedStop}%",
+                    Tag = $"custom:{selectedStart},{selectedStop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
             }
@@ -136,6 +149,7 @@ public partial class BatteryTelemetryPanel
         }
 
         bool enable = toggle.IsChecked == true;
+        _batteryProtectionWriteInFlight = true;
         ChargeProtectionSwitch.IsEnabled = false;
         ChargeProtectionComboBox.IsEnabled = false;
         ChargeProtectionStateText.Text = "Applying…";
@@ -183,6 +197,7 @@ public partial class BatteryTelemetryPanel
         }
         finally
         {
+            _batteryProtectionWriteInFlight = false;
             ChargeProtectionSwitch.IsEnabled = _batteryProtectionWritable;
             ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable && ChargeProtectionSwitch.IsChecked == true;
         }
@@ -204,6 +219,7 @@ public partial class BatteryTelemetryPanel
             return;
         }
 
+        _batteryProtectionWriteInFlight = true;
         ChargeProtectionSwitch.IsEnabled = false;
         ChargeProtectionComboBox.IsEnabled = false;
         ChargeProtectionStateText.Text = "Applying…";
@@ -225,6 +241,7 @@ public partial class BatteryTelemetryPanel
         }
         finally
         {
+            _batteryProtectionWriteInFlight = false;
             ChargeProtectionSwitch.IsEnabled = _batteryProtectionWritable;
             ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable && ChargeProtectionSwitch.IsChecked == true;
         }

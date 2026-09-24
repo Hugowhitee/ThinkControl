@@ -33,6 +33,9 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
         Assert.Contains("nameof(AppState.BatteryPercent)", panel, StringComparison.Ordinal);
         Assert.Contains("RefreshChargeProtectionWearEstimate", panel, StringComparison.Ordinal);
+        Assert.Contains("_batteryProtectionWriteInFlight", code, StringComparison.Ordinal);
+        Assert.Contains("_lastChargeProtectionStart = 75", code, StringComparison.Ordinal);
+        Assert.Contains("_lastChargeProtectionStop = 85", code, StringComparison.Ordinal);
         string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
         Assert.Contains("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("to {target}%", state, StringComparison.Ordinal);
