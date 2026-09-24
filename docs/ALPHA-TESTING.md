@@ -72,7 +72,7 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 6. Confirm Gesture lock is unchanged: physical keyboard and Windows/app volume controls still work in Gesture lock.
 7. On Battery Preservation, verify the graphic is a single current-level fill with exactly two aligned threshold markers. There must be no permanent three-color zones and no lightning/pause glyphs. While charging, the fill uses the normal accent; when parked at the upper cap it may switch to the warning state.
 8. Verify the copy is plain language: for 75–85% it reads **Charging resumes below 75% and pauses at 85%.** No centered-dot sentence fragments should return.
-9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00. For the typical preset recharge windows, 75→85% is about **0.05 wear cycles**, 55→80% about **0.02**, and 40→60% about **0.02**. Full 0→100% remains the **1.00 baseline**. A custom threshold must calculate automatically.
+9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00×. For the typical preset recharge windows, 75→85% is about **0.05×**, 55→80% about **0.02×**, and 40→60% about **0.02×**. Full 0→100% remains the **1.00× reference**. A custom threshold must calculate automatically.
 10. The wear line must remain explicitly comparative rather than claiming measured pack wear. Its tooltip/caveat must mention the generic Li-ion SOC/voltage model, the high-voltage end-charge relationship, and pack-dependent chemistry/temperature/use.
 11. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The wear line must stay visually secondary and the shorter gauge must not clip/collide with the selector.
 12. From **Max cooling**, click fan **Auto** several times under live telemetry from **Home** as well as the Fans page. Home Auto must become the visible intent immediately, stay disabled while the write is in flight, and remain selected during the short post-success confirmation lease rather than bouncing back to stale Max/Quiet telemetry.
@@ -276,15 +276,14 @@ Alpha.43 uses the verified-X9 Lenovo Windows Power Manager threshold path (`PWRM
 
 1. Open Advanced → Battery before changing anything.
 2. The card must show **actual Lenovo state**, not a saved ThinkControl preference.
-3. When the provider is writable, the dropdown offers only the small named presets:
+3. When the provider is writable, Battery Preservation has one on/off switch and the dropdown offers only the small named windows:
    - `Daily · 75–85% (recommended)`
    - `Desk · 55–80%`
    - `Maximum care · 40–60%`
-   - `Full charge · 100%`
-4. If Lenovo currently has another valid pair, it should appear as `Custom · start–stop%` and remain untouched until a named preset is deliberately selected.
-5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the dropdown stays read-only and the Lenovo settings fallback remains available.
+4. If Lenovo currently has another valid pair, it should appear as `Custom · start–stop%` and remain untouched until a named window is deliberately selected.
+5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the switch/dropdown stay read-only and the Lenovo settings fallback remains available.
 6. Provider text must describe Lenovo PM Device/PWRMGRV state; it must not claim a generic EC threshold backend.
-7. No UI claims “x fewer cycles”. The impact explanation should state the real start/stop boundary, headroom below full and hysteresis trade-off.
+7. The comparative charge-wear line may use a `×` reference, but it must explicitly distinguish that modeled reference from the firmware battery cycle count and must not promise a fixed lifetime improvement.
 
 ### Real X9 charge behavior
 
@@ -297,7 +296,7 @@ Use a test window that can be observed without repeatedly forcing unnecessary ba
 5. While battery remains above the 75% start threshold, confirm ordinary tiny top-ups do not repeatedly restart charging.
 6. After battery drops below the start threshold in normal use, confirm charging can resume when AC is connected.
 7. Restart only the UI, then restart service/reboot separately. The Battery page must re-read actual Lenovo state rather than painting a remembered desired value.
-8. Select **Full charge · 100%**. Confirm thresholds release and ordinary charging can continue beyond the prior ceiling when conditions permit.
+8. Switch **Battery Preservation off**. Confirm thresholds release and ordinary charging can continue beyond the prior ceiling when conditions permit.
 9. If a driver call/readback fails, the UI must report rejection and the provider must request rollback rather than trying another EC/ACPI path.
 10. The normal-user UI must never show UAC for these changes; privileged access belongs to `ThinkControl.Service`.
 

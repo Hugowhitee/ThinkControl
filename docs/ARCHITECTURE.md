@@ -199,7 +199,7 @@ Audio Safety currently composes no fan profile. A future user preset may request
 
 ## Audio page lifecycle
 
-Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state and are cleared when the Audio page becomes hidden so stale off-page writes cannot fire later. Core Audio endpoint enumeration remains off the dispatcher because some OEM stacks can block.
+Audio volume/microphone sliders own only transient drag state in the WPF page. While dragging, the UI follows the local thumb/value immediately and ignores endpoint refreshes that would fight the gesture; the Windows endpoint write is committed on pointer release or keyboard adjustment rather than through a repeating debounce timer. Hiding the page clears drag ownership, and Core Audio endpoint enumeration remains off the dispatcher because some OEM stacks can block.
 
 ## Status, diagnostics and discovery
 

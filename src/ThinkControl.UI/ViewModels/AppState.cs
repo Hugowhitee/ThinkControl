@@ -185,7 +185,7 @@ public sealed class AppState : INotifyPropertyChanged
     {
         true when BatteryProtectionStartPercent is int start && BatteryProtectionStopPercent is int stop => $"{start}–{stop}% active",
         true => "Preservation active",
-        false => "Full charge, no limit",
+        false => "Preservation off",
         _ => "Protection unavailable"
     };
     public string BatteryProtectionBehaviorText
@@ -381,7 +381,11 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
         }
         else if (propertyName == nameof(BatterySmoothedPowerWatts))
+        {
             OnPropertyChanged(nameof(BatteryAveragePowerText));
+            OnPropertyChanged(nameof(BatteryEtaText));
+            OnPropertyChanged(nameof(BatteryCompactLine));
+        }
         else if (propertyName == nameof(BatteryHealthPercent))
             OnPropertyChanged(nameof(BatteryHealthText));
         else if (propertyName == nameof(BatteryTemperatureC))
