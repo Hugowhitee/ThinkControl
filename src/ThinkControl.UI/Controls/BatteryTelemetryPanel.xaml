@@ -90,8 +90,16 @@
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
                 <StackPanel>
                     <Grid>
-                        <TextBlock Text="Battery preservation" FontWeight="SemiBold" />
-                        <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock Text="Battery preservation" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" VerticalAlignment="Center" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,0,9,0" />
+                            <CheckBox x:Name="ChargeProtectionSwitch"
+                                      Style="{StaticResource TcSwitch}"
+                                      IsEnabled="False"
+                                      Click="ChargeProtectionSwitch_Click"
+                                      ToolTip="Turn the verified OEM battery charge window on or off" />
+                        </StackPanel>
                     </Grid>
                     <controls:BatteryProtectionGauge Height="48"
                                                      Margin="0,7,0,0"
@@ -110,7 +118,6 @@
                         <ComboBoxItem Content="Daily 75–85% (recommended)" Tag="75,85" />
                         <ComboBoxItem Content="Desk 55–80%" Tag="55,80" />
                         <ComboBoxItem Content="Maximum care 40–60%" Tag="40,60" />
-                        <ComboBoxItem Content="Full charge 100%" Tag="off" />
                     </ComboBox>
                     <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active firmware setting…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                     <TextBlock x:Name="ChargeProtectionWearText"
@@ -119,7 +126,7 @@
                                FontSize="{x:Static ui:TypographyScale.Caption}"
                                TextWrapping="Wrap"
                                Margin="0,3,0,0"
-                               ToolTip="Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage cycle-life research. Actual pack wear varies by chemistry, temperature, charge rate and use." />
+                               ToolTip="Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage research. 1.00× means the model's 0→100% reference charge; this is not the firmware battery cycle count. Actual pack wear varies by chemistry, temperature, charge rate and use." />
                     <TextBlock x:Name="ChargeProtectionProviderText" Text="Verified OEM charge-threshold provider." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="Collapsed" />
                     <Button x:Name="ChargeProtectionFallbackButton" Content="Lenovo battery settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="-7,7,0,0" Click="OpenVantage_Click" />
                 </StackPanel>

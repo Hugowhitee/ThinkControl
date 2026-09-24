@@ -84,21 +84,35 @@ public partial class TouchpadPanel
         _cornerLaunchCombo.SelectionChanged += CornerLaunchCombo_SelectionChanged;
         stack.Children.Add(_cornerLaunchCombo);
 
+        var reverseRow = new Grid { Margin = new Thickness(0, 14, 0, 0) };
+        reverseRow.ColumnDefinitions.Add(new ColumnDefinition());
+        reverseRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var reverseLabel = new TextBlock
+        {
+            Text = "Reverse swipe closes ThinkControl",
+            VerticalAlignment = VerticalAlignment.Center,
+            FontSize = TypographyScale.Secondary
+        };
+        reverseRow.Children.Add(reverseLabel);
+
         _cornerReverseCloseCheckBox = new CheckBox
         {
-            Content = "Reverse swipe closes ThinkControl",
-            Margin = new Thickness(0, 14, 0, 0),
-            FontSize = TypographyScale.Secondary
+            Style = TryFindResource("TcSwitch") as Style,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center
         };
         _cornerReverseCloseCheckBox.Checked += CornerReverseClose_Changed;
         _cornerReverseCloseCheckBox.Unchecked += CornerReverseClose_Changed;
-        stack.Children.Add(_cornerReverseCloseCheckBox);
+        Grid.SetColumn(_cornerReverseCloseCheckBox, 1);
+        reverseRow.Children.Add(_cornerReverseCloseCheckBox);
+        stack.Children.Add(reverseRow);
 
         var reverseDescription = new TextBlock
         {
             Text = "Start anywhere in the inner half of the visible diagonal lane and swipe back toward the corner to hide Compact or Advanced.",
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(24, 4, 0, 0),
+            Margin = new Thickness(0, 4, 0, 0),
             FontSize = TypographyScale.Caption
         };
         reverseDescription.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
