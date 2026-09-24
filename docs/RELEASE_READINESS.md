@@ -59,9 +59,9 @@ Release gate:
 - [x] Compact-only dismiss cleanup implemented without changing the shared ComboBox template
 - [x] all five Compact selectors share the same `DropDownClosed` path
 - [x] source regression covers mouse-capture release, keyboard-focus clear and pointer resynchronization
-- [ ] exact implementation-head CI + Package green
-- [ ] Compact dark/light visual artifact reviewed for unchanged layout/styling
-- [ ] release-ready metadata freeze
+- [x] exact implementation-head CI + Package green · head `500c7649a5fdd1048a323fb17a6543bfe2480147` · CI `35942349214` / #2120 · Package `35942349175` / #1815
+- [x] Compact dark/light visual artifact reviewed for unchanged layout/styling · artifact `10785183982`, digest `sha256:a6c8d78b98c7c035e4a2f46e92647c308fad360d2fbe82bb87d91b4f0030caac`
+- [x] release-ready metadata freeze
 - [ ] frozen-head CI + Package green
 - [ ] expected-head merge and immutable alpha.51 GitHub release/update verification
 
