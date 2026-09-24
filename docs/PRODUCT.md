@@ -3,7 +3,7 @@
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
 Current source release target: `v0.1.0-alpha.50`.  
-Current immutable prerelease: `v0.1.0-alpha.49`. Alpha.50 hardens Silent activation/input ownership, Home fan-mode convergence, updater dev-build precedence and experimental keyboard effects, and adds a cleaner state-reactive Battery Preservation gauge with a comparative wear-cycle estimate; alpha.44 remains the hardware-behavior baseline.
+Current immutable prerelease: `v0.1.0-alpha.50`. Alpha.50 is the published runtime-reliability release covering Silent activation/input ownership, Home fan-mode convergence, updater dev-build precedence, experimental keyboard effects and the cleaner Battery Preservation gauge/wear estimate; alpha.44 remains the hardware-behavior baseline.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
