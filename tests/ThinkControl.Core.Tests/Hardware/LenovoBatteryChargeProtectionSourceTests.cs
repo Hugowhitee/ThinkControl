@@ -65,7 +65,8 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("Daily 75–85% (recommended)", xaml, StringComparison.Ordinal);
         Assert.Contains("Desk 55–80%", xaml, StringComparison.Ordinal);
         Assert.Contains("Maximum care 40–60%", xaml, StringComparison.Ordinal);
-        Assert.Contains("Full charge 100%", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Full charge 100%", xaml, StringComparison.Ordinal);
         Assert.Contains("controls:BatteryProtectionGauge", xaml, StringComparison.Ordinal);
         Assert.Contains("Charging resumes below {start}% and pauses at {stop}%.", panel, StringComparison.Ordinal);
         Assert.Contains("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
