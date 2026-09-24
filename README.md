@@ -23,13 +23,13 @@
   </a>
 </div>
 
-## ThinkControl alpha.50
+## ThinkControl alpha.51 development
 
-Alpha.50 is a runtime-reliability pass: Silent owns the Windows volume-key path without trapping a key held during activation, Home fan Auto stays stable while service telemetry catches up, keyboard Audio reacts to real loopback output, and Battery Preservation uses a cleaner state-reactive gauge plus a comparative wear-cycle estimate.
+Alpha.51 is a narrow Compact interaction hotfix on immutable alpha.50. It clears stale ComboBox popup capture/focus after a dropdown is dismissed so selectors return to their normal visual state without requiring the user to click outside ThinkControl.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.50`  
+**Release target:** `v0.1.0-alpha.51`  
 **Current immutable prerelease:** `v0.1.0-alpha.50`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -41,7 +41,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 
 <p align="center">
   <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.50/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.49/ui-overview.png" alt="ThinkControl interface overview" width="920">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.50/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -64,6 +64,12 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.51 changes
+
+- **Compact dropdowns no longer stay visually highlighted after dismiss.** Performance, Fan mode, Refresh rate, Keyboard and Audio safety all release stale popup mouse capture and keyboard focus after `DropDownClosed`, then resynchronize pointer hover state.
+- **Advanced behavior is untouched.** The workaround is intentionally Compact-local because the sticky highlight was reported only on Compact; the shared ComboBox design/template remains one source of truth.
+- **Regression coverage is explicit.** Source tests require all five Compact selectors to use the same dismiss path and require capture release, focus clear and pointer resynchronization.
 
 ## What alpha.50 changes
 
