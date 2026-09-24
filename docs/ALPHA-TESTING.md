@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.50** and later candidates built from immutable alpha.49. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.51** and later candidates built from immutable alpha.50. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -40,6 +40,14 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
+
+## Alpha.51 Compact dropdown dismiss regression
+
+1. In Compact, open and dismiss **Performance**, **Fan mode**, **Refresh rate**, **Keyboard** and **Audio safety** one by one by clicking elsewhere inside ThinkControl. The closed selector must immediately return to its ordinary resting visual state; a lighter hover/focus fill must not remain latched.
+2. Repeat by selecting an item, pressing Escape, and clicking a different Compact control. Closing a popup must not require deactivating the whole app to clear highlight/focus.
+3. Confirm keyboard navigation still works after dismissal: Tab/Shift+Tab can focus selectors again and reopening a selector still behaves normally.
+4. Confirm Advanced ComboBoxes retain the shared normal styling/behavior; alpha.51 must not fork the global `TcComboBox` template merely to fix Compact popup capture.
+5. Inspect Compact dark and light visual snapshots for unchanged layout, spacing and disabled states. Hosted screenshots cannot prove the transient popup-capture bug, so the source regression plus the interaction check above are both required.
 
 ## Alpha.50 Silent ownership and preservation-impact regression
 
