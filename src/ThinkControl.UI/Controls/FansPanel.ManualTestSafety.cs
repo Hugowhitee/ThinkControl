@@ -15,7 +15,6 @@ public partial class FansPanel
     };
 
     private Button? _manualFanApplyButton;
-    private Button? _manualFanEndButton;
     private TextBlock? _manualFanTestStatus;
     private string? _manualFanRestoreProfile;
     private DateTimeOffset _manualFanTestEndsAt;
@@ -41,33 +40,6 @@ public partial class FansPanel
             apply.Click -= ManualPercentApply_Click;
             apply.Click += ManualPercentTestApply_Click;
             _manualFanApplyButton = apply;
-
-            if (row.Children.Contains(apply))
-            {
-                row.Children.Remove(apply);
-                var actions = new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Margin = new Thickness(12, 0, 0, 0)
-                };
-                apply.Margin = new Thickness(0);
-                actions.Children.Add(apply);
-
-                _manualFanEndButton = new Button
-                {
-                    Content = "End test",
-                    Style = TryFindResource("TcButton") as Style,
-                    Padding = new Thickness(10, 5, 10, 5),
-                    Margin = new Thickness(7, 0, 0, 0),
-                    Visibility = Visibility.Collapsed,
-                    ToolTip = null
-                };
-                _manualFanEndButton.Click += ManualFanEndTest_Click;
-                actions.Children.Add(_manualFanEndButton);
-                Grid.SetColumn(actions, 1);
-                row.Children.Add(actions);
-            }
 
             row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
             row.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
@@ -114,8 +86,14 @@ public partial class FansPanel
 
     private async void ManualPercentTestApply_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null)
+        if (_app is null || _manualFanTestEnding)
             return;
+
+        if (_manualFanTestActive)
+        {
+            await EndManualFanTestAsync("Ended by user");
+            return;
+        }
 
         int percent = (int)Math.Round(ManualPercentSlider.Value);
         if (_manualFanApplyButton is not null)
@@ -128,8 +106,7 @@ public partial class FansPanel
         }
         finally
         {
-            if (_manualFanApplyButton is not null)
-                _manualFanApplyButton.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
+            UpdateManualFanTestControls();
         }
     }
 
@@ -187,9 +164,6 @@ public partial class FansPanel
         UpdateManualFanTestUi(testLabel);
     }
 
-    private async void ManualFanEndTest_Click(object sender, RoutedEventArgs e) =>
-        await EndManualFanTestAsync("Ended by user");
-
     private async void ManualFanTestTimer_Tick(object? sender, EventArgs e)
     {
         if (!_manualFanTestActive)
@@ -221,8 +195,7 @@ public partial class FansPanel
             _manualFanTestStatus.Visibility = Visibility.Visible;
             _manualFanTestStatus.Text = $"Restoring {restoreName}…";
         }
-        if (_manualFanEndButton is not null)
-            _manualFanEndButton.IsEnabled = false;
+        UpdateManualFanTestControls();
 
         bool restored = false;
         try
@@ -244,11 +217,7 @@ public partial class FansPanel
             _manualFanTestActive = false;
             _manualFanTestEnding = false;
             _manualFanRestoreProfile = null;
-            if (_manualFanEndButton is not null)
-            {
-                _manualFanEndButton.IsEnabled = true;
-                _manualFanEndButton.Visibility = Visibility.Collapsed;
-            }
+            UpdateManualFanTestControls();
             if (_manualFanTestStatus is not null)
             {
                 _manualFanTestStatus.Visibility = Visibility.Visible;
@@ -263,8 +232,7 @@ public partial class FansPanel
 
     private void UpdateManualFanTestUi(string? testLabel = null)
     {
-        if (_manualFanEndButton is not null)
-            _manualFanEndButton.Visibility = _manualFanTestActive ? Visibility.Visible : Visibility.Collapsed;
+        UpdateManualFanTestControls();
         if (_manualFanTestStatus is null)
             return;
 
@@ -280,6 +248,23 @@ public partial class FansPanel
         _manualFanTestStatus.Visibility = Visibility.Visible;
         _manualFanTestStatus.Text = $"{prefix} · restores {restoreName} in {seconds} s";
         ProfileComboBox.IsEnabled = false;
+    }
+
+    private void UpdateManualFanTestControls()
+    {
+        if (_app is null)
+            return;
+
+        bool canControl = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
+        if (_manualFanApplyButton is not null)
+        {
+            _manualFanApplyButton.Content = _manualFanTestActive ? "End test" : "Start test";
+            _manualFanApplyButton.IsEnabled = !_manualFanTestEnding && (_manualFanTestActive || canControl);
+        }
+
+        bool canEditTarget = canControl && !_manualFanTestActive && !_manualFanTestEnding;
+        ManualPercentSlider.IsEnabled = canEditTarget;
+        RawEcStepsExpander.IsEnabled = canEditTarget;
     }
 
     private string FriendlyProfileName(string? id)
