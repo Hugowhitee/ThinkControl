@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.50**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.50` is the current published prerelease; alpha.50 changes Windows-generic Silent enforcement, fan/UI convergence, updater version ordering, experimental keyboard behavior and Battery Preservation presentation without broadening low-level hardware writes.
+This document describes the support model at **v0.1.0-alpha.51**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.50` is the current published prerelease; alpha.51 is a Compact UI dismiss-state hotfix and does not broaden or otherwise change any low-level hardware capability.
 
 ## Support levels
 

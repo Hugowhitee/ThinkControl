@@ -18,12 +18,55 @@ public partial class CompactDashboard : UserControl
     public CompactDashboard()
     {
         InitializeComponent();
+        ConfigureCompactComboDismissBehavior();
         ConfigureQuickControlGeometry();
         IsVisibleChanged += (_, e) =>
         {
             if (e.NewValue is true && _app is not null)
                 RefreshCompactVolume();
         };
+    }
+
+    private void ConfigureCompactComboDismissBehavior()
+    {
+        foreach (ComboBox combo in new[]
+        {
+            CompactPerformanceCombo,
+            CompactFanCombo,
+            CompactRefreshCombo,
+            CompactKeyboardCombo,
+            CompactAudioSafetyCombo
+        })
+        {
+            combo.DropDownClosed += CompactCombo_DropDownClosed;
+        }
+    }
+
+    private void CompactCombo_DropDownClosed(object? sender, EventArgs e)
+    {
+        if (sender is not ComboBox combo)
+            return;
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            if (!IsVisible || combo.IsDropDownOpen)
+                return;
+
+            // WPF Popup/ComboBox mouse capture can leave Compact's shared hover
+            // trigger visually latched after an outside click closes the popup.
+            // Advanced naturally transfers focus to page content; Compact's mostly
+            // non-focusable chrome does not. Explicitly release only the completed
+            // drop-down interaction, clear stale keyboard focus, then ask WPF to
+            // re-evaluate hover from the real pointer location.
+            if (Mouse.Captured is not null)
+                Mouse.Capture(null);
+
+            if (combo.IsKeyboardFocusWithin)
+                Keyboard.ClearFocus();
+
+            Mouse.Synchronize();
+            combo.InvalidateVisual();
+        }));
     }
 
     private void ConfigureQuickControlGeometry()

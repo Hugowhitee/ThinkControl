@@ -41,6 +41,30 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
+## Alpha.51 candidate — Compact dropdown dismiss state
+
+Alpha.51 is a narrow user-session UI hotfix on immutable alpha.50. No hardware provider, Windows service, updater, installer, fan, battery, audio-safety or keyboard-effect contract changes.
+
+Scope:
+
+- fix the Compact-only stale ComboBox highlight reported after a dropdown is dismissed by clicking elsewhere;
+- keep the shared `TcComboBox` template unchanged so Advanced and all other selectors retain one visual contract;
+- on Compact only, release stale popup mouse capture after `DropDownClosed`, clear lingering ComboBox keyboard focus and resynchronize WPF pointer hover state;
+- apply the same dismiss path to Performance, Fan mode, Refresh rate, Keyboard and Audio safety;
+- add source regression coverage so future Compact selectors cannot silently bypass the cleanup path.
+
+Release gate:
+
+- [x] alpha.51 isolated from immutable alpha.50
+- [x] Compact-only dismiss cleanup implemented without changing the shared ComboBox template
+- [x] all five Compact selectors share the same `DropDownClosed` path
+- [x] source regression covers mouse-capture release, keyboard-focus clear and pointer resynchronization
+- [x] exact implementation-head CI + Package green · head `500c7649a5fdd1048a323fb17a6543bfe2480147` · CI `35942349214` / #2120 · Package `35942349175` / #1815
+- [x] Compact dark/light visual artifact reviewed for unchanged layout/styling · artifact `10785183982`, digest `sha256:a6c8d78b98c7c035e4a2f46e92647c308fad360d2fbe82bb87d91b4f0030caac`
+- [x] release-ready metadata freeze
+- [ ] frozen-head CI + Package green
+- [ ] expected-head merge and immutable alpha.51 GitHub release/update verification
+
 ## Alpha.50 published release — runtime reliability
 
 Alpha.50 is a Windows-generic audio-safety and Battery Preservation explanation follow-up on immutable alpha.49. It does **not** change Lenovo threshold writes, fan providers or any privileged hardware command surface.
