@@ -49,10 +49,10 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(0.02d, BatteryPreservationImpactModel.EstimateWearBetween(55, 80), 2);
 
         Assert.Equal(
-            "Charging 60→60%: ~0.00 wear cycles (estimate).",
+            "Charge wear 60→60%: ~0.00× · 1.00× = 0→100% reference.",
             BatteryPreservationImpactModel.DescribeChargeWear(60, 60));
         Assert.Equal(
-            "Charging 78→85%: ~0.05 wear cycles (estimate).",
+            "Charge wear 78→85%: ~0.05× · 1.00× = 0→100% reference.",
             BatteryPreservationImpactModel.DescribeChargeWear(78, 85));
     }
 
@@ -82,7 +82,7 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(1d, result.EstimatedWearToStop, 6);
         Assert.Equal(0d, result.EstimatedRechargeWindowWear, 6);
         Assert.Equal(
-            "Full 0→100% charge: 1.00 wear-cycle baseline.",
+            "Reference: 0→100% = 1.00× comparative charge wear · not the firmware cycle count.",
             BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false));
     }
 }
