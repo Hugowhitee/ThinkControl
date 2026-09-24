@@ -6,25 +6,27 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.49`
-- immutable tag/release SHA: `263c1c280d3a08a5bcc21d374c45a5fb2d1414cc`
-- published 2026-09-23 at 10:49:27 UTC as an immutable prerelease
+- `v0.1.0-alpha.50`
+- immutable tag/release SHA: `a56df08ec756261472fc4362e7473e9482ffd7fe`
+- published 2026-09-23 at 23:00:10 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:817142ec7814292cc882cbefc5527f50db411fc626b6ddedcf9edb9cce1ec491`
-  - Payload: `sha256:577e5f24ff9307d7c8ee357a1f215964e86712fc5e357681b4b9d62369fcf285`
-  - `SHA256SUMS.txt`: `sha256:8d5567a6403f587ceb8564c90ad174ed8b29bf277c1a0e0e46b873138f283e17`
-  - `ui-overview.png`: `sha256:131bfc4ed4defbfd3659748261e781fffb12697ba13f5003a3d78499200d3d84`
-- frozen-head CI `35850320116` / #2036: success
-- frozen-head Package ThinkControl `35850320099` / #1735: success
-- exact frozen-head visual artifact `10745496257`, digest `sha256:debde84852626754a8f16826ca45cb32aec22eae4edd9c64dbbeed5fc72de390`: dark/light Battery Preservation inspected at full resolution
-- PR #94 merged with expected head `6c00e3f7b59d4d0dedadbcfeccaa1d0f738b3c51`
-- post-merge main CI `35850715490`: success
-- branch hygiene `35850715721`: success
-- complete immutable release run `35850728731`: success
-- promotion/public re-download/checksum verification run `35850715487`: success
+  - Setup: `sha256:b777c71bbd92eeb31774de635b6c403ff9f746f6df4e534a8a8c22f2a8ed7295`
+  - Payload: `sha256:ba6dd0ad9692292642d162c2c2b6dcbb1c27c9af5f4b3495af073b2887585478`
+  - `SHA256SUMS.txt`: `sha256:d374c6d1c767068e7a6779e284c60d92ffdf142672da9f0b76c3217839927131`
+  - `ui-overview.png`: `sha256:d80bdbb01f938708600f8ecda75a1d3f7a128fd648214b211d3e74f2b73313d4`
+- frozen-head SHA: `20b3da44fb006443b24723b89eaeb022ca71c80d`
+- frozen-head CI `35930818160` / #2116: success
+- frozen-head Package ThinkControl `35930818064` / #1813: success
+- frozen-head visual artifact `10781016962`, digest `sha256:904882a7abc83965ca6c36145646f57008f1dcfb88133f7076d201622b7e4b61`
+- PR #96 merged with expected head `20b3da44fb006443b24723b89eaeb022ca71c80d`
+- merge commit / immutable tag target: `a56df08ec756261472fc4362e7473e9482ffd7fe`
+- post-merge main CI `35931058345` / #2117: success
+- branch hygiene `35931056687` / #81: success
+- complete immutable release run `35931073957` / #39: success
+- promotion/public re-download/checksum verification run `35931058527` / #60: success
+- alpha.49 remains separately immutable at `263c1c280d3a08a5bcc21d374c45a5fb2d1414cc`
 - alpha.48 remains separately immutable at `9997f750113588ee51fa3c840c8b14ed58d6d743`
-- alpha.47 remains separately immutable at `f00a11ca789e0d360051bae9358e4312316cde59`
 
 Alpha.46 completion:
 
@@ -39,7 +41,7 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.50 candidate — Silent ownership and calculated preservation context
+## Alpha.50 published release — runtime reliability
 
 Alpha.50 is a Windows-generic audio-safety and Battery Preservation explanation follow-up on immutable alpha.49. It does **not** change Lenovo threshold writes, fan providers or any privileged hardware command surface.
 
@@ -82,8 +84,8 @@ Release gate:
 - [x] post-report Home fan fix is source-regressed and visually reviewed: in-flight busy ownership plus a four-second expected-state lease prevents crossed stale telemetry from repainting Max/Quiet over Auto
 - [x] keyboard OSD suppression and Audio response remain explicitly Experimental; alpha.50 is the physical feedback vehicle rather than pretending hosted CI proves Lenovo popup/audio behavior
 - [x] release-ready metadata freeze
-- [ ] frozen-head CI + Package green
-- [ ] expected-head merge and immutable alpha.50 GitHub release/update verification
+- [x] frozen-head CI + Package green · CI `35930818160` / #2116 · Package `35930818064` / #1813
+- [x] expected-head merge and immutable alpha.50 GitHub release/update verification · merge/tag `a56df08ec756261472fc4362e7473e9482ffd7fe` · release/promotion runs `35931073957` / `35931058527`
 
 ## Alpha.49 published release — Battery Preservation visual semantics
 
