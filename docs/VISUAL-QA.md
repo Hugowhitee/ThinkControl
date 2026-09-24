@@ -48,6 +48,7 @@ Check at minimum:
 13. Battery Preservation must use one clean current-level fill with two precisely aligned threshold markers. Fill color may react to charging/limit state, but permanent green/amber/red bands, lightning/pause glyphs, ruler ticks and lock icons must not return. The comparative wear-cycle sentence must stay secondary, readable and unclipped in dark/light themes.
 14. Theme changes must repaint shell-mode labels and native Advanced caption colors immediately without minimize/reopen.
 15. The first-seen update popup must show the full transition/copy and both **Install now** / **Later** actions without clipping or implying an automatic install.
+16. Compact selectors must share the same resting geometry/color as before alpha.51; the dismiss fix is interaction-state cleanup only and must not introduce a Compact-only ComboBox template or persistent selected-looking fill.
 
 ## Artifact ownership
 
