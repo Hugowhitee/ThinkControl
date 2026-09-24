@@ -93,6 +93,9 @@ public sealed record TelemetrySnapshot(
     string? BatteryChargeProtectionSource = null,
     string? BatteryChargeProtectionDetail = null,
     bool? BatteryChargeProtectionEnabled = null,
+    // Start/stop expose the provider's normalized stored window even while
+    // protection is disabled. The enabled flag, not a synthetic 100% stop value,
+    // owns whether that window is currently active.
     int? BatteryChargeStartPercent = null,
     int? BatteryChargeStopPercent = null,
     string? BatteryChargeProtectionProvider = null);
