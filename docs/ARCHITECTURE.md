@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.50**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.49` is the current published prerelease; alpha.50 hardens Windows-generic Silent ownership and adds a threshold-derived Battery Preservation impact model without changing low-level hardware writers.
+This document describes the current source architecture at **v0.1.0-alpha.50**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.50` is the current published prerelease; alpha.50 hardens Windows-generic Silent ownership, fan/UI convergence, updater ordering and experimental keyboard behavior while keeping low-level hardware writers bounded.
 
 ## Process boundary
 

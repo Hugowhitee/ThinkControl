@@ -23,14 +23,14 @@
   </a>
 </div>
 
-## ThinkControl alpha.50 development
+## ThinkControl alpha.50
 
 Alpha.50 is a runtime-reliability pass: Silent owns the Windows volume-key path without trapping a key held during activation, Home fan Auto stays stable while service telemetry catches up, keyboard Audio reacts to real loopback output, and Battery Preservation uses a cleaner state-reactive gauge plus a comparative wear-cycle estimate.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
 **Release target:** `v0.1.0-alpha.50`  
-**Current immutable prerelease:** `v0.1.0-alpha.49`
+**Current immutable prerelease:** `v0.1.0-alpha.50`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -40,7 +40,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.49/ui-overview.png">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.50/ui-overview.png">
     <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.49/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
