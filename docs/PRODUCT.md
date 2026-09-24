@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.50`.  
-Current immutable prerelease: `v0.1.0-alpha.50`. Alpha.50 is the published runtime-reliability release covering Silent activation/input ownership, Home fan-mode convergence, updater dev-build precedence, experimental keyboard effects and the cleaner Battery Preservation gauge/wear estimate; alpha.44 remains the hardware-behavior baseline.
+Current source release target: `v0.1.0-alpha.51`.  
+Current immutable prerelease: `v0.1.0-alpha.50`. Alpha.51 is a narrow Compact selector-dismiss hotfix on the published alpha.50 runtime-reliability baseline; alpha.44 remains the hardware-behavior baseline.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -44,7 +44,7 @@ Compact contains the controls and telemetry most useful during normal operation:
 - one **Audio safety** selector (`Normal` / `Gesture lock` / `Silent`) grouped with Brightness/Volume rather than detached in the footer;
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Audio safety remains one compact session state. Gesture lock blocks only ThinkControl touchpad audio/media gestures; Silent additionally keeps Windows output muted, swallows the standard Windows volume keys while active, and re-mutes app/Windows unmute attempts from CoreAudio notifications.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Compact ComboBox popups must fully release transient mouse capture/focus when dismissed so a selector cannot remain stuck in its hover/focus visual state after the pointer has moved elsewhere. Audio safety remains one compact session state. Gesture lock blocks only ThinkControl touchpad audio/media gestures; Silent additionally keeps Windows output muted, swallows the standard Windows volume keys while active, and re-mutes app/Windows unmute attempts from CoreAudio notifications.
 
 ### Advanced
 
