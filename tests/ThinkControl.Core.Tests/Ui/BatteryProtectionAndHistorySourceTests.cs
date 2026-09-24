@@ -34,8 +34,9 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("nameof(AppState.BatteryPercent)", panel, StringComparison.Ordinal);
         Assert.Contains("RefreshChargeProtectionWearEstimate", panel, StringComparison.Ordinal);
         string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
-        Assert.Contains("ScaleChargeEtaToTarget", state, StringComparison.Ordinal);
+        Assert.Contains("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("to {target}%", state, StringComparison.Ordinal);
+        Assert.Contains("BatterySmoothedPowerWatts is > 0.4", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BatteryPreservationImpactModel.LimitationsText", code, StringComparison.Ordinal);
 

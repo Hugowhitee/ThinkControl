@@ -90,6 +90,18 @@ public sealed class Alpha47UxSourceTests
     }
 
     [Fact]
+    public void AdvancedHome_SensorsMetricOpensExistingSensorDetails()
+    {
+        string root = FindRepositoryRoot();
+        string home = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeDashboard.cs"));
+        string normalized = home.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("openSensorDetails: true", home, StringComparison.Ordinal);
+        Assert.Contains("app.OpenSensorDetails(this);", home, StringComparison.Ordinal);
+        Assert.Contains("else\n                Navigate(page);", normalized, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AudioSafety_LivesOnHomeAndMediaControls_NotSettings()
     {
         string root = FindRepositoryRoot();

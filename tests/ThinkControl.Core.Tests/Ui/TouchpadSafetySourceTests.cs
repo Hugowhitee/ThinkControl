@@ -74,6 +74,17 @@ public sealed class TouchpadSafetySourceTests
     }
 
     [Fact]
+    public void ReverseCloseEditor_UsesSharedSwitchInsteadOfSquareCheckbox()
+    {
+        string root = FindRepositoryRoot();
+        string source = Read(root, "src", "ThinkControl.UI", "Controls", "TouchpadPanel.CornerLaunches.cs");
+
+        Assert.Contains("Text = \"Reverse swipe closes ThinkControl\"", source, StringComparison.Ordinal);
+        Assert.Contains("Style = TryFindResource(\"TcSwitch\") as Style", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content = \"Reverse swipe closes ThinkControl\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TrackSkip_CommitsOnlyOnReleaseAfterTheDeliberateThreshold()
     {
         string root = FindRepositoryRoot();

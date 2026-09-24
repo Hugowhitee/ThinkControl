@@ -229,9 +229,8 @@ public sealed class AppState : INotifyPropertyChanged
                 if (parkedAtLimit)
                     return $"Paused at {target}% limit";
 
-                if (BatteryEtaToFull is TimeSpan protectedFullEta)
+                if (EstimateChargeEtaToTarget(target) is TimeSpan toTarget)
                 {
-                    TimeSpan toTarget = ScaleChargeEtaToTarget(protectedFullEta, target);
                     return toTarget <= TimeSpan.FromMinutes(1)
                         ? $"Almost at {target}% limit"
                         : $"~{FormatDuration(toTarget)} to {target}%";
@@ -246,27 +245,31 @@ public sealed class AppState : INotifyPropertyChanged
         }
     }
 
-    private TimeSpan ScaleChargeEtaToTarget(TimeSpan toFull, int targetPercent)
+    private TimeSpan? EstimateChargeEtaToTarget(int targetPercent)
     {
-        if (targetPercent >= 100 || BatteryPercent >= targetPercent)
-            return targetPercent >= 100 ? toFull : TimeSpan.Zero;
+        if (BatteryPercent >= targetPercent)
+            return TimeSpan.Zero;
 
-        double ratio;
+        double? liveChargePower = BatterySmoothedPowerWatts is > 0.4
+            ? BatterySmoothedPowerWatts
+            : BatteryPowerWatts is > 0.4 ? BatteryPowerWatts : null;
         if (BatteryFullWh is double fullWh && fullWh > 0 &&
-            BatteryRemainingWh is double remainingWh && remainingWh >= 0 && remainingWh < fullWh)
+            BatteryRemainingWh is double remainingWh && remainingWh >= 0 &&
+            liveChargePower is double powerWatts)
         {
-            double fullDeficit = fullWh - remainingWh;
-            double targetDeficit = Math.Max(0, fullWh * targetPercent / 100d - remainingWh);
-            ratio = fullDeficit > 0 ? targetDeficit / fullDeficit : 0;
-        }
-        else
-        {
-            int fullDeficitPercent = Math.Max(1, 100 - BatteryPercent);
-            int targetDeficitPercent = Math.Max(0, targetPercent - BatteryPercent);
-            ratio = targetDeficitPercent / (double)fullDeficitPercent;
+            double targetWh = fullWh * targetPercent / 100d;
+            double neededWh = Math.Max(0d, targetWh - remainingWh);
+            double seconds = neededWh / powerWatts * 3600d;
+            if (double.IsFinite(seconds) && seconds >= 0d)
+                return TimeSpan.FromSeconds(Math.Min(seconds, TimeSpan.FromHours(24).TotalSeconds));
         }
 
-        ratio = Math.Clamp(ratio, 0d, 1d);
+        if (BatteryEtaToFull is not TimeSpan toFull)
+            return null;
+
+        int fullDeficitPercent = Math.Max(1, 100 - BatteryPercent);
+        int targetDeficitPercent = Math.Max(0, targetPercent - BatteryPercent);
+        double ratio = Math.Clamp(targetDeficitPercent / (double)fullDeficitPercent, 0d, 1d);
         return TimeSpan.FromTicks((long)Math.Round(toFull.Ticks * ratio));
     }
     public string BatteryCompactLine => BatteryPowerWatts.HasValue
