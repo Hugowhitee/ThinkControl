@@ -23,13 +23,13 @@
   </a>
 </div>
 
-## ThinkControl alpha.51
+## ThinkControl alpha.52
 
-Alpha.51 is a narrow Compact interaction hotfix on immutable alpha.50. It clears stale ComboBox popup capture/focus after a dropdown is dismissed so selectors return to their normal visual state without requiring the user to click outside ThinkControl.
+Alpha.52 is a feedback-driven interaction and hardware-safety candidate on immutable alpha.51. It keeps the reviewed Lenovo firmware cooling path intact while tightening battery, audio, Touchpad, Sensors and fan-test interactions around one clear state owner.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.51`  
+**Release target:** `v0.1.0-alpha.52`  
 **Current immutable prerelease:** `v0.1.0-alpha.51`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -64,6 +64,14 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.52 changes
+
+- **Windows volume sliders now feel like direct controls instead of queued writers.** System volume and Microphone input track locally while you drag, commit the endpoint write on release/key adjustment, and ignore endpoint refreshes that would otherwise pull the thumb back under the pointer.
+- **Battery Preservation is one explicit on/off state.** The switch owns enable/disable, while the selector contains only the three actual preservation windows. When protection is active, Battery ETA targets the configured stop percentage instead of still saying `to full`.
+- **Battery wear copy is clearly comparative.** The modeled charge cost is shown as a fraction of a `1.00× = 0→100%` reference and is explicitly separate from the firmware battery cycle count.
+- **Small controls reuse existing product grammar.** Reverse-close uses the shared switch style, Home Sensors opens the existing live sensor-details window directly, and Temporary fan test uses one Start/End action instead of two adjacent buttons.
+- **The physically rejected X9 discrete-EC writer is no longer advertised as a direct control.** The exact X9 EC path remains available for read/Auto-recovery duties only; Auto / Quiet / Balanced / Max cooling continue through the reviewed Lenovo firmware-policy path.
 
 ## What alpha.51 changes
 

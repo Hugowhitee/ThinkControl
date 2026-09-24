@@ -41,6 +41,48 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
+## Alpha.52 active candidate — feedback-driven interaction and X9 safety
+
+Active implementation state:
+
+- branch: `alpha52-feedback-fixes`
+- PR: **#100 — Prepare alpha.52 hardware and UX follow-up**
+- source target: `v0.1.0-alpha.52`
+- immutable/public baseline: `v0.1.0-alpha.51`
+- `version.json.releaseReady=false` until all deferred release gates are restored and pass
+
+Scope:
+
+- make System volume and Microphone input sliders track locally while dragging and commit one Windows endpoint write on release/key adjustment instead of repeatedly writing during the drag;
+- make Battery Preservation one explicit switch with three named preservation windows, target ETA to the active stop threshold and distinguish modeled charge-wear ratio from firmware cycle count;
+- make Home Sensors open the existing live details window directly and make Touchpad reverse-close use the shared switch grammar;
+- collapse Temporary fan test to one Start/End action;
+- stop advertising the physically inferior exact-X9 discrete-EC path as a direct writer while retaining read/Auto-recovery cleanup and the reviewed firmware Auto / Quiet / Balanced / Max path;
+- add source regressions for the new interaction contracts.
+
+Temporary verification constraint — confirmed by the account owner on 2026-09-24:
+
+- the GitHub Actions included-minute budget is exhausted for the next few days / until the billing reset;
+- **do not manually start, rerun or repeatedly poll hosted workflows while this constraint is active**;
+- continue with repository/static review and real-device/manual evidence where available;
+- mark hosted CI, Package and generated visual-QA evidence as **DEFERRED / UNVERIFIED because of the temporary budget constraint**, not as a product failure;
+- after capacity resets, run the normal exact-head CI + Package + WPF visual-QA gates before merge/promotion; absence of hosted evidence during the budget window is never permission to lower the release bar.
+
+Current gate:
+
+- [x] interaction/hardware-safety implementation is isolated in PR #100 rather than modifying immutable alpha.51
+- [x] first candidate build exposed the stale snapshot call `FindChargeProtectionPreset(enabled: false)`; the branch fixture was repaired to the new switch/preset contract
+- [x] source/static regression guards cover Battery switch/ETA semantics, Audio slider ownership, fan writer boundary and one-button temporary test
+- [x] Home Sensors and Touchpad reverse-close now have dedicated source regression guards
+- [ ] real-device check: Audio output/microphone slider feel and endpoint convergence
+- [ ] real-device check: preservation switch, stop-target ETA and physical threshold behavior
+- [ ] real-device check: built-in Auto / Quiet / Balanced / Max behavior remains correct after direct-EC capability removal
+- [ ] exact-head Release build + Core/source tests — **DEFERRED / UNVERIFIED: GitHub Actions budget**
+- [ ] Compact ↔ Advanced ShellSmoke — **DEFERRED / UNVERIFIED: GitHub Actions budget**
+- [ ] deterministic dark/light WPF visual matrix manual review — **DEFERRED / UNVERIFIED: GitHub Actions budget**
+- [ ] Package ThinkControl / installer / service / updater compatibility — **DEFERRED / UNVERIFIED: GitHub Actions budget**
+- [ ] freeze `releaseReady=true`, expected-head merge and immutable alpha.52 promotion only after all required gates pass
+
 ## Alpha.51 published release — Compact dropdown dismiss state
 
 Alpha.51 is a narrow user-session UI hotfix on immutable alpha.50. No hardware provider, Windows service, updater, installer, fan, battery, audio-safety or keyboard-effect contract changes.

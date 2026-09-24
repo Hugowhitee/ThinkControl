@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.51**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.51` is the current published prerelease; alpha.51 changes only Compact user-session dropdown dismiss/focus handling and does not alter hardware, service, updater or provider boundaries.
+This document describes the current source architecture at **v0.1.0-alpha.52**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.51` is the current published prerelease; alpha.52 is the active candidate and is not release-ready while its deferred verification gates remain open.
 
 ## Process boundary
 
@@ -39,6 +39,8 @@ The ThinkPad X9 path separates five concepts:
 5. Lenovo PM Device battery charge-threshold semantics.
 
 `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
+
+The exact-X9 classic seven-step EC writer is also no longer advertised as a direct-output capability. Physical validation reproduced cycling/waves and a lower useful cooling ceiling than firmware Auto. The EC backend remains available only where needed for read-only telemetry and verified Auto recovery/cleanup of previously owned state; lack of OEM telemetry never re-authorizes it as a production writer.
 
 Alpha.41 added Lenovo Other Mode feature `0x04020000` as a narrow boolean full-speed override. Battery preservation is a separate provider. Alpha.43 uses the installed Lenovo Power Manager configuration plus the existing Lenovo PM kernel device (`PWRMGRV` + `\\.\IBMPmDrv`) to expose bounded start/stop charge windows on the verified X9. Raw IOCTLs and driver paths never cross the public IPC boundary.
 

@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.51** and later candidates built from immutable alpha.50. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.52** and later candidates. Hosted CI remains a release gate, but it is temporarily **DEFERRED / UNVERIFIED** while the account's GitHub Actions minutes are exhausted; see `RELEASE_READINESS.md`. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -40,6 +40,19 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
+
+## Alpha.52 interaction and X9 safety candidate
+
+1. On Advanced → Audio, drag **System volume** continuously across a wide range. The thumb/value must follow the pointer immediately without the short post-drag locked feeling; endpoint refresh must not pull it backward while the drag is active. Releasing the pointer commits the requested Windows endpoint value once.
+2. Repeat with **Microphone input**. Keyboard adjustments must also commit without restoring a stale endpoint value. Navigate away during an unfinished drag and confirm no delayed off-page write occurs.
+3. On Battery, verify **Battery preservation** has one shared-style on/off switch. The preset selector contains only Daily 75–85%, Desk 55–80% and Maximum care 40–60%; turning the switch off restores ordinary charging instead of selecting a fake `Full charge` preset.
+4. With preservation active below its stop threshold, Battery ETA must say time to the active target (for example `to 85%`), not `to full`. At/near the cap on AC it should report the paused limit state.
+5. The charge-wear line must use a comparative `×` reference such as `1.00× = 0→100% reference` and must not look like the firmware **CYCLES** counter. Tooltip/caveat remains explicit about model limits.
+6. On Advanced Home, click **SENSORS**. It must open the existing live Sensor details window directly; other telemetry metrics retain their existing navigation behavior.
+7. In Touchpad, select a top corner. **Reverse swipe closes ThinkControl** must use the same shared switch geometry as the rest of ThinkControl, not a square checkbox.
+8. On Fans, a supported temporary direct-output test must expose one stateful action: **Start test** becomes **End test** while active. Target controls are locked during the test and the previous profile/Auto is still restored on timeout, page close or explicit End.
+9. On the reference X9, raw/discrete EC fan output must not appear as an available direct writer. Auto / Quiet / Balanced / Max cooling remain available through the reviewed Lenovo firmware-policy/full-speed semantics. A missing OEM sample must never make the legacy EC writer reappear.
+10. Hosted CI, Package and deterministic visual artifact remain **DEFERRED** until GitHub Actions capacity resets. Do not substitute static review for those final release gates and do not merge/promote alpha.52 before exact-head hosted verification is restored.
 
 ## Alpha.51 Compact dropdown dismiss regression
 
@@ -100,9 +113,9 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 ## Audio lifecycle regression
 
 1. Open Advanced → Audio.
-2. Drag output volume and navigate away while dragging, then return.
-3. Repeat with microphone level.
-4. Confirm no delayed off-page write jumps a control later.
+2. Drag output volume continuously; the thumb/value must follow locally without repeated endpoint refresh snapping it back. Release once and confirm the Windows value converges to the requested value.
+3. Navigate away during a drag, return, and confirm no delayed off-page write jumps the control later.
+4. Repeat both checks with microphone level.
 5. Leave Audio idle and confirm live endpoint state continues refreshing after the navigation cycle.
 
 ## Alpha.44 cold-start and edge-control stabilization
