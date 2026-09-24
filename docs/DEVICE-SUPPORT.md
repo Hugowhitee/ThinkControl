@@ -127,7 +127,7 @@ RPM telemetry is not treated as a proxy for airflow intensity. Physical evidence
 
 `EnergyDrv` `QueryFanSpeed 0x83102570` remains read-only evidence. `ChangeFanSpeed 0x8310257C` remains blocked until exact X9 encoding and rollback semantics are recovered.
 
-The classic EC states are not generic laptop controls. **Raw EC diagnostics** appear only if an active provider explicitly exposes the verified discrete-EC semantic contract. Manual percentage/raw-state interactions use bounded temporary-test safety where applicable.
+The classic X9 EC states are not production fan controls. On the verified X9 they are **read/Auto-recovery only** because physical testing reproduced audible speed cycling/waves and a lower useful cooling ceiling than Lenovo Auto. Raw EC diagnostics therefore do not appear as a normal X9 control surface. Bounded temporary tests remain available only for a future direct provider that independently passes the physical acceptance gate.
 
 ## Keyboard semantics
 
