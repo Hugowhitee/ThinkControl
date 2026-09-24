@@ -296,10 +296,9 @@ public partial class BatteryTelemetryPanel : UserControl
         try
         {
             RemoveDynamicChargeProtectionPreset();
-            ChargeProtectionComboBox.IsEnabled = state.BatteryProtectionWritable;
             ComboBoxItem? selected = snapshotProtection
                 ? FindChargeProtectionPreset(snapshotStart, snapshotStop)
-                : FindChargeProtectionPreset(enabled: false);
+                : FindChargeProtectionPreset(75, 85);
             if (snapshotProtection && selected is null)
             {
                 selected = new ComboBoxItem
@@ -309,7 +308,10 @@ public partial class BatteryTelemetryPanel : UserControl
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
             }
-            ChargeProtectionComboBox.SelectedItem = selected;
+            ChargeProtectionComboBox.SelectedItem = selected ?? ChargeProtectionComboBox.Items.OfType<ComboBoxItem>().FirstOrDefault();
+            ChargeProtectionSwitch.IsChecked = snapshotProtection;
+            ChargeProtectionSwitch.IsEnabled = state.BatteryProtectionWritable;
+            ChargeProtectionComboBox.IsEnabled = state.BatteryProtectionWritable && snapshotProtection;
         }
         finally
         {
@@ -317,13 +319,13 @@ public partial class BatteryTelemetryPanel : UserControl
         }
         ChargeProtectionStateText.Text = snapshotProtection
             ? $"{snapshotStart}–{snapshotStop}% active"
-            : "Full charge active";
+            : "Off";
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
-            : "Charges normally to 100%.";
-        ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
-            state.BatteryPercent,
-            snapshotProtection ? snapshotStop : 100);
+            : "Preservation is off; charging is allowed to 100%.";
+        ChargeProtectionWearText.Text = snapshotProtection
+            ? BatteryPreservationImpactModel.DescribeChargeWear(state.BatteryPercent, snapshotStop)
+            : BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false);
         ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
         ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
