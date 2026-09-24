@@ -15,7 +15,9 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Daily 75–85% (recommended)", xaml, StringComparison.Ordinal);
         Assert.Contains("Desk 55–80%", xaml, StringComparison.Ordinal);
         Assert.Contains("Maximum care 40–60%", xaml, StringComparison.Ordinal);
-        Assert.Contains("Full charge 100%", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Full charge 100%", xaml, StringComparison.Ordinal);
+        Assert.Contains("ChargeProtectionSwitch_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("ChargeProtection_SelectionChanged", xaml, StringComparison.Ordinal);
         Assert.Contains("SetBatteryChargeThresholdsAsync(start, stop)", code, StringComparison.Ordinal);
         Assert.Contains("DisableBatteryChargeThresholdsAsync", code, StringComparison.Ordinal);
@@ -31,6 +33,9 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
         Assert.Contains("nameof(AppState.BatteryPercent)", panel, StringComparison.Ordinal);
         Assert.Contains("RefreshChargeProtectionWearEstimate", panel, StringComparison.Ordinal);
+        string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
+        Assert.Contains("ScaleChargeEtaToTarget", state, StringComparison.Ordinal);
+        Assert.Contains("to {target}%", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BatteryPreservationImpactModel.LimitationsText", code, StringComparison.Ordinal);
 
