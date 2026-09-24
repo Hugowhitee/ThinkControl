@@ -61,7 +61,8 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
         Assert.Contains("bool ecAvailable = !nativeOemSafetyBoundary || needEcForThermals", controller, StringComparison.Ordinal);
         Assert.Contains("ResolveFanControlKind(oemFanControl)", controller, StringComparison.Ordinal);
         Assert.Contains("The exact X9 EC path is intentionally telemetry/Auto-recovery only", controller, StringComparison.Ordinal);
-        Assert.Contains("transient telemetry miss cannot re-enable the EC fallback", controller, StringComparison.Ordinal);
+        Assert.Contains("transient provider miss must never silently", controller, StringComparison.Ordinal);
+        Assert.Contains("A transient telemetry miss cannot fall through to EC control", controller, StringComparison.Ordinal);
         Assert.Contains("Deliberately do not clear _nativeOemFanTelemetryConfirmed", controller, StringComparison.Ordinal);
         Assert.DoesNotContain("_nativeOemFanTelemetryConfirmed = false", controller, StringComparison.Ordinal);
     }
