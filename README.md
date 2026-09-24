@@ -23,7 +23,7 @@
   </a>
 </div>
 
-## ThinkControl alpha.51 development
+## ThinkControl alpha.51
 
 Alpha.51 is a narrow Compact interaction hotfix on immutable alpha.50. It clears stale ComboBox popup capture/focus after a dropdown is dismissed so selectors return to their normal visual state without requiring the user to click outside ThinkControl.
 
