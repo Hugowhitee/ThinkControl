@@ -69,19 +69,20 @@ public partial class BatteryTelemetryPanel
                                      response.Capabilities.BatteryCustomChargeThresholds;
         bool available = telemetry?.BatteryChargeProtectionEnabled is not null || telemetry?.BatteryChargeLimitPercent is not null;
         bool enabled = telemetry?.BatteryChargeProtectionEnabled ?? telemetry?.BatteryChargeLimitPercent is < 100;
-        int start = telemetry?.BatteryChargeStartPercent ?? 75;
-        int stop = enabled
-            ? telemetry?.BatteryChargeStopPercent ?? telemetry?.BatteryChargeLimitPercent ?? 85
-            : 100;
+        int storedStart = telemetry?.BatteryChargeStartPercent ?? 75;
+        int storedStop = telemetry?.BatteryChargeStopPercent ??
+                         (enabled ? telemetry?.BatteryChargeLimitPercent ?? 85 : 85);
+        int start = storedStart;
+        int stop = enabled ? storedStop : 100;
 
-        if (enabled)
+        if (IsValidChargeProtectionPair(storedStart, storedStop))
         {
-            _lastChargeProtectionStart = start;
-            _lastChargeProtectionStop = stop;
+            _lastChargeProtectionStart = storedStart;
+            _lastChargeProtectionStop = storedStop;
         }
 
         int selectedStart = enabled ? start : _lastChargeProtectionStart;
-        int selectedStop = enabled ? stop : _lastChargeProtectionStop;
+        int selectedStop = enabled ? storedStop : _lastChargeProtectionStop;
 
         _syncingChargeProtection = true;
         try
@@ -270,8 +271,18 @@ public partial class BatteryTelemetryPanel
         start = 0;
         stop = 0;
         string[] parts = raw.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-        return parts.Length == 2 && int.TryParse(parts[0], out start) && int.TryParse(parts[1], out stop) && start < stop;
+        return parts.Length == 2 &&
+               int.TryParse(parts[0], out start) &&
+               int.TryParse(parts[1], out stop) &&
+               IsValidChargeProtectionPair(start, stop);
     }
+
+    private static bool IsValidChargeProtectionPair(int start, int stop) =>
+        start is >= 40 and <= 90 &&
+        stop is >= 45 and <= 95 &&
+        start % 5 == 0 &&
+        stop % 5 == 0 &&
+        start < stop;
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
         $"Charging resumes below {start}% and pauses at {stop}%.";

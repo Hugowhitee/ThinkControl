@@ -28,6 +28,8 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("SendDriverCommand(handle, IoctlSetChargeMode, AutomaticMode", source, StringComparison.Ordinal);
         Assert.Contains("RestorePreviousState(before)", source, StringComparison.Ordinal);
         Assert.Contains("PWRMGRV readback verified", source, StringComparison.Ordinal);
+        Assert.Contains("StopPercent: stop", source, StringComparison.Ordinal);
+        Assert.Contains("Keep the stored percentages so enabling protection later can recover the", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SetFeatureValue", source, StringComparison.Ordinal);
         Assert.DoesNotContain("LENOVO_OTHER_METHOD", source, StringComparison.Ordinal);
     }
@@ -78,7 +80,8 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("Reset all history…", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Clear history\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Estimating comparative charge wear", xaml, StringComparison.Ordinal);
-        Assert.DoesNotContain("×", xaml, StringComparison.Ordinal);
+        Assert.Contains("1.00×", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("× fewer", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
     private static string ReadSource(params string[] path)
