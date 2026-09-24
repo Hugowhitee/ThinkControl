@@ -1,6 +1,7 @@
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Threading;
 using NAudio.CoreAudioApi;
 using ThinkControl.UI.Services;
@@ -430,9 +431,9 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
-    private void VolumeSlider_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
+    private void VolumeSlider_KeyUp(object sender, KeyEventArgs e)
     {
-        if (_snapshotMode)
+        if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
 
         ApplyVolumeSlider();
@@ -519,14 +520,17 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
-    private void MicrophoneSlider_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
+    private void MicrophoneSlider_KeyUp(object sender, KeyEventArgs e)
     {
-        if (_snapshotMode)
+        if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
 
         ApplyMicrophoneSlider();
         QueueVolumeRefresh(applyCacheFirst: false);
     }
+
+    private static bool IsSliderAdjustmentKey(Key key) =>
+        key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown;
 
     private void ApplyMicrophoneSlider()
     {
