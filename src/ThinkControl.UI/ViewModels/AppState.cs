@@ -222,14 +222,22 @@ public sealed class AppState : INotifyPropertyChanged
                 configuredStop < 100)
             {
                 int target = Math.Clamp(configuredStop, 1, 100);
-                bool parkedAtLimit = !BatteryCharging &&
-                                     BatteryPercent >= target - 1 &&
-                                     (BatteryStatus.Contains("Plugged", StringComparison.OrdinalIgnoreCase) ||
-                                      BatteryStatus.Contains("charged", StringComparison.OrdinalIgnoreCase));
-                if (parkedAtLimit)
-                    return $"Paused at {target}% limit";
+                bool pluggedIn = BatteryCharging ||
+                                 BatteryStatus.Contains("Plugged", StringComparison.OrdinalIgnoreCase) ||
+                                 BatteryStatus.Contains("charged", StringComparison.OrdinalIgnoreCase);
+                if (pluggedIn && !BatteryCharging)
+                {
+                    if (BatteryPercent >= target - 1)
+                        return $"Paused at {target}% limit";
 
-                if (EstimateChargeEtaToTarget(target) is TimeSpan toTarget)
+                    if (BatteryProtectionStartPercent is int configuredStart &&
+                        BatteryPercent >= configuredStart)
+                    {
+                        return $"Paused · resumes below {configuredStart}%";
+                    }
+                }
+
+                if (BatteryCharging && EstimateChargeEtaToTarget(target) is TimeSpan toTarget)
                 {
                     return toTarget <= TimeSpan.FromMinutes(1)
                         ? $"Almost at {target}% limit"

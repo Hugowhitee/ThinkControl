@@ -40,6 +40,8 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("to {target}%", state, StringComparison.Ordinal);
         Assert.Contains("BatterySmoothedPowerWatts is > 0.4", state, StringComparison.Ordinal);
+        Assert.Contains("if (BatteryCharging && EstimateChargeEtaToTarget(target)", state, StringComparison.Ordinal);
+        Assert.Contains("Paused · resumes below {configuredStart}%", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BatteryPreservationImpactModel.LimitationsText", code, StringComparison.Ordinal);
 
