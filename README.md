@@ -23,13 +23,13 @@
   </a>
 </div>
 
-## ThinkControl alpha.51
+## ThinkControl alpha.52 development
 
-Alpha.51 is a narrow Compact interaction hotfix on immutable alpha.50. It clears stale ComboBox popup capture/focus after a dropdown is dismissed so selectors return to their normal visual state without requiring the user to click outside ThinkControl.
+Alpha.52 fixes battery ETA semantics around Battery Preservation. Charging time is now calculated to the active stop threshold instead of an unreachable 100%, and every battery surface says the real target such as **to 85%**.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.51`  
+**Release target:** `v0.1.0-alpha.52`  
 **Current immutable prerelease:** `v0.1.0-alpha.51`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -41,7 +41,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 
 <p align="center">
   <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.51/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.50/ui-overview.png" alt="ThinkControl interface overview" width="920">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.51/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -64,6 +64,14 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.52 changes
+
+- **Charging ETA follows Battery Preservation.** With a 75–85% window, the estimator computes energy remaining to 85% and the UI says **~… to 85%** instead of **to full**.
+- **Changing the charge target invalidates old ETA state.** Switching 60/80/85/100% resets the rolling estimate so a duration calculated for one endpoint is never relabeled as another.
+- **Reached preservation limits read as limits.** When the laptop is plugged in and parked at the stop threshold, Compact/Home/Battery show **Charge limit 85%** rather than an endless **Estimating…** state.
+- **Discharge ETA is unchanged.** On battery, the existing remaining-runtime estimate still owns the text.
+- **Regression coverage includes target math and target changes.** The estimator is tested for full charge, 85% preservation, target switches and the zero-ETA endpoint.
 
 ## What alpha.51 changes
 
