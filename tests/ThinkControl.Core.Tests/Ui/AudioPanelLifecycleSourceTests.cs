@@ -33,6 +33,12 @@ public sealed class AudioPanelLifecycleSourceTests
         Assert.Contains("interactionStartPercent == requested", panel, StringComparison.Ordinal);
         Assert.Contains("_cachedOutput.Percent == requested", panel, StringComparison.Ordinal);
         Assert.Contains("_cachedInput.Percent == requested", panel, StringComparison.Ordinal);
+        Assert.Contains("VolumeSlider.LostKeyboardFocus += VolumeSlider_LostKeyboardFocus;", panel, StringComparison.Ordinal);
+        Assert.Contains("MicrophoneSlider.LostKeyboardFocus += MicrophoneSlider_LostKeyboardFocus;", panel, StringComparison.Ordinal);
+        Assert.Contains("ApplyVolumeSlider(_volumeInteractionStartPercent);", panel, StringComparison.Ordinal);
+        Assert.Contains("ApplyMicrophoneSlider(_microphoneInteractionStartPercent);", panel, StringComparison.Ordinal);
+        Assert.Contains("VolumeSlider.IsMouseCaptureWithin", panel, StringComparison.Ordinal);
+        Assert.Contains("MicrophoneSlider.IsMouseCaptureWithin", panel, StringComparison.Ordinal);
         string normalizedPanel = panel.Replace("\r\n", "\n", StringComparison.Ordinal);
         Assert.Contains("if (!_volumeDragging)\n            RestartAutomationCommit", normalizedPanel, StringComparison.Ordinal);
         Assert.Contains("if (!_microphoneDragging)\n            RestartAutomationCommit", normalizedPanel, StringComparison.Ordinal);
