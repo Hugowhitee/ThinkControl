@@ -142,6 +142,13 @@ internal sealed class ThinkControlModeCoordinator
             return false;
 
         var modes = (_app.UserSettings.Current.CustomModes ?? []).ToList();
+        if (modes.Any(existing =>
+                !existing.Id.Equals(sanitized.Id, StringComparison.OrdinalIgnoreCase) &&
+                existing.Name.Equals(sanitized.Name, StringComparison.OrdinalIgnoreCase)))
+        {
+            return false;
+        }
+
         int index = modes.FindIndex(existing =>
             existing.Id.Equals(sanitized.Id, StringComparison.OrdinalIgnoreCase));
 
