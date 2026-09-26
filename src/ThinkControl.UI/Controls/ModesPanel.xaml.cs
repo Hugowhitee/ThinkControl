@@ -72,8 +72,6 @@ public partial class ModesPanel : UserControl
 
         EmptyCustomText.Visibility = customs.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         NewModeButton.IsEnabled = customs.Length < ThinkControlModeCatalog.MaxCustomModes;
-        if (!_busy)
-            ListStatusText.Visibility = Visibility.Collapsed;
         UpdateHeaderState();
     }
 
@@ -175,6 +173,7 @@ public partial class ModesPanel : UserControl
             return;
 
         _busy = true;
+        ListStatusText.Visibility = Visibility.Collapsed;
         ListView.IsEnabled = false;
         try
         {
@@ -526,6 +525,7 @@ public partial class ModesPanel : UserControl
             return;
 
         _busy = true;
+        ListStatusText.Visibility = Visibility.Collapsed;
         ReapplyButton.IsEnabled = false;
         try
         {
