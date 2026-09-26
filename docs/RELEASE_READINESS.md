@@ -41,6 +41,35 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
+## Alpha.52 candidate — Battery Preservation target-aware ETA
+
+Alpha.52 is a narrow Core/UI correctness follow-up on immutable alpha.51. It does not alter Lenovo charge-threshold writes, the privileged service, fan/audio/keyboard behavior, updater mechanics or any hardware capability boundary.
+
+Scope:
+
+- calculate charging ETA to the active Battery Preservation stop threshold instead of always to 100%;
+- carry the charge target explicitly through `BatteryEtaSample` / `BatteryEtaEstimate` rather than hiding target semantics behind a `ToFull` name;
+- reset the rolling ETA estimator when the verified stop threshold changes so stale durations cannot be relabeled for a new endpoint;
+- label Compact, Home and Battery with the real endpoint (for example, **~24 min to 85%**);
+- when plugged in and parked at the preservation cap, show **Charge limit 85%** rather than an indefinite estimating/full-charge state;
+- leave discharge/runtime ETA unchanged;
+- keep custom threshold pairs future-proof by deriving the target from provider state rather than preset names.
+
+Release gate:
+
+- [x] alpha.52 isolated from immutable alpha.51
+- [x] estimator target is an explicit bounded percentage with 100% as the generic default
+- [x] target energy uses `FullWh × targetPercent` and stops at the active target
+- [x] target changes reset rolling power/ETA state before recalculation
+- [x] AppState wording distinguishes full charge, preservation target and reached charge limit
+- [x] all Compact/Home/Battery ETA surfaces share `BatteryEtaText`
+- [x] unit/source regression coverage added for 100%, 85%, target changes, target reached and UI plumbing
+- [ ] exact implementation-head CI + Package green
+- [ ] full-resolution Compact/Home/Battery dark/light visual review
+- [ ] release-ready metadata freeze
+- [ ] frozen-head CI + Package green
+- [ ] expected-head merge and immutable alpha.52 GitHub release/update verification
+
 ## Alpha.51 published release — Compact dropdown dismiss state
 
 Alpha.51 is a narrow user-session UI hotfix on immutable alpha.50. No hardware provider, Windows service, updater, installer, fan, battery, audio-safety or keyboard-effect contract changes.
