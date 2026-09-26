@@ -81,12 +81,22 @@ public sealed class BatteryEtaEstimator
         double? rawEtaSeconds = warmedUp ? CalculateEnergyEtaSeconds(sample, targetPercent) : null;
         if (rawEtaSeconds is >= 0 && rawEtaSeconds <= MaximumEta.TotalSeconds)
         {
-            double bounded = rawEtaSeconds.Value;
-            if (_smoothedEtaSeconds is > 60)
-                bounded = Math.Clamp(bounded, _smoothedEtaSeconds.Value * 0.75, _smoothedEtaSeconds.Value * 1.25);
-            _smoothedEtaSeconds = _smoothedEtaSeconds.HasValue
-                ? _smoothedEtaSeconds.Value + 0.18 * (bounded - _smoothedEtaSeconds.Value)
-                : bounded;
+            if (rawEtaSeconds.Value == 0)
+            {
+                // Reaching the active charge target is a terminal state, not another
+                // noisy ETA sample. Publish zero immediately instead of allowing the
+                // previous estimate's clamp/EWMA to keep stale minutes visible.
+                _smoothedEtaSeconds = 0;
+            }
+            else
+            {
+                double bounded = rawEtaSeconds.Value;
+                if (_smoothedEtaSeconds is > 60)
+                    bounded = Math.Clamp(bounded, _smoothedEtaSeconds.Value * 0.75, _smoothedEtaSeconds.Value * 1.25);
+                _smoothedEtaSeconds = _smoothedEtaSeconds.HasValue
+                    ? _smoothedEtaSeconds.Value + 0.18 * (bounded - _smoothedEtaSeconds.Value)
+                    : bounded;
+            }
         }
 
         TimeSpan? toChargeTarget = sample.Charging && _smoothedEtaSeconds.HasValue
