@@ -185,6 +185,7 @@ public partial class FansPanel : UserControl
         ApplyCalibrationUi(calibration, canControl);
         BuildCalibrationRows(characterization);
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, telemetry?.ControlTemperatureC, telemetry?.FanRpm);
+        UpdateManualFanTestControls();
     }
 
     private void ApplyCalibrationUi(FanCalibrationUiState calibration, bool canControl)
