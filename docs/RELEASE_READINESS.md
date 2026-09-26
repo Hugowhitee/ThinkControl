@@ -38,7 +38,14 @@ Active implementation state:
 - branch: `alpha53-modes-header`
 - source target: `v0.1.0-alpha.53`
 - immutable/public baseline: `v0.1.0-alpha.52`
-- `version.json.releaseReady=false` until the exact-head hosted and inspected visual gates pass
+- canonical PR: **#103 — Prepare ThinkControl 0.1.0-alpha.53 Modes and shared Advanced layout**
+- candidate evidence head: `17d517936fb4659f72e47143c4efe8065f3bffbd`
+- candidate CI `36250998205` / #2178: success — hygiene, build, 251 tests, Compact↔Advanced shell smoke and WPF visual QA
+- candidate Package ThinkControl `36250998063` / #1869: success — payload, installer, deep IPC reliability and oldest-supported upgrade compatibility
+- candidate visual artifact `10909096643`, digest `sha256:eec3ea47b19c60098853972e3fc905bb4da2cfb4b1f26655d715149ad388fb33`
+- baseline Advanced matrix inspected at minimum / normal / wide in dark and light, plus Modes editor snapshots
+- no open PR review threads/comments at the candidate evidence head
+- `version.json.releaseReady=true`; this commit creates the frozen release candidate
 
 Scope:
 
@@ -66,10 +73,10 @@ Current gate:
 - [x] source regressions cover mode boundaries, transient ownership, reset behavior and shared header usage
 - [x] full dark/light × minimum/normal/wide Advanced visual matrix is required by CI
 - [x] alpha.53 product/architecture/design/testing documentation updated
-- [ ] open canonical PR and run exact-head CI + Package
-- [ ] inspect every baseline Advanced screenshot and Modes editor snapshots at full resolution
-- [ ] resolve review backlog on the exact candidate head
-- [ ] freeze `releaseReady=true` only after implementation-head gates pass
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect every baseline Advanced screenshot and Modes editor snapshots at full resolution
+- [x] resolve review backlog on the exact candidate head
+- [x] freeze `releaseReady=true` only after implementation-head gates pass
 - [ ] frozen-head CI + Package
 - [ ] expected-head squash merge and immutable alpha.53 promotion
 - [ ] verify public Setup/Payload/checksum/overview assets and digests
