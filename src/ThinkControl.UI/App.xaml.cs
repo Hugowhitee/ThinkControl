@@ -164,8 +164,18 @@ public partial class App : System.Windows.Application
             State.BatteryFullWh = battery.FullChargeCapacityWh;
             if (battery.DesignCapacityWh is > 0)
                 _runtimeBatteryDesignWh = battery.DesignCapacityWh;
-            State.BatteryEtaToFull = battery.EstimatedTimeToFull;
-            State.BatteryEtaRemaining = battery.EstimatedTimeRemaining;
+            BatteryEtaEstimate initialEta = _runtimeBatteryEta.Update(new BatteryEtaSample(
+                DateTimeOffset.UtcNow,
+                State.BatteryPercent,
+                battery.Charging,
+                battery.Discharging,
+                battery.PowerWatts,
+                battery.RemainingCapacityWh,
+                battery.FullChargeCapacityWh,
+                battery.EstimatedTimeRemaining,
+                ResolveBatteryChargeTargetPercent()));
+            State.BatteryEtaToChargeTarget = initialEta.ToChargeTarget;
+            State.BatteryEtaRemaining = initialEta.Remaining ?? battery.EstimatedTimeRemaining;
             State.BatterySource = battery.Source;
             ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
 
