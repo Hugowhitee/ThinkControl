@@ -5,18 +5,43 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class AudioPanelLifecycleSourceTests
 {
     [Fact]
-    public void HiddenAudioPage_ClearsPendingWritesAndDragState()
+    public void AudioSliders_CommitOnceAndHiddenPageClearsPollingAndDragState()
     {
         string root = FindRepositoryRoot();
         string lifecyclePath = Path.Combine(root, "src", "ThinkControl.UI", "Controls", "AudioPanel.Lifecycle.cs");
         string source = File.ReadAllText(lifecyclePath);
 
         Assert.Contains("e.Property == IsVisibleProperty", source, StringComparison.Ordinal);
-        Assert.Contains("_volumeApplyTimer.Stop();", source, StringComparison.Ordinal);
-        Assert.Contains("_microphoneApplyTimer.Stop();", source, StringComparison.Ordinal);
         Assert.Contains("_volumeRefreshTimer.Stop();", source, StringComparison.Ordinal);
         Assert.Contains("_volumeDragging = false;", source, StringComparison.Ordinal);
         Assert.Contains("_microphoneDragging = false;", source, StringComparison.Ordinal);
+
+        string panel = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "AudioPanel.xaml.cs"));
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "AudioPanel.xaml"));
+        Assert.DoesNotContain("_volumeApplyTimer", panel, StringComparison.Ordinal);
+        Assert.DoesNotContain("_microphoneApplyTimer", panel, StringComparison.Ordinal);
+        Assert.Contains("if (!_volumeDragging)", panel, StringComparison.Ordinal);
+        Assert.Contains("if (!_microphoneDragging)", panel, StringComparison.Ordinal);
+        Assert.Contains("PreviewMouseLeftButtonDown=\"VolumeSlider_MouseDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewKeyDown=\"VolumeSlider_KeyDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewKeyUp=\"VolumeSlider_KeyUp\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewMouseLeftButtonDown=\"MicrophoneSlider_MouseDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewKeyDown=\"MicrophoneSlider_KeyDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewKeyUp=\"MicrophoneSlider_KeyUp\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("_volumeAutomationCommitTimer", panel, StringComparison.Ordinal);
+        Assert.Contains("_microphoneAutomationCommitTimer", panel, StringComparison.Ordinal);
+        Assert.Contains("interactionStartPercent == requested", panel, StringComparison.Ordinal);
+        Assert.Contains("_cachedOutput.Percent == requested", panel, StringComparison.Ordinal);
+        Assert.Contains("_cachedInput.Percent == requested", panel, StringComparison.Ordinal);
+        Assert.Contains("VolumeSlider.LostKeyboardFocus += VolumeSlider_LostKeyboardFocus;", panel, StringComparison.Ordinal);
+        Assert.Contains("MicrophoneSlider.LostKeyboardFocus += MicrophoneSlider_LostKeyboardFocus;", panel, StringComparison.Ordinal);
+        Assert.Contains("ApplyVolumeSlider(_volumeInteractionStartPercent);", panel, StringComparison.Ordinal);
+        Assert.Contains("ApplyMicrophoneSlider(_microphoneInteractionStartPercent);", panel, StringComparison.Ordinal);
+        Assert.Contains("VolumeSlider.IsMouseCaptureWithin", panel, StringComparison.Ordinal);
+        Assert.Contains("MicrophoneSlider.IsMouseCaptureWithin", panel, StringComparison.Ordinal);
+        string normalizedPanel = panel.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("if (!_volumeDragging)\n            RestartAutomationCommit", normalizedPanel, StringComparison.Ordinal);
+        Assert.Contains("if (!_microphoneDragging)\n            RestartAutomationCommit", normalizedPanel, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

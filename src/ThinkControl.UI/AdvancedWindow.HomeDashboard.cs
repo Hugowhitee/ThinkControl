@@ -126,7 +126,7 @@ public partial class AdvancedWindow
         AddTelemetryDivider(grid, 5);
         AddTelemetryMetric(grid, 6, "POWER", "BatteryPowerText", "BatteryAveragePowerText", "Battery");
         AddTelemetryDivider(grid, 7);
-        AddTelemetryMetric(grid, 8, "SENSORS", "SensorCountText", "Hardware telemetry", "System", compactValue: true);
+        AddTelemetryMetric(grid, 8, "SENSORS", "SensorCountText", "Hardware telemetry", "System", compactValue: true, openSensorDetails: true);
         return grid;
     }
 
@@ -199,7 +199,8 @@ public partial class AdvancedWindow
         string detailPathOrText,
         string page,
         bool accentValue = false,
-        bool compactValue = false)
+        bool compactValue = false,
+        bool openSensorDetails = false)
     {
         var hit = new Grid
         {
@@ -223,7 +224,13 @@ public partial class AdvancedWindow
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         stack.Children.Add(detail);
         hit.Children.Add(stack);
-        hit.MouseLeftButtonUp += (_, _) => Navigate(page);
+        hit.MouseLeftButtonUp += (_, _) =>
+        {
+            if (openSensorDetails && Application.Current is App app)
+                app.OpenSensorDetails(this);
+            else
+                Navigate(page);
+        };
         Grid.SetColumn(hit, column);
         parent.Children.Add(hit);
     }

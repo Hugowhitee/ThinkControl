@@ -82,11 +82,27 @@ public sealed class Alpha47UxSourceTests
         Assert.Contains("Click=\"HomeFanMore_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("new ContextMenu", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanAutoSwitch.IsChecked == true ? \"Auto\" : \"Balanced\"", code, StringComparison.Ordinal);
+        string autoClick = code.Split("private async void HomeFanAuto_Click", StringSplitOptions.None)[1]
+            .Split("private async void HomeFanQuick_Click", StringSplitOptions.None)[0];
+        Assert.Contains("if (_homeFanBusy)", autoClick, StringComparison.Ordinal);
+        Assert.DoesNotContain("if (_syncing || _homeFanBusy)", autoClick, StringComparison.Ordinal);
         Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanMoreButton.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MoreFanProfilesLabel", code, StringComparison.Ordinal);
         Assert.DoesNotContain("HomeFanProfileCombo", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdvancedHome_SensorsMetricOpensExistingSensorDetails()
+    {
+        string root = FindRepositoryRoot();
+        string home = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeDashboard.cs"));
+        string normalized = home.Replace("\r\n", "\n", StringComparison.Ordinal);
+
+        Assert.Contains("openSensorDetails: true", home, StringComparison.Ordinal);
+        Assert.Contains("app.OpenSensorDetails(this);", home, StringComparison.Ordinal);
+        Assert.Contains("else\n                Navigate(page);", normalized, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -120,7 +136,7 @@ public sealed class Alpha47UxSourceTests
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
 
         Assert.Contains("BatteryProtectionSummaryText", state, StringComparison.Ordinal);
-        Assert.Contains("Charging paused near", state, StringComparison.Ordinal);
+        Assert.Contains("Charging is paused near", state, StringComparison.Ordinal);
         Assert.Contains("Battery preservation paused charging", attention, StringComparison.Ordinal);
         Assert.Contains("Battery preservation resumed charging", attention, StringComparison.Ordinal);
         Assert.Contains("ShowBatteryPreservationApplied", panel, StringComparison.Ordinal);

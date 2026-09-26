@@ -264,7 +264,7 @@ internal static class Program
             BatteryTemperatureC = hardwareReady ? 34.8 : null,
             BatteryRemainingWh = charging ? 56.2 : 45.4,
             BatteryFullWh = 72.0,
-            BatteryEtaToFull = charging ? TimeSpan.FromMinutes(52) : null,
+            BatteryEtaToChargeTarget = charging ? TimeSpan.FromMinutes(24) : null,
             BatteryEtaRemaining = charging ? null : TimeSpan.FromHours(6.4),
             BatteryCycleCount = 12,
             BatteryChargeCurveLabel = "Current charge · full session curve",

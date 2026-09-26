@@ -90,7 +90,7 @@ public static class LenovoBatteryChargeProtectionService
             Writable: writable,
             Enabled: enabled,
             StartPercent: start,
-            StopPercent: enabled ? stop : 100,
+            StopPercent: stop,
             CustomThresholds: true,
             Provider: "Lenovo PM Device · charge thresholds",
             Detail: $"Lenovo PWRMGRV · {state} · {driverDetail}");

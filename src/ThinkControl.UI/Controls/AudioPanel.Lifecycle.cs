@@ -15,14 +15,20 @@ public partial class AudioPanel
     private void ResetTransientAudioInteractionState()
     {
         // IsVisible can change while InitializeComponent is still constructing the
-        // control, before these readonly timers have been assigned by our ctor.
-        if (_volumeApplyTimer is null || _microphoneApplyTimer is null || _volumeRefreshTimer is null)
+        // control, before the timers have been assigned by our ctor.
+        if (_volumeRefreshTimer is null ||
+            _volumeAutomationCommitTimer is null ||
+            _microphoneAutomationCommitTimer is null)
+        {
             return;
+        }
 
-        _volumeApplyTimer.Stop();
-        _microphoneApplyTimer.Stop();
         _volumeRefreshTimer.Stop();
+        _volumeAutomationCommitTimer.Stop();
+        _microphoneAutomationCommitTimer.Stop();
         _volumeDragging = false;
         _microphoneDragging = false;
+        _volumeInteractionStartPercent = null;
+        _microphoneInteractionStartPercent = null;
     }
 }

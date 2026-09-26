@@ -45,10 +45,11 @@ Check at minimum:
 10. overlays/popups intended to block interaction appear above Compact as well as Advanced.
 11. Compact/Advanced launch-mode labels use one vocabulary, and Audio Safety Normal / Gesture lock / Silent remain legible without footer clipping in both themes.
 12. Advanced Home's Audio Safety card, fan Auto row and More-profiles affordance remain aligned and understandable at minimum, normal and light-theme states; Auto must visibly disable competing fan presets; Battery health-trend explanation must not collide with the chart/status copy.
-13. Battery Preservation must use one clean current-level fill with two precisely aligned threshold markers. Fill color may react to charging/limit state, but permanent green/amber/red bands, lightning/pause glyphs, ruler ticks and lock icons must not return. The comparative wear-cycle sentence must stay secondary, readable and unclipped in dark/light themes.
+13. Battery Preservation must use one clean current-level fill with two precisely aligned threshold markers. Fill color may react to charging/limit state, but permanent green/amber/red bands, lightning/pause glyphs, ruler ticks and lock icons must not return. The comparative `×` reference must stay secondary, readable, unclipped and visually distinct from the firmware CYCLES metric.
 14. Theme changes must repaint shell-mode labels and native Advanced caption colors immediately without minimize/reopen.
 15. The first-seen update popup must show the full transition/copy and both **Install now** / **Later** actions without clipping or implying an automatic install.
 16. Compact selectors must share the same resting geometry/color as before alpha.51; the dismiss fix is interaction-state cleanup only and must not introduce a Compact-only ComboBox template or persistent selected-looking fill.
+17. Alpha.52 Battery Preservation must show one shared-style on/off switch plus only the three preservation windows; Touchpad reverse-close must use the same switch grammar instead of a square checkbox. Home Sensors must still lead to the existing Sensor details surface rather than introducing a duplicate telemetry page.
 
 ## Artifact ownership
 

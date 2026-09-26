@@ -15,6 +15,7 @@ public partial class AdvancedWindow
     private const double AdvancedContentMaxWidth = 1040;
     private const double PageRightGutter = 10;
     internal const double PageHeaderActionGap = 10;
+    internal const double PageHeaderMinHeight = 38;
     private bool _uiConsistencyConfigured;
 
     private static readonly string[] ConsistentPageNames =

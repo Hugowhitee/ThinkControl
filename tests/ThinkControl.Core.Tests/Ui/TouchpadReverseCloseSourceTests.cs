@@ -53,6 +53,24 @@ public sealed class TouchpadReverseCloseSourceTests
         Assert.True(liveFrame < 0 || cleanBaseline < liveFrame, "The clean baseline must be established before any reverse live frame is appended.");
     }
 
+    [Fact]
+    public void DisabledReverseCloseLabel_CannotToggleDormantState()
+    {
+        string root = FindRepositoryRoot();
+        string source = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "ThinkControl.UI",
+            "Controls",
+            "TouchpadPanel.CornerLaunches.cs"));
+
+        Assert.Contains("if (_cornerReverseCloseCheckBox.IsEnabled)", source, StringComparison.Ordinal);
+        Assert.Contains(
+            "_cornerReverseCloseCheckBox.IsChecked = _cornerReverseCloseCheckBox.IsChecked != true;",
+            source,
+            StringComparison.Ordinal);
+    }
+
     private static string Slice(string source, string startMarker, string endMarker)
     {
         int start = source.IndexOf(startMarker, StringComparison.Ordinal);

@@ -26,7 +26,7 @@ public sealed class AppState : INotifyPropertyChanged
     private double? _batteryTemperatureC;
     private double? _batteryRemainingWh;
     private double? _batteryFullWh;
-    private TimeSpan? _batteryEtaToFull;
+    private TimeSpan? _batteryEtaToChargeTarget;
     private TimeSpan? _batteryEtaRemaining;
     private int? _batteryCycleCount;
     private bool? _batteryProtectionEnabled;
@@ -95,7 +95,7 @@ public sealed class AppState : INotifyPropertyChanged
     public double? BatteryTemperatureC { get => _batteryTemperatureC; set => Set(ref _batteryTemperatureC, value); }
     public double? BatteryRemainingWh { get => _batteryRemainingWh; set => Set(ref _batteryRemainingWh, value); }
     public double? BatteryFullWh { get => _batteryFullWh; set => Set(ref _batteryFullWh, value); }
-    public TimeSpan? BatteryEtaToFull { get => _batteryEtaToFull; set => Set(ref _batteryEtaToFull, value); }
+    public TimeSpan? BatteryEtaToChargeTarget { get => _batteryEtaToChargeTarget; set => Set(ref _batteryEtaToChargeTarget, value); }
     public TimeSpan? BatteryEtaRemaining { get => _batteryEtaRemaining; set => Set(ref _batteryEtaRemaining, value); }
     public int? BatteryCycleCount { get => _batteryCycleCount; set => Set(ref _batteryCycleCount, value); }
     public bool? BatteryProtectionEnabled { get => _batteryProtectionEnabled; set => Set(ref _batteryProtectionEnabled, value); }
@@ -185,7 +185,7 @@ public sealed class AppState : INotifyPropertyChanged
     {
         true when BatteryProtectionStartPercent is int start && BatteryProtectionStopPercent is int stop => $"{start}–{stop}% active",
         true => "Preservation active",
-        false => "Full charge, no limit",
+        false => "Preservation off",
         _ => "Protection unavailable"
     };
     public string BatteryProtectionBehaviorText
@@ -204,22 +204,71 @@ public sealed class AppState : INotifyPropertyChanged
                              BatteryStatus.Contains("Fully charged", StringComparison.OrdinalIgnoreCase) ||
                              BatteryCharging;
             if (pluggedIn && !BatteryCharging && BatteryPercent >= stop - 2)
-                return $"Charging paused near {stop}% · resumes below {start}%.";
+                return $"Charging is paused near {stop}% and resumes below {start}%.";
             if (pluggedIn && BatteryCharging)
-                return $"Charging now · stops near {stop}% and resumes below {start}%.";
-            return $"Stops near {stop}% · resumes below {start}% when plugged in.";
+                return $"Charging now. It pauses near {stop}% and resumes below {start}%.";
+            return $"Charging pauses near {stop}% and resumes below {start}% when plugged in.";
         }
     }
     public string BatteryCapacityText => BatteryRemainingWh is double remaining && BatteryFullWh is double full
         ? $"{remaining:0.#} / {full:0.#} Wh"
         : "Capacity —";
-    public string BatteryEtaText => BatteryEtaToFull is TimeSpan toFull
-        ? toFull <= TimeSpan.FromMinutes(1) ? "Almost full" : $"~{FormatDuration(toFull)} to full"
-        : BatteryEtaRemaining is TimeSpan remaining
-            ? $"~{FormatDuration(remaining)} remaining"
-            : "Estimating…";
+    public int BatteryChargeTargetPercent => BatteryProtectionEnabled == true &&
+                                                   BatteryProtectionStopPercent is int stop
+        ? Math.Clamp(stop, 1, 100)
+        : 100;
+
+    public string BatteryEtaText
+    {
+        get
+        {
+            if (BatteryCharging)
+            {
+                int target = BatteryChargeTargetPercent;
+                if (BatteryEtaToChargeTarget is TimeSpan toTarget)
+                {
+                    if (toTarget <= TimeSpan.FromMinutes(1))
+                        return target >= 100 ? "Almost full" : $"Almost at {target}%";
+                    return target >= 100
+                        ? $"~{FormatDuration(toTarget)} to full"
+                        : $"~{FormatDuration(toTarget)} to {target}%";
+                }
+
+                return target >= 100 ? "Estimating…" : $"Estimating to {target}%…";
+            }
+
+            bool pluggedIn = BatteryStatus.Contains("Plugged in", StringComparison.OrdinalIgnoreCase) ||
+                             BatteryStatus.Contains("Fully charged", StringComparison.OrdinalIgnoreCase);
+            if (pluggedIn)
+            {
+                if (BatteryProtectionEnabled == true &&
+                    BatteryProtectionStopPercent is int stop)
+                {
+                    if (BatteryPercent >= stop - 2)
+                        return $"Charge limit {stop}%";
+
+                    if (BatteryProtectionStartPercent is int start &&
+                        BatteryPercent >= start)
+                        return $"Charge hold, resumes below {start}%";
+
+                    return "Waiting to charge";
+                }
+
+                if (BatteryPercent >= 99)
+                    return "Fully charged";
+
+                return "Plugged in";
+            }
+
+            if (BatteryEtaRemaining is TimeSpan remaining)
+                return $"~{FormatDuration(remaining)} remaining";
+
+            return "Estimating…";
+        }
+    }
+
     public string BatteryCompactLine => BatteryPowerWatts.HasValue
-        ? $"{BatteryPowerText} · {BatteryEtaText}"
+        ? $"{BatteryPowerText}, {BatteryEtaText}"
         : BatteryStatus;
     public string BrightnessText => $"{Brightness}%";
     public string CurrentRefreshText => CurrentRefreshHz > 0 ? $"{CurrentRefreshHz} Hz" : "—";
@@ -309,9 +358,11 @@ public sealed class AppState : INotifyPropertyChanged
         else if (propertyName == nameof(BatteryPercent))
         {
             OnPropertyChanged(nameof(BatteryPercentText));
+            OnPropertyChanged(nameof(BatteryEtaText));
+            OnPropertyChanged(nameof(BatteryCompactLine));
             OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
         }
-        else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToFull) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))
+        else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToChargeTarget) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))
         {
             OnPropertyChanged(nameof(BatteryPowerText));
             OnPropertyChanged(nameof(BatteryEtaText));
@@ -319,9 +370,17 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
         }
         else if (propertyName == nameof(BatteryCharging))
+        {
+            OnPropertyChanged(nameof(BatteryEtaText));
+            OnPropertyChanged(nameof(BatteryCompactLine));
             OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
+        }
         else if (propertyName == nameof(BatterySmoothedPowerWatts))
+        {
             OnPropertyChanged(nameof(BatteryAveragePowerText));
+            OnPropertyChanged(nameof(BatteryEtaText));
+            OnPropertyChanged(nameof(BatteryCompactLine));
+        }
         else if (propertyName == nameof(BatteryHealthPercent))
             OnPropertyChanged(nameof(BatteryHealthText));
         else if (propertyName == nameof(BatteryTemperatureC))
@@ -335,9 +394,16 @@ public sealed class AppState : INotifyPropertyChanged
         {
             OnPropertyChanged(nameof(BatteryProtectionSummaryText));
             OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
+            OnPropertyChanged(nameof(BatteryChargeTargetPercent));
+            OnPropertyChanged(nameof(BatteryEtaText));
+            OnPropertyChanged(nameof(BatteryCompactLine));
         }
         else if (propertyName is nameof(BatteryRemainingWh) or nameof(BatteryFullWh))
+        {
             OnPropertyChanged(nameof(BatteryCapacityText));
+            OnPropertyChanged(nameof(BatteryEtaText));
+            OnPropertyChanged(nameof(BatteryCompactLine));
+        }
         else if (propertyName == nameof(Brightness))
             OnPropertyChanged(nameof(BrightnessText));
         else if (propertyName == nameof(CurrentRefreshHz))

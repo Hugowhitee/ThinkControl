@@ -185,6 +185,7 @@ public partial class FansPanel : UserControl
         ApplyCalibrationUi(calibration, canControl);
         BuildCalibrationRows(characterization);
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, telemetry?.ControlTemperatureC, telemetry?.FanRpm);
+        UpdateManualFanTestControls();
     }
 
     private void ApplyCalibrationUi(FanCalibrationUiState calibration, bool canControl)
@@ -483,7 +484,10 @@ public partial class FansPanel : UserControl
             return;
 
         stack.Children.RemoveAt(0);
-        var header = new Grid();
+        var header = new Grid { MinHeight = AdvancedWindow.PageHeaderMinHeight };
+        header.ColumnDefinitions.Add(new ColumnDefinition());
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        title.VerticalAlignment = VerticalAlignment.Center;
         header.Children.Add(title);
         var reset = new Button
         {
@@ -496,6 +500,7 @@ public partial class FansPanel : UserControl
             ToolTip = null
         };
         reset.Click += Reset_Click;
+        Grid.SetColumn(reset, 1);
         header.Children.Add(reset);
         stack.Children.Insert(0, header);
         _resetAdded = true;

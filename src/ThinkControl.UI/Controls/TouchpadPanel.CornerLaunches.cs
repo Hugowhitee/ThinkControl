@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using ThinkControl.Core.Touchpad;
 
@@ -84,21 +85,42 @@ public partial class TouchpadPanel
         _cornerLaunchCombo.SelectionChanged += CornerLaunchCombo_SelectionChanged;
         stack.Children.Add(_cornerLaunchCombo);
 
-        _cornerReverseCloseCheckBox = new CheckBox
+        var reverseRow = new Grid { Margin = new Thickness(0, 14, 0, 0) };
+        reverseRow.ColumnDefinitions.Add(new ColumnDefinition());
+        reverseRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var reverseLabel = new TextBlock
         {
-            Content = "Reverse swipe closes ThinkControl",
-            Margin = new Thickness(0, 14, 0, 0),
+            Text = "Reverse swipe closes ThinkControl",
+            VerticalAlignment = VerticalAlignment.Center,
             FontSize = TypographyScale.Secondary
         };
+        reverseRow.Children.Add(reverseLabel);
+
+        _cornerReverseCloseCheckBox = new CheckBox
+        {
+            Style = TryFindResource("TcSwitch") as Style,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        AutomationProperties.SetName(_cornerReverseCloseCheckBox, "Reverse swipe closes ThinkControl");
         _cornerReverseCloseCheckBox.Checked += CornerReverseClose_Changed;
         _cornerReverseCloseCheckBox.Unchecked += CornerReverseClose_Changed;
-        stack.Children.Add(_cornerReverseCloseCheckBox);
+        reverseLabel.Cursor = System.Windows.Input.Cursors.Hand;
+        reverseLabel.MouseLeftButtonUp += (_, _) =>
+        {
+            if (_cornerReverseCloseCheckBox.IsEnabled)
+                _cornerReverseCloseCheckBox.IsChecked = _cornerReverseCloseCheckBox.IsChecked != true;
+        };
+        Grid.SetColumn(_cornerReverseCloseCheckBox, 1);
+        reverseRow.Children.Add(_cornerReverseCloseCheckBox);
+        stack.Children.Add(reverseRow);
 
         var reverseDescription = new TextBlock
         {
             Text = "Start anywhere in the inner half of the visible diagonal lane and swipe back toward the corner to hide Compact or Advanced.",
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(24, 4, 0, 0),
+            Margin = new Thickness(0, 4, 0, 0),
             FontSize = TypographyScale.Caption
         };
         reverseDescription.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");

@@ -71,9 +71,10 @@ public partial class AdvancedWindow
 
         stack.Children.RemoveAt(0);
 
-        var header = new WpfGrid { Tag = PageHeaderTag };
+        var header = new WpfGrid { Tag = PageHeaderTag, MinHeight = PageHeaderMinHeight };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        title.VerticalAlignment = VerticalAlignment.Center;
         header.Children.Add(title);
 
         WpfButton button = CreatePageResetButton(tooltip);
@@ -106,7 +107,7 @@ public partial class AdvancedWindow
 
         header.Tag = PageHeaderTag;
         header.Margin = new Thickness(0, 0, 0, 18);
-        actions.VerticalAlignment = VerticalAlignment.Top;
+        actions.VerticalAlignment = VerticalAlignment.Center;
 
         WpfStackPanel? copy = header.Children
             .OfType<WpfStackPanel>()
@@ -149,7 +150,7 @@ public partial class AdvancedWindow
             Content = "Defaults",
             ToolTip = "Reset this page · " + tooltip,
             HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
+            VerticalAlignment = VerticalAlignment.Center,
             Padding = new Thickness(8, 4, 8, 4),
             FontSize = TypographyScale.Caption,
             Cursor = System.Windows.Input.Cursors.Hand,

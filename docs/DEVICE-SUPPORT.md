@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model at **v0.1.0-alpha.51**. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.51` is the current published prerelease; alpha.51 is a Compact UI dismiss-state hotfix and does not broaden or otherwise change any low-level hardware capability.
+This document describes the support model for the **v0.1.0-alpha.52** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.51` remains the current published prerelease; alpha.52 tightens the existing physical write boundary rather than broadening it.
 
 ## Support levels
 
@@ -63,20 +63,21 @@ The current X9 provider follows Lenovo's Windows start/stop-threshold model rath
 
 The provider reads the actual Lenovo battery configuration under `PWRMGRV` and requires the privileged service to open `\\.\IBMPmDrv`. It exposes an ordered start/stop pair plus whether threshold control is enabled. Product writes are bounded to five-percent steps with start below stop; the normal page offers a small named preset list rather than the driver's raw value range.
 
-Alpha.43 presets are:
+The current named preservation windows are:
 
 ```text
 Daily         75–85%   recommended general-purpose window
 Desk          55–80%   stronger high-charge avoidance
 Maximum care  40–60%   for mostly-plugged-in use
-Full charge   100%     disable thresholds / ordinary charging
 ```
 
-ThinkControl does **not** silently apply one of these on first run. Existing Lenovo state is authoritative. If the machine already has a different valid pair, the page shows `Custom · start–stop%` until the user deliberately selects a named preset.
+Battery Preservation itself is a separate on/off switch. Turning it off disables the Lenovo threshold window and returns to ordinary charging; `Full charge` is therefore not a competing preset. ThinkControl does **not** silently apply a named window on first run. Existing Lenovo state is authoritative. If the machine already has a different valid pair, the page shows `Custom · start–stop%` until the user deliberately selects another named window.
+
+Lenovo keeps the stored start/stop percentages when threshold control is disabled. ThinkControl mirrors that stored pair separately from the enabled flag, so switching preservation back on can reuse the last verified window instead of silently reverting to a different preset.
 
 A write is authorized only on the verified X9 identity when the PWRMGRV battery configuration exists, `IBMPmDrv` is writable, the semantic pair passes ThinkControl's bounded range rules, the fixed Lenovo PM Device commands succeed without the rejection bit, and PWRMGRV readback matches. A failure requests rollback to the state observed before the change. ThinkControl does not alter the Lenovo driver service start type and does not try an EC/ACPI fallback.
 
-Alpha.50 shows a comparative **wear-cycle estimate** for charging from the current battery level to the selected upper threshold. The model is intentionally simple and transparent: percentage is mapped onto a generic Li-ion voltage curve, the published high-voltage end-of-charge/cycle-life relation is applied above ~3.95 V with a small linear baseline below it, and a full 0→100% charge is normalized to 1.00. This is similar in purpose to AccuBattery's charge-wear presentation, but it is not measured wear for the installed Lenovo pack. Real cycle/calendar aging still depends on chemistry, actual cell voltage mapping, temperature, charge rate, depth of discharge and time. Firmware cycle count and ThinkControl health trend remain separate measurements.
+The Battery page shows a comparative **charge-wear ratio** for charging from the current battery level to the selected upper threshold. The model is intentionally simple and transparent: percentage is mapped onto a generic Li-ion voltage curve, the published high-voltage end-of-charge relation is applied above ~3.95 V with a small linear baseline below it, and a full 0→100% reference charge is normalized to **1.00×**. The UI explicitly says this is a comparative reference, not the firmware battery cycle count and not measured degradation for the installed Lenovo pack. Real cycle/calendar aging still depends on chemistry, actual cell voltage mapping, temperature, charge rate, depth of discharge and time.
 
 Other OEMs or future Lenovo providers can expose their own semantic threshold set without changing the shared Battery page into a vendor-specific page.
 
@@ -127,7 +128,7 @@ RPM telemetry is not treated as a proxy for airflow intensity. Physical evidence
 
 `EnergyDrv` `QueryFanSpeed 0x83102570` remains read-only evidence. `ChangeFanSpeed 0x8310257C` remains blocked until exact X9 encoding and rollback semantics are recovered.
 
-The classic EC states are not generic laptop controls. **Raw EC diagnostics** appear only if an active provider explicitly exposes the verified discrete-EC semantic contract. Manual percentage/raw-state interactions use bounded temporary-test safety where applicable.
+The classic X9 EC states are not production fan controls. On the verified X9 they are **read/Auto-recovery only** because physical testing reproduced audible speed cycling/waves and a lower useful cooling ceiling than Lenovo Auto. Raw EC diagnostics therefore do not appear as a normal X9 control surface. Bounded temporary tests remain available only for a future direct provider that independently passes the physical acceptance gate.
 
 ## Keyboard semantics
 
@@ -188,6 +189,6 @@ Confirmed negative X9 evidence remains:
 - alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise;
 - during alpha.41/early-alpha.42 restart testing, a saved Quiet preference could remain visibly selected while physical airflow behaved like a harder Auto/base policy.
 
-Alpha.43 battery threshold behavior still needs physical confirmation on the reference X9: verify a selected window such as 75–85% actually stops/holds near the stop boundary, does not immediately top up again while above the start boundary, and returns to ordinary charging after Full charge is selected. A successful driver call/registry readback is not by itself proof of the physical charge boundary.
+Battery threshold behavior still needs physical confirmation on the reference X9: verify a selected window such as 75–85% actually stops/holds near the stop boundary, does not immediately top up again while above the start boundary, and returns to ordinary charging after Battery Preservation is switched off. A successful driver call/registry readback is not by itself proof of the physical charge boundary.
 
 Touchpad, fan persistence and Audio Safety real-device checks remain listed in `docs/ALPHA-TESTING.md`. These physical checks must not be marked complete from screenshots/CI alone.

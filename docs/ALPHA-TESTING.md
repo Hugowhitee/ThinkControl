@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.51** and later candidates built from immutable alpha.50. Automated CI is required, but physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must not be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.52** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -41,6 +41,20 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
 
+## Alpha.52 interaction and X9 safety candidate
+
+1. On Advanced → Audio, drag **System volume** continuously across a wide range. The thumb/value must follow the pointer immediately without the short post-drag locked feeling; endpoint refresh must not pull it backward while the drag is active. Releasing the pointer commits the requested Windows endpoint value once.
+2. Repeat with **Microphone input**. Keyboard adjustments must also commit without restoring a stale endpoint value. Navigate away during an unfinished drag and confirm no delayed off-page write occurs.
+3. On Battery, verify **Battery preservation** has one shared-style on/off switch. The preset selector contains only Daily 75–85%, Desk 55–80% and Maximum care 40–60%; turning the switch off restores ordinary charging instead of selecting a fake `Full charge` preset.
+4. With preservation active **and charging**, Battery ETA must say time to the active target (for example `to 85%`), not `to full`. At/near the cap on AC it should report the paused limit state; inside the start/stop hysteresis while plugged in it should say when charging resumes. Unplugged, it must return to normal remaining-runtime ETA instead of inventing a charge-to-target time.
+5. The charge-wear line must use a comparative `×` reference such as `1.00× = 0→100% reference` and must not look like the firmware **CYCLES** counter. Tooltip/caveat remains explicit about model limits.
+6. On Advanced Home, click **SENSORS**. It must open the existing live Sensor details window directly; other telemetry metrics retain their existing navigation behavior.
+7. In Touchpad, select a top corner. **Reverse swipe closes ThinkControl** must use the same shared switch geometry as the rest of ThinkControl, not a square checkbox.
+8. On Fans, a supported temporary direct-output test must expose one stateful action: **Start test** becomes **End test** while active. Target controls are locked during the test and the previous profile/Auto is still restored on timeout, page close or explicit End.
+9. On the reference X9, raw/discrete EC fan output must not appear as an available direct writer. Auto / Quiet / Balanced / Max cooling remain available through the reviewed Lenovo firmware-policy/full-speed semantics. A missing OEM sample must never make the legacy EC writer reappear.
+10. Run exact-head CI, ShellSmoke, deterministic dark/light WPF visual QA and Package ThinkControl. Manually inspect the visual artifact before release; a green build is not a substitute for UI review.
+11. Switch through Performance, Fans, Battery, Display, Audio, Keyboard and Touchpad. Page-title baselines and the top-right Defaults / Windows links / switches must stay on one title-action rail rather than jumping vertically between tabs.
+
 ## Alpha.51 Compact dropdown dismiss regression
 
 1. In Compact, open and dismiss **Performance**, **Fan mode**, **Refresh rate**, **Keyboard** and **Audio safety** one by one by clicking elsewhere inside ThinkControl. The closed selector must immediately return to its ordinary resting visual state; a lighter hover/focus fill must not remain latched.
@@ -59,7 +73,7 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 6. Confirm Gesture lock is unchanged: physical keyboard and Windows/app volume controls still work in Gesture lock.
 7. On Battery Preservation, verify the graphic is a single current-level fill with exactly two aligned threshold markers. There must be no permanent three-color zones and no lightning/pause glyphs. While charging, the fill uses the normal accent; when parked at the upper cap it may switch to the warning state.
 8. Verify the copy is plain language: for 75–85% it reads **Charging resumes below 75% and pauses at 85%.** No centered-dot sentence fragments should return.
-9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00. For the typical preset recharge windows, 75→85% is about **0.05 wear cycles**, 55→80% about **0.02**, and 40→60% about **0.02**. Full 0→100% remains the **1.00 baseline**. A custom threshold must calculate automatically.
+9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00×. For the typical preset recharge windows, 75→85% is about **0.05×**, 55→80% about **0.02×**, and 40→60% about **0.02×**. Full 0→100% remains the **1.00× reference**. A custom threshold must calculate automatically.
 10. The wear line must remain explicitly comparative rather than claiming measured pack wear. Its tooltip/caveat must mention the generic Li-ion SOC/voltage model, the high-voltage end-charge relationship, and pack-dependent chemistry/temperature/use.
 11. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The wear line must stay visually secondary and the shorter gauge must not clip/collide with the selector.
 12. From **Max cooling**, click fan **Auto** several times under live telemetry from **Home** as well as the Fans page. Home Auto must become the visible intent immediately, stay disabled while the write is in flight, and remain selected during the short post-success confirmation lease rather than bouncing back to stale Max/Quiet telemetry.
@@ -100,9 +114,9 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 ## Audio lifecycle regression
 
 1. Open Advanced → Audio.
-2. Drag output volume and navigate away while dragging, then return.
-3. Repeat with microphone level.
-4. Confirm no delayed off-page write jumps a control later.
+2. Drag output volume continuously; the thumb/value must follow locally without repeated endpoint refresh snapping it back. Release once and confirm the Windows value converges to the requested value.
+3. Navigate away during a drag, return, and confirm no delayed off-page write jumps the control later.
+4. Repeat both checks with microphone level.
 5. Leave Audio idle and confirm live endpoint state continues refreshing after the navigation cycle.
 
 ## Alpha.44 cold-start and edge-control stabilization
@@ -263,15 +277,14 @@ Alpha.43 uses the verified-X9 Lenovo Windows Power Manager threshold path (`PWRM
 
 1. Open Advanced → Battery before changing anything.
 2. The card must show **actual Lenovo state**, not a saved ThinkControl preference.
-3. When the provider is writable, the dropdown offers only the small named presets:
+3. When the provider is writable, Battery Preservation has one on/off switch and the dropdown offers only the small named windows:
    - `Daily · 75–85% (recommended)`
    - `Desk · 55–80%`
    - `Maximum care · 40–60%`
-   - `Full charge · 100%`
-4. If Lenovo currently has another valid pair, it should appear as `Custom · start–stop%` and remain untouched until a named preset is deliberately selected.
-5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the dropdown stays read-only and the Lenovo settings fallback remains available.
+4. If Lenovo currently has another valid pair, it should appear as `Custom · start–stop%` and remain untouched until a named window is deliberately selected.
+5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the switch/dropdown stay read-only and the Lenovo settings fallback remains available.
 6. Provider text must describe Lenovo PM Device/PWRMGRV state; it must not claim a generic EC threshold backend.
-7. No UI claims “x fewer cycles”. The impact explanation should state the real start/stop boundary, headroom below full and hysteresis trade-off.
+7. The comparative charge-wear line may use a `×` reference, but it must explicitly distinguish that modeled reference from the firmware battery cycle count and must not promise a fixed lifetime improvement.
 
 ### Real X9 charge behavior
 
@@ -284,7 +297,7 @@ Use a test window that can be observed without repeatedly forcing unnecessary ba
 5. While battery remains above the 75% start threshold, confirm ordinary tiny top-ups do not repeatedly restart charging.
 6. After battery drops below the start threshold in normal use, confirm charging can resume when AC is connected.
 7. Restart only the UI, then restart service/reboot separately. The Battery page must re-read actual Lenovo state rather than painting a remembered desired value.
-8. Select **Full charge · 100%**. Confirm thresholds release and ordinary charging can continue beyond the prior ceiling when conditions permit.
+8. Switch **Battery Preservation off**. Confirm thresholds release and ordinary charging can continue beyond the prior ceiling when conditions permit.
 9. If a driver call/readback fails, the UI must report rejection and the provider must request rollback rather than trying another EC/ACPI path.
 10. The normal-user UI must never show UAC for these changes; privileged access belongs to `ThinkControl.Service`.
 

@@ -20,7 +20,7 @@ public partial class AdvancedWindow
         // title on the left, page actions on the right, then subtitle/help text.
         // Tag the canonical header so WindowsSettingsLinks augments this row instead
         // of accidentally promoting the subtitle into a second synthetic header.
-        var header = new Grid { Tag = BatteryHeaderTag };
+        var header = new Grid { Tag = BatteryHeaderTag, MinHeight = PageHeaderMinHeight };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(new TextBlock

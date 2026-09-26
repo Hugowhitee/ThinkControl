@@ -53,10 +53,22 @@ public partial class App
                 State.CoolingProfile = ResolveCoolingProfileForTelemetry(telemetry.CoolingProfile);
                 State.KeyboardStatus = telemetry.KeyboardBacklight;
                 State.KeyboardBackend = telemetry.KeyboardBackend ?? "Not exposed";
+
+                int previousChargeTarget = ResolveBatteryChargeTargetPercent();
                 State.BatteryProtectionEnabled = telemetry.BatteryChargeProtectionEnabled ??
                     (telemetry.BatteryChargeLimitPercent is int limit ? limit < 100 : null);
                 State.BatteryProtectionStartPercent = telemetry.BatteryChargeStartPercent;
                 State.BatteryProtectionStopPercent = telemetry.BatteryChargeStopPercent ?? telemetry.BatteryChargeLimitPercent;
+                int nextChargeTarget = ResolveBatteryChargeTargetPercent();
+                if (nextChargeTarget != previousChargeTarget)
+                {
+                    // Never relabel an ETA that was calculated for a different target.
+                    // Clearing forces the next battery sample to warm up against the
+                    // new 60/80/85/100% endpoint instead of briefly showing a full-charge
+                    // duration as if it belonged to Battery Preservation.
+                    _runtimeBatteryEta.Reset();
+                    State.BatteryEtaToChargeTarget = null;
+                }
                 if (!string.IsNullOrWhiteSpace(telemetry.ThermalSolutionVersion))
                     State.ThermalSolution = telemetry.ThermalSolutionVersion!;
 

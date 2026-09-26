@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.51**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.51` is the current published prerelease; alpha.51 changes only Compact user-session dropdown dismiss/focus handling and does not alter hardware, service, updater or provider boundaries.
+This document describes the current source architecture at **v0.1.0-alpha.52**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.51` is the current published prerelease; alpha.52 is the active candidate and remains non-release-ready until its exact-head build, package and visual gates pass.
 
 ## Process boundary
 
@@ -39,6 +39,8 @@ The ThinkPad X9 path separates five concepts:
 5. Lenovo PM Device battery charge-threshold semantics.
 
 `LENOVO_OTHER_METHOD` can expose real dual-fan `fanX_input` telemetry. Its experimental per-fan `fanX_target` writer remains read-only because physical alpha.38 testing failed its acceptance gate. VALID+GET+SET metadata and sane Fan Test ranges do not override that physical rejection. `EnergyDrv` remains read-only until its exact write contract is recovered and reviewed.
+
+The exact-X9 classic seven-step EC writer is also no longer advertised as a direct-output capability. Physical validation reproduced cycling/waves and a lower useful cooling ceiling than firmware Auto. The EC backend remains available only where needed for read-only telemetry and verified Auto recovery/cleanup of previously owned state; lack of OEM telemetry never re-authorizes it as a production writer.
 
 Alpha.41 added Lenovo Other Mode feature `0x04020000` as a narrow boolean full-speed override. Battery preservation is a separate provider. Alpha.43 uses the installed Lenovo Power Manager configuration plus the existing Lenovo PM kernel device (`PWRMGRV` + `\\.\IBMPmDrv`) to expose bounded start/stop charge windows on the verified X9. Raw IOCTLs and driver paths never cross the public IPC boundary.
 
@@ -114,6 +116,8 @@ Disabling preservation clears both driver threshold latches before selecting Len
 `ThinkControl.Service` keeps the existing semantic operation name `SetBatteryChargeLimit` for protocol compatibility but its current value is an ordered `start,stop` pair or `off`. Status exposes `BatteryChargeProtectionEnabled`, current start/stop percentages and a provider string. `BatteryChargeLimitPercent` remains only as a backwards-compatible stop-threshold summary.
 
 Battery-protection status uses the existing request-driven status model with a small service-side cache. The Battery page subscribes to `HardwareClient.StatusObserved` only while loaded; it does not create a polling loop. The charge window is not duplicated into `UserSettings`, so actual Lenovo state remains authoritative after restart or external Vantage changes.
+
+Alpha.52 carries the verified stop threshold into the runtime ETA contract as an explicit charge target. `BatteryEtaSample.ChargeTargetPercent` defaults to 100 for ordinary systems, while an active 85% preservation ceiling calculates remaining energy only to `FullWh × 0.85`. Changing the target resets the rolling estimator before it warms up again, so a duration calculated for one endpoint cannot be relabeled as another. Compact, Home and Battery all consume the same target-aware `BatteryEtaText`.
 
 Alpha.50 keeps the provider contract unchanged and adds `BatteryPreservationImpactModel` in Core for comparative charge-wear context. It maps the selected stop percentage onto a documented generic Li-ion 3.52–4.35 V idealized curve, then applies the published end-of-charge relation that roughly 0.10 V lower end voltage doubles cycle life. The result is normalized so 100% = 1.00 comparative wear cycle and is used only to compare charge caps. It is explicitly not a measured cycle count for the installed pack because chemistry, real cell voltage mapping, temperature, charge rate, depth of discharge and calendar time remain unknown.
 
@@ -197,7 +201,7 @@ Audio Safety currently composes no fan profile. A future user preset may request
 
 ## Audio page lifecycle
 
-Audio volume/microphone writes are debounced in the WPF page. Transient debounce timers and drag state are page-lifecycle state and are cleared when the Audio page becomes hidden so stale off-page writes cannot fire later. Core Audio endpoint enumeration remains off the dispatcher because some OEM stacks can block.
+Audio volume/microphone sliders own only transient drag state in the WPF page. While dragging, the UI follows the local thumb/value immediately and ignores endpoint refreshes that would fight the gesture; the Windows endpoint write is committed on pointer release or keyboard adjustment rather than through a repeating debounce timer. Hiding the page clears drag ownership, and Core Audio endpoint enumeration remains off the dispatcher because some OEM stacks can block.
 
 ## Status, diagnostics and discovery
 

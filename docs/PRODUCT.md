@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.51`.  
-Current immutable prerelease: `v0.1.0-alpha.51`. Alpha.51 is the published Compact selector-dismiss hotfix on the alpha.50 runtime-reliability baseline; alpha.44 remains the hardware-behavior baseline.
+Current source release target: `v0.1.0-alpha.52`.  
+Current immutable prerelease: `v0.1.0-alpha.51`. Alpha.52 is the active feedback-driven interaction/hardware-safety candidate; alpha.51 remains the published Compact selector-dismiss hotfix.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -50,7 +50,7 @@ Compact is a persistent utility surface while visible. Explicit close, tray-togg
 
 Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
 
-All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
+All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. When a page has title-level actions, they share one fixed title/action row so Defaults buttons, Windows links and switches do not move vertically between destinations. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
 Audio Safety has one canonical session owner. Advanced Home exposes the explanatory Normal / Gesture lock / Silent quick card, Compact exposes the same state beside Volume, and the Audio page carries the deeper audio context. Settings does not duplicate the mode editor. Silent installs only a session-scoped `WH_KEYBOARD_LL` guard for `VK_VOLUME_MUTE / DOWN / UP`; other keyboard/media keys are not swallowed.
 
@@ -83,7 +83,7 @@ The global full-speed path is not a guessed RPM/PWM value. Upstream Lenovo/Linux
 
 Lenovo `LENOVO_OTHER_METHOD` still supplies real per-fan `fanX_input` telemetry where available. Its experimental per-fan `fanX_target` writer remains read-only after physical testing reproduced repeated speed cycling/re-kick and a nominal target ceiling below naturally hot firmware Auto. Alpha.43 does not increase those targets or use the inferior EC writer to simulate maximum cooling. `EnergyDrv` remains a separate read-only telemetry path until its writer contract is reviewed.
 
-The classic seven-step ThinkPad EC path is provider-specific investigation/diagnostic behavior, not the product definition of 0–100%. Raw EC diagnostics appear only when that exact discrete semantic capability is active. Manual direct-output tests are bounded to 30 seconds and restore the previous profile or firmware Auto on failure. A completed calibration is provider state, not a permanent success card.
+The classic seven-step ThinkPad EC path is provider-specific investigation/diagnostic behavior, not the product definition of 0–100%. On the physically reviewed X9 it is read/Auto-recovery only: fixed EC output reproduced audible cycling/waves and a lower useful cooling ceiling than Lenovo Auto, so the service no longer advertises it as a direct writer. Raw-state diagnostics and bounded temporary direct-output tests may appear only for a future provider that independently passes the physical acceptance gate. A completed calibration is provider state, not a permanent success card.
 
 PawnIO registration, kernel-service readiness and actual device/provider access are modeled separately. A stale registry entry is not enough to call hardware access ready, and provider failure is not permission to guess another low-level writer.
 
@@ -95,7 +95,7 @@ Where Windows exposes the capability, ThinkControl supports current/maximum refr
 
 ## Audio
 
-Normal output, microphone and volume controls use Windows audio endpoints. Output/microphone writes are debounced while the Audio page is active; navigation clears transient drag/debounce ownership so stale writes cannot fire off-page.
+Normal output, microphone and volume controls use Windows audio endpoints. System volume and microphone sliders track immediately in the UI while dragging and commit the Windows endpoint write when the user releases the pointer or completes a keyboard adjustment. Live endpoint refresh never pulls a thumb away while that slider is being dragged, and navigation clears transient drag ownership so no off-page write can fire later.
 
 ### Audio Safety
 
@@ -163,7 +163,7 @@ ThinkControl can display percentage, charging state, live/smoothed watts, remain
 Battery health history samples firmware-reported full-charge capacity versus design capacity at most once per day when both values are available. This sampling is independent of completing a charging session or reaching 100%, so an intentional 80–90% preservation threshold does not need to be disabled for the trend to learn. The trend is capacity telemetry, not a fabricated wear/lifetime prediction.
 
 
-Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging resumes below 80% and pauses at 90%**). Alpha.50 uses one current-level fill with two quiet threshold markers; the fill color reacts to charging/limit state instead of permanently painting green/amber/red zones. The selected stop threshold also gets an AccuBattery-style **current level → target** comparative wear-cycle estimate, with a full 0→100% charge normalized to a 1.00 baseline. That value comes from a transparent generic Li-ion state-of-charge/voltage model and is not presented as measured firmware cycles or guaranteed pack life. Applying or disabling a preset produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
+Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging resumes below 80% and pauses at 90%**). One current-level fill uses two quiet threshold markers; the fill color reacts to charging/limit state instead of permanently painting green/amber/red zones. Preservation itself is a separate switch; the selector contains only actual preservation windows. The selected stop threshold also gets an AccuBattery-style **current level → target** comparative charge-wear ratio, with a full 0→100% reference normalized to **1.00×**. That value comes from a transparent generic Li-ion state-of-charge/voltage model and is explicitly separate from the firmware battery cycle count. Applying a window or enabling/disabling preservation produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
 
 ## Startup and shell reliability
 

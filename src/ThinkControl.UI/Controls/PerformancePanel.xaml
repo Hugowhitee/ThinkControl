@@ -4,7 +4,7 @@
              xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
              xmlns:ui="clr-namespace:ThinkControl.UI">
     <StackPanel>
-        <Grid>
+        <Grid MinHeight="38">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition />
                 <ColumnDefinition Width="Auto" />
