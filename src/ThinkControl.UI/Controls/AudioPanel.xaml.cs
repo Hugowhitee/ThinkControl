@@ -433,14 +433,14 @@ public partial class AudioPanel : UserControl
             RestartAutomationCommit(_volumeAutomationCommitTimer);
     }
 
-    private void VolumeSlider_MouseDown(object sender, MouseButtonEventArgs e)
+    private void VolumeSlider_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         _volumeAutomationCommitTimer.Stop();
         _volumeInteractionStartPercent = (int)Math.Round(VolumeSlider.Value);
         _volumeDragging = true;
     }
 
-    private void VolumeSlider_MouseUp(object sender, MouseButtonEventArgs e)
+    private void VolumeSlider_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (_snapshotMode)
             return;
@@ -552,14 +552,14 @@ public partial class AudioPanel : UserControl
             RestartAutomationCommit(_microphoneAutomationCommitTimer);
     }
 
-    private void MicrophoneSlider_MouseDown(object sender, MouseButtonEventArgs e)
+    private void MicrophoneSlider_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         _microphoneAutomationCommitTimer.Stop();
         _microphoneInteractionStartPercent = (int)Math.Round(MicrophoneSlider.Value);
         _microphoneDragging = true;
     }
 
-    private void MicrophoneSlider_MouseUp(object sender, MouseButtonEventArgs e)
+    private void MicrophoneSlider_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (_snapshotMode)
             return;
