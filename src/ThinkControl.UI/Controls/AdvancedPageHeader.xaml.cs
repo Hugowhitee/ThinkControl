@@ -39,6 +39,23 @@ public partial class AdvancedPageHeader : UserControl
         set => SetValue(ActionsProperty, value);
     }
 
+    public StackPanel EnsureActionStack()
+    {
+        if (Actions is StackPanel stack)
+            return stack;
+
+        var rail = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        if (Actions is UIElement existing)
+            rail.Children.Add(existing);
+        Actions = rail;
+        return rail;
+    }
+
     private static void OnSubtitleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((AdvancedPageHeader)d).UpdateSubtitleVisibility();
 
