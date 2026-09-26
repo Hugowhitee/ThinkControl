@@ -108,7 +108,10 @@ public partial class TouchpadPanel
         _cornerReverseCloseCheckBox.Unchecked += CornerReverseClose_Changed;
         reverseLabel.Cursor = System.Windows.Input.Cursors.Hand;
         reverseLabel.MouseLeftButtonUp += (_, _) =>
-            _cornerReverseCloseCheckBox.IsChecked = _cornerReverseCloseCheckBox.IsChecked != true;
+        {
+            if (_cornerReverseCloseCheckBox.IsEnabled)
+                _cornerReverseCloseCheckBox.IsChecked = _cornerReverseCloseCheckBox.IsChecked != true;
+        };
         Grid.SetColumn(_cornerReverseCloseCheckBox, 1);
         reverseRow.Children.Add(_cornerReverseCloseCheckBox);
         stack.Children.Add(reverseRow);
