@@ -240,8 +240,7 @@ internal sealed class ThinkControlModeCoordinator
                 return result.Success;
 
             case ThinkControlModeFacet.TouchpadGestures:
-                if (_touchpadBaseline is bool gestures)
-                    _app.ApplyTouchpadGestureModeOverride(gestures);
+                _app.ClearTouchpadGestureModeOverride();
                 return true;
 
             case ThinkControlModeFacet.KeyboardLight:
