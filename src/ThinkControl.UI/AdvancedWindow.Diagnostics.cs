@@ -24,7 +24,6 @@ public partial class AdvancedWindow
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
-        ConfigureBatteryPage();
         ConfigureHardwareSetupEntry();
         ConfigureWindowsSettingsLinks();
         ConfigureKeyboardAutoUi();
