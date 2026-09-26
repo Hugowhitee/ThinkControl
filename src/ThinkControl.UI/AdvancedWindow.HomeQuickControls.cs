@@ -230,7 +230,10 @@ public partial class AdvancedWindow
 
     private async void HomeFanAuto_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || _homeFanBusy)
+        // IsChecked assignments performed by RefreshHomeFanProfiles do not raise
+        // Click. Do not discard a real user click merely because another Home
+        // control is being synchronized on the dispatcher at the same moment.
+        if (_homeFanBusy)
             return;
 
         // Like Adaptive brightness, Auto is a real on/off control. Leaving Auto
