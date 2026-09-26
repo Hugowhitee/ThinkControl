@@ -40,11 +40,11 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("IsValidChargeProtectionPair(storedStart, storedStop)", code, StringComparison.Ordinal);
         Assert.Contains("stop is >= 45 and <= 95", code, StringComparison.Ordinal);
         string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
-        Assert.Contains("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
+        Assert.Contains("public int BatteryChargeTargetPercent", state, StringComparison.Ordinal);
+        Assert.Contains("BatteryEtaToChargeTarget is TimeSpan toTarget", state, StringComparison.Ordinal);
         Assert.Contains("to {target}%", state, StringComparison.Ordinal);
-        Assert.Contains("BatterySmoothedPowerWatts is > 0.4", state, StringComparison.Ordinal);
-        Assert.Contains("if (BatteryCharging && EstimateChargeEtaToTarget(target)", state, StringComparison.Ordinal);
-        Assert.Contains("Paused · resumes below {configuredStart}%", state, StringComparison.Ordinal);
+        Assert.Contains("Charge hold, resumes below {start}%", state, StringComparison.Ordinal);
+        Assert.DoesNotContain("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
         Assert.Contains("BatteryPreservationImpactModel.LimitationsText", code, StringComparison.Ordinal);
 
