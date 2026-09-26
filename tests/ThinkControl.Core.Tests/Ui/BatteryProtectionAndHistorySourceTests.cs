@@ -16,6 +16,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Desk 55–80%", xaml, StringComparison.Ordinal);
         Assert.Contains("Maximum care 40–60%", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.Name=\"Battery preservation\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Full charge 100%", xaml, StringComparison.Ordinal);
         Assert.Contains("ChargeProtectionSwitch_Click", xaml, StringComparison.Ordinal);
         Assert.Contains("ChargeProtection_SelectionChanged", xaml, StringComparison.Ordinal);

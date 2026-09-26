@@ -28,6 +28,14 @@ public sealed class AudioPanelLifecycleSourceTests
         Assert.Contains("PreviewMouseLeftButtonDown=\"MicrophoneSlider_MouseDown\"", xaml, StringComparison.Ordinal);
         Assert.Contains("PreviewKeyDown=\"MicrophoneSlider_KeyDown\"", xaml, StringComparison.Ordinal);
         Assert.Contains("PreviewKeyUp=\"MicrophoneSlider_KeyUp\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("_volumeAutomationCommitTimer", panel, StringComparison.Ordinal);
+        Assert.Contains("_microphoneAutomationCommitTimer", panel, StringComparison.Ordinal);
+        Assert.Contains("interactionStartPercent == requested", panel, StringComparison.Ordinal);
+        Assert.Contains("_cachedOutput.Percent == requested", panel, StringComparison.Ordinal);
+        Assert.Contains("_cachedInput.Percent == requested", panel, StringComparison.Ordinal);
+        string normalizedPanel = panel.Replace("\r\n", "\n", StringComparison.Ordinal);
+        Assert.Contains("if (!_volumeDragging)\n            RestartAutomationCommit", normalizedPanel, StringComparison.Ordinal);
+        Assert.Contains("if (!_microphoneDragging)\n            RestartAutomationCommit", normalizedPanel, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

@@ -81,6 +81,8 @@ public sealed class TouchpadSafetySourceTests
 
         Assert.Contains("Text = \"Reverse swipe closes ThinkControl\"", source, StringComparison.Ordinal);
         Assert.Contains("Style = TryFindResource(\"TcSwitch\") as Style", source, StringComparison.Ordinal);
+        Assert.Contains("AutomationProperties.SetName(_cornerReverseCloseCheckBox, \"Reverse swipe closes ThinkControl\")", source, StringComparison.Ordinal);
+        Assert.Contains("reverseLabel.MouseLeftButtonUp", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Content = \"Reverse swipe closes ThinkControl\"", source, StringComparison.Ordinal);
     }
 

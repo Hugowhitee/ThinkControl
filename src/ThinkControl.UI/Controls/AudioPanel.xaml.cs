@@ -14,11 +14,15 @@ public partial class AudioPanel : UserControl
     private readonly DolbyDirectControlService _directDolby = new();
     private readonly DolbyAccessProfileBridge _accessDolby = new();
     private readonly DispatcherTimer _volumeRefreshTimer;
+    private readonly DispatcherTimer _volumeAutomationCommitTimer;
+    private readonly DispatcherTimer _microphoneAutomationCommitTimer;
     private App? _app;
     private DolbyAudioService? _dolby;
     private bool _syncing;
     private bool _volumeDragging;
     private bool _microphoneDragging;
+    private int? _volumeInteractionStartPercent;
+    private int? _microphoneInteractionStartPercent;
     private bool _snapshotMode;
     private int _statusProbeGeneration;
     private int _volumeProbeGeneration;
@@ -38,9 +42,19 @@ public partial class AudioPanel : UserControl
         };
         _volumeRefreshTimer.Tick += (_, _) =>
         {
-            if (IsVisible && !_volumeDragging && !_microphoneDragging && !_snapshotMode)
+            if (IsVisible &&
+                !_volumeDragging &&
+                !_microphoneDragging &&
+                !_volumeAutomationCommitTimer.IsEnabled &&
+                !_microphoneAutomationCommitTimer.IsEnabled &&
+                !_snapshotMode)
+            {
                 QueueVolumeRefresh(applyCacheFirst: false);
+            }
         };
+
+        _volumeAutomationCommitTimer = CreateAutomationCommitTimer(ApplyVolumeSlider);
+        _microphoneAutomationCommitTimer = CreateAutomationCommitTimer(ApplyMicrophoneSlider);
 
         Loaded += (_, _) => UpdateLivePolling(refreshNow: true);
         IsVisibleChanged += (_, e) => UpdateLivePolling(refreshNow: e.NewValue is true);
@@ -377,7 +391,7 @@ public partial class AudioPanel : UserControl
             }
             else
             {
-                if (!_volumeDragging)
+                if (!_volumeDragging && !_volumeAutomationCommitTimer.IsEnabled)
                 {
                     VolumeSlider.Value = status.Percent;
                     VolumeValueText.Text = status.Muted ? $"{status.Percent}% · muted" : $"{status.Percent}%";
@@ -391,7 +405,7 @@ public partial class AudioPanel : UserControl
             MicrophoneDeviceText.Text = microphone.Detail;
             if (microphone.Available)
             {
-                if (!_microphoneDragging)
+                if (!_microphoneDragging && !_microphoneAutomationCommitTimer.IsEnabled)
                 {
                     MicrophoneSlider.Value = microphone.Percent;
                     MicrophoneValueText.Text = microphone.Muted ? $"{microphone.Percent}% · muted" : $"{microphone.Percent}%";
@@ -416,25 +430,38 @@ public partial class AudioPanel : UserControl
             return;
 
         VolumeValueText.Text = $"{(int)Math.Round(e.NewValue)}%";
+        if (!_volumeDragging)
+            RestartAutomationCommit(_volumeAutomationCommitTimer);
     }
 
-    private void VolumeSlider_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+    private void VolumeSlider_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _volumeAutomationCommitTimer.Stop();
+        _volumeInteractionStartPercent = (int)Math.Round(VolumeSlider.Value);
         _volumeDragging = true;
+    }
 
-    private void VolumeSlider_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void VolumeSlider_MouseUp(object sender, MouseButtonEventArgs e)
     {
         if (_snapshotMode)
             return;
 
-        ApplyVolumeSlider();
+        _volumeAutomationCommitTimer.Stop();
+        ApplyVolumeSlider(_volumeInteractionStartPercent);
         _volumeDragging = false;
+        _volumeInteractionStartPercent = null;
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
     private void VolumeSlider_KeyDown(object sender, KeyEventArgs e)
     {
-        if (IsSliderAdjustmentKey(e.Key))
-            _volumeDragging = true;
+        if (!IsSliderAdjustmentKey(e.Key))
+            return;
+
+        _volumeAutomationCommitTimer.Stop();
+        if (!_volumeDragging)
+            _volumeInteractionStartPercent = (int)Math.Round(VolumeSlider.Value);
+        _volumeDragging = true;
     }
 
     private void VolumeSlider_KeyUp(object sender, KeyEventArgs e)
@@ -442,17 +469,27 @@ public partial class AudioPanel : UserControl
         if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
 
-        ApplyVolumeSlider();
+        _volumeAutomationCommitTimer.Stop();
+        ApplyVolumeSlider(_volumeInteractionStartPercent);
         _volumeDragging = false;
+        _volumeInteractionStartPercent = null;
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
-    private void ApplyVolumeSlider()
+    private void ApplyVolumeSlider() => ApplyVolumeSlider(interactionStartPercent: null);
+
+    private void ApplyVolumeSlider(int? interactionStartPercent)
     {
         if (_snapshotMode || _syncing || !VolumeSlider.IsEnabled || !IsVisible)
             return;
 
         int requested = (int)Math.Round(VolumeSlider.Value);
+        if (interactionStartPercent == requested ||
+            (interactionStartPercent is null && _cachedOutput?.Available == true && _cachedOutput.Percent == requested))
+        {
+            return;
+        }
+
         if (_volume.Set(requested, out int applied))
         {
             VolumeValueText.Text = $"{applied}%";
@@ -512,25 +549,38 @@ public partial class AudioPanel : UserControl
             return;
 
         MicrophoneValueText.Text = $"{(int)Math.Round(e.NewValue)}%";
+        if (!_microphoneDragging)
+            RestartAutomationCommit(_microphoneAutomationCommitTimer);
     }
 
-    private void MicrophoneSlider_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e) =>
+    private void MicrophoneSlider_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _microphoneAutomationCommitTimer.Stop();
+        _microphoneInteractionStartPercent = (int)Math.Round(MicrophoneSlider.Value);
         _microphoneDragging = true;
+    }
 
-    private void MicrophoneSlider_MouseUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    private void MicrophoneSlider_MouseUp(object sender, MouseButtonEventArgs e)
     {
         if (_snapshotMode)
             return;
 
-        ApplyMicrophoneSlider();
+        _microphoneAutomationCommitTimer.Stop();
+        ApplyMicrophoneSlider(_microphoneInteractionStartPercent);
         _microphoneDragging = false;
+        _microphoneInteractionStartPercent = null;
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
     private void MicrophoneSlider_KeyDown(object sender, KeyEventArgs e)
     {
-        if (IsSliderAdjustmentKey(e.Key))
-            _microphoneDragging = true;
+        if (!IsSliderAdjustmentKey(e.Key))
+            return;
+
+        _microphoneAutomationCommitTimer.Stop();
+        if (!_microphoneDragging)
+            _microphoneInteractionStartPercent = (int)Math.Round(MicrophoneSlider.Value);
+        _microphoneDragging = true;
     }
 
     private void MicrophoneSlider_KeyUp(object sender, KeyEventArgs e)
@@ -538,19 +588,50 @@ public partial class AudioPanel : UserControl
         if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
 
-        ApplyMicrophoneSlider();
+        _microphoneAutomationCommitTimer.Stop();
+        ApplyMicrophoneSlider(_microphoneInteractionStartPercent);
         _microphoneDragging = false;
+        _microphoneInteractionStartPercent = null;
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
     private static bool IsSliderAdjustmentKey(Key key) =>
         key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown;
 
-    private void ApplyMicrophoneSlider()
+    private static DispatcherTimer CreateAutomationCommitTimer(Action commit)
+    {
+        var timer = new DispatcherTimer(DispatcherPriority.Background)
+        {
+            Interval = TimeSpan.FromMilliseconds(180)
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            commit();
+        };
+        return timer;
+    }
+
+    private static void RestartAutomationCommit(DispatcherTimer timer)
+    {
+        timer.Stop();
+        timer.Start();
+    }
+
+    private void ApplyMicrophoneSlider() => ApplyMicrophoneSlider(interactionStartPercent: null);
+
+    private void ApplyMicrophoneSlider(int? interactionStartPercent)
     {
         if (_snapshotMode || _syncing || !MicrophoneSlider.IsEnabled || !IsVisible)
             return;
+
         int requested = (int)Math.Round(MicrophoneSlider.Value);
+        if (interactionStartPercent == requested ||
+            (interactionStartPercent is null && _cachedInput?.Available == true && _cachedInput.Percent == requested))
+        {
+            return;
+        }
+
         if (_volume.Set(requested, out int applied, DataFlow.Capture))
         {
             MicrophoneValueText.Text = $"{applied}%";

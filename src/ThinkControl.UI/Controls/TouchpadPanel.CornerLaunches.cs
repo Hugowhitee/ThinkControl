@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using ThinkControl.Core.Touchpad;
 
@@ -102,8 +103,12 @@ public partial class TouchpadPanel
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };
+        AutomationProperties.SetName(_cornerReverseCloseCheckBox, "Reverse swipe closes ThinkControl");
         _cornerReverseCloseCheckBox.Checked += CornerReverseClose_Changed;
         _cornerReverseCloseCheckBox.Unchecked += CornerReverseClose_Changed;
+        reverseLabel.Cursor = Cursors.Hand;
+        reverseLabel.MouseLeftButtonUp += (_, _) =>
+            _cornerReverseCloseCheckBox.IsChecked = _cornerReverseCloseCheckBox.IsChecked != true;
         Grid.SetColumn(_cornerReverseCloseCheckBox, 1);
         reverseRow.Children.Add(_cornerReverseCloseCheckBox);
         stack.Children.Add(reverseRow);

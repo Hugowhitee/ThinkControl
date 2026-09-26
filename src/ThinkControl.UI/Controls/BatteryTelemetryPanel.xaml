@@ -97,6 +97,7 @@
                                   Style="{StaticResource TcSwitch}"
                                   HorizontalAlignment="Right"
                                   VerticalAlignment="Center"
+                                  AutomationProperties.Name="Battery preservation"
                                   IsEnabled="False"
                                   Click="ChargeProtectionSwitch_Click"
                                   ToolTip="Turn the verified OEM battery charge window on or off" />
