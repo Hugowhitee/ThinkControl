@@ -237,13 +237,14 @@ public sealed class AppState : INotifyPropertyChanged
                 return target >= 100 ? "Estimating…" : $"Estimating to {target}%…";
             }
 
-            if (BatteryEtaRemaining is TimeSpan remaining)
-                return $"~{FormatDuration(remaining)} remaining";
-
             bool pluggedIn = BatteryStatus.Contains("Plugged in", StringComparison.OrdinalIgnoreCase) ||
                              BatteryStatus.Contains("Fully charged", StringComparison.OrdinalIgnoreCase);
             if (pluggedIn)
             {
+                // Plugged-in idle/hold state wins over any stale Windows/native
+                // discharge estimate. A preservation-paused battery must never show
+                // "6 h remaining" merely because an older on-battery ETA is still
+                // present in AppState.
                 if (BatteryProtectionEnabled == true &&
                     BatteryProtectionStopPercent is int stop)
                 {
@@ -264,6 +265,9 @@ public sealed class AppState : INotifyPropertyChanged
 
                 return "Plugged in";
             }
+
+            if (BatteryEtaRemaining is TimeSpan remaining)
+                return $"~{FormatDuration(remaining)} remaining";
 
             return "Estimating…";
         }
