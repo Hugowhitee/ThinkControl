@@ -93,6 +93,9 @@ public partial class AdvancedWindow
         PrepareHomeModeForSnapshot(modeId);
     }
 
+    internal void PrepareModesEditorForSnapshot() =>
+        ModesPanelControl.PrepareEditorForSnapshot();
+
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
     {
         if (verifiedDevice)
