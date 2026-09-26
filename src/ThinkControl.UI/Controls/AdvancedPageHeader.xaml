@@ -1,0 +1,34 @@
+<UserControl x:Class="ThinkControl.UI.Controls.AdvancedPageHeader"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             MinHeight="38">
+    <Grid Margin="0,0,0,18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock Text="{Binding Title, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   Style="{StaticResource TcText.PageTitle}"
+                   VerticalAlignment="Center"
+                   MinHeight="38" />
+
+        <ContentPresenter Grid.Column="1"
+                          Content="{Binding Actions, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                          HorizontalAlignment="Right"
+                          VerticalAlignment="Center"
+                          Margin="16,0,0,0" />
+
+        <TextBlock x:Name="SubtitleText"
+                   Grid.Row="1"
+                   Grid.ColumnSpan="2"
+                   Text="{Binding Subtitle, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                   Style="{StaticResource TcText.PageSubtitle}"
+                   Margin="0,6,0,0"
+                   TextWrapping="Wrap" />
+    </Grid>
+</UserControl>
