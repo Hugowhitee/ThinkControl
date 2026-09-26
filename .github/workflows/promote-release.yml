@@ -3,6 +3,9 @@ name: Promote release-ready main
 on:
   push:
     branches: [main]
+  pull_request:
+    types: [closed]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,6 +18,10 @@ concurrency:
 
 jobs:
   promote:
+    # GitHub App/connector merges reliably emit pull_request.closed but may not
+    # emit a second push workflow. Treat a merged PR as the same main promotion
+    # checkpoint while ignoring ordinary closed/unmerged PRs.
+    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
