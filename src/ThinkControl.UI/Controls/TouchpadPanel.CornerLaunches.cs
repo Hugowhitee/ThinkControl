@@ -106,7 +106,7 @@ public partial class TouchpadPanel
         AutomationProperties.SetName(_cornerReverseCloseCheckBox, "Reverse swipe closes ThinkControl");
         _cornerReverseCloseCheckBox.Checked += CornerReverseClose_Changed;
         _cornerReverseCloseCheckBox.Unchecked += CornerReverseClose_Changed;
-        reverseLabel.Cursor = Cursors.Hand;
+        reverseLabel.Cursor = System.Windows.Input.Cursors.Hand;
         reverseLabel.MouseLeftButtonUp += (_, _) =>
             _cornerReverseCloseCheckBox.IsChecked = _cornerReverseCloseCheckBox.IsChecked != true;
         Grid.SetColumn(_cornerReverseCloseCheckBox, 1);
