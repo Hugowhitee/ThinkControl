@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.51**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.51` is the current published prerelease; alpha.51 changes only Compact user-session dropdown dismiss/focus handling and does not alter hardware, service, updater or provider boundaries.
+This document describes the current source architecture at **v0.1.0-alpha.52**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.51` is the current published prerelease; alpha.52 changes only Core/UI battery ETA semantics and does not alter hardware, service, updater or provider write boundaries.
 
 ## Process boundary
 
