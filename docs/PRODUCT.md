@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.51`.  
-Current immutable prerelease: `v0.1.0-alpha.51`. Alpha.51 is the published Compact selector-dismiss hotfix on the alpha.50 runtime-reliability baseline; alpha.44 remains the hardware-behavior baseline.
+Current source release target: `v0.1.0-alpha.52`.  
+Current immutable prerelease: `v0.1.0-alpha.51`. Alpha.52 is a narrow Battery Preservation ETA correctness follow-up on the alpha.51 UI baseline; alpha.44 remains the hardware-behavior baseline.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -163,7 +163,7 @@ ThinkControl can display percentage, charging state, live/smoothed watts, remain
 Battery health history samples firmware-reported full-charge capacity versus design capacity at most once per day when both values are available. This sampling is independent of completing a charging session or reaching 100%, so an intentional 80–90% preservation threshold does not need to be disabled for the trend to learn. The trend is capacity telemetry, not a fabricated wear/lifetime prediction.
 
 
-Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging resumes below 80% and pauses at 90%**). Alpha.50 uses one current-level fill with two quiet threshold markers; the fill color reacts to charging/limit state instead of permanently painting green/amber/red zones. The selected stop threshold also gets an AccuBattery-style **current level → target** comparative wear-cycle estimate, with a full 0→100% charge normalized to a 1.00 baseline. That value comes from a transparent generic Li-ion state-of-charge/voltage model and is not presented as measured firmware cycles or guaranteed pack life. Applying or disabling a preset produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
+Battery Preservation mirrors the verified OEM threshold state into the main app model. The Battery page shows the active start/stop window and plain-language behavior (for example, **Charging resumes below 80% and pauses at 90%**). Alpha.50 uses one current-level fill with two quiet threshold markers; the fill color reacts to charging/limit state instead of permanently painting green/amber/red zones. The selected stop threshold also gets an AccuBattery-style **current level → target** comparative wear-cycle estimate, with a full 0→100% charge normalized to a 1.00 baseline. That value comes from a transparent generic Li-ion state-of-charge/voltage model and is not presented as measured firmware cycles or guaranteed pack life. Alpha.52 makes the charging ETA use that same active target: an 85% preservation limit estimates energy and time only to 85%, labels the endpoint as **to 85%**, and clears any old rolling estimate when the selected limit changes. Once charging is parked at the limit, the quick surfaces show **Charge limit 85%** rather than implying the machine is still estimating a full charge. Applying or disabling a preset produces a short passive confirmation, and a later real charging transition while still on AC produces a passive pause/resume notification. Startup only establishes a baseline, so ThinkControl does not invent a transition notification merely because the app launched while already paused.
 
 ## Startup and shell reliability
 
