@@ -41,6 +41,17 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
 
+## Alpha.52 Battery Preservation ETA correctness
+
+1. With Battery Preservation disabled/full charge, charging ETA must keep the existing full-charge wording: **~… to full** / **Almost full**.
+2. Enable **Daily 75–85%** while below 85%. After the estimator warm-up, Compact, Home and Battery must all say **~… to 85%**; none may say **to full**.
+3. Repeat with **Desk 55–80%** and **Maximum care 40–60%**. The visible endpoint must follow the actual stop threshold (80% / 60%) and the calculated duration must shrink to the energy remaining to that target rather than full capacity.
+4. Change preservation target while charging. The old ETA must disappear immediately and warm up again for the new target; ThinkControl must never reuse a 100%/85% duration under a different label.
+5. At or just above the active stop threshold while plugged in and not charging, quick battery surfaces must show **Charge limit N%** instead of **Estimating…** or **to full**.
+6. Unplug and discharge. Preservation must not alter the normal remaining-runtime estimate.
+7. Verify a custom valid stop threshold follows the same logic automatically; the implementation must not key ETA behavior off preset names.
+8. Review Compact, Home and Battery dark/light snapshots to ensure longer labels such as **Estimating to 85%…** remain unclipped.
+
 ## Alpha.51 Compact dropdown dismiss regression
 
 1. In Compact, open and dismiss **Performance**, **Fan mode**, **Refresh rate**, **Keyboard** and **Audio safety** one by one by clicking elsewhere inside ThinkControl. The closed selector must immediately return to its ordinary resting visual state; a lighter hover/focus fill must not remain latched.
