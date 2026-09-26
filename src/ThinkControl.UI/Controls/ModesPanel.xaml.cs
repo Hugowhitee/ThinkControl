@@ -72,6 +72,8 @@ public partial class ModesPanel : UserControl
 
         EmptyCustomText.Visibility = customs.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         NewModeButton.IsEnabled = customs.Length < ThinkControlModeCatalog.MaxCustomModes;
+        if (!_busy)
+            ListStatusText.Visibility = Visibility.Collapsed;
         UpdateHeaderState();
     }
 
@@ -178,7 +180,7 @@ public partial class ModesPanel : UserControl
         {
             bool success = await _app.Modes.ActivateAsync(id);
             if (!success)
-                ShowEditorStatus("Mode could not be applied.");
+                ShowStatus("Mode could not be applied.");
         }
         finally
         {
@@ -529,7 +531,7 @@ public partial class ModesPanel : UserControl
         {
             bool success = await _app.Modes.ReapplyAsync();
             if (!success)
-                ShowEditorStatus("Mode could not be reapplied.");
+                ShowStatus("Mode could not be reapplied.");
         }
         finally
         {
@@ -549,11 +551,20 @@ public partial class ModesPanel : UserControl
         ReapplyButton.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void ShowEditorStatus(string message)
+    private void ShowStatus(string message)
     {
-        EditorStatusText.Text = message;
-        EditorStatusText.Visibility = Visibility.Visible;
+        if (EditorView.Visibility == Visibility.Visible)
+        {
+            EditorStatusText.Text = message;
+            EditorStatusText.Visibility = Visibility.Visible;
+            return;
+        }
+
+        ListStatusText.Text = message;
+        ListStatusText.Visibility = Visibility.Visible;
     }
+
+    private void ShowEditorStatus(string message) => ShowStatus(message);
 
     internal void PrepareEditorForSnapshot()
     {
