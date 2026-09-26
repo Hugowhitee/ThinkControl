@@ -49,23 +49,21 @@ Active implementation state:
 - PR: **#100 — Prepare alpha.52 hardware and UX follow-up**
 - source target: `v0.1.0-alpha.52`
 - immutable/public baseline: `v0.1.0-alpha.51`
-- `version.json.releaseReady=false` until all deferred release gates are restored and pass
+- `version.json.releaseReady=false` until the exact-head hosted, visual and physical gates below pass
 
 Scope:
 
 - make System volume and Microphone input sliders track locally while dragging and commit one Windows endpoint write on release/key adjustment instead of repeatedly writing during the drag;
-- make Battery Preservation one explicit switch with three named preservation windows, target ETA to the active stop threshold and distinguish modeled charge-wear ratio from firmware cycle count;
-- make Home Sensors open the existing live details window directly and make Touchpad reverse-close use the shared switch grammar;
+- make Battery Preservation one explicit switch with three named preservation windows, carry the verified stop threshold through the Core/runtime ETA contract and distinguish modeled charge-wear ratio from firmware cycle count;
+- make Home Sensors open the existing live details window directly, make Touchpad reverse-close use the shared switch grammar, and align title-level Advanced actions to one 38 px header rail;
 - collapse Temporary fan test to one Start/End action;
 - stop advertising the physically inferior exact-X9 discrete-EC path as a direct writer while retaining read/Auto-recovery cleanup and the reviewed firmware Auto / Quiet / Balanced / Max path;
-- add source regressions for the new interaction contracts.
+- add source regressions for the new interaction contracts and consolidate the separate target-ETA work into this one canonical alpha.52 PR.
 
-GitHub Actions budget context — updated 2026-09-26:
+Hosted verification context — 2026-09-26:
 
-- the account's included Actions minutes for **private** repositories are temporarily exhausted for the next few days / until the billing reset;
-- ThinkControl itself is a **public repository** and uses standard GitHub-hosted runners (`windows-latest` / `ubuntu-latest`), which GitHub documents as free and unlimited for public repositories;
-- therefore the normal ThinkControl CI, Package and release-verification gates may run; this public-repository exception must not be generalized to Hugo's private repositories while the account quota is exhausted;
-- do not add redundant reruns or polling loops: one exact-head run per meaningful gate/checkpoint remains the normal policy.
+- ThinkControl's public-repository GitHub-hosted CI and Package workflows are running normally even though private-repository included minutes are temporarily constrained;
+- use one exact-head run per meaningful checkpoint and avoid redundant reruns.
 
 Current gate:
 
@@ -73,10 +71,11 @@ Current gate:
 - [x] first candidate build exposed the stale snapshot call `FindChargeProtectionPreset(enabled: false)`; the branch fixture was repaired to the new switch/preset contract
 - [x] source/static regression guards cover Battery switch/ETA semantics, Audio slider ownership, fan writer boundary and one-button temporary test
 - [x] Home Sensors and Touchpad reverse-close now have dedicated source regression guards
-- [x] preservation ETA is state-aware: charge-to-cap only while charging, paused/hysteresis copy on AC, normal remaining-runtime ETA while unplugged
+- [x] the separate target-ETA branch was folded into PR #100 so alpha.52 again has one canonical implementation path
+- [x] Advanced title-level actions share one 38 px header rail with dedicated source regression coverage
+- [x] preservation ETA is state-aware and target-owned in Core/runtime: charge-to-cap only while charging, target changes reset rolling ETA, paused/hysteresis copy wins on AC and unplugged use keeps normal remaining-runtime ETA
 - [x] disabled Lenovo preservation retains the verified stored start/stop pair separately from the enabled flag, so re-enabling can restore the previous window
 - [x] targeted static source-regression audit caught and repaired stale Battery/X9 assertions after the refactor; no hosted result is inferred from that audit
-- [x] private-repository Actions quota remains constrained, but ThinkControl's public standard-runner gates are eligible to run without consuming that private-minute allowance
 - [ ] real-device check: Audio output/microphone slider feel and endpoint convergence
 - [ ] real-device check: preservation switch, stop-target ETA and physical threshold behavior
 - [ ] real-device check: built-in Auto / Quiet / Balanced / Max behavior remains correct after direct-EC capability removal
