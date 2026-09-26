@@ -204,10 +204,10 @@ public sealed class AppState : INotifyPropertyChanged
                              BatteryStatus.Contains("Fully charged", StringComparison.OrdinalIgnoreCase) ||
                              BatteryCharging;
             if (pluggedIn && !BatteryCharging && BatteryPercent >= stop - 2)
-                return $"Charging paused near {stop}% · resumes below {start}%.";
+                return $"Charging is paused near {stop}% and resumes below {start}%.";
             if (pluggedIn && BatteryCharging)
-                return $"Charging now · stops near {stop}% and resumes below {start}%.";
-            return $"Stops near {stop}% · resumes below {start}% when plugged in.";
+                return $"Charging now. It pauses near {stop}% and resumes below {start}%.";
+            return $"Charging pauses near {stop}% and resumes below {start}% when plugged in.";
         }
     }
     public string BatteryCapacityText => BatteryRemainingWh is double remaining && BatteryFullWh is double full
