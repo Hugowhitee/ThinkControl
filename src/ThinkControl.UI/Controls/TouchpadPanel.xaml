@@ -20,16 +20,19 @@
     <Grid x:Name="RootGrid">
         <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
 
-        <Grid Margin="0,0,0,16">
+        <Grid Margin="0,0,0,18">
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <StackPanel Margin="0,0,16,0">
-                <TextBlock Text="Touchpad" Style="{StaticResource TcText.PageTitle}" />
-                <TextBlock Text="Live touch visualization, edge shortcuts, haptics and gesture feedback." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <TextBlock Text="Touchpad" Style="{StaticResource TcText.PageTitle}" VerticalAlignment="Center" MinHeight="38" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" MinHeight="38">
                 <TextBlock Text="Edge gestures" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" Margin="0,0,10,0" />
                 <CheckBox x:Name="GestureEnableSwitch" Style="{StaticResource TcSwitch}" Click="GestureEnable_Click" />
             </StackPanel>
+            <TextBlock Grid.Row="1" Grid.ColumnSpan="2"
+                       Text="Live touch visualization, edge shortcuts, haptics and gesture feedback."
+                       Foreground="{DynamicResource Tc.TextMuted}"
+                       Margin="0,6,0,0"
+                       TextWrapping="Wrap" />
         </Grid>
 
         <Grid x:Name="ContentGrid" Grid.Row="1" Width="{Binding ActualWidth, ElementName=RootGrid}">
