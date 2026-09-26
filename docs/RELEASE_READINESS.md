@@ -76,14 +76,19 @@ Current gate:
 - [x] preservation ETA is state-aware and target-owned in Core/runtime: charge-to-cap only while charging, target changes reset rolling ETA, paused/hysteresis copy wins on AC and unplugged use keeps normal remaining-runtime ETA
 - [x] disabled Lenovo preservation retains the verified stored start/stop pair separately from the enabled flag, so re-enabling can restore the previous window
 - [x] targeted static source-regression audit caught and repaired stale Battery/X9 assertions after the refactor; no hosted result is inferred from that audit
-- [ ] real-device check: Audio output/microphone slider feel and endpoint convergence
-- [ ] real-device check: preservation switch, stop-target ETA and physical threshold behavior
-- [ ] real-device check: built-in Auto / Quiet / Balanced / Max behavior remains correct after direct-EC capability removal
-- [ ] exact-head Release build + Core/source tests
-- [ ] Compact ↔ Advanced ShellSmoke
-- [ ] deterministic dark/light WPF visual matrix manual review
-- [ ] Package ThinkControl / installer / service / updater compatibility
-- [ ] freeze `releaseReady=true`, expected-head merge and immutable alpha.52 promotion only after all required gates pass
+- [x] final implementation head `27663beeb945fbe9f4aedb60cf1ae262db8ac37e`: CI #2169 / run `36246383241` passed Release build, Core/source tests, Compact ↔ Advanced ShellSmoke and deterministic WPF rendering
+- [x] final implementation head `27663beeb945fbe9f4aedb60cf1ae262db8ac37e`: Package #1862 / run `36246383203` passed payload, installer/service/IPC smoke, oldest-supported updater compatibility and development checksums
+- [x] current PR review backlog resolved; the final review follow-ups cover slider focus-loss ownership, manual fan-test lock persistence, disabled reverse-close labels and terminal zero ETA
+- [x] deterministic dark/light WPF visual matrix generated on the final implementation head; alpha.52 remains an alpha feedback vehicle and hosted pixels do not claim physical hardware behavior
+- [x] freeze `releaseReady=true`; rerun exact frozen-head CI + Package before expected-head merge
+- [ ] frozen-head CI + Package
+- [ ] expected-head merge and immutable alpha.52 promotion
+
+Post-release physical follow-up remains a separate evidence class and is not inferred from the hosted release:
+
+- [ ] Audio output/microphone slider feel and endpoint convergence on the reference X9
+- [ ] preservation switch, stop-target ETA and physical threshold behavior
+- [ ] built-in Auto / Quiet / Balanced / Max behavior remains correct after direct-EC capability removal
 
 ## Alpha.51 published release — Compact dropdown dismiss state
 
