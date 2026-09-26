@@ -23,16 +23,6 @@ public partial class AdvancedWindow
         Resources[HomeDashboardPolishKey] = true;
         NormalizeHomePowerTerminology();
 
-        FrameworkElement? oldHeader = homeStack.Children
-            .OfType<FrameworkElement>()
-            .FirstOrDefault(element => Equals(element.Tag, HomeSupportCardTag));
-        if (oldHeader is not null)
-        {
-            int index = homeStack.Children.IndexOf(oldHeader);
-            homeStack.Children.Remove(oldHeader);
-            homeStack.Children.Insert(index, BuildHomeHeader());
-        }
-
         Border? telemetry = homeStack.Children
             .OfType<Border>()
             .FirstOrDefault(border => border.Height is >= 120 and <= 126);
@@ -73,12 +63,6 @@ public partial class AdvancedWindow
             }
         }
     }
-
-    private AdvancedPageHeader BuildHomeHeader() => new()
-    {
-        Tag = HomeSupportCardTag,
-        Title = "Overview"
-    };
 
     private Grid BuildHomeTelemetryStrip()
     {
