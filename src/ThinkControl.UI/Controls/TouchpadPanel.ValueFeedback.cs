@@ -95,7 +95,7 @@ public partial class TouchpadPanel
         _syncing = true;
         try
         {
-            GestureEnableSwitch.IsChecked = true;
+            _gestureEnableSwitch.IsChecked = true;
             _selectedZone = TouchpadZoneSelection.ForCorner(corner);
             _configuration = (_configuration with
             {
@@ -160,7 +160,7 @@ public partial class TouchpadPanel
         try
         {
             _selectedZone = TouchpadZoneSelection.ForEdge(selectedEdge);
-            GestureEnableSwitch.IsChecked = true;
+            _gestureEnableSwitch.IsChecked = true;
             TouchpadGestureBindings bindings = _configuration.Bindings ?? TouchpadGestureBindings.AsusStyle;
             foreach (TouchpadEdge edge in Enum.GetValues<TouchpadEdge>())
             {
