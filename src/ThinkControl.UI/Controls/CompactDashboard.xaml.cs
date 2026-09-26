@@ -126,7 +126,7 @@ public partial class CompactDashboard : UserControl
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AppState.SelectedMode)
+        if (e.PropertyName is nameof(AppState.SelectedPowerMode)
             or nameof(AppState.CoolingProfile)
             or nameof(AppState.CanFanControl)
             or nameof(AppState.RefreshAutoEnabled)

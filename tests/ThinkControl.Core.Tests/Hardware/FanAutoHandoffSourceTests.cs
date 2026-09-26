@@ -59,7 +59,7 @@ public sealed class FanAutoHandoffSourceTests
         // normal profile restoration is capability-driven. Firmware-backed profiles
         // also seed the current Windows power mode as their restore baseline.
         Assert.Contains("if (response.Capabilities?.FanControl != true && !(wantsAuto && verifiedX9))", cooling, StringComparison.Ordinal);
-        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedPowerMode, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
         Assert.Contains("HardwareClient.SetCoolingProfileAsync(definition.Name, _coolingLifetimeCts.Token)", cooling, StringComparison.Ordinal);
 
         // Do not regress to a UI-only restore that merely paints the selector as Auto

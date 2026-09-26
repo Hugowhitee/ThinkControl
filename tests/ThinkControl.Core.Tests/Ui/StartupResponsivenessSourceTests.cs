@@ -108,7 +108,7 @@ public sealed class StartupResponsivenessSourceTests
         int restoreHardwareWrite = restore.IndexOf("HardwareClient.ReturnFanToAutoAsync(_coolingLifetimeCts.Token)", StringComparison.Ordinal);
         if (restoreHardwareWrite < 0)
             restoreHardwareWrite = restore.IndexOf(
-                "HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token)",
+                "HardwareClient.SetThermalModeAsync(State.SelectedPowerMode, _coolingLifetimeCts.Token)",
                 StringComparison.Ordinal);
         Assert.True(restoreGateWait >= 0 && restoreGenerationCheck > restoreGateWait && restoreHardwareWrite > restoreGenerationCheck);
 
@@ -138,7 +138,7 @@ public sealed class StartupResponsivenessSourceTests
         string restore = cooling.Split("private async Task TryRestoreCoolingPreferenceAsync", StringSplitOptions.None)[1]
             .Split("private void ScheduleFirmwareCoolingSettleReassert", StringSplitOptions.None)[0];
         int baselineGate = restore.IndexOf("!CoolingThermalBaselineReady", StringComparison.Ordinal);
-        int thermalWrite = restore.IndexOf("SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token)", StringComparison.Ordinal);
+        int thermalWrite = restore.IndexOf("SetThermalModeAsync(State.SelectedPowerMode, _coolingLifetimeCts.Token)", StringComparison.Ordinal);
         Assert.True(baselineGate >= 0 && thermalWrite > baselineGate);
 
         Assert.Contains("public async void ExitApplication()", app, StringComparison.Ordinal);

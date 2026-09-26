@@ -115,7 +115,7 @@ internal static class Program
         app.State.MachineType = "21Q6";
         app.State.DriverStatus = "Ready";
         app.State.HardwareAccess = "Ready";
-        app.State.SelectedMode = "Balanced";
+        app.State.SelectedPowerMode = "Balanced";
         app.State.BatteryPercent = 72;
         app.State.BatteryStatus = "On battery";
         app.State.CurrentRefreshHz = 120;

@@ -296,7 +296,7 @@ internal static class Program
             KeyboardMode = hardwareReady ? "Breathing" : "Auto",
             KeyboardBaseLevel = "Low",
             KeyboardEffectSpeed = 1.0,
-            SelectedMode = "Balanced",
+            SelectedPowerMode = "Balanced",
             UpdateStatus = $"Up to date · v{UpdateService.CurrentVersion}",
             CanFanControl = hardwareReady,
             CanFanTelemetry = hardwareReady,

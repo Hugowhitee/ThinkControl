@@ -47,7 +47,7 @@ public sealed class CoolingProfilePersistenceSourceTests
         Assert.Contains("ScheduleFirmwareCoolingSettleReassert", cooling, StringComparison.Ordinal);
         Assert.Contains("ReassertFirmwareCoolingAfterStartupSettleAsync", cooling, StringComparison.Ordinal);
         Assert.Contains("Task.Delay(CoolingStartupSettleDelay", cooling, StringComparison.Ordinal);
-        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedMode, cancellationToken)", cooling, StringComparison.Ordinal);
+        Assert.Contains("HardwareClient.SetThermalModeAsync(State.SelectedPowerMode, cancellationToken)", cooling, StringComparison.Ordinal);
         Assert.Contains("HardwareClient.SetCoolingProfileAsync(definition.Name, cancellationToken)", cooling, StringComparison.Ordinal);
         Assert.Contains("one bounded retry, not a polling loop", cooling, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("DispatcherTimer", cooling, StringComparison.Ordinal);
