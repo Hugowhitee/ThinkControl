@@ -21,6 +21,7 @@ public partial class AdvancedWindow
     private static readonly string[] ConsistentPageNames =
     [
         "PageHome",
+        "PageModes",
         "PagePerformance",
         "PageFans",
         "PageBattery",
