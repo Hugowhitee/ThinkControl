@@ -165,12 +165,23 @@ internal sealed class TouchpadFeatureHost : IDisposable
             _gestures.StopIfDisabled();
     }
 
+    internal bool EffectiveGesturesEnabled => _gestures.Configuration.Enabled;
+
     internal void UpdateConfiguration(TouchpadGestureConfiguration configuration)
     {
         TouchpadGestureConfiguration sanitized = configuration.Sanitize();
+        _app.Modes.ReleaseFacet(ThinkControlModeFacet.TouchpadGestures);
         _app.UserSettings.Update(settings => settings with { TouchpadGestures = sanitized });
         _gestures.UpdateConfiguration(sanitized);
         if (sanitized.Enabled)
+            EnsureInputStarted();
+    }
+
+    internal void ApplyTransientGestureEnabled(bool enabled)
+    {
+        TouchpadGestureConfiguration runtime = (_gestures.Configuration with { Enabled = enabled }).Sanitize();
+        _gestures.UpdateConfiguration(runtime);
+        if (runtime.Enabled)
             EnsureInputStarted();
     }
 

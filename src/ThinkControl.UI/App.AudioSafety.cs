@@ -10,12 +10,25 @@ public partial class App
 
     internal AudioSafetyService AudioSafety { get; } = new();
 
-    internal async Task<AudioSafetyTransitionResult> SetAudioSafetyModeAsync(AudioSafetyMode mode)
+    internal Task<AudioSafetyTransitionResult> SetAudioSafetyModeAsync(AudioSafetyMode mode) =>
+        SetAudioSafetyModeCoreAsync(mode, userInitiated: true);
+
+    internal Task<AudioSafetyTransitionResult> ApplyAudioSafetyModeFromModeAsync(AudioSafetyMode mode) =>
+        SetAudioSafetyModeCoreAsync(mode, userInitiated: false);
+
+    private async Task<AudioSafetyTransitionResult> SetAudioSafetyModeCoreAsync(
+        AudioSafetyMode mode,
+        bool userInitiated)
     {
         EnsureAudioSafetyRuntimeHook();
         AudioSafetyTransitionResult result = await AudioSafety.SetModeAsync(mode);
-        if (result.Success && mode != AudioSafetyMode.Normal)
-            _touchpadFeature?.CancelAudioActions();
+        if (result.Success)
+        {
+            if (mode != AudioSafetyMode.Normal)
+                _touchpadFeature?.CancelAudioActions();
+            if (userInitiated)
+                Modes.ReleaseFacet(ThinkControlModeFacet.AudioSafety);
+        }
         return result;
     }
 
