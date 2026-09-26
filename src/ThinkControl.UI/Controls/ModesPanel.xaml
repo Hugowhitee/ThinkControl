@@ -1,0 +1,159 @@
+<UserControl x:Class="ThinkControl.UI.Controls.ModesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="clr-namespace:ThinkControl.UI"
+             xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
+             MinWidth="520">
+    <UserControl.Resources>
+        <Style x:Key="ModeTextBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.42" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <controls:AdvancedPageHeader x:Name="Header" Title="Modes">
+            <controls:AdvancedPageHeader.Actions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock x:Name="ModifiedLabel"
+                               Text="Modified"
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,10,0"
+                               Visibility="Collapsed" />
+                    <Button x:Name="ReapplyButton"
+                            Content="Reapply"
+                            Style="{StaticResource TcButton}"
+                            Padding="9,4"
+                            FontSize="{x:Static ui:TypographyScale.Caption}"
+                            Click="Reapply_Click"
+                            Visibility="Collapsed" />
+                    <Button x:Name="CancelButton"
+                            Content="Cancel"
+                            Style="{StaticResource TcButton}"
+                            Padding="9,4"
+                            FontSize="{x:Static ui:TypographyScale.Caption}"
+                            Click="Cancel_Click"
+                            Visibility="Collapsed" />
+                    <Button x:Name="SaveButton"
+                            Content="Save"
+                            Style="{StaticResource TcButton}"
+                            Padding="10,4"
+                            FontSize="{x:Static ui:TypographyScale.Caption}"
+                            Margin="10,0,0,0"
+                            Click="Save_Click"
+                            Visibility="Collapsed" />
+                </StackPanel>
+            </controls:AdvancedPageHeader.Actions>
+        </controls:AdvancedPageHeader>
+
+        <StackPanel x:Name="ListView">
+            <Border Style="{StaticResource TcSection}" Padding="0">
+                <StackPanel>
+                    <TextBlock Text="Built in"
+                               FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                               FontWeight="SemiBold"
+                               Margin="14,12,14,7" />
+                    <StackPanel x:Name="BuiltInRows" />
+                </StackPanel>
+            </Border>
+
+            <Border Style="{StaticResource TcSection}" Padding="0" Margin="0,14,0,0">
+                <StackPanel>
+                    <Grid Margin="14,11,12,7">
+                        <TextBlock Text="Custom"
+                                   FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <Button x:Name="NewModeButton"
+                                Content="New mode"
+                                Style="{StaticResource TcInlineButton}"
+                                HorizontalAlignment="Right"
+                                Click="NewMode_Click" />
+                    </Grid>
+                    <StackPanel x:Name="CustomRows" />
+                    <TextBlock x:Name="EmptyCustomText"
+                               Text="No custom modes."
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="{x:Static ui:TypographyScale.Secondary}"
+                               Margin="14,8,14,13" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <StackPanel x:Name="EditorView" Visibility="Collapsed">
+            <Border Style="{StaticResource TcSection}">
+                <StackPanel>
+                    <TextBlock Text="Name" FontWeight="SemiBold" />
+                    <TextBox x:Name="ModeNameTextBox"
+                             Style="{StaticResource ModeTextBox}"
+                             MaxLength="32"
+                             Margin="0,7,0,18" />
+
+                    <Grid>
+                        <TextBlock Text="Controls"
+                                   FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <Button x:Name="AddControlButton"
+                                Content="Add control"
+                                Style="{StaticResource TcInlineButton}"
+                                HorizontalAlignment="Right"
+                                Click="AddControl_Click" />
+                    </Grid>
+
+                    <StackPanel x:Name="EditorControls" Margin="0,8,0,0" />
+                    <TextBlock x:Name="EditorEmptyText"
+                               Text="No controls yet."
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="{x:Static ui:TypographyScale.Secondary}"
+                               Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Grid Margin="2,10,2,0">
+                <Button x:Name="DeleteButton"
+                        Content="Delete mode"
+                        Style="{StaticResource TcInlineButton}"
+                        HorizontalAlignment="Left"
+                        Click="Delete_Click"
+                        Visibility="Collapsed" />
+                <TextBlock x:Name="EditorStatusText"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           Foreground="{DynamicResource Tc.TextMuted}"
+                           FontSize="{x:Static ui:TypographyScale.Caption}"
+                           Visibility="Collapsed" />
+            </Grid>
+        </StackPanel>
+    </StackPanel>
+</UserControl>
