@@ -160,23 +160,32 @@ public sealed class BatteryTelemetryService
 
                 if (rawEtaSeconds.HasValue && rawEtaSeconds.Value >= 0 && rawEtaSeconds.Value <= MaxEta.TotalSeconds)
                 {
-                    double dtSecondsEta = _lastSampleAt.HasValue
-                        ? Math.Clamp((now - _lastSampleAt.Value).TotalSeconds, 0.25, 15)
-                        : HotSampleInterval.TotalSeconds;
-                    double alphaEta = EwmaAlpha(dtSecondsEta, EtaHalfLife.TotalSeconds);
-
-                    double bounded = rawEtaSeconds.Value;
-                    if (_smoothedEtaSeconds is > 30)
+                    if (rawEtaSeconds.Value == 0)
                     {
-                        bounded = Math.Clamp(
-                            rawEtaSeconds.Value,
-                            _smoothedEtaSeconds.Value * 0.80,
-                            _smoothedEtaSeconds.Value * 1.20);
+                        // The configured stop threshold has been reached. Do not
+                        // smooth this terminal state against the previous estimate.
+                        _smoothedEtaSeconds = 0;
                     }
+                    else
+                    {
+                        double dtSecondsEta = _lastSampleAt.HasValue
+                            ? Math.Clamp((now - _lastSampleAt.Value).TotalSeconds, 0.25, 15)
+                            : HotSampleInterval.TotalSeconds;
+                        double alphaEta = EwmaAlpha(dtSecondsEta, EtaHalfLife.TotalSeconds);
 
-                    _smoothedEtaSeconds = _smoothedEtaSeconds.HasValue
-                        ? Lerp(_smoothedEtaSeconds.Value, bounded, alphaEta)
-                        : bounded;
+                        double bounded = rawEtaSeconds.Value;
+                        if (_smoothedEtaSeconds is > 30)
+                        {
+                            bounded = Math.Clamp(
+                                rawEtaSeconds.Value,
+                                _smoothedEtaSeconds.Value * 0.80,
+                                _smoothedEtaSeconds.Value * 1.20);
+                        }
+
+                        _smoothedEtaSeconds = _smoothedEtaSeconds.HasValue
+                            ? Lerp(_smoothedEtaSeconds.Value, bounded, alphaEta)
+                            : bounded;
+                    }
 
                     if (raw.Charging)
                         etaToChargeTarget = _smoothedEtaSeconds;
