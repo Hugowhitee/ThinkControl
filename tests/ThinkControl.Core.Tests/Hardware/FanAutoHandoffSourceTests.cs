@@ -94,6 +94,22 @@ public sealed class FanAutoHandoffSourceTests
         Assert.DoesNotContain("IsManualHomeFanState(selected) => \"Auto\"", home, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ManualFanTest_RemainsLockedAcrossStatusRefresh()
+    {
+        string root = FindRepositoryRoot();
+        string fans = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs"));
+        string method = fans.Split("private void ApplyStatus(ServiceResponse? response)", StringSplitOptions.None)[1]
+            .Split("private void ApplyCalibrationUi(", StringSplitOptions.None)[0];
+
+        Assert.Contains("ApplyCalibrationUi(calibration, canControl);", method, StringComparison.Ordinal);
+        Assert.Contains("UpdateManualFanTestControls();", method, StringComparison.Ordinal);
+        Assert.True(
+            method.IndexOf("UpdateManualFanTestControls();", StringComparison.Ordinal) >
+            method.IndexOf("ApplyCalibrationUi(calibration, canControl);", StringComparison.Ordinal),
+            "Manual-test ownership must be re-applied after capability/calibration refreshes.");
+    }
+
     private static string ReadNormalized(string path) =>
         File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
 
