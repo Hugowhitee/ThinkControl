@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -8,170 +9,77 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private const string WindowsLinksKey = "ThinkControl.Advanced.WindowsSettingsLinks";
-    private const string DisplayWindowsLinkTag = "ThinkControl.Display.WindowsSettings";
-    private const string NightLightWindowsLinkTag = "ThinkControl.Display.NightLightSettings";
-    private const string TouchpadWindowsLinkTag = "ThinkControl.Touchpad.WindowsSettings";
-    private const string BatteryWindowsLinkTag = "ThinkControl.Battery.WindowsSettings";
-    private const string BatteryUsageWindowsLinkTag = "ThinkControl.Battery.UsageSettings";
-    private const string DisplayHeaderActionsTag = "ThinkControl.Display.HeaderActions";
-    private const string BatteryHeaderTag = "ThinkControl.Battery.Header";
+    private const string WindowsSettingsMenuTag = "ThinkControl.Header.WindowsSettingsMenu";
 
     private void ConfigureWindowsSettingsLinks()
     {
         if (!Resources.Contains(WindowsLinksKey))
             Resources[WindowsLinksKey] = true;
 
-        AddDisplayWindowsSettingsLink();
-        AddBatteryWindowsSettingsLinks();
-        AddTouchpadWindowsSettingsLink();
+        AddWindowsSettingsMenu(
+            PageDisplay,
+            [
+                ("Display settings", "ms-settings:display"),
+                ("Night light", "ms-settings:nightlight")
+            ]);
+
+        AddWindowsSettingsMenu(
+            PageBattery,
+            [
+                ("Power & battery", "ms-settings:powersleep"),
+                ("Battery usage", "ms-settings:batterysaver-usagedetails")
+            ]);
     }
 
-    private void AddDisplayWindowsSettingsLink()
+    private void AddWindowsSettingsMenu(
+        ScrollViewer page,
+        IReadOnlyList<(string Label, string Uri)> destinations)
     {
-        if (PageDisplay.Content is not StackPanel stack || stack.Children.Count == 0 || stack.Children[0] is not Grid header)
+        if (page.Content is not StackPanel stack)
             return;
 
-        StackPanel? actions = header.Children
-            .OfType<StackPanel>()
-            .FirstOrDefault(panel => Equals(panel.Tag, DisplayHeaderActionsTag));
-
-        if (actions is null)
-        {
-            Button[] existingButtons = header.Children.OfType<Button>().ToArray();
-            foreach (Button button in existingButtons)
-                header.Children.Remove(button);
-
-            header.ColumnDefinitions.Clear();
-            header.ColumnDefinitions.Add(new ColumnDefinition());
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-            foreach (UIElement child in header.Children)
-                Grid.SetColumn(child, 0);
-
-            actions = new StackPanel
-            {
-                Tag = DisplayHeaderActionsTag,
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            foreach (Button button in existingButtons)
-            {
-                button.Margin = new Thickness(8, 0, 0, 0);
-                actions.Children.Add(button);
-            }
-
-            Grid.SetColumn(actions, 1);
-            header.Children.Add(actions);
-        }
-
-        if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, NightLightWindowsLinkTag)))
-        {
-            Button nightLight = CreateWindowsLink("Night light ↗", "ms-settings:nightlight", NightLightWindowsLinkTag);
-            nightLight.Margin = new Thickness(0, 0, 2, 0);
-            actions.Children.Insert(0, nightLight);
-        }
-
-        if (actions.Children.OfType<Button>().Any(button => Equals(button.Tag, DisplayWindowsLinkTag)))
-            return;
-
-        Button link = CreateWindowsLink("Display settings ↗", "ms-settings:display", DisplayWindowsLinkTag);
-        link.Margin = new Thickness(0, 0, 2, 0);
-        actions.Children.Insert(Math.Min(1, actions.Children.Count), link);
-    }
-
-    private void AddBatteryWindowsSettingsLinks()
-    {
-        if (PageBattery.Content is not StackPanel stack || stack.Children.Count == 0)
-            return;
-
-        Grid? header = stack.Children.OfType<Grid>()
-            .FirstOrDefault(grid => Equals(grid.Tag, BatteryHeaderTag));
+        AdvancedPageHeader? header = stack.Children
+            .OfType<AdvancedPageHeader>()
+            .FirstOrDefault();
         if (header is null)
-        {
-            // Defensive fallback for an old/customized page shape. Prefer a real
-            // PageTitle candidate; never turn the first subtitle into the header.
-            TextBlock? title = stack.Children.OfType<TextBlock>()
-                .FirstOrDefault(text => string.Equals(text.Text, "Battery", StringComparison.Ordinal));
-            if (title is null)
-                return;
-
-            stack.Children.Remove(title);
-            header = new Grid { Tag = BatteryHeaderTag };
-            header.ColumnDefinitions.Add(new ColumnDefinition());
-            header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-            header.Children.Add(title);
-            stack.Children.Insert(0, header);
-        }
-
-        StackPanel? actions = header.Children.OfType<StackPanel>()
-            .FirstOrDefault(panel => Grid.GetColumn(panel) == 1);
-        if (actions is null)
-        {
-            // Normalize any direct legacy header buttons into the shared action rail.
-            Button[] legacyButtons = header.Children.OfType<Button>().ToArray();
-            foreach (Button button in legacyButtons)
-                header.Children.Remove(button);
-
-            actions = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                HorizontalAlignment = HorizontalAlignment.Right,
-                VerticalAlignment = VerticalAlignment.Center
-            };
-            foreach (Button button in legacyButtons)
-                actions.Children.Add(button);
-            Grid.SetColumn(actions, 1);
-            header.Children.Add(actions);
-        }
-
-        // Keep the page actions in a stable order: broad battery settings, usage,
-        // then the narrower Screen & sleep link already owned by Battery.cs.
-        if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, BatteryWindowsLinkTag)))
-        {
-            Button power = CreateWindowsLink("Power & battery ↗", "ms-settings:powersleep", BatteryWindowsLinkTag);
-            power.Margin = new Thickness(0, 0, 8, 0);
-            actions.Children.Insert(0, power);
-        }
-
-        if (!actions.Children.OfType<Button>().Any(button => Equals(button.Tag, BatteryUsageWindowsLinkTag)))
-        {
-            Button usage = CreateWindowsLink("Battery use ↗", "ms-settings:batterysaver-usagedetails", BatteryUsageWindowsLinkTag);
-            usage.Margin = new Thickness(0, 0, 8, 0);
-            actions.Children.Insert(Math.Min(1, actions.Children.Count), usage);
-        }
-    }
-
-    private void AddTouchpadWindowsSettingsLink()
-    {
-        TouchpadPanel panel = TouchpadPanelControl;
-        if (panel.Content is not Grid root)
             return;
 
-        Grid? header = root.Children.OfType<Grid>().FirstOrDefault(child => Grid.GetRow(child) == 0);
-        StackPanel? actions = header?.Children.OfType<StackPanel>().FirstOrDefault(child => Grid.GetColumn(child) == 1);
-        if (actions is null || actions.Children.OfType<Button>().Any(button => Equals(button.Tag, TouchpadWindowsLinkTag)))
+        StackPanel rail = header.EnsureActionStack();
+        if (rail.Children.OfType<Button>().Any(button => Equals(button.Tag, WindowsSettingsMenuTag)))
             return;
 
-        Button link = CreateWindowsLink("Windows touchpad ↗", "ms-settings:devices-touchpad", TouchpadWindowsLinkTag);
-        link.Margin = new Thickness(0, 0, 10, 0);
-        actions.Children.Insert(Math.Min(1, actions.Children.Count), link);
-    }
-
-    private Button CreateWindowsLink(string text, string uri, string tag)
-    {
         var button = new Button
         {
-            Content = text,
-            Tag = tag,
-            Style = TryFindResource("TcExternalSettingsLink") as Style,
-            Cursor = System.Windows.Input.Cursors.Hand,
-            ToolTip = "Open the matching native Windows Settings page",
+            Tag = WindowsSettingsMenuTag,
+            Content = "Windows settings ▾",
+            Style = TryFindResource("TcButton") as Style,
+            Padding = new Thickness(9, 4, 9, 4),
+            FontSize = TypographyScale.Caption,
             VerticalAlignment = VerticalAlignment.Center
         };
-        button.SetResourceReference(Button.ForegroundProperty, "Tc.TextMuted");
-        button.Click += (_, _) => OpenWindowsSettings(uri);
-        return button;
+        if (rail.Children.Count > 0)
+            button.Margin = new Thickness(PageHeaderActionGap, 0, 0, 0);
+
+        button.Click += (_, _) =>
+        {
+            var menu = new ContextMenu
+            {
+                PlacementTarget = button,
+                Placement = PlacementMode.Bottom
+            };
+
+            foreach ((string label, string uri) in destinations)
+            {
+                var item = new MenuItem { Header = label };
+                item.Click += (_, _) => OpenWindowsSettings(uri);
+                menu.Items.Add(item);
+            }
+
+            button.ContextMenu = menu;
+            menu.IsOpen = true;
+        };
+
+        rail.Children.Add(button);
     }
 
     private static void OpenWindowsSettings(string uri)
