@@ -69,6 +69,25 @@ public sealed class BatteryEtaEstimatorTests
     }
 
     [Fact]
+    public void ReachingTarget_AfterNonZeroEstimate_PublishesZeroImmediately()
+    {
+        var estimator = new BatteryEtaEstimator();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+
+        estimator.Update(Sample(start, true, 18, 54, 72, target: 85, percent: 75));
+        estimator.Update(Sample(start.AddSeconds(10), true, 18, 54.1, 72, target: 85, percent: 75));
+        BatteryEtaEstimate before = estimator.Update(Sample(
+            start.AddSeconds(20), true, 18, 54.2, 72, target: 85, percent: 75));
+        Assert.NotNull(before.ToChargeTarget);
+        Assert.True(before.ToChargeTarget > TimeSpan.Zero);
+
+        BatteryEtaEstimate reached = estimator.Update(Sample(
+            start.AddSeconds(30), true, 18, 61.2, 72, target: 85, percent: 85));
+
+        Assert.Equal(TimeSpan.Zero, reached.ToChargeTarget);
+    }
+
+    [Fact]
     public void ModeChange_ClearsChargingEstimateUntilNewModeWarmsUp()
     {
         var estimator = new BatteryEtaEstimator();
