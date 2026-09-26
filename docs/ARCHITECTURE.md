@@ -177,6 +177,24 @@ Enabled corner launches still use the canonical guard -> diagonal lane -> rounde
 
 Raw HID recognition receives every frame while WPF visualization is coalesced. Configured gesture recognition is application-level and starts during silent Windows startup.
 
+## Modes and transient ownership
+
+`ThinkControlModeCoordinator` is a user-session orchestrator, not a second settings store. Custom mode definitions live in `ThinkControlUserSettings.CustomModes`; active-mode identity, baselines and ownership live only in memory.
+
+Each mode is a sparse set of facets. Alpha.53 supports:
+
+- Audio Safety;
+- Touchpad gesture enablement;
+- non-experimental keyboard light state.
+
+The coordinator captures a baseline only when it first takes ownership of a facet. Switching modes keeps the original baseline for overlapping owned facets, restores facets that leave the ownership set, and rolls the whole transition back if a target write fails. Normal owns no facets.
+
+Manual subsystem setters call `ReleaseFacet` only for the facet they actually change. The coordinator clears that facet's rollback baseline and marks the mode Modified without changing the active mode id. `ReapplyAsync` then captures the current manual state as a fresh baseline before applying the saved target.
+
+Transient setters must never reuse normal persistent setters when doing so would mutate the user's independent preference. Keyboard has dedicated transient apply/restore paths. Touchpad keeps a nullable runtime enable override above the saved gesture configuration so editing sensitivity/actions while a mode is active cannot persist a temporary On/Off state. Audio Safety already has session-scoped ownership and a separate mode-initiated transition path.
+
+Cooling, power preferences, Battery Preservation, microphone, display policy and experimental keyboard effects are deliberately outside the mode model. They may be added only after their subsystem exposes an explicit temporary owner plus deterministic rollback.
+
 ## Audio Safety model
 
 Alpha.43 adds one Windows-generic, **session-level** policy owner for preventing accidental ThinkControl audio/media actions. It deliberately does not create a second Touchpad recognizer, separate Mute edge action or phone-style Focus Modes framework.
