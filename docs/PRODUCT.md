@@ -50,7 +50,7 @@ Compact is a persistent utility surface while visible. Explicit close, tray-togg
 
 Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
 
-All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
+All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. When a page has title-level actions, they share one fixed title/action row so Defaults buttons, Windows links and switches do not move vertically between destinations. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
 Audio Safety has one canonical session owner. Advanced Home exposes the explanatory Normal / Gesture lock / Silent quick card, Compact exposes the same state beside Volume, and the Audio page carries the deeper audio context. Settings does not duplicate the mode editor. Silent installs only a session-scoped `WH_KEYBOARD_LL` guard for `VK_VOLUME_MUTE / DOWN / UP`; other keyboard/media keys are not swallowed.
 
