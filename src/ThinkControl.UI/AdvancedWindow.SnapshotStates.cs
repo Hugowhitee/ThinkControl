@@ -79,9 +79,18 @@ public partial class AdvancedWindow
     internal void PrepareAudioSafetyForSnapshot(AudioSafetyMode mode, bool audioPage)
     {
         if (audioPage)
+        {
             AudioPanelControl.PrepareAudioSafetyForSnapshot(mode);
-        else
-            PrepareHomeAudioSafetyForSnapshot(mode);
+            return;
+        }
+
+        string modeId = mode switch
+        {
+            AudioSafetyMode.MediaLock => Services.ThinkControlModeCatalog.GestureLockId,
+            AudioSafetyMode.Silent => Services.ThinkControlModeCatalog.SilentId,
+            _ => Services.ThinkControlModeCatalog.NormalId
+        };
+        PrepareHomeModeForSnapshot(modeId);
     }
 
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
