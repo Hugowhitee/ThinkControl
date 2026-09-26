@@ -52,7 +52,8 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 7. In Touchpad, select a top corner. **Reverse swipe closes ThinkControl** must use the same shared switch geometry as the rest of ThinkControl, not a square checkbox.
 8. On Fans, a supported temporary direct-output test must expose one stateful action: **Start test** becomes **End test** while active. Target controls are locked during the test and the previous profile/Auto is still restored on timeout, page close or explicit End.
 9. On the reference X9, raw/discrete EC fan output must not appear as an available direct writer. Auto / Quiet / Balanced / Max cooling remain available through the reviewed Lenovo firmware-policy/full-speed semantics. A missing OEM sample must never make the legacy EC writer reappear.
-10. Hosted CI, Package and deterministic visual artifact remain **DEFERRED** until GitHub Actions capacity resets. Do not substitute static review for those final release gates and do not merge/promote alpha.52 before exact-head hosted verification is restored.
+10. Run exact-head CI, ShellSmoke, deterministic dark/light WPF visual QA and Package ThinkControl. Manually inspect the visual artifact before release; a green build is not a substitute for UI review.
+11. Switch through Performance, Fans, Battery, Display, Audio, Keyboard and Touchpad. Page-title baselines and the top-right Defaults / Windows links / switches must stay on one title-action rail rather than jumping vertically between tabs.
 
 ## Alpha.51 Compact dropdown dismiss regression
 
