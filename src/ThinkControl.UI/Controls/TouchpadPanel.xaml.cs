@@ -26,12 +26,15 @@ public partial class TouchpadPanel : UserControl
     private GestureSignal? _signal;
     private bool _syncing;
     private bool _hostUiSubscribed;
+    private CheckBox _gestureEnableSwitch = null!;
+    private Button _touchpadMoreButton = null!;
 
     private TouchpadEdge SelectedEdge => _selectedZone.Edge ?? TouchpadEdge.Top;
 
     public TouchpadPanel()
     {
         InitializeComponent();
+        BuildHeaderActions();
         HapticStrengthSlider.Minimum = 0;
         HapticStrengthSlider.Maximum = 100;
         ClickForceSlider.Minimum = 0;
@@ -63,6 +66,38 @@ public partial class TouchpadPanel : UserControl
         IsVisibleChanged += (_, e) => OnVisibilityChanged(e.NewValue is true);
         Loaded += (_, _) => SyncHostUiSubscriptions(IsVisible);
         Unloaded += OnUnloaded;
+    }
+
+    private void BuildHeaderActions()
+    {
+        var label = new TextBlock
+        {
+            Text = "Edge gestures",
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0)
+        };
+        label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+
+        _gestureEnableSwitch = new CheckBox
+        {
+            Style = TryFindResource("TcSwitch") as Style
+        };
+        _gestureEnableSwitch.Click += GestureEnable_Click;
+
+        _touchpadMoreButton = new Button
+        {
+            Content = "More ▾",
+            Style = TryFindResource("TcButton") as Style,
+            Padding = new Thickness(9, 4, 9, 4),
+            FontSize = TypographyScale.Caption,
+            Margin = new Thickness(10, 0, 0, 0)
+        };
+        _touchpadMoreButton.Click += TouchpadMore_Click;
+
+        StackPanel rail = TouchpadHeader.EnsureActionStack();
+        rail.Children.Add(label);
+        rail.Children.Add(_gestureEnableSwitch);
+        rail.Children.Add(_touchpadMoreButton);
     }
 
     private Geometry ResolveIcon(string resourceKey)
@@ -102,7 +137,7 @@ public partial class TouchpadPanel : UserControl
         try
         {
             _configuration = _host.Configuration.Sanitize();
-            GestureEnableSwitch.IsChecked = _configuration.Enabled;
+            _gestureEnableSwitch.IsChecked = _configuration.Enabled;
             EdgeWidthSlider.Value = _configuration.EdgeWidthMm;
             ActivationSlider.Value = _configuration.ActivationDistanceMm;
             ToleranceSlider.Value = _configuration.ContinuationToleranceMm;
@@ -236,7 +271,7 @@ public partial class TouchpadPanel : UserControl
 
         var menu = new ContextMenu
         {
-            PlacementTarget = TouchpadMoreButton,
+            PlacementTarget = _touchpadMoreButton,
             Placement = PlacementMode.Bottom
         };
 
@@ -265,7 +300,7 @@ public partial class TouchpadPanel : UserControl
         };
         menu.Items.Add(windows);
 
-        TouchpadMoreButton.ContextMenu = menu;
+        _touchpadMoreButton.ContextMenu = menu;
         menu.IsOpen = true;
     }
 
@@ -273,7 +308,7 @@ public partial class TouchpadPanel : UserControl
     {
         if (_syncing || _host is null)
             return;
-        _configuration = _configuration with { Enabled = GestureEnableSwitch.IsChecked == true };
+        _configuration = _configuration with { Enabled = _gestureEnableSwitch.IsChecked == true };
         _host.UpdateConfiguration(_configuration, releaseGestureModeOwnership: true);
         if (_configuration.Enabled)
             _host.EnsureInputStarted();

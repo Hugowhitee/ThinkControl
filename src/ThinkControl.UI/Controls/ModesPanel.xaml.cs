@@ -14,10 +14,55 @@ public partial class ModesPanel : UserControl
     private string? _editingAudioSafety;
     private bool? _editingTouchpadGestures;
     private string? _editingKeyboardLight;
+    private TextBlock _modifiedLabel = null!;
+    private Button _reapplyButton = null!;
+    private Button _cancelButton = null!;
+    private Button _saveButton = null!;
 
     public ModesPanel()
     {
         InitializeComponent();
+        BuildHeaderActions();
+    }
+
+    private void BuildHeaderActions()
+    {
+        _modifiedLabel = new TextBlock
+        {
+            Text = "Modified",
+            FontSize = TypographyScale.Caption,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0),
+            Visibility = Visibility.Collapsed
+        };
+        _modifiedLabel.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+
+        _reapplyButton = HeaderButton("Reapply", Reapply_Click, new Thickness(9, 4, 9, 4));
+        _reapplyButton.Visibility = Visibility.Collapsed;
+        _cancelButton = HeaderButton("Cancel", Cancel_Click, new Thickness(9, 4, 9, 4));
+        _cancelButton.Visibility = Visibility.Collapsed;
+        _saveButton = HeaderButton("Save", Save_Click, new Thickness(10, 4, 10, 4));
+        _saveButton.Margin = new Thickness(10, 0, 0, 0);
+        _saveButton.Visibility = Visibility.Collapsed;
+
+        StackPanel rail = Header.EnsureActionStack();
+        rail.Children.Add(_modifiedLabel);
+        rail.Children.Add(_reapplyButton);
+        rail.Children.Add(_cancelButton);
+        rail.Children.Add(_saveButton);
+    }
+
+    private Button HeaderButton(string content, RoutedEventHandler handler, Thickness padding)
+    {
+        var button = new Button
+        {
+            Content = content,
+            Style = TryFindResource("TcButton") as Style,
+            Padding = padding,
+            FontSize = TypographyScale.Caption
+        };
+        button.Click += handler;
+        return button;
     }
 
     internal void Initialize(App app)
@@ -226,10 +271,10 @@ public partial class ModesPanel : UserControl
 
         ListView.Visibility = Visibility.Collapsed;
         EditorView.Visibility = Visibility.Visible;
-        SaveButton.Visibility = Visibility.Visible;
-        CancelButton.Visibility = Visibility.Visible;
-        ModifiedLabel.Visibility = Visibility.Collapsed;
-        ReapplyButton.Visibility = Visibility.Collapsed;
+        _saveButton.Visibility = Visibility.Visible;
+        _cancelButton.Visibility = Visibility.Visible;
+        _modifiedLabel.Visibility = Visibility.Collapsed;
+        _reapplyButton.Visibility = Visibility.Collapsed;
         BuildEditorControls();
         ModeNameTextBox.Focus();
     }
@@ -488,8 +533,8 @@ public partial class ModesPanel : UserControl
         _editingKeyboardLight = null;
         EditorView.Visibility = Visibility.Collapsed;
         ListView.Visibility = Visibility.Visible;
-        SaveButton.Visibility = Visibility.Collapsed;
-        CancelButton.Visibility = Visibility.Collapsed;
+        _saveButton.Visibility = Visibility.Collapsed;
+        _cancelButton.Visibility = Visibility.Collapsed;
         EditorStatusText.Visibility = Visibility.Collapsed;
         RefreshList();
     }
@@ -526,7 +571,7 @@ public partial class ModesPanel : UserControl
 
         _busy = true;
         ListStatusText.Visibility = Visibility.Collapsed;
-        ReapplyButton.IsEnabled = false;
+        _reapplyButton.IsEnabled = false;
         try
         {
             bool success = await _app.Modes.ReapplyAsync();
@@ -536,7 +581,7 @@ public partial class ModesPanel : UserControl
         finally
         {
             _busy = false;
-            ReapplyButton.IsEnabled = true;
+            _reapplyButton.IsEnabled = true;
             RefreshList();
         }
     }
@@ -547,8 +592,8 @@ public partial class ModesPanel : UserControl
             return;
 
         bool modified = _app.Modes.IsModified;
-        ModifiedLabel.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
-        ReapplyButton.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
+        _modifiedLabel.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
+        _reapplyButton.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void ShowStatus(string message)

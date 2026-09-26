@@ -40,41 +40,7 @@
     </UserControl.Resources>
 
     <StackPanel>
-        <controls:AdvancedPageHeader x:Name="Header" Title="Modes">
-            <controls:AdvancedPageHeader.Actions>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock x:Name="ModifiedLabel"
-                               Text="Modified"
-                               Foreground="{DynamicResource Tc.TextMuted}"
-                               FontSize="{x:Static ui:TypographyScale.Caption}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0"
-                               Visibility="Collapsed" />
-                    <Button x:Name="ReapplyButton"
-                            Content="Reapply"
-                            Style="{StaticResource TcButton}"
-                            Padding="9,4"
-                            FontSize="{x:Static ui:TypographyScale.Caption}"
-                            Click="Reapply_Click"
-                            Visibility="Collapsed" />
-                    <Button x:Name="CancelButton"
-                            Content="Cancel"
-                            Style="{StaticResource TcButton}"
-                            Padding="9,4"
-                            FontSize="{x:Static ui:TypographyScale.Caption}"
-                            Click="Cancel_Click"
-                            Visibility="Collapsed" />
-                    <Button x:Name="SaveButton"
-                            Content="Save"
-                            Style="{StaticResource TcButton}"
-                            Padding="10,4"
-                            FontSize="{x:Static ui:TypographyScale.Caption}"
-                            Margin="10,0,0,0"
-                            Click="Save_Click"
-                            Visibility="Collapsed" />
-                </StackPanel>
-            </controls:AdvancedPageHeader.Actions>
-        </controls:AdvancedPageHeader>
+        <controls:AdvancedPageHeader x:Name="Header" Title="Modes" />
 
         <StackPanel x:Name="ListView">
             <Border Style="{StaticResource TcSection}" Padding="0">

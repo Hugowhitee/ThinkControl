@@ -22,26 +22,7 @@
 
         <controls:AdvancedPageHeader x:Name="TouchpadHeader"
                                      Title="Touchpad"
-                                     Subtitle="Edge shortcuts, haptics and gesture feedback.">
-            <controls:AdvancedPageHeader.Actions>
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBlock Text="Edge gestures"
-                               Foreground="{DynamicResource Tc.TextMuted}"
-                               VerticalAlignment="Center"
-                               Margin="0,0,10,0" />
-                    <CheckBox x:Name="GestureEnableSwitch"
-                              Style="{StaticResource TcSwitch}"
-                              Click="GestureEnable_Click" />
-                    <Button x:Name="TouchpadMoreButton"
-                            Content="More ▾"
-                            Style="{StaticResource TcButton}"
-                            Padding="9,4"
-                            FontSize="{x:Static ui:TypographyScale.Caption}"
-                            Margin="10,0,0,0"
-                            Click="TouchpadMore_Click" />
-                </StackPanel>
-            </controls:AdvancedPageHeader.Actions>
-        </controls:AdvancedPageHeader>
+                                     Subtitle="Edge shortcuts, haptics and gesture feedback." />
 
         <Grid x:Name="ContentGrid" Grid.Row="1" Width="{Binding ActualWidth, ElementName=RootGrid}">
             <Grid.ColumnDefinitions><ColumnDefinition x:Name="VisualizerColumn" Width="3*" /><ColumnDefinition x:Name="SettingsColumn" Width="2*" /></Grid.ColumnDefinitions>
