@@ -120,7 +120,7 @@ public sealed class Alpha47UxSourceTests
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
 
         Assert.Contains("BatteryProtectionSummaryText", state, StringComparison.Ordinal);
-        Assert.Contains("Charging paused near", state, StringComparison.Ordinal);
+        Assert.Contains("Charging is paused near", state, StringComparison.Ordinal);
         Assert.Contains("Battery preservation paused charging", attention, StringComparison.Ordinal);
         Assert.Contains("Battery preservation resumed charging", attention, StringComparison.Ordinal);
         Assert.Contains("ShowBatteryPreservationApplied", panel, StringComparison.Ordinal);
