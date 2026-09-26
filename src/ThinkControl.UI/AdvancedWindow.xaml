@@ -94,7 +94,7 @@
                                             <StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Gauge" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Performance" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel>
                                             <TextBlock x:Name="HomePowerSummary" Text="Battery / plugged in" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                                         </Grid>
-                                        <TextBlock Text="Separate preferences switch automatically with the power source." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,8" />
+                                        
                                         <Grid Margin="0,0,0,6">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="76" /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                             <TextBlock Text="Battery" VerticalAlignment="Center" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
@@ -118,7 +118,7 @@
                                             <StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Fan" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Fan mode" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel>
                                             <TextBlock Text="{Binding ControlTemperatureText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                                         </Grid>
-                                        <TextBlock Text="Quick cooling presets or an Auto/custom curve." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,8" />
+                                        
                                         <Grid x:Name="HomeFanQuickGrid">
                                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                             <RadioButton x:Name="HomeFanQuiet" GroupName="HomeFan" Style="{StaticResource TcSegment}" Content="Quiet" Tag="Quiet" Click="HomeFanQuick_Click" Padding="7,6" Margin="0,0,4,0" />
@@ -147,10 +147,7 @@
                                             <controls:PackIconLucide Kind="Tune" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" />
                                             <TextBlock Text="Mode" FontWeight="SemiBold" Margin="8,0,0,0" />
                                         </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="23,5,0,0">
-                                            <TextBlock x:Name="HomeModeName" Text="{Binding ActiveModeName}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                                            <TextBlock x:Name="HomeModeModifiedText" Text="Modified" Foreground="{DynamicResource Tc.Accent}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="10,0,0,0" Visibility="Collapsed" />
-                                        </StackPanel>
+                                        <TextBlock x:Name="HomeModeModifiedText" Text="Modified" Foreground="{DynamicResource Tc.Accent}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="23,5,0,0" Visibility="Collapsed" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                                         <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" Width="210" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
