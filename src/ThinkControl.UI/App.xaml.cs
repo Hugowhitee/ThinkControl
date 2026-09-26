@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Threading;
 using ThinkControl.Core.Diagnostics;
+using ThinkControl.Core.Power;
 using ThinkControl.UI.Services;
 using ThinkControl.UI.ViewModels;
 using Forms = System.Windows.Forms;
