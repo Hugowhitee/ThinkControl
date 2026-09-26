@@ -150,7 +150,10 @@ public sealed class Alpha47UxSourceTests
         Assert.Contains("ShowBatteryPreservationApplied", panel, StringComparison.Ordinal);
         Assert.Contains("ShowBatteryPreservationDisabled", panel, StringComparison.Ordinal);
         Assert.Contains("Text=\"Battery preservation\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("BatteryProtectionBehaviorText", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("BatteryProtectionGauge", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ChargeProtectionImpactText\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Set limit\" Style=\"{StaticResource TcButton}\" IsEnabled=\"False\"", xaml, StringComparison.Ordinal);
     }
 
