@@ -65,6 +65,16 @@ For a normal install, Setup is the only file you need. A clean interactive insta
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
 
+## What alpha.53 changes
+
+- **Modes is now a first-class ThinkControl feature.** Normal, Gesture lock and Silent remain intentionally narrow built-ins; custom modes can compose only Audio Safety, Touchpad gesture enablement and non-experimental keyboard-light state.
+- **Modes use sparse temporary ownership.** A custom mode changes only the controls it explicitly contains. Manual subsystem changes release only that facet and mark the active mode Modified; leaving the mode restores only state the mode still owns.
+- **Silent still means audio safety, not fan Quiet.** Cooling, Windows performance, Battery Preservation, microphone, display policy and experimental keyboard effects are not coupled into Modes.
+- **Compact and Home expose Mode instead of duplicating Audio Safety.** Advanced adds a dedicated Modes page with a small progressive custom editor; the Audio page keeps its direct Audio Safety subsystem control.
+- **Advanced pages now share one real page-header primitive.** Titles, optional supporting text and the right-side action rail use the same layout contract instead of page-local 38 px lookalikes.
+- **Visible copy is quieter.** Requirement/implementation narration such as describing the future `Install now / Later` flow is kept out of normal UI copy.
+- **Visual QA now covers every Advanced page at minimum, normal and wide sizes in both dark and light themes.**
+
 ## What alpha.52 changes
 
 - **Windows volume sliders now feel like direct controls instead of queued writers.** System volume and Microphone input track locally while you drag, commit the endpoint write on release/key adjustment, and ignore endpoint refreshes that would otherwise pull the thumb back under the pointer.
