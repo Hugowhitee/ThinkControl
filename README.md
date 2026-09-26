@@ -68,9 +68,10 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 ## What alpha.52 changes
 
 - **Windows volume sliders now feel like direct controls instead of queued writers.** System volume and Microphone input track locally while you drag, commit the endpoint write on release/key adjustment, and ignore endpoint refreshes that would otherwise pull the thumb back under the pointer.
-- **Battery Preservation is one explicit on/off state.** The switch owns enable/disable, while the selector contains only the three actual preservation windows. When protection is active, Battery ETA targets the configured stop percentage instead of still saying `to full`.
+- **Battery Preservation is one explicit on/off state.** The switch owns enable/disable, while the selector contains only the three actual preservation windows. Charging ETA is calculated to the verified stop target itself, so an 85% cap shows time **to 85%** and changing the cap resets the rolling estimate instead of relabeling stale full-charge data.
 - **Battery wear copy is clearly comparative.** The modeled charge cost is shown as a fraction of a `1.00× = 0→100%` reference and is explicitly separate from the firmware battery cycle count.
 - **Small controls reuse existing product grammar.** Reverse-close uses the shared switch style, Home Sensors opens the existing live sensor-details window directly, and Temporary fan test uses one Start/End action instead of two adjacent buttons.
+- **Advanced headers use one title/action rail.** Performance, Fans, Battery, Display, Audio, Keyboard and Touchpad keep their top-right actions on the same 38 px title row instead of letting reset buttons, links and switches drift vertically between pages.
 - **The physically rejected X9 discrete-EC writer is no longer advertised as a direct control.** The exact X9 EC path remains available for read/Auto-recovery duties only; Auto / Quiet / Balanced / Max cooling continue through the reviewed Lenovo firmware-policy path.
 
 ## What alpha.51 changes
