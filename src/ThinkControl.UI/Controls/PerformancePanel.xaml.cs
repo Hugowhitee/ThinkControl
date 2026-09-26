@@ -37,7 +37,7 @@ public partial class PerformancePanel : UserControl
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AppState.SelectedMode) or
+        if (e.PropertyName is nameof(AppState.SelectedPowerMode) or
             nameof(AppState.BatteryStatus) or
             nameof(AppState.BatteryCharging))
         {

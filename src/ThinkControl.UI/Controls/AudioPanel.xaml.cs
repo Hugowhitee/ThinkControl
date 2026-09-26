@@ -119,7 +119,7 @@ public partial class AudioPanel : UserControl
                 MuteButton.Tag = false;
                 PrepareMicrophoneSnapshot(72, available: true);
 
-                BackendStatusText.Text = "Dolby DAX direct control detected · semantic profile and Music IEQ readback available";
+                BackendStatusText.Text = "Direct Dolby control available";
                 InstallButton.Visibility = Visibility.Collapsed;
                 OpenButton.IsEnabled = true;
                 ProfileGrid.Visibility = Visibility.Visible;
@@ -148,14 +148,14 @@ public partial class AudioPanel : UserControl
                 MuteButton.Content = "Mute";
                 PrepareMicrophoneSnapshot(0, available: false);
 
-                BackendStatusText.Text = "Dolby direct controls are not exposed by this driver. ThinkControl does not invent profile mappings.";
+                BackendStatusText.Text = "Direct Dolby control unavailable";
                 InstallButton.Visibility = Visibility.Visible;
                 OpenButton.IsEnabled = true;
                 ProfileGrid.Visibility = Visibility.Collapsed;
                 FusionControlCard.Visibility = Visibility.Collapsed;
                 SetProfilesEnabled(false);
                 UpdateToneSection("Dynamic", directToneAvailable: false);
-                ActionStatusText.Text = "Use Dolby Access when the OEM profile API is not exposed.";
+                ActionStatusText.Text = "Use Dolby Access for additional controls.";
             }
         }
         finally
@@ -171,7 +171,7 @@ public partial class AudioPanel : UserControl
         _status = new DolbyAudioStatus(
             DolbyAccessInstalled: true,
             DaxBackendDetected: false,
-            Detail: "Dolby Access fallback is active. Profile changes use the installed app controls on demand.",
+            Detail: "Dolby Access available for profile changes",
             FusionBackendDetected: true);
         _directState = new DolbyDirectState(
             Available: false,
@@ -179,7 +179,7 @@ public partial class AudioPanel : UserControl
             CanToneControl: false,
             ActiveProfile: null,
             ActiveTone: null,
-            Detail: "Direct DAX profile API is not exposed on this Dolby generation");
+            Detail: "Direct profile control unavailable");
 
         _syncing = true;
         try
@@ -206,7 +206,7 @@ public partial class AudioPanel : UserControl
             GameProfile.IsChecked = false;
             VoiceProfile.IsChecked = false;
             UpdateToneSection("Dynamic", directToneAvailable: false);
-            ActionStatusText.Text = "Dolby Access profile controls are ready on demand; no Dolby UI work runs in the background.";
+            ActionStatusText.Text = "Dolby Access available for profile changes.";
         }
         finally
         {
@@ -317,7 +317,7 @@ public partial class AudioPanel : UserControl
         }
 
         if (accessBridge && string.IsNullOrWhiteSpace(ActionStatusText.Text))
-            ActionStatusText.Text = "Dolby Access profile controls are ready on demand; no Dolby UI work runs in the background.";
+            ActionStatusText.Text = "Dolby Access available for profile changes.";
     }
 
     private static bool CanUseDolbyAccessBridge(DolbyAudioStatus status) =>

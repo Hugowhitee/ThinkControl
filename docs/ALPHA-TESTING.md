@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.52** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.53** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -40,6 +40,19 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
+
+## Alpha.53 Modes and shared-header candidate
+
+1. Compact and Home show **Mode**, not a duplicate Audio Safety mini-editor. Normal, Gesture lock and Silent remain available; Silent must not change cooling, Windows performance, microphone, Battery Preservation or display state.
+2. In Advanced → Modes, activate each built-in. Normal owns no temporary subsystem state; Gesture lock and Silent keep the existing Audio Safety semantics.
+3. Create a custom mode with only one control. Activating it must leave every omitted subsystem unchanged. Add Audio Safety, Touchpad gestures and Keyboard light in different combinations and verify the editor never exposes unsupported fan/performance/battery settings.
+4. While a custom mode owns multiple facets, manually change one owned subsystem from its normal page. The mode must remain active as **Modified** and only that facet becomes manual. Leaving the mode must restore still-owned facets without undoing the manual override.
+5. Reapply a Modified mode. The current manual state becomes the new rollback baseline for the reclaimed facet; leaving the mode later returns to that baseline.
+6. Edit Touchpad sensitivity or edge actions while a mode temporarily owns Touchpad On/Off. Those edits may persist, but the temporary enabled state must not leak into the saved gesture preference. Only explicitly toggling Edge gestures releases that facet.
+7. Restart ThinkControl after using a custom mode. Custom definitions remain; the active mode starts at Normal.
+8. Switch through **every** Advanced destination at minimum, normal and wide widths in dark and light. The title baseline and right-side action rail must not jump. No page may recreate its own title row or move ordinary status into the header.
+9. Inspect the Modes list and custom editor for unnecessary explanatory copy, duplicate state labels, excessive cards or wrapped header actions. The interface must remain usable without implementation narration.
+10. Run exact-head CI, Core/source tests, Compact ↔ Advanced ShellSmoke, the complete WPF matrix and Package ThinkControl. Manually inspect the uploaded visual gallery before release.
 
 ## Alpha.52 interaction and X9 safety candidate
 

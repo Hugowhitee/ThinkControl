@@ -14,7 +14,6 @@ public partial class FansPanel : UserControl
     private readonly ObservableCollection<FanProfileChoice> _profileChoices = [];
     private readonly FanCurveGraph _activeCurveGraph = new() { IsReadOnly = true, ShowLiveLabel = false };
     private App? _app;
-    private bool _resetAdded;
     private bool _statusSubscribed;
     private bool _snapshotMode;
     private bool _syncingProfileSelection;
@@ -41,7 +40,6 @@ public partial class FansPanel : UserControl
 
     internal void Initialize(App app)
     {
-        EnsureResetButton();
         if (!ReferenceEquals(_app, app))
         {
             UnsubscribeStatus();
@@ -66,7 +64,6 @@ public partial class FansPanel : UserControl
     {
         _snapshotMode = true;
         UnsubscribeStatus();
-        EnsureResetButton();
         DataContext = state;
         _fanControlKind = state.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
@@ -478,34 +475,6 @@ public partial class FansPanel : UserControl
         finally { button.IsEnabled = HasDirectFanWriter && !_app.FanCalibrationState.Required; }
     }
 
-    private void EnsureResetButton()
-    {
-        if (_resetAdded || Content is not StackPanel stack || stack.Children.Count == 0 || stack.Children[0] is not TextBlock title)
-            return;
-
-        stack.Children.RemoveAt(0);
-        var header = new Grid { MinHeight = AdvancedWindow.PageHeaderMinHeight };
-        header.ColumnDefinitions.Add(new ColumnDefinition());
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        title.VerticalAlignment = VerticalAlignment.Center;
-        header.Children.Add(title);
-        var reset = new Button
-        {
-            Content = "Defaults",
-            Style = TryFindResource("TcButton") as Style,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(10, 4, 10, 4),
-            FontSize = TypographyScale.Caption,
-            ToolTip = null
-        };
-        reset.Click += Reset_Click;
-        Grid.SetColumn(reset, 1);
-        header.Children.Add(reset);
-        stack.Children.Insert(0, header);
-        _resetAdded = true;
-    }
-
     private async void Reset_Click(object sender, RoutedEventArgs e)
     {
         if (_app is null || sender is not Button button)
@@ -521,10 +490,6 @@ public partial class FansPanel : UserControl
         bool oemTargetRpm = canControl && string.Equals(fanControlKind, FanControlKinds.OemTargetRpm, StringComparison.Ordinal);
         bool discreteEcWriter = canControl && string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
         bool directWriter = oemTargetRpm || discreteEcWriter;
-
-        FansIntroText.Text = firmwarePolicy
-            ? "Quiet, Balanced and Max cooling use Lenovo's verified firmware thermal-policy path on this X9. Windows power preference remains a separate OS setting; while a cooling profile is selected, its Lenovo policy override takes precedence until Auto is restored."
-            : "Fan behavior is independent from Windows performance mode. ThinkControl uses only capabilities exposed by the active verified fan provider; firmware Auto remains the fail-safe whenever no writable provider is active.";
 
         FanMappingDetailText.Text = !canControl
             ? "Firmware Auto keeps fan ownership. Native telemetry can still be shown when available, but profiles and temporary tests stay unavailable until a supported cooling backend is active."

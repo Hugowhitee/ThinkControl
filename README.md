@@ -23,14 +23,14 @@
   </a>
 </div>
 
-## ThinkControl alpha.52
+## ThinkControl alpha.53
 
-Alpha.52 is a feedback-driven interaction and hardware-safety candidate on immutable alpha.51. It keeps the reviewed Lenovo firmware cooling path intact while tightening battery, audio, Touchpad, Sensors and fan-test interactions around one clear state owner.
+Alpha.53 is the Modes and shared-layout candidate on immutable alpha.52. It adds sparse session Modes, a dedicated Modes surface and one shared Advanced page-header contract without broadening low-level hardware write capability.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.52`  
-**Current immutable prerelease:** `v0.1.0-alpha.51`
+**Release target:** `v0.1.0-alpha.53`  
+**Current immutable prerelease:** `v0.1.0-alpha.52`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -40,8 +40,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.51/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.50/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.52/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.52/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -49,7 +49,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ThinkControl has two primary surfaces:
 
 - **Compact view** — quick telemetry and the controls you change most often.
-- **Advanced view** — Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings.
+- **Advanced view** — Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings.
 
 The release pipeline renders the real WPF interface across dark/light themes and multiple viewport sizes. It also runs real Compact ↔ Advanced lifecycle smoke tests so shell regressions are not hidden by static screenshots.
 
@@ -64,6 +64,16 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
+
+## What alpha.53 changes
+
+- **Modes is now a first-class ThinkControl feature.** Normal, Gesture lock and Silent remain intentionally narrow built-ins; custom modes can compose only Audio Safety, Touchpad gesture enablement and non-experimental keyboard-light state.
+- **Modes use sparse temporary ownership.** A custom mode changes only the controls it explicitly contains. Manual subsystem changes release only that facet and mark the active mode Modified; leaving the mode restores only state the mode still owns.
+- **Silent still means audio safety, not fan Quiet.** Cooling, Windows performance, Battery Preservation, microphone, display policy and experimental keyboard effects are not coupled into Modes.
+- **Compact and Home expose Mode instead of duplicating Audio Safety.** Advanced adds a dedicated Modes page with a small progressive custom editor; the Audio page keeps its direct Audio Safety subsystem control.
+- **Advanced pages now share one real page-header primitive.** Titles, optional supporting text and the right-side action rail use the same layout contract instead of page-local 38 px lookalikes.
+- **Visible copy is quieter.** Requirement/implementation narration such as describing the future `Install now / Later` flow is kept out of normal UI copy.
+- **Visual QA now covers every Advanced page at minimum, normal and wide sizes in both dark and light themes.**
 
 ## What alpha.52 changes
 

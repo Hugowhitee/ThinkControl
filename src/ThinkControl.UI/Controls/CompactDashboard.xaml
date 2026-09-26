@@ -146,8 +146,8 @@
                     <Slider x:Name="CompactVolumeSlider" Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" PreviewMouseLeftButtonUp="CompactVolume_Commit" PreviewKeyUp="CompactVolume_KeyCommit" />
                     <TextBlock x:Name="CompactVolumeText" Grid.Row="1" Grid.Column="2" Text="—" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="Medium" HorizontalAlignment="Right" VerticalAlignment="Center" />
 
-                    <TextBlock Grid.Row="2" Text="Audio safety" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
-                    <ComboBox x:Name="CompactAudioSafetyCombo" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource TcComboBox}" Width="168" Height="38" MinHeight="38" HorizontalAlignment="Left" VerticalAlignment="Center" SelectionChanged="CompactAudioSafety_SelectionChanged" ToolTip="Normal: all ThinkControl media gestures work. Gesture lock: touchpad volume/track/seek gestures are blocked, but keyboard and Windows/app audio still work. Silent: those gestures are blocked, Windows output stays muted, and volume keys are ignored until you leave Silent." />
+                    <TextBlock Grid.Row="2" Text="Mode" FontSize="{x:Static ui:TypographyScale.Secondary}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" />
+                    <ComboBox x:Name="CompactModeCombo" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Style="{StaticResource TcComboBox}" Width="168" Height="38" MinHeight="38" HorizontalAlignment="Left" VerticalAlignment="Center" DisplayMemberPath="Name" SelectionChanged="CompactMode_SelectionChanged" />
                 </Grid>
             </Border>
             <Grid Grid.Row="4" Margin="3,2,3,0" VerticalAlignment="Stretch">

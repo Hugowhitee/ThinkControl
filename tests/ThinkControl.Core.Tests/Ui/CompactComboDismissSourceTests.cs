@@ -16,7 +16,7 @@ public sealed class CompactComboDismissSourceTests
             "CompactFanCombo",
             "CompactRefreshCombo",
             "CompactKeyboardCombo",
-            "CompactAudioSafetyCombo"
+            "CompactModeCombo"
         })
         {
             Assert.Contains(combo, code, StringComparison.Ordinal);

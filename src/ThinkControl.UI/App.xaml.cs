@@ -211,7 +211,7 @@ public partial class App : System.Windows.Application
             ThinkControlPowerMode? mode = PowerModeService.GetCurrent(!battery.OnAc);
             if (mode.HasValue)
             {
-                State.SelectedMode = mode.Value.ToString();
+                State.SelectedPowerMode = mode.Value.ToString();
                 MarkCoolingThermalBaselineReady();
             }
 
@@ -309,7 +309,7 @@ public partial class App : System.Windows.Application
         DateTimeOffset started = DateTimeOffset.UtcNow;
         bool changed = PowerModeService.Set(mode);
         if (changed)
-            State.SelectedMode = mode.ToString();
+            State.SelectedPowerMode = mode.ToString();
         RecordOperation("power.profile_set", "PerformanceMode", "Windows", changed, started,
             new Dictionary<string, string> { ["state"] = mode.ToString() });
         return changed;
@@ -381,6 +381,8 @@ public partial class App : System.Windows.Application
         });
         await RefreshStatusAsync();
         bool success = State.KeyboardStatus.Contains(normalized, StringComparison.OrdinalIgnoreCase);
+        if (success)
+            Modes.ReleaseFacet(ThinkControlModeFacet.KeyboardLight);
         RecordOperation("keyboard.level_set", "KeyboardBacklight", "Lenovo", success, started,
             new Dictionary<string, string> { ["state"] = normalized });
     }
@@ -403,6 +405,67 @@ public partial class App : System.Windows.Application
             Success: true,
             Tags: new Dictionary<string, string> { ["state"] = State.KeyboardMode }));
         await RefreshStatusAsync();
+        Modes.ReleaseFacet(ThinkControlModeFacet.KeyboardLight);
+    }
+
+    internal KeyboardModeSnapshot CaptureKeyboardModeSnapshot() => new(
+        State.KeyboardMode,
+        UserSettings.Current.KeyboardStaticLevel,
+        State.KeyboardBaseLevel);
+
+    internal async Task<bool> ApplyKeyboardLightModeOverrideAsync(string light)
+    {
+        if (!State.CanKeyboardBacklight)
+            return false;
+
+        string normalized = light?.Trim() switch
+        {
+            "Off" => "Off",
+            "Low" => "Low",
+            "High" => "High",
+            "Auto" => "Auto",
+            _ => string.Empty
+        };
+        if (normalized.Length == 0)
+            return false;
+
+        if (normalized == "Auto")
+        {
+            await KeyboardEffects.SetModeAsync("Auto");
+            await RefreshStatusAsync();
+            return State.KeyboardMode == "Auto";
+        }
+
+        string restingLevel = State.KeyboardBaseLevel;
+        await KeyboardEffects.SetStaticLevelAsync(normalized);
+        KeyboardEffects.SetBaseLevel(restingLevel);
+        await RefreshStatusAsync();
+        return State.KeyboardStatus.Contains(normalized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal async Task<bool> RestoreKeyboardModeSnapshotAsync(KeyboardModeSnapshot snapshot)
+    {
+        if (!State.CanKeyboardBacklight)
+            return false;
+
+        KeyboardEffects.SetBaseLevel(snapshot.BaseLevel);
+        if (snapshot.Mode == "Static")
+        {
+            await KeyboardEffects.SetStaticLevelAsync(snapshot.StaticLevel);
+            KeyboardEffects.SetBaseLevel(snapshot.BaseLevel);
+        }
+        else
+        {
+            await KeyboardEffects.SetModeAsync(snapshot.Mode);
+        }
+
+        await RefreshStatusAsync();
+        return snapshot.Mode switch
+        {
+            "Static" => State.KeyboardStatus.Contains(snapshot.StaticLevel, StringComparison.OrdinalIgnoreCase),
+            "Auto" => State.KeyboardMode == "Auto",
+            _ => State.KeyboardMode.Equals(snapshot.Mode, StringComparison.OrdinalIgnoreCase)
+        };
     }
 
     public void SetKeyboardBaseLevel(string level)
@@ -447,6 +510,10 @@ public partial class App : System.Windows.Application
             ValidationState: GetCurrentDeviceValidationState(),
             Success: true));
         _statusTimer?.Stop();
+
+        // Session-only Modes must release their temporary subsystem ownership before
+        // persistent hardware/session services are disposed.
+        await RestoreModeForExitAsync();
 
         // Complete direct/manual fan ownership handoff before WPF tears down the
         // dispatcher. This lets in-flight restore writes observe cancellation and

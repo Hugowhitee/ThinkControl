@@ -18,7 +18,7 @@ public sealed class ModeVisualCoverageSourceTests
     }
 
     [Fact]
-    public void VisualQa_CoversOpeningSafetyPreservationAndExperimentalStates()
+    public void VisualQa_CoversModesAndTheFullAdvancedThemeMatrix()
     {
         string root = FindRepositoryRoot();
         string snapshots = File.ReadAllText(Path.Combine(root, "tools", "ThinkControl.Snapshots", "Program.cs"));
@@ -27,26 +27,25 @@ public sealed class ModeVisualCoverageSourceTests
         Assert.Contains("compact-media-lock.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-silent.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-silent-light.png", snapshots, StringComparison.Ordinal);
-        Assert.Contains("advanced-home-audio-media-lock.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("\"Home\", \"Modes\", \"Performance\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-modes-editor.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-modes-editor-light.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-light.png\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-min-light.png\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-wide-light.png\"", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-fan-auto.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-home-fan-auto-light.png", snapshots, StringComparison.Ordinal);
-        Assert.Contains("advanced-home-fan-manual.png", snapshots, StringComparison.Ordinal);
-        Assert.Contains("advanced-home-audio-silent-min.png", snapshots, StringComparison.Ordinal);
-        Assert.Contains("advanced-home-audio-silent-light.png", snapshots, StringComparison.Ordinal);
-        Assert.Contains("advanced-settings-opening-advanced.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-battery-preservation-paused.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-battery-preservation-paused-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-keyboard-experimental-fallback.png", snapshots, StringComparison.Ordinal);
-        Assert.Contains("advanced-settings-light.png", snapshots, StringComparison.Ordinal);
-        Assert.DoesNotContain("advanced-settings-audio-silent.png", snapshots, StringComparison.Ordinal);
 
         string renderAdvanced = snapshots.Split("private static void RenderAdvanced(", StringSplitOptions.None)[1]
             .Split("private static void RenderUpdateAttention(", StringSplitOptions.None)[0];
         int navigateIndex = renderAdvanced.IndexOf("window.Navigate(page);", StringComparison.Ordinal);
+        int modeEditorIndex = renderAdvanced.IndexOf("window.PrepareModesEditorForSnapshot();", StringComparison.Ordinal);
         int openingOverrideIndex = renderAdvanced.IndexOf("window.PrepareOpeningViewForSnapshot(openingView);", StringComparison.Ordinal);
-        int audioOverrideIndex = renderAdvanced.IndexOf("window.PrepareAudioSafetyForSnapshot(", StringComparison.Ordinal);
+        Assert.True(navigateIndex >= 0 && modeEditorIndex > navigateIndex);
         Assert.True(navigateIndex >= 0 && openingOverrideIndex > navigateIndex);
-        Assert.True(navigateIndex >= 0 && audioOverrideIndex > navigateIndex);
     }
 
     private static string FindRepositoryRoot()

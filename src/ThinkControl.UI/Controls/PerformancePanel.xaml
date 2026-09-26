@@ -4,58 +4,38 @@
              xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
              xmlns:ui="clr-namespace:ThinkControl.UI">
     <StackPanel>
-        <Grid MinHeight="38">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock Text="Performance"
-                       FontSize="{x:Static ui:TypographyScale.PageTitle}"
-                       FontWeight="SemiBold"
-                       VerticalAlignment="Center" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Border x:Name="PowerSourceBar"
-                        Height="38"
-                        MinWidth="160"
-                        Padding="12,0,11,0"
-                        Background="{DynamicResource Tc.SurfaceAlt}"
-                        BorderBrush="{DynamicResource Tc.BorderStrong}"
-                        BorderThickness="1"
-                        CornerRadius="4"
-                        VerticalAlignment="Center">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock x:Name="CurrentSourceText"
-                                   Text="Checking…"
-                                   FontSize="{x:Static ui:TypographyScale.Body}"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center" />
-                        <controls:PackIconLucide x:Name="CurrentSourceIcon"
-                                                 Grid.Column="1"
-                                                 Kind="BatteryHorizontal"
-                                                 Width="24"
-                                                 Height="18"
-                                                 Margin="15,0,0,0"
-                                                 Foreground="{DynamicResource Tc.TextMuted}"
-                                                 VerticalAlignment="Center" />
-                    </Grid>
-                </Border>
-                <Button Content="Reset"
+        <controls:AdvancedPageHeader Title="Performance"
+                                     Subtitle="Separate profiles for battery and plugged-in use.">
+            <controls:AdvancedPageHeader.Actions>
+                <Button Content="Defaults"
                         Style="{StaticResource TcButton}"
-                        Margin="8,0,0,0"
-                        Padding="10,5"
+                        Padding="10,4"
+                        FontSize="{x:Static ui:TypographyScale.Caption}"
                         Click="Reset_Click"
                         ToolTip="Restore Balanced for battery and plugged-in power" />
+            </controls:AdvancedPageHeader.Actions>
+        </controls:AdvancedPageHeader>
+
+        <Grid Margin="2,0,2,14">
+            <TextBlock Text="Current power source"
+                       Foreground="{DynamicResource Tc.TextMuted}"
+                       VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                <TextBlock x:Name="CurrentSourceText"
+                           Text="Checking…"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <controls:PackIconLucide x:Name="CurrentSourceIcon"
+                                         Kind="BatteryHorizontal"
+                                         Width="22"
+                                         Height="17"
+                                         Margin="10,0,0,0"
+                                         Foreground="{DynamicResource Tc.TextMuted}"
+                                         VerticalAlignment="Center" />
             </StackPanel>
         </Grid>
-        <TextBlock Text="Choose a power preference for battery and plugged-in use. Cooling stays independent on the Fans page."
-                   FontSize="{x:Static ui:TypographyScale.Body}"
-                   Foreground="{DynamicResource Tc.TextMuted}"
-                   Margin="0,7,0,18"
-                   TextWrapping="Wrap" />
 
         <Border Style="{StaticResource TcSection}">
             <StackPanel>

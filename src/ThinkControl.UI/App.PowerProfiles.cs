@@ -67,7 +67,7 @@ public partial class App
         {
             bool applied = PowerModeService.SetForSource(mode, onBattery, makeEffective: true);
             if (applied)
-                State.SelectedMode = mode.ToString();
+                State.SelectedPowerMode = mode.ToString();
             return applied;
         }
 
@@ -124,7 +124,7 @@ public partial class App
         }
 
         if (PowerModeService.SetForSource(mode, onBattery, makeEffective: true))
-            State.SelectedMode = mode.ToString();
+            State.SelectedPowerMode = mode.ToString();
     }
 
     private static bool TryParsePowerPreference(string? value, out ThinkControlPowerMode mode)

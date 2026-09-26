@@ -58,7 +58,10 @@ public sealed class AppState : INotifyPropertyChanged
     private string _keyboardMode = "Auto";
     private string _keyboardBaseLevel = "High";
     private double _keyboardEffectSpeed = 1.0;
-    private string _selectedMode = "Balanced";
+    private string _selectedPowerMode = "Balanced";
+    private string _activeModeId = "normal";
+    private string _activeModeName = "Normal";
+    private bool _activeModeModified;
     private string _updateStatus = "Checking automatically…";
     private bool _canFanControl;
     private bool _canFanTelemetry;
@@ -127,7 +130,10 @@ public sealed class AppState : INotifyPropertyChanged
     public string KeyboardMode { get => _keyboardMode; set => Set(ref _keyboardMode, value); }
     public string KeyboardBaseLevel { get => _keyboardBaseLevel; set => Set(ref _keyboardBaseLevel, value); }
     public double KeyboardEffectSpeed { get => _keyboardEffectSpeed; set => Set(ref _keyboardEffectSpeed, Math.Clamp(value, 0.5, 2.0)); }
-    public string SelectedMode { get => _selectedMode; set => Set(ref _selectedMode, value); }
+    public string SelectedPowerMode { get => _selectedPowerMode; set => Set(ref _selectedPowerMode, value); }
+    public string ActiveModeId { get => _activeModeId; set => Set(ref _activeModeId, string.IsNullOrWhiteSpace(value) ? "normal" : value); }
+    public string ActiveModeName { get => _activeModeName; set => Set(ref _activeModeName, string.IsNullOrWhiteSpace(value) ? "Normal" : value); }
+    public bool ActiveModeModified { get => _activeModeModified; set => Set(ref _activeModeModified, value); }
     public string UpdateStatus { get => _updateStatus; set => Set(ref _updateStatus, value); }
     public bool CanFanControl { get => _canFanControl; set => Set(ref _canFanControl, value); }
     public bool CanFanTelemetry { get => _canFanTelemetry; set => Set(ref _canFanTelemetry, value); }
@@ -140,12 +146,12 @@ public sealed class AppState : INotifyPropertyChanged
     public bool CanSensorTelemetry { get => _canSensorTelemetry; set => Set(ref _canSensorTelemetry, value); }
 
     public string KeyboardEffectsSupportText => CanKeyboardEffects
-        ? "Experimental effects are available through the active direct provider. Writes remain deduplicated and rate-limited."
+        ? "Effects available."
         : CanKeyboardBacklight && ExperimentalKeyboardEffectsEnabled
-            ? $"Experimental fallback enabled for this session through {KeyboardBackend}. ThinkControl suppresses Lenovo's backlight OSD around automatic effect writes when tposd is present; the provider may still ignore or smooth some rapid changes."
+            ? "Experimental fallback active for this session."
             : CanKeyboardBacklight
-                ? $"Static backlight control is available through {KeyboardBackend}. Effects can be enabled experimentally for this session after acknowledging the fallback warning."
-                : "The active hardware provider does not currently expose keyboard effects.";
+                ? "Static backlight available. Experimental effects are optional."
+                : "Effects unavailable.";
 
     public string AppVersion => $"v{UpdateService.CurrentVersion}";
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
@@ -158,9 +164,9 @@ public sealed class AppState : INotifyPropertyChanged
         _ => $"{Fans.Count} fan readings"
     };
     public string SensorCountText => Sensors.Count == 1 ? "1 live sensor" : $"{Sensors.Count:N0} live sensors";
-    public string SelectedModeDisplay => SelectedMode.Equals(nameof(ThinkControlPowerMode.Quiet), StringComparison.OrdinalIgnoreCase)
+    public string SelectedPowerModeDisplay => SelectedPowerMode.Equals(nameof(ThinkControlPowerMode.Quiet), StringComparison.OrdinalIgnoreCase)
         ? "Efficiency"
-        : SelectedMode;
+        : SelectedPowerMode;
     public string CoolingProfileDisplay => CoolingProfile switch
     {
         "Silent" or "Quiet" => "Quiet",
@@ -351,8 +357,8 @@ public sealed class AppState : INotifyPropertyChanged
         }
         else if (propertyName == nameof(FanRpm))
             OnPropertyChanged(nameof(FanRpmText));
-        else if (propertyName == nameof(SelectedMode))
-            OnPropertyChanged(nameof(SelectedModeDisplay));
+        else if (propertyName == nameof(SelectedPowerMode))
+            OnPropertyChanged(nameof(SelectedPowerModeDisplay));
         else if (propertyName == nameof(CoolingProfile))
             OnPropertyChanged(nameof(CoolingProfileDisplay));
         else if (propertyName == nameof(BatteryPercent))

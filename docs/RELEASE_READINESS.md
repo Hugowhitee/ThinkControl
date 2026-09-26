@@ -6,27 +6,17 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.51`
-- immutable tag/release SHA: `46bd09bb8556966b49413f7d7115d581c1b4c107`
-- published 2026-09-24 at 01:27:47 UTC as an immutable prerelease
+- `v0.1.0-alpha.52`
+- immutable tag/release SHA: `52380cbd0b3d508976f63420a4bd19bfa302650b`
+- published 2026-09-26 at 14:01:38 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:64dd93b6c641c5997018d40a718096336f4156a02e56d6ca9e0f32f41eab8ff6`
-  - Payload: `sha256:c70a687560d99dc98270ab942c290783caea65d9e670c261feb00764a7354d07`
-  - `SHA256SUMS.txt`: `sha256:e96e2a54ab27a952f513a999c2596d2c45a7de80d41bbd972af185aef0a7180d`
-  - `ui-overview.png`: `sha256:2654ab352e7c355138530c0eae0959c3fdb97154ad7272630f8fe13542ce17ac`
-- frozen-head SHA: `3e3d422d75e6bd03bf9f73f6e341deedfbeb68b9`
-- frozen-head CI `35942610435` / #2121: success
-- frozen-head Package ThinkControl `35942610387` / #1816: success
-- frozen-head visual artifact `10785567971`, digest `sha256:cb8165826cff0ce698eb69d8d57aa7da45956d2d30f19816c4e2c127344e65aa`
-- PR #98 merged with expected head `3e3d422d75e6bd03bf9f73f6e341deedfbeb68b9`
-- merge commit / immutable tag target: `46bd09bb8556966b49413f7d7115d581c1b4c107`
-- post-merge main CI `35942842319` / #2122: success
-- branch hygiene `35942842317` / #83: success
-- complete immutable release run `35942852253` / #40: success
-- promotion/public re-download/checksum verification run `35942842366` / #62: success
-- alpha.50 remains separately immutable at `a56df08ec756261472fc4362e7473e9482ffd7fe`
-- alpha.49 remains separately immutable at `263c1c280d3a08a5bcc21d374c45a5fb2d1414cc`
+  - Setup: `sha256:2bea5a63e58a79934c614bede2b01dad71db91862a827ba85079fef1065da996`
+  - Payload: `sha256:840520101a03898d1cd80c426eb2ed786db51804a33453e777aa985336818bf4`
+  - `SHA256SUMS.txt`: `sha256:c4e901df1cc59d615c5c3a3d2440b012d94a3254f5f889c583cd68b98283ed7c`
+  - `ui-overview.png`: `sha256:11539519a3a071d21e8b1feb6d267b6404606bfe53969992ca29c6e35eb64d99`
+- alpha.51 remains separately immutable at `46bd09bb8556966b49413f7d7115d581c1b4c107`
+- physical audio/battery/cooling checks remain a separate evidence class; the hosted release does not claim them
 
 Alpha.46 completion:
 
@@ -41,50 +31,61 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.52 active candidate — feedback-driven interaction and X9 safety
+## Alpha.53 active candidate — Modes and shared Advanced layout
 
 Active implementation state:
 
-- branch: `alpha52-feedback-fixes`
-- PR: **#100 — Prepare alpha.52 hardware and UX follow-up**
-- source target: `v0.1.0-alpha.52`
-- immutable/public baseline: `v0.1.0-alpha.51`
-- `version.json.releaseReady=false` until the exact-head hosted, visual and physical gates below pass
+- branch: `alpha53-modes-header`
+- source target: `v0.1.0-alpha.53`
+- immutable/public baseline: `v0.1.0-alpha.52`
+- canonical PR: **#103 — Prepare ThinkControl 0.1.0-alpha.53 Modes and shared Advanced layout**
+- candidate evidence head: `17d517936fb4659f72e47143c4efe8065f3bffbd`
+- candidate CI `36250998205` / #2178: success — hygiene, build, 251 tests, Compact↔Advanced shell smoke and WPF visual QA
+- candidate Package ThinkControl `36250998063` / #1869: success — payload, installer, deep IPC reliability and oldest-supported upgrade compatibility
+- candidate visual artifact `10909096643`, digest `sha256:eec3ea47b19c60098853972e3fc905bb4da2cfb4b1f26655d715149ad388fb33`
+- baseline Advanced matrix inspected at minimum / normal / wide in dark and light, plus Modes editor snapshots
+- no open PR review threads/comments at the candidate evidence head
+- `version.json.releaseReady=true`; this commit creates the frozen release candidate
 
 Scope:
 
-- make System volume and Microphone input sliders track locally while dragging and commit one Windows endpoint write on release/key adjustment instead of repeatedly writing during the drag;
-- make Battery Preservation one explicit switch with three named preservation windows, carry the verified stop threshold through the Core/runtime ETA contract and distinguish modeled charge-wear ratio from firmware cycle count;
-- make Home Sensors open the existing live details window directly, make Touchpad reverse-close use the shared switch grammar, and align title-level Advanced actions to one 38 px header rail;
-- collapse Temporary fan test to one Start/End action;
-- stop advertising the physically inferior exact-X9 discrete-EC path as a direct writer while retaining read/Auto-recovery cleanup and the reviewed firmware Auto / Quiet / Balanced / Max path;
-- add source regressions for the new interaction contracts and consolidate the separate target-ETA work into this one canonical alpha.52 PR.
-
-Hosted verification context — 2026-09-26:
-
-- ThinkControl's public-repository GitHub-hosted CI and Package workflows are running normally even though private-repository included minutes are temporarily constrained;
-- use one exact-head run per meaningful checkpoint and avoid redundant reruns.
+- promote Modes to a first-class Advanced destination without turning it into a generic settings preset engine;
+- retain Normal / Gesture lock / Silent as deliberately narrow built-ins;
+- support sparse custom modes for Audio Safety, Touchpad gesture enablement and non-experimental keyboard-light state only;
+- keep custom definitions persistent while active mode ownership/baselines remain session-only;
+- make direct subsystem changes release only that mode facet and mark the active mode Modified;
+- keep cooling, Windows performance, Battery Preservation, microphone, display policy and experimental keyboard effects independent;
+- replace Home/Compact Audio Safety duplication with the active Mode selector while leaving the Audio subsystem control available;
+- replace page-local Advanced title rows with one `AdvancedPageHeader` primitive and one shared content rail;
+- remove requirements-as-copy and unnecessary permanent provider/implementation prose from routine UI;
+- expand deterministic WPF QA so every Advanced destination renders at minimum / normal / wide in dark and light.
 
 Current gate:
 
-- [x] interaction/hardware-safety implementation is isolated in PR #100 rather than modifying immutable alpha.51
-- [x] first candidate build exposed the stale snapshot call `FindChargeProtectionPreset(enabled: false)`; the branch fixture was repaired to the new switch/preset contract
-- [x] source/static regression guards cover Battery switch/ETA semantics, Audio slider ownership, fan writer boundary and one-button temporary test
-- [x] Home Sensors and Touchpad reverse-close now have dedicated source regression guards
-- [x] the separate target-ETA branch was folded into PR #100 so alpha.52 again has one canonical implementation path
-- [x] Advanced title-level actions share one 38 px header rail with dedicated source regression coverage
-- [x] preservation ETA is state-aware and target-owned in Core/runtime: charge-to-cap only while charging, target changes reset rolling ETA, paused/hysteresis copy wins on AC and unplugged use keeps normal remaining-runtime ETA
-- [x] disabled Lenovo preservation retains the verified stored start/stop pair separately from the enabled flag, so re-enabling can restore the previous window
-- [x] targeted static source-regression audit caught and repaired stale Battery/X9 assertions after the refactor; no hosted result is inferred from that audit
-- [x] final implementation head `27663beeb945fbe9f4aedb60cf1ae262db8ac37e`: CI #2169 / run `36246383241` passed Release build, Core/source tests, Compact ↔ Advanced ShellSmoke and deterministic WPF rendering
-- [x] final implementation head `27663beeb945fbe9f4aedb60cf1ae262db8ac37e`: Package #1862 / run `36246383203` passed payload, installer/service/IPC smoke, oldest-supported updater compatibility and development checksums
-- [x] current PR review backlog resolved; the final review follow-ups cover slider focus-loss ownership, manual fan-test lock persistence, disabled reverse-close labels and terminal zero ETA
-- [x] deterministic dark/light WPF visual matrix generated on the final implementation head; alpha.52 remains an alpha feedback vehicle and hosted pixels do not claim physical hardware behavior
-- [x] freeze `releaseReady=true`; rerun exact frozen-head CI + Package before expected-head merge
+- [x] implementation is isolated from immutable alpha.52 on `alpha53-modes-header`
+- [x] power-state naming is disambiguated before introducing product-level Modes
+- [x] sparse mode model and serialized coordinator implemented
+- [x] transient Audio Safety, Touchpad and Keyboard apply/rollback paths implemented
+- [x] Touchpad temporary On/Off ownership is isolated from persisted gesture configuration
+- [x] direct manual changes release only their owned facet and preserve the active mode as Modified
+- [x] Home and Compact expose Mode; dedicated Modes page/custom editor implemented
+- [x] Advanced pages use the shared header primitive; runtime Home/Battery header reconstruction removed
+- [x] source regressions cover mode boundaries, transient ownership, reset behavior and shared header usage
+- [x] full dark/light × minimum/normal/wide Advanced visual matrix is required by CI
+- [x] alpha.53 product/architecture/design/testing documentation updated
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect every baseline Advanced screenshot and Modes editor snapshots at full resolution
+- [x] resolve review backlog on the exact candidate head
+- [x] freeze `releaseReady=true` only after implementation-head gates pass
 - [ ] frozen-head CI + Package
-- [ ] expected-head merge and immutable alpha.52 promotion
+- [ ] expected-head squash merge and immutable alpha.53 promotion
+- [ ] verify public Setup/Payload/checksum/overview assets and digests
 
-Post-release physical follow-up remains a separate evidence class and is not inferred from the hosted release:
+## Alpha.52 published release — interaction and X9 safety
+
+Alpha.52 is immutable at `52380cbd0b3d508976f63420a4bd19bfa302650b`. It shipped the direct-feeling Audio sliders, Battery Preservation target ETA, one-button temporary fan test, Home Sensors navigation, shared-switch Touchpad reverse-close, the first title/action rail alignment pass and the narrowed X9 EC writer boundary. Exact-head hosted build/test/ShellSmoke/WPF and Package gates passed before promotion. The published release contains exactly the four managed assets recorded in Current release state.
+
+Post-release physical follow-up remains separate evidence:
 
 - [ ] Audio output/microphone slider feel and endpoint convergence on the reference X9
 - [ ] preservation switch, stop-target ETA and physical threshold behavior

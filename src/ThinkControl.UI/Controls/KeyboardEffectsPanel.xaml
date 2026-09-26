@@ -37,7 +37,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="Enable experimental fallback" FontWeight="SemiBold" FontSize="{x:Static ui:TypographyScale.Secondary}" />
-                    <TextBlock Text="Session only · automatic writes suppress Lenovo's tposd backlight popup when present; the provider may still smooth or ignore rapid changes."
+                    <TextBlock Text="Session only. Behavior can vary by firmware."
                                Foreground="{DynamicResource Tc.TextFaint}"
                                FontSize="{x:Static ui:TypographyScale.Caption}"
                                TextWrapping="Wrap"
@@ -96,7 +96,7 @@
             </Grid>
 
             <TextBlock Margin="0,10,0,0"
-                       Text="Reactive follows keyboard activity. Audio follows the active Windows output through local loopback level data and stores no audio. Effect writes are deduplicated and rate-limited."
+                       Text="Reactive follows typing. Audio follows the current output level; no audio is stored."
                        Foreground="{DynamicResource Tc.TextFaint}"
                        FontSize="{x:Static ui:TypographyScale.Caption}"
                        TextWrapping="Wrap" />

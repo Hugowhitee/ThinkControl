@@ -37,6 +37,7 @@ public partial class App
         KeyboardEffects.SetBaseLevel(defaultBaseLevel);
         KeyboardEffects.SetSpeed(defaultEffectSpeed);
         await KeyboardEffects.SetModeAsync(defaultMode);
+        Modes.ReleaseFacet(ThinkControlModeFacet.KeyboardLight);
 
         UserSettings.Update(settings => settings with
         {
@@ -59,7 +60,7 @@ public partial class App
             TouchpadOsdOpacity = 0.92,
             TouchpadOsdPosition = "Center"
         });
-        TouchpadFeature.UpdateConfiguration(defaults);
+        TouchpadFeature.UpdateConfiguration(defaults, releaseGestureModeOwnership: true);
 
         TouchpadHapticStatus status = TouchpadFeature.HapticStatus;
         if (!status.ApiAvailable || !status.TouchpadPresent || !status.FeedbackSupported)
@@ -94,6 +95,9 @@ public partial class App
 
     internal async Task ResetAllDefaultsAsync()
     {
+        if (Modes.ActiveModeId != ThinkControlModeCatalog.NormalId)
+            await Modes.ActivateAsync(ThinkControlModeCatalog.NormalId);
+
         ThinkControlUserSettings current = UserSettings.Current;
         TouchpadGestureConfiguration touchpadDefaults =
             TouchpadGestureConfiguration.Default with { Enabled = false };
@@ -121,7 +125,8 @@ public partial class App
             AutomaticUpdates: true,
             DismissedUpdateVersion: string.Empty,
             DiagnosticsSharingPrompted: current.DiagnosticsSharingPrompted,
-            HardwareIssuePromptedKeys: current.HardwareIssuePromptedKeys));
+            HardwareIssuePromptedKeys: current.HardwareIssuePromptedKeys,
+            CustomModes: []));
 
         ThemeService.Apply(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);

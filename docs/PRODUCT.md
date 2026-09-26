@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.52`.  
-Current immutable prerelease: `v0.1.0-alpha.51`. Alpha.52 is the active feedback-driven interaction/hardware-safety candidate; alpha.51 remains the published Compact selector-dismiss hotfix.
+Current source release target: `v0.1.0-alpha.53`.  
+Current immutable prerelease: `v0.1.0-alpha.52`. Alpha.53 is the Modes/shared-layout candidate; alpha.52 remains the published interaction and X9-safety baseline.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -41,18 +41,24 @@ Compact contains the controls and telemetry most useful during normal operation:
 - display refresh controls;
 - brightness and volume;
 - keyboard backlight when supported;
-- one **Audio safety** selector (`Normal` / `Gesture lock` / `Silent`) grouped with Brightness/Volume rather than detached in the footer;
+- one **Mode** selector grouped with Brightness/Volume; built-ins are Normal, Gesture lock and Silent, with saved custom modes added to the same selector;
 - direct links to Audio, Settings and the Advanced window.
 
-Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Compact ComboBox popups must fully release transient mouse capture/focus when dismissed so a selector cannot remain stuck in its hover/focus visual state after the pointer has moved elsewhere. Audio safety remains one compact session state. Gesture lock blocks only ThinkControl touchpad audio/media gestures; Silent additionally keeps Windows output muted, swallows the standard Windows volume keys while active, and re-mutes app/Windows unmute attempts from CoreAudio notifications.
+Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Compact ComboBox popups must fully release transient mouse capture/focus when dismissed so a selector cannot remain stuck in its hover/focus visual state after the pointer has moved elsewhere. The Mode selector shows the current session mode without turning Compact into a mode editor.
 
 ### Advanced
 
-Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
+Advanced contains Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. When a page has title-level actions, they share one fixed title/action row so Defaults buttons, Windows links and switches do not move vertically between destinations. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
-Audio Safety has one canonical session owner. Advanced Home exposes the explanatory Normal / Gesture lock / Silent quick card, Compact exposes the same state beside Volume, and the Audio page carries the deeper audio context. Settings does not duplicate the mode editor. Silent installs only a session-scoped `WH_KEYBOARD_LL` guard for `VK_VOLUME_MUTE / DOWN / UP`; other keyboard/media keys are not swallowed.
+Modes is a session-level sparse overlay above existing subsystem owners. Built-in Normal owns nothing, Gesture lock owns only Audio Safety = Gesture lock, and Silent owns only Audio Safety = Silent. Custom definitions persist, but the active mode does not survive process restart because a new process cannot truthfully inherit temporary rollback ownership.
+
+Custom modes may currently compose only Audio Safety, Touchpad gestures enabled/disabled and non-experimental keyboard light Off/Low/High/Auto. A missing facet means “leave this subsystem alone.” Cooling, Windows performance preferences, Battery Preservation, microphone state, display policy, Dolby state and experimental keyboard effects remain independent until they have explicit transient ownership and rollback semantics.
+
+When the user manually changes a subsystem while a mode owns it, only that facet is released. The mode stays active as **Modified**; leaving the mode does not undo the user’s manual change. Reapply captures the current manual state as the new rollback baseline before reclaiming the facet. Home and Compact expose the current Mode; the dedicated Advanced Modes page owns creation/editing. Direct Audio/Touchpad/Keyboard controls remain available as subsystem overrides.
+
+Audio Safety remains one canonical session owner underneath Modes. Silent installs only a session-scoped `WH_KEYBOARD_LL` guard for `VK_VOLUME_MUTE / DOWN / UP`; other keyboard/media keys are not swallowed.
 
 ## Performance and power
 

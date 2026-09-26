@@ -10,6 +10,16 @@ public partial class App
     internal TouchpadFeatureHost TouchpadFeature =>
         _touchpadFeature ??= new TouchpadFeatureHost(this);
 
+    internal bool GetEffectiveTouchpadGesturesEnabled() =>
+        _touchpadFeature?.EffectiveGesturesEnabled ??
+        UserSettings.Current.TouchpadGestures?.Enabled == true;
+
+    internal void ApplyTouchpadGestureModeOverride(bool enabled) =>
+        TouchpadFeature.ApplyTransientGestureEnabled(enabled);
+
+    internal void ClearTouchpadGestureModeOverride() =>
+        TouchpadFeature.ApplyTransientGestureEnabled(null);
+
     internal void StartConfiguredTouchpadInputForStartup()
     {
         if (UserSettings.Current.TouchpadGestures?.Enabled != true)

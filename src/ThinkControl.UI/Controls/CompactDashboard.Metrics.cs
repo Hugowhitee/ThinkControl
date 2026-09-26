@@ -27,7 +27,7 @@ public partial class CompactDashboard
         new("Sensors", "SENSORS", "SensorCountText", "Hardware telemetry", "System"),
         new("Display", "DISPLAY", "CurrentRefreshText", "Refresh rate", "Display"),
         new("Keyboard", "KEYBOARD", "KeyboardStatus", "Keyboard light", "Keyboard"),
-        new("Performance", "PERFORMANCE", "SelectedModeDisplay", "Power mode", "Performance")
+        new("Performance", "PERFORMANCE", "SelectedPowerModeDisplay", "Power mode", "Performance")
     ];
 
     private readonly CompactMetricLayoutService _compactMetricLayout = new();

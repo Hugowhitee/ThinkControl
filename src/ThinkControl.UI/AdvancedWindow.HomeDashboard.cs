@@ -23,16 +23,6 @@ public partial class AdvancedWindow
         Resources[HomeDashboardPolishKey] = true;
         NormalizeHomePowerTerminology();
 
-        FrameworkElement? oldHeader = homeStack.Children
-            .OfType<FrameworkElement>()
-            .FirstOrDefault(element => Equals(element.Tag, HomeSupportCardTag));
-        if (oldHeader is not null)
-        {
-            int index = homeStack.Children.IndexOf(oldHeader);
-            homeStack.Children.Remove(oldHeader);
-            homeStack.Children.Insert(index, BuildHomeHeader());
-        }
-
         Border? telemetry = homeStack.Children
             .OfType<Border>()
             .FirstOrDefault(border => border.Height is >= 120 and <= 126);
@@ -59,7 +49,7 @@ public partial class AdvancedWindow
         {
             Grid? heading = performanceCard.Children.OfType<Grid>().FirstOrDefault();
             TextBlock? duplicateMode = heading?.Children.OfType<TextBlock>().FirstOrDefault(text =>
-                BindingOperations.GetBinding(text, TextBlock.TextProperty)?.Path.Path == "SelectedModeDisplay");
+                BindingOperations.GetBinding(text, TextBlock.TextProperty)?.Path.Path == "SelectedPowerModeDisplay");
             if (duplicateMode is not null)
                 duplicateMode.Visibility = Visibility.Collapsed;
 
@@ -72,35 +62,6 @@ public partial class AdvancedWindow
                 description.TextTrimming = TextTrimming.None;
             }
         }
-    }
-
-    private Grid BuildHomeHeader()
-    {
-        var header = new Grid
-        {
-            Tag = HomeSupportCardTag,
-            Margin = new Thickness(2, 0, 2, 12)
-        };
-        header.ColumnDefinitions.Add(new ColumnDefinition());
-
-        var title = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        title.Children.Add(new TextBlock
-        {
-            Text = "Overview",
-            FontWeight = FontWeights.SemiBold,
-            FontSize = TypographyScale.PageTitle
-        });
-        TextBlock subtitle = new()
-        {
-            Text = "Live machine state and the controls you use most",
-            FontSize = TypographyScale.Body,
-            Margin = new Thickness(0, 4, 0, 0)
-        };
-        subtitle.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        title.Children.Add(subtitle);
-        header.Children.Add(title);
-
-        return header;
     }
 
     private Grid BuildHomeTelemetryStrip()

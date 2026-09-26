@@ -22,7 +22,7 @@ internal static class Program
 
     private static readonly string[] AdvancedPages =
     [
-        "Home", "Performance", "Fans", "Display", "Audio",
+        "Home", "Modes", "Performance", "Fans", "Display", "Audio",
         "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings"
     ];
 
@@ -135,6 +135,8 @@ internal static class Program
             "advanced-keyboard-experimental-fallback.png", "Experimental fallback · session enabled");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
             "advanced-battery-day-expanded.png", "expanded daily session detail", expandBatteryDay: true);
+        RenderAdvanced(app, charging, "Modes", 1160, 760, output, snapshots,
+            "advanced-modes-editor.png", "custom mode editor", modeEditor: true);
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
@@ -203,19 +205,24 @@ internal static class Program
 
         ThemeService.Apply(ThemeMode.Light);
         RenderCompact(app, charging, output, snapshots, "compact-light.png", "charging · light");
-        RenderCompact(app, charging, output, snapshots, "compact-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
-        RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots, "advanced-home-light.png", "normal · light");
+        RenderCompact(app, charging, output, snapshots, "compact-silent-light.png", "Mode · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
+
+        foreach (string page in AdvancedPages)
+            RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}-light.png", "normal · light");
+        foreach (string page in AdvancedPages)
+            RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min-light.png", "minimum window · light");
+        foreach (string page in AdvancedPages)
+            RenderAdvanced(app, charging, page, 1720, 980, output, snapshots, $"advanced-{page.ToLowerInvariant()}-wide-light.png", "wide window · light");
         RenderAdvanced(app, homeFanAuto, "Home", 1160, 760, output, snapshots,
             "advanced-home-fan-auto-light.png", "firmware Auto · presets disabled · light");
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
             "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-preservation-paused-light.png", "80–90% preservation · 88% current · charging paused · light");
-        RenderAdvanced(app, charging, "Settings", 1160, 760, output, snapshots,
-            "advanced-settings-light.png", "Advanced opening mode · light", openingView: "Advanced");
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
             "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
-        RenderAdvanced(app, charging, "Touchpad", 1160, 760, output, snapshots, "advanced-touchpad-light.png", "normal · light");
+        RenderAdvanced(app, charging, "Modes", 1160, 760, output, snapshots,
+            "advanced-modes-editor-light.png", "custom mode editor · light", modeEditor: true);
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention-light.png", "PawnIO + provider attention · light");
@@ -296,7 +303,7 @@ internal static class Program
             KeyboardMode = hardwareReady ? "Breathing" : "Auto",
             KeyboardBaseLevel = "Low",
             KeyboardEffectSpeed = 1.0,
-            SelectedMode = "Balanced",
+            SelectedPowerMode = "Balanced",
             UpdateStatus = $"Up to date · v{UpdateService.CurrentVersion}",
             CanFanControl = hardwareReady,
             CanFanTelemetry = hardwareReady,
@@ -420,7 +427,8 @@ internal static class Program
         bool deviceLearning = false,
         bool deviceReportReady = false,
         string? openingView = null,
-        AudioSafetyMode? audioSafetyMode = null)
+        AudioSafetyMode? audioSafetyMode = null,
+        bool modeEditor = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -452,6 +460,8 @@ internal static class Program
             window.PrepareAudioSafetyForSnapshot(
                 audioSafety,
                 audioPage: string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase));
+        if (modeEditor && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
+            window.PrepareModesEditorForSnapshot();
 
         if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
             window.PreparePerformanceForSnapshot();

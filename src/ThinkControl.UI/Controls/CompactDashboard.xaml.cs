@@ -35,7 +35,7 @@ public partial class CompactDashboard : UserControl
             CompactFanCombo,
             CompactRefreshCombo,
             CompactKeyboardCombo,
-            CompactAudioSafetyCombo
+            CompactModeCombo
         })
         {
             combo.DropDownClosed += CompactCombo_DropDownClosed;
@@ -92,9 +92,9 @@ public partial class CompactDashboard : UserControl
         // Media safety is grouped with Brightness/Volume rather than the footer.
         // Keep it slightly shorter than the card selectors so the three-row control
         // cluster stays balanced without clipping at Compact's fixed height.
-        CompactAudioSafetyCombo.Margin = new Thickness(0);
-        CompactAudioSafetyCombo.MinHeight = 38;
-        CompactAudioSafetyCombo.VerticalAlignment = VerticalAlignment.Center;
+        CompactModeCombo.Margin = new Thickness(0);
+        CompactModeCombo.MinHeight = 38;
+        CompactModeCombo.VerticalAlignment = VerticalAlignment.Center;
     }
 
     internal void Initialize(App app)
@@ -106,12 +106,14 @@ public partial class CompactDashboard : UserControl
                 _app.State.PropertyChanged -= State_PropertyChanged;
                 _app.UpdateAvailabilityChanged -= App_UpdateAvailabilityChanged;
                 _app.AudioSafety.ModeChanged -= AudioSafety_ModeChanged;
+                _app.Modes.Changed -= Modes_Changed;
             }
 
             _app = app;
             app.State.PropertyChanged += State_PropertyChanged;
             app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
             app.AudioSafety.ModeChanged += AudioSafety_ModeChanged;
+            app.Modes.Changed += Modes_Changed;
         }
 
         EnsureQuickControls();
@@ -126,7 +128,7 @@ public partial class CompactDashboard : UserControl
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AppState.SelectedMode)
+        if (e.PropertyName is nameof(AppState.SelectedPowerMode)
             or nameof(AppState.CoolingProfile)
             or nameof(AppState.CanFanControl)
             or nameof(AppState.RefreshAutoEnabled)

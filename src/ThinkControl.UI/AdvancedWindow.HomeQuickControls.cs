@@ -3,7 +3,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
-using ThinkControl.Core.Audio;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
@@ -12,7 +11,7 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private bool _homeQuickControlsConfigured;
-    private bool _homeAudioSafetyBusy;
+    private bool _homeModeBusy;
     private bool _homeFanBusy;
 
     private void ConfigureHomeQuickControls()
@@ -21,17 +20,17 @@ public partial class AdvancedWindow
         {
             _homeQuickControlsConfigured = true;
             _app.State.PropertyChanged += HomeQuickState_PropertyChanged;
-            _app.AudioSafety.ModeChanged += HomeAudioSafety_ModeChanged;
+            _app.Modes.Changed += HomeModes_Changed;
             Closed += (_, _) =>
             {
                 _app.State.PropertyChanged -= HomeQuickState_PropertyChanged;
-                _app.AudioSafety.ModeChanged -= HomeAudioSafety_ModeChanged;
+                _app.Modes.Changed -= HomeModes_Changed;
             };
         }
 
         SyncHomePowerModes();
         RefreshHomeFanProfiles();
-        RefreshHomeAudioSafety();
+        RefreshHomeMode();
     }
 
     private void HomeQuickState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -44,7 +43,7 @@ public partial class AdvancedWindow
             return;
         }
 
-        if (e.PropertyName == nameof(ViewModels.AppState.SelectedMode))
+        if (e.PropertyName == nameof(ViewModels.AppState.SelectedPowerMode))
             Dispatcher.BeginInvoke(new Action(SyncHomePowerModes));
     }
 
@@ -277,73 +276,74 @@ public partial class AdvancedWindow
         HomeFanAutoSwitch.IsEnabled = enabled;
     }
 
-    private void HomeAudioSafety_ModeChanged(AudioSafetyMode mode) =>
-        Dispatcher.BeginInvoke(new Action(RefreshHomeAudioSafety));
+    private void HomeModes_Changed() =>
+        Dispatcher.BeginInvoke(new Action(RefreshHomeMode));
 
-    private void RefreshHomeAudioSafety()
+    private void RefreshHomeMode()
     {
-        if (HomeAudioSafetyNormal is null || HomeAudioSafetyMediaLock is null ||
-            HomeAudioSafetySilent is null || HomeAudioSafetyStatus is null)
-        {
-            return;
-        }
-
-        AudioSafetyMode mode = _app.AudioSafety.Mode;
-        HomeAudioSafetyNormal.IsChecked = mode == AudioSafetyMode.Normal;
-        HomeAudioSafetyMediaLock.IsChecked = mode == AudioSafetyMode.MediaLock;
-        HomeAudioSafetySilent.IsChecked = mode == AudioSafetyMode.Silent;
-        HomeAudioSafetyStatus.Text = mode switch
-        {
-            AudioSafetyMode.MediaLock => "Gesture lock · touchpad volume/track/seek actions are blocked; keyboard and Windows/app audio still work.",
-            AudioSafetyMode.Silent => "Silent · output stays muted; volume keys are ignored and app/Windows unmute attempts are re-muted.",
-            _ => "Normal · ThinkControl touchpad media and volume actions are available."
-        };
-    }
-
-    internal void PrepareHomeAudioSafetyForSnapshot(AudioSafetyMode mode)
-    {
-        HomeAudioSafetyNormal.IsChecked = mode == AudioSafetyMode.Normal;
-        HomeAudioSafetyMediaLock.IsChecked = mode == AudioSafetyMode.MediaLock;
-        HomeAudioSafetySilent.IsChecked = mode == AudioSafetyMode.Silent;
-        HomeAudioSafetyStatus.Text = mode switch
-        {
-            AudioSafetyMode.MediaLock => "Gesture lock · touchpad volume/track/seek actions are blocked; keyboard and Windows/app audio still work.",
-            AudioSafetyMode.Silent => "Silent · touchpad media actions are blocked and Windows output is kept muted, including after keyboard/app unmute attempts.",
-            _ => "Normal · ThinkControl touchpad media and volume actions are available."
-        };
-    }
-
-    private async void HomeAudioSafety_Click(object sender, RoutedEventArgs e)
-    {
-        if (_homeAudioSafetyBusy || sender is not FrameworkElement { Tag: string raw })
+        if (HomeModeCombo is null || HomeModeModifiedText is null)
             return;
 
-        AudioSafetyMode mode = raw switch
-        {
-            "MediaLock" => AudioSafetyMode.MediaLock,
-            "Silent" => AudioSafetyMode.Silent,
-            _ => AudioSafetyMode.Normal
-        };
+        IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
+        ThinkControlModeDefinition? active = modes.FirstOrDefault(mode =>
+            mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase));
 
-        _homeAudioSafetyBusy = true;
-        SetHomeAudioSafetyEnabled(false);
+        _syncing = true;
         try
         {
-            await _app.SetAudioSafetyModeAsync(mode);
+            HomeModeCombo.ItemsSource = modes;
+            HomeModeCombo.SelectedItem = active;
+            HomeModeModifiedText.Visibility = _app.Modes.IsModified
+                ? Visibility.Visible
+                : Visibility.Collapsed;
         }
         finally
         {
-            _homeAudioSafetyBusy = false;
-            SetHomeAudioSafetyEnabled(true);
-            RefreshHomeAudioSafety();
+            _syncing = false;
         }
     }
 
-    private void SetHomeAudioSafetyEnabled(bool enabled)
+    internal void PrepareHomeModeForSnapshot(string id, bool modified = false)
     {
-        HomeAudioSafetyNormal.IsEnabled = enabled;
-        HomeAudioSafetyMediaLock.IsEnabled = enabled;
-        HomeAudioSafetySilent.IsEnabled = enabled;
+        IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
+        ThinkControlModeDefinition? mode = modes.FirstOrDefault(item =>
+            item.Id.Equals(id, StringComparison.OrdinalIgnoreCase)) ??
+            ThinkControlModeCatalog.BuiltIns.First();
+
+        _syncing = true;
+        try
+        {
+            HomeModeCombo.ItemsSource = modes;
+            HomeModeCombo.SelectedItem = mode;
+            HomeModeModifiedText.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
+        }
+        finally
+        {
+            _syncing = false;
+        }
+    }
+
+    private async void HomeMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_syncing || _homeModeBusy ||
+            HomeModeCombo.SelectedItem is not ThinkControlModeDefinition mode ||
+            mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _homeModeBusy = true;
+        HomeModeCombo.IsEnabled = false;
+        try
+        {
+            await _app.Modes.ActivateAsync(mode.Id);
+        }
+        finally
+        {
+            _homeModeBusy = false;
+            HomeModeCombo.IsEnabled = true;
+            RefreshHomeMode();
+        }
     }
 
     private void BatteryProtectionJump_Click(object sender, RoutedEventArgs e)

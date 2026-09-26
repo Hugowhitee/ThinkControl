@@ -84,6 +84,7 @@ public partial class AdvancedWindow : Window
 
     private void InitializeFeaturePanels()
     {
+        ModesPanelControl.Initialize(_app);
         PerformancePanelControl.Initialize(_app);
         FansPanelControl.Initialize(_app);
         AudioPanelControl.Initialize(_app);
@@ -152,6 +153,7 @@ public partial class AdvancedWindow : Window
     {
         switch (page)
         {
+            case "Modes": NavModes.IsChecked = true; break;
             case "Performance": NavPerformance.IsChecked = true; break;
             case "Fans": NavFans.IsChecked = true; break;
             case "Battery": NavBattery.IsChecked = true; break;
@@ -192,7 +194,7 @@ public partial class AdvancedWindow : Window
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AppState.SelectedMode)
+        if (e.PropertyName is nameof(AppState.SelectedPowerMode)
             or nameof(AppState.RefreshAutoEnabled)
             or nameof(AppState.CurrentRefreshHz)
             or nameof(AppState.MaxRefreshHz)
@@ -271,7 +273,7 @@ public partial class AdvancedWindow : Window
 
         foreach (FrameworkElement element in new FrameworkElement[]
         {
-            PageHome, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
+            PageHome, PageModes, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
             PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageSettings
         })
         {
@@ -280,6 +282,7 @@ public partial class AdvancedWindow : Window
 
         FrameworkElement selected = page switch
         {
+            "Modes" => PageModes,
             "Performance" => PagePerformance,
             "Fans" => PageFans,
             "Battery" => PageBattery,
@@ -297,6 +300,7 @@ public partial class AdvancedWindow : Window
 
     private string GetSelectedPage()
     {
+        if (NavModes.IsChecked == true) return "Modes";
         if (NavPerformance.IsChecked == true) return "Performance";
         if (NavFans.IsChecked == true) return "Fans";
         if (NavBattery.IsChecked == true) return "Battery";
@@ -316,7 +320,7 @@ public partial class AdvancedWindow : Window
             Navigate(page);
     }
 
-    private void Mode_Click(object sender, RoutedEventArgs e)
+    private void PowerMode_Click(object sender, RoutedEventArgs e)
     {
         if (_syncing || sender is not FrameworkElement element || element.Tag is not string tag ||
             !Enum.TryParse(tag, out ThinkControlPowerMode mode))
