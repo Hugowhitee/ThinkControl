@@ -36,7 +36,8 @@ public sealed record ThinkControlUserSettings(
     string AttentionAcknowledgedKey = "",
     string AttentionAcknowledgedAtUtc = "",
     bool DiagnosticsSharingPrompted = false,
-    string HardwareIssuePromptedKeys = "");
+    string HardwareIssuePromptedKeys = "",
+    ThinkControlModeDefinition[]? CustomModes = null);
 
 public sealed class UserSettingsService
 {
@@ -272,6 +273,8 @@ public sealed class UserSettingsService
         string dismissedUpdateVersion = settings.DismissedUpdateVersion?.Trim() ?? string.Empty;
         if (dismissedUpdateVersion.Length > 80)
             dismissedUpdateVersion = string.Empty;
+        ThinkControlModeDefinition[] customModes =
+            ThinkControlModeCatalog.SanitizeCustomModes(settings.CustomModes);
 
         return settings with
         {
@@ -298,7 +301,8 @@ public sealed class UserSettingsService
             AttentionAcknowledgedAtUtc = acknowledgedAt,
             DiagnosticsSharingPrompted = settings.DiagnosticsSharingPrompted,
             HardwareIssuePromptedKeys = hardwareIssueKeys,
-            DismissedUpdateVersion = dismissedUpdateVersion
+            DismissedUpdateVersion = dismissedUpdateVersion,
+            CustomModes = customModes
         };
     }
 
