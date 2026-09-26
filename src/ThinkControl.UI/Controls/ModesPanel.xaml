@@ -108,6 +108,11 @@
                                Margin="14,8,14,13" />
                 </StackPanel>
             </Border>
+            <TextBlock x:Name="ListStatusText"
+                       Foreground="{DynamicResource Tc.TextMuted}"
+                       FontSize="{x:Static ui:TypographyScale.Caption}"
+                       Margin="2,9,2,0"
+                       Visibility="Collapsed" />
         </StackPanel>
 
         <StackPanel x:Name="EditorView" Visibility="Collapsed">
