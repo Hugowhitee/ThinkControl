@@ -336,7 +336,7 @@ public partial class App
             // the restore baseline before a cooling profile temporarily overrides
             // Lenovo's thermal policy. While the profile is active, later performance
             // and AC/DC changes reassert this cooling override for the current source.
-            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token);
+            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedPowerMode, _coolingLifetimeCts.Token);
             if (baseline?.Success != true)
             {
                 State.HardwareAccess = baseline?.Error ?? "Lenovo thermal-policy baseline unavailable";
@@ -551,7 +551,7 @@ public partial class App
             StringComparison.Ordinal);
 
         // A non-Auto firmware profile needs the real current Windows overlay as its
-        // restore baseline. State.SelectedMode starts as a UI placeholder, so never
+        // restore baseline. State.SelectedPowerMode starts as a UI placeholder, so never
         // seed Lenovo thermal policy from it before RefreshStatusAsync has confirmed
         // the actual Windows mode. Auto/direct-provider restores do not depend on it.
         if (!wantsAuto && firmwarePolicy && !CoolingThermalBaselineReady)
@@ -645,7 +645,7 @@ public partial class App
                     return;
                 }
 
-                ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, _coolingLifetimeCts.Token);
+                ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedPowerMode, _coolingLifetimeCts.Token);
                 ServiceResponse? applied = baseline?.Success == true
                     ? await HardwareClient.SetCoolingProfileAsync(definition.Name, _coolingLifetimeCts.Token)
                     : null;
@@ -741,7 +741,7 @@ public partial class App
             // a successful early Quiet/Balanced/Max restore cannot be silently overwritten
             // while our UI continues displaying the saved preference. This is deliberately
             // one bounded retry, not a polling loop or a fight with firmware.
-            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedMode, cancellationToken);
+            ServiceResponse? baseline = await HardwareClient.SetThermalModeAsync(State.SelectedPowerMode, cancellationToken);
             ServiceResponse? applied = baseline?.Success == true
                 ? await HardwareClient.SetCoolingProfileAsync(definition.Name, cancellationToken)
                 : null;

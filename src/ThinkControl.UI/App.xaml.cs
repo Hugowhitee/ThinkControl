@@ -211,7 +211,7 @@ public partial class App : System.Windows.Application
             ThinkControlPowerMode? mode = PowerModeService.GetCurrent(!battery.OnAc);
             if (mode.HasValue)
             {
-                State.SelectedMode = mode.Value.ToString();
+                State.SelectedPowerMode = mode.Value.ToString();
                 MarkCoolingThermalBaselineReady();
             }
 
@@ -309,7 +309,7 @@ public partial class App : System.Windows.Application
         DateTimeOffset started = DateTimeOffset.UtcNow;
         bool changed = PowerModeService.Set(mode);
         if (changed)
-            State.SelectedMode = mode.ToString();
+            State.SelectedPowerMode = mode.ToString();
         RecordOperation("power.profile_set", "PerformanceMode", "Windows", changed, started,
             new Dictionary<string, string> { ["state"] = mode.ToString() });
         return changed;

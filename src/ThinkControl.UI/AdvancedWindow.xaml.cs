@@ -192,7 +192,7 @@ public partial class AdvancedWindow : Window
 
     private void State_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(AppState.SelectedMode)
+        if (e.PropertyName is nameof(AppState.SelectedPowerMode)
             or nameof(AppState.RefreshAutoEnabled)
             or nameof(AppState.CurrentRefreshHz)
             or nameof(AppState.MaxRefreshHz)
@@ -316,7 +316,7 @@ public partial class AdvancedWindow : Window
             Navigate(page);
     }
 
-    private void Mode_Click(object sender, RoutedEventArgs e)
+    private void PowerMode_Click(object sender, RoutedEventArgs e)
     {
         if (_syncing || sender is not FrameworkElement element || element.Tag is not string tag ||
             !Enum.TryParse(tag, out ThinkControlPowerMode mode))

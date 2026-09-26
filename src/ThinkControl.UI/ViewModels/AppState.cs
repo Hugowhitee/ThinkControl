@@ -127,7 +127,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string KeyboardMode { get => _keyboardMode; set => Set(ref _keyboardMode, value); }
     public string KeyboardBaseLevel { get => _keyboardBaseLevel; set => Set(ref _keyboardBaseLevel, value); }
     public double KeyboardEffectSpeed { get => _keyboardEffectSpeed; set => Set(ref _keyboardEffectSpeed, Math.Clamp(value, 0.5, 2.0)); }
-    public string SelectedMode { get => _selectedMode; set => Set(ref _selectedMode, value); }
+    public string SelectedPowerMode { get => _selectedMode; set => Set(ref _selectedMode, value); }
     public string UpdateStatus { get => _updateStatus; set => Set(ref _updateStatus, value); }
     public bool CanFanControl { get => _canFanControl; set => Set(ref _canFanControl, value); }
     public bool CanFanTelemetry { get => _canFanTelemetry; set => Set(ref _canFanTelemetry, value); }
@@ -158,9 +158,9 @@ public sealed class AppState : INotifyPropertyChanged
         _ => $"{Fans.Count} fan readings"
     };
     public string SensorCountText => Sensors.Count == 1 ? "1 live sensor" : $"{Sensors.Count:N0} live sensors";
-    public string SelectedModeDisplay => SelectedMode.Equals(nameof(ThinkControlPowerMode.Quiet), StringComparison.OrdinalIgnoreCase)
+    public string SelectedPowerModeDisplay => SelectedPowerMode.Equals(nameof(ThinkControlPowerMode.Quiet), StringComparison.OrdinalIgnoreCase)
         ? "Efficiency"
-        : SelectedMode;
+        : SelectedPowerMode;
     public string CoolingProfileDisplay => CoolingProfile switch
     {
         "Silent" or "Quiet" => "Quiet",
@@ -351,8 +351,8 @@ public sealed class AppState : INotifyPropertyChanged
         }
         else if (propertyName == nameof(FanRpm))
             OnPropertyChanged(nameof(FanRpmText));
-        else if (propertyName == nameof(SelectedMode))
-            OnPropertyChanged(nameof(SelectedModeDisplay));
+        else if (propertyName == nameof(SelectedPowerMode))
+            OnPropertyChanged(nameof(SelectedPowerModeDisplay));
         else if (propertyName == nameof(CoolingProfile))
             OnPropertyChanged(nameof(CoolingProfileDisplay));
         else if (propertyName == nameof(BatteryPercent))

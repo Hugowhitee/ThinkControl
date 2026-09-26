@@ -59,7 +59,7 @@ public partial class AdvancedWindow
         {
             Grid? heading = performanceCard.Children.OfType<Grid>().FirstOrDefault();
             TextBlock? duplicateMode = heading?.Children.OfType<TextBlock>().FirstOrDefault(text =>
-                BindingOperations.GetBinding(text, TextBlock.TextProperty)?.Path.Path == "SelectedModeDisplay");
+                BindingOperations.GetBinding(text, TextBlock.TextProperty)?.Path.Path == "SelectedPowerModeDisplay");
             if (duplicateMode is not null)
                 duplicateMode.Visibility = Visibility.Collapsed;
 

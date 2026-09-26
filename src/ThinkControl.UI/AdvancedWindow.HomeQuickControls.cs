@@ -44,7 +44,7 @@ public partial class AdvancedWindow
             return;
         }
 
-        if (e.PropertyName == nameof(ViewModels.AppState.SelectedMode))
+        if (e.PropertyName == nameof(ViewModels.AppState.SelectedPowerMode))
             Dispatcher.BeginInvoke(new Action(SyncHomePowerModes));
     }
 
