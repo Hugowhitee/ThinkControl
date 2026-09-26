@@ -64,7 +64,6 @@ public partial class FansPanel : UserControl
     {
         _snapshotMode = true;
         UnsubscribeStatus();
-        EnsureResetButton();
         DataContext = state;
         _fanControlKind = state.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)

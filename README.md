@@ -29,8 +29,8 @@ Alpha.52 is a feedback-driven interaction and hardware-safety candidate on immut
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.52`  
-**Current immutable prerelease:** `v0.1.0-alpha.51`
+**Release target:** `v0.1.0-alpha.53`  
+**Current immutable prerelease:** `v0.1.0-alpha.52`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -40,8 +40,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.51/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.50/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.52/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.52/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -49,7 +49,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ThinkControl has two primary surfaces:
 
 - **Compact view** — quick telemetry and the controls you change most often.
-- **Advanced view** — Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings.
+- **Advanced view** — Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings.
 
 The release pipeline renders the real WPF interface across dark/light themes and multiple viewport sizes. It also runs real Compact ↔ Advanced lifecycle smoke tests so shell regressions are not hidden by static screenshots.
 
