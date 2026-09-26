@@ -106,22 +106,30 @@ public sealed class Alpha47UxSourceTests
     }
 
     [Fact]
-    public void AudioSafety_LivesOnHomeAndMediaControls_NotSettings()
+    public void Modes_ReplaceHomeAndCompactAudioSafetyWithoutRemovingTheAudioSubsystemControl()
     {
         string root = FindRepositoryRoot();
         string compactXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.xaml"));
         string compactCode = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"));
         string advancedXaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+        string homeCode = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
+        string audioSafety = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "AudioPanel.AudioSafety.cs"));
         string preferences = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.AppPreferences.cs"));
 
-        Assert.Contains("Text=\"Audio safety\"", compactXaml, StringComparison.Ordinal);
-        Assert.Contains("\"Normal\", \"Gesture lock\", \"Silent\"", compactCode, StringComparison.Ordinal);
-        Assert.Contains("keyboard and Windows/app audio still work", compactXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"HomeAudioSafetyNormal\"", advancedXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"HomeAudioSafetyMediaLock\"", advancedXaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"HomeAudioSafetySilent\"", advancedXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Audio safety\"", advancedXaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Mode\"", compactXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CompactModeCombo\"", compactXaml, StringComparison.Ordinal);
+        Assert.Contains("_app.Modes.GetModes()", compactCode, StringComparison.Ordinal);
+        Assert.Contains("_app.Modes.ActivateAsync(mode.Id)", compactCode, StringComparison.Ordinal);
 
+        Assert.Contains("x:Name=\"NavModes\"", advancedXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PageModes\"", advancedXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"HomeModeCombo\"", advancedXaml, StringComparison.Ordinal);
+        Assert.Contains("_app.Modes.ActivateAsync(mode.Id)", homeCode, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeAudioSafetyNormal", advancedXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeAudioSafetyMediaLock", advancedXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeAudioSafetySilent", advancedXaml, StringComparison.Ordinal);
+
+        Assert.Contains("Audio safety", audioSafety, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateAudioSafetyCard", preferences, StringComparison.Ordinal);
         Assert.DoesNotContain("ThinkControl.Settings.AudioSafety", preferences, StringComparison.Ordinal);
     }
@@ -133,7 +141,7 @@ public sealed class Alpha47UxSourceTests
         string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
         string attention = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.BatteryProtectionAttention.cs"));
         string panel = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.ProtectionAndHistory.cs"));
-        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml"));
 
         Assert.Contains("BatteryProtectionSummaryText", state, StringComparison.Ordinal);
         Assert.Contains("Charging is paused near", state, StringComparison.Ordinal);
