@@ -30,6 +30,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private int _brightnessGestureGeneration;
     private int _pendingBrightnessGeneration = -1;
     private int _inputStartScheduled;
+    private bool? _transientGestureEnabled;
     private bool _disposed;
 
     internal TouchpadFeatureHost(App app)
@@ -167,22 +168,44 @@ internal sealed class TouchpadFeatureHost : IDisposable
 
     internal bool EffectiveGesturesEnabled => _gestures.Configuration.Enabled;
 
-    internal void UpdateConfiguration(TouchpadGestureConfiguration configuration)
+    internal void UpdateConfiguration(
+        TouchpadGestureConfiguration configuration,
+        bool releaseGestureModeOwnership = false)
     {
         TouchpadGestureConfiguration sanitized = configuration.Sanitize();
-        _app.Modes.ReleaseFacet(ThinkControlModeFacet.TouchpadGestures);
-        _app.UserSettings.Update(settings => settings with { TouchpadGestures = sanitized });
-        _gestures.UpdateConfiguration(sanitized);
-        if (sanitized.Enabled)
-            EnsureInputStarted();
-    }
 
-    internal void ApplyTransientGestureEnabled(bool enabled)
-    {
-        TouchpadGestureConfiguration runtime = (_gestures.Configuration with { Enabled = enabled }).Sanitize();
+        if (releaseGestureModeOwnership)
+        {
+            _transientGestureEnabled = null;
+            _app.Modes.ReleaseFacet(ThinkControlModeFacet.TouchpadGestures);
+        }
+
+        bool persistedEnabled = releaseGestureModeOwnership
+            ? sanitized.Enabled
+            : _app.UserSettings.Current.TouchpadGestures?.Enabled == true;
+        TouchpadGestureConfiguration persisted = (sanitized with { Enabled = persistedEnabled }).Sanitize();
+        _app.UserSettings.Update(settings => settings with { TouchpadGestures = persisted });
+
+        bool runtimeEnabled = _transientGestureEnabled ?? persisted.Enabled;
+        TouchpadGestureConfiguration runtime = (sanitized with { Enabled = runtimeEnabled }).Sanitize();
         _gestures.UpdateConfiguration(runtime);
         if (runtime.Enabled)
             EnsureInputStarted();
+        else
+            StopInputIfGesturesDisabled();
+    }
+
+    internal void ApplyTransientGestureEnabled(bool? enabled)
+    {
+        _transientGestureEnabled = enabled;
+        bool persistedEnabled = _app.UserSettings.Current.TouchpadGestures?.Enabled == true;
+        TouchpadGestureConfiguration runtime =
+            (_gestures.Configuration with { Enabled = enabled ?? persistedEnabled }).Sanitize();
+        _gestures.UpdateConfiguration(runtime);
+        if (runtime.Enabled)
+            EnsureInputStarted();
+        else
+            StopInputIfGesturesDisabled();
     }
 
     internal bool SetHapticEnabled(bool enabled) => _haptics.SetFeedbackEnabled(enabled);
