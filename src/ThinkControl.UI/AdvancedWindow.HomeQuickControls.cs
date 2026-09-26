@@ -281,7 +281,7 @@ public partial class AdvancedWindow
 
     private void RefreshHomeMode()
     {
-        if (HomeModeCombo is null || HomeModeName is null || HomeModeModifiedText is null)
+        if (HomeModeCombo is null || HomeModeModifiedText is null)
             return;
 
         IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
@@ -293,7 +293,6 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = active;
-            HomeModeName.Text = _app.Modes.ActiveModeName;
             HomeModeModifiedText.Visibility = _app.Modes.IsModified
                 ? Visibility.Visible
                 : Visibility.Collapsed;
@@ -316,7 +315,6 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = mode;
-            HomeModeName.Text = mode.Name;
             HomeModeModifiedText.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
         }
         finally
