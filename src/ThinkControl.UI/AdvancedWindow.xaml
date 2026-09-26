@@ -30,6 +30,9 @@
                             <RadioButton x:Name="NavHome" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Home" Checked="Nav_Checked" IsChecked="True">
                                 <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="House" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Home" /></StackPanel>
                             </RadioButton>
+                            <RadioButton x:Name="NavModes" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Modes" Checked="Nav_Checked">
+                                <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Tune" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Modes" /></StackPanel>
+                            </RadioButton>
                             <RadioButton x:Name="NavPerformance" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Performance" Checked="Nav_Checked">
                                 <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Gauge" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Performance" /></StackPanel>
                             </RadioButton>
@@ -71,6 +74,7 @@
                 <Grid Grid.Column="1" Margin="14">
                     <ScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
+                            <controls:AdvancedPageHeader Title="Overview" />
                             <Border Style="{StaticResource TcSection}" Padding="16,13" Height="124">
                                 <Grid>
                                     <Grid.ColumnDefinitions><ColumnDefinition Width="2.1*" /><ColumnDefinition Width="1" /><ColumnDefinition /><ColumnDefinition Width="1" /><ColumnDefinition /></Grid.ColumnDefinitions>
@@ -135,25 +139,30 @@
                                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,7,0,0" Height="190"><StackPanel><Grid><StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Keyboard" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Keyboard light" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel><TextBlock Text="{Binding KeyboardStatus}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /></Grid><TextBlock Text="Static levels or an idle-aware automatic mode." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,10" /><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="HomeKeyboardOff" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="Off" Tag="Off" Click="Keyboard_Click" Margin="0,0,3,0" Padding="5,7" /><RadioButton x:Name="HomeKeyboardLow" Grid.Column="1" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="Low" Tag="Low" Click="Keyboard_Click" Margin="1,0" Padding="5,7" /><RadioButton x:Name="HomeKeyboardHigh" Grid.Column="2" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="High" Tag="High" Click="Keyboard_Click" Margin="1,0" Padding="5,7" /><RadioButton x:Name="HomeKeyboardAuto" Grid.Column="3" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="Auto" Tag="Auto" Click="Keyboard_Click" Margin="3,0,0,0" Padding="5,7" /></Grid><Button Content="Effects &amp; behavior  ›" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Click="HomeOpenPage_Click" Tag="Keyboard" /></StackPanel></Border>
                             </Grid>
 
-                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0" Height="112">
+                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0" Height="88">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="1.25*" /></Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center" Margin="0,0,28,0">
-                                        <StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Audio" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Audio safety" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel>
-                                        <TextBlock Text="Gesture lock blocks ThinkControl touchpad audio/media gestures. Silent also keeps Windows output muted and ignores volume keys." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <StackPanel VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal">
+                                            <controls:PackIconLucide Kind="Tune" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" />
+                                            <TextBlock Text="Mode" FontWeight="SemiBold" Margin="8,0,0,0" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="23,5,0,0">
+                                            <TextBlock x:Name="HomeModeName" Text="{Binding ActiveModeName}" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                                            <TextBlock x:Name="HomeModeModifiedText" Text="Modified" Foreground="{DynamicResource Tc.Accent}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="10,0,0,0" Visibility="Collapsed" />
+                                        </StackPanel>
                                     </StackPanel>
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                                            <RadioButton x:Name="HomeAudioSafetyNormal" GroupName="HomeAudioSafetyMode" Style="{StaticResource TcSegment}" Content="Normal" Tag="Normal" Click="HomeAudioSafety_Click" Margin="0,0,4,0" />
-                                            <RadioButton x:Name="HomeAudioSafetyMediaLock" Grid.Column="1" GroupName="HomeAudioSafetyMode" Style="{StaticResource TcSegment}" Content="Gesture lock" Tag="MediaLock" Click="HomeAudioSafety_Click" Margin="2,0" />
-                                            <RadioButton x:Name="HomeAudioSafetySilent" Grid.Column="2" GroupName="HomeAudioSafetyMode" Style="{StaticResource TcSegment}" Content="Silent" Tag="Silent" Click="HomeAudioSafety_Click" Margin="4,0,0,0" />
-                                        </Grid>
-                                        <TextBlock x:Name="HomeAudioSafetyStatus" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" Width="210" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
+                                        <Button Content="Manage  ›" Style="{StaticResource TcInlineButton}" Margin="10,0,0,0" Click="HomeOpenPage_Click" Tag="Modes" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
                         </StackPanel>
+                    </ScrollViewer>
+
+                    <ScrollViewer x:Name="PageModes" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <controls:ModesPanel x:Name="ModesPanelControl" Margin="0" />
                     </ScrollViewer>
 
                     <ScrollViewer x:Name="PagePerformance" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
@@ -164,7 +173,12 @@
                         <controls:FansPanel x:Name="FansPanelControl" Margin="0" />
                     </ScrollViewer>
 
-                    <ScrollViewer x:Name="PageBattery" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="900" HorizontalAlignment="Left"><TextBlock Text="Battery" Style="{StaticResource TcText.PageTitle}" /><TextBlock Text="Battery power, energy, health and ETA are read from Windows/ACPI when available. Missing values stay unavailable instead of being invented." Style="{StaticResource TcText.PageSubtitle}" Margin="0,6,0,18" TextWrapping="Wrap" /><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><Border Style="{StaticResource TcSection}" Margin="0,0,7,0"><StackPanel><TextBlock Text="Charge" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryPercentText}" FontSize="{x:Static ui:TypographyScale.ValueHero}" FontWeight="Light" Margin="0,7,0,0" /><TextBlock Text="{Binding BatteryCompactLine}" Margin="0,5,0,0" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" /></StackPanel></Border><Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0"><StackPanel><TextBlock Text="Battery preservation" FontWeight="SemiBold" /><TextBlock Text="{Binding BatteryProtectionSummaryText}" FontSize="{x:Static ui:TypographyScale.Value}" Foreground="{DynamicResource Tc.Accent}" Margin="0,8,0,0" /><TextBlock Text="{Binding BatteryProtectionBehaviorText}" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,5,0,0" TextWrapping="Wrap" /><Button Content="Manage preservation  ↓" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Margin="0,10,0,0" Click="BatteryProtectionJump_Click" /></StackPanel></Border></Grid><controls:BatteryTelemetryPanel x:Name="BatteryTelemetryPanelControl" Margin="0,14,0,0" /></StackPanel></ScrollViewer>
+                    <ScrollViewer x:Name="PageBattery" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel>
+                            <controls:AdvancedPageHeader Title="Battery" Subtitle="Power, health, history and preservation." />
+                            <controls:BatteryTelemetryPanel x:Name="BatteryTelemetryPanelControl" />
+                        </StackPanel>
+                    </ScrollViewer>
 
                     <ScrollViewer x:Name="PageDisplay" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
