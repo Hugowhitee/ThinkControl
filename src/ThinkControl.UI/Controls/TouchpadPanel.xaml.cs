@@ -274,7 +274,7 @@ public partial class TouchpadPanel : UserControl
         if (_syncing || _host is null)
             return;
         _configuration = _configuration with { Enabled = GestureEnableSwitch.IsChecked == true };
-        _host.UpdateConfiguration(_configuration);
+        _host.UpdateConfiguration(_configuration, releaseGestureModeOwnership: true);
         if (_configuration.Enabled)
             _host.EnsureInputStarted();
         else if (!IsVisible)
