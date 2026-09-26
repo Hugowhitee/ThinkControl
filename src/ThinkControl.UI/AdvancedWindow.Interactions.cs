@@ -19,6 +19,7 @@ public partial class AdvancedWindow
         Resources[InteractionPolishKey] = true;
 
         AttachPageInteraction(NavHome, PageHome);
+        AttachPageInteraction(NavModes, PageModes);
         AttachPageInteraction(NavPerformance, PagePerformance);
         AttachPageInteraction(NavFans, PageFans);
         AttachPageInteraction(NavBattery, PageBattery);
