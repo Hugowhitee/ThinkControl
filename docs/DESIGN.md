@@ -71,6 +71,21 @@ Primary navigation:
 
 Detailed Sensors opens from System rather than becoming a second permanent navigation hierarchy.
 
+## Page headers and interface copy
+
+Every sibling Advanced destination uses `AdvancedPageHeader`. The shared primitive owns the title anchor, 38 px first-row geometry, optional supporting-text row and right-side action rail. Pages may supply zero, one or a small set of true page-level actions; ordinary feature state belongs in the body. Secondary actions consolidate behind an existing menu instead of wrapping the title rail at narrow widths.
+
+A missing subtitle is allowed. Do not invent prose to preserve vertical geometry.
+
+Visible copy describes the user's current choice, state, consequence or recovery path. It must not narrate requirements, implementation intent or UI construction. In particular:
+
+- do not repeat visible button labels in explanatory prose;
+- do not explain that a future dialog will contain specific buttons when the dialog itself is clear;
+- do not write design commentary such as “kept in one place”, “instead of separate cards” or “keeps the daily surface compact”;
+- keep provider/API/fallback detail out of permanent UI unless it materially changes safety, capability or troubleshooting.
+
+Home and Compact prefer controls plus live state over explanatory paragraphs. Deeper technical evidence belongs in Diagnostics or documentation.
+
 ## Responsive layout
 
 Every Advanced page uses the same left anchor/readable maximum width and must survive the documented minimum, normal and wide snapshots without horizontal escape or clipped labels.
