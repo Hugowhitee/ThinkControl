@@ -38,6 +38,23 @@ public sealed class BatteryEtaTargetSourceTests
     }
 
     [Fact]
+    public void FullBatteryTelemetry_DoesNotKeepASeparateToFullSemantic()
+    {
+        string service = Read("src", "ThinkControl.UI", "Services", "BatteryTelemetryService.cs");
+        string app = Read("src", "ThinkControl.UI", "App.xaml.cs");
+
+        Assert.Contains("EstimatedTimeToChargeTarget", service, StringComparison.Ordinal);
+        Assert.Contains("public BatteryTelemetrySnapshot Read(int chargeTargetPercent)", service, StringComparison.Ordinal);
+        Assert.Contains("_cachedChargeTargetPercent == targetPercent", service, StringComparison.Ordinal);
+        Assert.Contains("targetWh = raw.FullChargeCapacityWh.Value * targetPercent / 100d", service, StringComparison.Ordinal);
+        Assert.Contains("raw.Percent is int percent && percent >= targetPercent", service, StringComparison.Ordinal);
+        Assert.DoesNotContain("EstimatedTimeToFull", service, StringComparison.Ordinal);
+
+        Assert.Contains("BatteryTelemetryService.Read(ResolveBatteryChargeTargetPercent())", app, StringComparison.Ordinal);
+        Assert.Contains("battery.EstimatedTimeToChargeTarget", app, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void AllPrimaryBatterySurfaces_UseOneSharedEtaText()
     {
         string compact = Read("src", "ThinkControl.UI", "Controls", "CompactDashboard.Metrics.cs");
