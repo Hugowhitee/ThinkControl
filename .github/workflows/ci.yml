@@ -51,7 +51,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
 
           $advancedPages = @(
-            'home', 'performance', 'fans', 'display', 'audio',
+            'home', 'modes', 'performance', 'fans', 'display', 'audio',
             'keyboard', 'battery', 'touchpad', 'system', 'updates', 'settings'
           )
           $expectedPng = @(
@@ -84,7 +84,12 @@ jobs:
             $expectedPng += "advanced-$page.png"
             $expectedPng += "advanced-$page-min.png"
             $expectedPng += "advanced-$page-wide.png"
+            $expectedPng += "advanced-$page-light.png"
+            $expectedPng += "advanced-$page-min-light.png"
+            $expectedPng += "advanced-$page-wide-light.png"
           }
+          $expectedPng += 'advanced-modes-editor.png'
+          $expectedPng += 'advanced-modes-editor-light.png'
 
           foreach ($name in $expectedPng) {
             $path = Join-Path $output $name
