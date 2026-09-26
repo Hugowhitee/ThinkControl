@@ -147,7 +147,8 @@ public partial class App : System.Windows.Application
         try
         {
             SystemStatusSnapshot system = await Task.Run(SystemStatusService.Read);
-            BatteryTelemetrySnapshot battery = await Task.Run(BatteryTelemetryService.Read);
+            BatteryTelemetrySnapshot battery = await Task.Run(
+                () => BatteryTelemetryService.Read(ResolveBatteryChargeTargetPercent()));
             _manufacturer = system.Manufacturer;
 
             State.BatteryPercent = battery.Percent ?? system.BatteryPercent;
@@ -175,7 +176,8 @@ public partial class App : System.Windows.Application
                 battery.FullChargeCapacityWh,
                 battery.EstimatedTimeRemaining,
                 ResolveBatteryChargeTargetPercent()));
-            State.BatteryEtaToChargeTarget = initialEta.ToChargeTarget;
+            State.BatteryEtaToChargeTarget =
+                initialEta.ToChargeTarget ?? battery.EstimatedTimeToChargeTarget;
             State.BatteryEtaRemaining = initialEta.Remaining ?? battery.EstimatedTimeRemaining;
             State.BatterySource = battery.Source;
             ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
@@ -351,7 +353,8 @@ public partial class App : System.Windows.Application
     {
         State.RefreshAutoEnabled = true;
         UserSettings.Update(settings => settings with { RefreshAuto = true });
-        BatteryTelemetrySnapshot battery = BatteryTelemetryService.Read();
+        BatteryTelemetrySnapshot battery =
+            BatteryTelemetryService.Read(ResolveBatteryChargeTargetPercent());
         ApplyRefreshAuto(onBattery: !battery.OnAc);
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
