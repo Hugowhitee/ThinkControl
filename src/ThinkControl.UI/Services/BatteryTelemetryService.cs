@@ -14,7 +14,8 @@ public sealed record BatteryTelemetrySnapshot(
     double? DesignCapacityWh,
     double? HealthPercent,
     double? TemperatureC,
-    TimeSpan? EstimatedTimeToFull,
+    TimeSpan? EstimatedTimeToChargeTarget,
+    int ChargeTargetPercent,
     TimeSpan? EstimatedTimeRemaining,
     string Source);
 
@@ -54,7 +55,9 @@ public sealed class BatteryTelemetryService
     private double? _historicalChargePowerWatts;
     private bool _lastCharging;
     private bool _lastDischarging;
+    private int _lastChargeTargetPercent = 100;
     private BatteryTelemetrySnapshot? _cachedSnapshot;
+    private int _cachedChargeTargetPercent = 100;
     private DateTimeOffset _cachedSnapshotAt = DateTimeOffset.MinValue;
 
     private DateTimeOffset _lastStaticInfoRead = DateTimeOffset.MinValue;
@@ -75,13 +78,21 @@ public sealed class BatteryTelemetryService
         }
     }
 
-    public BatteryTelemetrySnapshot Read()
+    public BatteryTelemetrySnapshot Read() => Read(100);
+
+    public BatteryTelemetrySnapshot Read(int chargeTargetPercent)
     {
+        int targetPercent = Math.Clamp(chargeTargetPercent, 1, 100);
+
         lock (_gate)
         {
             DateTimeOffset requestedAt = DateTimeOffset.UtcNow;
-            if (_cachedSnapshot is not null && requestedAt - _cachedSnapshotAt < HotSampleInterval)
+            if (_cachedSnapshot is not null &&
+                _cachedChargeTargetPercent == targetPercent &&
+                requestedAt - _cachedSnapshotAt < HotSampleInterval)
+            {
                 return _cachedSnapshot;
+            }
 
             // BatteryStatus is a real root\wmi query. Sampling it multiple times per
             // second (or once from every page-local timer) can consume measurable
@@ -89,10 +100,13 @@ public sealed class BatteryTelemetryService
             // much faster than battery percentage can meaningfully change.
             RawBattery raw = ReadRaw();
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            double? etaToFull = null;
+            double? etaToChargeTarget = null;
             double? etaRemaining = null;
 
-            bool modeChanged = raw.Charging != _lastCharging || raw.Discharging != _lastDischarging;
+            bool targetChanged = raw.Charging && targetPercent != _lastChargeTargetPercent;
+            bool modeChanged = raw.Charging != _lastCharging ||
+                               raw.Discharging != _lastDischarging ||
+                               targetChanged;
             if (modeChanged)
             {
                 ResetSmoothing();
@@ -106,6 +120,7 @@ public sealed class BatteryTelemetryService
 
             _lastCharging = raw.Charging;
             _lastDischarging = raw.Discharging;
+            _lastChargeTargetPercent = targetPercent;
 
             RecordChargeObservation(raw, now);
 
@@ -127,8 +142,9 @@ public sealed class BatteryTelemetryService
                 double? rawEtaSeconds = null;
                 if (raw.Charging && raw.FullChargeCapacityWh is > 0 && raw.RemainingCapacityWh is >= 0)
                 {
-                    double energyNeededWh = Math.Max(0, raw.FullChargeCapacityWh.Value - raw.RemainingCapacityWh.Value);
-                    if (energyNeededWh <= 0.2 || raw.Percent is >= 100)
+                    double targetWh = raw.FullChargeCapacityWh.Value * targetPercent / 100d;
+                    double energyNeededWh = Math.Max(0, targetWh - raw.RemainingCapacityWh.Value);
+                    if (energyNeededWh <= 0.2 || raw.Percent is int percent && percent >= targetPercent)
                     {
                         rawEtaSeconds = 0;
                     }
@@ -163,7 +179,7 @@ public sealed class BatteryTelemetryService
                         : bounded;
 
                     if (raw.Charging)
-                        etaToFull = _smoothedEtaSeconds;
+                        etaToChargeTarget = _smoothedEtaSeconds;
                     else if (raw.Discharging)
                         etaRemaining = _smoothedEtaSeconds;
                 }
@@ -187,9 +203,11 @@ public sealed class BatteryTelemetryService
                 raw.DesignCapacityWh,
                 raw.HealthPercent,
                 raw.TemperatureC,
-                etaToFull.HasValue ? TimeSpan.FromSeconds(etaToFull.Value) : null,
+                etaToChargeTarget.HasValue ? TimeSpan.FromSeconds(etaToChargeTarget.Value) : null,
+                targetPercent,
                 etaRemaining.HasValue ? TimeSpan.FromSeconds(etaRemaining.Value) : null,
                 raw.Source);
+            _cachedChargeTargetPercent = targetPercent;
             _cachedSnapshotAt = now;
             return _cachedSnapshot;
         }
