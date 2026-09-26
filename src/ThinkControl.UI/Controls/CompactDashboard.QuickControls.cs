@@ -26,7 +26,7 @@ public partial class CompactDashboard
             CompactFanCombo.ItemsSource = BuildFanOptions();
             CompactRefreshCombo.ItemsSource = BuildRefreshOptions();
             CompactKeyboardCombo.ItemsSource = new[] { "Off", "Low", "High", "Auto" };
-            CompactAudioSafetyCombo.ItemsSource = new[] { "Normal", "Gesture lock", "Silent" };
+            CompactModeCombo.ItemsSource = _app.Modes.GetModes();
         }
         finally
         {
@@ -35,6 +35,9 @@ public partial class CompactDashboard
     }
 
     private void AudioSafety_ModeChanged(AudioSafetyMode mode) =>
+        Dispatcher.BeginInvoke(new Action(RefreshCompactVolume));
+
+    private void Modes_Changed() =>
         Dispatcher.BeginInvoke(new Action(SyncQuickControls));
 
     private IReadOnlyList<string> BuildFanOptions()
@@ -96,7 +99,10 @@ public partial class CompactDashboard
                 : _app.State.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase) ? "High"
                 : null;
 
-            CompactAudioSafetyCombo.SelectedItem = CompactAudioSafetyLabel(_app.AudioSafety.Mode);
+            IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
+            CompactModeCombo.ItemsSource = modes;
+            CompactModeCombo.SelectedItem = modes.FirstOrDefault(mode =>
+                mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -105,9 +111,6 @@ public partial class CompactDashboard
 
         RefreshCompactVolume();
     }
-
-    private static string CompactAudioSafetyLabel(AudioSafetyMode mode) =>
-        AudioSafetyPolicy.DisplayName(mode);
 
     private static string DisplayFanName(string? raw) => raw?.Trim() switch
     {
@@ -124,12 +127,21 @@ public partial class CompactDashboard
     internal void PrepareAudioSafetyForSnapshot(AudioSafetyMode mode)
     {
         EnsureQuickControls();
+        string id = mode switch
+        {
+            AudioSafetyMode.MediaLock => ThinkControlModeCatalog.GestureLockId,
+            AudioSafetyMode.Silent => ThinkControlModeCatalog.SilentId,
+            _ => ThinkControlModeCatalog.NormalId
+        };
+
         _syncingQuickControls = true;
         try
         {
-            CompactAudioSafetyCombo.SelectedItem = CompactAudioSafetyLabel(mode);
-            bool silent = mode == AudioSafetyMode.Silent;
-            if (silent)
+            IReadOnlyList<ThinkControlModeDefinition> modes = _app?.Modes.GetModes() ?? ThinkControlModeCatalog.BuiltIns;
+            CompactModeCombo.ItemsSource = modes;
+            CompactModeCombo.SelectedItem = modes.FirstOrDefault(item =>
+                item.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
+            if (mode == AudioSafetyMode.Silent)
             {
                 CompactVolumeSlider.IsEnabled = false;
                 CompactVolumeText.Text = "Silent";
@@ -189,26 +201,23 @@ public partial class CompactDashboard
         }
     }
 
-    private async void CompactAudioSafety_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    private async void CompactMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncingQuickControls || _app is null || CompactAudioSafetyCombo.SelectedItem is not string raw)
-            return;
-
-        AudioSafetyMode mode = raw switch
+        if (_syncingQuickControls || _app is null ||
+            CompactModeCombo.SelectedItem is not ThinkControlModeDefinition mode ||
+            mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase))
         {
-            _ when raw.Contains("Media lock", StringComparison.OrdinalIgnoreCase) => AudioSafetyMode.MediaLock,
-            _ when raw.Contains("Silent", StringComparison.OrdinalIgnoreCase) => AudioSafetyMode.Silent,
-            _ => AudioSafetyMode.Normal
-        };
+            return;
+        }
 
-        CompactAudioSafetyCombo.IsEnabled = false;
+        CompactModeCombo.IsEnabled = false;
         try
         {
-            await _app.SetAudioSafetyModeAsync(mode);
+            await _app.Modes.ActivateAsync(mode.Id);
         }
         finally
         {
-            CompactAudioSafetyCombo.IsEnabled = true;
+            CompactModeCombo.IsEnabled = true;
             SyncQuickControls();
         }
     }
