@@ -242,12 +242,27 @@ public sealed class AppState : INotifyPropertyChanged
 
             bool pluggedIn = BatteryStatus.Contains("Plugged in", StringComparison.OrdinalIgnoreCase) ||
                              BatteryStatus.Contains("Fully charged", StringComparison.OrdinalIgnoreCase);
-            if (pluggedIn &&
-                BatteryProtectionEnabled == true &&
-                BatteryProtectionStopPercent is int stop &&
-                BatteryPercent >= stop - 2)
+            if (pluggedIn)
             {
-                return $"Charge limit {stop}%";
+                if (BatteryProtectionEnabled == true &&
+                    BatteryProtectionStopPercent is int stop)
+                {
+                    if (BatteryPercent >= stop - 2)
+                        return $"Charge limit {stop}%";
+
+                    if (BatteryProtectionStartPercent is int start &&
+                        BatteryPercent >= start)
+                    {
+                        return $"Charge hold, resumes below {start}%";
+                    }
+
+                    return "Waiting to charge";
+                }
+
+                if (BatteryPercent >= 99)
+                    return "Fully charged";
+
+                return "Plugged in";
             }
 
             return "Estimating…";
