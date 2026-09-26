@@ -116,7 +116,7 @@ public partial class AdvancedWindow
         });
         var detail = new WpfTextBlock
         {
-            Text = "Restore app preferences and supported controls to their defaults. Battery history, diagnostics consent and Windows-owned brightness settings are kept.",
+            Text = "Restore ThinkControl settings and remove custom modes. Battery history and diagnostics consent are kept.",
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
@@ -163,9 +163,8 @@ public partial class AdvancedWindow
     private async Task ResetAllDefaultsAsync()
     {
         System.Windows.MessageBoxResult answer = System.Windows.MessageBox.Show(
-            "Reset all ThinkControl preferences to their defaults?\n\n" +
-            "This restores Balanced performance, Lenovo Auto fans, Auto refresh, keyboard defaults, touchpad gesture defaults, Windows haptic defaults, Dynamic + Balanced Dolby processing, System theme and disables Start with Windows. " +
-            "Display brightness, adaptive brightness, diagnostics consent and battery history are kept because they are not portable ThinkControl defaults.",
+            "Reset ThinkControl settings and custom modes?\n\n" +
+            "Battery history, diagnostics consent and Windows brightness settings are kept.",
             "ThinkControl · Reset all",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question);
