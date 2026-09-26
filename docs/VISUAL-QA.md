@@ -27,6 +27,21 @@ The snapshot renderer covers:
 
 Snapshot telemetry is deterministic fixture data. It proves rendering/state composition only and must never be described as physical hardware evidence.
 
+## Advanced page matrix
+
+Every Advanced destination is rendered at all three canonical viewports in both themes:
+
+- minimum: 980×650;
+- normal: 1160×760;
+- wide: 1720×980;
+- dark and light for each size.
+
+The matrix includes Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. CI requires every expected PNG to exist and be non-trivial before uploading the gallery.
+
+Modes also has dedicated editor snapshots in dark and light. Special-state snapshots remain additive; they do not replace the baseline matrix.
+
+Header review checks the actual pixels, not only XAML: title baseline, right action rail, subtitle spacing and body start must stay visually stable while navigating between sibling pages. Minimum-width review is authoritative for action-rail crowding; wide review is authoritative for bounded content rails.
+
 ## Review contract
 
 Generating PNG files is not enough. Material UI work requires visual inspection of the Actions `ThinkControl-Visual-QA` artifact.
