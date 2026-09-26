@@ -73,7 +73,9 @@ internal static class ThinkControlModeCatalog
 
             ThinkControlModeDefinition? sanitized = SanitizeCustomMode(mode);
             if (sanitized is null ||
-                result.Any(existing => existing.Id.Equals(sanitized.Id, StringComparison.OrdinalIgnoreCase)))
+                result.Any(existing =>
+                    existing.Id.Equals(sanitized.Id, StringComparison.OrdinalIgnoreCase) ||
+                    existing.Name.Equals(sanitized.Name, StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
