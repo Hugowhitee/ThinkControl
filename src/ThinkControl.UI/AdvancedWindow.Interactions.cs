@@ -89,7 +89,7 @@ public partial class AdvancedWindow
         TextBlock? description = stack.Children.OfType<TextBlock>().Skip(1).FirstOrDefault();
         if (description is not null)
         {
-            description.Text = "ThinkControl checks GitHub Releases automatically. Installing is one click: the setup and payload are downloaded and SHA-256 verified before Windows asks for administrator permission.";
+            description.Text = "Updates stay manual.";
         }
 
         WpfButton? checkButton = FindVisualChildren<WpfButton>(PageUpdates)
@@ -125,7 +125,7 @@ public partial class AdvancedWindow
         copy.Children.Add(new TextBlock { Text = "Automatic update checks", FontWeight = FontWeights.SemiBold });
         var detail = new TextBlock
         {
-            Text = "Check shortly after startup and again on activation or resume only when the last attempt is at least four hours old. A newer release appears as an Install now / Later prompt and remains available in Notifications and Updates. ThinkControl never installs or opens an administrator prompt on its own.",
+            Text = "Checks periodically. Installation stays manual.",
             FontSize = TypographyScale.Caption,
             Margin = new Thickness(0, 4, 80, 0),
             TextWrapping = TextWrapping.Wrap
