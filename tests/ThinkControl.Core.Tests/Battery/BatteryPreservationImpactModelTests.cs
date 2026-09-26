@@ -60,13 +60,13 @@ public sealed class BatteryPreservationImpactModelTests
     public void TypicalWindowCopy_IsCalculatedFromPresetThresholds()
     {
         Assert.Equal(
-            "Typical 75→85% recharge: ~0.05 wear cycles (estimate).",
+            "Typical 75→85% recharge: ~0.05× of the 0→100% reference.",
             BatteryPreservationImpactModel.DescribeWearContext(75, 85));
         Assert.Equal(
-            "Typical 55→80% recharge: ~0.02 wear cycles (estimate).",
+            "Typical 55→80% recharge: ~0.02× of the 0→100% reference.",
             BatteryPreservationImpactModel.DescribeWearContext(55, 80));
         Assert.Equal(
-            "Typical 40→60% recharge: ~0.02 wear cycles (estimate).",
+            "Typical 40→60% recharge: ~0.02× of the 0→100% reference.",
             BatteryPreservationImpactModel.DescribeWearContext(40, 60));
         Assert.Contains("Comparative estimate", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
     }
