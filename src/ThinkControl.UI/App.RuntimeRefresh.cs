@@ -139,8 +139,9 @@ public partial class App
                 battery.PowerWatts,
                 State.BatteryRemainingWh,
                 State.BatteryFullWh,
-                battery.EstimatedRemaining));
-            State.BatteryEtaToFull = eta.ToFull;
+                battery.EstimatedRemaining,
+                ResolveBatteryChargeTargetPercent()));
+            State.BatteryEtaToChargeTarget = eta.ToChargeTarget;
             State.BatteryEtaRemaining = eta.Remaining;
             State.BatterySource = battery.Source;
             ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
@@ -177,6 +178,11 @@ public partial class App
         if (_runtimeStatusTimer.Interval != desired)
             _runtimeStatusTimer.Interval = desired;
     }
+
+    private int ResolveBatteryChargeTargetPercent() =>
+        State.BatteryProtectionEnabled == true && State.BatteryProtectionStopPercent is int stop
+            ? Math.Clamp(stop, 1, 100)
+            : 100;
 
     private bool ShouldRefreshHardwareRuntime() =>
         CompactWindow?.IsVisible == true || _advancedWindow?.IsVisible == true;
