@@ -23,9 +23,9 @@
   </a>
 </div>
 
-## ThinkControl alpha.52
+## ThinkControl alpha.53
 
-Alpha.52 is a feedback-driven interaction and hardware-safety candidate on immutable alpha.51. It keeps the reviewed Lenovo firmware cooling path intact while tightening battery, audio, Touchpad, Sensors and fan-test interactions around one clear state owner.
+Alpha.53 is the Modes and shared-layout candidate on immutable alpha.52. It adds sparse session Modes, a dedicated Modes surface and one shared Advanced page-header contract without broadening low-level hardware write capability.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
