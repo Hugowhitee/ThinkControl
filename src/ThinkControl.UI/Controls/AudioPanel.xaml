@@ -3,9 +3,10 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <StackPanel>
-        <Grid>
-            <TextBlock Text="Audio" Style="{StaticResource TcText.PageTitle}" />
-            <Button Content="Defaults" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="{x:Static ui:TypographyScale.Caption}" Click="Reset_Click" ToolTip="Restore Dolby Dynamic using the supported control path for this driver" />
+        <Grid MinHeight="38">
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Audio" Style="{StaticResource TcText.PageTitle}" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Defaults" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Padding="10,4" FontSize="{x:Static ui:TypographyScale.Caption}" Click="Reset_Click" ToolTip="Restore Dolby Dynamic using the supported control path for this driver" />
         </Grid>
         <TextBlock Text="Windows output volume and Lenovo's installed Dolby processing in one place. ThinkControl uses verified direct DAX controls where available and the official Dolby Access controls as an on-demand fallback."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
