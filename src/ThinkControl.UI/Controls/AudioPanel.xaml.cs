@@ -1,7 +1,6 @@
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using System.Windows.Threading;
 using NAudio.CoreAudioApi;
 using ThinkControl.UI.Services;
@@ -453,7 +452,7 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
-    private void VolumeSlider_KeyDown(object sender, KeyEventArgs e)
+    private void VolumeSlider_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (!IsSliderAdjustmentKey(e.Key))
             return;
@@ -464,7 +463,7 @@ public partial class AudioPanel : UserControl
         _volumeDragging = true;
     }
 
-    private void VolumeSlider_KeyUp(object sender, KeyEventArgs e)
+    private void VolumeSlider_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
@@ -572,7 +571,7 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
-    private void MicrophoneSlider_KeyDown(object sender, KeyEventArgs e)
+    private void MicrophoneSlider_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (!IsSliderAdjustmentKey(e.Key))
             return;
@@ -583,7 +582,7 @@ public partial class AudioPanel : UserControl
         _microphoneDragging = true;
     }
 
-    private void MicrophoneSlider_KeyUp(object sender, KeyEventArgs e)
+    private void MicrophoneSlider_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
             return;
@@ -595,8 +594,11 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
-    private static bool IsSliderAdjustmentKey(Key key) =>
-        key is Key.Left or Key.Right or Key.Up or Key.Down or Key.Home or Key.End or Key.PageUp or Key.PageDown;
+    private static bool IsSliderAdjustmentKey(System.Windows.Input.Key key) =>
+        key is System.Windows.Input.Key.Left or System.Windows.Input.Key.Right or
+        System.Windows.Input.Key.Up or System.Windows.Input.Key.Down or
+        System.Windows.Input.Key.Home or System.Windows.Input.Key.End or
+        System.Windows.Input.Key.PageUp or System.Windows.Input.Key.PageDown;
 
     private static DispatcherTimer CreateAutomationCommitTimer(Action commit)
     {
