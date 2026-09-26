@@ -107,7 +107,7 @@ public partial class AdvancedWindow
 
         header.Tag = PageHeaderTag;
         header.Margin = new Thickness(0, 0, 0, 18);
-        actions.VerticalAlignment = VerticalAlignment.Top;
+        actions.VerticalAlignment = VerticalAlignment.Center;
 
         WpfStackPanel? copy = header.Children
             .OfType<WpfStackPanel>()
