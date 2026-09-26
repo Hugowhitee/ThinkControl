@@ -32,7 +32,8 @@ public sealed class BatteryEtaTargetSourceTests
         Assert.Contains("$\"Almost at {target}%\"", state, StringComparison.Ordinal);
         Assert.Contains("$\"Charge limit {stop}%\"", state, StringComparison.Ordinal);
         Assert.Contains("$\"Charge hold, resumes below {start}%\"", state, StringComparison.Ordinal);
-        Assert.Contains("Plugged-in idle/hold state wins over any stale Windows/native", state, StringComparison.Ordinal);
+        Assert.Contains("bool pluggedIn = BatteryStatus.Contains(\"Plugged in\"", state, StringComparison.Ordinal);
+        Assert.Contains("if (pluggedIn)", state, StringComparison.Ordinal);
         Assert.Contains("\"Fully charged\"", state, StringComparison.Ordinal);
         Assert.Contains("\"~{FormatDuration(toTarget)} to full\"", state, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryEtaToFull", state, StringComparison.Ordinal);
