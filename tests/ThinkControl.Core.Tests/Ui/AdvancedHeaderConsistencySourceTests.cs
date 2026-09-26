@@ -5,43 +5,82 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class AdvancedHeaderConsistencySourceTests
 {
     [Fact]
-    public void AdvancedPageHeaders_ShareOneTitleActionRail()
-    {
-        string consistency = Read("src", "ThinkControl.UI", "AdvancedWindow.UiConsistency.cs");
-        string resets = Read("src", "ThinkControl.UI", "AdvancedWindow.ResetDefaults.cs");
-        string battery = Read("src", "ThinkControl.UI", "AdvancedWindow.Battery.cs");
-        string performance = Read("src", "ThinkControl.UI", "Controls", "PerformancePanel.xaml");
-        string audio = Read("src", "ThinkControl.UI", "Controls", "AudioPanel.xaml");
-        string touchpad = Read("src", "ThinkControl.UI", "Controls", "TouchpadPanel.xaml");
-        string fans = Read("src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs");
-
-        Assert.Contains("PageHeaderMinHeight = 38", consistency, StringComparison.Ordinal);
-
-        Assert.Contains("MinHeight=\"38\"", performance, StringComparison.Ordinal);
-        Assert.Contains("MinHeight=\"38\"", audio, StringComparison.Ordinal);
-        Assert.Contains("MinHeight=\"38\"", touchpad, StringComparison.Ordinal);
-        Assert.Contains("Grid.Column=\"1\" Content=\"Defaults\"", audio, StringComparison.Ordinal);
-
-        Assert.Contains("MinHeight = PageHeaderMinHeight", battery, StringComparison.Ordinal);
-        Assert.Contains("MinHeight = PageHeaderMinHeight", resets, StringComparison.Ordinal);
-        Assert.Contains("VerticalAlignment = VerticalAlignment.Center", resets, StringComparison.Ordinal);
-        Assert.DoesNotContain("actions.VerticalAlignment = VerticalAlignment.Top", resets, StringComparison.Ordinal);
-
-        Assert.Contains("MinHeight = AdvancedWindow.PageHeaderMinHeight", fans, StringComparison.Ordinal);
-        Assert.Contains("Grid.SetColumn(reset, 1)", fans, StringComparison.Ordinal);
-
-        // Touchpad is the page with a persistent switch in its header. Keep the
-        // subtitle below the shared title/action row so the switch does not drift
-        // vertically when switching between pages.
-        Assert.Contains("Grid.Row=\"1\" Grid.ColumnSpan=\"2\"", touchpad, StringComparison.Ordinal);
-        Assert.Contains("Orientation=\"Horizontal\" VerticalAlignment=\"Center\" MinHeight=\"38\"", touchpad, StringComparison.Ordinal);
-    }
-
-    private static string Read(params string[] path)
+    public void AdvancedPages_UseOneSharedHeaderPrimitive()
     {
         string root = FindRepositoryRoot();
-        return File.ReadAllText(Path.Combine([root, .. path]));
+        string headerXaml = Read(root, "src", "ThinkControl.UI", "Controls", "AdvancedPageHeader.xaml");
+        string headerCode = Read(root, "src", "ThinkControl.UI", "Controls", "AdvancedPageHeader.xaml.cs");
+        string shell = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml");
+        string consistency = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.UiConsistency.cs");
+        string resets = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.ResetDefaults.cs");
+        string windowsLinks = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.WindowsSettingsLinks.cs");
+
+        Assert.Contains("MinHeight=\"38\"", headerXaml, StringComparison.Ordinal);
+        Assert.Contains("TcText.PageTitle", headerXaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"{Binding Actions", headerXaml, StringComparison.Ordinal);
+        Assert.Contains("Grid.Row=\"1\"", headerXaml, StringComparison.Ordinal);
+        Assert.Contains("UpdateSubtitleVisibility", headerCode, StringComparison.Ordinal);
+
+        foreach (string title in new[]
+                 {
+                     "Overview", "Battery", "Display", "Keyboard",
+                     "System", "Updates", "Settings"
+                 })
+        {
+            Assert.Contains($"<controls:AdvancedPageHeader Title=\"{title}\"", shell, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("x:Name=\"PageModes\"", shell, StringComparison.Ordinal);
+        Assert.Contains("<controls:ModesPanel x:Name=\"ModesPanelControl\"", shell, StringComparison.Ordinal);
+        Assert.Contains("\"PageModes\"", consistency, StringComparison.Ordinal);
+        Assert.Contains("PageHeaderMinHeight = 38", consistency, StringComparison.Ordinal);
+
+        foreach (string panel in new[]
+                 {
+                     "ModesPanel.xaml", "PerformancePanel.xaml", "FansPanel.xaml",
+                     "AudioPanel.xaml", "TouchpadPanel.xaml"
+                 })
+        {
+            string source = Read(root, "src", "ThinkControl.UI", "Controls", panel);
+            Assert.Contains("AdvancedPageHeader", source, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("OfType<AdvancedPageHeader>()", resets, StringComparison.Ordinal);
+        Assert.Contains("OfType<AdvancedPageHeader>()", windowsLinks, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Battery.cs")));
+
+        Assert.DoesNotContain(
+            "<TextBlock Text=\"Battery\" Style=\"{StaticResource TcText.PageTitle}\"",
+            shell,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain(
+            "<TextBlock Text=\"Display\" Style=\"{StaticResource TcText.PageTitle}\"",
+            shell,
+            StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void FullVisualMatrix_CoversEveryAdvancedPageInBothThemes()
+    {
+        string root = FindRepositoryRoot();
+        string snapshots = Read(root, "tools", "ThinkControl.Snapshots", "Program.cs");
+        string workflow = Read(root, ".github", "workflows", "ci.yml");
+
+        Assert.Contains("\"Home\", \"Modes\", \"Performance\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-light.png\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-min-light.png\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-wide-light.png\"", snapshots, StringComparison.Ordinal);
+
+        Assert.Contains("'modes'", workflow, StringComparison.Ordinal);
+        Assert.Contains("\"advanced-$page-light.png\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("\"advanced-$page-min-light.png\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("\"advanced-$page-wide-light.png\"", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-modes-editor.png", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-modes-editor-light.png", workflow, StringComparison.Ordinal);
+    }
+
+    private static string Read(string root, params string[] path) =>
+        File.ReadAllText(Path.Combine([root, .. path]));
 
     private static string FindRepositoryRoot()
     {
