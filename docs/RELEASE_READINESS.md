@@ -60,13 +60,12 @@ Scope:
 - stop advertising the physically inferior exact-X9 discrete-EC path as a direct writer while retaining read/Auto-recovery cleanup and the reviewed firmware Auto / Quiet / Balanced / Max path;
 - add source regressions for the new interaction contracts.
 
-Temporary verification constraint — confirmed by the account owner on 2026-09-24:
+GitHub Actions budget context — updated 2026-09-26:
 
-- the GitHub Actions included-minute budget is exhausted for the next few days / until the billing reset;
-- **do not manually start, rerun or repeatedly poll hosted workflows while this constraint is active**;
-- continue with repository/static review and real-device/manual evidence where available;
-- mark hosted CI, Package and generated visual-QA evidence as **DEFERRED / UNVERIFIED because of the temporary budget constraint**, not as a product failure;
-- after capacity resets, run the normal exact-head CI + Package + WPF visual-QA gates before merge/promotion; absence of hosted evidence during the budget window is never permission to lower the release bar.
+- the account's included Actions minutes for **private** repositories are temporarily exhausted for the next few days / until the billing reset;
+- ThinkControl itself is a **public repository** and uses standard GitHub-hosted runners (`windows-latest` / `ubuntu-latest`), which GitHub documents as free and unlimited for public repositories;
+- therefore the normal ThinkControl CI, Package and release-verification gates may run; this public-repository exception must not be generalized to Hugo's private repositories while the account quota is exhausted;
+- do not add redundant reruns or polling loops: one exact-head run per meaningful gate/checkpoint remains the normal policy.
 
 Current gate:
 
@@ -77,14 +76,14 @@ Current gate:
 - [x] preservation ETA is state-aware: charge-to-cap only while charging, paused/hysteresis copy on AC, normal remaining-runtime ETA while unplugged
 - [x] disabled Lenovo preservation retains the verified stored start/stop pair separately from the enabled flag, so re-enabling can restore the previous window
 - [x] targeted static source-regression audit caught and repaired stale Battery/X9 assertions after the refactor; no hosted result is inferred from that audit
-- [x] PR #100 is Draft and follow-up commits use `[skip ci]` while the Actions-minute constraint is active
+- [x] private-repository Actions quota remains constrained, but ThinkControl's public standard-runner gates are eligible to run without consuming that private-minute allowance
 - [ ] real-device check: Audio output/microphone slider feel and endpoint convergence
 - [ ] real-device check: preservation switch, stop-target ETA and physical threshold behavior
 - [ ] real-device check: built-in Auto / Quiet / Balanced / Max behavior remains correct after direct-EC capability removal
-- [ ] exact-head Release build + Core/source tests — **DEFERRED / UNVERIFIED: GitHub Actions budget**
-- [ ] Compact ↔ Advanced ShellSmoke — **DEFERRED / UNVERIFIED: GitHub Actions budget**
-- [ ] deterministic dark/light WPF visual matrix manual review — **DEFERRED / UNVERIFIED: GitHub Actions budget**
-- [ ] Package ThinkControl / installer / service / updater compatibility — **DEFERRED / UNVERIFIED: GitHub Actions budget**
+- [ ] exact-head Release build + Core/source tests
+- [ ] Compact ↔ Advanced ShellSmoke
+- [ ] deterministic dark/light WPF visual matrix manual review
+- [ ] Package ThinkControl / installer / service / updater compatibility
 - [ ] freeze `releaseReady=true`, expected-head merge and immutable alpha.52 promotion only after all required gates pass
 
 ## Alpha.51 published release — Compact dropdown dismiss state
