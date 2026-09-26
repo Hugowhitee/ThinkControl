@@ -74,34 +74,11 @@ public partial class AdvancedWindow
         }
     }
 
-    private Grid BuildHomeHeader()
+    private AdvancedPageHeader BuildHomeHeader() => new()
     {
-        var header = new Grid
-        {
-            Tag = HomeSupportCardTag,
-            Margin = new Thickness(2, 0, 2, 12)
-        };
-        header.ColumnDefinitions.Add(new ColumnDefinition());
-
-        var title = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        title.Children.Add(new TextBlock
-        {
-            Text = "Overview",
-            FontWeight = FontWeights.SemiBold,
-            FontSize = TypographyScale.PageTitle
-        });
-        TextBlock subtitle = new()
-        {
-            Text = "Live machine state and the controls you use most",
-            FontSize = TypographyScale.Body,
-            Margin = new Thickness(0, 4, 0, 0)
-        };
-        subtitle.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        title.Children.Add(subtitle);
-        header.Children.Add(title);
-
-        return header;
-    }
+        Tag = HomeSupportCardTag,
+        Title = "Overview"
+    };
 
     private Grid BuildHomeTelemetryStrip()
     {

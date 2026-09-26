@@ -10,52 +10,21 @@ public partial class AdvancedWindow
 
     private void ConfigureBatteryPage()
     {
-        if (_batteryPageConfigured || PageBattery is null)
+        if (_batteryPageConfigured || PageBattery?.Content is not StackPanel content)
             return;
 
         _batteryPageConfigured = true;
-        var content = new StackPanel();
 
-        // Battery uses the same page-header contract as the other Advanced pages:
-        // title on the left, page actions on the right, then subtitle/help text.
-        // Tag the canonical header so WindowsSettingsLinks augments this row instead
-        // of accidentally promoting the subtitle into a second synthetic header.
-        var header = new Grid { Tag = BatteryHeaderTag, MinHeight = PageHeaderMinHeight };
-        header.ColumnDefinitions.Add(new ColumnDefinition());
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-        header.Children.Add(new TextBlock
+        // Keep the XAML-owned telemetry instance so every code/snapshot reference
+        // points at the element that is actually rendered. Only the page shell is
+        // normalized here.
+        content.Children.Clear();
+        content.Children.Add(new AdvancedPageHeader
         {
-            Text = "Battery",
-            FontSize = TypographyScale.PageTitle,
-            FontWeight = FontWeights.SemiBold,
-            VerticalAlignment = VerticalAlignment.Center
+            Title = "Battery",
+            Subtitle = "Power, health, history and preservation."
         });
-
-        var actions = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Button windowsPower = CreateWindowsLink(
-            "Screen & sleep ↗",
-            "ms-settings:powersleep",
-            "ThinkControl.Battery.PowerSettings");
-        actions.Children.Add(windowsPower);
-        Grid.SetColumn(actions, 1);
-        header.Children.Add(actions);
-        content.Children.Add(header);
-
-        var subtitle = new TextBlock
-        {
-            Text = "Live Windows/ACPI battery data plus local charging history and Windows-owned power controls.",
-            FontSize = TypographyScale.Body,
-            Margin = new Thickness(0, 7, 0, 18),
-            TextWrapping = TextWrapping.Wrap
-        };
-        subtitle.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        content.Children.Add(subtitle);
-        content.Children.Add(new BatteryTelemetryPanel());
-        PageBattery.Content = content;
+        content.Children.Add(BatteryTelemetryPanelControl);
     }
+
 }

@@ -1,5 +1,7 @@
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.Core.Touchpad;
@@ -225,6 +227,46 @@ public partial class TouchpadPanel : UserControl
         {
             _syncing = false;
         }
+    }
+
+    private void TouchpadMore_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null)
+            return;
+
+        var menu = new ContextMenu
+        {
+            PlacementTarget = TouchpadMoreButton,
+            Placement = PlacementMode.Bottom
+        };
+
+        var defaults = new MenuItem { Header = "Defaults" };
+        defaults.Click += async (_, _) =>
+        {
+            _app.ResetTouchpadDefaults();
+            await _app.RefreshStatusAsync();
+            Initialize(_app);
+        };
+        menu.Items.Add(defaults);
+
+        var windows = new MenuItem { Header = "Windows touchpad settings" };
+        windows.Click += (_, _) =>
+        {
+            try
+            {
+                Process.Start(new ProcessStartInfo("ms-settings:devices-touchpad")
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+            }
+        };
+        menu.Items.Add(windows);
+
+        TouchpadMoreButton.ContextMenu = menu;
+        menu.IsOpen = true;
     }
 
     private void GestureEnable_Click(object sender, RoutedEventArgs e)
