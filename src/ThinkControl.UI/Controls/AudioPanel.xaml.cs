@@ -55,6 +55,9 @@ public partial class AudioPanel : UserControl
         _volumeAutomationCommitTimer = CreateAutomationCommitTimer(ApplyVolumeSlider);
         _microphoneAutomationCommitTimer = CreateAutomationCommitTimer(ApplyMicrophoneSlider);
 
+        VolumeSlider.LostKeyboardFocus += VolumeSlider_LostKeyboardFocus;
+        MicrophoneSlider.LostKeyboardFocus += MicrophoneSlider_LostKeyboardFocus;
+
         Loaded += (_, _) => UpdateLivePolling(refreshNow: true);
         IsVisibleChanged += (_, e) => UpdateLivePolling(refreshNow: e.NewValue is true);
         Unloaded += (_, _) =>
@@ -475,6 +478,18 @@ public partial class AudioPanel : UserControl
         QueueVolumeRefresh(applyCacheFirst: false);
     }
 
+    private void VolumeSlider_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (_snapshotMode || !_volumeDragging || VolumeSlider.IsMouseCaptureWithin)
+            return;
+
+        _volumeAutomationCommitTimer.Stop();
+        ApplyVolumeSlider(_volumeInteractionStartPercent);
+        _volumeDragging = false;
+        _volumeInteractionStartPercent = null;
+        QueueVolumeRefresh(applyCacheFirst: false);
+    }
+
     private void ApplyVolumeSlider() => ApplyVolumeSlider(interactionStartPercent: null);
 
     private void ApplyVolumeSlider(int? interactionStartPercent)
@@ -585,6 +600,18 @@ public partial class AudioPanel : UserControl
     private void MicrophoneSlider_KeyUp(object sender, System.Windows.Input.KeyEventArgs e)
     {
         if (_snapshotMode || !IsSliderAdjustmentKey(e.Key))
+            return;
+
+        _microphoneAutomationCommitTimer.Stop();
+        ApplyMicrophoneSlider(_microphoneInteractionStartPercent);
+        _microphoneDragging = false;
+        _microphoneInteractionStartPercent = null;
+        QueueVolumeRefresh(applyCacheFirst: false);
+    }
+
+    private void MicrophoneSlider_LostKeyboardFocus(object sender, System.Windows.Input.KeyboardFocusChangedEventArgs e)
+    {
+        if (_snapshotMode || !_microphoneDragging || MicrophoneSlider.IsMouseCaptureWithin)
             return;
 
         _microphoneAutomationCommitTimer.Stop();
