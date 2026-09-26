@@ -146,12 +146,12 @@ public sealed class AppState : INotifyPropertyChanged
     public bool CanSensorTelemetry { get => _canSensorTelemetry; set => Set(ref _canSensorTelemetry, value); }
 
     public string KeyboardEffectsSupportText => CanKeyboardEffects
-        ? "Experimental effects are available through the active direct provider. Writes remain deduplicated and rate-limited."
+        ? "Effects available."
         : CanKeyboardBacklight && ExperimentalKeyboardEffectsEnabled
-            ? $"Experimental fallback enabled for this session through {KeyboardBackend}. ThinkControl suppresses Lenovo's backlight OSD around automatic effect writes when tposd is present; the provider may still ignore or smooth some rapid changes."
+            ? "Experimental fallback active for this session."
             : CanKeyboardBacklight
-                ? $"Static backlight control is available through {KeyboardBackend}. Effects can be enabled experimentally for this session after acknowledging the fallback warning."
-                : "The active hardware provider does not currently expose keyboard effects.";
+                ? "Static backlight available. Experimental effects are optional."
+                : "Effects unavailable.";
 
     public string AppVersion => $"v{UpdateService.CurrentVersion}";
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
