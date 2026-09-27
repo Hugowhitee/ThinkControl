@@ -494,7 +494,7 @@ public partial class FansPanel : UserControl
         FanMappingDetailText.Text = !canControl
             ? "Firmware Auto keeps fan ownership. Native telemetry can still be shown when available, but profiles and temporary tests stay unavailable until a supported cooling backend is active."
             : firmwarePolicy
-                ? "Built-in profiles stay functional through Lenovo firmware: Quiet → Quiet policy, Balanced → Balanced policy, and Max cooling → Performance cooling policy. The alpha.38 fixed target-RPM writer remains read-only because its physical fan behavior failed validation; custom curves and manual percentages stay unavailable until a direct writer passes that gate."
+                ? "Quiet, Balanced and Max use the Lenovo cooling policy."
                 : oemTargetRpm
                     ? "Built-in and custom curves send continuous 0–100% targets through the active provider's target-RPM contract. Each fan is mapped independently across the minimum and maximum RPM range reported by that provider."
                     : discreteEcWriter

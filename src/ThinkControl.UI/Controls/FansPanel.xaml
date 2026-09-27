@@ -63,7 +63,7 @@
 
     <StackPanel>
         <controls:AdvancedPageHeader Title="Fans"
-                                     Subtitle="Cooling is independent from Performance.">
+                                     Subtitle="">
             <controls:AdvancedPageHeader.Actions>
                 <Button Content="Defaults"
                         Style="{StaticResource TcButton}"

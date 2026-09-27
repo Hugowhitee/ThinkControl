@@ -219,6 +219,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("ManualControlExpander.Visibility = directWriter", ui, StringComparison.Ordinal);
         Assert.Contains("bool firmwarePolicy = canControl", ui, StringComparison.Ordinal);
         Assert.Contains("Lenovo firmware", ui, StringComparison.Ordinal);
+        Assert.Contains("Quiet, Balanced and Max use the Lenovo cooling policy.", ui, StringComparison.Ordinal);
+        Assert.DoesNotContain("alpha.38", ui, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Temporary 30-second test", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
