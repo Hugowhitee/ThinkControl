@@ -236,6 +236,21 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
+    public void VisualQa_ShowsFirmwarePolicyControlsWhenDirectProviderIsUnavailable()
+    {
+        string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
+        string workflow = ReadSource(".github", "workflows", "ci.yml");
+
+        Assert.Contains("firmwareFanRecovery.CanFanControl = true", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.CanFanTelemetry = false", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery.png", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery-light.png", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery.png", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery-light.png", workflow, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VisualQa_ExercisesOemProviderWithoutIssuingHardwareRequestsOrReplacingBalancedFixture()
     {
         string snapshot = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.ManualTestSnapshot.cs");
