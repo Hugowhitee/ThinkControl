@@ -155,6 +155,13 @@ public partial class ModesPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center
         };
 
+        bool applying = _app is not null &&
+                        _app.Modes.IsTransitioning &&
+                        _app.Modes.TransitionModeId?.Equals(mode.Id, StringComparison.OrdinalIgnoreCase) == true;
+        bool active = _app is not null &&
+                      !applying &&
+                      _app.Modes.ActiveModeId.Equals(mode.Id, StringComparison.OrdinalIgnoreCase);
+
         if (editable)
         {
             var edit = new Button
@@ -165,13 +172,25 @@ public partial class ModesPanel : UserControl
                 Padding = new Thickness(7, 4, 7, 4),
                 Margin = new Thickness(0, 0, 7, 0)
             };
+            edit.IsEnabled = !applying;
             edit.Click += Edit_Click;
             actions.Children.Add(edit);
         }
 
-        bool active = _app is not null &&
-                      _app.Modes.ActiveModeId.Equals(mode.Id, StringComparison.OrdinalIgnoreCase);
-        if (active)
+        if (applying)
+        {
+            var applyingText = new TextBlock
+            {
+                Text = "Applying…",
+                FontSize = TypographyScale.Caption,
+                FontWeight = FontWeights.SemiBold,
+                VerticalAlignment = VerticalAlignment.Center,
+                Margin = new Thickness(6, 0, 4, 0)
+            };
+            applyingText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
+            actions.Children.Add(applyingText);
+        }
+        else if (active)
         {
             var activeText = new TextBlock
             {
@@ -194,6 +213,7 @@ public partial class ModesPanel : UserControl
                 Padding = new Thickness(9, 4, 9, 4),
                 FontSize = TypographyScale.Caption
             };
+            activate.IsEnabled = _app?.Modes.IsTransitioning != true;
             activate.Click += Activate_Click;
             actions.Children.Add(activate);
         }
@@ -315,9 +335,7 @@ public partial class ModesPanel : UserControl
                 _editingKeyboardLight));
         }
 
-        EditorEmptyText.Visibility = EditorControls.Children.Count == 0
-            ? Visibility.Visible
-            : Visibility.Collapsed;
+        EditorEmptyText.Visibility = Visibility.Collapsed;
         AddControlButton.IsEnabled = EditorControls.Children.Count < 3;
     }
 
@@ -591,8 +609,10 @@ public partial class ModesPanel : UserControl
         if (_app is null || EditorView.Visibility == Visibility.Visible)
             return;
 
-        bool modified = _app.Modes.IsModified;
-        _modifiedLabel.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
+        bool transitioning = _app.Modes.IsTransitioning;
+        bool modified = _app.Modes.IsModified && !transitioning;
+        _modifiedLabel.Text = transitioning ? $"Applying {_app.Modes.VisibleModeName}…" : "Modified";
+        _modifiedLabel.Visibility = transitioning || modified ? Visibility.Visible : Visibility.Collapsed;
         _reapplyButton.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
     }
 
