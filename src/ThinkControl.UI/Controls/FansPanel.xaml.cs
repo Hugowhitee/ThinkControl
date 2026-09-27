@@ -150,7 +150,7 @@ public partial class FansPanel : UserControl
 
         CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
             ? UsesFirmwarePolicy
-                ? "Choose Auto, Quiet, Balanced or Max cooling. Lenovo firmware owns the fan loop."
+                ? "Choose Auto, Quiet, Balanced or Max cooling. ThinkControl selects the Lenovo cooling policy; firmware handles the fan loop."
                 : "Choose a fan profile or open the curve editor."
             : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
 
