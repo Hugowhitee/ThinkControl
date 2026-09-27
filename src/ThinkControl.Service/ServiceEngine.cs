@@ -377,8 +377,10 @@ internal sealed class ServiceEngine : IDisposable
         return status;
     }
 
-    private static ServiceResponse ProviderDiscoveryResponse(string detail)
+    private ServiceResponse ProviderDiscoveryResponse(string detail)
     {
+        LenovoCoolingPolicySnapshot firmwareCooling = _coolingPolicy.Snapshot();
+        bool firmwareControl = firmwareCooling.Supported;
         var telemetry = new TelemetrySnapshot(
             null, "Detecting", null, "Detecting",
             "Lenovo managed · provider discovery in progress",
@@ -386,12 +388,23 @@ internal sealed class ServiceEngine : IDisposable
             "Detecting…",
             Fans: Array.Empty<FanTelemetrySnapshot>(),
             Sensors: Array.Empty<HardwareSensorSnapshot>(),
-            CoolingStatus: "Lenovo firmware owns fan control while providers are detected");
+            CoolingProfile: firmwareCooling.Profile,
+            CoolingStatus: firmwareControl
+                ? "ThinkControl cooling profiles remain available while other hardware providers are detected"
+                : "Firmware/OEM cooling remains active while providers are detected",
+            CoolingProfileId: firmwareCooling.ProfileId);
         return new ServiceResponse(
             ThinkControlProtocol.Version,
             true,
             Telemetry: telemetry,
-            Capabilities: new HardwareCapabilitySnapshot(false, false, false, false, false, 0, FanControlKinds.None));
+            Capabilities: new HardwareCapabilitySnapshot(
+                false,
+                firmwareControl,
+                false,
+                false,
+                false,
+                0,
+                firmwareControl ? FanControlKinds.FirmwarePolicy : FanControlKinds.None));
     }
 
     private ServiceResponse SetFanLevel(string? raw)
@@ -429,10 +442,11 @@ internal sealed class ServiceEngine : IDisposable
             return RefreshAndReturnStatus();
         }
 
-        // With no live firmware override, preserve the wider explicit-Auto recovery:
-        // verify/release any direct/stale provider state first, then clear any verified
-        // stale full-speed bit that may have survived an earlier service instance.
-        if (!_fanSupervisor.ReturnToAuto(out string? fanError))
+        // With no live firmware override, touch the direct provider only when this
+        // service actually owns direct output. Firmware-policy Auto remains usable
+        // even when telemetry/direct-provider discovery is unavailable.
+        CoolingSupervisorSnapshot directState = _fanSupervisor.Snapshot();
+        if (ThinkControlOwnsFan(directState) && !_fanSupervisor.ReturnToAuto(out string? fanError))
             return Error(fanError ?? "Lenovo Auto rejected.");
         if (!_coolingPolicy.RequestFirmwareAuto(out string? fallbackPolicyError))
             return Error(fallbackPolicyError ?? "Lenovo firmware cooling profile could not return to Auto.");
@@ -449,16 +463,17 @@ internal sealed class ServiceEngine : IDisposable
             return ReturnFanToAuto();
         }
 
-        LenovoHardwareStatus status = _hardware.ReadStatus();
-        if (_coolingPolicy.Supported && !status.CanFanControl && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
+        if (_coolingPolicy.Supported && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
         {
-            if (!_fanSupervisor.ReturnToAuto(out string? handoffError))
+            CoolingSupervisorSnapshot direct = _fanSupervisor.Snapshot();
+            if (ThinkControlOwnsFan(direct) && !_fanSupervisor.ReturnToAuto(out string? handoffError))
                 return Error(handoffError ?? "Could not return direct fan ownership to Lenovo Auto before applying the firmware profile.");
             return _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError)
                 ? RefreshAndReturnStatus()
                 : Error(policyError ?? "Lenovo firmware cooling profile rejected the request.");
         }
 
+        LenovoHardwareStatus status = _hardware.ReadStatus();
         if (_coolingPolicy.Snapshot().OverrideActive && !_coolingPolicy.ClearProfileOverride(out string? clearError))
             return Error(clearError ?? "The active Lenovo firmware cooling override could not be cleared before direct fan control.");
 
@@ -478,9 +493,10 @@ internal sealed class ServiceEngine : IDisposable
         if (definition is null)
             return Error("Fan curve is missing.");
 
-        LenovoHardwareStatus status = _hardware.ReadStatus();
-        if (_coolingPolicy.Supported && !status.CanFanControl && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(definition.Id))
+        if (_coolingPolicy.Supported && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(definition.Id))
             return SetCoolingProfile(definition.Name);
+
+        LenovoHardwareStatus status = _hardware.ReadStatus();
         if (_coolingPolicy.Supported && !status.CanFanControl)
             return Error("Custom fan curves require a physically accepted direct fan writer. Built-in Quiet, Balanced and Max cooling remain available through Lenovo firmware policy.");
 
