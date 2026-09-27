@@ -24,6 +24,11 @@ internal sealed class ThinkControlModeCoordinator
     internal string ActiveModeId { get; private set; } = ThinkControlModeCatalog.NormalId;
     internal string ActiveModeName { get; private set; } = "Normal";
     internal bool IsModified { get; private set; }
+    internal string? TransitionModeId { get; private set; }
+    internal string? TransitionModeName { get; private set; }
+    internal bool IsTransitioning => TransitionModeId is not null;
+    internal string VisibleModeId => TransitionModeId ?? ActiveModeId;
+    internal string VisibleModeName => TransitionModeName ?? ActiveModeName;
 
     internal IReadOnlyList<ThinkControlModeDefinition> GetModes()
     {
@@ -56,6 +61,10 @@ internal sealed class ThinkControlModeCoordinator
 
             HashSet<ThinkControlModeFacet> targetFacets =
                 [.. ThinkControlModeCatalog.Facets(target)];
+
+            TransitionModeId = target.Id;
+            TransitionModeName = target.Name;
+            Publish();
 
             _applying = true;
             try
@@ -109,6 +118,8 @@ internal sealed class ThinkControlModeCoordinator
                 ActiveModeId = target.Id;
                 ActiveModeName = target.Name;
                 IsModified = false;
+                TransitionModeId = null;
+                TransitionModeName = null;
                 Publish();
                 return true;
             }
@@ -299,6 +310,8 @@ internal sealed class ThinkControlModeCoordinator
         ActiveModeId = id;
         ActiveModeName = name;
         IsModified = modified;
+        TransitionModeId = null;
+        TransitionModeName = null;
         Publish();
     }
 
