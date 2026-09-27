@@ -102,7 +102,7 @@ public partial class CompactDashboard
             IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
             CompactModeCombo.ItemsSource = modes;
             CompactModeCombo.SelectedItem = modes.FirstOrDefault(mode =>
-                mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase));
+                mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase));
         }
         finally
         {
@@ -205,7 +205,7 @@ public partial class CompactDashboard
     {
         if (_syncingQuickControls || _app is null ||
             CompactModeCombo.SelectedItem is not ThinkControlModeDefinition mode ||
-            mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase))
+            mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }

@@ -63,7 +63,7 @@
 
     <StackPanel>
         <controls:AdvancedPageHeader Title="Fans"
-                                     Subtitle="Cooling is independent from Performance.">
+                                     Subtitle="">
             <controls:AdvancedPageHeader.Actions>
                 <Button Content="Defaults"
                         Style="{StaticResource TcButton}"
@@ -110,7 +110,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,18,0">
                     <TextBlock Text="Fan profile" FontWeight="SemiBold" />
-                    <TextBlock x:Name="CoolingDetailText" Text="Firmware owns fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
+                    <TextBlock x:Name="CoolingDetailText" Text="Lenovo Auto cooling" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
                     <TextBlock x:Name="FanMappingDetailText" Text="Built-in and custom curves use the active verified fan provider. Provider-specific output details appear after hardware detection." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">

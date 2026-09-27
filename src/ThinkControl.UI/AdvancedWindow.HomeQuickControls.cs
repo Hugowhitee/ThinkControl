@@ -286,14 +286,15 @@ public partial class AdvancedWindow
 
         IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
         ThinkControlModeDefinition? active = modes.FirstOrDefault(mode =>
-            mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase));
+            mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase));
 
         _syncing = true;
         try
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = active;
-            HomeModeModifiedText.Visibility = _app.Modes.IsModified
+            HomeModeModifiedText.Text = _app.Modes.IsTransitioning ? "Applying…" : "Modified";
+            HomeModeModifiedText.Visibility = _app.Modes.IsTransitioning || _app.Modes.IsModified
                 ? Visibility.Visible
                 : Visibility.Collapsed;
         }
@@ -327,7 +328,7 @@ public partial class AdvancedWindow
     {
         if (_syncing || _homeModeBusy ||
             HomeModeCombo.SelectedItem is not ThinkControlModeDefinition mode ||
-            mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase))
+            mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase))
         {
             return;
         }

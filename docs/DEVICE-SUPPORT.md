@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model for the **v0.1.0-alpha.53** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.52` remains the current published prerelease; alpha.53 changes session orchestration and interface structure without broadening low-level hardware write capability.
+This document describes the support model for the **v0.1.0-alpha.54** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.53` remains the current published prerelease; alpha.54 keeps the verified X9 firmware-policy controls available through direct-provider discovery failures without reauthorizing rejected direct fan writes.
 
 ## Support levels
 

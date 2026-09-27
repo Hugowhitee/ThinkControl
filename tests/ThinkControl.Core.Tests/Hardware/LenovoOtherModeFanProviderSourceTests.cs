@@ -181,8 +181,10 @@ public sealed class LenovoOtherModeFanProviderSourceTests
 
         Assert.Contains("FanControlKinds.FirmwarePolicy", service, StringComparison.Ordinal);
         Assert.Contains("status.CanFanControl || firmwareProfileControl", service, StringComparison.Ordinal);
-        Assert.Contains("!status.CanFanControl && LenovoCoolingPolicyCoordinator.IsBuiltInProfile", service, StringComparison.Ordinal);
-        Assert.Contains("_fanSupervisor.ReturnToAuto", service, StringComparison.Ordinal);
+        Assert.Contains("_coolingPolicy.Supported && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized)", service, StringComparison.Ordinal);
+        Assert.Contains("ThinkControlOwnsFan(direct) && !_fanSupervisor.ReturnToAuto", service, StringComparison.Ordinal);
+        Assert.Contains("firmwareControl ? FanControlKinds.FirmwarePolicy : FanControlKinds.None", service, StringComparison.Ordinal);
+        Assert.Contains("ThinkControl cooling profiles remain available while other hardware providers are detected", service, StringComparison.Ordinal);
         Assert.Contains("_coolingPolicy.SetBuiltInProfile", service, StringComparison.Ordinal);
         Assert.Contains("_coolingPolicy.SetBasePowerMode", service, StringComparison.Ordinal);
 
@@ -217,6 +219,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("ManualControlExpander.Visibility = directWriter", ui, StringComparison.Ordinal);
         Assert.Contains("bool firmwarePolicy = canControl", ui, StringComparison.Ordinal);
         Assert.Contains("Lenovo firmware", ui, StringComparison.Ordinal);
+        Assert.Contains("Quiet, Balanced and Max use the Lenovo cooling policy.", ui, StringComparison.Ordinal);
+        Assert.DoesNotContain("alpha.38", ui, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Temporary 30-second test", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
@@ -231,6 +235,21 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("_manualFanApplyButton.Content = _manualFanTestActive ? \"End test\" : \"Start test\"", manualSafety, StringComparison.Ordinal);
         Assert.Contains("FanControlKinds.OemTargetRpm", editor, StringComparison.Ordinal);
         Assert.Contains("Lenovo OEM target-RPM", editor, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void VisualQa_ShowsFirmwarePolicyControlsWhenDirectProviderIsUnavailable()
+    {
+        string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
+        string workflow = ReadSource(".github", "workflows", "ci.yml");
+
+        Assert.Contains("firmwareFanRecovery.CanFanControl = true", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.CanFanTelemetry = false", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery.png", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery-light.png", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery.png", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-firmware-policy-recovery-light.png", workflow, StringComparison.Ordinal);
     }
 
     [Fact]

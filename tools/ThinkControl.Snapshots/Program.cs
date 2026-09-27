@@ -69,6 +69,15 @@ internal static class Program
         homeManualFan.FanControlKind = FanControlKinds.DiscreteEc;
         AppState homeFanAuto = CreateDemoState(charging: true, hardwareReady: true);
         homeFanAuto.CoolingProfile = "Lenovo Auto";
+        AppState firmwareFanRecovery = CreateDemoState(charging: true, hardwareReady: false);
+        firmwareFanRecovery.MachineType = "21Q6";
+        firmwareFanRecovery.CanFanControl = true;
+        firmwareFanRecovery.CanFanTelemetry = false;
+        firmwareFanRecovery.CanSensorTelemetry = false;
+        firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy;
+        firmwareFanRecovery.CoolingProfile = "Lenovo Auto";
+        firmwareFanRecovery.DriverStatus = "Hardware service online · direct fan provider unavailable";
+        firmwareFanRecovery.HardwareAccess = "Lenovo firmware cooling policy available";
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
         pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
         pawnIoRepair.HardwareAccess =
@@ -158,6 +167,8 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
+        RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
+            "advanced-fans-firmware-policy-recovery.png", "direct provider unavailable · firmware profiles available");
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker");
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
@@ -223,6 +234,8 @@ internal static class Program
             "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
         RenderAdvanced(app, charging, "Modes", 1160, 760, output, snapshots,
             "advanced-modes-editor-light.png", "custom mode editor · light", modeEditor: true);
+        RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
+            "advanced-fans-firmware-policy-recovery-light.png", "direct provider unavailable · firmware profiles available · light");
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention-light.png", "PawnIO + provider attention · light");

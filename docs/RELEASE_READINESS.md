@@ -6,17 +6,19 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.52`
-- immutable tag/release SHA: `52380cbd0b3d508976f63420a4bd19bfa302650b`
-- published 2026-09-26 at 14:01:38 UTC as an immutable prerelease
+- `v0.1.0-alpha.53`
+- immutable tag/release SHA: `e7d59526fc303f0412a36992d70a43b584c5f58f`
+- published 2026-09-26 at 15:20:36 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:2bea5a63e58a79934c614bede2b01dad71db91862a827ba85079fef1065da996`
-  - Payload: `sha256:840520101a03898d1cd80c426eb2ed786db51804a33453e777aa985336818bf4`
-  - `SHA256SUMS.txt`: `sha256:c4e901df1cc59d615c5c3a3d2440b012d94a3254f5f889c583cd68b98283ed7c`
-  - `ui-overview.png`: `sha256:11539519a3a071d21e8b1feb6d267b6404606bfe53969992ca29c6e35eb64d99`
-- alpha.51 remains separately immutable at `46bd09bb8556966b49413f7d7115d581c1b4c107`
-- physical audio/battery/cooling checks remain a separate evidence class; the hosted release does not claim them
+  - Setup: `sha256:4b2c0aba5e80fd97bc9bd91987eb51343d12eb61c0608a736e42ef453cdc301f`
+  - Payload: `sha256:7d5be1a3e3a2dd8a256a5e6989410de1d39f6c74ccf06ea4c8aa278340721d4e`
+  - `SHA256SUMS.txt`: `sha256:537b79684d9199222a4abe06b0945d1b20c766d29b0731963d1a13d75e446e18`
+  - `ui-overview.png`: `sha256:a20c7390cd3431cd7be1606f883a817ec86a9309dd7d83c8ed3aa6720111b933`
+- promotion run `36251453044` verified the prerelease, checksums and exactly four managed public assets
+- complete immutable release run `36251461530`: success
+- branch hygiene run `36251453031`: success; repository returned to `main` only
+- physical audio/battery/cooling checks remain a separate evidence class; hosted release does not claim them
 
 Alpha.46 completion:
 
@@ -31,7 +33,50 @@ Alpha.46 completion:
 - promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
 - post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
 
-## Alpha.53 active candidate — Modes and shared Advanced layout
+## Alpha.54 active candidate — Mode feedback and firmware fan recovery
+
+Active implementation state:
+
+- branch: `alpha54-mode-fan-recovery`
+- source target: `v0.1.0-alpha.54`
+- immutable/public baseline: `v0.1.0-alpha.53`
+- canonical PR: **#104 — Prepare alpha.54 Mode feedback and firmware fan recovery**
+- candidate evidence head: `c2529ca856a1ad07ba0401b8b57cb8ab2c6c06fe`
+- candidate CI `36323404715` / #2183: success — hygiene, build, tests, Compact↔Advanced shell smoke and WPF visual QA
+- candidate Package ThinkControl `36323404729` / #1873: success — payload, installer, deep IPC reliability and oldest-supported upgrade compatibility
+- candidate visual artifact `10932848239`, digest `sha256:cd76459548282828ab9792da86b8b1690a79e1e7c05a593b3ee41102fc6fe0ec`
+- Modes editor inspected in dark/light; native menu gutter replaced by the shared app ContextMenu template
+- firmware-policy recovery inspected in dark/light: built-in profile selector remains enabled while direct curves remain unavailable without a direct writer
+- no open PR review threads/comments on the candidate head
+- `version.json.releaseReady=true`; this commit creates the frozen release candidate
+
+Scope:
+
+- remove the native WPF ContextMenu gutter that produced the white column in the custom-mode editor;
+- compact the custom-mode Name field and remove empty filler copy;
+- publish a pending Mode target immediately as `Applying…` while preserving confirmed Active state until all subsystem writes succeed;
+- keep Home and Compact selectors synchronized to the pending target instead of snapping back to the previous mode during slow transitions;
+- preserve verified X9 Auto / Quiet / Balanced / Max firmware-policy control when direct fan-provider discovery or telemetry is unavailable;
+- route built-in X9 cooling policies independently of the rejected direct fan writer;
+- keep custom curves/manual percentages gated behind a physically accepted direct writer.
+
+Current gate:
+
+- [x] alpha.54 isolated from immutable alpha.53
+- [x] shared ContextMenu template removes the Windows-native gutter
+- [x] Mode coordinator exposes pending/visible state before slow subsystem writes
+- [x] Home/Compact follow pending mode state
+- [x] firmware-policy fan capability remains advertised during provider discovery
+- [x] built-in cooling profiles no longer depend on a successful direct-provider status read
+- [x] rejected X9 direct writer remains blocked
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect Modes editor/list plus fan provider-unavailable screenshots in dark/light
+- [x] resolve review backlog on exact candidate head
+- [x] freeze `releaseReady=true`
+- [ ] frozen-head CI + Package
+- [ ] squash merge, immutable promotion and public asset verification
+
+## Alpha.53 published release — Modes and shared Advanced layout
 
 Active implementation state:
 

@@ -106,6 +106,30 @@ public sealed class ThinkControlModesSourceTests
     }
 
     [Fact]
+    public void ModeTransition_PublishesPendingTargetBeforeSlowSubsystemWrites()
+    {
+        string root = FindRepositoryRoot();
+        string coordinator = Read(root, "src", "ThinkControl.UI", "Services", "ThinkControlModeCoordinator.cs");
+        string modesPanel = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml.cs");
+        string home = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs");
+        string compact = Read(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs");
+        string selectionStyles = Read(root, "src", "ThinkControl.UI", "Resources", "SelectionStyles.xaml");
+        string modesXaml = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml");
+
+        int pending = coordinator.IndexOf("TransitionModeId = target.Id;", StringComparison.Ordinal);
+        int firstApply = coordinator.IndexOf("ApplyFacetAsync(target, facet)", StringComparison.Ordinal);
+        Assert.True(pending >= 0 && firstApply > pending);
+        Assert.Contains("internal string VisibleModeId => TransitionModeId ?? ActiveModeId", coordinator, StringComparison.Ordinal);
+        Assert.Contains("Text = \"Applying…\"", modesPanel, StringComparison.Ordinal);
+        Assert.Contains("_app.Modes.VisibleModeId", home, StringComparison.Ordinal);
+        Assert.Contains("_app.Modes.VisibleModeId", compact, StringComparison.Ordinal);
+        Assert.Contains("<ControlTemplate TargetType=\"{x:Type ContextMenu}\">", selectionStyles, StringComparison.Ordinal);
+        Assert.Contains("Width=\"460\"", modesXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"EditorEmptyText\"", modesXaml, StringComparison.Ordinal);
+        Assert.Contains("Visibility=\"Collapsed\"", modesXaml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void CustomModeNames_AreUniqueAndBuiltInNamesStayReserved()
     {
         string root = FindRepositoryRoot();
