@@ -87,6 +87,8 @@
                     <TextBlock Text="Name" FontWeight="SemiBold" />
                     <TextBox x:Name="ModeNameTextBox"
                              Style="{StaticResource ModeTextBox}"
+                             Width="460"
+                             HorizontalAlignment="Left"
                              MaxLength="32"
                              Margin="0,7,0,18" />
 
@@ -104,10 +106,8 @@
 
                     <StackPanel x:Name="EditorControls" Margin="0,8,0,0" />
                     <TextBlock x:Name="EditorEmptyText"
-                               Text="No controls yet."
-                               Foreground="{DynamicResource Tc.TextMuted}"
-                               FontSize="{x:Static ui:TypographyScale.Secondary}"
-                               Margin="0,8,0,0" />
+                               Text=""
+                               Visibility="Collapsed" />
                 </StackPanel>
             </Border>
 
