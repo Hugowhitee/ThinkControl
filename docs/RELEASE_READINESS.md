@@ -40,7 +40,15 @@ Active implementation state:
 - branch: `alpha54-mode-fan-recovery`
 - source target: `v0.1.0-alpha.54`
 - immutable/public baseline: `v0.1.0-alpha.53`
-- `version.json.releaseReady=false` until exact-head hosted and visual gates pass
+- canonical PR: **#104 — Prepare alpha.54 Mode feedback and firmware fan recovery**
+- candidate evidence head: `c2529ca856a1ad07ba0401b8b57cb8ab2c6c06fe`
+- candidate CI `36323404715` / #2183: success — hygiene, build, tests, Compact↔Advanced shell smoke and WPF visual QA
+- candidate Package ThinkControl `36323404729` / #1873: success — payload, installer, deep IPC reliability and oldest-supported upgrade compatibility
+- candidate visual artifact `10932848239`, digest `sha256:cd76459548282828ab9792da86b8b1690a79e1e7c05a593b3ee41102fc6fe0ec`
+- Modes editor inspected in dark/light; native menu gutter replaced by the shared app ContextMenu template
+- firmware-policy recovery inspected in dark/light: built-in profile selector remains enabled while direct curves remain unavailable without a direct writer
+- no open PR review threads/comments on the candidate head
+- `version.json.releaseReady=true`; this commit creates the frozen release candidate
 
 Scope:
 
@@ -61,10 +69,10 @@ Current gate:
 - [x] firmware-policy fan capability remains advertised during provider discovery
 - [x] built-in cooling profiles no longer depend on a successful direct-provider status read
 - [x] rejected X9 direct writer remains blocked
-- [ ] open canonical PR and run exact-head CI + Package
-- [ ] inspect Modes editor/list plus fan provider-unavailable screenshots in dark/light
-- [ ] resolve review backlog on exact candidate head
-- [ ] freeze `releaseReady=true`
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect Modes editor/list plus fan provider-unavailable screenshots in dark/light
+- [x] resolve review backlog on exact candidate head
+- [x] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
 
