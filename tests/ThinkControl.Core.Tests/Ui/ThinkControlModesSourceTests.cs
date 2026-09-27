@@ -125,7 +125,8 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("_app.Modes.VisibleModeId", compact, StringComparison.Ordinal);
         Assert.Contains("<ControlTemplate TargetType=\"{x:Type ContextMenu}\">", selectionStyles, StringComparison.Ordinal);
         Assert.Contains("Width=\"460\"", modesXaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"\"\n                               Visibility=\"Collapsed\"", modesXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"EditorEmptyText\"", modesXaml, StringComparison.Ordinal);
+        Assert.Contains("Visibility=\"Collapsed\"", modesXaml, StringComparison.Ordinal);
     }
 
     [Fact]
