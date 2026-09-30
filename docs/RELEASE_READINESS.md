@@ -6,34 +6,58 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.53`
-- immutable tag/release SHA: `e7d59526fc303f0412a36992d70a43b584c5f58f`
-- published 2026-09-26 at 15:20:36 UTC as an immutable prerelease
+- `v0.1.0-alpha.54`
+- immutable tag/release SHA: `7cfe5405b6c6ede73f61356ee653c29b94a86f09`
+- published 2026-09-27 at 13:51:59 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:4b2c0aba5e80fd97bc9bd91987eb51343d12eb61c0608a736e42ef453cdc301f`
-  - Payload: `sha256:7d5be1a3e3a2dd8a256a5e6989410de1d39f6c74ccf06ea4c8aa278340721d4e`
-  - `SHA256SUMS.txt`: `sha256:537b79684d9199222a4abe06b0945d1b20c766d29b0731963d1a13d75e446e18`
-  - `ui-overview.png`: `sha256:a20c7390cd3431cd7be1606f883a817ec86a9309dd7d83c8ed3aa6720111b933`
-- promotion run `36251453044` verified the prerelease, checksums and exactly four managed public assets
-- complete immutable release run `36251461530`: success
-- branch hygiene run `36251453031`: success; repository returned to `main` only
-- physical audio/battery/cooling checks remain a separate evidence class; hosted release does not claim them
+  - Setup: `sha256:65a335d0f719808289164c961ad1525f481ecbe54f4e0be0aa43829e0303a45f`
+  - Payload: `sha256:ece6eb2c3cf5522f3b0bee2174f93e1515a26c4cb0c73f44e62c8f8cedd307a6`
+  - `SHA256SUMS.txt`: `sha256:89efa5529f06334b526f7a090432e58009952f489b4b15c8d77e724ffaf47bae`
+  - `ui-overview.png`: `sha256:5110c16f16190ee11e39a53ce62dc04d4d1fcdd358018f9cb63aa5170b151d38`
+- physical X9 fan behavior remains a separate real-device evidence class; hosted CI verifies capability/rollback contracts, not audible/thermal reality
 
-Alpha.46 completion:
+## Alpha.55 active candidate — context Modes and X9 fan ownership
 
-- PR #90, **Prepare ThinkControl 0.1.0-alpha.46 shell regression repair**, merged with frozen head `1b3cd07722259ed05ca43942248c6d8c86df6fcf`
-- frozen-head CI run `35529489572`: success
-- frozen-head Package ThinkControl run `35529489569`: success
-- merge commit / immutable release tag target: `ccca29ed696d422b21f96589b972fbee5884b291`
-- post-merge main CI run `35529618038`: success
-- promotion/checksum verification run `35529618037`: success
-- complete immutable release run `35529626686`: success
-- branch hygiene run `35529620904`: success
-- promotion re-downloaded the four managed public assets and completed checksum verification before succeeding
-- post-merge visual-QA artifact `10610971981`, digest `sha256:fa474fe1f627d013de86fd0df7248e7ab8483a46006dc315037e10e03e77f50c`, rendered 87 deterministic screenshots
+Active implementation state:
 
-## Alpha.54 active candidate — Mode feedback and firmware fan recovery
+- branch: `alpha55-context-modes`
+- source target: `v0.1.0-alpha.55`
+- immutable/public baseline: `v0.1.0-alpha.54`
+- `version.json.releaseReady=false` until exact-head hosted and visual gates pass
+
+Scope:
+
+- replace visible Normal / Gesture lock / Silent built-ins with **No mode + user modes**;
+- allow sparse temporary ownership of Performance, Cooling, Refresh rate, Audio Safety, Touchpad gestures and non-experimental Keyboard light;
+- add optional automatic triggers for Wi-Fi, running app/process, power source, battery threshold and local schedule;
+- keep only one active mode; manual selection suppresses automation until context changes;
+- keep active mode/baselines session-only while definitions persist;
+- move Modes below the direct laptop-control pages in Advanced navigation;
+- keep verified-X9 Lenovo Auto / Quiet / Balanced / Max firmware profiles selectable through transient provider/capability misses;
+- retain direct custom curves/manual percentages behind the existing physically accepted writer gate;
+- retry transient LITSSvc policy-pipe acquisition within one bounded user action instead of immediately falling back to Auto.
+
+Current gate:
+
+- [x] alpha.55 isolated from immutable alpha.54
+- [x] expanded sparse Mode data model remains backward-compatible with alpha.54 custom definitions
+- [x] transient Performance / Cooling / Refresh ownership paths implemented without rewriting ordinary preferences
+- [x] user-session trigger engine implemented outside the privileged service
+- [x] manual-wins-until-context-change conflict rule implemented
+- [x] Modes editor redesigned around Settings + Turn on automatically
+- [x] Modes moved below Touchpad in Advanced navigation
+- [x] verified-X9 firmware profile fallback added to Home / Compact / Fans / cooling orchestration
+- [x] bounded Lenovo LITSSvc reacquire/retry added without reauthorizing rejected direct fan writers
+- [ ] open canonical PR and run exact-head CI + Package
+- [ ] inspect Modes list/editor/trigger states and verified-X9 fan fallback in dark/light
+- [ ] resolve review backlog on exact candidate head
+- [ ] freeze `releaseReady=true`
+- [ ] frozen-head CI + Package
+- [ ] squash merge, immutable promotion and public asset verification
+- [ ] real X9 smoke: Quiet / Balanced / Max profile changes physically change behavior and do not snap back to Auto
+
+## Alpha.54 published release — Mode feedback and firmware fan recovery
 
 Active implementation state:
 
