@@ -45,18 +45,8 @@
         <StackPanel x:Name="ListView">
             <Border Style="{StaticResource TcSection}" Padding="0">
                 <StackPanel>
-                    <TextBlock Text="Built in"
-                               FontSize="{x:Static ui:TypographyScale.SectionTitle}"
-                               FontWeight="SemiBold"
-                               Margin="14,12,14,7" />
-                    <StackPanel x:Name="BuiltInRows" />
-                </StackPanel>
-            </Border>
-
-            <Border Style="{StaticResource TcSection}" Padding="0" Margin="0,14,0,0">
-                <StackPanel>
                     <Grid Margin="14,11,12,7">
-                        <TextBlock Text="Custom"
+                        <TextBlock Text="My modes"
                                    FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
@@ -66,14 +56,16 @@
                                 HorizontalAlignment="Right"
                                 Click="NewMode_Click" />
                     </Grid>
-                    <StackPanel x:Name="CustomRows" />
-                    <TextBlock x:Name="EmptyCustomText"
-                               Text="No custom modes."
+                    <StackPanel x:Name="ModeRows" />
+                    <TextBlock x:Name="EmptyModesText"
+                               Text="Create a mode for the settings you change together."
                                Foreground="{DynamicResource Tc.TextMuted}"
                                FontSize="{x:Static ui:TypographyScale.Secondary}"
-                               Margin="14,8,14,13" />
+                               Margin="14,9,14,13"
+                               Visibility="Collapsed" />
                 </StackPanel>
             </Border>
+
             <TextBlock x:Name="ListStatusText"
                        Foreground="{DynamicResource Tc.TextMuted}"
                        FontSize="{x:Static ui:TypographyScale.Caption}"
@@ -90,24 +82,55 @@
                              Width="460"
                              HorizontalAlignment="Left"
                              MaxLength="32"
-                             Margin="0,7,0,18" />
+                             Margin="0,7,0,20" />
 
                     <Grid>
-                        <TextBlock Text="Controls"
+                        <TextBlock Text="Settings"
                                    FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
-                        <Button x:Name="AddControlButton"
-                                Content="Add control"
+                        <Button x:Name="AddSettingButton"
+                                Content="Add setting"
                                 Style="{StaticResource TcInlineButton}"
                                 HorizontalAlignment="Right"
-                                Click="AddControl_Click" />
+                                Click="AddSetting_Click" />
+                    </Grid>
+                    <StackPanel x:Name="EditorSettings" Margin="0,8,0,0" />
+
+                    <Border Height="1"
+                            Background="{DynamicResource Tc.Border}"
+                            Margin="0,18,0,17" />
+
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="Turn on automatically"
+                                       FontSize="{x:Static ui:TypographyScale.SectionTitle}"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="A matching trigger can start this mode."
+                                       Foreground="{DynamicResource Tc.TextMuted}"
+                                       FontSize="{x:Static ui:TypographyScale.Caption}"
+                                       Margin="0,4,70,0" />
+                        </StackPanel>
+                        <CheckBox x:Name="AutomationSwitch"
+                                  Style="{StaticResource TcSwitch}"
+                                  HorizontalAlignment="Right"
+                                  VerticalAlignment="Center"
+                                  Click="AutomationSwitch_Click" />
                     </Grid>
 
-                    <StackPanel x:Name="EditorControls" Margin="0,8,0,0" />
-                    <TextBlock x:Name="EditorEmptyText"
-                               Text=""
-                               Visibility="Collapsed" />
+                    <StackPanel x:Name="AutomationBody" Margin="0,16,0,0">
+                        <Grid>
+                            <TextBlock Text="Triggers"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <Button x:Name="AddTriggerButton"
+                                    Content="Add trigger"
+                                    Style="{StaticResource TcInlineButton}"
+                                    HorizontalAlignment="Right"
+                                    Click="AddTrigger_Click" />
+                        </Grid>
+                        <StackPanel x:Name="EditorTriggers" Margin="0,8,0,0" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
