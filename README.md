@@ -23,14 +23,14 @@
   </a>
 </div>
 
-## ThinkControl alpha.55
+## ThinkControl alpha.56
 
-Alpha.55 turns Modes into a real context layer. User modes can temporarily combine performance, cooling, refresh, audio, keyboard and touchpad settings, then activate from Wi-Fi, app, power, battery or schedule triggers. It also hardens verified-X9 Lenovo firmware cooling so Quiet, Balanced and Max stay selectable through transient provider misses.
+Alpha.56 stabilizes the real-device fan, Modes and updater experience on top of immutable alpha.55. It accepts the verified X9 LITSSvc one-way policy response variant, makes mode rows directly selectable with useful starter presets, aligns Home keyboard controls and guarantees update checks leave their pending state.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.55`  
-**Current immutable prerelease:** `v0.1.0-alpha.54`
+**Release target:** `v0.1.0-alpha.56`  
+**Current immutable prerelease:** `v0.1.0-alpha.55`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
