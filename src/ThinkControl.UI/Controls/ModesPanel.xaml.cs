@@ -161,6 +161,7 @@ public partial class ModesPanel : UserControl
             IsEnabled = _app?.Modes.IsTransitioning != true
         };
         select.Click += Activate_Click;
+        Grid.SetColumnSpan(select, 2);
         row.Children.Add(select);
 
         var actions = new StackPanel
@@ -193,11 +194,6 @@ public partial class ModesPanel : UserControl
         {
             actions.Children.Add(StateText(_app?.Modes.ActiveModeAutomatic == true ? "Automatic" : "Active"));
         }
-        else
-        {
-            actions.Children.Add(MutedText("Select"));
-        }
-
         Grid.SetColumn(actions, 1);
         row.Children.Add(actions);
 

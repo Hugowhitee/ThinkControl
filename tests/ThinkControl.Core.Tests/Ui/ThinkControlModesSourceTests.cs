@@ -184,6 +184,8 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("Content=\"Performance\"", xaml, StringComparison.Ordinal);
         Assert.Contains("TouchpadGesturesEnabled: false", code, StringComparison.Ordinal);
         Assert.Contains("select.Click += Activate_Click", code, StringComparison.Ordinal);
+        Assert.Contains("Grid.SetColumnSpan(select, 2)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("MutedText(\"Select\")", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Content = mode.Id == ThinkControlModeCatalog.NormalId ? \"Use\" : \"Activate\"", code, StringComparison.Ordinal);
     }
 
