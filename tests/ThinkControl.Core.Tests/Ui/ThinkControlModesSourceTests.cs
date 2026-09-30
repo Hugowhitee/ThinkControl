@@ -178,6 +178,13 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("\"Battery level\", \"BatteryBelow\"", code, StringComparison.Ordinal);
         Assert.Contains("\"Schedule\", \"Schedule\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("No controls yet", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Key=\"ModeRowButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Focus\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Battery saver\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Performance\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("TouchpadGesturesEnabled: false", code, StringComparison.Ordinal);
+        Assert.Contains("select.Click += Activate_Click", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content = mode.Id == ThinkControlModeCatalog.NormalId ? \"Use\" : \"Activate\"", code, StringComparison.Ordinal);
     }
 
     [Fact]
