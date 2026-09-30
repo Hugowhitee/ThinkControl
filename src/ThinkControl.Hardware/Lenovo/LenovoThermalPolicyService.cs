@@ -12,8 +12,14 @@ namespace ThinkControl.Hardware.Lenovo;
 public static class LenovoThermalPolicyService
 {
     private const string PipeName = "com.lenovo.its.pipe.setting";
-    private const int ConnectTimeoutMs = 900;
-    private static readonly TimeSpan IoTimeout = TimeSpan.FromMilliseconds(1200);
+    private const int ConnectTimeoutMs = 550;
+    private static readonly TimeSpan IoTimeout = TimeSpan.FromMilliseconds(800);
+    private static readonly TimeSpan[] RetryDelays =
+    [
+        TimeSpan.Zero,
+        TimeSpan.FromMilliseconds(150),
+        TimeSpan.FromMilliseconds(300)
+    ];
 
     public static bool TrySetX9Policy(
         HardwareDeviceIdentity identity,
@@ -57,66 +63,78 @@ public static class LenovoThermalPolicyService
             return false;
         }
 
-        try
+        string? lastTransientDetail = null;
+        foreach (TimeSpan delay in RetryDelays)
         {
-            using var pipe = new NamedPipeClientStream(
-                ".",
-                PipeName,
-                PipeDirection.InOut,
-                PipeOptions.Asynchronous);
-            pipe.Connect(ConnectTimeoutMs);
+            if (delay > TimeSpan.Zero)
+                Thread.Sleep(delay);
 
-            byte[] request = BitConverter.GetBytes(command);
-            byte[] response = new byte[sizeof(int)];
-
-            using var cts = new CancellationTokenSource(IoTimeout);
-            pipe.WriteAsync(request.AsMemory(), cts.Token).AsTask().GetAwaiter().GetResult();
-            pipe.FlushAsync(cts.Token).GetAwaiter().GetResult();
-
-            int read = 0;
-            while (read < response.Length)
+            try
             {
-                int count = pipe.ReadAsync(response.AsMemory(read, response.Length - read), cts.Token)
-                    .AsTask().GetAwaiter().GetResult();
-                if (count <= 0)
-                    break;
-                read += count;
+                using var pipe = new NamedPipeClientStream(
+                    ".",
+                    PipeName,
+                    PipeDirection.InOut,
+                    PipeOptions.Asynchronous);
+                pipe.Connect(ConnectTimeoutMs);
+
+                byte[] request = BitConverter.GetBytes(command);
+                byte[] response = new byte[sizeof(int)];
+
+                using var cts = new CancellationTokenSource(IoTimeout);
+                pipe.WriteAsync(request.AsMemory(), cts.Token).AsTask().GetAwaiter().GetResult();
+                pipe.FlushAsync(cts.Token).GetAwaiter().GetResult();
+
+                int read = 0;
+                while (read < response.Length)
+                {
+                    int count = pipe.ReadAsync(response.AsMemory(read, response.Length - read), cts.Token)
+                        .AsTask().GetAwaiter().GetResult();
+                    if (count <= 0)
+                        break;
+                    read += count;
+                }
+
+                if (read != response.Length)
+                {
+                    lastTransientDetail =
+                        $"LITSSvc accepted command {command} but did not return its complete Int32 response.";
+                    continue;
+                }
+
+                int result = BitConverter.ToInt32(response, 0);
+                detail = $"LITSSvc command {command} ({mode}, {(onAc ? "AC" : "DC")}) returned {result}.";
+
+                // The observed Lenovo contract is request/Int32-response. Lenovo has
+                // not published response-value semantics, so receiving the complete
+                // response is the readback boundary; do not invent a 0/nonzero rule.
+                return true;
             }
-
-            if (read != response.Length)
+            catch (TimeoutException)
             {
-                detail = $"LITSSvc accepted command {command} but did not return its complete Int32 response.";
+                lastTransientDetail =
+                    "Lenovo Intelligent Thermal Solution policy pipe did not respond in time.";
+            }
+            catch (OperationCanceledException)
+            {
+                lastTransientDetail =
+                    "Lenovo Intelligent Thermal Solution policy I/O timed out.";
+            }
+            catch (IOException ex)
+            {
+                lastTransientDetail =
+                    $"Lenovo Intelligent Thermal Solution policy pipe is unavailable: {ex.Message}";
+            }
+            catch (UnauthorizedAccessException)
+            {
+                detail = "Lenovo Intelligent Thermal Solution rejected access to its policy pipe.";
                 return false;
             }
+        }
 
-            int result = BitConverter.ToInt32(response, 0);
-            detail = $"LITSSvc command {command} ({mode}, {(onAc ? "AC" : "DC")}) returned {result}.";
-
-            // The observed Lenovo contract is request/Int32-response. Lenovo has
-            // not published response-value semantics, so receiving the complete
-            // response is the readback boundary; do not invent a 0/nonzero rule.
-            return true;
-        }
-        catch (TimeoutException)
-        {
-            detail = "Lenovo Intelligent Thermal Solution is installed but its policy pipe did not respond in time.";
-            return false;
-        }
-        catch (OperationCanceledException)
-        {
-            detail = "Lenovo Intelligent Thermal Solution policy I/O timed out.";
-            return false;
-        }
-        catch (IOException ex)
-        {
-            detail = $"Lenovo Intelligent Thermal Solution policy pipe is unavailable: {ex.Message}";
-            return false;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            detail = "Lenovo Intelligent Thermal Solution rejected access to its policy pipe.";
-            return false;
-        }
+        detail = lastTransientDetail ??
+                 "Lenovo Intelligent Thermal Solution policy pipe could not be reacquired.";
+        return false;
     }
 
     private static bool TryNormalizeMode(string? value, out string mode)
