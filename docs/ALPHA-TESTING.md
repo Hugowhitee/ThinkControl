@@ -41,6 +41,17 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
 
+## Alpha.56 real-device fan, Modes and updater stabilization
+
+1. On the reference X9, choose Quiet while Windows performance is Balanced. The baseline command may use AC Balanced command 503; a clean pipe close without the legacy Int32 reply must not block the subsequent Quiet policy command.
+2. Repeat Quiet, Balanced and Max on AC and battery. The selected profile must not fail solely because LITSSvc closes cleanly after accepting an allowlisted policy write. Partial replies, access errors and true timeouts still fail closed.
+3. Open Modes with no custom modes. Focus, Battery saver and Performance must be visible starter choices. Focus must disable ThinkControl Touchpad gestures so edge gestures are off.
+4. In the Modes list, click the mode row itself to select it; there must be no separate Activate/Use button. Edit remains a separate secondary action and must not activate the mode.
+5. On Home, Keyboard Off / Low / High / Auto must share the same vertical baseline/rhythm as the Display segmented control beside it.
+6. Start with a recent successful update-check timestamp and no in-memory result. Updates must settle to an idle terminal status rather than staying on Checking automatically/Checking forever.
+7. Simulate an unreachable release endpoint. A check is bounded to 20 seconds and must leave the Checking state with a failure result.
+8. Run the normal installer/update compatibility and exact-head visual matrix before promotion.
+
 ## Alpha.55 context Modes and X9 fan ownership
 
 1. Create a mode with Performance, Cooling, Refresh rate, Audio, Touchpad gestures and Keyboard light in different sparse combinations. Omitted settings must remain untouched.
