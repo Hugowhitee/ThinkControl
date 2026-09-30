@@ -91,6 +91,8 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     private int _evaluating;
     private bool _started;
     private string? _lastCandidateId;
+    private bool _manualOverride;
+    private string? _manualOverrideCandidateId;
 
     internal ThinkControlModeAutomationService(App app)
     {
@@ -115,6 +117,12 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     {
         _started = false;
         _timer.Stop();
+    }
+
+    internal void SuppressUntilContextChanges()
+    {
+        _manualOverride = true;
+        _manualOverrideCandidateId = _lastCandidateId;
     }
 
     internal void RequestEvaluation()
@@ -176,6 +184,26 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     private async Task ApplyCandidateAsync(ThinkControlModeDefinition? candidate)
     {
         string? candidateId = candidate?.Id;
+
+        if (_manualOverride)
+        {
+            if (_manualOverrideCandidateId is null)
+            {
+                _manualOverrideCandidateId = candidateId;
+                _lastCandidateId = candidateId;
+                return;
+            }
+
+            if (string.Equals(candidateId, _manualOverrideCandidateId, StringComparison.OrdinalIgnoreCase))
+            {
+                _lastCandidateId = candidateId;
+                return;
+            }
+
+            _manualOverride = false;
+            _manualOverrideCandidateId = null;
+        }
+
         if (string.Equals(candidateId, _lastCandidateId, StringComparison.OrdinalIgnoreCase))
             return;
 
