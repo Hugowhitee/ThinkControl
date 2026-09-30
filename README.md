@@ -23,14 +23,14 @@
   </a>
 </div>
 
-## ThinkControl alpha.54
+## ThinkControl alpha.55
 
-Alpha.54 is a stabilization follow-up on immutable alpha.53. It fixes delayed Mode feedback, the WPF menu gutter in the custom-mode editor and keeps the verified X9 Lenovo firmware cooling profiles usable when direct fan-provider discovery is unavailable.
+Alpha.55 turns Modes into a real context layer. User modes can temporarily combine performance, cooling, refresh, audio, keyboard and touchpad settings, then activate from Wi-Fi, app, power, battery or schedule triggers. It also hardens verified-X9 Lenovo firmware cooling so Quiet, Balanced and Max stay selectable through transient provider misses.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.54`  
-**Current immutable prerelease:** `v0.1.0-alpha.53`
+**Release target:** `v0.1.0-alpha.55`  
+**Current immutable prerelease:** `v0.1.0-alpha.54`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -49,7 +49,7 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ThinkControl has two primary surfaces:
 
 - **Compact view** — quick telemetry and the controls you change most often.
-- **Advanced view** — Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings.
+- **Advanced view** — Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, Modes, System, Updates and Settings.
 
 The release pipeline renders the real WPF interface across dark/light themes and multiple viewport sizes. It also runs real Compact ↔ Advanced lifecycle smoke tests so shell regressions are not hidden by static screenshots.
 
