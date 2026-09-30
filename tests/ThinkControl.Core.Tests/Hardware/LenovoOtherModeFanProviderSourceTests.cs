@@ -253,6 +253,9 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("catch (TimeoutException)", policy, StringComparison.Ordinal);
         Assert.Contains("catch (OperationCanceledException)", policy, StringComparison.Ordinal);
         Assert.Contains("catch (UnauthorizedAccessException)", policy, StringComparison.Ordinal);
+        Assert.Contains("if (read == 0)", policy, StringComparison.Ordinal);
+        Assert.Contains("closed without the legacy Int32 reply", policy, StringComparison.Ordinal);
+        Assert.Contains("incomplete {read}-byte response", policy, StringComparison.Ordinal);
         Assert.Contains("return false;", policy.Split("catch (UnauthorizedAccessException)", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.DoesNotContain("SetFanPercent", policy, StringComparison.Ordinal);
         Assert.DoesNotContain("SetFanLevel", policy, StringComparison.Ordinal);

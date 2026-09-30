@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.55**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.54` is the current published prerelease; alpha.55 is the active context-Modes/fan-recovery candidate and remains non-release-ready until its exact-head build, package and visual gates pass.
+This document describes the current source architecture at **v0.1.0-alpha.56**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.55` is the current published prerelease; alpha.56 is the active real-device stabilization candidate and remains non-release-ready until its exact-head build, package and visual gates pass.
 
 ## Process boundary
 
@@ -188,6 +188,8 @@ Alpha.55 supports six sparse facets: Performance, Cooling, Refresh rate, Audio S
 The privileged service remains unaware of Wi-Fi/process/schedule rules. Hardware writes still cross the existing semantic service API and capability gates.
 
 On the verified X9, firmware-policy fan profiles remain a supported semantic control even when direct-provider discovery or fan telemetry is transiently unavailable. UI capability fallback is restricted to machine types 21Q6/21Q7 and only exposes Lenovo Auto / Quiet / Balanced / Max; direct custom curves remain gated behind a physically accepted direct writer. LITSSvc policy acquisition uses a bounded reconnect sequence rather than immediately falling back to Auto on one transient pipe miss.
+
+Alpha.56 additionally accepts the observed newer LITSSvc pipe variant that cleanly closes after a complete allowlisted UInt32 policy write without returning the older Int32 reply. A zero-byte clean close is treated as an accepted one-way policy write only on this exact reviewed X9 path; partial replies, access failures and timeouts remain failures. This lets the baseline write complete so Quiet/Balanced/Max can reach their actual policy command instead of being blocked by an obsolete response-shape assumption.
 
 
 ## Audio Safety model

@@ -45,6 +45,11 @@ public partial class App
             now - checkedAt >= TimeSpan.Zero &&
             now - checkedAt < AutomaticUpdateCheckStaleAfter)
         {
+            if (LatestUpdateResult is null &&
+                State.UpdateStatus.Equals("Ready to check", StringComparison.OrdinalIgnoreCase))
+            {
+                State.UpdateStatus = "Checked recently";
+            }
             return;
         }
 
@@ -81,6 +86,8 @@ public partial class App
         }
         finally
         {
+            if (State.UpdateStatus.StartsWith("Checking", StringComparison.OrdinalIgnoreCase))
+                State.UpdateStatus = "Update check ended without a result";
             _automaticUpdateBusy = false;
         }
     }

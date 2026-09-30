@@ -30,6 +30,7 @@ public sealed class UpdateService
     private const string ReleasesEndpoint = "https://api.github.com/repos/Hugowhitee/ThinkControl/releases?per_page=100";
     private const string ReleasesPage = "https://github.com/Hugowhitee/ThinkControl/releases";
     private const string TrustedDownloadPrefix = "https://github.com/Hugowhitee/ThinkControl/releases/download/";
+    private static readonly TimeSpan ReleaseCheckTimeout = TimeSpan.FromSeconds(20);
     private readonly HttpClient _httpClient;
 
     public UpdateService()
@@ -56,14 +57,18 @@ public sealed class UpdateService
     {
         try
         {
-            using HttpResponseMessage response = await _httpClient.GetAsync(ReleasesEndpoint, cancellationToken);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeout.CancelAfter(ReleaseCheckTimeout);
+            CancellationToken checkToken = timeout.Token;
+
+            using HttpResponseMessage response = await _httpClient.GetAsync(ReleasesEndpoint, checkToken);
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return new(false, "No public release published yet", Url: ReleasesPage);
             if (!response.IsSuccessStatusCode)
                 return new(false, "Release channel is temporarily unavailable", Url: ReleasesPage);
 
-            await using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-            using JsonDocument json = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            await using Stream stream = await response.Content.ReadAsStreamAsync(checkToken);
+            using JsonDocument json = await JsonDocument.ParseAsync(stream, cancellationToken: checkToken);
             if (json.RootElement.ValueKind != JsonValueKind.Array)
                 return new(false, "Release channel returned an unexpected response", Url: ReleasesPage);
 

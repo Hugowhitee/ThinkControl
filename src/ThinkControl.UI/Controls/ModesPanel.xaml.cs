@@ -117,6 +117,7 @@ public partial class ModesPanel : UserControl
         int customCount = modes.Count(mode =>
             mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase));
         EmptyModesText.Visibility = customCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+        StarterModesPanel.Visibility = customCount == 0 ? Visibility.Visible : Visibility.Collapsed;
         NewModeButton.IsEnabled = customCount < ThinkControlModeCatalog.MaxCustomModes;
         UpdateHeaderState();
     }
@@ -152,7 +153,16 @@ public partial class ModesPanel : UserControl
             automatic.Margin = new Thickness(0, 3, 0, 0);
             copy.Children.Add(automatic);
         }
-        row.Children.Add(copy);
+        var select = new Button
+        {
+            Content = copy,
+            Tag = mode.Id,
+            Style = TryFindResource("ModeRowButton") as Style,
+            IsEnabled = _app?.Modes.IsTransitioning != true
+        };
+        select.Click += Activate_Click;
+        Grid.SetColumnSpan(select, 2);
+        row.Children.Add(select);
 
         var actions = new StackPanel
         {
@@ -184,32 +194,19 @@ public partial class ModesPanel : UserControl
         {
             actions.Children.Add(StateText(_app?.Modes.ActiveModeAutomatic == true ? "Automatic" : "Active"));
         }
-        else
-        {
-            var activate = new Button
-            {
-                Content = mode.Id == ThinkControlModeCatalog.NormalId ? "Use" : "Activate",
-                Tag = mode.Id,
-                Style = TryFindResource("TcButton") as Style,
-                Padding = new Thickness(9, 4, 9, 4),
-                FontSize = TypographyScale.Caption,
-                IsEnabled = _app?.Modes.IsTransitioning != true
-            };
-            activate.Click += Activate_Click;
-            actions.Children.Add(activate);
-        }
-
         Grid.SetColumn(actions, 1);
         row.Children.Add(actions);
 
         var shell = new Border
         {
-            Background = System.Windows.Media.Brushes.Transparent,
             BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(14, 10, 14, 10),
+            Padding = new Thickness(12, 8, 12, 8),
             Child = row
         };
         shell.SetResourceReference(Border.BorderBrushProperty, "Tc.Border");
+        shell.SetResourceReference(
+            Border.BackgroundProperty,
+            active ? "Tc.SurfaceAlt" : "Tc.Surface");
         return shell;
     }
 
@@ -254,8 +251,14 @@ public partial class ModesPanel : UserControl
 
     private async void Activate_Click(object sender, RoutedEventArgs e)
     {
+        e.Handled = true;
         if (_busy || _app is null || sender is not FrameworkElement { Tag: string id })
             return;
+        if (_app.Modes.ActiveModeId.Equals(id, StringComparison.OrdinalIgnoreCase) &&
+            !_app.Modes.IsModified)
+        {
+            return;
+        }
 
         _busy = true;
         ListStatusText.Visibility = Visibility.Collapsed;
@@ -282,9 +285,10 @@ public partial class ModesPanel : UserControl
             Placement = PlacementMode.Bottom
         };
         AddTemplateItem(menu, "Blank mode", "blank");
-        AddTemplateItem(menu, "Quiet", "quiet");
+        menu.Items.Add(new Separator());
+        AddTemplateItem(menu, "Focus", "focus");
         AddTemplateItem(menu, "Battery saver", "battery");
-        AddTemplateItem(menu, "Desk", "desk");
+        AddTemplateItem(menu, "Performance", "performance");
         NewModeButton.ContextMenu = menu;
         menu.IsOpen = true;
     }
@@ -296,36 +300,47 @@ public partial class ModesPanel : UserControl
         menu.Items.Add(item);
     }
 
+    private void StarterMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string template })
+            BeginNewTemplate(template);
+    }
+
     private void NewTemplate_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: string template })
-            return;
+        if (sender is FrameworkElement { Tag: string template })
+            BeginNewTemplate(template);
+    }
 
+    private void BeginNewTemplate(string template)
+    {
         string id = "custom:" + Guid.NewGuid().ToString("N");
         ThinkControlModeDefinition mode = template switch
         {
-            "quiet" => new(
+            "focus" => new(
                 id,
-                "Quiet",
+                "Focus",
+                TouchpadGesturesEnabled: false,
+                KeyboardLight: "Low",
                 PerformanceMode: "Efficiency",
                 CoolingProfile: "Quiet",
-                KeyboardLight: "Low"),
+                RefreshRate: "60 Hz"),
             "battery" => new(
                 id,
                 "Battery saver",
                 PerformanceMode: "Efficiency",
+                CoolingProfile: "Quiet",
                 RefreshRate: "60 Hz",
                 KeyboardLight: "Off",
                 Triggers: [new ThinkControlModeTrigger("BatteryBelow", Number: 25)],
                 AutomationEnabled: true),
-            "desk" => new(
+            "performance" => new(
                 id,
-                "Desk",
-                PerformanceMode: "Balanced",
+                "Performance",
+                KeyboardLight: "Auto",
+                PerformanceMode: "Performance",
                 CoolingProfile: "Balanced",
-                RefreshRate: "Max",
-                Triggers: [new ThinkControlModeTrigger("Power", "AC")],
-                AutomationEnabled: true),
+                RefreshRate: "Max"),
             _ => new(id, string.Empty)
         };
         BeginEdit(mode);
@@ -333,6 +348,7 @@ public partial class ModesPanel : UserControl
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
+        e.Handled = true;
         if (_app is null || sender is not FrameworkElement { Tag: string id })
             return;
 
@@ -1076,6 +1092,7 @@ public partial class ModesPanel : UserControl
             ModeRows.Children.Add(CreateModeRow(mode));
 
         EmptyModesText.Visibility = Visibility.Collapsed;
+        StarterModesPanel.Visibility = Visibility.Collapsed;
         UpdateHeaderState();
     }
 

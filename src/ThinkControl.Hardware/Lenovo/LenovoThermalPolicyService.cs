@@ -95,10 +95,17 @@ public static class LenovoThermalPolicyService
                     read += count;
                 }
 
+                if (read == 0)
+                {
+                    detail =
+                        $"LITSSvc accepted command {command} ({mode}, {(onAc ? "AC" : "DC")}) and closed without the legacy Int32 reply.";
+                    return true;
+                }
+
                 if (read != response.Length)
                 {
                     lastTransientDetail =
-                        $"LITSSvc accepted command {command} but did not return its complete Int32 response.";
+                        $"LITSSvc returned an incomplete {read}-byte response for command {command}; the policy change was not confirmed.";
                     continue;
                 }
 

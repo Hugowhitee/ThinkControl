@@ -5,6 +5,37 @@
              xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
              MinWidth="520">
     <UserControl.Resources>
+        <Style x:Key="ModeRowButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="3"
+                                Padding="2,2">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="ModeTextBox" TargetType="TextBox">
             <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
             <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
@@ -63,6 +94,33 @@
                                FontSize="{x:Static ui:TypographyScale.Secondary}"
                                Margin="14,9,14,13"
                                Visibility="Collapsed" />
+                    <StackPanel x:Name="StarterModesPanel"
+                                Margin="14,9,14,14"
+                                Visibility="Collapsed">
+                        <TextBlock Text="Start with"
+                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                   FontSize="{x:Static ui:TypographyScale.Caption}"
+                                   Margin="0,0,0,7" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="Focus"
+                                    Tag="focus"
+                                    Style="{StaticResource TcButton}"
+                                    Padding="10,5"
+                                    Click="StarterMode_Click" />
+                            <Button Content="Battery saver"
+                                    Tag="battery"
+                                    Style="{StaticResource TcButton}"
+                                    Padding="10,5"
+                                    Margin="7,0,0,0"
+                                    Click="StarterMode_Click" />
+                            <Button Content="Performance"
+                                    Tag="performance"
+                                    Style="{StaticResource TcButton}"
+                                    Padding="10,5"
+                                    Margin="7,0,0,0"
+                                    Click="StarterMode_Click" />
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

@@ -6,18 +6,64 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.54`
-- immutable tag/release SHA: `7cfe5405b6c6ede73f61356ee653c29b94a86f09`
-- published 2026-09-27 at 13:51:59 UTC as an immutable prerelease
+- `v0.1.0-alpha.55`
+- immutable tag/release SHA: `7705961cf0f51bd19c98e693669d552177a81156`
+- published 2026-09-30 at 20:37:47 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:65a335d0f719808289164c961ad1525f481ecbe54f4e0be0aa43829e0303a45f`
-  - Payload: `sha256:ece6eb2c3cf5522f3b0bee2174f93e1515a26c4cb0c73f44e62c8f8cedd307a6`
-  - `SHA256SUMS.txt`: `sha256:89efa5529f06334b526f7a090432e58009952f489b4b15c8d77e724ffaf47bae`
-  - `ui-overview.png`: `sha256:5110c16f16190ee11e39a53ce62dc04d4d1fcdd358018f9cb63aa5170b151d38`
-- physical X9 fan behavior remains a separate real-device evidence class; hosted CI verifies capability/rollback contracts, not audible/thermal reality
+  - Setup: `sha256:0bfa443f2289403e768ec546df1cfe5cfccb31698b51769c23511a169c6af61f`
+  - Payload: `sha256:db84fbae8bc3b4ff6baf1ad125648b6f9d002225491d92b402be0f3e9c9f37bb`
+  - `SHA256SUMS.txt`: `sha256:d8414afb263c80acf74552165cc778dedd0ba1afbb00badee634ac3a6170e7da`
+  - `ui-overview.png`: `sha256:7253fdb03f5ad9c4f1aa6674df2e4be05eecc9e29fc720456435c16ebf239f9e`
+- immutable release run `36773687461` / #44: success
+- promotion run `36773663367` / #71: success
+- branch hygiene run `36773663289` / #89: success; repository returned to `main` only
+- post-merge CI `36773662290` / #2191: success
+- real X9 fan behavior remains a physical evidence class beyond hosted CI
 
-## Alpha.55 active candidate — context Modes and X9 fan ownership
+## Alpha.56 active candidate — fan protocol, Mode selection and updater stabilization
+
+Active implementation state:
+
+- branch: `alpha56-fan-modes-updater`
+- source target: `v0.1.0-alpha.56`
+- immutable/public baseline: `v0.1.0-alpha.55`
+- canonical PR: **#106 — Prepare alpha.56 fan protocol, Modes and updater stabilization**
+- candidate evidence head: `9c714e9ab956d904af6080eb53602532e3d46ac1`
+- candidate CI `36777932595` / #2194: success — hygiene, build, tests, Compact↔Advanced shell smoke and WPF visual QA
+- candidate Package ThinkControl `36777932472` / #1882: success — payload, installer, deep IPC reliability and oldest-supported upgrade compatibility
+- candidate visual artifact `11126641312`, digest `sha256:abee8bf4eca8d9dccd29cc4cc87e7528fb40c32bf1db3e161277747c973c9fde`
+- Modes starter/list interaction, Home Keyboard alignment, Fans firmware fallback and Updates inspected on the exact candidate gallery; direct row selection no longer exposes a separate Select/Activate action
+- no open PR review threads/comments on the candidate head
+- `version.json.releaseReady=true`; this commit creates the frozen release candidate
+
+Scope:
+
+- accept the exact-X9 LITSSvc clean-close/no-legacy-reply policy variant after a complete allowlisted UInt32 write;
+- keep partial replies, access failures and true timeouts fail-closed;
+- prevent the baseline policy command from blocking the requested Quiet/Balanced/Max command only because a newer LITSSvc omits the legacy reply;
+- replace separate Mode Activate/Use buttons with direct row selection;
+- expose Focus, Battery saver and Performance starter presets; Focus disables ThinkControl Touchpad gestures/edge gestures;
+- align Home Keyboard segmented controls with the neighboring Display control;
+- remove the permanent startup `Checking automatically…` seed state;
+- bound release checks to 20 seconds and guarantee every automatic check exits the Checking state.
+
+Current gate:
+
+- [x] alpha.56 isolated from immutable alpha.55
+- [x] clean-close LITSSvc compatibility implemented only on the reviewed X9 policy path
+- [x] direct Mode row selection and three starter presets implemented
+- [x] Home Keyboard control alignment corrected
+- [x] updater idle/check timeout state corrected
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect Modes/Home/Fans/Updates screenshots in dark/light and minimum/normal widths
+- [x] resolve review backlog on exact candidate head
+- [x] freeze `releaseReady=true`
+- [ ] frozen-head CI + Package
+- [ ] squash merge, immutable promotion and public asset verification
+- [ ] physical X9 confirmation: Quiet/Balanced/Max now reach and change Lenovo policy instead of failing on missing legacy reply
+
+## Alpha.55 published release — context Modes and X9 fan ownership
 
 Active implementation state:
 

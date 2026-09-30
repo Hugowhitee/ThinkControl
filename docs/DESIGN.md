@@ -60,11 +60,12 @@ Primary navigation:
 - Home
 - Performance
 - Fans
+- Battery
 - Display
 - Audio
 - Keyboard
-- Battery
 - Touchpad
+- Modes
 - System
 - Updates
 - Settings
@@ -203,3 +204,8 @@ Attention/update/hardware popups belong to ThinkControl and should remain above 
 ## Validation
 
 UI-affecting work is not complete because XAML compiles. Inspect deterministic screenshots at minimum/normal/wide widths plus light/dark and relevant unavailable/error/active states. Compact/Advanced lifecycle changes additionally require real shell smoke because static screenshots cannot prove window ownership, activation or transition behavior.
+
+
+## Figma and redesign work
+
+Targeted Figma/redesign work follows `docs/UI-DESIGN-HANDOFF.md`. That file defines which surfaces are currently weak enough to redesign, which validated visual mechanisms must be preserved, and how selected Figma changes return to the actual WPF source and screenshot gates.
