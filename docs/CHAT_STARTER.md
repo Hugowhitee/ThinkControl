@@ -12,10 +12,14 @@ Treat the CURRENT repository state as the source of truth. Do not assume a versi
 Before changing code, orient yourself properly:
 
 1. Read `AGENTS.md` first.
-2. Read `docs/RELEASE_READINESS.md` as the persistent roadmap/handoff, then the task-relevant parts of `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DEVICE-SUPPORT.md`, `docs/ALPHA-TESTING.md`, `docs/DESIGN.md`, installer/update docs and provider research where relevant.
-3. Inspect current `main`, `version.json`, the latest published release/tag, open PRs, active branches, recent merged PRs, relevant issues/crash reports and the current GitHub Actions workflows.
-4. If I supplied screenshots, logs, crash reports or reproduction details, compare them with the CURRENT implementation instead of assuming an older fix is still missing or still correct.
-5. Determine whether there is already one active branch/PR for the work. Reuse it when the requested change belongs to that scope; do not casually create parallel branches or duplicate PRs.
+2. For substantial work, retrieve the CURRENT Google Drive router at `Digitaal/AI/AI werkinstructies/Overzicht.md` and load only the smallest relevant canonical dependency set. For normal repository work that includes `Softwareontwikkeling/Repositorywerk met Codex.md`; for user-facing UI/UX also load `Softwareontwikkeling/Interfaces ontwerpen en valideren.md`; for larger or release-critical execution also load `Kern/Projectuitvoering.md` when the router calls for it. Do not claim these instructions were used unless they were actually retrieved.
+3. For substantial ThinkControl UI review/redesign, consult `Digitaal/AI/Bronnen/AI tools en skills.md` after the primary Drive UI skill. When available, use **Impeccable** as the targeted anti-template/anti-AI critique pass before finalizing visual changes. Use **Figma** when an editable design source or deliberate design round outside code is useful, and use the **Product Design** capability when live and appropriate. These are supporting capabilities, not alternate sources of truth: current ThinkControl runtime/screenshots, repo design primitives and product behavior remain authoritative.
+4. Read `docs/RELEASE_READINESS.md` as the persistent roadmap/handoff, then the task-relevant parts of `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DEVICE-SUPPORT.md`, `docs/ALPHA-TESTING.md`, `docs/DESIGN.md`, installer/update docs and provider research where relevant.
+5. Inspect current `main`, `version.json`, the latest published release/tag, open PRs, active branches, recent merged PRs, relevant issues/crash reports and the current GitHub Actions workflows.
+6. If I supplied screenshots, logs, crash reports or reproduction details, compare them with the CURRENT implementation instead of assuming an older fix is still missing or still correct.
+7. Determine whether there is already one active branch/PR for the work. Reuse it when the requested change belongs to that scope; do not casually create parallel branches or duplicate PRs.
+
+This file is a ThinkControl entrypoint, not a second universal skill. If work on ThinkControl exposes a reusable prompt/workflow lesson, follow the current Drive instruction system and land that lesson in its canonical universal owner rather than copying the rule into this starter.
 
 Understand the implementation before editing it. Trace the real path end-to-end: UI/control/event -> shared state/service/client -> IPC/provider/backend -> readback/refresh/lifecycle. Search usages and call sites so you know which component actually owns the behavior.
 
