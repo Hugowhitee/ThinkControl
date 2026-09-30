@@ -161,10 +161,24 @@ public partial class App
 
     internal async Task<bool> SetCoolingProfileAsync(string profile)
     {
+        bool success = await ApplyCoolingProfileAsync(profile, persistSelection: true);
+        if (success)
+            Modes.ReleaseFacet(ThinkControlModeFacet.CoolingProfile);
+        return success;
+    }
+
+    internal Task<bool> ApplyCoolingModeOverrideAsync(string profile) =>
+        ApplyCoolingProfileAsync(profile, persistSelection: false);
+
+    internal Task<bool> RestoreCoolingModeBaselineAsync(string profile) =>
+        ApplyCoolingProfileAsync(profile, persistSelection: false);
+
+    private async Task<bool> ApplyCoolingProfileAsync(string profile, bool persistSelection)
+    {
         // Increment before waiting: this immediately invalidates any older startup
         // restore/reassert that may currently own the serialized write gate. If the
-        // older write already started, this user request runs immediately after it
-        // and therefore becomes the final physical state.
+        // older write already started, this request runs immediately after it and
+        // therefore becomes the final physical state.
         int generation = Interlocked.Increment(ref _coolingSelectionGeneration);
         string pendingDisplay = CoolingDisplayNameForRequest(profile);
         SetPendingCoolingProfile(generation, pendingDisplay);
@@ -173,7 +187,7 @@ public partial class App
         await _coolingWriteGate.WaitAsync();
         try
         {
-            success = await SetCoolingProfileCoreAsync(profile, generation);
+            success = await SetCoolingProfileCoreAsync(profile, generation, persistSelection);
             if (success && generation == Volatile.Read(ref _coolingSelectionGeneration))
                 SetExpectedCoolingProfile(generation, pendingDisplay);
             return success;
@@ -183,10 +197,6 @@ public partial class App
             _coolingWriteGate.Release();
             ClearPendingCoolingProfile(generation);
 
-            // A command response and the next periodic status can cross on the pipe.
-            // Always request one fresh status after the write. Successful selections
-            // keep their short expected-state lease until telemetry confirms them;
-            // failures immediately fall back to the real service state.
             if (generation == Volatile.Read(ref _coolingSelectionGeneration))
                 _ = HardwareClient.GetStatusAsync();
         }
@@ -287,7 +297,7 @@ public partial class App
             _ => profile!.Trim()
         };
 
-    private async Task<bool> SetCoolingProfileCoreAsync(string profile, int generation)
+    private async Task<bool> SetCoolingProfileCoreAsync(string profile, int generation, bool persistSelection)
     {
         string raw = profile?.Trim() ?? string.Empty;
         if (raw.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
@@ -299,7 +309,8 @@ public partial class App
                 State.HardwareAccess = auto?.Error ?? "Firmware Auto unavailable";
                 return false;
             }
-            UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
+            if (persistSelection)
+                UserSettings.Update(settings => settings with { CoolingProfile = "Lenovo Auto" });
             State.CoolingProfile = "Lenovo Auto";
             _coolingPreferenceRestoreAttempted = true;
             _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
@@ -350,7 +361,8 @@ public partial class App
                 return false;
             }
 
-            UserSettings.Update(settings => settings with { CoolingProfile = definition.Id });
+            if (persistSelection)
+                UserSettings.Update(settings => settings with { CoolingProfile = definition.Id });
             State.CoolingProfile = definition.Name;
             _coolingPreferenceRestoreAttempted = true;
             _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
@@ -358,7 +370,7 @@ public partial class App
             return true;
         }
 
-        return await ApplyFanCurveCoreAsync(definition, persistSelection: true);
+        return await ApplyFanCurveCoreAsync(definition, persistSelection);
     }
 
     internal async Task<bool> ApplyFanCurveAsync(FanCurveDefinition definition, bool persistSelection)
@@ -370,7 +382,7 @@ public partial class App
             if (UsesFirmwareCoolingPolicy)
             {
                 if (FanProfiles.IsBuiltIn(definition.Id))
-                    return await SetCoolingProfileCoreAsync(definition.Id, generation);
+                    return await SetCoolingProfileCoreAsync(definition.Id, generation, persistSelection);
                 State.HardwareAccess = "Custom fan curves are unavailable until a physically accepted direct fan writer is active. The built-in Lenovo firmware profiles still work.";
                 return false;
             }
