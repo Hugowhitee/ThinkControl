@@ -28,7 +28,14 @@ Active implementation state:
 - branch: `alpha56-fan-modes-updater`
 - source target: `v0.1.0-alpha.56`
 - immutable/public baseline: `v0.1.0-alpha.55`
-- `version.json.releaseReady=false` until exact-head hosted and visual gates pass
+- canonical PR: **#106 — Prepare alpha.56 fan protocol, Modes and updater stabilization**
+- candidate evidence head: `9c714e9ab956d904af6080eb53602532e3d46ac1`
+- candidate CI `36777932595` / #2194: success — hygiene, build, tests, Compact↔Advanced shell smoke and WPF visual QA
+- candidate Package ThinkControl `36777932472` / #1882: success — payload, installer, deep IPC reliability and oldest-supported upgrade compatibility
+- candidate visual artifact `11126641312`, digest `sha256:abee8bf4eca8d9dccd29cc4cc87e7528fb40c32bf1db3e161277747c973c9fde`
+- Modes starter/list interaction, Home Keyboard alignment, Fans firmware fallback and Updates inspected on the exact candidate gallery; direct row selection no longer exposes a separate Select/Activate action
+- no open PR review threads/comments on the candidate head
+- `version.json.releaseReady=true`; this commit creates the frozen release candidate
 
 Scope:
 
@@ -48,10 +55,10 @@ Current gate:
 - [x] direct Mode row selection and three starter presets implemented
 - [x] Home Keyboard control alignment corrected
 - [x] updater idle/check timeout state corrected
-- [ ] open canonical PR and run exact-head CI + Package
-- [ ] inspect Modes/Home/Fans/Updates screenshots in dark/light and minimum/normal widths
-- [ ] resolve review backlog on exact candidate head
-- [ ] freeze `releaseReady=true`
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect Modes/Home/Fans/Updates screenshots in dark/light and minimum/normal widths
+- [x] resolve review backlog on exact candidate head
+- [x] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
 - [ ] physical X9 confirmation: Quiet/Balanced/Max now reach and change Lenovo policy instead of failing on missing legacy reply
