@@ -8,6 +8,8 @@ internal sealed class ThinkControlModeCoordinator
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly HashSet<ThinkControlModeFacet> _owned = [];
 
+    private string? _coolingBaseline;
+    private RefreshModeSnapshot? _refreshBaseline;
     private AudioSafetyMode? _audioBaseline;
     private bool? _touchpadBaseline;
     private KeyboardModeSnapshot? _keyboardBaseline;
@@ -22,7 +24,8 @@ internal sealed class ThinkControlModeCoordinator
     internal event Action? Changed;
 
     internal string ActiveModeId { get; private set; } = ThinkControlModeCatalog.NormalId;
-    internal string ActiveModeName { get; private set; } = "Normal";
+    internal string ActiveModeName { get; private set; } = "No mode";
+    internal bool ActiveModeAutomatic { get; private set; }
     internal bool IsModified { get; private set; }
     internal string? TransitionModeId { get; private set; }
     internal string? TransitionModeName { get; private set; }
@@ -30,14 +33,14 @@ internal sealed class ThinkControlModeCoordinator
     internal string VisibleModeId => TransitionModeId ?? ActiveModeId;
     internal string VisibleModeName => TransitionModeName ?? ActiveModeName;
 
-    internal IReadOnlyList<ThinkControlModeDefinition> GetModes()
-    {
-        ThinkControlModeDefinition[] customs =
-            _app.UserSettings.Current.CustomModes ?? [];
-        return ThinkControlModeCatalog.BuiltIns.Concat(customs).ToArray();
-    }
+    internal IReadOnlyList<ThinkControlModeDefinition> GetModes() =>
+        ThinkControlModeCatalog.VisibleModes(_app.UserSettings.Current.CustomModes);
 
-    internal async Task<bool> ActivateAsync(string id)
+    internal bool OwnsFacet(ThinkControlModeFacet facet) => _owned.Contains(facet);
+
+    internal async Task<bool> ActivateAsync(
+        string id,
+        ThinkControlModeActivationOrigin origin = ThinkControlModeActivationOrigin.Manual)
     {
         await _gate.WaitAsync();
         try
@@ -50,8 +53,11 @@ internal sealed class ThinkControlModeCoordinator
 
             string previousId = ActiveModeId;
             string previousName = ActiveModeName;
+            bool previousAutomatic = ActiveModeAutomatic;
             bool previousModified = IsModified;
             HashSet<ThinkControlModeFacet> previousOwned = [.. _owned];
+            string? previousCoolingBaseline = _coolingBaseline;
+            RefreshModeSnapshot? previousRefreshBaseline = _refreshBaseline;
             AudioSafetyMode? previousAudioBaseline = _audioBaseline;
             bool? previousTouchpadBaseline = _touchpadBaseline;
             KeyboardModeSnapshot? previousKeyboardBaseline = _keyboardBaseline;
@@ -83,8 +89,11 @@ internal sealed class ThinkControlModeCoordinator
                         RestoreCoordinatorState(
                             previousId,
                             previousName,
+                            previousAutomatic,
                             previousModified,
                             previousOwned,
+                            previousCoolingBaseline,
+                            previousRefreshBaseline,
                             previousAudioBaseline,
                             previousTouchpadBaseline,
                             previousKeyboardBaseline);
@@ -100,8 +109,11 @@ internal sealed class ThinkControlModeCoordinator
                         RestoreCoordinatorState(
                             previousId,
                             previousName,
+                            previousAutomatic,
                             previousModified,
                             previousOwned,
+                            previousCoolingBaseline,
+                            previousRefreshBaseline,
                             previousAudioBaseline,
                             previousTouchpadBaseline,
                             previousKeyboardBaseline);
@@ -117,6 +129,9 @@ internal sealed class ThinkControlModeCoordinator
 
                 ActiveModeId = target.Id;
                 ActiveModeName = target.Name;
+                ActiveModeAutomatic =
+                    origin == ThinkControlModeActivationOrigin.Automatic &&
+                    target.Id != ThinkControlModeCatalog.NormalId;
                 IsModified = false;
                 TransitionModeId = null;
                 TransitionModeName = null;
@@ -134,7 +149,41 @@ internal sealed class ThinkControlModeCoordinator
         }
     }
 
-    internal Task<bool> ReapplyAsync() => ActivateAsync(ActiveModeId);
+    internal Task<bool> ReapplyAsync() => ActivateAsync(
+        ActiveModeId,
+        ActiveModeAutomatic
+            ? ThinkControlModeActivationOrigin.Automatic
+            : ThinkControlModeActivationOrigin.Manual);
+
+    internal async Task<bool> ReapplyOwnedFacetAsync(ThinkControlModeFacet facet)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            if (!_owned.Contains(facet))
+                return false;
+
+            ThinkControlModeDefinition? active = ThinkControlModeCatalog.Find(
+                ActiveModeId,
+                _app.UserSettings.Current.CustomModes);
+            if (active is null)
+                return false;
+
+            _applying = true;
+            try
+            {
+                return await ApplyFacetAsync(active, facet);
+            }
+            finally
+            {
+                _applying = false;
+            }
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
 
     internal void ReleaseFacet(ThinkControlModeFacet facet)
     {
@@ -183,6 +232,7 @@ internal sealed class ThinkControlModeCoordinator
             Changed?.Invoke();
         }
 
+        _app.RequestModeAutomationEvaluation();
         return true;
     }
 
@@ -200,6 +250,7 @@ internal sealed class ThinkControlModeCoordinator
 
         _app.UserSettings.Update(settings => settings with { CustomModes = next });
         Changed?.Invoke();
+        _app.RequestModeAutomationEvaluation();
         return true;
     }
 
@@ -207,6 +258,12 @@ internal sealed class ThinkControlModeCoordinator
     {
         switch (facet)
         {
+            case ThinkControlModeFacet.CoolingProfile:
+                _coolingBaseline = _app.UserSettings.Current.CoolingProfile;
+                break;
+            case ThinkControlModeFacet.RefreshRate:
+                _refreshBaseline = _app.CaptureRefreshModeSnapshot();
+                break;
             case ThinkControlModeFacet.AudioSafety:
                 _audioBaseline = _app.AudioSafety.Mode;
                 break;
@@ -225,6 +282,18 @@ internal sealed class ThinkControlModeCoordinator
     {
         switch (facet)
         {
+            case ThinkControlModeFacet.PerformanceMode:
+                return mode.PerformanceMode is null ||
+                       _app.ApplyPowerModeOverride(mode.PerformanceMode);
+
+            case ThinkControlModeFacet.CoolingProfile:
+                return mode.CoolingProfile is null ||
+                       await _app.ApplyCoolingModeOverrideAsync(mode.CoolingProfile);
+
+            case ThinkControlModeFacet.RefreshRate:
+                return mode.RefreshRate is null ||
+                       _app.ApplyRefreshModeOverride(mode.RefreshRate);
+
             case ThinkControlModeFacet.AudioSafety:
                 if (mode.AudioSafety is null)
                     return true;
@@ -251,6 +320,17 @@ internal sealed class ThinkControlModeCoordinator
     {
         switch (facet)
         {
+            case ThinkControlModeFacet.PerformanceMode:
+                return _app.RestorePowerModeOverride();
+
+            case ThinkControlModeFacet.CoolingProfile:
+                return _coolingBaseline is null ||
+                       await _app.RestoreCoolingModeBaselineAsync(_coolingBaseline);
+
+            case ThinkControlModeFacet.RefreshRate:
+                return _refreshBaseline is null ||
+                       _app.RestoreRefreshModeSnapshot(_refreshBaseline);
+
             case ThinkControlModeFacet.AudioSafety:
                 if (_audioBaseline is not AudioSafetyMode audio)
                     return true;
@@ -294,8 +374,11 @@ internal sealed class ThinkControlModeCoordinator
     private void RestoreCoordinatorState(
         string id,
         string name,
+        bool automatic,
         bool modified,
         IReadOnlySet<ThinkControlModeFacet> owned,
+        string? coolingBaseline,
+        RefreshModeSnapshot? refreshBaseline,
         AudioSafetyMode? audioBaseline,
         bool? touchpadBaseline,
         KeyboardModeSnapshot? keyboardBaseline)
@@ -304,11 +387,14 @@ internal sealed class ThinkControlModeCoordinator
         foreach (ThinkControlModeFacet facet in owned)
             _owned.Add(facet);
 
+        _coolingBaseline = coolingBaseline;
+        _refreshBaseline = refreshBaseline;
         _audioBaseline = audioBaseline;
         _touchpadBaseline = touchpadBaseline;
         _keyboardBaseline = keyboardBaseline;
         ActiveModeId = id;
         ActiveModeName = name;
+        ActiveModeAutomatic = automatic;
         IsModified = modified;
         TransitionModeId = null;
         TransitionModeName = null;
@@ -318,6 +404,12 @@ internal sealed class ThinkControlModeCoordinator
     private static IEnumerable<ThinkControlModeFacet> OrderedFacets(IEnumerable<ThinkControlModeFacet> facets)
     {
         HashSet<ThinkControlModeFacet> set = [.. facets];
+        if (set.Contains(ThinkControlModeFacet.PerformanceMode))
+            yield return ThinkControlModeFacet.PerformanceMode;
+        if (set.Contains(ThinkControlModeFacet.CoolingProfile))
+            yield return ThinkControlModeFacet.CoolingProfile;
+        if (set.Contains(ThinkControlModeFacet.RefreshRate))
+            yield return ThinkControlModeFacet.RefreshRate;
         if (set.Contains(ThinkControlModeFacet.AudioSafety))
             yield return ThinkControlModeFacet.AudioSafety;
         if (set.Contains(ThinkControlModeFacet.TouchpadGestures))
@@ -330,6 +422,12 @@ internal sealed class ThinkControlModeCoordinator
     {
         switch (facet)
         {
+            case ThinkControlModeFacet.CoolingProfile:
+                _coolingBaseline = null;
+                break;
+            case ThinkControlModeFacet.RefreshRate:
+                _refreshBaseline = null;
+                break;
             case ThinkControlModeFacet.AudioSafety:
                 _audioBaseline = null;
                 break;
@@ -347,6 +445,7 @@ internal sealed class ThinkControlModeCoordinator
         _app.State.ActiveModeId = ActiveModeId;
         _app.State.ActiveModeName = ActiveModeName;
         _app.State.ActiveModeModified = IsModified;
+        _app.State.ActiveModeAutomatic = ActiveModeAutomatic;
         Changed?.Invoke();
     }
 }
