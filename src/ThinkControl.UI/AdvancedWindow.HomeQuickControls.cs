@@ -293,10 +293,17 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = active;
-            HomeModeModifiedText.Text = _app.Modes.IsTransitioning ? "Applying…" : "Modified";
-            HomeModeModifiedText.Visibility = _app.Modes.IsTransitioning || _app.Modes.IsModified
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            HomeModeModifiedText.Text = _app.Modes.IsTransitioning
+                ? "Applying…"
+                : _app.Modes.IsModified
+                    ? "Modified"
+                    : "Automatic";
+            HomeModeModifiedText.Visibility =
+                _app.Modes.IsTransitioning ||
+                _app.Modes.IsModified ||
+                _app.Modes.ActiveModeAutomatic
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
         finally
         {
