@@ -93,6 +93,9 @@ public partial class AdvancedWindow
         PrepareHomeModeForSnapshot(modeId);
     }
 
+    internal void PrepareModesListForSnapshot() =>
+        ModesPanelControl.PrepareListForSnapshot();
+
     internal void PrepareModesEditorForSnapshot() =>
         ModesPanelControl.PrepareEditorForSnapshot();
 

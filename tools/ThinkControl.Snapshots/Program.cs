@@ -71,11 +71,11 @@ internal static class Program
         homeFanAuto.CoolingProfile = "Lenovo Auto";
         AppState firmwareFanRecovery = CreateDemoState(charging: true, hardwareReady: false);
         firmwareFanRecovery.MachineType = "21Q6";
-        firmwareFanRecovery.CanFanControl = true;
+        firmwareFanRecovery.CanFanControl = false;
         firmwareFanRecovery.CanFanTelemetry = false;
         firmwareFanRecovery.CanSensorTelemetry = false;
-        firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy;
-        firmwareFanRecovery.CoolingProfile = "Lenovo Auto";
+        firmwareFanRecovery.FanControlKind = FanControlKinds.None;
+        firmwareFanRecovery.CoolingProfile = "Quiet";
         firmwareFanRecovery.DriverStatus = "Hardware service online · direct fan provider unavailable";
         firmwareFanRecovery.HardwareAccess = "Lenovo firmware cooling policy available";
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
@@ -145,7 +145,9 @@ internal static class Program
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
             "advanced-battery-day-expanded.png", "expanded daily session detail", expandBatteryDay: true);
         RenderAdvanced(app, charging, "Modes", 1160, 760, output, snapshots,
-            "advanced-modes-editor.png", "custom mode editor", modeEditor: true);
+            "advanced-modes-context.png", "saved context modes", modeList: true);
+        RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
+            "advanced-modes-editor.png", "context mode editor", modeEditor: true);
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
@@ -233,7 +235,9 @@ internal static class Program
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
             "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
         RenderAdvanced(app, charging, "Modes", 1160, 760, output, snapshots,
-            "advanced-modes-editor-light.png", "custom mode editor · light", modeEditor: true);
+            "advanced-modes-context-light.png", "saved context modes · light", modeList: true);
+        RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
+            "advanced-modes-editor-light.png", "context mode editor · light", modeEditor: true);
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery-light.png", "direct provider unavailable · firmware profiles available · light");
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
@@ -441,7 +445,8 @@ internal static class Program
         bool deviceReportReady = false,
         string? openingView = null,
         AudioSafetyMode? audioSafetyMode = null,
-        bool modeEditor = false)
+        bool modeEditor = false,
+        bool modeList = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -473,6 +478,8 @@ internal static class Program
             window.PrepareAudioSafetyForSnapshot(
                 audioSafety,
                 audioPage: string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase));
+        if (modeList && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
+            window.PrepareModesListForSnapshot();
         if (modeEditor && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
             window.PrepareModesEditorForSnapshot();
 

@@ -402,7 +402,7 @@ public partial class ModesPanel : UserControl
             EditorSettings.Children.Add(CreateSettingRow(
                 ThinkControlModeFacet.RefreshRate,
                 "Refresh rate",
-                BuildRefreshValues(),
+                BuildRefreshValues(_editingRefreshRate),
                 _editingRefreshRate));
 
         if (_editingAudioSafety is not null)
@@ -447,17 +447,26 @@ public partial class ModesPanel : UserControl
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
-    private IReadOnlyList<string> BuildRefreshValues()
+    private IReadOnlyList<string> BuildRefreshValues(string? selected = null)
     {
         var values = new List<string> { "Auto" };
         if (_app is null)
-            return ["Auto", "60 Hz", "Max"];
+            values.AddRange(["60 Hz", "Max"]);
+        else
+        {
+            IReadOnlyList<int> supported = _app.DisplayService.GetSupportedRefreshRates();
+            if (supported.Contains(60))
+                values.Add("60 Hz");
+            if (supported.Count > 0 || _app.State.MaxRefreshHz > 0)
+                values.Add("Max");
+        }
 
-        IReadOnlyList<int> supported = _app.DisplayService.GetSupportedRefreshRates();
-        if (supported.Contains(60))
-            values.Add("60 Hz");
-        if (supported.Count > 0 || _app.State.MaxRefreshHz > 0)
-            values.Add("Max");
+        if (!string.IsNullOrWhiteSpace(selected) &&
+            !values.Contains(selected, StringComparer.OrdinalIgnoreCase))
+        {
+            values.Add(selected);
+        }
+
         return values;
     }
 
@@ -1024,6 +1033,50 @@ public partial class ModesPanel : UserControl
     {
         EditorStatusText.Text = message;
         EditorStatusText.Visibility = Visibility.Visible;
+    }
+
+    internal void PrepareListForSnapshot()
+    {
+        ListView.Visibility = Visibility.Visible;
+        EditorView.Visibility = Visibility.Collapsed;
+        ModeRows.Children.Clear();
+
+        ThinkControlModeDefinition[] fixtures =
+        [
+            ThinkControlModeCatalog.NoMode,
+            new(
+                "custom:study-snapshot",
+                "Study",
+                AudioSafety: "Silent",
+                KeyboardLight: "Low",
+                PerformanceMode: "Efficiency",
+                CoolingProfile: "Quiet",
+                RefreshRate: "60 Hz",
+                Triggers: [new ThinkControlModeTrigger("Wifi", "Campus")],
+                AutomationEnabled: true),
+            new(
+                "custom:solidworks-snapshot",
+                "SolidWorks",
+                PerformanceMode: "Performance",
+                CoolingProfile: "Balanced",
+                RefreshRate: "Max",
+                Triggers: [new ThinkControlModeTrigger("Process", "SLDWORKS")],
+                AutomationEnabled: true),
+            new(
+                "custom:battery-snapshot",
+                "Battery saver",
+                KeyboardLight: "Off",
+                PerformanceMode: "Efficiency",
+                RefreshRate: "60 Hz",
+                Triggers: [new ThinkControlModeTrigger("BatteryBelow", Number: 25)],
+                AutomationEnabled: true)
+        ];
+
+        foreach (ThinkControlModeDefinition mode in fixtures)
+            ModeRows.Children.Add(CreateModeRow(mode));
+
+        EmptyModesText.Visibility = Visibility.Collapsed;
+        UpdateHeaderState();
     }
 
     internal void PrepareEditorForSnapshot()

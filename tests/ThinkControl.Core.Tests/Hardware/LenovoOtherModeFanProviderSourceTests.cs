@@ -264,9 +264,10 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
         string workflow = ReadSource(".github", "workflows", "ci.yml");
 
-        Assert.Contains("firmwareFanRecovery.CanFanControl = true", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.CanFanControl = false", renderer, StringComparison.Ordinal);
         Assert.Contains("firmwareFanRecovery.CanFanTelemetry = false", renderer, StringComparison.Ordinal);
-        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.None", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.CoolingProfile = \"Quiet\"", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery.png", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery-light.png", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery.png", workflow, StringComparison.Ordinal);
