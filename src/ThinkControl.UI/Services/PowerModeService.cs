@@ -32,15 +32,18 @@ public sealed class PowerModeService
     {
         Guid guid = ToGuid(mode);
         bool configured = ConfigureGuid(guid, onBattery);
-        bool effective = !makeEffective || TrySetEffective(guid);
-        bool changed = configured || (makeEffective && effective);
+        bool effective = !makeEffective || SetEffective(mode);
+        return configured || (makeEffective && effective);
+    }
 
-        if (makeEffective && changed)
+    public bool SetEffective(ThinkControlPowerMode mode)
+    {
+        bool changed = TrySetEffective(ToGuid(mode));
+        if (changed)
         {
             try { ModeApplied?.Invoke(mode); }
             catch { }
         }
-
         return changed;
     }
 
