@@ -24,7 +24,15 @@ Active implementation state:
 - branch: `alpha55-context-modes`
 - source target: `v0.1.0-alpha.55`
 - immutable/public baseline: `v0.1.0-alpha.54`
-- `version.json.releaseReady=false` until exact-head hosted and visual gates pass
+- canonical PR: **#105 — Prepare alpha.55 context Modes and X9 fan control recovery**
+- candidate evidence head: `71610a14a2d381a305e9fae58f2505455dfc82e3`
+- candidate CI `36772955585` / #2189: success — hygiene, build, tests, Compact↔Advanced shell smoke and WPF visual QA
+- candidate Package ThinkControl `36772955889` / #1878: success — payload, installer, deep IPC reliability and oldest-supported upgrade compatibility
+- candidate visual artifact `11123664179`, digest `sha256:ef21320bdd8147882d06271f8c773c465e3fd28ed42a56d295ece9508579fe9a`
+- Modes context list/editor inspected in dark/light; refresh selection stays visible and automation rows fit the normal composition
+- verified-X9 fallback inspected in dark/light with `FanControl=false`, `FanControlKind=None`, `CoolingProfile=Quiet`; built-in selector remains enabled while direct curve editing remains unavailable
+- no open PR review threads/comments on the candidate head
+- `version.json.releaseReady=true`; this commit creates the frozen release candidate
 
 Scope:
 
@@ -49,10 +57,10 @@ Current gate:
 - [x] Modes moved below Touchpad in Advanced navigation
 - [x] verified-X9 firmware profile fallback added to Home / Compact / Fans / cooling orchestration
 - [x] bounded Lenovo LITSSvc reacquire/retry added without reauthorizing rejected direct fan writers
-- [ ] open canonical PR and run exact-head CI + Package
-- [ ] inspect Modes list/editor/trigger states and verified-X9 fan fallback in dark/light
-- [ ] resolve review backlog on exact candidate head
-- [ ] freeze `releaseReady=true`
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect Modes list/editor/trigger states and verified-X9 fan fallback in dark/light
+- [x] resolve review backlog on exact candidate head
+- [x] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
 - [ ] real X9 smoke: Quiet / Balanced / Max profile changes physically change behavior and do not snap back to Auto
