@@ -1,19 +1,44 @@
+using System.IO;
 using ThinkControl.Core.Audio;
 
 namespace ThinkControl.UI.Services;
+
+public sealed record ThinkControlModeTrigger(
+    string Type,
+    string Value = "",
+    int Number = 0,
+    string StartTime = "",
+    string EndTime = "",
+    int DaysMask = 127,
+    bool Enabled = true);
 
 public sealed record ThinkControlModeDefinition(
     string Id,
     string Name,
     string? AudioSafety = null,
     bool? TouchpadGesturesEnabled = null,
-    string? KeyboardLight = null);
+    string? KeyboardLight = null,
+    string? PerformanceMode = null,
+    string? CoolingProfile = null,
+    string? RefreshRate = null,
+    ThinkControlModeTrigger[]? Triggers = null,
+    bool AutomationEnabled = false);
 
 internal enum ThinkControlModeFacet
 {
+    PerformanceMode,
+    CoolingProfile,
+    RefreshRate,
     AudioSafety,
     TouchpadGestures,
     KeyboardLight
+}
+
+internal enum ThinkControlModeActivationOrigin
+{
+    Manual,
+    Automatic,
+    Restore
 }
 
 internal sealed record KeyboardModeSnapshot(
@@ -21,29 +46,51 @@ internal sealed record KeyboardModeSnapshot(
     string StaticLevel,
     string BaseLevel);
 
+internal sealed record RefreshModeSnapshot(
+    bool Auto,
+    int RefreshHz);
+
 internal static class ThinkControlModeCatalog
 {
-    internal const int MaxCustomModes = 8;
+    internal const int MaxCustomModes = 12;
+    internal const int MaxTriggersPerMode = 8;
     internal const string NormalId = "normal";
     internal const string GestureLockId = "gesture-lock";
     internal const string SilentId = "silent";
 
-    internal static readonly IReadOnlyList<ThinkControlModeDefinition> BuiltIns =
+    internal static readonly ThinkControlModeDefinition NoMode =
+        new(NormalId, "No mode");
+
+    // Gesture lock and Silent remain readable for settings/backward compatibility,
+    // but alpha.55 no longer presents them as first-class modes. They are settings
+    // a real user mode can compose.
+    internal static readonly IReadOnlyList<ThinkControlModeDefinition> LegacyBuiltIns =
     [
-        new(NormalId, "Normal"),
         new(GestureLockId, "Gesture lock", AudioSafety: "GestureLock"),
         new(SilentId, "Silent", AudioSafety: "Silent")
     ];
+
+    // Compatibility surface for snapshot/tests that still need to render legacy
+    // audio-safety states. The actual alpha.55 Modes UI uses VisibleModes instead.
+    internal static readonly IReadOnlyList<ThinkControlModeDefinition> BuiltIns =
+        [NoMode, .. LegacyBuiltIns];
+
+    internal static IReadOnlyList<ThinkControlModeDefinition> VisibleModes(
+        IReadOnlyList<ThinkControlModeDefinition>? customs) =>
+        [NoMode, .. (customs ?? [])];
 
     internal static ThinkControlModeDefinition? Find(
         string? id,
         IReadOnlyList<ThinkControlModeDefinition>? customs)
     {
         string key = id?.Trim() ?? string.Empty;
-        ThinkControlModeDefinition? builtIn = BuiltIns.FirstOrDefault(mode =>
+        if (NoMode.Id.Equals(key, StringComparison.OrdinalIgnoreCase))
+            return NoMode;
+
+        ThinkControlModeDefinition? legacy = LegacyBuiltIns.FirstOrDefault(mode =>
             mode.Id.Equals(key, StringComparison.OrdinalIgnoreCase));
-        if (builtIn is not null)
-            return builtIn;
+        if (legacy is not null)
+            return legacy;
 
         return customs?.FirstOrDefault(mode =>
             mode.Id.Equals(key, StringComparison.OrdinalIgnoreCase));
@@ -51,6 +98,12 @@ internal static class ThinkControlModeCatalog
 
     internal static IEnumerable<ThinkControlModeFacet> Facets(ThinkControlModeDefinition mode)
     {
+        if (mode.PerformanceMode is not null)
+            yield return ThinkControlModeFacet.PerformanceMode;
+        if (mode.CoolingProfile is not null)
+            yield return ThinkControlModeFacet.CoolingProfile;
+        if (mode.RefreshRate is not null)
+            yield return ThinkControlModeFacet.RefreshRate;
         if (mode.AudioSafety is not null)
             yield return ThinkControlModeFacet.AudioSafety;
         if (mode.TouchpadGesturesEnabled.HasValue)
@@ -97,7 +150,8 @@ internal static class ThinkControlModeCatalog
             id.Length > 80 ||
             string.IsNullOrWhiteSpace(name) ||
             name.Length > 32 ||
-            BuiltIns.Any(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
+            name.Equals(NoMode.Name, StringComparison.OrdinalIgnoreCase) ||
+            LegacyBuiltIns.Any(item => item.Name.Equals(name, StringComparison.OrdinalIgnoreCase)))
         {
             return null;
         }
@@ -117,8 +171,31 @@ internal static class ThinkControlModeCatalog
             "Auto" => "Auto",
             _ => null
         };
+        string? performance = mode.PerformanceMode?.Trim() switch
+        {
+            "Quiet" or "Efficiency" => "Efficiency",
+            "Balanced" => "Balanced",
+            "Performance" => "Performance",
+            _ => null
+        };
+        string? cooling = SanitizeCoolingProfile(mode.CoolingProfile);
+        string? refresh = mode.RefreshRate?.Trim() switch
+        {
+            "Auto" => "Auto",
+            "60" or "60 Hz" => "60 Hz",
+            "Max" => "Max",
+            _ => null
+        };
 
-        if (audio is null && !mode.TouchpadGesturesEnabled.HasValue && keyboard is null)
+        ThinkControlModeTrigger[] triggers = SanitizeTriggers(mode.Triggers);
+        bool hasSetting =
+            audio is not null ||
+            mode.TouchpadGesturesEnabled.HasValue ||
+            keyboard is not null ||
+            performance is not null ||
+            cooling is not null ||
+            refresh is not null;
+        if (!hasSetting)
             return null;
 
         return new ThinkControlModeDefinition(
@@ -126,36 +203,118 @@ internal static class ThinkControlModeCatalog
             name,
             audio,
             mode.TouchpadGesturesEnabled,
-            keyboard);
+            keyboard,
+            performance,
+            cooling,
+            refresh,
+            triggers,
+            mode.AutomationEnabled && triggers.Length > 0);
+    }
+
+    internal static ThinkControlModeTrigger[] SanitizeTriggers(
+        IReadOnlyList<ThinkControlModeTrigger>? triggers)
+    {
+        if (triggers is null)
+            return [];
+
+        var result = new List<ThinkControlModeTrigger>(MaxTriggersPerMode);
+        foreach (ThinkControlModeTrigger raw in triggers)
+        {
+            if (result.Count >= MaxTriggersPerMode)
+                break;
+            ThinkControlModeTrigger? trigger = SanitizeTrigger(raw);
+            if (trigger is not null)
+                result.Add(trigger);
+        }
+        return result.ToArray();
+    }
+
+    internal static ThinkControlModeTrigger? SanitizeTrigger(ThinkControlModeTrigger? trigger)
+    {
+        if (trigger is null)
+            return null;
+
+        string type = trigger.Type?.Trim() ?? string.Empty;
+        string value = trigger.Value?.Trim() ?? string.Empty;
+        int days = trigger.DaysMask & 0x7F;
+        if (days == 0)
+            days = 0x7F;
+
+        return type switch
+        {
+            "Wifi" when value.Length is > 0 and <= 64 =>
+                new("Wifi", value, Enabled: trigger.Enabled),
+            "Process" when value.Length is > 0 and <= 96 =>
+                new("Process", NormalizeProcessName(value), Enabled: trigger.Enabled),
+            "Power" when value is "Battery" or "AC" =>
+                new("Power", value, Enabled: trigger.Enabled),
+            "BatteryBelow" when trigger.Number is >= 5 and <= 95 =>
+                new("BatteryBelow", Number: trigger.Number, Enabled: trigger.Enabled),
+            "Schedule" when
+                TimeOnly.TryParse(trigger.StartTime, out TimeOnly start) &&
+                TimeOnly.TryParse(trigger.EndTime, out TimeOnly end) &&
+                start != end =>
+                new(
+                    "Schedule",
+                    StartTime: start.ToString("HH:mm"),
+                    EndTime: end.ToString("HH:mm"),
+                    DaysMask: days,
+                    Enabled: trigger.Enabled),
+            _ => null
+        };
     }
 
     internal static string Summary(ThinkControlModeDefinition mode)
     {
         if (mode.Id.Equals(NormalId, StringComparison.OrdinalIgnoreCase))
-            return "No temporary overrides.";
-        if (mode.Id.Equals(GestureLockId, StringComparison.OrdinalIgnoreCase))
-            return "Blocks ThinkControl audio and media gestures.";
-        if (mode.Id.Equals(SilentId, StringComparison.OrdinalIgnoreCase))
-            return "Keeps Windows output muted.";
+            return "Use your regular settings.";
 
-        var parts = new List<string>(3);
+        var parts = new List<string>(6);
+        if (mode.PerformanceMode is string performance)
+            parts.Add(performance);
+        if (mode.CoolingProfile is string cooling)
+            parts.Add(cooling);
+        if (mode.RefreshRate is string refresh)
+            parts.Add(refresh == "Max" ? "max refresh" : refresh);
         if (mode.AudioSafety is not null)
         {
             parts.Add(mode.AudioSafety switch
             {
                 "GestureLock" => "gesture lock",
-                "Silent" => "silent output",
+                "Silent" => "silent",
                 _ => "normal audio"
             });
         }
-
+        if (mode.KeyboardLight is string keyboard)
+            parts.Add($"keyboard {keyboard.ToLowerInvariant()}");
         if (mode.TouchpadGesturesEnabled is bool gestures)
             parts.Add(gestures ? "gestures on" : "gestures off");
-        if (mode.KeyboardLight is string keyboard)
-            parts.Add($"keyboard {keyboard}");
 
-        return parts.Count == 0 ? "No controls." : string.Join(", ", parts);
+        return parts.Count == 0 ? "No settings." : string.Join(" · ", parts);
     }
+
+    internal static string AutomationSummary(ThinkControlModeDefinition mode)
+    {
+        if (!mode.AutomationEnabled)
+            return string.Empty;
+
+        ThinkControlModeTrigger[] triggers = SanitizeTriggers(mode.Triggers);
+        if (triggers.Length == 0)
+            return string.Empty;
+
+        return string.Join(" · ", triggers.Take(2).Select(TriggerSummary)) +
+               (triggers.Length > 2 ? $" +{triggers.Length - 2}" : string.Empty);
+    }
+
+    internal static string TriggerSummary(ThinkControlModeTrigger trigger) => trigger.Type switch
+    {
+        "Wifi" => $"Wi-Fi {trigger.Value}",
+        "Process" => $"App {trigger.Value}",
+        "Power" => trigger.Value == "Battery" ? "On battery" : "Plugged in",
+        "BatteryBelow" => $"Battery ≤ {trigger.Number}%",
+        "Schedule" => $"{DaysSummary(trigger.DaysMask)} {trigger.StartTime}–{trigger.EndTime}",
+        _ => trigger.Type
+    };
 
     internal static AudioSafetyMode ParseAudioSafety(string? value) => value switch
     {
@@ -163,4 +322,47 @@ internal static class ThinkControlModeCatalog
         "Silent" => AudioSafetyMode.Silent,
         _ => AudioSafetyMode.Normal
     };
+
+    internal static bool TryParsePowerMode(string? value, out ThinkControlPowerMode mode)
+    {
+        string normalized = value?.Trim() ?? string.Empty;
+        if (normalized.Equals("Efficiency", StringComparison.OrdinalIgnoreCase))
+            normalized = "Quiet";
+        return Enum.TryParse(normalized, true, out mode);
+    }
+
+    private static string? SanitizeCoolingProfile(string? value)
+    {
+        string raw = value?.Trim() ?? string.Empty;
+        if (raw.Length is 0 or > 80)
+            return null;
+        return raw switch
+        {
+            "Auto" => "Lenovo Auto",
+            "Silent" => "Quiet",
+            "Normal" => "Balanced",
+            "Cool" or "MaxCooling" => "Max cooling",
+            _ => raw
+        };
+    }
+
+    private static string NormalizeProcessName(string value)
+    {
+        string file = Path.GetFileName(value.Trim());
+        return file.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+            ? file[..^4]
+            : file;
+    }
+
+    private static string DaysSummary(int mask)
+    {
+        mask &= 0x7F;
+        if (mask == 0x7F)
+            return "Every day";
+        if (mask == 0b0111110)
+            return "Weekdays";
+        if (mask == 0b1000001)
+            return "Weekend";
+        return "Scheduled";
+    }
 }

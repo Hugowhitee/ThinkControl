@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model for the **v0.1.0-alpha.54** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.53` remains the current published prerelease; alpha.54 keeps the verified X9 firmware-policy controls available through direct-provider discovery failures without reauthorizing rejected direct fan writes.
+This document describes the support model for the **v0.1.0-alpha.55** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.54` remains the current published prerelease; alpha.55 keeps verified-X9 Lenovo firmware profiles available through transient discovery misses and adds user-session context Modes without weakening direct fan-write safety gates.
 
 ## Support levels
 

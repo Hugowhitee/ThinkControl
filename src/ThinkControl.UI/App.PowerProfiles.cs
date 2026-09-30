@@ -67,11 +67,34 @@ public partial class App
         {
             bool applied = PowerModeService.SetForSource(mode, onBattery, makeEffective: true);
             if (applied)
+            {
                 State.SelectedPowerMode = mode.ToString();
+                Modes.ReleaseFacet(ThinkControlModeFacet.PerformanceMode);
+            }
             return applied;
         }
 
         return true;
+    }
+
+    internal bool ApplyPowerModeOverride(string value)
+    {
+        if (!ThinkControlModeCatalog.TryParsePowerMode(value, out ThinkControlPowerMode mode))
+            return false;
+        bool applied = PowerModeService.SetEffective(mode);
+        if (applied)
+            State.SelectedPowerMode = mode.ToString();
+        return applied;
+    }
+
+    internal bool RestorePowerModeOverride()
+    {
+        bool onBattery = IsCurrentlyOnBattery();
+        ThinkControlPowerMode baseline = GetPowerPreference(onBattery);
+        bool applied = PowerModeService.SetEffective(baseline);
+        if (applied)
+            State.SelectedPowerMode = baseline.ToString();
+        return applied;
     }
 
     internal bool IsCurrentlyOnBattery()
@@ -123,8 +146,16 @@ public partial class App
                 : current with { AcPowerMode = mode.ToString() });
         }
 
-        if (PowerModeService.SetForSource(mode, onBattery, makeEffective: true))
+        if (Modes.OwnsFacet(ThinkControlModeFacet.PerformanceMode))
+        {
+            _ = Modes.ReapplyOwnedFacetAsync(ThinkControlModeFacet.PerformanceMode);
+        }
+        else if (PowerModeService.SetForSource(mode, onBattery, makeEffective: true))
+        {
             State.SelectedPowerMode = mode.ToString();
+        }
+
+        RequestModeAutomationEvaluation();
     }
 
     private static bool TryParsePowerPreference(string? value, out ThinkControlPowerMode mode)

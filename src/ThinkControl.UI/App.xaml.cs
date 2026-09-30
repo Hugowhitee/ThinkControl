@@ -309,7 +309,10 @@ public partial class App : System.Windows.Application
         DateTimeOffset started = DateTimeOffset.UtcNow;
         bool changed = PowerModeService.Set(mode);
         if (changed)
+        {
             State.SelectedPowerMode = mode.ToString();
+            Modes.ReleaseFacet(ThinkControlModeFacet.PerformanceMode);
+        }
         RecordOperation("power.profile_set", "PerformanceMode", "Windows", changed, started,
             new Dictionary<string, string> { ["state"] = mode.ToString() });
         return changed;
@@ -343,7 +346,10 @@ public partial class App : System.Windows.Application
         UserSettings.Update(settings => settings with { RefreshAuto = false });
         bool changed = DisplayService.SetRefreshRate(hz);
         if (changed)
+        {
             State.CurrentRefreshHz = DisplayService.GetCurrentRefreshRate();
+            Modes.ReleaseFacet(ThinkControlModeFacet.RefreshRate);
+        }
         RecordOperation("display.refresh_set", "DisplayRefresh", "Windows", changed, started,
             new Dictionary<string, string> { ["state"] = hz.ToString() });
         return changed;
@@ -356,6 +362,7 @@ public partial class App : System.Windows.Application
         BatteryTelemetrySnapshot battery =
             BatteryTelemetryService.Read(ResolveBatteryChargeTargetPercent());
         ApplyRefreshAuto(onBattery: !battery.OnAc);
+        Modes.ReleaseFacet(ThinkControlModeFacet.RefreshRate);
         RecordDiagnostic(new DiagnosticEvent(
             DateTimeOffset.UtcNow,
             "display.refresh_auto_enabled",
@@ -364,6 +371,57 @@ public partial class App : System.Windows.Application
             ValidationState: GetCurrentDeviceValidationState(),
             Success: true));
         return true;
+    }
+
+    internal RefreshModeSnapshot CaptureRefreshModeSnapshot() =>
+        new(UserSettings.Current.RefreshAuto, State.CurrentRefreshHz);
+
+    internal bool ApplyRefreshModeOverride(string value)
+    {
+        string normalized = value?.Trim() ?? string.Empty;
+        if (normalized == "Auto")
+        {
+            BatteryTelemetrySnapshot battery =
+                BatteryTelemetryService.Read(ResolveBatteryChargeTargetPercent());
+            ApplyRefreshAuto(onBattery: !battery.OnAc);
+            return true;
+        }
+
+        int target = normalized switch
+        {
+            "60" or "60 Hz" => 60,
+            "Max" => State.MaxRefreshHz > 0
+                ? State.MaxRefreshHz
+                : DisplayService.GetSupportedRefreshRates().DefaultIfEmpty(0).Max(),
+            _ => 0
+        };
+        if (target <= 0)
+            return false;
+
+        bool changed = DisplayService.SetRefreshRate(target);
+        if (changed)
+            State.CurrentRefreshHz = DisplayService.GetCurrentRefreshRate();
+        return changed;
+    }
+
+    internal bool RestoreRefreshModeSnapshot(RefreshModeSnapshot snapshot)
+    {
+        if (snapshot.Auto)
+        {
+            BatteryTelemetrySnapshot battery =
+                BatteryTelemetryService.Read(ResolveBatteryChargeTargetPercent());
+            ApplyRefreshAuto(onBattery: !battery.OnAc);
+            State.RefreshAutoEnabled = true;
+            return true;
+        }
+
+        if (snapshot.RefreshHz <= 0)
+            return true;
+        bool changed = DisplayService.SetRefreshRate(snapshot.RefreshHz);
+        if (changed)
+            State.CurrentRefreshHz = DisplayService.GetCurrentRefreshRate();
+        State.RefreshAutoEnabled = false;
+        return changed;
     }
 
     public async Task SetKeyboardStaticLevelAsync(string level)

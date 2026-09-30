@@ -90,6 +90,8 @@ jobs:
             $expectedPng += "advanced-$page-min-light.png"
             $expectedPng += "advanced-$page-wide-light.png"
           }
+          $expectedPng += 'advanced-modes-context.png'
+          $expectedPng += 'advanced-modes-context-light.png'
           $expectedPng += 'advanced-modes-editor.png'
           $expectedPng += 'advanced-modes-editor-light.png'
 

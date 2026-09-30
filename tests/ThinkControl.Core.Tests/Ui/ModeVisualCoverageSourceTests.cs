@@ -28,6 +28,8 @@ public sealed class ModeVisualCoverageSourceTests
         Assert.Contains("compact-silent.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("compact-silent-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("\"Home\", \"Modes\", \"Performance\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-modes-context.png", snapshots, StringComparison.Ordinal);
+        Assert.Contains("advanced-modes-context-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-modes-editor.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("advanced-modes-editor-light.png", snapshots, StringComparison.Ordinal);
         Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-light.png\"", snapshots, StringComparison.Ordinal);

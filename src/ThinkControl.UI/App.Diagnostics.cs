@@ -21,6 +21,7 @@ public partial class App
         PowerModeService.ModeApplied += PowerModeService_ModeApplied;
         InitializePowerProfileCoordinator();
         InitializeCoolingCoordinator();
+        InitializeModeAutomation();
         InitializeAttentionNotifications();
         if (enforceSingleInstance)
             InitializeDiagnosticsLifecycle();

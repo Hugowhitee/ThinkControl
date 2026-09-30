@@ -102,12 +102,14 @@ public partial class AdvancedWindow
             return;
 
         string selected = _app.State.CoolingProfileDisplay;
+        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType);
         bool firmwarePolicy = string.Equals(
             _app.State.FanControlKind,
             FanControlKinds.FirmwarePolicy,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal) ||
+            (verifiedX9 && string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal));
         string[] extraProfiles = BuildHomeFanExtraProfiles(selected, firmwarePolicy);
-        bool enabled = _app.State.CanFanControl;
+        bool enabled = _app.State.CanFanControl || firmwarePolicy;
         bool autoActive =
             selected.Equals("Auto", StringComparison.OrdinalIgnoreCase) ||
             selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
@@ -293,10 +295,17 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = active;
-            HomeModeModifiedText.Text = _app.Modes.IsTransitioning ? "Applying…" : "Modified";
-            HomeModeModifiedText.Visibility = _app.Modes.IsTransitioning || _app.Modes.IsModified
-                ? Visibility.Visible
-                : Visibility.Collapsed;
+            HomeModeModifiedText.Text = _app.Modes.IsTransitioning
+                ? "Applying…"
+                : _app.Modes.IsModified
+                    ? "Modified"
+                    : "Automatic";
+            HomeModeModifiedText.Visibility =
+                _app.Modes.IsTransitioning ||
+                _app.Modes.IsModified ||
+                _app.Modes.ActiveModeAutomatic
+                    ? Visibility.Visible
+                    : Visibility.Collapsed;
         }
         finally
         {

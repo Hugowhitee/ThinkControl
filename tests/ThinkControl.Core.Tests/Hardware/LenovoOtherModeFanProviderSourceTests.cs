@@ -224,7 +224,10 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("Temporary 30-second test", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
-        Assert.DoesNotContain("DeviceCapabilityExpectations.IsVerifiedX9", ui, StringComparison.Ordinal);
+        Assert.Contains("DeviceCapabilityExpectations.IsVerifiedX9", ui, StringComparison.Ordinal);
+        Assert.Contains("verifiedX9 ? FanControlKinds.FirmwarePolicy", ui, StringComparison.Ordinal);
+        Assert.Contains("_app.State.CanFanControl || firmwareFallback", ReadSource("src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"), StringComparison.Ordinal);
+        Assert.Contains("_app.State.CanFanControl || firmwarePolicy", ReadSource("src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"), StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareAccess", ui.Split("private static string DescribeUnavailable", StringSplitOptions.None)[0].Split("private void ApplyProviderCopy", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.Contains("% OEM target", ui, StringComparison.Ordinal);
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
@@ -238,14 +241,38 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
+    public void LenovoThermalPolicy_RetriesOnlyTransientPipeFailures()
+    {
+        string policy = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoThermalPolicyService.cs");
+
+        Assert.Contains("RetryDelays", policy, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(150)", policy, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromMilliseconds(300)", policy, StringComparison.Ordinal);
+        Assert.Contains("foreach (TimeSpan delay in RetryDelays)", policy, StringComparison.Ordinal);
+        Assert.Contains("catch (IOException ex)", policy, StringComparison.Ordinal);
+        Assert.Contains("catch (TimeoutException)", policy, StringComparison.Ordinal);
+        Assert.Contains("catch (OperationCanceledException)", policy, StringComparison.Ordinal);
+        Assert.Contains("catch (UnauthorizedAccessException)", policy, StringComparison.Ordinal);
+        Assert.Contains("return false;", policy.Split("catch (UnauthorizedAccessException)", StringSplitOptions.None)[1], StringComparison.Ordinal);
+        Assert.DoesNotContain("SetFanPercent", policy, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetFanLevel", policy, StringComparison.Ordinal);
+
+        string client = ReadSource("src", "ThinkControl.UI", "Services", "HardwareServiceClient.cs");
+        Assert.Contains("\"ReturnFanToAuto\", null, cancellationToken, timeoutMs: 6000", client, StringComparison.Ordinal);
+        Assert.Contains("\"SetCoolingProfile\", profile, cancellationToken, timeoutMs: 6000", client, StringComparison.Ordinal);
+        Assert.Contains("\"SetThermalMode\", value, cancellationToken, timeoutMs: 6000", client, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void VisualQa_ShowsFirmwarePolicyControlsWhenDirectProviderIsUnavailable()
     {
         string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
         string workflow = ReadSource(".github", "workflows", "ci.yml");
 
-        Assert.Contains("firmwareFanRecovery.CanFanControl = true", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.CanFanControl = false", renderer, StringComparison.Ordinal);
         Assert.Contains("firmwareFanRecovery.CanFanTelemetry = false", renderer, StringComparison.Ordinal);
-        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.None", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.CoolingProfile = \"Quiet\"", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery.png", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery-light.png", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery.png", workflow, StringComparison.Ordinal);

@@ -60,8 +60,9 @@ public sealed class AppState : INotifyPropertyChanged
     private double _keyboardEffectSpeed = 1.0;
     private string _selectedPowerMode = "Balanced";
     private string _activeModeId = "normal";
-    private string _activeModeName = "Normal";
+    private string _activeModeName = "No mode";
     private bool _activeModeModified;
+    private bool _activeModeAutomatic;
     private string _updateStatus = "Checking automatically…";
     private bool _canFanControl;
     private bool _canFanTelemetry;
@@ -132,8 +133,9 @@ public sealed class AppState : INotifyPropertyChanged
     public double KeyboardEffectSpeed { get => _keyboardEffectSpeed; set => Set(ref _keyboardEffectSpeed, Math.Clamp(value, 0.5, 2.0)); }
     public string SelectedPowerMode { get => _selectedPowerMode; set => Set(ref _selectedPowerMode, value); }
     public string ActiveModeId { get => _activeModeId; set => Set(ref _activeModeId, string.IsNullOrWhiteSpace(value) ? "normal" : value); }
-    public string ActiveModeName { get => _activeModeName; set => Set(ref _activeModeName, string.IsNullOrWhiteSpace(value) ? "Normal" : value); }
+    public string ActiveModeName { get => _activeModeName; set => Set(ref _activeModeName, string.IsNullOrWhiteSpace(value) ? "No mode" : value); }
     public bool ActiveModeModified { get => _activeModeModified; set => Set(ref _activeModeModified, value); }
+    public bool ActiveModeAutomatic { get => _activeModeAutomatic; set => Set(ref _activeModeAutomatic, value); }
     public string UpdateStatus { get => _updateStatus; set => Set(ref _updateStatus, value); }
     public bool CanFanControl { get => _canFanControl; set => Set(ref _canFanControl, value); }
     public bool CanFanTelemetry { get => _canFanTelemetry; set => Set(ref _canFanTelemetry, value); }

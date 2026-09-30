@@ -1,19 +1,27 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using ThinkControl.Core.Audio;
+using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
 
 public partial class ModesPanel : UserControl
 {
+    private sealed record TriggerBinding(int Index, string Field);
+
     private App? _app;
     private bool _busy;
     private string? _editingId;
+    private string? _editingPerformanceMode;
+    private string? _editingCoolingProfile;
+    private string? _editingRefreshRate;
     private string? _editingAudioSafety;
     private bool? _editingTouchpadGestures;
     private string? _editingKeyboardLight;
+    private readonly List<ThinkControlModeTrigger> _editingTriggers = [];
+    private bool _editingAutomationEnabled;
+
     private TextBlock _modifiedLabel = null!;
     private Button _reapplyButton = null!;
     private Button _cancelButton = null!;
@@ -29,7 +37,6 @@ public partial class ModesPanel : UserControl
     {
         _modifiedLabel = new TextBlock
         {
-            Text = "Modified",
             FontSize = TypographyScale.Caption,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
@@ -37,11 +44,13 @@ public partial class ModesPanel : UserControl
         };
         _modifiedLabel.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
 
-        _reapplyButton = HeaderButton("Reapply", Reapply_Click, new Thickness(9, 4, 9, 4));
+        _reapplyButton = HeaderButton("Reapply", Reapply_Click);
         _reapplyButton.Visibility = Visibility.Collapsed;
-        _cancelButton = HeaderButton("Cancel", Cancel_Click, new Thickness(9, 4, 9, 4));
+
+        _cancelButton = HeaderButton("Cancel", Cancel_Click);
         _cancelButton.Visibility = Visibility.Collapsed;
-        _saveButton = HeaderButton("Save", Save_Click, new Thickness(10, 4, 10, 4));
+
+        _saveButton = HeaderButton("Save", Save_Click);
         _saveButton.Margin = new Thickness(10, 0, 0, 0);
         _saveButton.Visibility = Visibility.Collapsed;
 
@@ -52,13 +61,13 @@ public partial class ModesPanel : UserControl
         rail.Children.Add(_saveButton);
     }
 
-    private Button HeaderButton(string content, RoutedEventHandler handler, Thickness padding)
+    private Button HeaderButton(string content, RoutedEventHandler handler)
     {
         var button = new Button
         {
             Content = content,
             Style = TryFindResource("TcButton") as Style,
-            Padding = padding,
+            Padding = new Thickness(9, 4, 9, 4),
             FontSize = TypographyScale.Caption
         };
         button.Click += handler;
@@ -100,29 +109,23 @@ public partial class ModesPanel : UserControl
             return;
 
         IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
-        BuiltInRows.Children.Clear();
-        CustomRows.Children.Clear();
+        ModeRows.Children.Clear();
 
-        foreach (ThinkControlModeDefinition mode in modes.Where(mode =>
-                     !mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase)))
-        {
-            BuiltInRows.Children.Add(CreateModeRow(mode, editable: false));
-        }
+        foreach (ThinkControlModeDefinition mode in modes)
+            ModeRows.Children.Add(CreateModeRow(mode));
 
-        ThinkControlModeDefinition[] customs = modes
-            .Where(mode => mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
-            .ToArray();
-        foreach (ThinkControlModeDefinition mode in customs)
-            CustomRows.Children.Add(CreateModeRow(mode, editable: true));
-
-        EmptyCustomText.Visibility = customs.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
-        NewModeButton.IsEnabled = customs.Length < ThinkControlModeCatalog.MaxCustomModes;
+        int customCount = modes.Count(mode =>
+            mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase));
+        EmptyModesText.Visibility = customCount == 0 ? Visibility.Visible : Visibility.Collapsed;
+        NewModeButton.IsEnabled = customCount < ThinkControlModeCatalog.MaxCustomModes;
         UpdateHeaderState();
     }
 
-    private Border CreateModeRow(ThinkControlModeDefinition mode, bool editable)
+    private Border CreateModeRow(ThinkControlModeDefinition mode)
     {
-        var row = new Grid { MinHeight = 58 };
+        bool editable = mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase);
+
+        var row = new Grid { MinHeight = 60 };
         row.ColumnDefinitions.Add(new ColumnDefinition());
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -137,15 +140,18 @@ public partial class ModesPanel : UserControl
             FontWeight = FontWeights.SemiBold,
             FontSize = TypographyScale.ControlLabel
         });
-        var summary = new TextBlock
-        {
-            Text = ThinkControlModeCatalog.Summary(mode),
-            FontSize = TypographyScale.Caption,
-            Margin = new Thickness(0, 4, 0, 0),
-            TextWrapping = TextWrapping.Wrap
-        };
-        summary.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+
+        var summary = MutedText(ThinkControlModeCatalog.Summary(mode));
+        summary.Margin = new Thickness(0, 4, 0, 0);
         copy.Children.Add(summary);
+
+        string automation = ThinkControlModeCatalog.AutomationSummary(mode);
+        if (automation.Length > 0)
+        {
+            var automatic = MutedText(automation);
+            automatic.Margin = new Thickness(0, 3, 0, 0);
+            copy.Children.Add(automatic);
+        }
         row.Children.Add(copy);
 
         var actions = new StackPanel
@@ -164,56 +170,31 @@ public partial class ModesPanel : UserControl
 
         if (editable)
         {
-            var edit = new Button
-            {
-                Content = "Edit",
-                Tag = mode.Id,
-                Style = TryFindResource("TcInlineButton") as Style,
-                Padding = new Thickness(7, 4, 7, 4),
-                Margin = new Thickness(0, 0, 7, 0)
-            };
+            var edit = InlineButton("Edit", Edit_Click, mode.Id);
             edit.IsEnabled = !applying;
-            edit.Click += Edit_Click;
+            edit.Margin = new Thickness(0, 0, 9, 0);
             actions.Children.Add(edit);
         }
 
         if (applying)
         {
-            var applyingText = new TextBlock
-            {
-                Text = "Applying…",
-                FontSize = TypographyScale.Caption,
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(6, 0, 4, 0)
-            };
-            applyingText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
-            actions.Children.Add(applyingText);
+            actions.Children.Add(StateText("Applying…"));
         }
         else if (active)
         {
-            var activeText = new TextBlock
-            {
-                Text = "Active",
-                FontSize = TypographyScale.Caption,
-                FontWeight = FontWeights.SemiBold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Margin = new Thickness(6, 0, 4, 0)
-            };
-            activeText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
-            actions.Children.Add(activeText);
+            actions.Children.Add(StateText(_app?.Modes.ActiveModeAutomatic == true ? "Automatic" : "Active"));
         }
         else
         {
             var activate = new Button
             {
-                Content = "Activate",
+                Content = mode.Id == ThinkControlModeCatalog.NormalId ? "Use" : "Activate",
                 Tag = mode.Id,
                 Style = TryFindResource("TcButton") as Style,
                 Padding = new Thickness(9, 4, 9, 4),
-                FontSize = TypographyScale.Caption
+                FontSize = TypographyScale.Caption,
+                IsEnabled = _app?.Modes.IsTransitioning != true
             };
-            activate.IsEnabled = _app?.Modes.IsTransitioning != true;
             activate.Click += Activate_Click;
             actions.Children.Add(activate);
         }
@@ -232,6 +213,45 @@ public partial class ModesPanel : UserControl
         return shell;
     }
 
+    private TextBlock StateText(string text)
+    {
+        var block = new TextBlock
+        {
+            Text = text,
+            FontSize = TypographyScale.Caption,
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(6, 0, 4, 0)
+        };
+        block.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
+        return block;
+    }
+
+    private TextBlock MutedText(string text)
+    {
+        var block = new TextBlock
+        {
+            Text = text,
+            FontSize = TypographyScale.Caption,
+            TextWrapping = TextWrapping.Wrap
+        };
+        block.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        return block;
+    }
+
+    private Button InlineButton(string content, RoutedEventHandler handler, object? tag = null)
+    {
+        var button = new Button
+        {
+            Content = content,
+            Tag = tag,
+            Style = TryFindResource("TcInlineButton") as Style,
+            Padding = new Thickness(7, 4, 7, 4)
+        };
+        button.Click += handler;
+        return button;
+    }
+
     private async void Activate_Click(object sender, RoutedEventArgs e)
     {
         if (_busy || _app is null || sender is not FrameworkElement { Tag: string id })
@@ -242,9 +262,9 @@ public partial class ModesPanel : UserControl
         ListView.IsEnabled = false;
         try
         {
-            bool success = await _app.Modes.ActivateAsync(id);
+            bool success = await _app.Modes.ActivateAsync(id, ThinkControlModeActivationOrigin.Manual);
             if (!success)
-                ShowStatus("Mode could not be applied.");
+                ShowListStatus("Mode could not be applied.");
         }
         finally
         {
@@ -256,9 +276,59 @@ public partial class ModesPanel : UserControl
 
     private void NewMode_Click(object sender, RoutedEventArgs e)
     {
-        BeginEdit(new ThinkControlModeDefinition(
-            "custom:" + Guid.NewGuid().ToString("N"),
-            string.Empty));
+        var menu = new ContextMenu
+        {
+            PlacementTarget = NewModeButton,
+            Placement = PlacementMode.Bottom
+        };
+        AddTemplateItem(menu, "Blank mode", "blank");
+        AddTemplateItem(menu, "Quiet", "quiet");
+        AddTemplateItem(menu, "Battery saver", "battery");
+        AddTemplateItem(menu, "Desk", "desk");
+        NewModeButton.ContextMenu = menu;
+        menu.IsOpen = true;
+    }
+
+    private void AddTemplateItem(ContextMenu menu, string label, string id)
+    {
+        var item = new MenuItem { Header = label, Tag = id };
+        item.Click += NewTemplate_Click;
+        menu.Items.Add(item);
+    }
+
+    private void NewTemplate_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string template })
+            return;
+
+        string id = "custom:" + Guid.NewGuid().ToString("N");
+        ThinkControlModeDefinition mode = template switch
+        {
+            "quiet" => new(
+                id,
+                "Quiet",
+                PerformanceMode: "Efficiency",
+                CoolingProfile: "Quiet",
+                KeyboardLight: "Low"),
+            "battery" => new(
+                id,
+                "Battery saver",
+                PerformanceMode: "Efficiency",
+                RefreshRate: "60 Hz",
+                KeyboardLight: "Off",
+                Triggers: [new ThinkControlModeTrigger("BatteryBelow", Number: 25)],
+                AutomationEnabled: true),
+            "desk" => new(
+                id,
+                "Desk",
+                PerformanceMode: "Balanced",
+                CoolingProfile: "Balanced",
+                RefreshRate: "Max",
+                Triggers: [new ThinkControlModeTrigger("Power", "AC")],
+                AutomationEnabled: true),
+            _ => new(id, string.Empty)
+        };
+        BeginEdit(mode);
     }
 
     private void Edit_Click(object sender, RoutedEventArgs e)
@@ -275,12 +345,20 @@ public partial class ModesPanel : UserControl
     private void BeginEdit(ThinkControlModeDefinition mode)
     {
         _editingId = mode.Id;
+        _editingPerformanceMode = mode.PerformanceMode;
+        _editingCoolingProfile = mode.CoolingProfile;
+        _editingRefreshRate = mode.RefreshRate;
         _editingAudioSafety = mode.AudioSafety;
         _editingTouchpadGestures = mode.TouchpadGesturesEnabled;
         _editingKeyboardLight = mode.KeyboardLight;
+        _editingTriggers.Clear();
+        _editingTriggers.AddRange(mode.Triggers ?? []);
+        _editingAutomationEnabled = mode.AutomationEnabled;
 
         ModeNameTextBox.Text = mode.Name;
+        AutomationSwitch.IsChecked = _editingAutomationEnabled;
         EditorStatusText.Visibility = Visibility.Collapsed;
+
         DeleteButton.Visibility = _app is not null &&
                                   _app.UserSettings.Current.CustomModes?.Any(item =>
                                       item.Id.Equals(mode.Id, StringComparison.OrdinalIgnoreCase)) == true
@@ -295,19 +373,42 @@ public partial class ModesPanel : UserControl
         _cancelButton.Visibility = Visibility.Visible;
         _modifiedLabel.Visibility = Visibility.Collapsed;
         _reapplyButton.Visibility = Visibility.Collapsed;
-        BuildEditorControls();
+
+        BuildEditorSettings();
+        BuildEditorTriggers();
+        UpdateAutomationState();
         ModeNameTextBox.Focus();
     }
 
-    private void BuildEditorControls()
+    private void BuildEditorSettings()
     {
-        EditorControls.Children.Clear();
+        EditorSettings.Children.Clear();
+
+        if (_editingPerformanceMode is not null)
+            EditorSettings.Children.Add(CreateSettingRow(
+                ThinkControlModeFacet.PerformanceMode,
+                "Performance",
+                ["Efficiency", "Balanced", "Performance"],
+                _editingPerformanceMode));
+
+        if (_editingCoolingProfile is not null)
+            EditorSettings.Children.Add(CreateSettingRow(
+                ThinkControlModeFacet.CoolingProfile,
+                "Cooling",
+                BuildCoolingValues(),
+                _editingCoolingProfile));
+
+        if (_editingRefreshRate is not null)
+            EditorSettings.Children.Add(CreateSettingRow(
+                ThinkControlModeFacet.RefreshRate,
+                "Refresh rate",
+                BuildRefreshValues(_editingRefreshRate),
+                _editingRefreshRate));
 
         if (_editingAudioSafety is not null)
-        {
-            EditorControls.Children.Add(CreateFacetRow(
+            EditorSettings.Children.Add(CreateSettingRow(
                 ThinkControlModeFacet.AudioSafety,
-                "Audio safety",
+                "Audio",
                 ["Normal", "Gesture lock", "Silent"],
                 _editingAudioSafety switch
                 {
@@ -315,47 +416,76 @@ public partial class ModesPanel : UserControl
                     "Silent" => "Silent",
                     _ => "Normal"
                 }));
-        }
 
         if (_editingTouchpadGestures.HasValue)
-        {
-            EditorControls.Children.Add(CreateFacetRow(
+            EditorSettings.Children.Add(CreateSettingRow(
                 ThinkControlModeFacet.TouchpadGestures,
                 "Touchpad gestures",
                 ["On", "Off"],
                 _editingTouchpadGestures.Value ? "On" : "Off"));
-        }
 
         if (_editingKeyboardLight is not null)
-        {
-            EditorControls.Children.Add(CreateFacetRow(
+            EditorSettings.Children.Add(CreateSettingRow(
                 ThinkControlModeFacet.KeyboardLight,
                 "Keyboard light",
                 ["Off", "Low", "High", "Auto"],
                 _editingKeyboardLight));
-        }
 
-        EditorEmptyText.Visibility = Visibility.Collapsed;
-        AddControlButton.IsEnabled = EditorControls.Children.Count < 3;
+        AddSettingButton.IsEnabled = EditorSettings.Children.Count < 6;
     }
 
-    private Border CreateFacetRow(
+    private IReadOnlyList<string> BuildCoolingValues()
+    {
+        var values = new List<string> { "Lenovo Auto", "Quiet", "Balanced", "Max cooling" };
+        if (_app is not null &&
+            !string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal))
+        {
+            values.AddRange(_app.FanProfiles.GetProfiles()
+                .Where(profile => !_app.FanProfiles.IsBuiltIn(profile.Id))
+                .Select(profile => profile.Name));
+        }
+        return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    private IReadOnlyList<string> BuildRefreshValues(string? selected = null)
+    {
+        var values = new List<string> { "Auto" };
+        if (_app is null)
+            values.AddRange(["60 Hz", "Max"]);
+        else
+        {
+            IReadOnlyList<int> supported = _app.DisplayService.GetSupportedRefreshRates();
+            if (supported.Contains(60))
+                values.Add("60 Hz");
+            if (supported.Count > 0 || _app.State.MaxRefreshHz > 0)
+                values.Add("Max");
+        }
+
+        if (!string.IsNullOrWhiteSpace(selected) &&
+            !values.Contains(selected, StringComparer.OrdinalIgnoreCase))
+        {
+            values.Add(selected);
+        }
+
+        return values;
+    }
+
+    private Border CreateSettingRow(
         ThinkControlModeFacet facet,
         string label,
         IReadOnlyList<string> values,
         string selected)
     {
-        var grid = new Grid { MinHeight = 46 };
+        var grid = new Grid { MinHeight = 48 };
         grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(168) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var name = new TextBlock
+        grid.Children.Add(new TextBlock
         {
             Text = label,
             VerticalAlignment = VerticalAlignment.Center
-        };
-        grid.Children.Add(name);
+        });
 
         var combo = new ComboBox
         {
@@ -366,132 +496,96 @@ public partial class ModesPanel : UserControl
             MinHeight = 38,
             VerticalAlignment = VerticalAlignment.Center
         };
-        combo.SelectionChanged += FacetValue_SelectionChanged;
+        combo.SelectionChanged += SettingValue_SelectionChanged;
         Grid.SetColumn(combo, 1);
         grid.Children.Add(combo);
 
-        var remove = new Button
-        {
-            Tag = facet,
-            Content = "Remove",
-            Style = TryFindResource("TcInlineButton") as Style,
-            Margin = new Thickness(8, 0, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        remove.Click += RemoveFacet_Click;
+        var remove = InlineButton("Remove", RemoveSetting_Click, facet);
+        remove.Margin = new Thickness(8, 0, 0, 0);
+        remove.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(remove, 2);
         grid.Children.Add(remove);
 
-        var shell = new Border
-        {
-            BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(0, 8, 0, 8),
-            Child = grid
-        };
-        shell.SetResourceReference(Border.BorderBrushProperty, "Tc.Border");
-        return shell;
+        return SeparatorRow(grid);
     }
 
-    private void FacetValue_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (sender is not ComboBox { Tag: ThinkControlModeFacet facet, SelectedItem: string value })
-            return;
-
-        switch (facet)
-        {
-            case ThinkControlModeFacet.AudioSafety:
-                _editingAudioSafety = value switch
-                {
-                    "Gesture lock" => "GestureLock",
-                    "Silent" => "Silent",
-                    _ => "Normal"
-                };
-                break;
-            case ThinkControlModeFacet.TouchpadGestures:
-                _editingTouchpadGestures = value == "On";
-                break;
-            case ThinkControlModeFacet.KeyboardLight:
-                _editingKeyboardLight = value;
-                break;
-        }
-    }
-
-    private void AddControl_Click(object sender, RoutedEventArgs e)
+    private void AddSetting_Click(object sender, RoutedEventArgs e)
     {
         var menu = new ContextMenu
         {
-            PlacementTarget = AddControlButton,
+            PlacementTarget = AddSettingButton,
             Placement = PlacementMode.Bottom
         };
 
-        AddFacetMenuItem(menu, ThinkControlModeFacet.AudioSafety, "Audio safety", _editingAudioSafety is null);
-        AddFacetMenuItem(menu, ThinkControlModeFacet.TouchpadGestures, "Touchpad gestures", !_editingTouchpadGestures.HasValue);
-        AddFacetMenuItem(menu, ThinkControlModeFacet.KeyboardLight, "Keyboard light", _editingKeyboardLight is null);
+        AddSettingMenuItem(menu, ThinkControlModeFacet.PerformanceMode, "Performance", _editingPerformanceMode is null);
+        AddSettingMenuItem(menu, ThinkControlModeFacet.CoolingProfile, "Cooling", _editingCoolingProfile is null);
+        AddSettingMenuItem(menu, ThinkControlModeFacet.RefreshRate, "Refresh rate", _editingRefreshRate is null);
+        AddSettingMenuItem(menu, ThinkControlModeFacet.AudioSafety, "Audio", _editingAudioSafety is null);
+        AddSettingMenuItem(menu, ThinkControlModeFacet.TouchpadGestures, "Touchpad gestures", !_editingTouchpadGestures.HasValue);
+        AddSettingMenuItem(menu, ThinkControlModeFacet.KeyboardLight, "Keyboard light", _editingKeyboardLight is null);
 
-        AddControlButton.ContextMenu = menu;
+        AddSettingButton.ContextMenu = menu;
         menu.IsOpen = true;
     }
 
-    private void AddFacetMenuItem(
+    private void AddSettingMenuItem(
         ContextMenu menu,
         ThinkControlModeFacet facet,
         string label,
-        bool available)
+        bool visible)
     {
-        if (!available)
+        if (!visible)
             return;
-
         var item = new MenuItem { Header = label, Tag = facet };
-        item.Click += AddFacet_Click;
+        item.Click += AddSettingMenuItem_Click;
         menu.Items.Add(item);
     }
 
-    private void AddFacet_Click(object sender, RoutedEventArgs e)
+    private void AddSettingMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: ThinkControlModeFacet facet })
             return;
 
         switch (facet)
         {
+            case ThinkControlModeFacet.PerformanceMode:
+                _editingPerformanceMode = "Balanced";
+                break;
+            case ThinkControlModeFacet.CoolingProfile:
+                _editingCoolingProfile = "Balanced";
+                break;
+            case ThinkControlModeFacet.RefreshRate:
+                _editingRefreshRate = "Auto";
+                break;
             case ThinkControlModeFacet.AudioSafety:
-                _editingAudioSafety = _app?.AudioSafety.Mode switch
-                {
-                    AudioSafetyMode.MediaLock => "GestureLock",
-                    AudioSafetyMode.Silent => "Silent",
-                    _ => "Normal"
-                };
+                _editingAudioSafety = "Normal";
                 break;
             case ThinkControlModeFacet.TouchpadGestures:
-                _editingTouchpadGestures = _app?.GetEffectiveTouchpadGesturesEnabled() ?? true;
+                _editingTouchpadGestures = false;
                 break;
             case ThinkControlModeFacet.KeyboardLight:
-                _editingKeyboardLight = CurrentKeyboardLight();
+                _editingKeyboardLight = "Auto";
                 break;
         }
-
-        BuildEditorControls();
+        BuildEditorSettings();
     }
 
-    private string CurrentKeyboardLight()
-    {
-        if (_app is null)
-            return "Auto";
-        if (_app.State.KeyboardMode == "Auto")
-            return "Auto";
-        if (_app.State.KeyboardStatus.Contains("Off", StringComparison.OrdinalIgnoreCase))
-            return "Off";
-        if (_app.State.KeyboardStatus.Contains("Low", StringComparison.OrdinalIgnoreCase))
-            return "Low";
-        return "High";
-    }
-
-    private void RemoveFacet_Click(object sender, RoutedEventArgs e)
+    private void RemoveSetting_Click(object sender, RoutedEventArgs e)
     {
         if (sender is not FrameworkElement { Tag: ThinkControlModeFacet facet })
             return;
 
         switch (facet)
         {
+            case ThinkControlModeFacet.PerformanceMode:
+                _editingPerformanceMode = null;
+                break;
+            case ThinkControlModeFacet.CoolingProfile:
+                _editingCoolingProfile = null;
+                break;
+            case ThinkControlModeFacet.RefreshRate:
+                _editingRefreshRate = null;
+                break;
             case ThinkControlModeFacet.AudioSafety:
                 _editingAudioSafety = null;
                 break;
@@ -502,9 +596,333 @@ public partial class ModesPanel : UserControl
                 _editingKeyboardLight = null;
                 break;
         }
-
-        BuildEditorControls();
+        BuildEditorSettings();
     }
+
+    private void SettingValue_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox { Tag: ThinkControlModeFacet facet, SelectedItem: string selected })
+            return;
+
+        switch (facet)
+        {
+            case ThinkControlModeFacet.PerformanceMode:
+                _editingPerformanceMode = selected;
+                break;
+            case ThinkControlModeFacet.CoolingProfile:
+                _editingCoolingProfile = selected;
+                break;
+            case ThinkControlModeFacet.RefreshRate:
+                _editingRefreshRate = selected;
+                break;
+            case ThinkControlModeFacet.AudioSafety:
+                _editingAudioSafety = selected switch
+                {
+                    "Gesture lock" => "GestureLock",
+                    "Silent" => "Silent",
+                    _ => "Normal"
+                };
+                break;
+            case ThinkControlModeFacet.TouchpadGestures:
+                _editingTouchpadGestures = selected == "On";
+                break;
+            case ThinkControlModeFacet.KeyboardLight:
+                _editingKeyboardLight = selected;
+                break;
+        }
+    }
+
+    private void AutomationSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        _editingAutomationEnabled = AutomationSwitch.IsChecked == true;
+        UpdateAutomationState();
+    }
+
+    private void UpdateAutomationState()
+    {
+        AutomationSwitch.IsChecked = _editingAutomationEnabled;
+        AutomationBody.IsEnabled = _editingAutomationEnabled;
+        AutomationBody.Opacity = _editingAutomationEnabled ? 1.0 : 0.5;
+    }
+
+    private void AddTrigger_Click(object sender, RoutedEventArgs e)
+    {
+        var menu = new ContextMenu
+        {
+            PlacementTarget = AddTriggerButton,
+            Placement = PlacementMode.Bottom
+        };
+        AddTriggerMenuItem(menu, "Wi-Fi network", "Wifi");
+        AddTriggerMenuItem(menu, "App running", "Process");
+        AddTriggerMenuItem(menu, "Power source", "Power");
+        AddTriggerMenuItem(menu, "Battery level", "BatteryBelow");
+        AddTriggerMenuItem(menu, "Schedule", "Schedule");
+        AddTriggerButton.ContextMenu = menu;
+        menu.IsOpen = true;
+    }
+
+    private void AddTriggerMenuItem(ContextMenu menu, string label, string type)
+    {
+        var item = new MenuItem { Header = label, Tag = type };
+        item.Click += AddTriggerMenuItem_Click;
+        menu.Items.Add(item);
+    }
+
+    private void AddTriggerMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: string type } ||
+            _editingTriggers.Count >= ThinkControlModeCatalog.MaxTriggersPerMode)
+        {
+            return;
+        }
+
+        ThinkControlModeTrigger trigger = type switch
+        {
+            "Wifi" => new(
+                "Wifi",
+                ModeTriggerEnvironment.GetConnectedWifiSsid() ?? string.Empty),
+            "Process" => new("Process", string.Empty),
+            "Power" => new("Power", "Battery"),
+            "BatteryBelow" => new("BatteryBelow", Number: 25),
+            "Schedule" => new(
+                "Schedule",
+                StartTime: "09:00",
+                EndTime: "17:00",
+                DaysMask: 0b0111110),
+            _ => new(type)
+        };
+        _editingTriggers.Add(trigger);
+        _editingAutomationEnabled = true;
+        BuildEditorTriggers();
+        UpdateAutomationState();
+    }
+
+    private void BuildEditorTriggers()
+    {
+        EditorTriggers.Children.Clear();
+        for (int index = 0; index < _editingTriggers.Count; index++)
+            EditorTriggers.Children.Add(CreateTriggerRow(_editingTriggers[index], index));
+        AddTriggerButton.IsEnabled = _editingTriggers.Count < ThinkControlModeCatalog.MaxTriggersPerMode;
+    }
+
+    private Border CreateTriggerRow(ThinkControlModeTrigger trigger, int index)
+    {
+        var grid = new Grid { MinHeight = 48 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        grid.Children.Add(new TextBlock
+        {
+            Text = TriggerLabel(trigger.Type),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        FrameworkElement editor = trigger.Type switch
+        {
+            "Wifi" => TriggerTextBox(index, "Value", trigger.Value, "Network name"),
+            "Process" => TriggerTextBox(index, "Value", trigger.Value, "App or process"),
+            "Power" => TriggerCombo(index, "Value", ["Battery", "AC"], trigger.Value),
+            "BatteryBelow" => TriggerCombo(
+                index,
+                "Number",
+                ["15%", "20%", "25%", "30%", "40%", "50%"],
+                $"{trigger.Number}%"),
+            "Schedule" => ScheduleEditor(trigger, index),
+            _ => TriggerTextBox(index, "Value", trigger.Value, string.Empty)
+        };
+        editor.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(editor, 1);
+        grid.Children.Add(editor);
+
+        var remove = InlineButton("Remove", RemoveTrigger_Click, index);
+        remove.Margin = new Thickness(8, 0, 0, 0);
+        remove.VerticalAlignment = VerticalAlignment.Center;
+        Grid.SetColumn(remove, 2);
+        grid.Children.Add(remove);
+
+        return SeparatorRow(grid);
+    }
+
+    private static string TriggerLabel(string type) => type switch
+    {
+        "Wifi" => "Wi-Fi network",
+        "Process" => "App running",
+        "Power" => "Power source",
+        "BatteryBelow" => "Battery at or below",
+        "Schedule" => "Schedule",
+        _ => type
+    };
+
+    private TextBox TriggerTextBox(int index, string field, string value, string tooltip)
+    {
+        var box = new TextBox
+        {
+            Text = value,
+            Tag = new TriggerBinding(index, field),
+            Style = TryFindResource("ModeTextBox") as Style,
+            MaxLength = field == "Value" ? 96 : 32,
+            ToolTip = tooltip
+        };
+        box.LostFocus += TriggerText_LostFocus;
+        return box;
+    }
+
+    private ComboBox TriggerCombo(
+        int index,
+        string field,
+        IReadOnlyList<string> values,
+        string selected)
+    {
+        var combo = new ComboBox
+        {
+            Tag = new TriggerBinding(index, field),
+            ItemsSource = values,
+            SelectedItem = selected,
+            Style = TryFindResource("TcComboBox") as Style,
+            MinHeight = 38
+        };
+        combo.SelectionChanged += TriggerCombo_SelectionChanged;
+        return combo;
+    }
+
+    private StackPanel ScheduleEditor(ThinkControlModeTrigger trigger, int index)
+    {
+        var panel = new StackPanel { Orientation = Orientation.Horizontal };
+        IReadOnlyList<string> times = TimeOptions();
+
+        ComboBox start = TriggerCombo(index, "StartTime", times, trigger.StartTime);
+        start.Width = 92;
+        panel.Children.Add(start);
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = "to",
+            Margin = new Thickness(8, 0, 8, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        ComboBox end = TriggerCombo(index, "EndTime", times, trigger.EndTime);
+        end.Width = 92;
+        panel.Children.Add(end);
+
+        ComboBox days = TriggerCombo(
+            index,
+            "DaysMask",
+            ["Every day", "Weekdays", "Weekend"],
+            DaysDisplay(trigger.DaysMask));
+        days.Width = 112;
+        days.Margin = new Thickness(8, 0, 0, 0);
+        panel.Children.Add(days);
+        return panel;
+    }
+
+    private static IReadOnlyList<string> TimeOptions()
+    {
+        var values = new List<string>(48);
+        for (int hour = 0; hour < 24; hour++)
+        {
+            values.Add($"{hour:00}:00");
+            values.Add($"{hour:00}:30");
+        }
+        return values;
+    }
+
+    private static string DaysDisplay(int mask) => (mask & 0x7F) switch
+    {
+        0b0111110 => "Weekdays",
+        0b1000001 => "Weekend",
+        _ => "Every day"
+    };
+
+    private void TriggerText_LostFocus(object sender, RoutedEventArgs e)
+    {
+        if (sender is not TextBox { Tag: TriggerBinding binding } box ||
+            binding.Index < 0 || binding.Index >= _editingTriggers.Count)
+        {
+            return;
+        }
+
+        ThinkControlModeTrigger current = _editingTriggers[binding.Index];
+        if (binding.Field == "Value")
+            _editingTriggers[binding.Index] = current with { Value = box.Text.Trim() };
+    }
+
+    private void TriggerCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is not ComboBox { Tag: TriggerBinding binding, SelectedItem: string selected } ||
+            binding.Index < 0 || binding.Index >= _editingTriggers.Count)
+        {
+            return;
+        }
+
+        ThinkControlModeTrigger current = _editingTriggers[binding.Index];
+        _editingTriggers[binding.Index] = binding.Field switch
+        {
+            "Value" => current with { Value = selected },
+            "Number" => current with
+            {
+                Number = int.TryParse(selected.TrimEnd('%'), out int value) ? value : current.Number
+            },
+            "StartTime" => current with { StartTime = selected },
+            "EndTime" => current with { EndTime = selected },
+            "DaysMask" => current with
+            {
+                DaysMask = selected switch
+                {
+                    "Weekdays" => 0b0111110,
+                    "Weekend" => 0b1000001,
+                    _ => 0x7F
+                }
+            },
+            _ => current
+        };
+    }
+
+    private void RemoveTrigger_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: int index } ||
+            index < 0 || index >= _editingTriggers.Count)
+        {
+            return;
+        }
+
+        _editingTriggers.RemoveAt(index);
+        if (_editingTriggers.Count == 0)
+        {
+            _editingAutomationEnabled = false;
+            AutomationSwitch.IsChecked = false;
+        }
+        BuildEditorTriggers();
+        UpdateAutomationState();
+    }
+
+    private Border SeparatorRow(UIElement child)
+    {
+        var shell = new Border
+        {
+            BorderThickness = new Thickness(0, 1, 0, 0),
+            Padding = new Thickness(0, 7, 0, 7),
+            Child = child
+        };
+        shell.SetResourceReference(Border.BorderBrushProperty, "Tc.Border");
+        return shell;
+    }
+
+    private async void Reapply_Click(object sender, RoutedEventArgs e)
+    {
+        if (_busy || _app is null)
+            return;
+        _busy = true;
+        try { await _app.Modes.ReapplyAsync(); }
+        finally
+        {
+            _busy = false;
+            RefreshList();
+        }
+    }
+
+    private void Cancel_Click(object sender, RoutedEventArgs e) => EndEdit();
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
@@ -514,47 +932,45 @@ public partial class ModesPanel : UserControl
         string name = ModeNameTextBox.Text.Trim();
         if (name.Length == 0)
         {
-            ShowEditorStatus("Enter a mode name.");
+            ShowEditorStatus("Enter a name.");
             return;
         }
 
-        if (_editingAudioSafety is null &&
-            !_editingTouchpadGestures.HasValue &&
-            _editingKeyboardLight is null)
+        if (_editingAutomationEnabled)
         {
-            ShowEditorStatus("Add at least one control.");
-            return;
+            ThinkControlModeTrigger[] valid = ThinkControlModeCatalog.SanitizeTriggers(_editingTriggers);
+            if (valid.Length != _editingTriggers.Count || valid.Length == 0)
+            {
+                ShowEditorStatus("Finish or remove incomplete triggers.");
+                return;
+            }
         }
 
-        bool saved = _app.Modes.SaveCustomMode(new ThinkControlModeDefinition(
+        var mode = new ThinkControlModeDefinition(
             _editingId,
             name,
             _editingAudioSafety,
             _editingTouchpadGestures,
-            _editingKeyboardLight));
-        if (!saved)
+            _editingKeyboardLight,
+            _editingPerformanceMode,
+            _editingCoolingProfile,
+            _editingRefreshRate,
+            _editingTriggers.ToArray(),
+            _editingAutomationEnabled);
+
+        if (!ThinkControlModeCatalog.Facets(mode).Any())
         {
-            ShowEditorStatus("That mode could not be saved.");
+            ShowEditorStatus("Add at least one setting.");
+            return;
+        }
+
+        if (!_app.Modes.SaveCustomMode(mode))
+        {
+            ShowEditorStatus("Use a unique name and valid settings.");
             return;
         }
 
         EndEdit();
-    }
-
-    private void Cancel_Click(object sender, RoutedEventArgs e) => EndEdit();
-
-    private void EndEdit()
-    {
-        _editingId = null;
-        _editingAudioSafety = null;
-        _editingTouchpadGestures = null;
-        _editingKeyboardLight = null;
-        EditorView.Visibility = Visibility.Collapsed;
-        ListView.Visibility = Visibility.Visible;
-        _saveButton.Visibility = Visibility.Collapsed;
-        _cancelButton.Visibility = Visibility.Collapsed;
-        EditorStatusText.Visibility = Visibility.Collapsed;
-        RefreshList();
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)
@@ -562,46 +978,24 @@ public partial class ModesPanel : UserControl
         if (_app is null || string.IsNullOrWhiteSpace(_editingId))
             return;
 
-        if (_app.Modes.ActiveModeId.Equals(_editingId, StringComparison.OrdinalIgnoreCase))
+        if (!_app.Modes.DeleteCustomMode(_editingId))
         {
-            ShowEditorStatus("Switch modes before deleting this one.");
+            ShowEditorStatus("Deactivate this mode before deleting it.");
             return;
         }
 
-        MessageBoxResult answer = MessageBox.Show(
-            $"Delete '{ModeNameTextBox.Text.Trim()}'?",
-            "ThinkControl · Delete mode",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-        if (answer != MessageBoxResult.Yes)
-            return;
-
-        if (_app.Modes.DeleteCustomMode(_editingId))
-            EndEdit();
-        else
-            ShowEditorStatus("Mode could not be deleted.");
+        EndEdit();
     }
 
-    private async void Reapply_Click(object sender, RoutedEventArgs e)
+    private void EndEdit()
     {
-        if (_busy || _app is null)
-            return;
-
-        _busy = true;
-        ListStatusText.Visibility = Visibility.Collapsed;
-        _reapplyButton.IsEnabled = false;
-        try
-        {
-            bool success = await _app.Modes.ReapplyAsync();
-            if (!success)
-                ShowStatus("Mode could not be reapplied.");
-        }
-        finally
-        {
-            _busy = false;
-            _reapplyButton.IsEnabled = true;
-            RefreshList();
-        }
+        _editingId = null;
+        EditorView.Visibility = Visibility.Collapsed;
+        ListView.Visibility = Visibility.Visible;
+        _saveButton.Visibility = Visibility.Collapsed;
+        _cancelButton.Visibility = Visibility.Collapsed;
+        EditorStatusText.Visibility = Visibility.Collapsed;
+        RefreshList();
     }
 
     private void UpdateHeaderState()
@@ -611,33 +1005,96 @@ public partial class ModesPanel : UserControl
 
         bool transitioning = _app.Modes.IsTransitioning;
         bool modified = _app.Modes.IsModified && !transitioning;
-        _modifiedLabel.Text = transitioning ? $"Applying {_app.Modes.VisibleModeName}…" : "Modified";
-        _modifiedLabel.Visibility = transitioning || modified ? Visibility.Visible : Visibility.Collapsed;
+        bool automatic = _app.Modes.ActiveModeAutomatic &&
+                         _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId &&
+                         !transitioning &&
+                         !modified;
+
+        _modifiedLabel.Text = transitioning
+            ? $"Applying {_app.Modes.VisibleModeName}…"
+            : modified
+                ? "Modified"
+                : "Automatic";
+        _modifiedLabel.Visibility = transitioning || modified || automatic
+            ? Visibility.Visible
+            : Visibility.Collapsed;
         _reapplyButton.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
+        _saveButton.Visibility = Visibility.Collapsed;
+        _cancelButton.Visibility = Visibility.Collapsed;
     }
 
-    private void ShowStatus(string message)
+    private void ShowListStatus(string message)
     {
-        if (EditorView.Visibility == Visibility.Visible)
-        {
-            EditorStatusText.Text = message;
-            EditorStatusText.Visibility = Visibility.Visible;
-            return;
-        }
-
         ListStatusText.Text = message;
         ListStatusText.Visibility = Visibility.Visible;
     }
 
-    private void ShowEditorStatus(string message) => ShowStatus(message);
+    private void ShowEditorStatus(string message)
+    {
+        EditorStatusText.Text = message;
+        EditorStatusText.Visibility = Visibility.Visible;
+    }
+
+    internal void PrepareListForSnapshot()
+    {
+        ListView.Visibility = Visibility.Visible;
+        EditorView.Visibility = Visibility.Collapsed;
+        ModeRows.Children.Clear();
+
+        ThinkControlModeDefinition[] fixtures =
+        [
+            ThinkControlModeCatalog.NoMode,
+            new(
+                "custom:study-snapshot",
+                "Study",
+                AudioSafety: "Silent",
+                KeyboardLight: "Low",
+                PerformanceMode: "Efficiency",
+                CoolingProfile: "Quiet",
+                RefreshRate: "60 Hz",
+                Triggers: [new ThinkControlModeTrigger("Wifi", "Campus")],
+                AutomationEnabled: true),
+            new(
+                "custom:solidworks-snapshot",
+                "SolidWorks",
+                PerformanceMode: "Performance",
+                CoolingProfile: "Balanced",
+                RefreshRate: "Max",
+                Triggers: [new ThinkControlModeTrigger("Process", "SLDWORKS")],
+                AutomationEnabled: true),
+            new(
+                "custom:battery-snapshot",
+                "Battery saver",
+                KeyboardLight: "Off",
+                PerformanceMode: "Efficiency",
+                RefreshRate: "60 Hz",
+                Triggers: [new ThinkControlModeTrigger("BatteryBelow", Number: 25)],
+                AutomationEnabled: true)
+        ];
+
+        foreach (ThinkControlModeDefinition mode in fixtures)
+            ModeRows.Children.Add(CreateModeRow(mode));
+
+        EmptyModesText.Visibility = Visibility.Collapsed;
+        UpdateHeaderState();
+    }
 
     internal void PrepareEditorForSnapshot()
     {
         BeginEdit(new ThinkControlModeDefinition(
             "custom:snapshot",
-            "Exam",
+            "Study",
             AudioSafety: "Silent",
             TouchpadGesturesEnabled: false,
-            KeyboardLight: "Off"));
+            KeyboardLight: "Low",
+            PerformanceMode: "Efficiency",
+            CoolingProfile: "Quiet",
+            RefreshRate: "60 Hz",
+            Triggers:
+            [
+                new ThinkControlModeTrigger("Wifi", "Campus"),
+                new ThinkControlModeTrigger("Power", "Battery")
+            ],
+            AutomationEnabled: true));
     }
 }
