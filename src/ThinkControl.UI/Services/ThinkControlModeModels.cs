@@ -69,6 +69,11 @@ internal static class ThinkControlModeCatalog
         new(SilentId, "Silent", AudioSafety: "Silent")
     ];
 
+    // Compatibility surface for snapshot/tests that still need to render legacy
+    // audio-safety states. The actual alpha.55 Modes UI uses VisibleModes instead.
+    internal static readonly IReadOnlyList<ThinkControlModeDefinition> BuiltIns =
+        [NoMode, .. LegacyBuiltIns];
+
     internal static IReadOnlyList<ThinkControlModeDefinition> VisibleModes(
         IReadOnlyList<ThinkControlModeDefinition>? customs) =>
         [NoMode, .. (customs ?? [])];
