@@ -47,16 +47,17 @@ public partial class FansPanel : UserControl
             DataContext = app.State;
         }
 
+        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(app.State.MachineType);
+        bool canControl = app.State.CanFanControl || verifiedX9;
         _fanControlKind = app.State.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = ResolveFanControlKind(null, app.State.CanFanControl);
+            _fanControlKind = verifiedX9
+                ? FanControlKinds.FirmwarePolicy
+                : ResolveFanControlKind(null, canControl);
 
-        // The selector represents applied runtime state, not merely the preference
-        // stored for the next restore attempt. Showing saved Quiet while telemetry is
-        // still Auto made startup look successful even when Lenovo had not applied it.
         SyncProfileSelector(app.State.CoolingProfile, RuntimeProfileIdForDisplay(app.State.CoolingProfile));
-        ApplyProviderCopy(app.State.CanFanControl, _fanControlKind);
-        ApplyCalibrationUi(app.FanCalibrationState, app.State.CanFanControl);
+        ApplyProviderCopy(canControl, _fanControlKind);
+        ApplyCalibrationUi(app.FanCalibrationState, canControl);
         SyncStatusSubscription();
     }
 
@@ -65,17 +66,21 @@ public partial class FansPanel : UserControl
         _snapshotMode = true;
         UnsubscribeStatus();
         DataContext = state;
+        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
+        bool canControl = state.CanFanControl || verifiedX9;
         _fanControlKind = state.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = ResolveFanControlKind(null, state.CanFanControl);
+            _fanControlKind = verifiedX9
+                ? FanControlKinds.FirmwarePolicy
+                : ResolveFanControlKind(null, canControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
-        ApplyProviderCopy(state.CanFanControl, _fanControlKind);
-        CoolingDetailText.Text = state.CanFanControl
+        ApplyProviderCopy(canControl, _fanControlKind);
+        CoolingDetailText.Text = canControl
             ? UsesFirmwarePolicy
                 ? $"{DisplayProfile(state.CoolingProfile)} · Lenovo firmware cooling policy"
                 : $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
             : DescribeUnavailable(state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
-        AppliedLevelText.Text = state.CanFanControl
+        AppliedLevelText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : state.FanStateText
             : "Unavailable";
 
@@ -93,7 +98,7 @@ public partial class FansPanel : UserControl
                 TotalLevels: 7,
                 Status: "Calibration required before percentage fan profiles and manual targets are enabled.")
             : FanCalibrationUiState.None;
-        ApplyCalibrationUi(calibration, state.CanFanControl);
+        ApplyCalibrationUi(calibration, canControl);
         _calibrationRows.Clear();
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, state.ControlTemperatureC, state.FanRpm);
     }
@@ -138,12 +143,20 @@ public partial class FansPanel : UserControl
     private void ApplyStatus(ServiceResponse? response)
     {
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
-        bool canControl = response?.Capabilities?.FanControl == true;
+        bool verifiedX9 = _app is not null &&
+                          DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType);
+        bool canControl = response?.Capabilities?.FanControl == true || verifiedX9;
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
-        _fanControlKind = ResolveFanControlKind(response?.Capabilities?.FanControlKind, canControl);
+        string? explicitKind = response?.Capabilities?.FanControlKind;
+        _fanControlKind = string.Equals(explicitKind, FanControlKinds.None, StringComparison.Ordinal) ||
+                          string.IsNullOrWhiteSpace(explicitKind)
+            ? verifiedX9 ? FanControlKinds.FirmwarePolicy : ResolveFanControlKind(explicitKind, canControl)
+            : ResolveFanControlKind(explicitKind, canControl);
 
-        string profileName = telemetry?.CoolingProfile ?? "Lenovo Auto";
+        string profileName = telemetry?.CoolingProfile ??
+                             _app?.State.CoolingProfile ??
+                             "Lenovo Auto";
         string profileId = telemetry?.CoolingProfileId ?? (profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Lenovo Auto" : profileName);
         SyncProfileSelector(profileName, profileId);
         ApplyProviderCopy(canControl, _fanControlKind);
@@ -439,7 +452,13 @@ public partial class FansPanel : UserControl
         }
         finally
         {
-            ProfileComboBox.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
+            bool firmwareFallback =
+                DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType) &&
+                (string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal) ||
+                 string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal));
+            ProfileComboBox.IsEnabled =
+                (_app.State.CanFanControl || firmwareFallback) &&
+                !_app.FanCalibrationState.Required;
         }
     }
 
