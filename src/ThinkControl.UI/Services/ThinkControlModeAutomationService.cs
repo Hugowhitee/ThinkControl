@@ -145,19 +145,6 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
 
             bool onBattery = _app.IsCurrentlyOnBattery();
             int batteryPercent = _app.State.BatteryPercent;
-            if (batteryPercent <= 0)
-            {
-                try
-                {
-                    BatteryTelemetrySnapshot battery =
-                        _app.BatteryTelemetryService.Read(_app.ResolveBatteryChargeTargetPercent());
-                    batteryPercent = battery.Percent;
-                    onBattery = !battery.OnAc;
-                }
-                catch
-                {
-                }
-            }
 
             ModeEnvironmentData environment = await Task.Run(ModeTriggerEnvironment.Capture);
             var snapshot = new ModeAutomationSnapshot(
