@@ -368,7 +368,7 @@ public partial class App
             State.CoolingProfile = definition.Name;
             _coolingPreferenceRestoreAttempted = true;
             _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
-            ScheduleFirmwareCoolingSettleReassert(definition.Id, generation);
+            ScheduleFirmwareCoolingSettleReassert(definition.Id, generation, persistSelection);
             return true;
         }
 
@@ -681,7 +681,7 @@ public partial class App
                 State.CoolingProfile = definition.Name;
                 _coolingPreferenceRestoreAttempted = true;
                 _coolingPreferenceRetryAfter = DateTimeOffset.MinValue;
-                ScheduleFirmwareCoolingSettleReassert(definition.Id, generation);
+                ScheduleFirmwareCoolingSettleReassert(definition.Id, generation, persistSelection: true);
                 return;
             }
 
@@ -708,14 +708,44 @@ public partial class App
         }
     }
 
-    private void ScheduleFirmwareCoolingSettleReassert(string profileId, int generation)
+    private void ScheduleFirmwareCoolingSettleReassert(
+        string profileId,
+        int generation,
+        bool persistSelection)
     {
-        _ = ReassertFirmwareCoolingAfterStartupSettleAsync(profileId, generation, _coolingLifetimeCts.Token);
+        _ = ReassertFirmwareCoolingAfterStartupSettleAsync(
+            profileId,
+            generation,
+            persistSelection,
+            _coolingLifetimeCts.Token);
+    }
+
+    private bool IsCoolingSelectionStillExpected(string profileId, bool persistSelection)
+    {
+        if (persistSelection)
+        {
+            return string.Equals(
+                UserSettings.Current.CoolingProfile,
+                profileId,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        if (!Modes.OwnsFacet(ThinkControlModeFacet.CoolingProfile))
+            return false;
+
+        ThinkControlModeDefinition? active = Modes.GetModes().FirstOrDefault(mode =>
+            mode.Id.Equals(Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase));
+        return active?.CoolingProfile is string modeProfile &&
+               string.Equals(
+                   NormalizeProfileId(modeProfile),
+                   profileId,
+                   StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task ReassertFirmwareCoolingAfterStartupSettleAsync(
         string profileId,
         int generation,
+        bool persistSelection,
         CancellationToken cancellationToken)
     {
         try
@@ -729,7 +759,7 @@ public partial class App
 
         if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
             !UsesFirmwareCoolingPolicy ||
-            !string.Equals(UserSettings.Current.CoolingProfile, profileId, StringComparison.OrdinalIgnoreCase))
+            !IsCoolingSelectionStillExpected(profileId, persistSelection))
         {
             return;
         }
@@ -745,7 +775,7 @@ public partial class App
             writeGateHeld = true;
 
             if (generation != Volatile.Read(ref _coolingSelectionGeneration) ||
-                !string.Equals(UserSettings.Current.CoolingProfile, profileId, StringComparison.OrdinalIgnoreCase))
+                !IsCoolingSelectionStillExpected(profileId, persistSelection))
             {
                 return;
             }
