@@ -25,6 +25,9 @@ public partial class App
     internal void RequestModeAutomationEvaluation() =>
         _modeAutomation?.RequestEvaluation();
 
+    internal void NotifyManualModeSelection() =>
+        _modeAutomation?.SuppressUntilContextChanges();
+
     private async Task RestoreModeForExitAsync()
     {
         if (_modes is null || _modes.ActiveModeId == ThinkControlModeCatalog.NormalId)
