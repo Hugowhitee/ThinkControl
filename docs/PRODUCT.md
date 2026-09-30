@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.54`.  
-Current immutable prerelease: `v0.1.0-alpha.53`. Alpha.54 stabilizes Mode feedback/menu rendering and X9 firmware-policy fan availability without broadening direct hardware write access.
+Current source release target: `v0.1.0-alpha.55`.  
+Current immutable prerelease: `v0.1.0-alpha.54`. Alpha.55 expands Modes into a context/preset engine and hardens verified-X9 firmware-policy fan availability without broadening rejected direct fan writes.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -41,18 +41,22 @@ Compact contains the controls and telemetry most useful during normal operation:
 - display refresh controls;
 - brightness and volume;
 - keyboard backlight when supported;
-- one **Mode** selector grouped with Brightness/Volume; built-ins are Normal, Gesture lock and Silent, with saved custom modes added to the same selector;
+- one **Mode** selector grouped with Brightness/Volume; `No mode` restores ordinary settings and saved user modes appear in the same selector;
 - direct links to Audio, Settings and the Advanced window.
 
 Compact is a persistent utility surface while visible. Explicit close, tray-toggle and Compact/Advanced transitions hide it; unrelated focus changes do not. Compact ComboBox popups must fully release transient mouse capture/focus when dismissed so a selector cannot remain stuck in its hover/focus visual state after the pointer has moved elsewhere. The Mode selector shows the current session mode without turning Compact into a mode editor.
 
 ### Advanced
 
-Advanced contains Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
+Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, Modes, System, Updates and Settings. Detailed sensor telemetry opens from System instead of occupying a permanent navigation page.
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. When a page has title-level actions, they share one fixed title/action row so Defaults buttons, Windows links and switches do not move vertically between destinations. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
-Modes is a session-level sparse overlay above existing subsystem owners. Built-in Normal owns nothing, Gesture lock owns only Audio Safety = Gesture lock, and Silent owns only Audio Safety = Silent. Custom definitions persist, but the active mode does not survive process restart because a new process cannot truthfully inherit temporary rollback ownership.
+Modes is a session-level sparse overlay above existing subsystem owners. Alpha.55 exposes one neutral **No mode** state plus user-created modes. A mode may temporarily own Performance, Cooling, Refresh rate, Audio Safety, Touchpad gesture enablement and non-experimental Keyboard light. Missing settings are untouched.
+
+A user mode may optionally activate from Wi-Fi network, running app/process, AC/battery source, battery threshold or schedule context. Triggers are evaluated in the user-session process; no network/process discovery is moved into the privileged hardware service. App triggers outrank Wi-Fi, which outranks battery/power and then schedule. Manual mode selection suppresses automation until the matching context changes.
+
+Mode definitions persist, but active ownership and rollback baselines remain session-only. Manual subsystem changes release only that facet, mark the active mode Modified, and are not undone when the remaining mode facets later restore. Battery Preservation, microphone state, theme, startup behavior, updates and experimental keyboard effects remain outside Modes.
 
 Custom modes may currently compose only Audio Safety, Touchpad gestures enabled/disabled and non-experimental keyboard light Off/Low/High/Auto. A missing facet means “leave this subsystem alone.” Cooling, Windows performance preferences, Battery Preservation, microphone state, display policy, Dolby state and experimental keyboard effects remain independent until they have explicit transient ownership and rollback semantics.
 
