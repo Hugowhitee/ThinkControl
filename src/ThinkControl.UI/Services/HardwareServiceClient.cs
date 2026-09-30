@@ -121,10 +121,10 @@ public sealed class HardwareServiceClient
         await SendTrackedAsync("SetFanPercent", Math.Clamp(percent, 0, 100).ToString(), cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> ReturnFanToAutoAsync(CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken, timeoutMs: 4500);
+        await SendTrackedAsync("ReturnFanToAuto", null, cancellationToken, timeoutMs: 6000);
 
     public async Task<ServiceResponse?> SetCoolingProfileAsync(string profile, CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 4500);
+        await SendTrackedAsync("SetCoolingProfile", profile, cancellationToken, timeoutMs: 6000);
 
     public async Task<ServiceResponse?> SetCoolingCurveAsync(
         FanCurveDefinition definition,
@@ -145,7 +145,7 @@ public sealed class HardwareServiceClient
         await SendTrackedAsync("SetKeyboardBacklight", value, cancellationToken, timeoutMs: 4500);
 
     public async Task<ServiceResponse?> SetThermalModeAsync(string value, CancellationToken cancellationToken = default) =>
-        await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 3200);
+        await SendTrackedAsync("SetThermalMode", value, cancellationToken, timeoutMs: 6000);
 
     public async Task<ServiceResponse?> SetBatteryChargeThresholdsAsync(
         int startPercent,

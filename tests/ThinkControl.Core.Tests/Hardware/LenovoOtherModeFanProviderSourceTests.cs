@@ -256,6 +256,11 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("return false;", policy.Split("catch (UnauthorizedAccessException)", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.DoesNotContain("SetFanPercent", policy, StringComparison.Ordinal);
         Assert.DoesNotContain("SetFanLevel", policy, StringComparison.Ordinal);
+
+        string client = ReadSource("src", "ThinkControl.UI", "Services", "HardwareServiceClient.cs");
+        Assert.Contains("\"ReturnFanToAuto\", null, cancellationToken, timeoutMs: 6000", client, StringComparison.Ordinal);
+        Assert.Contains("\"SetCoolingProfile\", profile, cancellationToken, timeoutMs: 6000", client, StringComparison.Ordinal);
+        Assert.Contains("\"SetThermalMode\", value, cancellationToken, timeoutMs: 6000", client, StringComparison.Ordinal);
     }
 
     [Fact]

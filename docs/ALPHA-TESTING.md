@@ -41,6 +41,17 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
 
+## Alpha.55 context Modes and X9 fan ownership
+
+1. Create a mode with Performance, Cooling, Refresh rate, Audio, Touchpad gestures and Keyboard light in different sparse combinations. Omitted settings must remain untouched.
+2. Enable Wi-Fi automation for one mode and confirm it activates only when that SSID is connected. Manually select another mode while the SSID still matches; the manual choice must remain until the context actually changes.
+3. Repeat automation with an app/process trigger, AC/battery, a battery threshold and a schedule. When two triggers match different modes, the documented priority is Process > Wi-Fi > Battery threshold > Power > Schedule.
+4. Leave an automatically activated mode and confirm its owned settings restore. A subsystem changed manually while the mode is active must remain manual and the mode must show Modified.
+5. On the reference X9, force/observe a transient provider/telemetry miss. Fans must still expose Auto / Quiet / Balanced / Max through the verified Lenovo firmware-policy fallback; custom curves and manual percentages remain unavailable without a physically accepted direct writer.
+6. Select Quiet, Balanced and Max repeatedly on the physical X9. The selector must not snap to Auto merely because RPM/provider telemetry is temporarily missing. Each profile action must complete through the reviewed Lenovo policy path or show a real error.
+7. Confirm transient LITSSvc pipe delays are retried only within the bounded request window. Unauthorized access remains a hard failure; raw EC/target-RPM writers remain blocked.
+8. Inspect Modes list/editor and the exact X9 firmware-fallback WPF fixtures in dark and light before promotion.
+
 ## Alpha.53 Modes and shared-header candidate
 
 1. Compact and Home show **Mode**, not a duplicate Audio Safety mini-editor. Normal, Gesture lock and Silent remain available; Silent must not change cooling, Windows performance, microphone, Battery Preservation or display state.
