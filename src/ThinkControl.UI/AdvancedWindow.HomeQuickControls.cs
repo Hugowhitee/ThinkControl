@@ -102,12 +102,14 @@ public partial class AdvancedWindow
             return;
 
         string selected = _app.State.CoolingProfileDisplay;
+        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType);
         bool firmwarePolicy = string.Equals(
             _app.State.FanControlKind,
             FanControlKinds.FirmwarePolicy,
-            StringComparison.Ordinal);
+            StringComparison.Ordinal) ||
+            (verifiedX9 && string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal));
         string[] extraProfiles = BuildHomeFanExtraProfiles(selected, firmwarePolicy);
-        bool enabled = _app.State.CanFanControl;
+        bool enabled = _app.State.CanFanControl || firmwarePolicy;
         bool autoActive =
             selected.Equals("Auto", StringComparison.OrdinalIgnoreCase) ||
             selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
