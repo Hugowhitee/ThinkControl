@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.54**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.53` is the current published prerelease; alpha.54 is the active stabilization candidate and remains non-release-ready until its exact-head build, package and visual gates pass.
+This document describes the current source architecture at **v0.1.0-alpha.55**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.54` is the current published prerelease; alpha.55 is the active context-Modes/fan-recovery candidate and remains non-release-ready until its exact-head build, package and visual gates pass.
 
 ## Process boundary
 
@@ -179,21 +179,16 @@ Raw HID recognition receives every frame while WPF visualization is coalesced. C
 
 ## Modes and transient ownership
 
-`ThinkControlModeCoordinator` is a user-session orchestrator, not a second settings store. Custom mode definitions live in `ThinkControlUserSettings.CustomModes`; active-mode identity, baselines and ownership live only in memory.
+`ThinkControlModeCoordinator` is a user-session orchestrator, not a second settings store. Custom mode definitions live in `ThinkControlUserSettings.CustomModes`; active-mode identity, rollback baselines and ownership live only in memory.
 
-Each mode is a sparse set of facets. Alpha.53 supports:
+Alpha.55 supports six sparse facets: Performance, Cooling, Refresh rate, Audio Safety, Touchpad gesture enablement and non-experimental Keyboard light. Performance applies only the effective Windows overlay and never rewrites the saved AC/DC preferences. Cooling uses the existing safe provider path without replacing the saved fan-profile preference. Refresh snapshots and restores Auto/manual state. Audio, Touchpad and Keyboard retain their existing transient owners.
 
-- Audio Safety;
-- Touchpad gesture enablement;
-- non-experimental keyboard light state.
+`ThinkControlModeAutomationService` runs only in the normal-user UI process. It observes Wi-Fi SSID, running process names, power source, battery percentage and local schedule context. Trigger priority is Process > Wi-Fi > Battery threshold > Power source > Schedule. Only one mode is active at once. A manual selection suppresses automation until the matching context changes.
 
-The coordinator captures a baseline only when it first takes ownership of a facet. Switching modes keeps the original baseline for overlapping owned facets, restores facets that leave the ownership set, and rolls the whole transition back if a target write fails. Normal owns no facets.
+The privileged service remains unaware of Wi-Fi/process/schedule rules. Hardware writes still cross the existing semantic service API and capability gates.
 
-Manual subsystem setters call `ReleaseFacet` only for the facet they actually change. The coordinator clears that facet's rollback baseline and marks the mode Modified without changing the active mode id. `ReapplyAsync` then captures the current manual state as a fresh baseline before applying the saved target.
+On the verified X9, firmware-policy fan profiles remain a supported semantic control even when direct-provider discovery or fan telemetry is transiently unavailable. UI capability fallback is restricted to machine types 21Q6/21Q7 and only exposes Lenovo Auto / Quiet / Balanced / Max; direct custom curves remain gated behind a physically accepted direct writer. LITSSvc policy acquisition uses a bounded reconnect sequence rather than immediately falling back to Auto on one transient pipe miss.
 
-Transient setters must never reuse normal persistent setters when doing so would mutate the user's independent preference. Keyboard has dedicated transient apply/restore paths. Touchpad keeps a nullable runtime enable override above the saved gesture configuration so editing sensitivity/actions while a mode is active cannot persist a temporary On/Off state. Audio Safety already has session-scoped ownership and a separate mode-initiated transition path.
-
-Cooling, power preferences, Battery Preservation, microphone, display policy and experimental keyboard effects are deliberately outside the mode model. They may be added only after their subsystem exposes an explicit temporary owner plus deterministic rollback.
 
 ## Audio Safety model
 
