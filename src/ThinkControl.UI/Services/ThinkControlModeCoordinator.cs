@@ -136,6 +136,8 @@ internal sealed class ThinkControlModeCoordinator
                 TransitionModeId = null;
                 TransitionModeName = null;
                 Publish();
+                if (origin == ThinkControlModeActivationOrigin.Manual)
+                    _app.NotifyManualModeSelection();
                 return true;
             }
             finally
