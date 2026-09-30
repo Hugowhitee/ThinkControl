@@ -41,6 +41,13 @@ public sealed class Alpha47UxSourceTests
         Assert.Contains("UpdateCheckHistoryService.Read()", updates, StringComparison.Ordinal);
         Assert.Contains("RequestAutomaticUpdateCheckIfStale", updates, StringComparison.Ordinal);
         Assert.DoesNotContain("DispatcherTimer", updates, StringComparison.Ordinal);
+        Assert.Contains("State.UpdateStatus = \"Checked recently\"", updates, StringComparison.Ordinal);
+        Assert.Contains("Update check ended without a result", updates, StringComparison.Ordinal);
+
+        string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
+        string updateService = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Services", "UpdateService.cs"));
+        Assert.Contains("private string _updateStatus = \"Ready to check\"", state, StringComparison.Ordinal);
+        Assert.Contains("ReleaseCheckTimeout = TimeSpan.FromSeconds(20)", updateService, StringComparison.Ordinal);
 
         string activation = runtime.Split("private void Runtime_Activated", StringSplitOptions.None)[1]
             .Split("private void Runtime_Exit", StringSplitOptions.None)[0];

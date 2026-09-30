@@ -63,7 +63,7 @@ public sealed class AppState : INotifyPropertyChanged
     private string _activeModeName = "No mode";
     private bool _activeModeModified;
     private bool _activeModeAutomatic;
-    private string _updateStatus = "Checking automatically…";
+    private string _updateStatus = "Ready to check";
     private bool _canFanControl;
     private bool _canFanTelemetry;
     private string _fanControlKind = FanControlKinds.None;
