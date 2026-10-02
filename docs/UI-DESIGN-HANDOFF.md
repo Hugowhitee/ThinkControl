@@ -65,7 +65,7 @@ Preserve the compact gauge itself, but make the decision surface explicit:
 - current presets are 80% Strong protection, 85% Recommended, 90% More runtime and 95% Light protection;
 - explain the lower threshold as “charging starts again below X%” instead of making the user decode a range;
 - keep existing non-preset Lenovo pairs visible as Custom and do not overwrite them automatically;
-- comparative wear copy should use an understandable percentage of the 0→100% reference, never an unexplained “cycle equivalent” multiplier.
+- comparative wear copy should use a stable 0%→selected-limit percentage against the 0%→100% wear reference; explain in the tooltip that real top-ups starting above 0% are lower and the upper end contributes disproportionately.
 
 ### Header actions and Windows links
 
