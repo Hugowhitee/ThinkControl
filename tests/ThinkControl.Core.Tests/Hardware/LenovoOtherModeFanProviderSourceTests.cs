@@ -219,7 +219,14 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("ManualControlExpander.Visibility = directWriter", ui, StringComparison.Ordinal);
         Assert.Contains("bool firmwarePolicy = canControl", ui, StringComparison.Ordinal);
         Assert.Contains("Lenovo firmware", ui, StringComparison.Ordinal);
-        Assert.Contains("Quiet, Balanced and Max use the Lenovo cooling policy.", ui, StringComparison.Ordinal);
+        Assert.Contains("Custom curves are unavailable with this controller.", ui, StringComparison.Ordinal);
+        Assert.Contains("EditCurvesButton.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed", ui, StringComparison.Ordinal);
+        Assert.Contains("Couldn’t change cooling profile. Retry, or open System if it keeps failing.", ui, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Cooling\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Live state\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Advanced fan controls\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Thermal control\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Fan telemetry\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("alpha.38", ui, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Temporary 30-second test", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
