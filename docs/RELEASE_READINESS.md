@@ -35,7 +35,8 @@ Active implementation state:
 - candidate visual artifact `11229118673`, digest `sha256:e78d169567a1ec9ac87b5c91f6f2156fd55352d099fc5bbbe76788948d1445de`
 - exact-head visual inspection passed for Modes list/editor, Battery Preservation including 85→90% threshold-label spacing, direct Display/Battery header actions, firmware-policy Fans recovery, Home fan Auto and Compact in dark/light plus representative minimum/normal/wide layouts
 - PR #109 has no open discussion/review backlog on the inspected candidate head
-- `version.json.releaseReady=true`; this commit freezes alpha.58 without changing the inspected runtime/UI source
+- the first freeze was reopened after direct user review found the live current→target wear sentence too easy to misread; alpha.58 now uses a stable 0%→limit comparison and must pass a fresh visual/frozen gate
+- `version.json.releaseReady=false` while that correction is being revalidated
 
 Scope:
 
@@ -45,7 +46,7 @@ Scope:
 - seed Focus, Battery saver and Performance once as ordinary editable saved modes; retain optional templates only under New mode;
 - simplify the Modes editor/list and remove repetitive admin-style separator/remove rows;
 - replace generic Windows-settings dropdowns with direct contextual links and keep page Defaults as a quiet direct action;
-- present Battery Preservation by 80 / 85 / 90 / 95% charge limit, with explicit resume threshold and plain-language wear comparison;
+- present Battery Preservation by 80 / 85 / 90 / 95% charge limit, with explicit resume threshold and a stable 0%→limit wear comparison;
 - preserve existing valid Lenovo custom battery threshold pairs without silently rewriting them.
 
 Current gate:
@@ -59,7 +60,7 @@ Current gate:
 - [x] inspect Modes list/editor, Battery Preservation and direct Windows header actions in dark/light and minimum/normal/wide
 - [x] inspect Fans firmware-policy state and Home/Compact fan selectors
 - [x] resolve review/test backlog on exact candidate head
-- [x] freeze `releaseReady=true`
+- [ ] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
 - [ ] physical X9 fan/battery confirmation remains separate evidence

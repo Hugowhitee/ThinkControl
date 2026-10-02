@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class BatteryProtectionAndHistorySourceTests
 {
     [Fact]
-    public void BatteryPage_OffersCleanThresholdPresetsAndLiveComparativeWearEstimate()
+    public void BatteryPage_OffersCleanThresholdPresetsAndStableLimitWearComparison()
     {
         string root = FindRepositoryRoot();
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml"));
@@ -31,9 +31,10 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("IsCharging=\"{Binding BatteryCharging}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Charges up to {stop}%, then pauses. Charging starts again below {start}%.", code, StringComparison.Ordinal);
 
-        Assert.Contains("BatteryPreservationImpactModel.DescribeChargeWear", code, StringComparison.Ordinal);
-        Assert.Contains("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
-        Assert.Contains("nameof(AppState.BatteryPercent)", panel, StringComparison.Ordinal);
+        Assert.Contains("BatteryPreservationImpactModel.DescribeLimitWear", code, StringComparison.Ordinal);
+        Assert.Contains("BatteryPreservationImpactModel.DescribeLimitWear", panel, StringComparison.Ordinal);
+        Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
         Assert.Contains("RefreshChargeProtectionWearEstimate", panel, StringComparison.Ordinal);
         Assert.Contains("_batteryProtectionWriteInFlight", code, StringComparison.Ordinal);
         Assert.Contains("_lastChargeProtectionStart = 80", code, StringComparison.Ordinal);

@@ -43,33 +43,26 @@ public sealed class BatteryPreservationImpactModelTests
     }
 
     [Fact]
-    public void WearBetween_MatchesAccuBatteryStyleCurrentToTargetPresentation()
+    public void PartialSessionWear_RemainsLowerThanZeroToLimitReference()
     {
-        Assert.Equal(0d, BatteryPreservationImpactModel.EstimateWearBetween(60, 60), 6);
-        Assert.Equal(0.05d, BatteryPreservationImpactModel.EstimateWearBetween(75, 85), 2);
-        Assert.Equal(0.02d, BatteryPreservationImpactModel.EstimateWearBetween(55, 80), 2);
+        double zeroTo90 = BatteryPreservationImpactModel.EstimateCumulativeWearTo(90);
+        double eightyFiveTo90 = BatteryPreservationImpactModel.EstimateWearBetween(85, 90);
 
-        Assert.Equal(
-            "At the 60% limit · no additional charge wear to estimate.",
-            BatteryPreservationImpactModel.DescribeChargeWear(60, 60));
-        Assert.Equal(
-            "Estimated wear from 78% to 85%: ~4.7% of a full 0→100% charge.",
-            BatteryPreservationImpactModel.DescribeChargeWear(78, 85));
+        Assert.Equal(0.10d, eightyFiveTo90, 2);
+        Assert.True(eightyFiveTo90 < zeroTo90);
+        Assert.Equal(0d, BatteryPreservationImpactModel.EstimateWearBetween(90, 90), 6);
     }
 
-    [Fact]
-    public void TypicalWindowCopy_IsCalculatedFromPresetThresholds()
+    [Theory]
+    [InlineData(80, "Charging from 0% to 80%: ~6% of the modeled wear of charging to 100%.")]
+    [InlineData(85, "Charging from 0% to 85%: ~11% of the modeled wear of charging to 100%.")]
+    [InlineData(90, "Charging from 0% to 90%: ~20% of the modeled wear of charging to 100%.")]
+    [InlineData(95, "Charging from 0% to 95%: ~43% of the modeled wear of charging to 100%.")]
+    public void LimitCopy_UsesStableZeroToTargetComparison(int target, string expected)
     {
-        Assert.Equal(
-            "Typical 80% to 85% top-up: ~4.6% of a full 0→100% charge.",
-            BatteryPreservationImpactModel.DescribeWearContext(80, 85));
-        Assert.Equal(
-            "Typical 85% to 90% top-up: ~9.6% of a full 0→100% charge.",
-            BatteryPreservationImpactModel.DescribeWearContext(85, 90));
-        Assert.Equal(
-            "Typical 90% to 95% top-up: ~22.3% of a full 0→100% charge.",
-            BatteryPreservationImpactModel.DescribeWearContext(90, 95));
-        Assert.Contains("Comparative estimate", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
+        Assert.Equal(expected, BatteryPreservationImpactModel.DescribeLimitWear(target));
+        Assert.Contains("starts at 0%", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
+        Assert.Contains("starts above 0%", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -83,7 +76,7 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(1d, result.EstimatedWearToStop, 6);
         Assert.Equal(0d, result.EstimatedRechargeWindowWear, 6);
         Assert.Equal(
-            "No charge limit · a full 0→100% charge is the 100% comparison baseline.",
+            "Charging from 0% to 100% is the model's 100% wear reference.",
             BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false));
     }
 }
