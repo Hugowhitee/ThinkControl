@@ -29,7 +29,13 @@ Active implementation state:
 - branch: `alpha58-fan-modes-settings`
 - source target: `v0.1.0-alpha.58`
 - immutable/public baseline: `v0.1.0-alpha.57`
-- `version.json.releaseReady=false` until exact-head CI, package and inspected visual gates pass
+- candidate evidence head: `870aa5ceb5c4207b3f9db7b1940d4d206ba12a62`
+- candidate CI `37015196168` / #2218: success — repository hygiene, Release build, **258 passed / 0 failed / 0 skipped**, Compact↔Advanced shell smoke and **145** WPF visual-QA snapshots
+- candidate Package ThinkControl `37015196267` / #1901: success — payload, installer, deep service/IPC reliability and oldest-supported updater compatibility
+- candidate visual artifact `11229118673`, digest `sha256:e78d169567a1ec9ac87b5c91f6f2156fd55352d099fc5bbbe76788948d1445de`
+- exact-head visual inspection passed for Modes list/editor, Battery Preservation including 85→90% threshold-label spacing, direct Display/Battery header actions, firmware-policy Fans recovery, Home fan Auto and Compact in dark/light plus representative minimum/normal/wide layouts
+- PR #109 has no open discussion/review backlog on the inspected candidate head
+- `version.json.releaseReady=true`; this commit freezes alpha.58 without changing the inspected runtime/UI source
 
 Scope:
 
@@ -49,11 +55,11 @@ Current gate:
 - [x] explicit fan-controller capability flow restored
 - [x] editable starter-mode migration and optional template path implemented
 - [x] Modes / Windows actions / Battery preservation UI recomposed with current Impeccable Operate guidance
-- [ ] open canonical PR and run exact-head CI + Package
-- [ ] inspect Modes list/editor, Battery Preservation and direct Windows header actions in dark/light and minimum/normal/wide
-- [ ] inspect Fans firmware-policy state and Home/Compact fan selectors
-- [ ] resolve review/test backlog on exact candidate head
-- [ ] freeze `releaseReady=true`
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect Modes list/editor, Battery Preservation and direct Windows header actions in dark/light and minimum/normal/wide
+- [x] inspect Fans firmware-policy state and Home/Compact fan selectors
+- [x] resolve review/test backlog on exact candidate head
+- [x] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
 - [ ] physical X9 fan/battery confirmation remains separate evidence
