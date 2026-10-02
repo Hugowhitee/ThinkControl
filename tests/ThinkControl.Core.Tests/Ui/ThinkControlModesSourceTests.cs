@@ -51,7 +51,8 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("ModeRows.Children.Add(CreateModeRow(mode))", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BuiltInRows", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CustomRows", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"My modes\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Saved modes\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("StarterModesPanel", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -199,14 +200,17 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("\"Schedule\", \"Schedule\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("No controls yet", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"ModeRowButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Focus\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Battery saver\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Performance\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("TouchpadGesturesEnabled: false", code, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New mode ▾\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Click=\"StarterMode_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Header = \"From template\"", code, StringComparison.Ordinal);
+        Assert.Contains("ThinkControlModeCatalog.CreateStarterTemplate", code, StringComparison.Ordinal);
         Assert.Contains("select.Click += Activate_Click", code, StringComparison.Ordinal);
         Assert.Contains("Grid.SetColumnSpan(select, 2)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MutedText(\"Select\")", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Content = mode.Id == ThinkControlModeCatalog.NormalId ? \"Use\" : \"Activate\"", code, StringComparison.Ordinal);
+        Assert.Contains("InlineButton(\"×\", RemoveSetting_Click", code, StringComparison.Ordinal);
+        Assert.Contains("InlineButton(\"×\", RemoveTrigger_Click", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("BorderThickness = new Thickness(0, 1, 0, 0)", code, StringComparison.Ordinal);
     }
 
     [Fact]

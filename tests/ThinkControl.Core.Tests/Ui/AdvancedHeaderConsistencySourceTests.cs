@@ -47,6 +47,11 @@ public sealed class AdvancedHeaderConsistencySourceTests
 
         Assert.Contains("OfType<AdvancedPageHeader>()", resets, StringComparison.Ordinal);
         Assert.Contains("OfType<AdvancedPageHeader>()", windowsLinks, StringComparison.Ordinal);
+        Assert.Contains("Windows display ↗", windowsLinks, StringComparison.Ordinal);
+        Assert.Contains("Power & battery ↗", windowsLinks, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContextMenu", windowsLinks, StringComparison.Ordinal);
+        Assert.DoesNotContain("Windows settings ▾", windowsLinks, StringComparison.Ordinal);
+        Assert.Contains("TcInlineButton", resets, StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Battery.cs")));
 
         Assert.DoesNotContain(

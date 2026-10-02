@@ -90,10 +90,10 @@ public partial class AdvancedWindow
             ToolTip = "Reset this page · " + tooltip,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(8, 4, 8, 4),
+            Padding = new Thickness(7, 4, 7, 4),
             FontSize = TypographyScale.Caption,
             Cursor = System.Windows.Input.Cursors.Hand,
-            Style = TryFindResource("TcButton") as Style
+            Style = TryFindResource("TcInlineButton") as Style
         };
         button.SetResourceReference(WpfButton.ForegroundProperty, "Tc.TextMuted");
         return button;
