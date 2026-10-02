@@ -96,25 +96,26 @@ public static class BatteryPreservationImpactModel
     }
 
     public const string LimitationsText =
-        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage research. A 0→100% charge is the 100% reference; this is not the firmware battery cycle count. Actual pack wear varies with chemistry, real voltage mapping, temperature, charge rate and use.";
+        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage research. A full 0→100% charge is the 100% comparison baseline; this is not the firmware battery cycle count. Actual pack wear varies with chemistry, real voltage mapping, temperature, charge rate and use.";
 
     public static string DescribeChargeWear(int currentPercent, int targetPercent)
     {
         int current = Math.Clamp(currentPercent, 0, 100);
         int target = Math.Clamp(targetPercent, 0, 100);
-        int from = Math.Min(current, target);
-        double wear = EstimateWearBetween(from, target);
+        if (current >= target)
+            return $"At the {target}% limit · no additional charge wear to estimate.";
 
-        return $"Estimated charge wear {from}→{target}%: ~{wear * 100d:0.#}% of the 0→100% reference.";
+        double wear = EstimateWearBetween(current, target);
+        return $"Estimated wear from {current}% to {target}%: ~{wear * 100d:0.#}% of a full 0→100% charge.";
     }
 
     public static string DescribeWearContext(int startPercent, int stopPercent, bool enabled = true)
     {
         BatteryPreservationImpact impact = Estimate(startPercent, stopPercent, enabled);
         if (!impact.Enabled)
-            return "No charge limit: 0→100% is the model's 100% wear reference.";
+            return "No charge limit · a full 0→100% charge is the 100% comparison baseline.";
 
-        return $"Typical {impact.StartPercent}→{impact.StopPercent}% top-up: ~{impact.EstimatedRechargeWindowWear * 100d:0.#}% of the 0→100% wear reference.";
+        return $"Typical {impact.StartPercent}% to {impact.StopPercent}% top-up: ~{impact.EstimatedRechargeWindowWear * 100d:0.#}% of a full 0→100% charge.";
     }
 
     public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>

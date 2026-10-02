@@ -50,10 +50,10 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(0.02d, BatteryPreservationImpactModel.EstimateWearBetween(55, 80), 2);
 
         Assert.Equal(
-            "Estimated charge wear 60→60%: ~0% of the 0→100% reference.",
+            "At the 60% limit · no additional charge wear to estimate.",
             BatteryPreservationImpactModel.DescribeChargeWear(60, 60));
         Assert.Equal(
-            "Estimated charge wear 78→85%: ~4.7% of the 0→100% reference.",
+            "Estimated wear from 78% to 85%: ~4.7% of a full 0→100% charge.",
             BatteryPreservationImpactModel.DescribeChargeWear(78, 85));
     }
 
@@ -61,13 +61,13 @@ public sealed class BatteryPreservationImpactModelTests
     public void TypicalWindowCopy_IsCalculatedFromPresetThresholds()
     {
         Assert.Equal(
-            "Typical 80→85% top-up: ~4.6% of the 0→100% wear reference.",
+            "Typical 80% to 85% top-up: ~4.6% of a full 0→100% charge.",
             BatteryPreservationImpactModel.DescribeWearContext(80, 85));
         Assert.Equal(
-            "Typical 85→90% top-up: ~9.6% of the 0→100% wear reference.",
+            "Typical 85% to 90% top-up: ~9.6% of a full 0→100% charge.",
             BatteryPreservationImpactModel.DescribeWearContext(85, 90));
         Assert.Equal(
-            "Typical 90→95% top-up: ~22.3% of the 0→100% wear reference.",
+            "Typical 90% to 95% top-up: ~22.3% of a full 0→100% charge.",
             BatteryPreservationImpactModel.DescribeWearContext(90, 95));
         Assert.Contains("Comparative estimate", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
     }
@@ -83,7 +83,7 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(1d, result.EstimatedWearToStop, 6);
         Assert.Equal(0d, result.EstimatedRechargeWindowWear, 6);
         Assert.Equal(
-            "No charge limit: 0→100% is the model's 100% wear reference.",
+            "No charge limit · a full 0→100% charge is the 100% comparison baseline.",
             BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false));
     }
 }
