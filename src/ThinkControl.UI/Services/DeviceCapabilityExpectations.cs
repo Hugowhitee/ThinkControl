@@ -20,6 +20,17 @@ internal static class DeviceCapabilityExpectations
     internal static bool ExpectsKeyboardBacklight(AppState state) =>
         IsVerifiedX9(state.MachineType);
 
+    internal static bool CanUseVerifiedX9FirmwareFallback(AppState state) =>
+        IsVerifiedX9(state.MachineType) &&
+        IsHardwareServiceReachable(state.DriverStatus);
+
+    internal static bool IsHardwareServiceReachable(string? driverStatus)
+    {
+        string status = driverStatus?.Trim() ?? string.Empty;
+        return status.Equals("Ready", StringComparison.OrdinalIgnoreCase) ||
+               status.StartsWith("Hardware service online", StringComparison.OrdinalIgnoreCase);
+    }
+
     internal static bool IsVerifiedX9(string? machineType) =>
         string.Equals(machineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(machineType, "21Q7", StringComparison.OrdinalIgnoreCase);

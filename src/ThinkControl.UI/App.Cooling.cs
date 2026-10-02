@@ -58,7 +58,7 @@ public partial class App
 
     private bool UsesFirmwareCoolingPolicy =>
         string.Equals(State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal) ||
-        (DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType) &&
+        (DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(State) &&
          string.Equals(State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal));
 
     private void InitializeCoolingCoordinator()

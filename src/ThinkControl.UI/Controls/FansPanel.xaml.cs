@@ -47,11 +47,11 @@ public partial class FansPanel : UserControl
             DataContext = app.State;
         }
 
-        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(app.State.MachineType);
-        bool canControl = app.State.CanFanControl || verifiedX9;
+        bool firmwareFallback = DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(app.State);
+        bool canControl = app.State.CanFanControl || firmwareFallback;
         _fanControlKind = app.State.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = verifiedX9
+            _fanControlKind = firmwareFallback
                 ? FanControlKinds.FirmwarePolicy
                 : ResolveFanControlKind(null, canControl);
 
@@ -66,11 +66,11 @@ public partial class FansPanel : UserControl
         _snapshotMode = true;
         UnsubscribeStatus();
         DataContext = state;
-        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
-        bool canControl = state.CanFanControl || verifiedX9;
+        bool firmwareFallback = DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(state);
+        bool canControl = state.CanFanControl || firmwareFallback;
         _fanControlKind = state.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = verifiedX9
+            _fanControlKind = firmwareFallback
                 ? FanControlKinds.FirmwarePolicy
                 : ResolveFanControlKind(null, canControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
@@ -146,13 +146,14 @@ public partial class FansPanel : UserControl
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
         bool verifiedX9 = _app is not null &&
                           DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType);
-        bool canControl = response?.Capabilities?.FanControl == true || verifiedX9;
+        bool firmwareFallback = verifiedX9 && response?.Success == true;
+        bool canControl = response?.Capabilities?.FanControl == true || firmwareFallback;
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
         string? explicitKind = response?.Capabilities?.FanControlKind;
         _fanControlKind = string.Equals(explicitKind, FanControlKinds.None, StringComparison.Ordinal) ||
                           string.IsNullOrWhiteSpace(explicitKind)
-            ? verifiedX9 ? FanControlKinds.FirmwarePolicy : ResolveFanControlKind(explicitKind, canControl)
+            ? firmwareFallback ? FanControlKinds.FirmwarePolicy : ResolveFanControlKind(explicitKind, canControl)
             : ResolveFanControlKind(explicitKind, canControl);
 
         string profileName = telemetry?.CoolingProfile ??
@@ -457,7 +458,7 @@ public partial class FansPanel : UserControl
         finally
         {
             bool firmwareFallback =
-                DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType) &&
+                DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(_app.State) &&
                 (string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal) ||
                  string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal));
             ProfileComboBox.IsEnabled =

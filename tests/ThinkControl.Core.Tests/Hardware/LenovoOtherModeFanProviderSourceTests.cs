@@ -231,8 +231,13 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("Temporary 30-second test", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
-        Assert.Contains("DeviceCapabilityExpectations.IsVerifiedX9", ui, StringComparison.Ordinal);
-        Assert.Contains("verifiedX9 ? FanControlKinds.FirmwarePolicy", ui, StringComparison.Ordinal);
+        string expectations = ReadSource("src", "ThinkControl.UI", "Services", "DeviceCapabilityExpectations.cs");
+        Assert.Contains("CanUseVerifiedX9FirmwareFallback", expectations, StringComparison.Ordinal);
+        Assert.Contains("IsHardwareServiceReachable(state.DriverStatus)", expectations, StringComparison.Ordinal);
+        Assert.Contains("status.Equals(\"Ready\"", expectations, StringComparison.Ordinal);
+        Assert.Contains("status.StartsWith(\"Hardware service online\"", expectations, StringComparison.Ordinal);
+        Assert.Contains("DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback", ui, StringComparison.Ordinal);
+        Assert.Contains("firmwareFallback ? FanControlKinds.FirmwarePolicy", ui, StringComparison.Ordinal);
         Assert.Contains("_app.State.CanFanControl || firmwareFallback", ReadSource("src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"), StringComparison.Ordinal);
         Assert.Contains("_app.State.CanFanControl || firmwarePolicy", ReadSource("src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"), StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareAccess", ui.Split("private static string DescribeUnavailable", StringSplitOptions.None)[0].Split("private void ApplyProviderCopy", StringSplitOptions.None)[1], StringComparison.Ordinal);
