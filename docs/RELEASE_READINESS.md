@@ -30,7 +30,13 @@ Active implementation state:
 - source target: `v0.1.0-alpha.57`
 - immutable/public baseline: `v0.1.0-alpha.56`
 - editable Fans design: https://www.figma.com/design/Dcl5mMTiWUYwMcwiB0oVdy
-- `version.json.releaseReady=false` until exact-head build/package/visual gates pass
+- reviewed candidate head: `f98b713dbe7de761def4cea09f2a81637e596c88`
+- candidate CI `36995731560` / #2203: success — hygiene, build, tests, Compact↔Advanced smoke and WPF visual QA
+- candidate Package ThinkControl `36995731532` / #1887: success — installer/IPC reliability and oldest-supported updater compatibility
+- candidate visual artifact `11221537057`, digest `sha256:41051a8841c13517f2d593748033e841b9a4513a1b5db435a54d7b79299c8b14`
+- normal/minimum/wide dark/light Fans, firmware-policy recovery, unavailable, direct active-curve and manual-test states inspected at full resolution
+- no open PR review threads/comments on the reviewed candidate head
+- `version.json.releaseReady=true`; this freeze follows the reviewed candidate without changing fan runtime behavior
 
 Scope:
 
@@ -49,10 +55,10 @@ Current gate:
 - [x] editable dark/light Fans target and provider state studies created in Figma
 - [x] Impeccable Operate/craft-floor/critique/layout/clarify/polish pass applied
 - [x] selected Figma composition translated to WPF without changing hardware ownership boundaries
-- [ ] exact-head CI + Package
-- [ ] inspect normal/minimum/wide dark/light Fans plus firmware-policy/recovery states
-- [ ] resolve review backlog
-- [ ] freeze `releaseReady=true`
+- [x] exact-head CI + Package
+- [x] inspect normal/minimum/wide dark/light Fans plus firmware-policy/recovery states
+- [x] resolve review backlog
+- [x] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
 - [ ] physical X9 confirmation remains separate evidence
