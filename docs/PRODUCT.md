@@ -2,8 +2,8 @@
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current source release target: `v0.1.0-alpha.57`.  
-Current immutable prerelease: `v0.1.0-alpha.56`. Alpha.57 is a Fans composition/clarity candidate: it keeps the alpha.56 fan protocol and hardware boundaries intact while making profile selection, real telemetry, ownership and advanced controls easier to scan.
+Current source release target: `v0.1.0-alpha.58`.  
+Current immutable prerelease: `v0.1.0-alpha.57`. Alpha.58 is a stabilization candidate after live alpha.57 feedback: it restores explicit fan-controller capability flow, recomposes Modes as normal editable saved modes, returns Windows Settings actions to direct contextual links, and clarifies Battery Preservation without widening hardware-write boundaries.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
@@ -52,13 +52,13 @@ Advanced contains Home, Performance, Fans, Battery, Display, Audio, Keyboard, To
 
 All pages share one layout rail, spacing system, typography system, theme and semantic icon vocabulary. Page navigation resets stale scroll offsets so a revisited page reopens at its canonical header rail. When a page has title-level actions, they share one fixed title/action row so Defaults buttons, Windows links and switches do not move vertically between destinations. Compact ↔ Advanced switching is a single-owner shell transition and is exercised by real WPF lifecycle smoke in CI.
 
-Modes is a session-level sparse overlay above existing subsystem owners. Alpha.55 exposes one neutral **No mode** state plus user-created modes. A mode may temporarily own Performance, Cooling, Refresh rate, Audio Safety, Touchpad gesture enablement and non-experimental Keyboard light. Missing settings are untouched.
+Modes is a session-level sparse overlay above existing subsystem owners. It exposes one neutral **No mode** state plus editable saved modes. On first alpha.58 migration, Focus, Battery saver and Performance are seeded once as ordinary user-mode definitions; they are not immutable built-ins. **New mode** can still start blank or clone one of those templates. A mode may temporarily own Performance, Cooling, Refresh rate, Audio Safety, Touchpad gesture enablement and non-experimental Keyboard light. Missing settings are untouched.
 
 A user mode may optionally activate from Wi-Fi network, running app/process, AC/battery source, battery threshold or schedule context. Triggers are evaluated in the user-session process; no network/process discovery is moved into the privileged hardware service. App triggers outrank Wi-Fi, which outranks battery/power and then schedule. Manual mode selection suppresses automation until the matching context changes.
 
 Mode definitions persist, but active ownership and rollback baselines remain session-only. Manual subsystem changes release only that facet, mark the active mode Modified, and are not undone when the remaining mode facets later restore. Battery Preservation, microphone state, theme, startup behavior, updates and experimental keyboard effects remain outside Modes.
 
-Custom modes may currently compose only Audio Safety, Touchpad gestures enabled/disabled and non-experimental keyboard light Off/Low/High/Auto. A missing facet means “leave this subsystem alone.” Cooling, Windows performance preferences, Battery Preservation, microphone state, display policy, Dolby state and experimental keyboard effects remain independent until they have explicit transient ownership and rollback semantics.
+Custom modes may compose Performance, Cooling, Refresh rate, Audio Safety, Touchpad gestures enabled/disabled and non-experimental keyboard light Off/Low/High/Auto. These facets use explicit transient ownership and rollback semantics; a missing facet means “leave this subsystem alone.” Battery Preservation, microphone state, brightness/adaptive-brightness state, Dolby state, theme, startup behavior, updates and experimental keyboard effects remain independent.
 
 When the user manually changes a subsystem while a mode owns it, only that facet is released. The mode stays active as **Modified**; leaving the mode does not undo the user’s manual change. Reapply captures the current manual state as the new rollback baseline before reclaiming the facet. Home and Compact expose the current Mode; the dedicated Advanced Modes page owns creation/editing. Direct Audio/Touchpad/Keyboard controls remain available as subsystem overrides.
 
