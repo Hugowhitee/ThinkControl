@@ -447,12 +447,8 @@ public partial class FansPanel : UserControl
         }
         finally
         {
-            bool firmwareFallback =
-                DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(_app.State) &&
-                (string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal) ||
-                 string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal));
             ProfileComboBox.IsEnabled =
-                (_app.State.CanFanControl || firmwareFallback) &&
+                _app.State.CanFanControl &&
                 !_app.FanCalibrationState.Required;
         }
     }
