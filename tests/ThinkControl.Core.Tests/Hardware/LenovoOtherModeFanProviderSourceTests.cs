@@ -216,6 +216,10 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("RawEcStepsExpander.Visibility = discreteEcWriter", ui, StringComparison.Ordinal);
         Assert.Contains("bool showCalibrationTask = calibration.Relevant && attention", ui, StringComparison.Ordinal);
         Assert.Contains("CalibrationCard.Visibility = showCalibrationTask", ui, StringComparison.Ordinal);
+        Assert.Contains("Calibration measures how this laptop's fan responds", ui, StringComparison.Ordinal);
+        Assert.Contains("CharacterizationStatusText.Visibility = string.IsNullOrWhiteSpace(calibration.Status)", ui, StringComparison.Ordinal);
+        Assert.DoesNotContain("active fan provider requires a measured output mapping", ui, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("string.Equals(status, \"Not calibrated yet\"", cooling, StringComparison.Ordinal);
         Assert.Contains("ManualControlExpander.Visibility = directWriter", ui, StringComparison.Ordinal);
         Assert.Contains("bool firmwarePolicy = canControl", ui, StringComparison.Ordinal);
         Assert.Contains("Lenovo firmware", ui, StringComparison.Ordinal);

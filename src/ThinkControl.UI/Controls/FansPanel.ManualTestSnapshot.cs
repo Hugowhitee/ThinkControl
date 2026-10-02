@@ -25,7 +25,7 @@ public partial class FansPanel
                 Ready: false,
                 CompletedLevels: 0,
                 TotalLevels: 7,
-                Status: "Calibration required by the active discrete fan provider."),
+                Status: string.Empty),
             _app.State.CanFanControl);
         AppliedLevelText.Text = _app.State.FanStateText;
         UpdateLayout();

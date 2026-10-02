@@ -232,9 +232,12 @@ public partial class FansPanel : UserControl
             ? "Fan calibration in progress"
             : "Fan calibration required";
         CalibrationDescriptionText.Text = running
-            ? "ThinkControl temporarily owns the active provider's calibration states while each state settles and real tachometer samples are measured. Other fan controls are locked until calibration finishes or is stopped; firmware Auto is restored automatically."
-            : "The active fan provider requires a measured output mapping before it can safely translate percentage profiles or temporary percentage tests. Firmware Auto remains the safe default until calibration completes.";
+            ? "ThinkControl is measuring each fan level using real tachometer readings. Other fan controls stay locked until calibration finishes or you stop it; firmware Auto is restored automatically."
+            : "Calibration measures how this laptop's fan responds before percentage-based profiles and temporary tests can be enabled. Firmware Auto stays in control until calibration completes.";
         CharacterizationStatusText.Text = calibration.Status;
+        CharacterizationStatusText.Visibility = string.IsNullOrWhiteSpace(calibration.Status)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         CharacterizeButton.Content = "Calibrate now";
         CharacterizeButton.IsEnabled = canControl && !running;
