@@ -55,6 +55,9 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Tc.Success", gauge, StringComparison.Ordinal);
         Assert.Contains("ResolveFillBrush", gauge, StringComparison.Ordinal);
         Assert.Contains("DrawThreshold", gauge, StringComparison.Ordinal);
+        Assert.Contains("DrawThresholdLabels", gauge, StringComparison.Ordinal);
+        Assert.Contains("minimumGap = 4", gauge, StringComparison.Ordinal);
+        Assert.Contains("collision symmetrically", gauge, StringComparison.Ordinal);
         Assert.Contains("current marker sits exactly on the end of the fill", gauge, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("if (IsCharging)", gauge, StringComparison.Ordinal);
         Assert.Contains("return success;", gauge, StringComparison.Ordinal);
