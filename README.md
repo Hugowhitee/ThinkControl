@@ -23,14 +23,14 @@
   </a>
 </div>
 
-## ThinkControl alpha.57
+## ThinkControl alpha.58
 
-Alpha.57 refines the Fans surface on top of immutable alpha.56. The runtime behavior and hardware safety boundaries stay intact while profile selection, real fan telemetry, controller ownership and advanced/recovery controls are reorganized into a clearer capability-driven flow.
+Alpha.58 stabilizes the live alpha.57 experience: fan controller ownership now comes directly from the service capability snapshot, Modes uses normal editable saved modes instead of starter CTA clutter, Windows Settings actions are direct, and Battery Preservation exposes clear 80 / 85 / 90 / 95% charge limits.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.57`  
-**Current immutable prerelease:** `v0.1.0-alpha.56`
+**Release target:** `v0.1.0-alpha.58`  
+**Current immutable prerelease:** `v0.1.0-alpha.57`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -40,8 +40,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.56/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.56/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.57/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.57/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -95,7 +95,7 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 - **Silent owns the physical volume-key path.** While Silent is active, Windows `VK_VOLUME_MUTE / DOWN / UP` keys are swallowed before the shell can unmute the endpoint. CoreAudio callbacks remain the second line of defense for app/Windows changes.
 - **Repeated unmute events are no longer coalesced away.** A pending-bit enforcement loop guarantees another pass when an event arrives while re-muting is already in progress, closing the held-key race.
 - **Default-output switches are event-driven.** A persistent CoreAudio device notification client immediately rebinds Silent to a changed render endpoint, with only a short bounded retry burst while a new device becomes ready.
-- **Battery Preservation reads like a battery control, not a diagram.** One current-level fill reacts to charging/limit state, the start/stop thresholds are quiet aligned markers, and the old permanent green/amber/red zones plus lightning/pause glyphs are gone. Preset copy uses an AccuBattery-style comparative wear estimate (for example, estimated wear to 85% versus the 1.00 full-charge baseline) with an explicit generic-model caveat.
+- **Battery Preservation reads like a battery control, not a diagram.** One current-level fill reacts to charging/limit state, the start/stop thresholds are quiet aligned markers, and the old permanent green/amber/red zones plus lightning/pause glyphs are gone. Preset copy uses a stable 0%→limit wear comparison against the model's 0%→100% reference, so 80 / 85 / 90 / 95% stay directly comparable; the tooltip explains why a real top-up starting above 0% is lower.
 - **Fan Auto no longer visually bounces through stale state.** A user selection owns both its in-flight state and a short post-success confirmation lease, so stale Max/Quiet telemetry cannot repaint the Home switch before fresh status confirms Auto. An active firmware/full-speed override is released before unrelated Auto recovery probes.
 - **Experimental keyboard effects suppress Lenovo's own backlight popup around automatic writes.** The suppression is deliberately limited to newly shown `tposd.exe` windows during an effect-write burst, so ordinary keyboard feedback outside that burst is not globally disabled. Audio now uses Off / Low / High as a visible three-state response to the active Windows output instead of idling at Low.
 - **Dev builds can upgrade to their matching public release.** A manually installed `alpha.N-dev.BUILD` is deliberately lower-precedence than canonical `alpha.N`, so testing a dev package cannot strand the updater on that build.

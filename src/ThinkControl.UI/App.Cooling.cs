@@ -57,9 +57,7 @@ public partial class App
         Volatile.Read(ref _coolingThermalBaselineReady) != 0;
 
     private bool UsesFirmwareCoolingPolicy =>
-        string.Equals(State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal) ||
-        (DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(State) &&
-         string.Equals(State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal));
+        string.Equals(State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
 
     private void InitializeCoolingCoordinator()
     {

@@ -37,7 +37,8 @@ public sealed record ThinkControlUserSettings(
     string AttentionAcknowledgedAtUtc = "",
     bool DiagnosticsSharingPrompted = false,
     string HardwareIssuePromptedKeys = "",
-    ThinkControlModeDefinition[]? CustomModes = null);
+    ThinkControlModeDefinition[]? CustomModes = null,
+    bool StarterModesSeeded = false);
 
 public sealed class UserSettingsService
 {
@@ -59,8 +60,18 @@ public sealed class UserSettingsService
             "ThinkControl");
         _path = Path.Combine(folder, "settings.json");
         ThinkControlUserSettings loaded = LoadInternal();
+        bool seedStarterModes = !loaded.StarterModesSeeded;
+        if (seedStarterModes)
+        {
+            loaded = loaded with
+            {
+                CustomModes = ThinkControlModeCatalog.SeedStarterModes(loaded.CustomModes),
+                StarterModesSeeded = true
+            };
+        }
+
         _current = ApplyInstallerConsent(loaded);
-        if (_current.DiagnosticsConsent != loaded.DiagnosticsConsent)
+        if (_current.DiagnosticsConsent != loaded.DiagnosticsConsent || seedStarterModes)
             SaveInternal(_current);
     }
 
@@ -302,7 +313,8 @@ public sealed class UserSettingsService
             DiagnosticsSharingPrompted = settings.DiagnosticsSharingPrompted,
             HardwareIssuePromptedKeys = hardwareIssueKeys,
             DismissedUpdateVersion = dismissedUpdateVersion,
-            CustomModes = customModes
+            CustomModes = customModes,
+            StarterModesSeeded = settings.StarterModesSeeded
         };
     }
 

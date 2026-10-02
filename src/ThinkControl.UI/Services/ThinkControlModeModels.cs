@@ -75,6 +75,73 @@ internal static class ThinkControlModeCatalog
     internal static readonly IReadOnlyList<ThinkControlModeDefinition> BuiltIns =
         [NoMode, .. LegacyBuiltIns];
 
+    internal static readonly IReadOnlyList<ThinkControlModeDefinition> StarterModes =
+    [
+        new(
+            "custom:focus",
+            "Focus",
+            TouchpadGesturesEnabled: false,
+            KeyboardLight: "Low",
+            PerformanceMode: "Efficiency",
+            CoolingProfile: "Quiet",
+            RefreshRate: "60 Hz"),
+        new(
+            "custom:battery-saver",
+            "Battery saver",
+            PerformanceMode: "Efficiency",
+            CoolingProfile: "Quiet",
+            RefreshRate: "60 Hz",
+            KeyboardLight: "Off",
+            Triggers: [new ThinkControlModeTrigger("BatteryBelow", Number: 25)],
+            AutomationEnabled: true),
+        new(
+            "custom:performance",
+            "Performance",
+            KeyboardLight: "Auto",
+            PerformanceMode: "Performance",
+            CoolingProfile: "Balanced",
+            RefreshRate: "Max")
+    ];
+
+    internal static ThinkControlModeDefinition[] SeedStarterModes(
+        IReadOnlyList<ThinkControlModeDefinition>? existing)
+    {
+        var result = SanitizeCustomModes(existing).ToList();
+        foreach (ThinkControlModeDefinition starter in StarterModes)
+        {
+            if (result.Count >= MaxCustomModes)
+                break;
+            if (result.Any(mode =>
+                    mode.Id.Equals(starter.Id, StringComparison.OrdinalIgnoreCase) ||
+                    mode.Name.Equals(starter.Name, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            result.Add(starter with
+            {
+                Triggers = starter.Triggers?.Select(trigger => trigger with { }).ToArray()
+            });
+        }
+        return result.ToArray();
+    }
+
+    internal static ThinkControlModeDefinition CreateStarterTemplate(string template, string id)
+    {
+        ThinkControlModeDefinition source = template switch
+        {
+            "focus" => StarterModes[0],
+            "battery" => StarterModes[1],
+            "performance" => StarterModes[2],
+            _ => new ThinkControlModeDefinition(id, string.Empty)
+        };
+        return source with
+        {
+            Id = id,
+            Triggers = source.Triggers?.Select(trigger => trigger with { }).ToArray()
+        };
+    }
+
     internal static IReadOnlyList<ThinkControlModeDefinition> VisibleModes(
         IReadOnlyList<ThinkControlModeDefinition>? customs) =>
         [NoMode, .. (customs ?? [])];

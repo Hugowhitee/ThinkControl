@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.57** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.58** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -90,9 +90,9 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 
 1. On Advanced → Audio, drag **System volume** continuously across a wide range. The thumb/value must follow the pointer immediately without the short post-drag locked feeling; endpoint refresh must not pull it backward while the drag is active. Releasing the pointer commits the requested Windows endpoint value once.
 2. Repeat with **Microphone input**. Keyboard adjustments must also commit without restoring a stale endpoint value. Navigate away during an unfinished drag and confirm no delayed off-page write occurs.
-3. On Battery, verify **Battery preservation** has one shared-style on/off switch. The preset selector contains only Daily 75–85%, Desk 55–80% and Maximum care 40–60%; turning the switch off restores ordinary charging instead of selecting a fake `Full charge` preset.
+3. On Battery, verify **Battery preservation** has one shared-style on/off switch. The selector is organized by charge limit: 80% Strong protection, 85% Recommended, 90% More runtime and 95% Light protection; turning the switch off restores ordinary charging instead of selecting a fake `Full charge` preset.
 4. With preservation active **and charging**, Battery ETA must say time to the active target (for example `to 85%`), not `to full`. At/near the cap on AC it should report the paused limit state; inside the start/stop hysteresis while plugged in it should say when charging resumes. Unplugged, it must return to normal remaining-runtime ETA instead of inventing a charge-to-target time.
-5. The charge-wear line must use a comparative `×` reference such as `1.00× = 0→100% reference` and must not look like the firmware **CYCLES** counter. Tooltip/caveat remains explicit about model limits.
+5. The charge-wear line must compare **0% → selected limit** against the model's **0% → 100% = 100% wear reference**. It must stay stable when the live battery percentage changes, use whole-number percentages rather than fake precision, and never look like the firmware **CYCLES** counter. The tooltip explains that a real top-up starting above 0% has lower modeled session wear and that the top end is disproportionately stressful.
 6. On Advanced Home, click **SENSORS**. It must open the existing live Sensor details window directly; other telemetry metrics retain their existing navigation behavior.
 7. In Touchpad, select a top corner. **Reverse swipe closes ThinkControl** must use the same shared switch geometry as the rest of ThinkControl, not a square checkbox.
 8. On Fans, a supported temporary direct-output test must expose one stateful action: **Start test** becomes **End test** while active. Target controls are locked during the test and the previous profile/Auto is still restored on timeout, page close or explicit End.
@@ -117,8 +117,8 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Leave Silent. The standard volume keys must work immediately again, and only endpoint mute states actually remembered by ThinkControl may be restored.
 6. Confirm Gesture lock is unchanged: physical keyboard and Windows/app volume controls still work in Gesture lock.
 7. On Battery Preservation, verify the graphic is a single current-level fill with exactly two aligned threshold markers. There must be no permanent three-color zones and no lightning/pause glyphs. While charging, the fill uses the normal accent; when parked at the upper cap it may switch to the warning state.
-8. Verify the copy is plain language: for 75–85% it reads **Charging resumes below 75% and pauses at 85%.** No centered-dot sentence fragments should return.
-9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00×. For the typical preset recharge windows, 75→85% is about **0.05×**, 55→80% about **0.02×**, and 40→60% about **0.02×**. Full 0→100% remains the **1.00× reference**. A custom threshold must calculate automatically.
+8. Verify the copy is plain language: for the 85% preset it reads **Charges up to 85%, then pauses. Charging starts again below 80%.** The state line should say **85% limit active**, not repeat the whole threshold pair.
+9. Verify the visible wear estimate is a stable charge-limit comparison, not a live-session counter: **Charging from 0% to 90%: ~20% of the modeled wear of charging to 100%.** Changing the current battery level must not change that line. The expected preset values are approximately 80% → 6%, 85% → 11%, 90% → 20%, and 95% → 43% of the 0%→100% wear reference.
 10. The wear line must remain explicitly comparative rather than claiming measured pack wear. Its tooltip/caveat must mention the generic Li-ion SOC/voltage model, the high-voltage end-charge relationship, and pack-dependent chemistry/temperature/use.
 11. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The wear line must stay visually secondary and the shorter gauge must not clip/collide with the selector.
 12. From **Max cooling**, click fan **Auto** several times under live telemetry from **Home** as well as the Fans page. Home Auto must become the visible intent immediately, stay disabled while the write is in flight, and remain selected during the short post-success confirmation lease rather than bouncing back to stale Max/Quiet telemetry.
@@ -322,21 +322,22 @@ Alpha.43 uses the verified-X9 Lenovo Windows Power Manager threshold path (`PWRM
 
 1. Open Advanced → Battery before changing anything.
 2. The card must show **actual Lenovo state**, not a saved ThinkControl preference.
-3. When the provider is writable, Battery Preservation has one on/off switch and the dropdown offers only the small named windows:
-   - `Daily · 75–85% (recommended)`
-   - `Desk · 55–80%`
-   - `Maximum care · 40–60%`
-4. If Lenovo currently has another valid pair, it should appear as `Custom · start–stop%` and remain untouched until a named window is deliberately selected.
+3. When the provider is writable, Battery Preservation has one on/off switch and the dropdown is organized by charge limit:
+   - `80% · Strong protection` → resumes below 75%
+   - `85% · Recommended` → resumes below 80%
+   - `90% · More runtime` → resumes below 85%
+   - `95% · Light protection` → resumes below 90%
+4. If Lenovo currently has another valid pair, it should appear as `Custom · stop% limit · resume start%` and remain untouched until a preset is deliberately selected.
 5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the switch/dropdown stay read-only and the Lenovo settings fallback remains available.
 6. Provider text must describe Lenovo PM Device/PWRMGRV state; it must not claim a generic EC threshold backend.
-7. The comparative charge-wear line may use a `×` reference, but it must explicitly distinguish that modeled reference from the firmware battery cycle count and must not promise a fixed lifetime improvement.
+7. The comparative charge-wear line uses a percentage of a full 0→100% charge as its comparison baseline, explicitly distinguishes that model from the firmware battery cycle count, and does not promise a fixed lifetime improvement.
 
 ### Real X9 charge behavior
 
-Use a test window that can be observed without repeatedly forcing unnecessary battery cycles. **75–85%** is the primary release check.
+Use a test window that can be observed without repeatedly forcing unnecessary battery cycles. **80–85%** (the 85% Recommended preset) is the primary release check.
 
 1. Read the current thresholds and record them before changing anything.
-2. Select **Daily · 75–85%**. Service status must report `75–85%` only after the Lenovo PM Device calls and PWRMGRV readback succeed.
+2. Select **85% · Recommended**. Service status must report `80–85%` only after the Lenovo PM Device calls and PWRMGRV readback succeed.
 3. With AC connected and battery below the stop threshold, confirm normal charging can rise toward 85%.
 4. Confirm charging stops/holds around the intended 85% boundary under normal conditions.
 5. While battery remains above the 75% start threshold, confirm ordinary tiny top-ups do not repeatedly restart charging.

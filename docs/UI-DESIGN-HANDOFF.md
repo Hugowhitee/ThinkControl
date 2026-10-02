@@ -46,8 +46,9 @@ Desired interaction:
 - clicking the mode row selects it directly;
 - Edit remains a separate secondary action;
 - active/automatic/modified/applying state is obvious without a separate Activate button;
-- starter presets are useful starting points, not immutable built-ins;
-- editor remains Settings + Turn on automatically;
+- Focus, Battery saver and Performance are seeded once as normal editable saved modes, not shown as three permanent starter CTA buttons;
+- New mode may still offer those definitions as optional templates after Blank mode;
+- editor remains Controls + Automation, with compact direct controls rather than repetitive admin-table rows;
 - automation should feel like laptop context, not a generic IFTTT builder.
 
 Starter direction:
@@ -55,6 +56,20 @@ Starter direction:
 - **Focus** — Efficiency, Quiet, 60 Hz, keyboard Low, ThinkControl Touchpad/edge gestures off;
 - **Battery saver** — Efficiency, Quiet, 60 Hz, keyboard Off, automatic below 25%;
 - **Performance** — Performance power preference, Balanced cooling, max refresh, keyboard Auto.
+
+### Battery Preservation
+
+Preserve the compact gauge itself, but make the decision surface explicit:
+
+- present the selectable value as the **charge limit** first;
+- current presets are 80% Strong protection, 85% Recommended, 90% More runtime and 95% Light protection;
+- explain the lower threshold as “charging starts again below X%” instead of making the user decode a range;
+- keep existing non-preset Lenovo pairs visible as Custom and do not overwrite them automatically;
+- comparative wear copy should use a stable 0%→selected-limit percentage against the 0%→100% wear reference; explain in the tooltip that real top-ups starting above 0% are lower and the upper end contributes disproportionately.
+
+### Header actions and Windows links
+
+Title-level actions stay direct and contextual. Do not hide a common destination behind a generic **Windows settings** dropdown. Display may link directly to Windows display settings; Battery may link directly to Power & battery. Page Defaults remains a quiet secondary direct action rather than becoming another menu/list item.
 
 ### Home quick controls
 
@@ -111,6 +126,8 @@ Avoid:
 - permanently visible paragraphs explaining implementation;
 - “AI dashboard” metric tiles with decorative gradients;
 - unrelated redesign of good Battery visuals during a Fans task;
+- generic dropdowns that hide one or two obvious Windows destinations;
+- turning a simple mode editor into a settings-table/admin builder with repeated separator rows and Remove labels;
 - replacing precise controls with abstract illustrations;
 - separate one-off styles that drift from shared tokens;
 - Figma-only polish that cannot map cleanly to WPF;

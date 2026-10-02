@@ -44,10 +44,15 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("VisibleModes", models, StringComparison.Ordinal);
         Assert.Contains("[NoMode, .. (customs ?? [])]", models, StringComparison.Ordinal);
         Assert.Contains("LegacyBuiltIns", models, StringComparison.Ordinal);
+        Assert.Contains("StarterModes", models, StringComparison.Ordinal);
+        Assert.Contains("\"custom:focus\"", models, StringComparison.Ordinal);
+        Assert.Contains("\"custom:battery-saver\"", models, StringComparison.Ordinal);
+        Assert.Contains("\"custom:performance\"", models, StringComparison.Ordinal);
         Assert.Contains("ModeRows.Children.Add(CreateModeRow(mode))", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BuiltInRows", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("CustomRows", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"My modes\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Saved modes\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("StarterModesPanel", xaml, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -59,11 +64,27 @@ public sealed class ThinkControlModesSourceTests
         string models = Read(root, "src", "ThinkControl.UI", "Services", "ThinkControlModeModels.cs");
 
         Assert.Contains("ThinkControlModeDefinition[]? CustomModes = null", settings, StringComparison.Ordinal);
+        Assert.Contains("bool StarterModesSeeded = false", settings, StringComparison.Ordinal);
+        Assert.Contains("ThinkControlModeCatalog.SeedStarterModes", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("ActiveModeId", settings, StringComparison.Ordinal);
         Assert.DoesNotContain("ActiveModeName", settings, StringComparison.Ordinal);
         Assert.Contains("ActiveModeId { get; private set; } = ThinkControlModeCatalog.NormalId", coordinator, StringComparison.Ordinal);
         Assert.Contains("ThinkControlModeTrigger[]? Triggers = null", models, StringComparison.Ordinal);
         Assert.Contains("bool AutomationEnabled = false", models, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StarterModes_AreSeededOnceAsNormalEditableUserModes()
+    {
+        string root = FindRepositoryRoot();
+        string models = Read(root, "src", "ThinkControl.UI", "Services", "ThinkControlModeModels.cs");
+        string settings = Read(root, "src", "ThinkControl.UI", "Services", "UserSettingsService.cs");
+
+        Assert.Contains("SeedStarterModes", models, StringComparison.Ordinal);
+        Assert.Contains("CreateStarterTemplate", models, StringComparison.Ordinal);
+        Assert.Contains("seedStarterModes = !loaded.StarterModesSeeded", settings, StringComparison.Ordinal);
+        Assert.Contains("StarterModesSeeded = true", settings, StringComparison.Ordinal);
+        Assert.Contains("SaveInternal(_current)", settings, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -168,9 +189,9 @@ public sealed class ThinkControlModesSourceTests
         string xaml = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml");
         string code = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml.cs");
 
-        Assert.Contains("Text=\"Settings\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Controls\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Add setting\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Turn on automatically\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Automation\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Add trigger\"", xaml, StringComparison.Ordinal);
         Assert.Contains("\"Wi-Fi network\", \"Wifi\"", code, StringComparison.Ordinal);
         Assert.Contains("\"App running\", \"Process\"", code, StringComparison.Ordinal);
@@ -179,14 +200,19 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("\"Schedule\", \"Schedule\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("No controls yet", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Key=\"ModeRowButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Focus\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Battery saver\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"Performance\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("TouchpadGesturesEnabled: false", code, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New mode ▾\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Click=\"StarterMode_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Header = \"From template\"", code, StringComparison.Ordinal);
+        Assert.Contains("ThinkControlModeCatalog.CreateStarterTemplate", code, StringComparison.Ordinal);
         Assert.Contains("select.Click += Activate_Click", code, StringComparison.Ordinal);
         Assert.Contains("Grid.SetColumnSpan(select, 2)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MutedText(\"Select\")", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Content = mode.Id == ThinkControlModeCatalog.NormalId ? \"Use\" : \"Activate\"", code, StringComparison.Ordinal);
+        Assert.Contains("InlineButton(\"×\", RemoveSetting_Click", code, StringComparison.Ordinal);
+        Assert.Contains("InlineButton(\"×\", RemoveTrigger_Click", code, StringComparison.Ordinal);
+        string editorSeparator = Slice(code, "private static Border SeparatorRow(UIElement child)", "\n    private async void Reapply_Click");
+        Assert.Contains("BorderThickness = new Thickness(0)", editorSeparator, StringComparison.Ordinal);
+        Assert.DoesNotContain("BorderThickness = new Thickness(0, 1, 0, 0)", editorSeparator, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -197,7 +223,8 @@ public sealed class ThinkControlModesSourceTests
 
         string method = Slice(reset, "internal async Task ResetAllDefaultsAsync()", "\n}");
         Assert.Contains("await Modes.ActivateAsync(ThinkControlModeCatalog.NormalId)", method, StringComparison.Ordinal);
-        Assert.Contains("CustomModes: []", method, StringComparison.Ordinal);
+        Assert.Contains("ThinkControlModeCatalog.StarterModes", method, StringComparison.Ordinal);
+        Assert.Contains("StarterModesSeeded: true", method, StringComparison.Ordinal);
     }
 
     private static string Slice(string source, string startMarker, string endMarker)

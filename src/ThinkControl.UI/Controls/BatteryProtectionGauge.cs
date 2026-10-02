@@ -138,8 +138,16 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             DrawThreshold(dc, stopX, track, stopMarker, 1.35);
 
             double pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
-            DrawThresholdLabel(dc, $"{startValue}%", startX, track.Bottom + 5, startMarker, pixelsPerDip);
-            DrawThresholdLabel(dc, $"{stopValue}%", stopX, track.Bottom + 5, stopMarker, pixelsPerDip);
+            DrawThresholdLabels(
+                dc,
+                $"{startValue}%",
+                startX,
+                startMarker,
+                $"{stopValue}%",
+                stopX,
+                stopMarker,
+                track.Bottom + 5,
+                pixelsPerDip);
         }
         else if (ProtectionEnabled == false)
         {
@@ -204,6 +212,53 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             new WpfPoint(x, track.Bottom + 2));
     }
 
+    private void DrawThresholdLabels(
+        DrawingContext dc,
+        string startLabel,
+        double startCenterX,
+        WpfBrush startBrush,
+        string stopLabel,
+        double stopCenterX,
+        WpfBrush stopBrush,
+        double y,
+        double pixelsPerDip)
+    {
+        FormattedText startText = CreateThresholdLabel(startLabel, startBrush, pixelsPerDip);
+        FormattedText stopText = CreateThresholdLabel(stopLabel, stopBrush, pixelsPerDip);
+
+        const double edge = 2;
+        const double minimumGap = 4;
+        double startMaxX = Math.Max(edge, ActualWidth - startText.Width - edge);
+        double stopMaxX = Math.Max(edge, ActualWidth - stopText.Width - edge);
+        double startX = Math.Clamp(startCenterX - startText.Width / 2d, edge, startMaxX);
+        double stopX = Math.Clamp(stopCenterX - stopText.Width / 2d, edge, stopMaxX);
+
+        // Five-percent preservation windows put the markers only a few pixels
+        // farther apart than the label widths on the compact card. Resolve that
+        // collision symmetrically while keeping both labels beside their markers.
+        double overlap = startX + startText.Width + minimumGap - stopX;
+        if (overlap > 0)
+        {
+            double shift = overlap / 2d;
+            startX = Math.Max(edge, startX - shift);
+            stopX = Math.Min(stopMaxX, stopX + shift);
+
+            // If either edge absorbed part of the symmetric shift, move the other
+            // label just enough to preserve a readable gap.
+            if (startX + startText.Width + minimumGap > stopX)
+            {
+                double preferredStart = stopX - minimumGap - startText.Width;
+                if (preferredStart >= edge)
+                    startX = preferredStart;
+                else
+                    stopX = Math.Min(stopMaxX, edge + startText.Width + minimumGap);
+            }
+        }
+
+        dc.DrawText(startText, new WpfPoint(startX, y));
+        dc.DrawText(stopText, new WpfPoint(stopX, y));
+    }
+
     private void DrawThresholdLabel(
         DrawingContext dc,
         string label,
@@ -212,15 +267,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         WpfBrush brush,
         double pixelsPerDip)
     {
-        var formatted = new FormattedText(
-            label,
-            CultureInfo.CurrentUICulture,
-            FlowDirection.LeftToRight,
-            new Typeface("Segoe UI Variable Text"),
-            10.2,
-            brush,
-            pixelsPerDip);
-
+        FormattedText formatted = CreateThresholdLabel(label, brush, pixelsPerDip);
         double x = Math.Clamp(
             centerX - formatted.Width / 2d,
             2,
@@ -228,6 +275,19 @@ public sealed class BatteryProtectionGauge : FrameworkElement
 
         dc.DrawText(formatted, new WpfPoint(x, y));
     }
+
+    private static FormattedText CreateThresholdLabel(
+        string label,
+        WpfBrush brush,
+        double pixelsPerDip) =>
+        new(
+            label,
+            CultureInfo.CurrentUICulture,
+            FlowDirection.LeftToRight,
+            new Typeface("Segoe UI Variable Text"),
+            10.2,
+            brush,
+            pixelsPerDip);
 
     private static WpfBrush WithOpacity(WpfBrush source, double opacity)
     {

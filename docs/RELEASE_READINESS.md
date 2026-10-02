@@ -6,62 +6,82 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.56`
-- immutable tag/release SHA: `f253fa5e9ca140d5d677736333587e0df023f808`
-- published 2026-09-30 at 21:21:59 UTC as an immutable prerelease
+- `v0.1.0-alpha.57`
+- immutable tag/release SHA: `c8dc44a2ddc36590e769852baeba5d87807b08a8`
+- published 2026-10-02 at 10:38:19 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:6ebfcd9bcdefc1fc791c68da7d3a47a30879a670a92786bf9fce9f9bff18bced`
-  - Payload: `sha256:0b3c6c963e635a6da462be7451740ff53406a6c5146d9043a0182730e1629167`
-  - `SHA256SUMS.txt`: `sha256:2ab8eeaf46f2d728ab98fc908017b08a4464d18af9da7b274b4da22ea0cc092a`
-  - `ui-overview.png`: `sha256:14f60c401ade67c071b867de05e7cd2183c26ced37c768128a715cbe503188bd`
-- immutable release run `36778625445` / #45: success
-- promotion run `36778603762` / #73: success
-- branch hygiene run `36778603608` / #90: success
-- post-merge CI `36778603087` / #2196: success
-- post-release docs-only main commit `184027dcf4dcda1d23ca609a3f8a057fa202623b` adds the canonical ThinkControl chat/skill routing and does not change runtime binaries
+  - Setup: `sha256:7939fc1127e1250b411d75033376960a7808b9c582e711cbaf189d7b1d59cee2`
+  - Payload: `sha256:d893e2ebe305ab6cf2c6ba281df32477ff2bd84adaa9e703bb65f0c3dd9b2d17`
+  - `SHA256SUMS.txt`: `sha256:db14ab20b438efb0b30e57a12d4110494249f44552b4a9d4ae7da9aeeaa1b8c7`
+  - `ui-overview.png`: `sha256:de79bb7412119d20b01ac5825fe266755b7ce9fece5518b07073c7d52b3cea91`
+- immutable release run `36996353928` / #46: success
+- promotion run `36996336124` / #77: success
+- post-merge CI `36996336115` / #2205: success
+- live alpha.57 feedback exposed three release-level product regressions despite hosted gates: fan-controller capability state could be lost in one UI refresh path, Modes composition drifted into an admin/list-builder feel, and Windows/Battery actions became less direct
+- alpha.58 supersedes alpha.57 for these regressions; immutable alpha.57 is not moved or rewritten
 - physical X9 Quiet/Balanced/Max behavior remains a separate real-device evidence class
 
-## Alpha.57 active candidate — Fans composition and design handoff
+## Alpha.58 active candidate — fan capability truth, Modes and Battery clarity
 
 Active implementation state:
 
-- branch: `alpha57-fans-design`
-- source target: `v0.1.0-alpha.57`
-- immutable/public baseline: `v0.1.0-alpha.56`
-- editable Fans design: https://www.figma.com/design/Dcl5mMTiWUYwMcwiB0oVdy
-- reviewed candidate head: `f98b713dbe7de761def4cea09f2a81637e596c88`
-- candidate CI `36995731560` / #2203: success — hygiene, build, tests, Compact↔Advanced smoke and WPF visual QA
-- candidate Package ThinkControl `36995731532` / #1887: success — installer/IPC reliability and oldest-supported updater compatibility
-- candidate visual artifact `11221537057`, digest `sha256:41051a8841c13517f2d593748033e841b9a4513a1b5db435a54d7b79299c8b14`
-- normal/minimum/wide dark/light Fans, firmware-policy recovery, unavailable, direct active-curve and manual-test states inspected at full resolution
-- no open PR review threads/comments on the reviewed candidate head
-- `version.json.releaseReady=true`; this freeze follows the reviewed candidate without changing fan runtime behavior
+- branch: `alpha58-fan-modes-settings`
+- source target: `v0.1.0-alpha.58`
+- immutable/public baseline: `v0.1.0-alpha.57`
+- candidate evidence head: `870aa5ceb5c4207b3f9db7b1940d4d206ba12a62`
+- candidate CI `37015196168` / #2218: success — repository hygiene, Release build, **258 passed / 0 failed / 0 skipped**, Compact↔Advanced shell smoke and **145** WPF visual-QA snapshots
+- candidate Package ThinkControl `37015196267` / #1901: success — payload, installer, deep service/IPC reliability and oldest-supported updater compatibility
+- candidate visual artifact `11229118673`, digest `sha256:e78d169567a1ec9ac87b5c91f6f2156fd55352d099fc5bbbe76788948d1445de`
+- exact-head visual inspection passed for Modes list/editor, Battery Preservation including 85→90% threshold-label spacing, direct Display/Battery header actions, firmware-policy Fans recovery, Home fan Auto and Compact in dark/light plus representative minimum/normal/wide layouts
+- PR #109 has no open discussion/review backlog on the inspected candidate head
+- direct user review reopened the first freeze because the live current→target wear sentence was too easy to misread
+- corrected runtime/UI candidate head: `997e2f56eda9a934e0f11c675d3df472038c0a10`
+- corrected candidate CI `37017069892` / #2220: success — build, tests, Compact↔Advanced smoke and visual QA
+- corrected candidate Package `37017069512` / #1903: success — installer/IPC/updater compatibility
+- corrected visual artifact `11230297804`, digest `sha256:700064a7d0041bacfab7f0fac2aad088782df8608ac2b526c2b5f5e40b9b4cf9`
+- corrected Battery screenshots inspected: 0%→limit comparison is stable by preset, 85%/90% gauge labels remain separated, and the explanatory tooltip states that real top-ups starting above 0% have lower modeled session wear
+- design/QA guidance cleanup head `1ba1beb8533e3d68143db76d1612d80956babc05`; Package #1904 `37038862440`: success
+- `version.json.releaseReady=true`; this commit freezes alpha.58 after the corrected wear-copy review
 
 Scope:
 
-- apply the current Drive UI workflow, loaded Figma prerequisites and the current upstream `pbakaus/impeccable` Operate-oriented craft-floor/critique/layout/clarify/polish guidance;
-- consolidate profile selection, thermal state and real fan telemetry into one scanable Cooling section;
-- remove redundant provider/implementation narration from the normal Fans surface;
-- expose Edit curves only when a physically accepted direct writer actually supports it;
-- preserve calibration, temporary fan tests, raw provider diagnostics and every existing hardware safety boundary;
-- keep normal error copy actionable while technical provider/LITSSvc detail remains available in System/Diagnostics;
-- record the editable Figma source and external-Impeccable fallback in the durable ThinkControl handoff/starter.
+- copy `Capabilities.FanControlKind` into canonical app state on the normal runtime refresh path and clear it explicitly when service state is unavailable;
+- remove client-side X9/DriverStatus string inference for firmware-policy fan ownership; the service capability snapshot is authoritative;
+- keep Quiet / Balanced / Max available when the service advertises firmware-policy control, while custom curves/manual percentages remain direct-writer-only;
+- seed Focus, Battery saver and Performance once as ordinary editable saved modes; retain optional templates only under New mode;
+- simplify the Modes editor/list and remove repetitive admin-style separator/remove rows;
+- replace generic Windows-settings dropdowns with direct contextual links and keep page Defaults as a quiet direct action;
+- present Battery Preservation by 80 / 85 / 90 / 95% charge limit, with explicit resume threshold and a stable 0%→limit wear comparison;
+- preserve existing valid Lenovo custom battery threshold pairs without silently rewriting them.
 
 Current gate:
 
-- [x] alpha.57 isolated from immutable alpha.56 plus the post-release docs-only bootstrap commit
-- [x] current WPF Fans screenshots reviewed before redesign
-- [x] editable dark/light Fans target and provider state studies created in Figma
-- [x] Impeccable Operate/craft-floor/critique/layout/clarify/polish pass applied
-- [x] selected Figma composition translated to WPF without changing hardware ownership boundaries
-- [x] exact-head CI + Package
-- [x] inspect normal/minimum/wide dark/light Fans plus firmware-policy/recovery states
-- [x] resolve review backlog
+- [x] alpha.58 isolated from immutable alpha.57
+- [x] live regressions reproduced in current source/control flow
+- [x] explicit fan-controller capability flow restored
+- [x] editable starter-mode migration and optional template path implemented
+- [x] Modes / Windows actions / Battery preservation UI recomposed with current Impeccable Operate guidance
+- [x] open canonical PR and run exact-head CI + Package
+- [x] inspect Modes list/editor, Battery Preservation and direct Windows header actions in dark/light and minimum/normal/wide
+- [x] inspect Fans firmware-policy state and Home/Compact fan selectors
+- [x] resolve review/test backlog on exact candidate head
 - [x] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
-- [ ] physical X9 confirmation remains separate evidence
+- [ ] physical X9 fan/battery confirmation remains separate evidence
+
+## Alpha.57 published release — Fans composition and design handoff
+
+Published implementation state:
+
+- canonical PR: #108
+- immutable tag/release SHA: `c8dc44a2ddc36590e769852baeba5d87807b08a8`
+- reviewed frozen branch head: `4c14ea436abddd685ca247071faacab35b5157b6`
+- frozen-head CI `36996062771` / #2204: success
+- frozen-head Package ThinkControl `36996062763` / #1888: success
+- promotion and immutable release completed successfully
+- later live feedback is tracked in alpha.58 instead of mutating the immutable release
 
 ## Alpha.56 published release — fan protocol, Mode selection and updater stabilization
 

@@ -57,14 +57,15 @@ Alpha.50 therefore uses the same *comparative* concept with a transparent generi
 - below that high-voltage region, the model joins to a small linear baseline instead of extending the exponential into a chemistry regime the cited work does not quantify the same way;
 - a full 0→100% charge is normalized to **1.00 wear cycle** for comparison.
 
-The visible number follows AccuBattery's charging-screen idea: it is the **incremental wear from the current battery level to the selected charge limit**, not just a static property of the preset. If current level already equals the limit, the estimate is therefore ~0.00.
+AccuBattery's charging screen uses **current level → selected limit** for a live session estimate. ThinkControl keeps the same incremental math internally, but alpha.58 no longer uses that as the persistent Battery Preservation label: it made a fixed charge-limit choice look different depending on the battery percentage at that moment and made values such as “85→90% = 9.6% of a full charge” easy to misread as energy rather than modeled wear.
 
-For the normal preservation windows, the model gives roughly:
+The visible Battery Preservation comparison is therefore fixed at **0% → selected limit**, with 0%→100% = 100% modeled wear. That makes charge caps directly comparable while the tooltip explains that a real top-up starting above 0% has lower modeled session wear because only the added range counts. With the current generic curve, the visible preset comparisons are roughly:
 
-- 75→85% recharge: **0.05 wear cycles**;
-- 55→80% recharge: **0.02**;
-- 40→60% recharge: **0.02**;
-- 0→100% full charge: **1.00 baseline**.
+- 0→80%: **6%** of the 0→100% modeled wear;
+- 0→85%: **11%**;
+- 0→90%: **20%**;
+- 0→95%: **43%**;
+- 0→100%: **100% baseline**.
 
 These values are a simple way to compare charging choices, not measured degradation of the installed X9 battery. The tooltip explicitly says actual pack wear still varies with chemistry, real voltage mapping, temperature, charge rate and use. Firmware cycle count and ThinkControl's capacity-health trend remain separate real measurements.
 

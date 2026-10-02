@@ -45,10 +45,8 @@ public partial class CompactDashboard
         if (_app is null)
             return ["Auto"];
 
-        bool firmwareFallback = DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(_app.State);
         bool firmwarePolicy =
-            string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal) ||
-            (firmwareFallback && string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal));
+            string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
         var values = new List<string>();
         string current = DisplayFanName(_app.State.CoolingProfile);
         if (IsManualFanState(current) && !firmwarePolicy)
@@ -83,11 +81,7 @@ public partial class CompactDashboard
         try
         {
             CompactPerformanceCombo.SelectedItem = App.PowerPreferenceDisplayName(_app.GetPowerPreference(onBattery: true));
-            bool firmwareFallback =
-                DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(_app.State) &&
-                (string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal) ||
-                 string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal));
-            CompactFanCombo.IsEnabled = _app.State.CanFanControl || firmwareFallback;
+            CompactFanCombo.IsEnabled = _app.State.CanFanControl;
             CompactFanCombo.ItemsSource = BuildFanOptions();
             CompactFanCombo.SelectedItem = DisplayFanName(_app.State.CoolingProfile);
 

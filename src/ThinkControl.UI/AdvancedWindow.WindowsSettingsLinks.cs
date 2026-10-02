@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
 using ThinkControl.UI.Controls;
 
 namespace ThinkControl.UI;
@@ -9,31 +8,18 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private const string WindowsLinksKey = "ThinkControl.Advanced.WindowsSettingsLinks";
-    private const string WindowsSettingsMenuTag = "ThinkControl.Header.WindowsSettingsMenu";
+    private const string WindowsSettingsLinkTag = "ThinkControl.Header.WindowsSettingsLink";
 
     private void ConfigureWindowsSettingsLinks()
     {
         if (!Resources.Contains(WindowsLinksKey))
             Resources[WindowsLinksKey] = true;
 
-        AddWindowsSettingsMenu(
-            PageDisplay,
-            [
-                ("Display settings", "ms-settings:display"),
-                ("Night light", "ms-settings:nightlight")
-            ]);
-
-        AddWindowsSettingsMenu(
-            PageBattery,
-            [
-                ("Power & battery", "ms-settings:powersleep"),
-                ("Battery usage", "ms-settings:batterysaver-usagedetails")
-            ]);
+        AddWindowsSettingsLink(PageDisplay, "Windows display ↗", "ms-settings:display");
+        AddWindowsSettingsLink(PageBattery, "Power & battery ↗", "ms-settings:powersleep");
     }
 
-    private void AddWindowsSettingsMenu(
-        ScrollViewer page,
-        IReadOnlyList<(string Label, string Uri)> destinations)
+    private void AddWindowsSettingsLink(ScrollViewer page, string label, string uri)
     {
         if (page.Content is not StackPanel stack)
             return;
@@ -45,40 +31,27 @@ public partial class AdvancedWindow
             return;
 
         StackPanel rail = header.EnsureActionStack();
-        if (rail.Children.OfType<Button>().Any(button => Equals(button.Tag, WindowsSettingsMenuTag)))
+        if (rail.Children.OfType<Button>().Any(button =>
+                Equals(button.Tag, WindowsSettingsLinkTag) &&
+                string.Equals(button.Content?.ToString(), label, StringComparison.Ordinal)))
+        {
             return;
+        }
 
         var button = new Button
         {
-            Tag = WindowsSettingsMenuTag,
-            Content = "Windows settings ▾",
-            Style = TryFindResource("TcButton") as Style,
-            Padding = new Thickness(9, 4, 9, 4),
+            Tag = WindowsSettingsLinkTag,
+            Content = label,
+            Style = TryFindResource("TcExternalSettingsLink") as Style,
+            Padding = new Thickness(7, 4, 7, 4),
             FontSize = TypographyScale.Caption,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            ToolTip = "Open the matching Windows Settings page"
         };
         if (rail.Children.Count > 0)
             button.Margin = new Thickness(PageHeaderActionGap, 0, 0, 0);
 
-        button.Click += (_, _) =>
-        {
-            var menu = new ContextMenu
-            {
-                PlacementTarget = button,
-                Placement = PlacementMode.Bottom
-            };
-
-            foreach ((string label, string uri) in destinations)
-            {
-                var item = new MenuItem { Header = label };
-                item.Click += (_, _) => OpenWindowsSettings(uri);
-                menu.Items.Add(item);
-            }
-
-            button.ContextMenu = menu;
-            menu.IsOpen = true;
-        };
-
+        button.Click += (_, _) => OpenWindowsSettings(uri);
         rail.Children.Add(button);
     }
 

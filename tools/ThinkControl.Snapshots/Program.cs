@@ -54,7 +54,7 @@ internal static class Program
         batteryProtectionPaused.BatteryCharging = false;
         batteryProtectionPaused.BatteryStatus = "Plugged in";
         batteryProtectionPaused.BatteryProtectionEnabled = true;
-        batteryProtectionPaused.BatteryProtectionStartPercent = 80;
+        batteryProtectionPaused.BatteryProtectionStartPercent = 85;
         batteryProtectionPaused.BatteryProtectionStopPercent = 90;
         batteryProtectionPaused.BatteryProtectionWritable = true;
         AppState keyboardExperimentalFallback = CreateDemoState(charging: true, hardwareReady: true);
@@ -71,10 +71,10 @@ internal static class Program
         homeFanAuto.CoolingProfile = "Lenovo Auto";
         AppState firmwareFanRecovery = CreateDemoState(charging: true, hardwareReady: false);
         firmwareFanRecovery.MachineType = "21Q6";
-        firmwareFanRecovery.CanFanControl = false;
+        firmwareFanRecovery.CanFanControl = true;
         firmwareFanRecovery.CanFanTelemetry = false;
         firmwareFanRecovery.CanSensorTelemetry = false;
-        firmwareFanRecovery.FanControlKind = FanControlKinds.None;
+        firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy;
         firmwareFanRecovery.CoolingProfile = "Quiet";
         firmwareFanRecovery.DriverStatus = "Hardware service online · direct fan provider unavailable";
         firmwareFanRecovery.HardwareAccess = "Lenovo firmware cooling policy available";
@@ -139,7 +139,7 @@ internal static class Program
         RenderAdvanced(app, batteryDeviceTemperature, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
-            "advanced-battery-preservation-paused.png", "80–90% preservation · 85% current · charging paused");
+            "advanced-battery-preservation-paused.png", "90% limit · resume below 85% · charging paused");
         RenderAdvanced(app, keyboardExperimentalFallback, "Keyboard", 1160, 760, output, snapshots,
             "advanced-keyboard-experimental-fallback.png", "Experimental fallback · session enabled");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
@@ -231,7 +231,7 @@ internal static class Program
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
             "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
-            "advanced-battery-preservation-paused-light.png", "80–90% preservation · 88% current · charging paused · light");
+            "advanced-battery-preservation-paused-light.png", "90% limit · resume below 85% · charging paused · light");
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
             "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
         RenderAdvanced(app, charging, "Modes", 1160, 760, output, snapshots,

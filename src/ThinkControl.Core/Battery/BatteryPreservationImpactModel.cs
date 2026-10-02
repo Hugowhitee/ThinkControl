@@ -2,14 +2,16 @@ namespace ThinkControl.Core.Battery;
 
 /// <summary>
 /// Comparative Battery Preservation context calculated from the configured
-/// thresholds and current charge level.
+/// thresholds.
 ///
-/// AccuBattery's public methodology is the presentation reference: map state of
+/// AccuBattery's public methodology is the modeling reference: map state of
 /// charge onto an idealized Li-ion end voltage, use the published high-voltage
 /// cycle-life relation above ~3.95 V, and treat lower-voltage wear as a small
 /// linear baseline. ThinkControl does not know the installed pack's exact
 /// per-cell voltage curve, so these are comparison estimates rather than measured
-/// firmware cycles.
+/// firmware cycles. The visible preset comparison is fixed at 0% → selected
+/// limit so 80/85/90/95% choices stay directly comparable; partial-session wear
+/// remains available as internal model context.
 /// </summary>
 public static class BatteryPreservationImpactModel
 {
@@ -96,25 +98,23 @@ public static class BatteryPreservationImpactModel
     }
 
     public const string LimitationsText =
-        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage research. 1.00× means the model's 0→100% reference charge; it is not the firmware battery cycle count. Actual pack wear varies with chemistry, real voltage mapping, temperature, charge rate and use.";
+        "This fixed comparison starts at 0% so charge limits can be compared directly. A real top-up that starts above 0% has lower modeled session wear because only the added range counts, and the upper end contributes disproportionately. This is a generic Li-ion estimate, not the firmware battery cycle count; actual wear varies with chemistry, real voltage mapping, temperature, charge rate and time at high state of charge.";
 
-    public static string DescribeChargeWear(int currentPercent, int targetPercent)
+    public static string DescribeLimitWear(int targetPercent)
     {
-        int current = Math.Clamp(currentPercent, 0, 100);
         int target = Math.Clamp(targetPercent, 0, 100);
-        int from = Math.Min(current, target);
-        double wear = EstimateWearBetween(from, target);
+        double wear = EstimateCumulativeWearTo(target);
 
-        return $"Charge wear {from}→{target}%: ~{wear:0.00}× · 1.00× = 0→100% reference.";
+        if (target >= 100)
+            return "Charging from 0% to 100% is the model's 100% wear reference.";
+
+        return $"Charging from 0% to {target}%: ~{wear * 100d:0}% of the modeled wear of charging to 100%.";
     }
 
     public static string DescribeWearContext(int startPercent, int stopPercent, bool enabled = true)
     {
         BatteryPreservationImpact impact = Estimate(startPercent, stopPercent, enabled);
-        if (!impact.Enabled)
-            return "Reference: 0→100% = 1.00× comparative charge wear · not the firmware cycle count.";
-
-        return $"Typical {impact.StartPercent}→{impact.StopPercent}% recharge: ~{impact.EstimatedRechargeWindowWear:0.00}× of the 0→100% reference.";
+        return DescribeLimitWear(impact.Enabled ? impact.StopPercent : 100);
     }
 
     public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>

@@ -117,7 +117,6 @@ public partial class ModesPanel : UserControl
         int customCount = modes.Count(mode =>
             mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase));
         EmptyModesText.Visibility = customCount == 0 ? Visibility.Visible : Visibility.Collapsed;
-        StarterModesPanel.Visibility = customCount == 0 ? Visibility.Visible : Visibility.Collapsed;
         NewModeButton.IsEnabled = customCount < ThinkControlModeCatalog.MaxCustomModes;
         UpdateHeaderState();
     }
@@ -286,6 +285,7 @@ public partial class ModesPanel : UserControl
         };
         AddTemplateItem(menu, "Blank mode", "blank");
         menu.Items.Add(new Separator());
+        menu.Items.Add(new MenuItem { Header = "From template", IsEnabled = false });
         AddTemplateItem(menu, "Focus", "focus");
         AddTemplateItem(menu, "Battery saver", "battery");
         AddTemplateItem(menu, "Performance", "performance");
@@ -300,12 +300,6 @@ public partial class ModesPanel : UserControl
         menu.Items.Add(item);
     }
 
-    private void StarterMode_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: string template })
-            BeginNewTemplate(template);
-    }
-
     private void NewTemplate_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string template })
@@ -315,35 +309,7 @@ public partial class ModesPanel : UserControl
     private void BeginNewTemplate(string template)
     {
         string id = "custom:" + Guid.NewGuid().ToString("N");
-        ThinkControlModeDefinition mode = template switch
-        {
-            "focus" => new(
-                id,
-                "Focus",
-                TouchpadGesturesEnabled: false,
-                KeyboardLight: "Low",
-                PerformanceMode: "Efficiency",
-                CoolingProfile: "Quiet",
-                RefreshRate: "60 Hz"),
-            "battery" => new(
-                id,
-                "Battery saver",
-                PerformanceMode: "Efficiency",
-                CoolingProfile: "Quiet",
-                RefreshRate: "60 Hz",
-                KeyboardLight: "Off",
-                Triggers: [new ThinkControlModeTrigger("BatteryBelow", Number: 25)],
-                AutomationEnabled: true),
-            "performance" => new(
-                id,
-                "Performance",
-                KeyboardLight: "Auto",
-                PerformanceMode: "Performance",
-                CoolingProfile: "Balanced",
-                RefreshRate: "Max"),
-            _ => new(id, string.Empty)
-        };
-        BeginEdit(mode);
+        BeginEdit(ThinkControlModeCatalog.CreateStarterTemplate(template, id));
     }
 
     private void Edit_Click(object sender, RoutedEventArgs e)
@@ -494,8 +460,8 @@ public partial class ModesPanel : UserControl
     {
         var grid = new Grid { MinHeight = 48 };
         grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(190) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
 
         grid.Children.Add(new TextBlock
         {
@@ -516,8 +482,10 @@ public partial class ModesPanel : UserControl
         Grid.SetColumn(combo, 1);
         grid.Children.Add(combo);
 
-        var remove = InlineButton("Remove", RemoveSetting_Click, facet);
-        remove.Margin = new Thickness(8, 0, 0, 0);
+        var remove = InlineButton("×", RemoveSetting_Click, facet);
+        remove.ToolTip = $"Remove {label}";
+        remove.Margin = new Thickness(6, 0, 0, 0);
+        remove.HorizontalAlignment = HorizontalAlignment.Right;
         remove.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(remove, 2);
         grid.Children.Add(remove);
@@ -751,8 +719,10 @@ public partial class ModesPanel : UserControl
         Grid.SetColumn(editor, 1);
         grid.Children.Add(editor);
 
-        var remove = InlineButton("Remove", RemoveTrigger_Click, index);
-        remove.Margin = new Thickness(8, 0, 0, 0);
+        var remove = InlineButton("×", RemoveTrigger_Click, index);
+        remove.ToolTip = "Remove trigger";
+        remove.Margin = new Thickness(6, 0, 0, 0);
+        remove.HorizontalAlignment = HorizontalAlignment.Right;
         remove.VerticalAlignment = VerticalAlignment.Center;
         Grid.SetColumn(remove, 2);
         grid.Children.Add(remove);
@@ -913,17 +883,13 @@ public partial class ModesPanel : UserControl
         UpdateAutomationState();
     }
 
-    private Border SeparatorRow(UIElement child)
-    {
-        var shell = new Border
+    private static Border SeparatorRow(UIElement child) =>
+        new()
         {
-            BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(0, 7, 0, 7),
+            BorderThickness = new Thickness(0),
+            Padding = new Thickness(0, 3, 0, 3),
             Child = child
         };
-        shell.SetResourceReference(Border.BorderBrushProperty, "Tc.Border");
-        return shell;
-    }
 
     private async void Reapply_Click(object sender, RoutedEventArgs e)
     {
@@ -1060,6 +1026,7 @@ public partial class ModesPanel : UserControl
         ThinkControlModeDefinition[] fixtures =
         [
             ThinkControlModeCatalog.NoMode,
+            .. ThinkControlModeCatalog.StarterModes,
             new(
                 "custom:study-snapshot",
                 "Study",
@@ -1078,21 +1045,12 @@ public partial class ModesPanel : UserControl
                 RefreshRate: "Max",
                 Triggers: [new ThinkControlModeTrigger("Process", "SLDWORKS")],
                 AutomationEnabled: true),
-            new(
-                "custom:battery-snapshot",
-                "Battery saver",
-                KeyboardLight: "Off",
-                PerformanceMode: "Efficiency",
-                RefreshRate: "60 Hz",
-                Triggers: [new ThinkControlModeTrigger("BatteryBelow", Number: 25)],
-                AutomationEnabled: true)
         ];
 
         foreach (ThinkControlModeDefinition mode in fixtures)
             ModeRows.Children.Add(CreateModeRow(mode));
 
         EmptyModesText.Visibility = Visibility.Collapsed;
-        StarterModesPanel.Visibility = Visibility.Collapsed;
         UpdateHeaderState();
     }
 
