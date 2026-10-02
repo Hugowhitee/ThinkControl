@@ -68,6 +68,15 @@ Pay special attention to:
 - a system telemetry strip only if it stays visually secondary;
 - no duplicate subsystem explanations.
 
+## Current editable Fans design source
+
+- Figma file: https://www.figma.com/design/Dcl5mMTiWUYwMcwiB0oVdy
+- dark Fans target: node `3:2`
+- light Fans target: node `3:77`
+- fan state studies: node `3:152`
+- production typography remains `Segoe UI Variable Text, Segoe UI`. The Figma host did not expose Segoe, so the editable mockup uses Inter only as a representational fallback; do not change production typography to match the mockup.
+- runtime behavior, WPF tokens and rendered screenshots remain authoritative; this Figma file owns the selected Fans composition, not hardware semantics.
+
 ## Figma workflow
 
 Use installed Figma/Product Design tooling rather than rebuilding screens blindly:
@@ -79,7 +88,7 @@ Use installed Figma/Product Design tooling rather than rebuilding screens blindl
 - Figma `figma-design-to-code` before implementing a selected Figma node back into production;
 - Figma `figma-implement-motion` only when a selected design actually contains meaningful motion.
 
-There is no assumption that an external skill named **Impeccable** is installed. If a later session wants that exact external tool, discover/verify it first rather than claiming it is available.
+Impeccable is an external specialist resource rather than a guaranteed native host skill. When an Impeccable pass is requested, use a native installed skill only if one is actually exposed; otherwise retrieve the current upstream `pbakaus/impeccable` skill and only the task-relevant references. ThinkControl’s normal desktop control surfaces are **Operate** interfaces, so favor its craft-floor, critique, layout, clarify and polish guidance. Never claim the pass ran without loading/retrieving the source.
 
 For this WPF application, do not use webpage capture as the source of truth. Start from actual WPF screenshots plus existing code/tokens, build/edit the screen in Figma, then translate selected changes back to shared XAML/resources.
 
