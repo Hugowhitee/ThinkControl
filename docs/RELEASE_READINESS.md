@@ -35,8 +35,14 @@ Active implementation state:
 - candidate visual artifact `11229118673`, digest `sha256:e78d169567a1ec9ac87b5c91f6f2156fd55352d099fc5bbbe76788948d1445de`
 - exact-head visual inspection passed for Modes list/editor, Battery Preservation including 85→90% threshold-label spacing, direct Display/Battery header actions, firmware-policy Fans recovery, Home fan Auto and Compact in dark/light plus representative minimum/normal/wide layouts
 - PR #109 has no open discussion/review backlog on the inspected candidate head
-- the first freeze was reopened after direct user review found the live current→target wear sentence too easy to misread; alpha.58 now uses a stable 0%→limit comparison and must pass a fresh visual/frozen gate
-- `version.json.releaseReady=false` while that correction is being revalidated
+- direct user review reopened the first freeze because the live current→target wear sentence was too easy to misread
+- corrected runtime/UI candidate head: `997e2f56eda9a934e0f11c675d3df472038c0a10`
+- corrected candidate CI `37017069892` / #2220: success — build, tests, Compact↔Advanced smoke and visual QA
+- corrected candidate Package `37017069512` / #1903: success — installer/IPC/updater compatibility
+- corrected visual artifact `11230297804`, digest `sha256:700064a7d0041bacfab7f0fac2aad088782df8608ac2b526c2b5f5e40b9b4cf9`
+- corrected Battery screenshots inspected: 0%→limit comparison is stable by preset, 85%/90% gauge labels remain separated, and the explanatory tooltip states that real top-ups starting above 0% have lower modeled session wear
+- design/QA guidance cleanup head `1ba1beb8533e3d68143db76d1612d80956babc05`; Package #1904 `37038862440`: success
+- `version.json.releaseReady=true`; this commit freezes alpha.58 after the corrected wear-copy review
 
 Scope:
 
@@ -60,7 +66,7 @@ Current gate:
 - [x] inspect Modes list/editor, Battery Preservation and direct Windows header actions in dark/light and minimum/normal/wide
 - [x] inspect Fans firmware-policy state and Home/Compact fan selectors
 - [x] resolve review/test backlog on exact candidate head
-- [ ] freeze `releaseReady=true`
+- [x] freeze `releaseReady=true`
 - [ ] frozen-head CI + Package
 - [ ] squash merge, immutable promotion and public asset verification
 - [ ] physical X9 fan/battery confirmation remains separate evidence
