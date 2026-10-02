@@ -6,45 +6,42 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.57`
-- immutable tag/release SHA: `c8dc44a2ddc36590e769852baeba5d87807b08a8`
-- published 2026-10-02 at 10:38:19 UTC as an immutable prerelease
-- release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
-- GitHub asset digests:
-  - Setup: `sha256:7939fc1127e1250b411d75033376960a7808b9c582e711cbaf189d7b1d59cee2`
-  - Payload: `sha256:d893e2ebe305ab6cf2c6ba281df32477ff2bd84adaa9e703bb65f0c3dd9b2d17`
-  - `SHA256SUMS.txt`: `sha256:db14ab20b438efb0b30e57a12d4110494249f44552b4a9d4ae7da9aeeaa1b8c7`
-  - `ui-overview.png`: `sha256:de79bb7412119d20b01ac5825fe266755b7ce9fece5518b07073c7d52b3cea91`
-- immutable release run `36996353928` / #46: success
-- promotion run `36996336124` / #77: success
-- post-merge CI `36996336115` / #2205: success
-- live alpha.57 feedback exposed three release-level product regressions despite hosted gates: fan-controller capability state could be lost in one UI refresh path, Modes composition drifted into an admin/list-builder feel, and Windows/Battery actions became less direct
-- alpha.58 supersedes alpha.57 for these regressions; immutable alpha.57 is not moved or rewritten
-- physical X9 Quiet/Balanced/Max behavior remains a separate real-device evidence class
+- `v0.1.0-alpha.58`
+- immutable tag/release SHA: `8f27003f63fc80142b5d4cb16a11659a0a83c19a`
+- published 2026-10-02 at 17:17:40 UTC as an immutable prerelease
+- canonical PR: **#109 — Prepare alpha.58 fan capability, Modes and Battery stabilization**
+- reviewed frozen branch head: `2198084013e706a82933c6ffdf9b55c0d042d2d7`
+- frozen-head CI `37039150096` / #2222: success
+- frozen-head Package ThinkControl `37039150038` / #1905: success
+- squash-merge commit: `8f27003f63fc80142b5d4cb16a11659a0a83c19a`
+- complete immutable release run `37039432658` / #47: success
+- promotion/checksum verification `37039410023` / #79: success
+- post-merge main CI `37039408945` / #2223: success
+- branch hygiene `37039409906` / #93: success
+- release contains exactly four managed assets:
+  - Setup: `sha256:04b5f610b53bf66f4401d2310f106f47e93c6224cab99cab68073f4ba4e1ca70`
+  - Payload: `sha256:4e219dae4ecb7919c4e4b8b9534e5dd2de57165336903cf351f674cc9ce89ada`
+  - `SHA256SUMS.txt`: `sha256:de67f3114b78a019633cadbed9bc9662a0ee481ca936f9fae752c124d1e7b151`
+  - `ui-overview.png`: `sha256:f5653726dcb1286f2519dfdd74e6d5f7aef2b72287a90e7c134387fd1e3ef317`
+- alpha.58 restores service-owned fan-controller capability truth, recomposes Modes as editable saved modes, restores direct contextual Windows Settings actions, and clarifies Battery Preservation with 80 / 85 / 90 / 95% limits plus a stable 0%→limit modeled-wear comparison
+- physical X9 Quiet/Balanced/Max and battery-threshold behavior remain a separate real-device evidence class; hosted CI does not invent that evidence
 
-## Alpha.58 active candidate — fan capability truth, Modes and Battery clarity
+## Alpha.58 published release — fan capability truth, Modes and Battery clarity
 
-Active implementation state:
+Completion evidence:
 
-- branch: `alpha58-fan-modes-settings`
-- source target: `v0.1.0-alpha.58`
-- immutable/public baseline: `v0.1.0-alpha.57`
-- candidate evidence head: `870aa5ceb5c4207b3f9db7b1940d4d206ba12a62`
-- candidate CI `37015196168` / #2218: success — repository hygiene, Release build, **258 passed / 0 failed / 0 skipped**, Compact↔Advanced shell smoke and **145** WPF visual-QA snapshots
-- candidate Package ThinkControl `37015196267` / #1901: success — payload, installer, deep service/IPC reliability and oldest-supported updater compatibility
-- candidate visual artifact `11229118673`, digest `sha256:e78d169567a1ec9ac87b5c91f6f2156fd55352d099fc5bbbe76788948d1445de`
-- exact-head visual inspection passed for Modes list/editor, Battery Preservation including 85→90% threshold-label spacing, direct Display/Battery header actions, firmware-policy Fans recovery, Home fan Auto and Compact in dark/light plus representative minimum/normal/wide layouts
-- PR #109 has no open discussion/review backlog on the inspected candidate head
-- direct user review reopened the first freeze because the live current→target wear sentence was too easy to misread
-- corrected runtime/UI candidate head: `997e2f56eda9a934e0f11c675d3df472038c0a10`
-- corrected candidate CI `37017069892` / #2220: success — build, tests, Compact↔Advanced smoke and visual QA
-- corrected candidate Package `37017069512` / #1903: success — installer/IPC/updater compatibility
-- corrected visual artifact `11230297804`, digest `sha256:700064a7d0041bacfab7f0fac2aad088782df8608ac2b526c2b5f5e40b9b4cf9`
-- corrected Battery screenshots inspected: 0%→limit comparison is stable by preset, 85%/90% gauge labels remain separated, and the explanatory tooltip states that real top-ups starting above 0% have lower modeled session wear
-- design/QA guidance cleanup head `1ba1beb8533e3d68143db76d1612d80956babc05`; Package #1904 `37038862440`: success
-- `version.json.releaseReady=true`; this commit freezes alpha.58 after the corrected wear-copy review
+- candidate runtime/UI head `997e2f56eda9a934e0f11c675d3df472038c0a10`
+- candidate CI `37017069892` / #2220: success
+- candidate Package `37017069512` / #1903: success
+- candidate visual artifact `11230297804`, digest `sha256:700064a7d0041bacfab7f0fac2aad088782df8608ac2b526c2b5f5e40b9b4cf9`
+- direct user review replaced the easy-to-misread live current→target Battery wear sentence with a stable 0%→selected-limit comparison while preserving incremental start→end wear internally
+- 90% preservation screenshots were re-inspected after the change; 85%/90% threshold labels do not collide in dark or light
+- frozen head `2198084013e706a82933c6ffdf9b55c0d042d2d7` passed CI #2222 and Package #1905
+- PR #109 merged with exact-head guard; immutable tag/release points to the merge commit
+- release/promotion/post-merge CI/branch hygiene all completed successfully
+- no PR discussion/review backlog remained at merge
 
-Scope:
+Published scope:
 
 - copy `Capabilities.FanControlKind` into canonical app state on the normal runtime refresh path and clear it explicitly when service state is unavailable;
 - remove client-side X9/DriverStatus string inference for firmware-policy fan ownership; the service capability snapshot is authoritative;
@@ -52,23 +49,19 @@ Scope:
 - seed Focus, Battery saver and Performance once as ordinary editable saved modes; retain optional templates only under New mode;
 - simplify the Modes editor/list and remove repetitive admin-style separator/remove rows;
 - replace generic Windows-settings dropdowns with direct contextual links and keep page Defaults as a quiet direct action;
-- present Battery Preservation by 80 / 85 / 90 / 95% charge limit, with explicit resume threshold and a stable 0%→limit wear comparison;
+- present Battery Preservation by 80 / 85 / 90 / 95% charge limit, with explicit resume threshold and a stable 0%→limit modeled-wear comparison;
 - preserve existing valid Lenovo custom battery threshold pairs without silently rewriting them.
 
-Current gate:
+Published gate:
 
-- [x] alpha.58 isolated from immutable alpha.57
-- [x] live regressions reproduced in current source/control flow
-- [x] explicit fan-controller capability flow restored
-- [x] editable starter-mode migration and optional template path implemented
-- [x] Modes / Windows actions / Battery preservation UI recomposed with current Impeccable Operate guidance
-- [x] open canonical PR and run exact-head CI + Package
-- [x] inspect Modes list/editor, Battery Preservation and direct Windows header actions in dark/light and minimum/normal/wide
-- [x] inspect Fans firmware-policy state and Home/Compact fan selectors
-- [x] resolve review/test backlog on exact candidate head
-- [x] freeze `releaseReady=true`
-- [ ] frozen-head CI + Package
-- [ ] squash merge, immutable promotion and public asset verification
+- [x] exact-head build/test/package gates
+- [x] dark/light + minimum/normal/wide visual QA inspected for affected surfaces
+- [x] frozen-head CI + Package
+- [x] squash merge
+- [x] immutable tag/release
+- [x] exactly four public assets + checksum verification
+- [x] post-merge main CI
+- [x] merged branch cleanup
 - [ ] physical X9 fan/battery confirmation remains separate evidence
 
 ## Alpha.57 published release — Fans composition and design handoff

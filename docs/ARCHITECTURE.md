@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.58**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.57` is the current published prerelease; alpha.58 restores explicit service-owned fan capability truth and changes UI composition without broadening provider/write boundaries.
+This document describes the current source architecture at **v0.1.0-alpha.58**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.58` is the current published prerelease; it restores explicit service-owned fan capability truth and changes UI composition without broadening provider/write boundaries.
 
 ## Process boundary
 
