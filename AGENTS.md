@@ -45,6 +45,7 @@ These rules apply to automated coding assistants and human contributors working 
 4. Manual fan ownership must have a safe firmware/OEM fallback on failure, shutdown and disposal paths.
 5. Provider probing must be bounded and recoverable. Failed PawnIO/LHM/OEM probes back off; explicit Repair/Retry may bypass that backoff once.
 6. Per-frame or high-frequency input must never fan out into unbounded OS, driver or async calls. Gestures/media/telemetry use one state owner, coalescing and bounded write cadence.
+7. For stateful or integrated controls, trace the full ownership round trip before fixing: `UI/control/event -> authoritative app/client state -> service/API/provider/backend -> side effect/write -> readback/refresh -> UI reconciliation`. Do not patch only presentation or enablement when authority diverges lower in the chain. During active input, stale callbacks or telemetry must not overwrite explicit user intent; after a write or transition, verify readback/convergence or expose a real failure state.
 
 ## UI and performance consistency
 
