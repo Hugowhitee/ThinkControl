@@ -210,7 +210,9 @@ public sealed class ThinkControlModesSourceTests
         Assert.DoesNotContain("Content = mode.Id == ThinkControlModeCatalog.NormalId ? \"Use\" : \"Activate\"", code, StringComparison.Ordinal);
         Assert.Contains("InlineButton(\"×\", RemoveSetting_Click", code, StringComparison.Ordinal);
         Assert.Contains("InlineButton(\"×\", RemoveTrigger_Click", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("BorderThickness = new Thickness(0, 1, 0, 0)", code, StringComparison.Ordinal);
+        string editorSeparator = Slice(code, "private static Border SeparatorRow(UIElement child)", "\n    private async void Reapply_Click");
+        Assert.Contains("BorderThickness = new Thickness(0)", editorSeparator, StringComparison.Ordinal);
+        Assert.DoesNotContain("BorderThickness = new Thickness(0, 1, 0, 0)", editorSeparator, StringComparison.Ordinal);
     }
 
     [Fact]
