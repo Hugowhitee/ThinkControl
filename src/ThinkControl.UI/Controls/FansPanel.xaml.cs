@@ -76,10 +76,11 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
         ApplyProviderCopy(canControl, _fanControlKind);
         CoolingDetailText.Text = canControl
-            ? UsesFirmwarePolicy
-                ? $"{DisplayProfile(state.CoolingProfile)} · Lenovo firmware cooling policy"
-                : $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct fan control"
             : DescribeUnavailable(state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
+        CoolingOwnerText.Text = canControl
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
+            : "Unavailable";
         AppliedLevelText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : state.FanStateText
             : "Unavailable";
@@ -161,11 +162,12 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(profileName, profileId);
         ApplyProviderCopy(canControl, _fanControlKind);
 
-        CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
-            ? UsesFirmwarePolicy
-                ? "Choose Auto, Quiet, Balanced or Max cooling. ThinkControl selects the Lenovo cooling policy; firmware handles the fan loop."
-                : "Choose a fan profile or open the curve editor."
-            : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
+        CoolingDetailText.Text = canControl
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct fan control"
+            : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry);
+        CoolingOwnerText.Text = canControl
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
+            : "Unavailable";
 
         if (UsesFirmwarePolicy && !profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) &&
             !profileName.Equals("Auto", StringComparison.OrdinalIgnoreCase))
@@ -211,6 +213,7 @@ public partial class FansPanel : UserControl
             bool directWriter = canControl && HasDirectFanWriter;
             ProfileComboBox.IsEnabled = canControl;
             EditCurvesButton.IsEnabled = directWriter;
+            EditCurvesButton.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
             ProfileCard.Opacity = canControl ? 1 : 0.42;
             ManualControlExpander.IsEnabled = directWriter;
             ManualControlExpander.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
@@ -246,6 +249,7 @@ public partial class FansPanel : UserControl
         bool semanticControlsEnabled = canControl && ready;
         ProfileComboBox.IsEnabled = semanticControlsEnabled;
         EditCurvesButton.IsEnabled = semanticControlsEnabled;
+        EditCurvesButton.Visibility = semanticControlsEnabled ? Visibility.Visible : Visibility.Collapsed;
         ProfileCard.Opacity = semanticControlsEnabled ? 1 : 0.42;
         ManualControlExpander.IsEnabled = semanticControlsEnabled;
         ManualControlExpander.Visibility = semanticControlsEnabled ? Visibility.Visible : Visibility.Collapsed;
@@ -443,7 +447,7 @@ public partial class FansPanel : UserControl
         {
             if (!await _app.SetCoolingProfileAsync(choice.Id))
             {
-                CoolingDetailText.Text = _app.State.HardwareAccess;
+                CoolingDetailText.Text = "Couldn’t change cooling profile. Retry, or open System if it keeps failing.";
                 SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
                 return;
             }
@@ -489,7 +493,7 @@ public partial class FansPanel : UserControl
         try
         {
             if (!await _app.SetManualFanPercentAsync(percent))
-                CoolingDetailText.Text = _app.State.HardwareAccess;
+                CoolingDetailText.Text = "Couldn’t apply the temporary fan target. Retry, or open System if it keeps failing.";
         }
         finally { button.IsEnabled = HasDirectFanWriter && !_app.FanCalibrationState.Required; }
     }
@@ -511,14 +515,12 @@ public partial class FansPanel : UserControl
         bool directWriter = oemTargetRpm || discreteEcWriter;
 
         FanMappingDetailText.Text = !canControl
-            ? "Firmware Auto keeps fan ownership. Native telemetry can still be shown when available, but profiles and temporary tests stay unavailable until a supported cooling backend is active."
+            ? "Fan controls are unavailable right now."
             : firmwarePolicy
-                ? "Quiet, Balanced and Max use the Lenovo cooling policy."
-                : oemTargetRpm
-                    ? "Built-in and custom curves send continuous 0–100% targets through the active provider's target-RPM contract. Each fan is mapped independently across the minimum and maximum RPM range reported by that provider."
-                    : discreteEcWriter
-                        ? "This provider exposes discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
-                        : "Profiles use the active verified cooling backend. Direct percentage controls appear only when the provider exposes a physically accepted direct writer.";
+                ? "Custom curves are unavailable with this controller."
+                : directWriter
+                    ? "Custom curves and temporary fan tests are available."
+                    : "Advanced controls depend on the active fan controller.";
         FanProviderDetailText.ToolTip = null;
 
         // Raw EC diagnostics exist only for a provider that explicitly advertises
@@ -534,6 +536,7 @@ public partial class FansPanel : UserControl
                     : "Temporary tests use only the active provider's verified output range and restore the previous profile automatically. Provider-specific raw diagnostics appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = directWriter;
         EditCurvesButton.IsEnabled = directWriter && !_app?.FanCalibrationState.Required == true;
+        EditCurvesButton.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static string ResolveFanControlKind(string? explicitKind, bool canControl)
