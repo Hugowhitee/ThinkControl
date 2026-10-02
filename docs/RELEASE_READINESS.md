@@ -6,22 +6,58 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 Last immutable published prerelease:
 
-- `v0.1.0-alpha.55`
-- immutable tag/release SHA: `7705961cf0f51bd19c98e693669d552177a81156`
-- published 2026-09-30 at 20:37:47 UTC as an immutable prerelease
+- `v0.1.0-alpha.56`
+- immutable tag/release SHA: `f253fa5e9ca140d5d677736333587e0df023f808`
+- published 2026-09-30 at 21:21:59 UTC as an immutable prerelease
 - release contains exactly four managed assets: Setup, Payload, `SHA256SUMS.txt`, `ui-overview.png`
 - GitHub asset digests:
-  - Setup: `sha256:0bfa443f2289403e768ec546df1cfe5cfccb31698b51769c23511a169c6af61f`
-  - Payload: `sha256:db84fbae8bc3b4ff6baf1ad125648b6f9d002225491d92b402be0f3e9c9f37bb`
-  - `SHA256SUMS.txt`: `sha256:d8414afb263c80acf74552165cc778dedd0ba1afbb00badee634ac3a6170e7da`
-  - `ui-overview.png`: `sha256:7253fdb03f5ad9c4f1aa6674df2e4be05eecc9e29fc720456435c16ebf239f9e`
-- immutable release run `36773687461` / #44: success
-- promotion run `36773663367` / #71: success
-- branch hygiene run `36773663289` / #89: success; repository returned to `main` only
-- post-merge CI `36773662290` / #2191: success
-- real X9 fan behavior remains a physical evidence class beyond hosted CI
+  - Setup: `sha256:6ebfcd9bcdefc1fc791c68da7d3a47a30879a670a92786bf9fce9f9bff18bced`
+  - Payload: `sha256:0b3c6c963e635a6da462be7451740ff53406a6c5146d9043a0182730e1629167`
+  - `SHA256SUMS.txt`: `sha256:2ab8eeaf46f2d728ab98fc908017b08a4464d18af9da7b274b4da22ea0cc092a`
+  - `ui-overview.png`: `sha256:14f60c401ade67c071b867de05e7cd2183c26ced37c768128a715cbe503188bd`
+- immutable release run `36778625445` / #45: success
+- promotion run `36778603762` / #73: success
+- branch hygiene run `36778603608` / #90: success
+- post-merge CI `36778603087` / #2196: success
+- post-release docs-only main commit `184027dcf4dcda1d23ca609a3f8a057fa202623b` adds the canonical ThinkControl chat/skill routing and does not change runtime binaries
+- physical X9 Quiet/Balanced/Max behavior remains a separate real-device evidence class
 
-## Alpha.56 active candidate — fan protocol, Mode selection and updater stabilization
+## Alpha.57 active candidate — Fans composition and design handoff
+
+Active implementation state:
+
+- branch: `alpha57-fans-design`
+- source target: `v0.1.0-alpha.57`
+- immutable/public baseline: `v0.1.0-alpha.56`
+- editable Fans design: https://www.figma.com/design/Dcl5mMTiWUYwMcwiB0oVdy
+- `version.json.releaseReady=false` until exact-head build/package/visual gates pass
+
+Scope:
+
+- apply the current Drive UI workflow, loaded Figma prerequisites and the current upstream `pbakaus/impeccable` Operate-oriented craft-floor/critique/layout/clarify/polish guidance;
+- consolidate profile selection, thermal state and real fan telemetry into one scanable Cooling section;
+- remove redundant provider/implementation narration from the normal Fans surface;
+- expose Edit curves only when a physically accepted direct writer actually supports it;
+- preserve calibration, temporary fan tests, raw provider diagnostics and every existing hardware safety boundary;
+- keep normal error copy actionable while technical provider/LITSSvc detail remains available in System/Diagnostics;
+- record the editable Figma source and external-Impeccable fallback in the durable ThinkControl handoff/starter.
+
+Current gate:
+
+- [x] alpha.57 isolated from immutable alpha.56 plus the post-release docs-only bootstrap commit
+- [x] current WPF Fans screenshots reviewed before redesign
+- [x] editable dark/light Fans target and provider state studies created in Figma
+- [x] Impeccable Operate/craft-floor/critique/layout/clarify/polish pass applied
+- [x] selected Figma composition translated to WPF without changing hardware ownership boundaries
+- [ ] exact-head CI + Package
+- [ ] inspect normal/minimum/wide dark/light Fans plus firmware-policy/recovery states
+- [ ] resolve review backlog
+- [ ] freeze `releaseReady=true`
+- [ ] frozen-head CI + Package
+- [ ] squash merge, immutable promotion and public asset verification
+- [ ] physical X9 confirmation remains separate evidence
+
+## Alpha.56 published release — fan protocol, Mode selection and updater stabilization
 
 Active implementation state:
 
@@ -59,8 +95,8 @@ Current gate:
 - [x] inspect Modes/Home/Fans/Updates screenshots in dark/light and minimum/normal widths
 - [x] resolve review backlog on exact candidate head
 - [x] freeze `releaseReady=true`
-- [ ] frozen-head CI + Package
-- [ ] squash merge, immutable promotion and public asset verification
+- [x] frozen-head CI + Package
+- [x] squash merge, immutable promotion and public asset verification
 - [ ] physical X9 confirmation: Quiet/Balanced/Max now reach and change Lenovo policy instead of failing on missing legacy reply
 
 ## Alpha.55 published release — context Modes and X9 fan ownership

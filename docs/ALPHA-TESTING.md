@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.56** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.57** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -40,6 +40,16 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 4. When compatibility learning is no longer active, the normal ThinkControl wordmark must return.
 5. Notification and Compact-view utilities must remain separately available; the learning status must not recreate the removed `ThinkControl.NotificationSlot` path.
 6. Inspect the dedicated dark minimum-window and light report-ready WPF snapshots before promotion.
+
+## Alpha.57 Fans composition and design handoff
+
+1. Inspect Fans at minimum, normal and wide Advanced sizes in dark and light. The main flow must read as one **Cooling** section rather than separate Profile / Thermal control / Fan telemetry cards.
+2. Confirm the Cooling profile selector remains the primary action, real temperature/RPM stay visible without invented channels, and the active controller owner is scanable without implementation narration.
+3. On firmware-policy/X9 fallback states, **Edit curves** must not appear as a disabled primary control. Advanced fan controls may explain that custom curves are unavailable.
+4. On a physically accepted direct writer, expand Advanced fan controls and confirm **Edit curves**, calibration and temporary-test paths remain reachable and unchanged in safety semantics.
+5. Trigger a profile-write failure. Fans should show concise recovery copy and point to System for persistent problems; low-level LITSSvc/provider detail belongs in diagnostics rather than the normal control surface.
+6. Compare the production WPF screenshots with the editable Fans Figma source recorded in `docs/UI-DESIGN-HANDOFF.md`. Production typography remains Segoe even though the Figma host uses Inter as a representation fallback.
+7. Physical Quiet/Balanced/Max behavior on the reference X9 remains a separate real-device evidence class and must not be inferred from hosted visual/build gates.
 
 ## Alpha.56 real-device fan, Modes and updater stabilization
 
