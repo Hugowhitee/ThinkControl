@@ -71,10 +71,10 @@ internal static class Program
         homeFanAuto.CoolingProfile = "Lenovo Auto";
         AppState firmwareFanRecovery = CreateDemoState(charging: true, hardwareReady: false);
         firmwareFanRecovery.MachineType = "21Q6";
-        firmwareFanRecovery.CanFanControl = false;
+        firmwareFanRecovery.CanFanControl = true;
         firmwareFanRecovery.CanFanTelemetry = false;
         firmwareFanRecovery.CanSensorTelemetry = false;
-        firmwareFanRecovery.FanControlKind = FanControlKinds.None;
+        firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy;
         firmwareFanRecovery.CoolingProfile = "Quiet";
         firmwareFanRecovery.DriverStatus = "Hardware service online · direct fan provider unavailable";
         firmwareFanRecovery.HardwareAccess = "Lenovo firmware cooling policy available";

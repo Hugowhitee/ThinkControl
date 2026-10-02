@@ -236,14 +236,18 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
         string expectations = ReadSource("src", "ThinkControl.UI", "Services", "DeviceCapabilityExpectations.cs");
-        Assert.Contains("CanUseVerifiedX9FirmwareFallback", expectations, StringComparison.Ordinal);
-        Assert.Contains("IsHardwareServiceReachable(state.DriverStatus)", expectations, StringComparison.Ordinal);
-        Assert.Contains("status.Equals(\"Ready\"", expectations, StringComparison.Ordinal);
-        Assert.Contains("status.StartsWith(\"Hardware service online\"", expectations, StringComparison.Ordinal);
-        Assert.Contains("DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback", ui, StringComparison.Ordinal);
-        Assert.Contains("firmwareFallback ? FanControlKinds.FirmwarePolicy", ui, StringComparison.Ordinal);
-        Assert.Contains("_app.State.CanFanControl || firmwareFallback", ReadSource("src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"), StringComparison.Ordinal);
-        Assert.Contains("_app.State.CanFanControl || firmwarePolicy", ReadSource("src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"), StringComparison.Ordinal);
+        string startup = ReadSource("src", "ThinkControl.UI", "App.xaml.cs");
+        string compact = ReadSource("src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs");
+        string home = ReadSource("src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs");
+        Assert.Contains("State.FanControlKind = service.Capabilities.FanControlKind", startup, StringComparison.Ordinal);
+        Assert.Contains("State.FanControlKind = FanControlKinds.None", startup, StringComparison.Ordinal);
+        Assert.DoesNotContain("CanUseVerifiedX9FirmwareFallback", expectations, StringComparison.Ordinal);
+        Assert.DoesNotContain("CanUseVerifiedX9FirmwareFallback", cooling, StringComparison.Ordinal);
+        Assert.DoesNotContain("firmwareFallback", ui, StringComparison.Ordinal);
+        Assert.DoesNotContain("firmwareFallback", compact, StringComparison.Ordinal);
+        Assert.DoesNotContain("firmwareFallback", home, StringComparison.Ordinal);
+        Assert.Contains("CompactFanCombo.IsEnabled = _app.State.CanFanControl", compact, StringComparison.Ordinal);
+        Assert.Contains("bool enabled = _app.State.CanFanControl || firmwarePolicy", home, StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareAccess", ui.Split("private static string DescribeUnavailable", StringSplitOptions.None)[0].Split("private void ApplyProviderCopy", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.Contains("% OEM target", ui, StringComparison.Ordinal);
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);
@@ -288,9 +292,9 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
         string workflow = ReadSource(".github", "workflows", "ci.yml");
 
-        Assert.Contains("firmwareFanRecovery.CanFanControl = false", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.CanFanControl = true", renderer, StringComparison.Ordinal);
         Assert.Contains("firmwareFanRecovery.CanFanTelemetry = false", renderer, StringComparison.Ordinal);
-        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.None", renderer, StringComparison.Ordinal);
+        Assert.Contains("firmwareFanRecovery.FanControlKind = FanControlKinds.FirmwarePolicy", renderer, StringComparison.Ordinal);
         Assert.Contains("firmwareFanRecovery.CoolingProfile = \"Quiet\"", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery.png", renderer, StringComparison.Ordinal);
         Assert.Contains("advanced-fans-firmware-policy-recovery-light.png", renderer, StringComparison.Ordinal);

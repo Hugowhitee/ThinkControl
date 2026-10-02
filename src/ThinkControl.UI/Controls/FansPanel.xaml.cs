@@ -47,13 +47,8 @@ public partial class FansPanel : UserControl
             DataContext = app.State;
         }
 
-        bool firmwareFallback = DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(app.State);
-        bool canControl = app.State.CanFanControl || firmwareFallback;
-        _fanControlKind = app.State.FanControlKind;
-        if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = firmwareFallback
-                ? FanControlKinds.FirmwarePolicy
-                : ResolveFanControlKind(null, canControl);
+        bool canControl = app.State.CanFanControl;
+        _fanControlKind = ResolveFanControlKind(app.State.FanControlKind, canControl);
 
         SyncProfileSelector(app.State.CoolingProfile, RuntimeProfileIdForDisplay(app.State.CoolingProfile));
         ApplyProviderCopy(canControl, _fanControlKind);
@@ -66,13 +61,8 @@ public partial class FansPanel : UserControl
         _snapshotMode = true;
         UnsubscribeStatus();
         DataContext = state;
-        bool firmwareFallback = DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(state);
-        bool canControl = state.CanFanControl || firmwareFallback;
-        _fanControlKind = state.FanControlKind;
-        if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = firmwareFallback
-                ? FanControlKinds.FirmwarePolicy
-                : ResolveFanControlKind(null, canControl);
+        bool canControl = state.CanFanControl;
+        _fanControlKind = ResolveFanControlKind(state.FanControlKind, canControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
         ApplyProviderCopy(canControl, _fanControlKind);
         CoolingDetailText.Text = canControl
@@ -151,10 +141,7 @@ public partial class FansPanel : UserControl
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
         string? explicitKind = response?.Capabilities?.FanControlKind;
-        _fanControlKind = string.Equals(explicitKind, FanControlKinds.None, StringComparison.Ordinal) ||
-                          string.IsNullOrWhiteSpace(explicitKind)
-            ? firmwareFallback ? FanControlKinds.FirmwarePolicy : ResolveFanControlKind(explicitKind, canControl)
-            : ResolveFanControlKind(explicitKind, canControl);
+        _fanControlKind = ResolveFanControlKind(explicitKind, canControl);
 
         string profileName = telemetry?.CoolingProfile ??
                              _app?.State.CoolingProfile ??
