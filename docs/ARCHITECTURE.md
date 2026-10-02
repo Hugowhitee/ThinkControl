@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.56**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.55` is the current published prerelease; alpha.56 is the active real-device stabilization candidate and remains non-release-ready until its exact-head build, package and visual gates pass.
+This document describes the current source architecture at **v0.1.0-alpha.57**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.56` is the current published prerelease; alpha.57 is a UI-composition candidate for Fans and does not broaden the fan provider/write boundary.
 
 ## Process boundary
 

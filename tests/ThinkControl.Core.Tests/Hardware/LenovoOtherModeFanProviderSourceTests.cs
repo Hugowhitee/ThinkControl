@@ -216,16 +216,32 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("RawEcStepsExpander.Visibility = discreteEcWriter", ui, StringComparison.Ordinal);
         Assert.Contains("bool showCalibrationTask = calibration.Relevant && attention", ui, StringComparison.Ordinal);
         Assert.Contains("CalibrationCard.Visibility = showCalibrationTask", ui, StringComparison.Ordinal);
+        Assert.Contains("Calibration measures how this laptop's fan responds", ui, StringComparison.Ordinal);
+        Assert.Contains("CharacterizationStatusText.Visibility = string.IsNullOrWhiteSpace(calibration.Status)", ui, StringComparison.Ordinal);
+        Assert.DoesNotContain("active fan provider requires a measured output mapping", ui, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("string.Equals(status, \"Not calibrated yet\"", cooling, StringComparison.Ordinal);
         Assert.Contains("ManualControlExpander.Visibility = directWriter", ui, StringComparison.Ordinal);
         Assert.Contains("bool firmwarePolicy = canControl", ui, StringComparison.Ordinal);
         Assert.Contains("Lenovo firmware", ui, StringComparison.Ordinal);
-        Assert.Contains("Quiet, Balanced and Max use the Lenovo cooling policy.", ui, StringComparison.Ordinal);
+        Assert.Contains("Custom curves are unavailable with this controller.", ui, StringComparison.Ordinal);
+        Assert.Contains("EditCurvesButton.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed", ui, StringComparison.Ordinal);
+        Assert.Contains("Couldn’t change cooling profile. Retry, or open System if it keeps failing.", ui, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Cooling\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Live state\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Advanced fan controls\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Thermal control\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Fan telemetry\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("alpha.38", ui, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("Temporary 30-second test", ui, StringComparison.Ordinal);
         Assert.Contains("capabilities.FanCalibrationSupported", cooling, StringComparison.Ordinal);
         Assert.DoesNotContain("IsVerifiedX9(State.MachineType) &&\n                        capabilities.FanControl", cooling, StringComparison.Ordinal);
-        Assert.Contains("DeviceCapabilityExpectations.IsVerifiedX9", ui, StringComparison.Ordinal);
-        Assert.Contains("verifiedX9 ? FanControlKinds.FirmwarePolicy", ui, StringComparison.Ordinal);
+        string expectations = ReadSource("src", "ThinkControl.UI", "Services", "DeviceCapabilityExpectations.cs");
+        Assert.Contains("CanUseVerifiedX9FirmwareFallback", expectations, StringComparison.Ordinal);
+        Assert.Contains("IsHardwareServiceReachable(state.DriverStatus)", expectations, StringComparison.Ordinal);
+        Assert.Contains("status.Equals(\"Ready\"", expectations, StringComparison.Ordinal);
+        Assert.Contains("status.StartsWith(\"Hardware service online\"", expectations, StringComparison.Ordinal);
+        Assert.Contains("DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback", ui, StringComparison.Ordinal);
+        Assert.Contains("firmwareFallback ? FanControlKinds.FirmwarePolicy", ui, StringComparison.Ordinal);
         Assert.Contains("_app.State.CanFanControl || firmwareFallback", ReadSource("src", "ThinkControl.UI", "Controls", "CompactDashboard.QuickControls.cs"), StringComparison.Ordinal);
         Assert.Contains("_app.State.CanFanControl || firmwarePolicy", ReadSource("src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"), StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareAccess", ui.Split("private static string DescribeUnavailable", StringSplitOptions.None)[0].Split("private void ApplyProviderCopy", StringSplitOptions.None)[1], StringComparison.Ordinal);
@@ -288,8 +304,11 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         string snapshot = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.ManualTestSnapshot.cs");
         string advancedSnapshot = ReadSource("src", "ThinkControl.UI", "AdvancedWindow.Diagnostics.cs");
         string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
+        string workflow = ReadSource(".github", "workflows", "ci.yml");
 
         Assert.Contains("PrepareOemTargetRpmForSnapshot(72)", snapshot, StringComparison.Ordinal);
+        Assert.Contains("PrepareActiveFanCurveForSnapshot", snapshot, StringComparison.Ordinal);
+        Assert.Contains("CoolingOwnerText.Text = \"Direct control\"", snapshot, StringComparison.Ordinal);
         Assert.Contains("_fanControlKind = FanControlKinds.OemTargetRpm", snapshot, StringComparison.Ordinal);
         Assert.Contains("oem-target-rpm-1", snapshot, StringComparison.Ordinal);
         Assert.Contains("oem-target-rpm-2", snapshot, StringComparison.Ordinal);
@@ -301,6 +320,12 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.DoesNotContain("PrepareManualFanTestForSnapshot", advancedSnapshot, StringComparison.Ordinal);
         Assert.Contains("fansPanel.PrepareManualFanTestForSnapshot();", renderer, StringComparison.Ordinal);
         Assert.Contains("fanManualTest: true", renderer, StringComparison.Ordinal);
+        Assert.Contains("activeCurvePanel.PrepareActiveFanCurveForSnapshot();", renderer, StringComparison.Ordinal);
+        Assert.Contains("fanActiveCurve: true", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-active-curve-light.png", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-active-curve.png", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-active-curve-light.png", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-manual-test.png", workflow, StringComparison.Ordinal);
     }
 
     private static string ReadSource(params string[] path)

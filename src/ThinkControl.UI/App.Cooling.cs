@@ -58,7 +58,7 @@ public partial class App
 
     private bool UsesFirmwareCoolingPolicy =>
         string.Equals(State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal) ||
-        (DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType) &&
+        (DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(State) &&
          string.Equals(State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal));
 
     private void InitializeCoolingCoordinator()
@@ -155,9 +155,12 @@ public partial class App
         int completed = characterization?.CompletedLevels ?? 0;
         int total = Math.Max(1, characterization?.TotalLevels ?? 1);
         bool ready = !running && !capabilities.FanCalibrationRequired;
-        string status = characterization?.Status ?? (ready
-            ? "Fan calibration is ready."
-            : "The active fan provider requires calibration before percentage targets and curves are enabled.");
+        string status = characterization?.Status?.Trim() ?? string.Empty;
+        if (!running && !ready &&
+            string.Equals(status, "Not calibrated yet", StringComparison.OrdinalIgnoreCase))
+        {
+            status = string.Empty;
+        }
         return new FanCalibrationUiState(true, running, ready, completed, total, status);
     }
 

@@ -105,73 +105,132 @@
         </Border>
 
         <Border x:Name="ProfileCard" Style="{StaticResource TcSection}" Margin="0,14,0,0">
-            <Grid>
-                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
-                <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                <StackPanel Margin="0,0,18,0">
-                    <TextBlock Text="Fan profile" FontWeight="SemiBold" />
-                    <TextBlock x:Name="CoolingDetailText" Text="Lenovo Auto cooling" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" />
-                    <TextBlock x:Name="FanMappingDetailText" Text="Built-in and custom curves use the active verified fan provider. Provider-specific output details appear after hardware detection." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel>
+                <Grid>
+                    <TextBlock Text="Cooling" Style="{StaticResource TcText.SectionTitle}" />
+                    <TextBlock x:Name="CoolingOwnerText"
+                               Text="Lenovo firmware"
+                               HorizontalAlignment="Right"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}" />
+                </Grid>
+
+                <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,12,0,12" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,18,0" VerticalAlignment="Center">
+                        <TextBlock Text="Cooling profile" FontWeight="SemiBold" />
+                        <TextBlock x:Name="CoolingDetailText"
+                                   Text="Lenovo firmware"
+                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                   FontSize="{x:Static ui:TypographyScale.Caption}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
+                    </StackPanel>
                     <ComboBox x:Name="ProfileComboBox"
+                              Grid.Column="1"
                               Style="{StaticResource TcComboBox}"
-                              MinWidth="158"
-                              MaxWidth="210"
+                              MinWidth="190"
+                              MaxWidth="230"
+                              VerticalAlignment="Center"
                               DisplayMemberPath="Name"
                               SelectionChanged="ProfileComboBox_SelectionChanged"
                               DropDownOpened="ProfileComboBox_DropDownOpened" />
-                    <Button x:Name="EditCurvesButton" Content="Edit curves" Style="{StaticResource TcButton}" Padding="11,6" Margin="8,0,0,0" Click="EditCurves_Click" />
-                </StackPanel>
-                <StackPanel x:Name="ActiveCurvePreview" Grid.Row="1" Grid.ColumnSpan="2" Margin="0,12,0,0" Visibility="Collapsed">
+                </Grid>
+
+                <StackPanel x:Name="ActiveCurvePreview" Margin="0,12,0,0" Visibility="Collapsed">
                     <Grid Margin="0,0,0,5">
                         <TextBlock Text="Active curve" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                         <TextBlock x:Name="LiveCurveStatus" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                     </Grid>
                     <ContentControl x:Name="ActiveCurvePreviewHost" Height="138" />
                 </StackPanel>
-            </Grid>
+
+                <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,13,0,12" />
+                <TextBlock Text="Live state"
+                           Foreground="{DynamicResource Tc.TextMuted}"
+                           FontSize="{x:Static ui:TypographyScale.Caption}" />
+
+                <Grid Margin="0,11,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="1" />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="1" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Margin="0,0,16,0">
+                        <TextBlock Text="Control temperature" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                        <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding ControlTemperatureSource}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1" Width="1" Background="{DynamicResource Tc.Border}" />
+
+                    <StackPanel Grid.Column="2" Margin="18,0">
+                        <Grid>
+                            <TextBlock Text="Fan speed" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                            <TextBlock Text="{Binding FanCountText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                        </Grid>
+                        <ItemsControl ItemsSource="{Binding Fans}" Margin="0,4,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Margin="0,1,0,1">
+                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" HorizontalAlignment="Right" Margin="12,0,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+
+                    <Border Grid.Column="3" Width="1" Background="{DynamicResource Tc.Border}" />
+
+                    <StackPanel Grid.Column="4" Margin="18,0,0,0">
+                        <TextBlock Text="Fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                        <TextBlock x:Name="AppliedLevelText" Text="Auto" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,4,0,0" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
         </Border>
 
-        <Grid Margin="0,14,0,0">
-            <Grid.ColumnDefinitions><ColumnDefinition Width="1.15*" /><ColumnDefinition Width="1*" /></Grid.ColumnDefinitions>
-            <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
+        <Expander x:Name="AdvancedFanControlsExpander" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
+            <Expander.Header>
                 <StackPanel>
-                    <TextBlock Text="Thermal control" FontWeight="SemiBold" />
-                    <Grid Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-                        <StackPanel>
-                            <TextBlock Text="Control temperature" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
-                            <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="Light" Margin="0,4,0,0" />
-                        </StackPanel>
-                        <StackPanel Grid.Column="1" HorizontalAlignment="Right">
-                            <TextBlock Text="Applied fan output" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" HorizontalAlignment="Right" />
-                            <TextBlock x:Name="AppliedLevelText" Text="Auto" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,7,0,0" HorizontalAlignment="Right" />
-                        </StackPanel>
-                    </Grid>
-                    <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,7,0,0" TextTrimming="CharacterEllipsis" />
-                    <TextBlock x:Name="FanProviderDetailText" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"><Run Text="Provider · " /><Run Text="{Binding HardwareAccess}" /></TextBlock>
+                    <TextBlock Text="Advanced fan controls" />
+                    <TextBlock x:Name="FanMappingDetailText"
+                               Text="Advanced controls depend on the active fan controller."
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               Margin="0,3,0,0"
+                               TextWrapping="Wrap" />
                 </StackPanel>
+            </Expander.Header>
+            <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <TextBlock x:Name="FanProviderDetailText"
+                               VerticalAlignment="Center"
+                               Foreground="{DynamicResource Tc.TextFaint}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               TextTrimming="CharacterEllipsis">
+                        <Run Text="Provider · " /><Run Text="{Binding HardwareAccess}" />
+                    </TextBlock>
+                    <Button x:Name="EditCurvesButton"
+                            Grid.Column="1"
+                            Content="Edit curves"
+                            Style="{StaticResource TcButton}"
+                            Padding="11,6"
+                            Margin="12,0,0,0"
+                            Click="EditCurves_Click"
+                            Visibility="Collapsed" />
+                </Grid>
             </Border>
-
-            <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0">
-                <StackPanel>
-                    <Grid><TextBlock Text="Fan telemetry" FontWeight="SemiBold" /><TextBlock Text="{Binding FanCountText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /></Grid>
-                    <ItemsControl ItemsSource="{Binding Fans}" Margin="0,9,0,0">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,3,0,3">
-                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="110" /></Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Label}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    <TextBlock Text="ThinkControl shows only tachometers exposed by a real provider; missing fan channels are never invented." FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                </StackPanel>
-            </Border>
-        </Grid>
+        </Expander>
 
         <Expander x:Name="ManualControlExpander" Header="Temporary fan test" Style="{StaticResource FanExpander}" Margin="0,14,0,0">
             <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">

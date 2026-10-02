@@ -47,11 +47,11 @@ public partial class FansPanel : UserControl
             DataContext = app.State;
         }
 
-        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(app.State.MachineType);
-        bool canControl = app.State.CanFanControl || verifiedX9;
+        bool firmwareFallback = DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(app.State);
+        bool canControl = app.State.CanFanControl || firmwareFallback;
         _fanControlKind = app.State.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = verifiedX9
+            _fanControlKind = firmwareFallback
                 ? FanControlKinds.FirmwarePolicy
                 : ResolveFanControlKind(null, canControl);
 
@@ -66,20 +66,21 @@ public partial class FansPanel : UserControl
         _snapshotMode = true;
         UnsubscribeStatus();
         DataContext = state;
-        bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(state.MachineType);
-        bool canControl = state.CanFanControl || verifiedX9;
+        bool firmwareFallback = DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(state);
+        bool canControl = state.CanFanControl || firmwareFallback;
         _fanControlKind = state.FanControlKind;
         if (_fanControlKind == FanControlKinds.None)
-            _fanControlKind = verifiedX9
+            _fanControlKind = firmwareFallback
                 ? FanControlKinds.FirmwarePolicy
                 : ResolveFanControlKind(null, canControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
         ApplyProviderCopy(canControl, _fanControlKind);
         CoolingDetailText.Text = canControl
-            ? UsesFirmwarePolicy
-                ? $"{DisplayProfile(state.CoolingProfile)} · Lenovo firmware cooling policy"
-                : $"{DisplayProfile(state.CoolingProfile)} · {state.ControlTemperatureText} control temperature"
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct fan control"
             : DescribeUnavailable(state.HardwareAccess, state.CanSensorTelemetry || state.CanFanTelemetry);
+        CoolingOwnerText.Text = canControl
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
+            : "Unavailable";
         AppliedLevelText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : state.FanStateText
             : "Unavailable";
@@ -145,13 +146,14 @@ public partial class FansPanel : UserControl
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
         bool verifiedX9 = _app is not null &&
                           DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType);
-        bool canControl = response?.Capabilities?.FanControl == true || verifiedX9;
+        bool firmwareFallback = verifiedX9 && response?.Success == true;
+        bool canControl = response?.Capabilities?.FanControl == true || firmwareFallback;
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
         string? explicitKind = response?.Capabilities?.FanControlKind;
         _fanControlKind = string.Equals(explicitKind, FanControlKinds.None, StringComparison.Ordinal) ||
                           string.IsNullOrWhiteSpace(explicitKind)
-            ? verifiedX9 ? FanControlKinds.FirmwarePolicy : ResolveFanControlKind(explicitKind, canControl)
+            ? firmwareFallback ? FanControlKinds.FirmwarePolicy : ResolveFanControlKind(explicitKind, canControl)
             : ResolveFanControlKind(explicitKind, canControl);
 
         string profileName = telemetry?.CoolingProfile ??
@@ -161,11 +163,12 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(profileName, profileId);
         ApplyProviderCopy(canControl, _fanControlKind);
 
-        CoolingDetailText.Text = telemetry?.CoolingStatus ?? (canControl
-            ? UsesFirmwarePolicy
-                ? "Choose Auto, Quiet, Balanced or Max cooling. ThinkControl selects the Lenovo cooling policy; firmware handles the fan loop."
-                : "Choose a fan profile or open the curve editor."
-            : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry));
+        CoolingDetailText.Text = canControl
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct fan control"
+            : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry);
+        CoolingOwnerText.Text = canControl
+            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
+            : "Unavailable";
 
         if (UsesFirmwarePolicy && !profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) &&
             !profileName.Equals("Auto", StringComparison.OrdinalIgnoreCase))
@@ -211,6 +214,7 @@ public partial class FansPanel : UserControl
             bool directWriter = canControl && HasDirectFanWriter;
             ProfileComboBox.IsEnabled = canControl;
             EditCurvesButton.IsEnabled = directWriter;
+            EditCurvesButton.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
             ProfileCard.Opacity = canControl ? 1 : 0.42;
             ManualControlExpander.IsEnabled = directWriter;
             ManualControlExpander.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
@@ -228,9 +232,12 @@ public partial class FansPanel : UserControl
             ? "Fan calibration in progress"
             : "Fan calibration required";
         CalibrationDescriptionText.Text = running
-            ? "ThinkControl temporarily owns the active provider's calibration states while each state settles and real tachometer samples are measured. Other fan controls are locked until calibration finishes or is stopped; firmware Auto is restored automatically."
-            : "The active fan provider requires a measured output mapping before it can safely translate percentage profiles or temporary percentage tests. Firmware Auto remains the safe default until calibration completes.";
+            ? "ThinkControl is measuring each fan level using real tachometer readings. Other fan controls stay locked until calibration finishes or you stop it; firmware Auto is restored automatically."
+            : "Calibration measures how this laptop's fan responds before percentage-based profiles and temporary tests can be enabled. Firmware Auto stays in control until calibration completes.";
         CharacterizationStatusText.Text = calibration.Status;
+        CharacterizationStatusText.Visibility = string.IsNullOrWhiteSpace(calibration.Status)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         CharacterizeButton.Content = "Calibrate now";
         CharacterizeButton.IsEnabled = canControl && !running;
@@ -246,6 +253,7 @@ public partial class FansPanel : UserControl
         bool semanticControlsEnabled = canControl && ready;
         ProfileComboBox.IsEnabled = semanticControlsEnabled;
         EditCurvesButton.IsEnabled = semanticControlsEnabled;
+        EditCurvesButton.Visibility = semanticControlsEnabled ? Visibility.Visible : Visibility.Collapsed;
         ProfileCard.Opacity = semanticControlsEnabled ? 1 : 0.42;
         ManualControlExpander.IsEnabled = semanticControlsEnabled;
         ManualControlExpander.Visibility = semanticControlsEnabled ? Visibility.Visible : Visibility.Collapsed;
@@ -443,7 +451,7 @@ public partial class FansPanel : UserControl
         {
             if (!await _app.SetCoolingProfileAsync(choice.Id))
             {
-                CoolingDetailText.Text = _app.State.HardwareAccess;
+                CoolingDetailText.Text = "Couldn’t change cooling profile. Retry, or open System if it keeps failing.";
                 SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
                 return;
             }
@@ -453,7 +461,7 @@ public partial class FansPanel : UserControl
         finally
         {
             bool firmwareFallback =
-                DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType) &&
+                DeviceCapabilityExpectations.CanUseVerifiedX9FirmwareFallback(_app.State) &&
                 (string.Equals(_app.State.FanControlKind, FanControlKinds.None, StringComparison.Ordinal) ||
                  string.Equals(_app.State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal));
             ProfileComboBox.IsEnabled =
@@ -489,7 +497,7 @@ public partial class FansPanel : UserControl
         try
         {
             if (!await _app.SetManualFanPercentAsync(percent))
-                CoolingDetailText.Text = _app.State.HardwareAccess;
+                CoolingDetailText.Text = "Couldn’t apply the temporary fan target. Retry, or open System if it keeps failing.";
         }
         finally { button.IsEnabled = HasDirectFanWriter && !_app.FanCalibrationState.Required; }
     }
@@ -511,14 +519,12 @@ public partial class FansPanel : UserControl
         bool directWriter = oemTargetRpm || discreteEcWriter;
 
         FanMappingDetailText.Text = !canControl
-            ? "Firmware Auto keeps fan ownership. Native telemetry can still be shown when available, but profiles and temporary tests stay unavailable until a supported cooling backend is active."
+            ? "Fan controls are unavailable right now."
             : firmwarePolicy
-                ? "Quiet, Balanced and Max use the Lenovo cooling policy."
-                : oemTargetRpm
-                    ? "Built-in and custom curves send continuous 0–100% targets through the active provider's target-RPM contract. Each fan is mapped independently across the minimum and maximum RPM range reported by that provider."
-                    : discreteEcWriter
-                        ? "This provider exposes discrete output states. Percentage profiles use its measured calibration rather than pretending those states are a continuous PWM scale."
-                        : "Profiles use the active verified cooling backend. Direct percentage controls appear only when the provider exposes a physically accepted direct writer.";
+                ? "Custom curves are unavailable with this controller."
+                : directWriter
+                    ? "Custom curves and temporary fan tests are available."
+                    : "Advanced controls depend on the active fan controller.";
         FanProviderDetailText.ToolTip = null;
 
         // Raw EC diagnostics exist only for a provider that explicitly advertises
@@ -534,6 +540,7 @@ public partial class FansPanel : UserControl
                     : "Temporary tests use only the active provider's verified output range and restore the previous profile automatically. Provider-specific raw diagnostics appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = directWriter;
         EditCurvesButton.IsEnabled = directWriter && !_app?.FanCalibrationState.Required == true;
+        EditCurvesButton.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static string ResolveFanControlKind(string? explicitKind, bool canControl)

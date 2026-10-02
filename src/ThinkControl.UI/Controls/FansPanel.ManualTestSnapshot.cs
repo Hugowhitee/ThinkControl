@@ -25,7 +25,7 @@ public partial class FansPanel
                 Ready: false,
                 CompletedLevels: 0,
                 TotalLevels: 7,
-                Status: "Calibration required by the active discrete fan provider."),
+                Status: string.Empty),
             _app.State.CanFanControl);
         AppliedLevelText.Text = _app.State.FanStateText;
         UpdateLayout();
@@ -48,6 +48,26 @@ public partial class FansPanel
         _manualFanTestEndsAt = DateTimeOffset.UtcNow.AddSeconds(Math.Clamp(secondsRemaining, 1, ManualFanTestDurationSeconds));
         UpdateManualFanTestUi(label);
         ManualControlExpander.IsExpanded = true;
+        UpdateLayout();
+    }
+
+    /// <summary>
+    /// Visual-QA only: renders a real named curve through the direct-writer presentation
+    /// path and exposes the progressive Advanced controls used to edit that curve.
+    /// </summary>
+    internal void PrepareActiveFanCurveForSnapshot()
+    {
+        PrepareOemTargetRpmForSnapshot(72);
+        if (_app is null)
+            return;
+
+        SyncProfileSelector("Balanced", RuntimeProfileIdForDisplay("Balanced"));
+        UpdateActiveCurvePreview(
+            ProfileComboBox.SelectedItem as FanProfileChoice,
+            _app.State.ControlTemperatureC,
+            _app.State.FanRpm);
+        AdvancedFanControlsExpander.IsExpanded = true;
+        ManualControlExpander.IsExpanded = false;
         UpdateLayout();
     }
 
@@ -76,6 +96,7 @@ public partial class FansPanel
 
             ApplyProviderCopy(true, FanControlKinds.OemTargetRpm);
             ApplyCalibrationUi(FanCalibrationUiState.None, canControl: true);
+            CoolingOwnerText.Text = "Direct control";
             CoolingDetailText.Text = "Balanced · continuous OEM target-RPM control";
             AppliedLevelText.Text = $"{targetPercent}% OEM target";
             LiveCurveStatus.Text = $"{state.ControlTemperatureText} · temporary {targetPercent}% OEM target · 3,650 / 3,510 RPM";
@@ -83,7 +104,6 @@ public partial class FansPanel
 
         ManualPercentSlider.Value = targetPercent;
         ManualPercentValue.Text = $"{targetPercent}%";
-        ManualControlExpander.IsExpanded = true;
         UpdateLayout();
     }
 }

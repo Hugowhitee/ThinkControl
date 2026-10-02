@@ -171,7 +171,7 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery.png", "direct provider unavailable · firmware profiles available");
-        RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker");
+        RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker", fanActiveCurve: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
         RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
@@ -240,6 +240,8 @@ internal static class Program
             "advanced-modes-editor-light.png", "context mode editor · light", modeEditor: true);
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery-light.png", "direct provider unavailable · firmware profiles available · light");
+        RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
+            "advanced-fans-active-curve-light.png", "Balanced curve · live marker · light", fanActiveCurve: true);
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
             "notifications-hardware-attention-light.png", "PawnIO + provider attention · light");
@@ -440,6 +442,7 @@ internal static class Program
         bool expandBatteryDay = false,
         TouchpadCorner? touchpadCorner = null,
         bool touchpadCornerLive = false,
+        bool fanActiveCurve = false,
         bool fanManualTest = false,
         bool deviceLearning = false,
         bool deviceReportReady = false,
@@ -485,6 +488,16 @@ internal static class Program
 
         if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
             window.PreparePerformanceForSnapshot();
+
+        if (fanActiveCurve &&
+            string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&
+            window.FindName("PageFans") is System.Windows.Controls.ScrollViewer
+            {
+                Content: FansPanel activeCurvePanel
+            })
+        {
+            activeCurvePanel.PrepareActiveFanCurveForSnapshot();
+        }
 
         if (fanManualTest &&
             string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&

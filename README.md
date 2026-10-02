@@ -23,14 +23,14 @@
   </a>
 </div>
 
-## ThinkControl alpha.56
+## ThinkControl alpha.57
 
-Alpha.56 stabilizes the real-device fan, Modes and updater experience on top of immutable alpha.55. It accepts the verified X9 LITSSvc one-way policy response variant, makes mode rows directly selectable with useful starter presets, aligns Home keyboard controls and guarantees update checks leave their pending state.
+Alpha.57 refines the Fans surface on top of immutable alpha.56. The runtime behavior and hardware safety boundaries stay intact while profile selection, real fan telemetry, controller ownership and advanced/recovery controls are reorganized into a clearer capability-driven flow.
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.56`  
-**Current immutable prerelease:** `v0.1.0-alpha.55`
+**Release target:** `v0.1.0-alpha.57`  
+**Current immutable prerelease:** `v0.1.0-alpha.56`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -40,8 +40,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.52/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.52/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.56/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.56/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
