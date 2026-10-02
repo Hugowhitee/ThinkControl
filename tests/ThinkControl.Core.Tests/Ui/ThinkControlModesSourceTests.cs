@@ -189,9 +189,9 @@ public sealed class ThinkControlModesSourceTests
         string xaml = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml");
         string code = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml.cs");
 
-        Assert.Contains("Text=\"Settings\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Controls\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Add setting\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Turn on automatically\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Automation\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Add trigger\"", xaml, StringComparison.Ordinal);
         Assert.Contains("\"Wi-Fi network\", \"Wifi\"", code, StringComparison.Ordinal);
         Assert.Contains("\"App running\", \"Process\"", code, StringComparison.Ordinal);
