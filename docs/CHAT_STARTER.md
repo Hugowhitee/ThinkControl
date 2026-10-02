@@ -1,6 +1,6 @@
-# ThinkControl new-chat starter
+# ThinkControl project start / new-chat starter
 
-Paste the block below at the start of a new coding chat, then add the actual bug, improvement or research request underneath it.
+This is the canonical bootstrap for a fresh or rolled-over ThinkControl coding chat. Paste the block below at the start of the chat, then add the actual bug, improvement, redesign or research request underneath it.
 
 The starter is deliberately **version-agnostic**. It tells the next agent how to recover the current state from the repository instead of freezing assumptions about a release number, branch name, workflow count or implementation that may change later.
 
@@ -11,11 +11,27 @@ Treat the CURRENT repository state as the source of truth. Do not assume a versi
 
 Before changing code, orient yourself properly:
 
-1. Read `AGENTS.md` first.
-2. Read `docs/RELEASE_READINESS.md` as the persistent roadmap/handoff, then the task-relevant parts of `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DEVICE-SUPPORT.md`, `docs/ALPHA-TESTING.md`, `docs/DESIGN.md`, installer/update docs and provider research where relevant.
-3. Inspect current `main`, `version.json`, the latest published release/tag, open PRs, active branches, recent merged PRs, relevant issues/crash reports and the current GitHub Actions workflows.
-4. If I supplied screenshots, logs, crash reports or reproduction details, compare them with the CURRENT implementation instead of assuming an older fix is still missing or still correct.
-5. Determine whether there is already one active branch/PR for the work. Reuse it when the requested change belongs to that scope; do not casually create parallel branches or duplicate PRs.
+1. Read `AGENTS.md` first. This repository is **`Hugowhitee/ThinkControl`**; do not accidentally work in an old X9-Helper fork, a local copy with unknown drift, a Figma prototype, or another project.
+2. For substantial work, retrieve the CURRENT Drive router **once** and load only the smallest relevant canonical dependency set:
+   - router: `Digitaal/AI/AI werkinstructies/Overzicht.md` — https://drive.google.com/file/d/193JhDRldBKEa-kdJQzfQ8u92LaFhbGEx/view
+   - normal repository implementation: `Softwareontwikkeling/Repositorywerk met Codex.md` — https://drive.google.com/file/d/1SYSD__QP4OAURM5yPAcZ5u41mezKkgnR/view
+   - user-facing UI/UX: `Softwareontwikkeling/Interfaces ontwerpen en valideren.md` — https://drive.google.com/file/d/1Gyz_9MwPFYR6-xVY65kow_yw3dCWHOT9/view
+   - larger/release-critical execution when routed there: `Kern/Projectuitvoering.md` — https://drive.google.com/file/d/1KBWj_iupOp9yhQrDNbrSoDSZP5TgPCw_/view
+   - supporting capability selection: `Digitaal/AI/Bronnen/AI tools en skills.md` — https://drive.google.com/file/d/17GDUb1Glm-DtgPKlMm_bXFfHPboe2Cqj/view
+   Do not claim these instructions or skills were used unless you actually retrieved/read the relevant current source.
+3. For a substantial ThinkControl UI redesign, visual review or cross-page interaction change, the Drive interface skill is the **primary owner**. Then select supporting capabilities deliberately:
+   - use **Product Design** when live and appropriate for a screenshot-first flow/UX audit or design brief;
+   - use **Figma** when an editable design source, deliberate visual exploration or component/token round outside WPF code is useful. Before Figma writes, load the live Figma prerequisite skills (notably `figma-use`; for composed page/panel work also `figma-generate-design`; before implementing a Figma design back into code, `figma-design-to-code`);
+   - use **pbakaus/Impeccable** as the targeted anti-template/anti-AI critique layer when I explicitly ask for Impeccable or when a substantial visual redesign needs that critique before finalization;
+   - use specialist craft resources such as **emilkowalski/skills** only for a concrete motion/perceived-quality need after hierarchy and product flow already work.
+   If a requested supporting skill is not live/installed in the current host, say so instead of pretending it ran. Do not substitute generic “clean/minimal” taste language for a requested Impeccable/Figma/Product-Design pass.
+4. Figma, Product Design and Impeccable are **supporting design tools**, not product sources of truth. Current runtime behavior, current screenshots, shared WPF primitives, tests and the repository remain authoritative. Use Figma for deliberate design work; do not force every tiny alignment/bug fix through Figma.
+5. Read `docs/RELEASE_READINESS.md` as the persistent roadmap/handoff, then the task-relevant parts of `docs/ARCHITECTURE.md`, `docs/PRODUCT.md`, `docs/DEVICE-SUPPORT.md`, `docs/ALPHA-TESTING.md`, `docs/DESIGN.md`, installer/update docs and provider research where relevant.
+6. Inspect current `main`, `version.json`, the latest published release/tag, open PRs, active branches, recent merged PRs, relevant issues/crash reports and the current GitHub Actions workflows.
+7. If I supplied screenshots, logs, crash reports or reproduction details, compare them with the CURRENT implementation instead of assuming an older fix is still missing or still correct.
+8. Determine whether there is already one active branch/PR for the work. Reuse it when the requested change belongs to that scope; do not casually create parallel branches or duplicate PRs.
+
+This file is a ThinkControl entrypoint, not a second universal skill. If work on ThinkControl exposes a reusable prompt/workflow lesson, follow the current Drive instruction system and land that lesson in its canonical universal owner rather than copying the rule into this starter.
 
 Understand the implementation before editing it. Trace the real path end-to-end: UI/control/event -> shared state/service/client -> IPC/provider/backend -> readback/refresh/lifecycle. Search usages and call sites so you know which component actually owns the behavior.
 
@@ -25,7 +41,7 @@ Be especially careful with old-looking compatibility code. Distinguish current-c
 
 ThinkControl is capability-driven and multi-OEM. The currently physically reviewed laptop(s) are reference devices, not the product boundary. Keep generic UI and Core logic vendor-neutral. Put OEM/model-specific behavior behind providers, capabilities, identity gates, readback and documented safety rules. Unknown hardware stays conservative/read-only. Never invent fan RPM, temperatures, sensor values, hardware support or successful writes.
 
-For UI work, preserve the shared design system and existing UX DNA. Prefer shared XAML/resources/components over runtime visual-tree hacks or one-off overlays. Check ownership of animations, high-rate input, timers and dispatcher work so a visual fix does not introduce lag, duplicate handlers or hidden work after navigation. Inspect generated screenshots yourself at representative minimum/normal/wide sizes and relevant light/dark/error/unavailable states; a green renderer alone is not visual QA.
+For UI work, preserve the shared design system and existing UX DNA. Start from the actual rendered/runtime state and the user flow, not from a list of controls. Prefer shared XAML/resources/components over runtime visual-tree hacks or one-off overlays. For substantial redesigns, run the routed design/critique workflow above before implementation is considered final. Check ownership of animations, high-rate input, timers and dispatcher work so a visual fix does not introduce lag, duplicate handlers or hidden work after navigation. Inspect generated screenshots yourself at representative minimum/normal/wide sizes and relevant light/dark/error/unavailable states; a green renderer alone is not visual QA.
 
 For performance/cleanup work, measure first. Use workflow/job logs, timings, traces or code-path evidence. Remove duplicated work rather than merely moving it. Do not add a cache unless measured end-to-end wall-clock time improves. Keep safety/coverage equivalent or stronger after optimization.
 
