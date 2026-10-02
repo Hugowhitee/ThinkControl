@@ -126,7 +126,13 @@ public partial class App
             DismissedUpdateVersion: string.Empty,
             DiagnosticsSharingPrompted: current.DiagnosticsSharingPrompted,
             HardwareIssuePromptedKeys: current.HardwareIssuePromptedKeys,
-            CustomModes: []));
+            CustomModes: ThinkControlModeCatalog.StarterModes
+                .Select(mode => mode with
+                {
+                    Triggers = mode.Triggers?.Select(trigger => trigger with { }).ToArray()
+                })
+                .ToArray(),
+            StarterModesSeeded: true));
 
         ThemeService.Apply(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);
