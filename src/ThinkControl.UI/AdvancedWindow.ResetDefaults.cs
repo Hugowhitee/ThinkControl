@@ -116,7 +116,7 @@ public partial class AdvancedWindow
         });
         var detail = new WpfTextBlock
         {
-            Text = "Restore ThinkControl settings and remove custom modes. Battery history and diagnostics consent are kept.",
+            Text = "Restore ThinkControl settings and reset Modes to Focus, Battery saver and Performance. Battery history and diagnostics consent are kept.",
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             Margin = new Thickness(0, 5, 0, 0)
@@ -163,8 +163,8 @@ public partial class AdvancedWindow
     private async Task ResetAllDefaultsAsync()
     {
         System.Windows.MessageBoxResult answer = System.Windows.MessageBox.Show(
-            "Reset ThinkControl settings and custom modes?\n\n" +
-            "Battery history, diagnostics consent and Windows brightness settings are kept.",
+            "Reset ThinkControl settings?\n\n" +
+            "Modes will return to Focus, Battery saver and Performance. Battery history, diagnostics consent and Windows brightness settings are kept.",
             "ThinkControl · Reset all",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question);
