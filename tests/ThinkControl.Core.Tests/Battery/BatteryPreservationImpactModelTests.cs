@@ -6,9 +6,10 @@ namespace ThinkControl.Core.Tests.Battery;
 public sealed class BatteryPreservationImpactModelTests
 {
     [Theory]
-    [InlineData(75, 85, 15, 10, 0.05)]
-    [InlineData(55, 80, 20, 25, 0.02)]
-    [InlineData(40, 60, 40, 20, 0.02)]
+    [InlineData(75, 80, 20, 5, 0.00)]
+    [InlineData(80, 85, 15, 5, 0.05)]
+    [InlineData(85, 90, 10, 5, 0.10)]
+    [InlineData(90, 95, 5, 5, 0.22)]
     public void Estimate_DerivesThresholdAndRechargeWindowWear(
         int start,
         int stop,
@@ -49,10 +50,10 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(0.02d, BatteryPreservationImpactModel.EstimateWearBetween(55, 80), 2);
 
         Assert.Equal(
-            "Charge wear 60→60%: ~0.00× · 1.00× = 0→100% reference.",
+            "Estimated charge wear 60→60%: ~0% of the 0→100% reference.",
             BatteryPreservationImpactModel.DescribeChargeWear(60, 60));
         Assert.Equal(
-            "Charge wear 78→85%: ~0.05× · 1.00× = 0→100% reference.",
+            "Estimated charge wear 78→85%: ~4.6% of the 0→100% reference.",
             BatteryPreservationImpactModel.DescribeChargeWear(78, 85));
     }
 
@@ -60,14 +61,14 @@ public sealed class BatteryPreservationImpactModelTests
     public void TypicalWindowCopy_IsCalculatedFromPresetThresholds()
     {
         Assert.Equal(
-            "Typical 75→85% recharge: ~0.05× of the 0→100% reference.",
-            BatteryPreservationImpactModel.DescribeWearContext(75, 85));
+            "Typical 80→85% top-up: ~4.6% of the 0→100% wear reference.",
+            BatteryPreservationImpactModel.DescribeWearContext(80, 85));
         Assert.Equal(
-            "Typical 55→80% recharge: ~0.02× of the 0→100% reference.",
-            BatteryPreservationImpactModel.DescribeWearContext(55, 80));
+            "Typical 85→90% top-up: ~9.6% of the 0→100% wear reference.",
+            BatteryPreservationImpactModel.DescribeWearContext(85, 90));
         Assert.Equal(
-            "Typical 40→60% recharge: ~0.02× of the 0→100% reference.",
-            BatteryPreservationImpactModel.DescribeWearContext(40, 60));
+            "Typical 90→95% top-up: ~22.3% of the 0→100% wear reference.",
+            BatteryPreservationImpactModel.DescribeWearContext(90, 95));
         Assert.Contains("Comparative estimate", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
     }
 
@@ -82,7 +83,7 @@ public sealed class BatteryPreservationImpactModelTests
         Assert.Equal(1d, result.EstimatedWearToStop, 6);
         Assert.Equal(0d, result.EstimatedRechargeWindowWear, 6);
         Assert.Equal(
-            "Reference: 0→100% = 1.00× comparative charge wear · not the firmware cycle count.",
+            "No charge limit: 0→100% is the model's 100% wear reference.",
             BatteryPreservationImpactModel.DescribeWearContext(100, 100, enabled: false));
     }
 }

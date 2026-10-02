@@ -117,8 +117,8 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Leave Silent. The standard volume keys must work immediately again, and only endpoint mute states actually remembered by ThinkControl may be restored.
 6. Confirm Gesture lock is unchanged: physical keyboard and Windows/app volume controls still work in Gesture lock.
 7. On Battery Preservation, verify the graphic is a single current-level fill with exactly two aligned threshold markers. There must be no permanent three-color zones and no lightning/pause glyphs. While charging, the fill uses the normal accent; when parked at the upper cap it may switch to the warning state.
-8. Verify the copy is plain language: for 75–85% it reads **Charging resumes below 75% and pauses at 85%.** No centered-dot sentence fragments should return.
-9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00×. For the typical preset recharge windows, 75→85% is about **0.05×**, 55→80% about **0.02×**, and 40→60% about **0.02×**. Full 0→100% remains the **1.00× reference**. A custom threshold must calculate automatically.
+8. Verify the copy is plain language: for the 85% preset it reads **Charges up to 85%, then pauses. Charging starts again below 80%.** The state line should say **85% limit active**, not repeat the whole threshold pair.
+9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00×. For the visible presets, present the comparison as a percentage of the 0→100% wear reference rather than an unexplained × value. Full 0→100% remains the **1.00× reference**. A custom threshold must calculate automatically.
 10. The wear line must remain explicitly comparative rather than claiming measured pack wear. Its tooltip/caveat must mention the generic Li-ion SOC/voltage model, the high-voltage end-charge relationship, and pack-dependent chemistry/temperature/use.
 11. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The wear line must stay visually secondary and the shorter gauge must not clip/collide with the selector.
 12. From **Max cooling**, click fan **Auto** several times under live telemetry from **Home** as well as the Fans page. Home Auto must become the visible intent immediately, stay disabled while the write is in flight, and remain selected during the short post-success confirmation lease rather than bouncing back to stale Max/Quiet telemetry.
@@ -322,11 +322,12 @@ Alpha.43 uses the verified-X9 Lenovo Windows Power Manager threshold path (`PWRM
 
 1. Open Advanced → Battery before changing anything.
 2. The card must show **actual Lenovo state**, not a saved ThinkControl preference.
-3. When the provider is writable, Battery Preservation has one on/off switch and the dropdown offers only the small named windows:
-   - `Daily · 75–85% (recommended)`
-   - `Desk · 55–80%`
-   - `Maximum care · 40–60%`
-4. If Lenovo currently has another valid pair, it should appear as `Custom · start–stop%` and remain untouched until a named window is deliberately selected.
+3. When the provider is writable, Battery Preservation has one on/off switch and the dropdown is organized by charge limit:
+   - `80% · Strong protection` → resumes below 75%
+   - `85% · Recommended` → resumes below 80%
+   - `90% · More runtime` → resumes below 85%
+   - `95% · Light protection` → resumes below 90%
+4. If Lenovo currently has another valid pair, it should appear as `Custom · stop% limit · resume start%` and remain untouched until a preset is deliberately selected.
 5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the switch/dropdown stay read-only and the Lenovo settings fallback remains available.
 6. Provider text must describe Lenovo PM Device/PWRMGRV state; it must not claim a generic EC threshold backend.
 7. The comparative charge-wear line may use a `×` reference, but it must explicitly distinguish that modeled reference from the firmware battery cycle count and must not promise a fixed lifetime improvement.

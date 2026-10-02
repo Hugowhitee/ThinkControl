@@ -64,13 +64,14 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         string panel = ReadSource("src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.ProtectionAndHistory.cs");
         string mainPanel = ReadSource("src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml.cs");
 
-        Assert.Contains("Daily 75–85% (recommended)", xaml, StringComparison.Ordinal);
-        Assert.Contains("Desk 55–80%", xaml, StringComparison.Ordinal);
-        Assert.Contains("Maximum care 40–60%", xaml, StringComparison.Ordinal);
+        Assert.Contains("80% · Strong protection", xaml, StringComparison.Ordinal);
+        Assert.Contains("85% · Recommended", xaml, StringComparison.Ordinal);
+        Assert.Contains("90% · More runtime", xaml, StringComparison.Ordinal);
+        Assert.Contains("95% · Light protection", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Full charge 100%", xaml, StringComparison.Ordinal);
         Assert.Contains("controls:BatteryProtectionGauge", xaml, StringComparison.Ordinal);
-        Assert.Contains("Charging resumes below {start}% and pauses at {stop}%.", panel, StringComparison.Ordinal);
+        Assert.Contains("Charges up to {stop}%, then pauses. Charging starts again below {start}%.", panel, StringComparison.Ordinal);
         Assert.Contains("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("Battery wear stress:", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("Exact lifetime improvement still depends on temperature and use", panel, StringComparison.Ordinal);
@@ -79,8 +80,8 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("Take(_historyVisibleDays)", mainPanel, StringComparison.Ordinal);
         Assert.Contains("Reset all history…", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Clear history\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Estimating comparative charge wear", xaml, StringComparison.Ordinal);
-        Assert.Contains("1.00×", xaml, StringComparison.Ordinal);
+        Assert.Contains("Estimating charge-wear comparison", xaml, StringComparison.Ordinal);
+        Assert.Contains("100% reference", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("× fewer", xaml, StringComparison.OrdinalIgnoreCase);
     }
 

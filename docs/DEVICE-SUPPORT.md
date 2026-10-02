@@ -63,13 +63,16 @@ The current X9 provider follows Lenovo's Windows start/stop-threshold model rath
 
 The provider reads the actual Lenovo battery configuration under `PWRMGRV` and requires the privileged service to open `\\.\IBMPmDrv`. It exposes an ordered start/stop pair plus whether threshold control is enabled. Product writes are bounded to five-percent steps with start below stop; the normal page offers a small named preset list rather than the driver's raw value range.
 
-The current named preservation windows are:
+The current preservation choices are intentionally expressed by charge limit:
 
 ```text
-Daily         75–85%   recommended general-purpose window
-Desk          55–80%   stronger high-charge avoidance
-Maximum care  40–60%   for mostly-plugged-in use
+80%   strong protection   resumes below 75%
+85%   recommended         resumes below 80%
+90%   more runtime        resumes below 85%
+95%   light protection   resumes below 90%
 ```
+
+Existing valid Lenovo threshold pairs that do not match one of these presets remain visible as a Custom value and are not overwritten until the user deliberately chooses another limit.
 
 Battery Preservation itself is a separate on/off switch. Turning it off disables the Lenovo threshold window and returns to ordinary charging; `Full charge` is therefore not a competing preset. ThinkControl does **not** silently apply a named window on first run. Existing Lenovo state is authoritative. If the machine already has a different valid pair, the page shows `Custom · start–stop%` until the user deliberately selects another named window.
 
