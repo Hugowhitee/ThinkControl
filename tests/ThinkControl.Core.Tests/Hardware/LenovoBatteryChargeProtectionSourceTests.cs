@@ -81,7 +81,7 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("Reset all history…", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Clear history\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Estimating charge-wear comparison", xaml, StringComparison.Ordinal);
-        Assert.Contains("100% reference", xaml, StringComparison.Ordinal);
+        Assert.Contains("100% comparison baseline", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("× fewer", xaml, StringComparison.OrdinalIgnoreCase);
     }
 
