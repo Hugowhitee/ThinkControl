@@ -304,8 +304,11 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         string snapshot = ReadSource("src", "ThinkControl.UI", "Controls", "FansPanel.ManualTestSnapshot.cs");
         string advancedSnapshot = ReadSource("src", "ThinkControl.UI", "AdvancedWindow.Diagnostics.cs");
         string renderer = ReadSource("tools", "ThinkControl.Snapshots", "Program.cs");
+        string workflow = ReadSource(".github", "workflows", "ci.yml");
 
         Assert.Contains("PrepareOemTargetRpmForSnapshot(72)", snapshot, StringComparison.Ordinal);
+        Assert.Contains("PrepareActiveFanCurveForSnapshot", snapshot, StringComparison.Ordinal);
+        Assert.Contains("CoolingOwnerText.Text = \"Direct control\"", snapshot, StringComparison.Ordinal);
         Assert.Contains("_fanControlKind = FanControlKinds.OemTargetRpm", snapshot, StringComparison.Ordinal);
         Assert.Contains("oem-target-rpm-1", snapshot, StringComparison.Ordinal);
         Assert.Contains("oem-target-rpm-2", snapshot, StringComparison.Ordinal);
@@ -317,6 +320,12 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.DoesNotContain("PrepareManualFanTestForSnapshot", advancedSnapshot, StringComparison.Ordinal);
         Assert.Contains("fansPanel.PrepareManualFanTestForSnapshot();", renderer, StringComparison.Ordinal);
         Assert.Contains("fanManualTest: true", renderer, StringComparison.Ordinal);
+        Assert.Contains("activeCurvePanel.PrepareActiveFanCurveForSnapshot();", renderer, StringComparison.Ordinal);
+        Assert.Contains("fanActiveCurve: true", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-active-curve-light.png", renderer, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-active-curve.png", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-active-curve-light.png", workflow, StringComparison.Ordinal);
+        Assert.Contains("advanced-fans-manual-test.png", workflow, StringComparison.Ordinal);
     }
 
     private static string ReadSource(params string[] path)
