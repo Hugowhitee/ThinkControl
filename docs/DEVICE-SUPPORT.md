@@ -74,7 +74,7 @@ The current preservation choices are intentionally expressed by charge limit:
 
 Existing valid Lenovo threshold pairs that do not match one of these presets remain visible as a Custom value and are not overwritten until the user deliberately chooses another limit.
 
-Battery Preservation itself is a separate on/off switch. Turning it off disables the Lenovo threshold window and returns to ordinary charging; `Full charge` is therefore not a competing preset. ThinkControl does **not** silently apply a named window on first run. Existing Lenovo state is authoritative. If the machine already has a different valid pair, the page shows `Custom · start–stop%` until the user deliberately selects another named window.
+Battery Preservation itself is a separate on/off switch. Turning it off disables the Lenovo threshold window and returns to ordinary charging; `Full charge` is therefore not a competing preset. ThinkControl does **not** silently apply a named window on first run. Existing Lenovo state is authoritative. If the machine already has a different valid pair, the page shows `Custom · stop% limit · resume start%` until the user deliberately selects another preset.
 
 Lenovo keeps the stored start/stop percentages when threshold control is disabled. ThinkControl mirrors that stored pair separately from the enabled flag, so switching preservation back on can reuse the last verified window instead of silently reverting to a different preset.
 
@@ -192,6 +192,6 @@ Confirmed negative X9 evidence remains:
 - alpha.41 Track center remained physically harder to trigger than intended and reverse close was unreliable because its start target was too precise;
 - during alpha.41/early-alpha.42 restart testing, a saved Quiet preference could remain visibly selected while physical airflow behaved like a harder Auto/base policy.
 
-Battery threshold behavior still needs physical confirmation on the reference X9: verify a selected window such as 75–85% actually stops/holds near the stop boundary, does not immediately top up again while above the start boundary, and returns to ordinary charging after Battery Preservation is switched off. A successful driver call/registry readback is not by itself proof of the physical charge boundary.
+Battery threshold behavior still needs physical confirmation on the reference X9: verify a selected window such as the recommended 80–85% pair actually stops/holds near the stop boundary, does not immediately top up again while above the start boundary, and returns to ordinary charging after Battery Preservation is switched off. A successful driver call/registry readback is not by itself proof of the physical charge boundary.
 
 Touchpad, fan persistence and Audio Safety real-device checks remain listed in `docs/ALPHA-TESTING.md`. These physical checks must not be marked complete from screenshots/CI alone.

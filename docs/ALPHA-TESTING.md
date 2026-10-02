@@ -90,9 +90,9 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 
 1. On Advanced → Audio, drag **System volume** continuously across a wide range. The thumb/value must follow the pointer immediately without the short post-drag locked feeling; endpoint refresh must not pull it backward while the drag is active. Releasing the pointer commits the requested Windows endpoint value once.
 2. Repeat with **Microphone input**. Keyboard adjustments must also commit without restoring a stale endpoint value. Navigate away during an unfinished drag and confirm no delayed off-page write occurs.
-3. On Battery, verify **Battery preservation** has one shared-style on/off switch. The preset selector contains only Daily 75–85%, Desk 55–80% and Maximum care 40–60%; turning the switch off restores ordinary charging instead of selecting a fake `Full charge` preset.
+3. On Battery, verify **Battery preservation** has one shared-style on/off switch. The selector is organized by charge limit: 80% Strong protection, 85% Recommended, 90% More runtime and 95% Light protection; turning the switch off restores ordinary charging instead of selecting a fake `Full charge` preset.
 4. With preservation active **and charging**, Battery ETA must say time to the active target (for example `to 85%`), not `to full`. At/near the cap on AC it should report the paused limit state; inside the start/stop hysteresis while plugged in it should say when charging resumes. Unplugged, it must return to normal remaining-runtime ETA instead of inventing a charge-to-target time.
-5. The charge-wear line must use a comparative `×` reference such as `1.00× = 0→100% reference` and must not look like the firmware **CYCLES** counter. Tooltip/caveat remains explicit about model limits.
+5. The charge-wear line must use a plain percentage of a full 0→100% charge, never an unexplained `×` or “cycle equivalent” value, and must not look like the firmware **CYCLES** counter. Tooltip/caveat remains explicit about model limits.
 6. On Advanced Home, click **SENSORS**. It must open the existing live Sensor details window directly; other telemetry metrics retain their existing navigation behavior.
 7. In Touchpad, select a top corner. **Reverse swipe closes ThinkControl** must use the same shared switch geometry as the rest of ThinkControl, not a square checkbox.
 8. On Fans, a supported temporary direct-output test must expose one stateful action: **Start test** becomes **End test** while active. Target controls are locked during the test and the previous profile/Auto is still restored on timeout, page close or explicit End.
@@ -330,14 +330,14 @@ Alpha.43 uses the verified-X9 Lenovo Windows Power Manager threshold path (`PWRM
 4. If Lenovo currently has another valid pair, it should appear as `Custom · stop% limit · resume start%` and remain untouched until a preset is deliberately selected.
 5. If PWRMGRV/IBMPmDrv is missing or inaccessible, the switch/dropdown stay read-only and the Lenovo settings fallback remains available.
 6. Provider text must describe Lenovo PM Device/PWRMGRV state; it must not claim a generic EC threshold backend.
-7. The comparative charge-wear line may use a `×` reference, but it must explicitly distinguish that modeled reference from the firmware battery cycle count and must not promise a fixed lifetime improvement.
+7. The comparative charge-wear line uses a percentage of a full 0→100% charge as its comparison baseline, explicitly distinguishes that model from the firmware battery cycle count, and does not promise a fixed lifetime improvement.
 
 ### Real X9 charge behavior
 
-Use a test window that can be observed without repeatedly forcing unnecessary battery cycles. **75–85%** is the primary release check.
+Use a test window that can be observed without repeatedly forcing unnecessary battery cycles. **80–85%** (the 85% Recommended preset) is the primary release check.
 
 1. Read the current thresholds and record them before changing anything.
-2. Select **Daily · 75–85%**. Service status must report `75–85%` only after the Lenovo PM Device calls and PWRMGRV readback succeed.
+2. Select **85% · Recommended**. Service status must report `80–85%` only after the Lenovo PM Device calls and PWRMGRV readback succeed.
 3. With AC connected and battery below the stop threshold, confirm normal charging can rise toward 85%.
 4. Confirm charging stops/holds around the intended 85% boundary under normal conditions.
 5. While battery remains above the 75% start threshold, confirm ordinary tiny top-ups do not repeatedly restart charging.
