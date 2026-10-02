@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model for the **v0.1.0-alpha.57** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.56` remains the current published prerelease; alpha.57 changes Fans presentation only and preserves the alpha.56 LITSSvc compatibility and direct fan-write safety gates.
+This document describes the support model for the **v0.1.0-alpha.58** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.57` remains the current published prerelease; alpha.58 restores the service capability snapshot as the fan-controller source of truth and preserves all existing direct fan-write safety gates.
 
 ## Support levels
 
@@ -80,7 +80,7 @@ Lenovo keeps the stored start/stop percentages when threshold control is disable
 
 A write is authorized only on the verified X9 identity when the PWRMGRV battery configuration exists, `IBMPmDrv` is writable, the semantic pair passes ThinkControl's bounded range rules, the fixed Lenovo PM Device commands succeed without the rejection bit, and PWRMGRV readback matches. A failure requests rollback to the state observed before the change. ThinkControl does not alter the Lenovo driver service start type and does not try an EC/ACPI fallback.
 
-The Battery page shows a comparative **charge-wear ratio** for charging from the current battery level to the selected upper threshold. The model is intentionally simple and transparent: percentage is mapped onto a generic Li-ion voltage curve, the published high-voltage end-of-charge relation is applied above ~3.95 V with a small linear baseline below it, and a full 0→100% reference charge is normalized to **1.00×**. The UI explicitly says this is a comparative reference, not the firmware battery cycle count and not measured degradation for the installed Lenovo pack. Real cycle/calendar aging still depends on chemistry, actual cell voltage mapping, temperature, charge rate, depth of discharge and time.
+The Battery page shows a comparative **charge-wear percentage** for charging from the current battery level to the selected upper threshold. The model is intentionally simple and transparent: percentage is mapped onto a generic Li-ion voltage curve, the published high-voltage end-of-charge relation is applied above ~3.95 V with a small linear baseline below it, and a full 0→100% charge is the **100% reference**. The UI explicitly says this is a comparison, not the firmware battery cycle count and not measured degradation for the installed Lenovo pack. Real cycle/calendar aging still depends on chemistry, actual cell voltage mapping, temperature, charge rate, depth of discharge and time.
 
 Other OEMs or future Lenovo providers can expose their own semantic threshold set without changing the shared Battery page into a vendor-specific page.
 

@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.57** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
+Use this checklist for **v0.1.0-alpha.58** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -118,7 +118,7 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 6. Confirm Gesture lock is unchanged: physical keyboard and Windows/app volume controls still work in Gesture lock.
 7. On Battery Preservation, verify the graphic is a single current-level fill with exactly two aligned threshold markers. There must be no permanent three-color zones and no lightning/pause glyphs. While charging, the fill uses the normal accent; when parked at the upper cap it may switch to the warning state.
 8. Verify the copy is plain language: for the 85% preset it reads **Charges up to 85%, then pauses. Charging starts again below 80%.** The state line should say **85% limit active**, not repeat the whole threshold pair.
-9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**, like AccuBattery's charging screen. At the target itself it must read ~0.00×. For the visible presets, present the comparison as a percentage of the 0→100% wear reference rather than an unexplained × value. Full 0→100% remains the **1.00× reference**. A custom threshold must calculate automatically.
+9. Verify the comparative wear estimate follows the **current battery level → selected stop threshold**. At the target itself it must read ~0% of the reference. Visible presets and custom thresholds must present wear as a percentage of the model's 0→100% reference, never as an unexplained × or “cycle equivalent” value.
 10. The wear line must remain explicitly comparative rather than claiming measured pack wear. Its tooltip/caveat must mention the generic Li-ion SOC/voltage model, the high-voltage end-charge relationship, and pack-dependent chemistry/temperature/use.
 11. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The wear line must stay visually secondary and the shorter gauge must not clip/collide with the selector.
 12. From **Max cooling**, click fan **Auto** several times under live telemetry from **Home** as well as the Fans page. Home Auto must become the visible intent immediately, stay disabled while the write is in flight, and remain selected during the short post-success confirmation lease rather than bouncing back to stale Max/Quiet telemetry.
