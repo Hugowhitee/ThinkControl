@@ -303,7 +303,7 @@ public partial class BatteryTelemetryPanel : UserControl
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom {snapshotStart}–{snapshotStop}%",
+                    Content = $"Custom · {snapshotStop}% limit · resume {snapshotStart}%",
                     Tag = $"custom:{snapshotStart},{snapshotStop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
@@ -318,7 +318,7 @@ public partial class BatteryTelemetryPanel : UserControl
             _syncingChargeProtection = false;
         }
         ChargeProtectionStateText.Text = snapshotProtection
-            ? $"{snapshotStart}–{snapshotStop}% active"
+            ? $"{snapshotStop}% limit active"
             : "Off";
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)

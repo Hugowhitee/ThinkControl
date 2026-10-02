@@ -96,7 +96,7 @@ public static class BatteryPreservationImpactModel
     }
 
     public const string LimitationsText =
-        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage research. 1.00× means the model's 0→100% reference charge; it is not the firmware battery cycle count. Actual pack wear varies with chemistry, real voltage mapping, temperature, charge rate and use.";
+        "Comparative estimate based on a generic Li-ion state-of-charge/voltage curve and published end-voltage research. A 0→100% charge is the 100% reference; this is not the firmware battery cycle count. Actual pack wear varies with chemistry, real voltage mapping, temperature, charge rate and use.";
 
     public static string DescribeChargeWear(int currentPercent, int targetPercent)
     {
@@ -105,16 +105,16 @@ public static class BatteryPreservationImpactModel
         int from = Math.Min(current, target);
         double wear = EstimateWearBetween(from, target);
 
-        return $"Charge wear {from}→{target}%: ~{wear:0.00}× · 1.00× = 0→100% reference.";
+        return $"Estimated charge wear {from}→{target}%: ~{wear * 100d:0.#}% of the 0→100% reference.";
     }
 
     public static string DescribeWearContext(int startPercent, int stopPercent, bool enabled = true)
     {
         BatteryPreservationImpact impact = Estimate(startPercent, stopPercent, enabled);
         if (!impact.Enabled)
-            return "Reference: 0→100% = 1.00× comparative charge wear · not the firmware cycle count.";
+            return "No charge limit: 0→100% is the model's 100% wear reference.";
 
-        return $"Typical {impact.StartPercent}→{impact.StopPercent}% recharge: ~{impact.EstimatedRechargeWindowWear:0.00}× of the 0→100% reference.";
+        return $"Typical {impact.StartPercent}→{impact.StopPercent}% top-up: ~{impact.EstimatedRechargeWindowWear * 100d:0.#}% of the 0→100% wear reference.";
     }
 
     public static string Describe(int startPercent, int stopPercent, bool enabled = true) =>

@@ -13,7 +13,7 @@ public partial class BatteryTelemetryPanel
     private bool _batteryProtectionWriteInFlight;
     private bool _syncingChargeProtection;
     private bool _syncingHistoryRetention;
-    private int _lastChargeProtectionStart = 75;
+    private int _lastChargeProtectionStart = 80;
     private int _lastChargeProtectionStop = 85;
     private int _historyVisibleDays = 7;
 
@@ -69,7 +69,7 @@ public partial class BatteryTelemetryPanel
                                      response.Capabilities.BatteryCustomChargeThresholds;
         bool available = telemetry?.BatteryChargeProtectionEnabled is not null || telemetry?.BatteryChargeLimitPercent is not null;
         bool enabled = telemetry?.BatteryChargeProtectionEnabled ?? telemetry?.BatteryChargeLimitPercent is < 100;
-        int storedStart = telemetry?.BatteryChargeStartPercent ?? 75;
+        int storedStart = telemetry?.BatteryChargeStartPercent ?? 80;
         int storedStop = telemetry?.BatteryChargeStopPercent ??
                          (enabled ? telemetry?.BatteryChargeLimitPercent ?? 85 : 85);
         int start = storedStart;
@@ -93,7 +93,7 @@ public partial class BatteryTelemetryPanel
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom {selectedStart}–{selectedStop}%",
+                    Content = $"Custom · {selectedStop}% limit · resume {selectedStart}%",
                     Tag = $"custom:{selectedStart},{selectedStop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
@@ -124,8 +124,8 @@ public partial class BatteryTelemetryPanel
         else
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable
-                ? $"{start}–{stop}% active"
-                : $"{start}–{stop}% read-only";
+                ? $"{stop}% limit active"
+                : $"{stop}% limit · read-only";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
             ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeChargeWear(
                 _subscribedState?.BatteryPercent ?? start,
@@ -158,7 +158,7 @@ public partial class BatteryTelemetryPanel
         try
         {
             ServiceResponse? response;
-            int appliedStart = 75;
+            int appliedStart = 80;
             int appliedStop = 85;
 
             if (!enable)
@@ -167,12 +167,12 @@ public partial class BatteryTelemetryPanel
             }
             else
             {
-                string tag = (ChargeProtectionComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "75,85";
+                string tag = (ChargeProtectionComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "80,85";
                 if (tag.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
                     tag = tag["custom:".Length..];
                 if (!TryParseThresholdPair(tag, out appliedStart, out appliedStop))
                 {
-                    appliedStart = 75;
+                    appliedStart = 80;
                     appliedStop = 85;
                 }
 
@@ -285,7 +285,7 @@ public partial class BatteryTelemetryPanel
         start < stop;
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
-        $"Charging resumes below {start}% and pauses at {stop}%.";
+        $"Charges up to {stop}%, then pauses. Charging starts again below {start}%.";
 
     private void SyncHistoryManagementUi()
     {
