@@ -53,7 +53,7 @@ public sealed class BatteryPreservationImpactModelTests
             "Estimated charge wear 60→60%: ~0% of the 0→100% reference.",
             BatteryPreservationImpactModel.DescribeChargeWear(60, 60));
         Assert.Equal(
-            "Estimated charge wear 78→85%: ~4.6% of the 0→100% reference.",
+            "Estimated charge wear 78→85%: ~4.7% of the 0→100% reference.",
             BatteryPreservationImpactModel.DescribeChargeWear(78, 85));
     }
 

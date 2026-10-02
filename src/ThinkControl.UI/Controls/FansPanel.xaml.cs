@@ -134,10 +134,7 @@ public partial class FansPanel : UserControl
     private void ApplyStatus(ServiceResponse? response)
     {
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
-        bool verifiedX9 = _app is not null &&
-                          DeviceCapabilityExpectations.IsVerifiedX9(_app.State.MachineType);
-        bool firmwareFallback = verifiedX9 && response?.Success == true;
-        bool canControl = response?.Capabilities?.FanControl == true || firmwareFallback;
+        bool canControl = response?.Capabilities?.FanControl == true;
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
         string? explicitKind = response?.Capabilities?.FanControlKind;
