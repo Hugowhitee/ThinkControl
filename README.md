@@ -23,13 +23,10 @@
   </a>
 </div>
 
-## ThinkControl alpha.58
-
-Alpha.58 stabilizes the live alpha.57 experience: fan controller ownership now comes directly from the service capability snapshot, Modes uses normal editable saved modes instead of starter CTA clutter, Windows Settings actions are direct, and Battery Preservation exposes clear 80 / 85 / 90 / 95% charge limits.
+## ThinkControl
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Release target:** `v0.1.0-alpha.58`  
 **Current immutable prerelease:** `v0.1.0-alpha.58`
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -64,128 +61,6 @@ ThinkControl-Setup-<version>.exe
 For a normal install, Setup is the only file you need. A clean interactive install lets you choose the install location. Updates preserve the existing location automatically. Each public prerelease also includes the updater payload, `SHA256SUMS.txt` and `ui-overview.png`.
 
 Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifies SHA-256, then asks Windows for elevation. Background checks never install software or open UAC by themselves.
-
-## What alpha.53 changes
-
-- **Modes is now a first-class ThinkControl feature.** Normal, Gesture lock and Silent remain intentionally narrow built-ins; custom modes can compose only Audio Safety, Touchpad gesture enablement and non-experimental keyboard-light state.
-- **Modes use sparse temporary ownership.** A custom mode changes only the controls it explicitly contains. Manual subsystem changes release only that facet and mark the active mode Modified; leaving the mode restores only state the mode still owns.
-- **Silent still means audio safety, not fan Quiet.** Cooling, Windows performance, Battery Preservation, microphone, display policy and experimental keyboard effects are not coupled into Modes.
-- **Compact and Home expose Mode instead of duplicating Audio Safety.** Advanced adds a dedicated Modes page with a small progressive custom editor; the Audio page keeps its direct Audio Safety subsystem control.
-- **Advanced pages now share one real page-header primitive.** Titles, optional supporting text and the right-side action rail use the same layout contract instead of page-local 38 px lookalikes.
-- **Visible copy is quieter.** Requirement/implementation narration such as describing the future `Install now / Later` flow is kept out of normal UI copy.
-- **Visual QA now covers every Advanced page at minimum, normal and wide sizes in both dark and light themes.**
-
-## What alpha.52 changes
-
-- **Windows volume sliders now feel like direct controls instead of queued writers.** System volume and Microphone input track locally while you drag, commit the endpoint write on release/key adjustment, and ignore endpoint refreshes that would otherwise pull the thumb back under the pointer.
-- **Battery Preservation is one explicit on/off state.** The switch owns enable/disable, while the selector contains only the three actual preservation windows. Charging ETA is calculated to the verified stop target itself, so an 85% cap shows time **to 85%** and changing the cap resets the rolling estimate instead of relabeling stale full-charge data.
-- **Battery wear copy is clearly comparative.** The modeled charge cost is shown as a fraction of a `1.00× = 0→100%` reference and is explicitly separate from the firmware battery cycle count.
-- **Small controls reuse existing product grammar.** Reverse-close uses the shared switch style, Home Sensors opens the existing live sensor-details window directly, and Temporary fan test uses one Start/End action instead of two adjacent buttons.
-- **Advanced headers use one title/action rail.** Performance, Fans, Battery, Display, Audio, Keyboard and Touchpad keep their top-right actions on the same 38 px title row instead of letting reset buttons, links and switches drift vertically between pages.
-- **The physically rejected X9 discrete-EC writer is no longer advertised as a direct control.** The exact X9 EC path remains available for read/Auto-recovery duties only; Auto / Quiet / Balanced / Max cooling continue through the reviewed Lenovo firmware-policy path.
-
-## What alpha.51 changes
-
-- **Compact dropdowns no longer stay visually highlighted after dismiss.** Performance, Fan mode, Refresh rate, Keyboard and Audio safety all release stale popup mouse capture and keyboard focus after `DropDownClosed`, then resynchronize pointer hover state.
-- **Advanced behavior is untouched.** The workaround is intentionally Compact-local because the sticky highlight was reported only on Compact; the shared ComboBox design/template remains one source of truth.
-- **Regression coverage is explicit.** Source tests require all five Compact selectors to use the same dismiss path and require capture release, focus clear and pointer resynchronization.
-
-## What alpha.50 changes
-
-- **Silent owns the physical volume-key path.** While Silent is active, Windows `VK_VOLUME_MUTE / DOWN / UP` keys are swallowed before the shell can unmute the endpoint. CoreAudio callbacks remain the second line of defense for app/Windows changes.
-- **Repeated unmute events are no longer coalesced away.** A pending-bit enforcement loop guarantees another pass when an event arrives while re-muting is already in progress, closing the held-key race.
-- **Default-output switches are event-driven.** A persistent CoreAudio device notification client immediately rebinds Silent to a changed render endpoint, with only a short bounded retry burst while a new device becomes ready.
-- **Battery Preservation reads like a battery control, not a diagram.** One current-level fill reacts to charging/limit state, the start/stop thresholds are quiet aligned markers, and the old permanent green/amber/red zones plus lightning/pause glyphs are gone. Preset copy uses a stable 0%→limit wear comparison against the model's 0%→100% reference, so 80 / 85 / 90 / 95% stay directly comparable; the tooltip explains why a real top-up starting above 0% is lower.
-- **Fan Auto no longer visually bounces through stale state.** A user selection owns both its in-flight state and a short post-success confirmation lease, so stale Max/Quiet telemetry cannot repaint the Home switch before fresh status confirms Auto. An active firmware/full-speed override is released before unrelated Auto recovery probes.
-- **Experimental keyboard effects suppress Lenovo's own backlight popup around automatic writes.** The suppression is deliberately limited to newly shown `tposd.exe` windows during an effect-write burst, so ordinary keyboard feedback outside that burst is not globally disabled. Audio now uses Off / Low / High as a visible three-state response to the active Windows output instead of idling at Low.
-- **Dev builds can upgrade to their matching public release.** A manually installed `alpha.N-dev.BUILD` is deliberately lower-precedence than canonical `alpha.N`, so testing a dev package cannot strand the updater on that build.
-- **Audio keyboard effects use the actual Windows loopback format.** WAVE_FORMAT_EXTENSIBLE float/PCM streams are decoded correctly, level thresholds adapt to the recent output peak, and an unexpectedly stopped loopback capture performs one bounded restart while Audio mode remains active.
-- **Research and regression coverage are explicit.** Silent, Battery Preservation, fan convergence and keyboard effect behavior are source-tested and documented.
-
-## What alpha.49 changes
-
-Alpha.49 made Battery Preservation easier to read: semantic charge/hold/stop zones, explicit start/stop icons and no generic ruler ticks or ambiguous lock glyph.
-
-## What alpha.48 changes
-
-Alpha.48 is a focused UX-clarity and state-feedback follow-up to immutable alpha.47. It keeps the existing low-level hardware boundary unchanged.
-
-- **Fan Auto reads as one exclusive state.** The Home Auto switch is visually grouped with its label, and Quiet / Balanced / Max plus extra profiles disable while firmware/OEM Auto owns cooling.
-- **Audio Safety says what it actually controls.** The former `Media lock` user-facing label is now **Gesture lock**: ThinkControl touchpad volume/track/seek actions are blocked while deliberate keyboard and Windows/app audio controls remain available.
-- **Silent reacts to external volume controls immediately.** CoreAudio endpoint notifications reassert mute after keyboard/app unmute attempts instead of waiting for the next multi-second status refresh. Existing bounded status refresh remains only as the fallback for endpoint changes.
-- **Compact Audio Safety is smaller and better aligned.** The selector no longer stretches across the full remaining row and its tooltip explains Normal / Gesture lock / Silent behavior.
-- **Battery Preservation becomes visual instead of text-heavy.** A compact threshold view shows the active start/stop window and current battery position; alpha.49 further clarifies those semantics with charge/hold/stop zones and explicit threshold icons.
-- **Theme changes stay live.** Shell-mode labels use dynamic theme resources and Advanced refreshes native caption/text/border colors immediately when switching light/dark mode.
-- **Visual QA explicitly covers firmware Auto in dark and light themes** in addition to the existing Compact/Silent/Preservation matrix.
-
-## What alpha.47 changes
-
-Alpha.47 is a focused interface-consistency, feedback and visual-verification follow-up to immutable alpha.46. It preserves the existing hardware safety boundary.
-
-- **Compact is cleaner and safer for media controls.** `Media safety` now sits with Brightness and Volume instead of looking like a detached footer mode, while the footer returns to version + Audio + Settings.
-- **Advanced Home exposes the controls that matter immediately.** Battery and Plugged-in power preferences are both visible, fan Auto and saved profiles are real controls, and manual fan state stays truthful.
-- **Audio Safety has one owner.** `Normal`, `Media lock` and `Silent` stay session-only and synchronized across Compact, Home and Audio; the duplicate Settings editor is gone.
-- **Battery Preservation now explains what the machine is doing.** The live threshold window is visible, applying/disabling a preset is confirmed, and real pause/resume charging transitions produce passive feedback.
-- **Long-lived tray sessions learn battery health correctly.** Capacity sampling no longer depends on completing a full-charge session, so a preservation cap does not block health-trend learning.
-- **Keyboard effects are explicitly Experimental.** A session-only warned fallback can reuse the already bounded Off/Low/High backlight path when native effect capability is not advertised; it does not unlock a new low-level command surface.
-- **Updates are harder to miss without becoming noisy.** Startup plus stale-gated activation/resume checks can surface a persistent first-seen **Install now / Later** decision, with no permanent polling timer or automatic UAC.
-- **Visual and release QA is broader.** The final matrix covers the real update prompt, Compact safety states, Home power/fan states, Battery Preservation, Experimental keyboard fallback, minimum layouts and light theme; the immutable release is also re-downloaded and checksum-verified after publication.
-- **Hardware behavior remains bounded.** No fan, battery, keyboard, audio backend, Touchpad recognizer, provider, EC or arbitrary IOCTL contract is broadened.
-
-## What alpha.46 changes
-
-Alpha.46 is a narrow shell-regression repair on top of immutable alpha.45. It restores one status surface that the alpha.45 ownership cleanup accidentally disconnected; it does not broaden hardware access or change fan, battery, keyboard, audio or Touchpad write semantics.
-
-- **New-device learning is visible again.** The Advanced learning / report-ready indicator now binds to the canonical brand row instead of searching for the removed temporary `ThinkControl.NotificationSlot`.
-- **The minimum-height shell does not gain another row.** While compatibility learning is active, the status temporarily occupies the existing fixed brand row and the normal wordmark returns when learning is no longer active.
-- **Advanced lifecycle ownership stays single-path.** The indicator initializes from the canonical Advanced surface setup rather than a separate shell `Loaded` hook.
-- **The regression now has visual coverage.** WPF visual QA includes a minimum-window learning state and a light-theme report-ready state in addition to source ownership guards.
-- **Hardware safety is unchanged.** No provider, EC/IOCTL, fan, charge-threshold or other low-level hardware behavior changes in alpha.46.
-
-## What alpha.45 changes
-
-Alpha.45 is a maintenance release focused on reducing duplicate UI ownership after alpha.44. It does not broaden low-level hardware access or change the verified fan, battery, keyboard or touchpad provider safety boundaries.
-
-- **Touchpad UI ownership is simpler.** Superseded release-polish code and duplicate feedback setup are gone; the active Touchpad panel owns its current controls directly.
-- **Notifications have one entrypoint.** The app no longer keeps parallel notification-sheet open/toggle paths.
-- **Advanced shell utilities have one owner.** Notification and Compact-view controls are created in their final semantic order and geometry instead of being built as temporary controls and mutated after first render.
-- **The hidden custom caption is gone.** Advanced uses the native Windows title bar declaratively; the old zero-height custom caption, runtime chrome-polish pass and caption-only handlers/styles have been removed.
-- **Advanced body lookups are explicit.** Notification-sheet and sidebar-palette code target the named canonical `AdvancedBody` instead of relying on the obsolete titlebar/body row index.
-- **Release behavior remains fully gated.** Build/tests, real Compact ↔ Advanced ShellSmoke, WPF visual QA, packaging, installer/service/IPC smoke and oldest-supported upgrade compatibility remain mandatory before promotion.
-
-## What alpha.44 changes
-
-Alpha.44 is a stabilization release focused on cold-boot control readiness and safer Touchpad edge gestures. It does not expand the low-level hardware write boundary.
-
-- **Saved cooling converges during a real Windows cold start.** A silent tray launch now owns one bounded startup-convergence window that can retry service/provider status while the auto-start hardware service is still coming online. This closes the race where the first status request could miss the service and tray-only mode would then avoid further hardware polling until a later activation or resume.
-- **Tray runtime stays low-impact.** Cold-start convergence is finite and cancellation/generation guarded; ThinkControl does not turn the normal hidden tray state into a fast permanent hardware poller.
-- **Volume and brightness use a deliberate clutch.** Claiming an edge no longer changes the setting immediately. The finger must continue about **1.5 mm** beyond claim before the continuous control starts contributing.
-- **A lagging Windows audio stack cannot build a hidden jump.** Touchpad volume writes are read back from the active CoreAudio endpoint, queued gesture intent is kept within **8 percentage points** of confirmed Windows volume, and pending gesture writes are discarded when the gesture ends. Brightness uses the same bounded model with a **10-point** lead limit.
-- **Continuous acceleration is bounded per input frame.** Fast intentional movement still accelerates, but one bad/coalesced input frame cannot contribute more than **6 percentage points**.
-- **Track skip is harder to trigger accidentally.** Previous/Next now requires a **12 mm** deliberate swipe and commits only when the finger is released. The Track-center Play/Pause contract remains the existing 450 ms hold, ≤3 mm movement and release-to-commit behavior.
-- **Hardware safety is unchanged.** The rejected Lenovo per-fan target writer remains read-only; no EC, EnergyDrv, Lenovo Other Mode or battery write capability is broadened by this release.
-
-Alpha.46 is the current immutable shell-maintenance baseline for alpha.47. Alpha.44 remains the last release that changed the X9 cold-start and Touchpad edge-control behavior described above.
-
-## What alpha.43 changes
-
-Alpha.43 is a focused safety/usability follow-up to immutable alpha.42. It adds one canonical Audio Safety policy, makes the integrated Track-center Play/Pause optional, and adds a capability-gated battery-preservation surface without turning Battery into another OEM utility.
-
-- **Audio Safety has three clear session states.** `Normal` leaves existing controls unchanged. `Media lock` blocks ThinkControl Touchpad Volume, Previous/Next, Play/Pause and Media scrub actions while deliberate Windows/app audio remains available. `Silent` includes Media lock, mutes the current Windows output and blocks ThinkControl output-volume/unmute changes.
-- **Silent owns only mute state it actually changed or encountered.** ThinkControl remembers the prior mute state per output endpoint while Silent is active and restores those states when leaving Silent or on orderly app exit. A removed endpoint is not replaced by a guessed fallback write.
-- **Output changes remain blocked across default-device changes.** Silent reuses the app's existing bounded status cadence to apply the same semantic mute policy to a newly active default output; it does not add a second polling loop.
-- **Microphone input stays independent.** Audio Safety does not automatically mute or change the microphone.
-- **The mode is deliberately session-only in alpha.43.** Restart returns to Normal instead of persisting a stale mute-ownership claim across processes.
-- **Compact gets one quick Audio Safety selector; Settings owns the explanation.** This is intentionally not a phone-style Focus Modes framework and not a grid of unrelated presets.
-- **Track Play/Pause is optional inside Track control.** When enabled, the lane remains `Previous | Play/Pause | Next`. When disabled, the center target, separators and Play/Pause icon disappear and the same edge becomes a clean `Previous / Next` control.
-- **Release-to-commit remains intentional.** With Play/Pause enabled, the center requires at least **450 ms** with no more than **3 mm** maximum radial movement and then commits on release. Release is the final intent confirmation so a resting/incidental touch cannot auto-start media merely because the hold timer elapsed.
-- **Alpha.43 Track behavior.** That immutable release used a deliberate **9 mm** swipe threshold; alpha.44 raises the current threshold to 12 mm and commits skip only on release.
-- **Battery preservation uses real Lenovo start/stop thresholds on the verified X9 path.** When the installed Lenovo PWRMGRV/`IBMPmDrv` contract is present, the Battery page can select a small set of Vantage-style windows such as **75–85%** or return to **Full charge · 100%**. The desktop UI never receives a raw driver command.
-- **Battery wear is comparative, not a promise.** The UI can show the selected cap as an estimated fraction of a 1.00 full-charge wear-cycle baseline, with the generic Li-ion voltage model disclosed. It does not present that number as measured degradation or guaranteed battery lifetime.
-- **Existing firmware state wins.** ThinkControl does not silently apply a preservation preset on first run. A non-preset Lenovo pair appears as `Custom · start–stop%` until the user deliberately chooses another preset.
-- **Battery history stays useful without becoming an endless page.** The normal view shows seven recent days, `Show older` expands to 14, detailed retention remains selectable at 7/14/30 days, older data compacts into summaries, and destructive reset lives behind `Manage history` with a clear warning about relearning local estimates.
-
-Alpha.42 remains immutable at its published release commit. Its Touchpad corner/reverse-close work, cooling-profile runtime truth and persistence fix, exact-X9 full-speed safety boundary, rejected per-fan target writer, installer/updater and shell/crash fixes are preserved. Alpha.43 does not re-enable the rejected fan writer.
 
 ## Main capabilities
 
