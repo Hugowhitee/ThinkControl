@@ -102,6 +102,8 @@ public partial class CompactDashboard
 
             IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
             CompactModeCombo.ItemsSource = modes;
+            CompactModeCombo.ToolTip = _app.Modes.LastTransitionError ??
+                "Select a mode to temporarily apply its settings.";
             CompactModeCombo.SelectedItem = modes.FirstOrDefault(mode =>
                 mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase));
         }
