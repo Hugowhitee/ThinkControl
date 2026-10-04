@@ -27,6 +27,7 @@ internal sealed class ThinkControlModeCoordinator
     internal string ActiveModeName { get; private set; } = "No mode";
     internal bool ActiveModeAutomatic { get; private set; }
     internal bool IsModified { get; private set; }
+    internal string? LastTransitionError { get; private set; }
     internal string? TransitionModeId { get; private set; }
     internal string? TransitionModeName { get; private set; }
     internal bool IsTransitioning => TransitionModeId is not null;
@@ -49,8 +50,13 @@ internal sealed class ThinkControlModeCoordinator
                 id,
                 _app.UserSettings.Current.CustomModes);
             if (target is null)
+            {
+                LastTransitionError = "This mode is no longer available.";
+                Publish();
                 return false;
+            }
 
+            LastTransitionError = null;
             string previousId = ActiveModeId;
             string previousName = ActiveModeName;
             bool previousAutomatic = ActiveModeAutomatic;
@@ -83,14 +89,18 @@ internal sealed class ThinkControlModeCoordinator
 
                 foreach (ThinkControlModeFacet facet in OrderedFacets(targetFacets))
                 {
-                    if (!await ApplyFacetAsync(target, facet))
+                    if (!await TryApplyFacetAsync(target, facet))
                     {
-                        await RollBackAsync(previousDefinition, previousOwned, targetFacets);
+                        string failure = DescribeFacetFailure(facet);
+                        bool recovered = await RollBackAsync(previousDefinition, previousOwned, targetFacets);
+                        LastTransitionError = failure + (recovered
+                            ? " Previous settings were requested again."
+                            : " Recovery was incomplete; check the affected settings.");
                         RestoreCoordinatorState(
                             previousId,
                             previousName,
                             previousAutomatic,
-                            previousModified,
+                            previousModified || !recovered,
                             previousOwned,
                             previousCoolingBaseline,
                             previousRefreshBaseline,
@@ -103,14 +113,18 @@ internal sealed class ThinkControlModeCoordinator
 
                 foreach (ThinkControlModeFacet facet in OrderedFacets(previousOwned.Except(targetFacets)))
                 {
-                    if (!await RestoreBaselineAsync(facet))
+                    if (!await TryRestoreBaselineAsync(facet))
                     {
-                        await RollBackAsync(previousDefinition, previousOwned, targetFacets);
+                        string failure = DescribeFacetFailure(facet);
+                        bool recovered = await RollBackAsync(previousDefinition, previousOwned, targetFacets);
+                        LastTransitionError = failure + (recovered
+                            ? " Previous settings were requested again."
+                            : " Recovery was incomplete; check the affected settings.");
                         RestoreCoordinatorState(
                             previousId,
                             previousName,
                             previousAutomatic,
-                            previousModified,
+                            previousModified || !recovered,
                             previousOwned,
                             previousCoolingBaseline,
                             previousRefreshBaseline,
@@ -261,7 +275,7 @@ internal sealed class ThinkControlModeCoordinator
         switch (facet)
         {
             case ThinkControlModeFacet.CoolingProfile:
-                _coolingBaseline = _app.UserSettings.Current.CoolingProfile;
+                _coolingBaseline = _app.State.CoolingProfile;
                 break;
             case ThinkControlModeFacet.RefreshRate:
                 _refreshBaseline = _app.CaptureRefreshModeSnapshot();
@@ -352,25 +366,64 @@ internal sealed class ThinkControlModeCoordinator
         }
     }
 
-    private async Task RollBackAsync(
+    private string? _lastFacetException;
+
+    private async Task<bool> TryApplyFacetAsync(ThinkControlModeDefinition mode, ThinkControlModeFacet facet)
+    {
+        _lastFacetException = null;
+        try { return await ApplyFacetAsync(mode, facet); }
+        catch (Exception ex)
+        {
+            _lastFacetException = ex.Message;
+            return false;
+        }
+    }
+
+    private async Task<bool> TryRestoreBaselineAsync(ThinkControlModeFacet facet)
+    {
+        _lastFacetException = null;
+        try { return await RestoreBaselineAsync(facet); }
+        catch (Exception ex)
+        {
+            _lastFacetException = ex.Message;
+            return false;
+        }
+    }
+
+    private string DescribeFacetFailure(ThinkControlModeFacet facet)
+    {
+        string? detail = _lastFacetException ??
+            (facet == ThinkControlModeFacet.CoolingProfile ? _app.LastCoolingError : null);
+        string label = facet switch
+        {
+            ThinkControlModeFacet.CoolingProfile => "Cooling",
+            ThinkControlModeFacet.PerformanceMode => "Performance",
+            ThinkControlModeFacet.RefreshRate => "Refresh rate",
+            ThinkControlModeFacet.AudioSafety => "Audio safety",
+            ThinkControlModeFacet.TouchpadGestures => "Touchpad gestures",
+            ThinkControlModeFacet.KeyboardLight => "Keyboard light",
+            _ => facet.ToString()
+        };
+        return string.IsNullOrWhiteSpace(detail)
+            ? $"{label} could not be applied or restored."
+            : $"{label}: {detail}";
+    }
+
+    private async Task<bool> RollBackAsync(
         ThinkControlModeDefinition? previousDefinition,
         IReadOnlySet<ThinkControlModeFacet> previousOwned,
         IReadOnlySet<ThinkControlModeFacet> attemptedFacets)
     {
+        bool recovered = true;
         foreach (ThinkControlModeFacet facet in OrderedFacets(attemptedFacets.Where(facet => !previousOwned.Contains(facet))))
-        {
-            try { await RestoreBaselineAsync(facet); }
-            catch { }
-        }
+            recovered = await TryRestoreBaselineAsync(facet) && recovered;
 
-        if (previousDefinition is null)
-            return;
-
-        foreach (ThinkControlModeFacet facet in OrderedFacets(previousOwned))
+        if (previousDefinition is not null)
         {
-            try { await ApplyFacetAsync(previousDefinition, facet); }
-            catch { }
+            foreach (ThinkControlModeFacet facet in OrderedFacets(previousOwned))
+                recovered = await TryApplyFacetAsync(previousDefinition, facet) && recovered;
         }
+        return recovered;
     }
 
     private void RestoreCoordinatorState(
