@@ -78,6 +78,15 @@ internal static class Program
         firmwareFanRecovery.CoolingProfile = "Quiet";
         firmwareFanRecovery.DriverStatus = "Hardware service online · direct fan provider unavailable";
         firmwareFanRecovery.HardwareAccess = "Lenovo firmware cooling policy available";
+        AppState externalFanOwner = CreateDemoState(charging: true, hardwareReady: false);
+        externalFanOwner.MachineType = "21Q6";
+        externalFanOwner.CanFanControl = true;
+        externalFanOwner.CanFanTelemetry = false;
+        externalFanOwner.CanSensorTelemetry = false;
+        externalFanOwner.FanControlKind = FanControlKinds.FirmwarePolicy;
+        externalFanOwner.CoolingProfile = "Max cooling";
+        externalFanOwner.HardwareAccess =
+            "A Lenovo full-speed override is already active but was not started by this ThinkControl service instance. Return it to Auto explicitly before applying Quiet/Balanced.";
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
         pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
         pawnIoRepair.HardwareAccess =
@@ -173,6 +182,8 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery.png", "direct provider unavailable · firmware profiles available");
+        RenderAdvanced(app, externalFanOwner, "Fans", 1160, 760, output, snapshots,
+            "advanced-fans-external-owner.png", "external full-speed owner · explicit Lenovo Auto recovery");
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker", fanActiveCurve: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
@@ -244,6 +255,8 @@ internal static class Program
             "advanced-modes-editor-light.png", "context mode editor · light", modeEditor: true);
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery-light.png", "direct provider unavailable · firmware profiles available · light");
+        RenderAdvanced(app, externalFanOwner, "Fans", 1160, 760, output, snapshots,
+            "advanced-fans-external-owner-light.png", "external full-speed owner · explicit Lenovo Auto recovery · light");
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-active-curve-light.png", "Balanced curve · live marker · light", fanActiveCurve: true);
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");

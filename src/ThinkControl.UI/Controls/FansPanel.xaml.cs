@@ -71,6 +71,10 @@ public partial class FansPanel : UserControl
         CoolingOwnerText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
             : "Unavailable";
+        bool ownershipConflict = UsesFirmwarePolicy && App.IsExternalCoolingOwnerConflict(state.HardwareAccess);
+        RecoverAutoButton.Visibility = ownershipConflict ? Visibility.Visible : Visibility.Collapsed;
+        if (ownershipConflict)
+            CoolingDetailText.Text = state.HardwareAccess;
         AppliedLevelText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : state.FanStateText
             : "Unavailable";
