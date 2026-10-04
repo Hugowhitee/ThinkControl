@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class BatteryProtectionAndHistorySourceTests
 {
     [Fact]
-    public void BatteryPage_OffersCleanThresholdPresetsAndStableLimitWearComparison()
+    public void BatteryPage_OffersVerifiedChargeWindowsAndUncertainWearExplanation()
     {
         string root = FindRepositoryRoot();
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml"));
@@ -29,9 +29,13 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("StopPercent=\"{Binding BatteryProtectionStopPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CurrentPercent=\"{Binding BatteryPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsCharging=\"{Binding BatteryCharging}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Charges up to {stop}%, then pauses. Charging starts again below {start}%.", code, StringComparison.Ordinal);
+        Assert.Contains("charging stops at {stop}%", code, StringComparison.Ordinal);
 
-        Assert.Contains("BatteryPreservationImpactModel.DescribeLimitWear", code, StringComparison.Ordinal);
+        Assert.Contains("CustomChargeApply_Click", code, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CustomChargeStartComboBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"CustomChargeStopComboBox\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("A lower cap reduces time spent at high charge", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeLimitWear", code, StringComparison.Ordinal);
         Assert.Contains("BatteryPreservationImpactModel.DescribeLimitWear", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
@@ -48,7 +52,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Charge hold, resumes below {start}%", state, StringComparison.Ordinal);
         Assert.DoesNotContain("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("BatteryPreservationImpactModel.LimitationsText", code, StringComparison.Ordinal);
+        Assert.Contains("there is no reliable wear percentage", code, StringComparison.Ordinal);
 
         string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
         Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);
