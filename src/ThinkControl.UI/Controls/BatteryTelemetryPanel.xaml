@@ -131,14 +131,53 @@
                         <ComboBoxItem Content="90% · More runtime" Tag="85,90" />
                         <ComboBoxItem Content="95% · Light protection" Tag="90,95" />
                     </ComboBox>
+                    <Button x:Name="CustomChargeLimitsButton"
+                            Content="Custom limits"
+                            Style="{StaticResource TcInlineButton}"
+                            HorizontalAlignment="Left"
+                            Margin="-5,6,0,0"
+                            IsEnabled="False"
+                            Click="CustomChargeLimits_Click" />
+                    <StackPanel x:Name="CustomChargeEditor"
+                                Visibility="Collapsed"
+                                Margin="0,6,0,9">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Text="Resume below" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                                <ComboBox x:Name="CustomChargeStartComboBox" Style="{StaticResource TcComboBox}" Margin="0,5,0,0" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Stop at" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                                <ComboBox x:Name="CustomChargeStopComboBox" Style="{StaticResource TcComboBox}" Margin="0,5,0,0" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock x:Name="CustomChargeValidationText"
+                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                   FontSize="{x:Static ui:TypographyScale.Caption}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,5,0,0" />
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+                            <Button Content="Cancel" Style="{StaticResource TcInlineButton}" Click="CustomChargeCancel_Click" />
+                            <Button x:Name="CustomChargeApplyButton"
+                                    Content="Apply limits"
+                                    Style="{StaticResource TcButton}"
+                                    Margin="8,0,0,0"
+                                    Click="CustomChargeApply_Click" />
+                        </StackPanel>
+                    </StackPanel>
                     <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active charge limit…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                     <TextBlock x:Name="ChargeProtectionWearText"
-                               Text="Comparing the selected charge limit…"
+                               Text="Checking charging guidance…"
                                Foreground="{DynamicResource Tc.TextFaint}"
                                FontSize="{x:Static ui:TypographyScale.Caption}"
                                TextWrapping="Wrap"
                                Margin="0,3,0,0"
-                               ToolTip="This fixed comparison starts at 0% so charge limits can be compared directly. A real top-up that starts above 0% has lower modeled session wear because only the added range counts, and the upper end contributes disproportionately. This is a generic Li-ion estimate, not the firmware battery cycle count; actual wear varies with chemistry, temperature, charge rate and time at high state of charge." />
+                               ToolTip="Battery aging depends on time at high charge, temperature, depth of discharge, use and chemistry; a charge cap does not measure this battery's actual wear." />
                     <TextBlock x:Name="ChargeProtectionProviderText" Text="Verified OEM charge-threshold provider." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="Collapsed" />
                     <Button x:Name="ChargeProtectionFallbackButton" Content="Lenovo battery settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="-7,7,0,0" Click="OpenVantage_Click" />
                 </StackPanel>

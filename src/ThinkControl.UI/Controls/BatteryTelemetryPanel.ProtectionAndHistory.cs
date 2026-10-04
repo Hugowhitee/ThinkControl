@@ -10,6 +10,7 @@ public partial class BatteryTelemetryPanel
 {
     private bool _batteryProtectionStatusSubscribed;
     private bool _batteryProtectionWritable;
+    private bool _batteryProtectionAvailable;
     private bool _batteryProtectionWriteInFlight;
     private bool _syncingChargeProtection;
     private bool _syncingHistoryRetention;
@@ -25,6 +26,11 @@ public partial class BatteryTelemetryPanel
 
     private void BatteryTelemetryPanel_Loaded(object sender, RoutedEventArgs e)
     {
+        if (CustomChargeStartComboBox.ItemsSource is null)
+        {
+            CustomChargeStartComboBox.ItemsSource = Enumerable.Range(8, 11).Select(value => value * 5).ToArray();
+            CustomChargeStopComboBox.ItemsSource = Enumerable.Range(9, 11).Select(value => value * 5).ToArray();
+        }
         SyncHistoryManagementUi();
         AttachBatteryProtectionStatus();
     }
@@ -68,6 +74,7 @@ public partial class BatteryTelemetryPanel
         _batteryProtectionWritable = response?.Capabilities?.BatteryChargeProtection == true &&
                                      response.Capabilities.BatteryCustomChargeThresholds;
         bool available = telemetry?.BatteryChargeProtectionEnabled is not null || telemetry?.BatteryChargeLimitPercent is not null;
+        _batteryProtectionAvailable = available;
         bool enabled = telemetry?.BatteryChargeProtectionEnabled ?? telemetry?.BatteryChargeLimitPercent is < 100;
         int storedStart = telemetry?.BatteryChargeStartPercent ?? 80;
         int storedStop = telemetry?.BatteryChargeStopPercent ??
@@ -103,6 +110,7 @@ public partial class BatteryTelemetryPanel
             ChargeProtectionSwitch.IsChecked = enabled;
             ChargeProtectionSwitch.IsEnabled = _batteryProtectionWritable;
             ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable && enabled;
+            CustomChargeLimitsButton.IsEnabled = _batteryProtectionWritable && enabled;
         }
         finally
         {
@@ -113,13 +121,13 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionStateText.Text = "Not exposed";
             ChargeProtectionImpactText.Text = "Charge limits are not available on the active hardware provider.";
-            ChargeProtectionWearText.Text = "Wear context unavailable";
+            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: null, available: false);
         }
         else if (!enabled)
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Off" : "Off (read-only)";
             ChargeProtectionImpactText.Text = "Preservation is off; charging is allowed to 100%.";
-            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeLimitWear(100);
+            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: false, available: true);
         }
         else
         {
@@ -127,10 +135,10 @@ public partial class BatteryTelemetryPanel
                 ? $"{stop}% limit active"
                 : $"{stop}% limit · read-only";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
-            ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeLimitWear(stop);
+            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: true, available: true);
         }
 
-        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
+        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
 
         ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
             "Verified OEM charge-threshold provider.";
@@ -282,8 +290,91 @@ public partial class BatteryTelemetryPanel
         stop % 5 == 0 &&
         start < stop;
 
+    private const string BatteryAgingTooltip =
+        "Staying plugged in does not itself imply repeated charging. Recharging resumes only below the OEM threshold; actual aging also depends on cycles and calendar time.";
+
+    private static string DescribeBatteryAging(bool? enabled, bool available) =>
+        !available
+            ? "Battery aging cannot be estimated from unavailable charge settings."
+            : enabled == true
+                ? "A lower charge limit reduces time near full. Heat and battery age also matter."
+                : "Staying near 100% for long periods may speed aging, especially when warm.";
+
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
-        $"Charges up to {stop}%, then pauses. Charging starts again below {start}%.";
+        $"Charging stops at {stop}% and resumes below {start}% when needed.";
+
+    internal void PrepareCustomChargeEditorForSnapshot()
+    {
+        CustomChargeStartComboBox.ItemsSource ??= Enumerable.Range(8, 11).Select(value => value * 5).ToArray();
+        CustomChargeStopComboBox.ItemsSource ??= Enumerable.Range(9, 11).Select(value => value * 5).ToArray();
+        ChargeProtectionSwitch.IsChecked = true;
+        CustomChargeLimitsButton.IsEnabled = true;
+        CustomChargeStartComboBox.SelectedItem = 50;
+        CustomChargeStopComboBox.SelectedItem = 80;
+        CustomChargeValidationText.Text = "Charging restarts below 50%, then stops at 80%.";
+        CustomChargeEditor.Visibility = Visibility.Visible;
+    }
+
+    private void CustomChargeLimits_Click(object sender, RoutedEventArgs e)
+    {
+        bool open = CustomChargeEditor.Visibility != Visibility.Visible;
+        if (open)
+        {
+            CustomChargeStartComboBox.SelectedItem = _lastChargeProtectionStart;
+            CustomChargeStopComboBox.SelectedItem = _lastChargeProtectionStop;
+            CustomChargeValidationText.Text = "A lower recharge threshold reduces top-ups; it does not force discharge while plugged in.";
+        }
+        CustomChargeEditor.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void CustomChargeCancel_Click(object sender, RoutedEventArgs e) =>
+        CustomChargeEditor.Visibility = Visibility.Collapsed;
+
+    private async void CustomChargeApply_Click(object sender, RoutedEventArgs e)
+    {
+        if (_batteryProtectionWriteInFlight || !_batteryProtectionWritable ||
+            ChargeProtectionSwitch.IsChecked != true || WpfApplication.Current is not App app ||
+            CustomChargeStartComboBox.SelectedItem is not int start ||
+            CustomChargeStopComboBox.SelectedItem is not int stop)
+            return;
+
+        if (!IsValidChargeProtectionPair(start, stop))
+        {
+            CustomChargeValidationText.Text = "Resume must be below stop. 5% steps: start 40–90%, stop 45–95%.";
+            return;
+        }
+
+        _batteryProtectionWriteInFlight = true;
+        CustomChargeApplyButton.IsEnabled = false;
+        ChargeProtectionSwitch.IsEnabled = false;
+        ChargeProtectionComboBox.IsEnabled = false;
+        CustomChargeValidationText.Text = "Applying…";
+        try
+        {
+            ServiceResponse? response = await app.HardwareClient.SetBatteryChargeThresholdsAsync(start, stop);
+            if (response?.Success == true)
+            {
+                ApplyBatteryProtectionStatus(response);
+                CustomChargeEditor.Visibility = Visibility.Collapsed;
+                app.ShowBatteryPreservationApplied(start, stop);
+            }
+            else
+            {
+                CustomChargeValidationText.Text = response?.Error ??
+                    "Lenovo did not confirm these limits. Existing settings were kept.";
+                ServiceResponse? current = await app.HardwareClient.GetStatusAsync();
+                ApplyBatteryProtectionStatus(current);
+            }
+        }
+        finally
+        {
+            _batteryProtectionWriteInFlight = false;
+            CustomChargeApplyButton.IsEnabled = true;
+            ChargeProtectionSwitch.IsEnabled = _batteryProtectionWritable;
+            ChargeProtectionComboBox.IsEnabled =
+                _batteryProtectionWritable && ChargeProtectionSwitch.IsChecked == true;
+        }
+    }
 
     private void SyncHistoryManagementUi()
     {

@@ -71,8 +71,8 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Full charge 100%", xaml, StringComparison.Ordinal);
         Assert.Contains("controls:BatteryProtectionGauge", xaml, StringComparison.Ordinal);
-        Assert.Contains("Charges up to {stop}%, then pauses. Charging starts again below {start}%.", panel, StringComparison.Ordinal);
-        Assert.Contains("BatteryPreservationImpactModel.DescribeLimitWear", panel, StringComparison.Ordinal);
+        Assert.Contains("Charging stops at {stop}%", panel, StringComparison.Ordinal);
+        Assert.Contains("DescribeBatteryAging", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("Battery wear stress:", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("Exact lifetime improvement still depends on temperature and use", panel, StringComparison.Ordinal);
         Assert.Contains("_historyVisibleDays = 7", panel, StringComparison.Ordinal);
@@ -80,8 +80,8 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         Assert.Contains("Take(_historyVisibleDays)", mainPanel, StringComparison.Ordinal);
         Assert.Contains("Reset all history…", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Content=\"Clear history\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Comparing the selected charge limit", xaml, StringComparison.Ordinal);
-        Assert.Contains("starts at 0%", xaml, StringComparison.Ordinal);
+        Assert.Contains("Checking charging guidance", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("starts at 0%", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("× fewer", xaml, StringComparison.OrdinalIgnoreCase);
     }
 

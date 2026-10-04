@@ -27,7 +27,7 @@ public partial class TouchpadPanel : UserControl
     private bool _syncing;
     private bool _hostUiSubscribed;
     private CheckBox _gestureEnableSwitch = null!;
-    private Button _touchpadMoreButton = null!;
+    private Button _touchpadDefaultsButton = null!;
 
     private TouchpadEdge SelectedEdge => _selectedZone.Edge ?? TouchpadEdge.Top;
 
@@ -84,20 +84,31 @@ public partial class TouchpadPanel : UserControl
         };
         _gestureEnableSwitch.Click += GestureEnable_Click;
 
-        _touchpadMoreButton = new Button
+        _touchpadDefaultsButton = new Button
         {
-            Content = "More ▾",
-            Style = TryFindResource("TcButton") as Style,
-            Padding = new Thickness(9, 4, 9, 4),
+            Content = "Defaults",
+            Style = TryFindResource("TcInlineButton") as Style,
+            Padding = new Thickness(7, 4, 7, 4),
             FontSize = TypographyScale.Caption,
             Margin = new Thickness(10, 0, 0, 0)
         };
-        _touchpadMoreButton.Click += TouchpadMore_Click;
+        _touchpadDefaultsButton.Click += TouchpadDefaults_Click;
+
+        var windowsTouchpad = new Button
+        {
+            Content = "Windows touchpad ↗",
+            Style = TryFindResource("TcExternalSettingsLink") as Style,
+            Padding = new Thickness(7, 4, 7, 4),
+            FontSize = TypographyScale.Caption,
+            Margin = new Thickness(10, 0, 0, 0)
+        };
+        windowsTouchpad.Click += WindowsTouchpad_Click;
 
         StackPanel rail = TouchpadHeader.EnsureActionStack();
         rail.Children.Add(label);
         rail.Children.Add(_gestureEnableSwitch);
-        rail.Children.Add(_touchpadMoreButton);
+        rail.Children.Add(_touchpadDefaultsButton);
+        rail.Children.Add(windowsTouchpad);
     }
 
     private Geometry ResolveIcon(string resourceKey)
@@ -264,44 +275,33 @@ public partial class TouchpadPanel : UserControl
         }
     }
 
-    private void TouchpadMore_Click(object sender, RoutedEventArgs e)
+    private async void TouchpadDefaults_Click(object sender, RoutedEventArgs e)
     {
-        if (_app is null)
+        if (_app is null || sender is not Button button)
             return;
-
-        var menu = new ContextMenu
-        {
-            PlacementTarget = _touchpadMoreButton,
-            Placement = PlacementMode.Bottom
-        };
-
-        var defaults = new MenuItem { Header = "Defaults" };
-        defaults.Click += async (_, _) =>
+        button.IsEnabled = false;
+        try
         {
             _app.ResetTouchpadDefaults();
             await _app.RefreshStatusAsync();
             Initialize(_app);
-        };
-        menu.Items.Add(defaults);
-
-        var windows = new MenuItem { Header = "Windows touchpad settings" };
-        windows.Click += (_, _) =>
+        }
+        finally
         {
-            try
-            {
-                Process.Start(new ProcessStartInfo("ms-settings:devices-touchpad")
-                {
-                    UseShellExecute = true
-                });
-            }
-            catch
-            {
-            }
-        };
-        menu.Items.Add(windows);
+            button.IsEnabled = true;
+        }
+    }
 
-        _touchpadMoreButton.ContextMenu = menu;
-        menu.IsOpen = true;
+    private static void WindowsTouchpad_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo("ms-settings:devices-touchpad")
+            {
+                UseShellExecute = true
+            });
+        }
+        catch { }
     }
 
     private void GestureEnable_Click(object sender, RoutedEventArgs e)

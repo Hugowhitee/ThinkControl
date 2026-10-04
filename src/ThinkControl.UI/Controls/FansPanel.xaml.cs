@@ -147,9 +147,11 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(profileName, profileId);
         ApplyProviderCopy(canControl, _fanControlKind);
 
-        CoolingDetailText.Text = canControl
-            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct fan control"
-            : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry);
+        CoolingDetailText.Text = _app?.LastCoolingError is string failure
+            ? failure
+            : canControl
+                ? UsesFirmwarePolicy ? "Lenovo firmware · policy request, not physical readback" : "Direct fan control"
+                : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry);
         CoolingOwnerText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
             : "Unavailable";
@@ -435,7 +437,8 @@ public partial class FansPanel : UserControl
         {
             if (!await _app.SetCoolingProfileAsync(choice.Id))
             {
-                CoolingDetailText.Text = "Couldn’t change cooling profile. Retry, or open System if it keeps failing.";
+                CoolingDetailText.Text = _app.LastCoolingError ??
+                    "The cooling profile could not be applied. Check System for hardware access.";
                 SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
                 return;
             }

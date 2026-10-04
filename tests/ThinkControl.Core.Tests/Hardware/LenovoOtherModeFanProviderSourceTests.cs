@@ -225,7 +225,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("Lenovo firmware", ui, StringComparison.Ordinal);
         Assert.Contains("Custom curves are unavailable with this controller.", ui, StringComparison.Ordinal);
         Assert.Contains("EditCurvesButton.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed", ui, StringComparison.Ordinal);
-        Assert.Contains("Couldn’t change cooling profile. Retry, or open System if it keeps failing.", ui, StringComparison.Ordinal);
+        Assert.Contains("_app.LastCoolingError", ui, StringComparison.Ordinal);
         Assert.Contains("Text=\"Cooling\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Live state\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Advanced fan controls\"", xaml, StringComparison.Ordinal);

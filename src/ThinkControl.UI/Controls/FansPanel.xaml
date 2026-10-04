@@ -66,7 +66,7 @@
                                      Subtitle="">
             <controls:AdvancedPageHeader.Actions>
                 <Button Content="Defaults"
-                        Style="{StaticResource TcButton}"
+                        Style="{StaticResource TcInlineButton}"
                         Padding="10,4"
                         FontSize="{x:Static ui:TypographyScale.Caption}"
                         Click="Reset_Click" />

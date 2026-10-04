@@ -43,6 +43,7 @@ public partial class App
     private string? _coolingPendingDisplayProfile;
     private string? _coolingExpectedDisplayProfile;
     private DateTimeOffset _coolingExpectedUntil = DateTimeOffset.MinValue;
+    internal string? LastCoolingError { get; private set; }
     private FanProfileCatalog? _fanProfiles;
     private FanCalibrationUiState _fanCalibrationState = FanCalibrationUiState.None;
 
@@ -184,15 +185,38 @@ public partial class App
         // therefore becomes the final physical state.
         int generation = Interlocked.Increment(ref _coolingSelectionGeneration);
         string pendingDisplay = CoolingDisplayNameForRequest(profile);
+        string previousDisplay = State.CoolingProfile;
+        LastCoolingError = null;
         SetPendingCoolingProfile(generation, pendingDisplay);
 
         bool success = false;
         await _coolingWriteGate.WaitAsync();
         try
         {
-            success = await SetCoolingProfileCoreAsync(profile, generation, persistSelection);
-            if (success && generation == Volatile.Read(ref _coolingSelectionGeneration))
-                SetExpectedCoolingProfile(generation, pendingDisplay);
+            try
+            {
+                success = await SetCoolingProfileCoreAsync(profile, generation, persistSelection);
+            }
+            catch (Exception ex)
+            {
+                State.HardwareAccess = $"Cooling request failed: {ex.Message}";
+                success = false;
+            }
+
+            if (generation == Volatile.Read(ref _coolingSelectionGeneration))
+            {
+                if (success)
+                {
+                    LastCoolingError = null;
+                    SetExpectedCoolingProfile(generation, pendingDisplay);
+                }
+                else
+                {
+                    LastCoolingError = State.HardwareAccess;
+                    // A request is not the actual selection until the service accepts it.
+                    State.CoolingProfile = previousDisplay;
+                }
+            }
             return success;
         }
         finally

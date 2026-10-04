@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for **v0.1.0-alpha.58** and later candidates. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
+Use this checklist for the **v0.1.0-alpha.59** unreleased candidate and retain prior **v0.1.0-alpha.58** cases as historical coverage. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -50,6 +50,16 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 5. Trigger a profile-write failure. Fans should show concise recovery copy and point to System for persistent problems; low-level LITSSvc/provider detail belongs in diagnostics rather than the normal control surface.
 6. Compare the production WPF screenshots with the editable Fans Figma source recorded in `docs/UI-DESIGN-HANDOFF.md`. Production typography remains Segoe even though the Figma host uses Inter as a representation fallback.
 7. Physical Quiet/Balanced/Max behavior on the reference X9 remains a separate real-device evidence class and must not be inferred from hosted visual/build gates.
+
+## Alpha.59 draft candidate (issue #113, PR #114)
+
+Alpha.59 is not released; historical alpha.58 tests below describe the earlier product.
+
+- Modes: choose No mode, Focus, Battery saver and Performance from one dropdown. Explanatory rows are not competing selectors. Save & apply activates saved definitions. Verify per-facet failure and failed rollback states, and synchronization with Home/Compact.
+- Cooling: physically verify Lenovo X9 Auto, Quiet, Balanced and Max under AC/DC, boot, resume, external Lenovo Vantage/F8 and Windows power policy changes. Compare actual acoustics/RPM/temperature under controlled safe loads. The OEM policy pipe acknowledgment alone is not readback. Direct EC and target-RPM writers remain blocked.
+- Battery: review 80/85/90/95 presets, supported custom start/stop 5% windows, external custom preservation, real charge-stop/restart under AC. Do not imply a precise cycle-wear reduction or repeated charging when plugged in.
+- UI: inspect WPF min/normal/wide dark/light visual QA for all pages; Defaults and Windows ↗ links must share controls.
+- Require exact-head Windows CI, ShellSmoke, artifact inspection, packaged upgrade/service lifecycle and real X9 validation before merging/promoting.
 
 ## Alpha.56 real-device fan, Modes and updater stabilization
 

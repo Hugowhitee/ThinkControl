@@ -140,6 +140,8 @@ internal static class Program
             "advanced-battery-device-temperature.png", "battery temperature unavailable · device fallback");
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-preservation-paused.png", "90% limit · resume below 85% · charging paused");
+        RenderAdvanced(app, charging, "Battery", 1160, 760, output, snapshots,
+            "advanced-battery-custom-limits.png", "custom 50–80% · expanded editor", batteryCustom: true);
         RenderAdvanced(app, keyboardExperimentalFallback, "Keyboard", 1160, 760, output, snapshots,
             "advanced-keyboard-experimental-fallback.png", "Experimental fallback · session enabled");
         RenderAdvanced(app, charging, "Battery", 1160, 900, output, snapshots,
@@ -232,6 +234,8 @@ internal static class Program
             "advanced-home-audio-silent-light.png", "Audio safety · Silent · light", audioSafetyMode: AudioSafetyMode.Silent);
         RenderAdvanced(app, batteryProtectionPaused, "Battery", 1160, 760, output, snapshots,
             "advanced-battery-preservation-paused-light.png", "90% limit · resume below 85% · charging paused · light");
+        RenderAdvanced(app, charging, "Battery", 1160, 760, output, snapshots,
+            "advanced-battery-custom-limits-light.png", "custom 50–80% · light", batteryCustom: true);
         RenderAdvanced(app, unknownReady, "Home", 1160, 760, output, snapshots,
             "advanced-home-device-report-ready-light.png", "device report ready · light", deviceLearning: true, deviceReportReady: true);
         RenderAdvanced(app, charging, "Modes", 1160, 760, output, snapshots,
@@ -449,7 +453,8 @@ internal static class Program
         string? openingView = null,
         AudioSafetyMode? audioSafetyMode = null,
         bool modeEditor = false,
-        bool modeList = false)
+        bool modeList = false,
+        bool batteryCustom = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -515,6 +520,22 @@ internal static class Program
             }
             fanScroll.ScrollToEnd();
             fanScroll.UpdateLayout();
+        }
+
+        if (batteryCustom && string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase))
+        {
+            window.PrepareBatteryCustomLimitsForSnapshot();
+            if (window.Content is FrameworkElement batteryRoot)
+            {
+                batteryRoot.Measure(new Size(width, height));
+                batteryRoot.Arrange(new Rect(0, 0, width, height));
+                batteryRoot.UpdateLayout();
+            }
+            if (window.FindName("PageBattery") is System.Windows.Controls.ScrollViewer batteryScroll)
+            {
+                batteryScroll.ScrollToVerticalOffset(330);
+                batteryScroll.UpdateLayout();
+            }
         }
 
         if (expandBatteryDay)

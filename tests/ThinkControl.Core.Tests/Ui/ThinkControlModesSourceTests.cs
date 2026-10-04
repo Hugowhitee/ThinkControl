@@ -177,7 +177,7 @@ public sealed class ThinkControlModesSourceTests
         int firstApply = coordinator.IndexOf("ApplyFacetAsync(target, facet)", StringComparison.Ordinal);
         Assert.True(pending >= 0 && firstApply > pending);
         Assert.Contains("internal string VisibleModeId => TransitionModeId ?? ActiveModeId", coordinator, StringComparison.Ordinal);
-        Assert.Contains("Applying…", modesPanel, StringComparison.Ordinal);
+        Assert.Contains("Applying {_app.Modes.VisibleModeName}…", modesPanel, StringComparison.Ordinal);
         Assert.Contains("_app.Modes.VisibleModeId", home, StringComparison.Ordinal);
         Assert.Contains("_app.Modes.VisibleModeId", compact, StringComparison.Ordinal);
     }
@@ -199,13 +199,15 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("\"Battery level\", \"BatteryBelow\"", code, StringComparison.Ordinal);
         Assert.Contains("\"Schedule\", \"Schedule\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("No controls yet", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Key=\"ModeRowButton\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ModeSelector\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"New mode ▾\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Click=\"StarterMode_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Header = \"From template\"", code, StringComparison.Ordinal);
         Assert.Contains("ThinkControlModeCatalog.CreateStarterTemplate", code, StringComparison.Ordinal);
-        Assert.Contains("select.Click += Activate_Click", code, StringComparison.Ordinal);
-        Assert.Contains("Grid.SetColumnSpan(select, 2)", code, StringComparison.Ordinal);
+        Assert.Contains("ModeSelector_SelectionChanged", code, StringComparison.Ordinal);
+        Assert.Contains("LastTransitionError", code, StringComparison.Ordinal);
+        Assert.Contains("Save & apply", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("select.Click += Activate_Click", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MutedText(\"Select\")", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Content = mode.Id == ThinkControlModeCatalog.NormalId ? \"Use\" : \"Activate\"", code, StringComparison.Ordinal);
         Assert.Contains("InlineButton(\"×\", RemoveSetting_Click", code, StringComparison.Ordinal);

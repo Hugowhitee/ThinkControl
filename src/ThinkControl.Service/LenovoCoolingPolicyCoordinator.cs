@@ -96,7 +96,7 @@ internal sealed class LenovoCoolingPolicyCoordinator
         if (success)
         {
             lock (_gate)
-                _status = $"Lenovo firmware thermal policy follows {mode}";
+                _status = $"Lenovo firmware {mode} command acknowledged; active OEM policy has no readback";
         }
         return success;
     }
@@ -195,7 +195,7 @@ internal sealed class LenovoCoolingPolicyCoordinator
         {
             _overrideProfile = profile;
             _overrideProfileId = profileId;
-            _status = $"{profile} · Lenovo firmware {policyMode} cooling policy · OEM closed-loop fan ownership";
+            _status = $"{profile} · Lenovo firmware {policyMode} command acknowledged; active OEM policy has no readback";
         }
         detail = policyDetail;
         return true;

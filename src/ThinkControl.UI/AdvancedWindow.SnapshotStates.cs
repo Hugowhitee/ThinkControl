@@ -93,6 +93,9 @@ public partial class AdvancedWindow
         PrepareHomeModeForSnapshot(modeId);
     }
 
+    internal void PrepareBatteryCustomLimitsForSnapshot() =>
+        BatteryTelemetryPanelControl.PrepareCustomChargeEditorForSnapshot();
+
     internal void PrepareModesListForSnapshot() =>
         ModesPanelControl.PrepareListForSnapshot();
 
