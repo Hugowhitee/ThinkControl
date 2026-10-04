@@ -172,7 +172,7 @@
                     </StackPanel>
                     <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active charge limit…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
                     <TextBlock x:Name="ChargeProtectionWearText"
-                               Text="Comparing the selected charge limit…"
+                               Text="Checking charging guidance…"
                                Foreground="{DynamicResource Tc.TextFaint}"
                                FontSize="{x:Static ui:TypographyScale.Caption}"
                                TextWrapping="Wrap"
