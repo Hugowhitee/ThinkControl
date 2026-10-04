@@ -297,11 +297,23 @@ public partial class BatteryTelemetryPanel
         !available
             ? "Battery aging cannot be estimated from unavailable charge settings."
             : enabled == true
-                ? "A lower cap reduces time spent at high charge. Aging also depends on heat, time and repeated charging; there is no reliable wear percentage for this battery."
-                : "Remaining near full charge for long periods may speed aging, especially when warm.";
+                ? "A lower charge limit reduces time near full. Heat and battery age also matter."
+                : "Staying near 100% for long periods may speed aging, especially when warm.";
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
-        $"On AC, charging stops at {stop}%. It resumes below {start}% if needed; staying plugged in does not repeatedly refill the {start}–{stop}% range.";
+        $"Charging stops at {stop}% and resumes below {start}% when needed.";
+
+    internal void PrepareCustomChargeEditorForSnapshot()
+    {
+        CustomChargeStartComboBox.ItemsSource ??= Enumerable.Range(8, 11).Select(value => value * 5).ToArray();
+        CustomChargeStopComboBox.ItemsSource ??= Enumerable.Range(9, 11).Select(value => value * 5).ToArray();
+        ChargeProtectionSwitch.IsChecked = true;
+        CustomChargeLimitsButton.IsEnabled = true;
+        CustomChargeStartComboBox.SelectedItem = 50;
+        CustomChargeStopComboBox.SelectedItem = 80;
+        CustomChargeValidationText.Text = "Charging restarts below 50%, then stops at 80%.";
+        CustomChargeEditor.Visibility = Visibility.Visible;
+    }
 
     private void CustomChargeLimits_Click(object sender, RoutedEventArgs e)
     {

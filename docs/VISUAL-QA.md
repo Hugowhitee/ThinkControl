@@ -64,7 +64,7 @@ Check at minimum:
 14. Theme changes must repaint shell-mode labels and native Advanced caption colors immediately without minimize/reopen.
 15. The first-seen update popup must show the full transition/copy and both **Install now** / **Later** actions without clipping or implying an automatic install.
 16. Compact selectors must share the same resting geometry/color as before alpha.51; the dismiss fix is interaction-state cleanup only and must not introduce a Compact-only ComboBox template or persistent selected-looking fill.
-17. Battery Preservation must show one shared-style on/off switch plus the current 80 / 85 / 90 / 95% charge-limit choices and verified, progressively disclosed custom start/stop thresholds; Touchpad reverse-close must use the same switch grammar instead of a square checkbox. Home Sensors must still lead to the existing Sensor details surface rather than introducing a duplicate telemetry page.
+17. Battery Preservation must show one shared-style on/off switch plus the current 80 / 85 / 90 / 95% charge-limit choices and verified, progressively disclosed custom start/stop thresholds. The custom 50–80% editor is covered by dedicated dark/light snapshots with the battery section scrolled into view; Touchpad reverse-close must use the same switch grammar instead of a square checkbox. Home Sensors must still lead to the existing Sensor details surface rather than introducing a duplicate telemetry page.
 
 ## Artifact ownership
 

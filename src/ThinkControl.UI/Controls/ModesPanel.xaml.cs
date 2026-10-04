@@ -112,7 +112,8 @@ public partial class ModesPanel : UserControl
         IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
         ModeRows.Children.Clear();
 
-        foreach (ThinkControlModeDefinition mode in modes)
+        foreach (ThinkControlModeDefinition mode in modes.Where(mode =>
+                     mode.Id != ThinkControlModeCatalog.NormalId))
             ModeRows.Children.Add(CreateModeRow(mode));
 
         _syncingModeSelection = true;
@@ -1049,7 +1050,8 @@ public partial class ModesPanel : UserControl
             _syncingModeSelection = false;
         }
 
-        foreach (ThinkControlModeDefinition mode in fixtures)
+        foreach (ThinkControlModeDefinition mode in fixtures.Where(mode =>
+                     mode.Id != ThinkControlModeCatalog.NormalId))
             ModeRows.Children.Add(CreateModeRow(mode));
 
         EmptyModesText.Visibility = Visibility.Collapsed;
