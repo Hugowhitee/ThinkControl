@@ -10,6 +10,7 @@ public partial class BatteryTelemetryPanel
 {
     private bool _batteryProtectionStatusSubscribed;
     private bool _batteryProtectionWritable;
+    private bool _batteryProtectionAvailable;
     private bool _batteryProtectionWriteInFlight;
     private bool _syncingChargeProtection;
     private bool _syncingHistoryRetention;
@@ -73,6 +74,7 @@ public partial class BatteryTelemetryPanel
         _batteryProtectionWritable = response?.Capabilities?.BatteryChargeProtection == true &&
                                      response.Capabilities.BatteryCustomChargeThresholds;
         bool available = telemetry?.BatteryChargeProtectionEnabled is not null || telemetry?.BatteryChargeLimitPercent is not null;
+        _batteryProtectionAvailable = available;
         bool enabled = telemetry?.BatteryChargeProtectionEnabled ?? telemetry?.BatteryChargeLimitPercent is < 100;
         int storedStart = telemetry?.BatteryChargeStartPercent ?? 80;
         int storedStop = telemetry?.BatteryChargeStopPercent ??
@@ -119,13 +121,13 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionStateText.Text = "Not exposed";
             ChargeProtectionImpactText.Text = "Charge limits are not available on the active hardware provider.";
-            ChargeProtectionWearText.Text = "Battery aging cannot be estimated from unavailable charge settings.";
+            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: null, available: false);
         }
         else if (!enabled)
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Off" : "Off (read-only)";
             ChargeProtectionImpactText.Text = "Preservation is off; charging is allowed to 100%.";
-            ChargeProtectionWearText.Text = "Remaining near full charge for long periods may speed aging, especially when warm.";
+            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: false, available: true);
         }
         else
         {
@@ -133,11 +135,10 @@ public partial class BatteryTelemetryPanel
                 ? $"{stop}% limit active"
                 : $"{stop}% limit · read-only";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
-            ChargeProtectionWearText.Text = "A lower cap reduces time spent at high charge. Aging also depends on heat, time and repeated charging; there is no reliable wear percentage for this battery.";
+            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: true, available: true);
         }
 
-        ChargeProtectionWearText.ToolTip =
-            "Staying plugged in does not itself imply repeated charging. Recharging resumes only below the OEM threshold; actual aging also depends on cycles and calendar time.";
+        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
 
         ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
             "Verified OEM charge-threshold provider.";
@@ -288,6 +289,16 @@ public partial class BatteryTelemetryPanel
         start % 5 == 0 &&
         stop % 5 == 0 &&
         start < stop;
+
+    private const string BatteryAgingTooltip =
+        "Staying plugged in does not itself imply repeated charging. Recharging resumes only below the OEM threshold; actual aging also depends on cycles and calendar time.";
+
+    private static string DescribeBatteryAging(bool? enabled, bool available) =>
+        !available
+            ? "Battery aging cannot be estimated from unavailable charge settings."
+            : enabled == true
+                ? "A lower cap reduces time spent at high charge. Aging also depends on heat, time and repeated charging; there is no reliable wear percentage for this battery."
+                : "Remaining near full charge for long periods may speed aging, especially when warm.";
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>
         $"On AC, charging stops at {stop}%. It resumes below {start}% if needed; staying plugged in does not repeatedly refill the {start}–{stop}% range.";
