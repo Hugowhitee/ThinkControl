@@ -92,6 +92,8 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     private int _evaluating;
     private bool _started;
     private string? _lastCandidateId;
+    private string? _failedCandidateId;
+    private DateTimeOffset _failedCandidateUntil;
     private bool _manualOverride;
     private string? _manualOverrideCandidateId;
 
@@ -210,11 +212,24 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
 
         if (candidate is not null)
         {
+            // An unavailable hardware provider must not cause retries every five seconds.
+            if (string.Equals(candidate.Id, _failedCandidateId, StringComparison.OrdinalIgnoreCase) &&
+                DateTimeOffset.UtcNow < _failedCandidateUntil)
+                return;
+
             bool applied = await _app.Modes.ActivateAsync(
                 candidate.Id,
                 ThinkControlModeActivationOrigin.Automatic);
             if (applied)
+            {
                 _lastCandidateId = candidate.Id;
+                _failedCandidateId = null;
+            }
+            else
+            {
+                _failedCandidateId = candidate.Id;
+                _failedCandidateUntil = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(1);
+            }
             return;
         }
 
@@ -231,6 +246,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         }
 
         _lastCandidateId = null;
+        _failedCandidateId = null;
     }
 
     public void Dispose()
