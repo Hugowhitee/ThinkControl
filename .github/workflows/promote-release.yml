@@ -12,9 +12,11 @@ permissions:
   contents: write
   actions: write
 
+# A merge may emit both push and pull_request.closed. Serialize the
+# idempotent promotion to avoid cancellation during tag or asset publication.
 concurrency:
   group: thinkcontrol-release-promotion
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   promote:

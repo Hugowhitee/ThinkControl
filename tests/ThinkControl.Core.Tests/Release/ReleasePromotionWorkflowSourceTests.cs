@@ -24,6 +24,7 @@ public sealed class ReleasePromotionWorkflowSourceTests
 
         Assert.Contains("ref: main", workflow, StringComparison.Ordinal);
         Assert.Contains("promoted_sha=$(git rev-parse HEAD)", workflow, StringComparison.Ordinal);
+        Assert.Contains("cancel-in-progress: false", workflow, StringComparison.Ordinal);
         Assert.Contains("git tag \"$tag\" \"$promoted_sha\"", workflow, StringComparison.Ordinal);
         Assert.DoesNotContain("git tag \"$tag\" \"$GITHUB_SHA\"", workflow, StringComparison.Ordinal);
     }
