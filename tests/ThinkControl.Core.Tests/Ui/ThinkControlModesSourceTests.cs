@@ -177,7 +177,7 @@ public sealed class ThinkControlModesSourceTests
         int firstApply = coordinator.IndexOf("ApplyFacetAsync(target, facet)", StringComparison.Ordinal);
         Assert.True(pending >= 0 && firstApply > pending);
         Assert.Contains("internal string VisibleModeId => TransitionModeId ?? ActiveModeId", coordinator, StringComparison.Ordinal);
-        Assert.Contains("Applying…", modesPanel, StringComparison.Ordinal);
+        Assert.Contains("Applying {_app.Modes.VisibleModeName}…", modesPanel, StringComparison.Ordinal);
         Assert.Contains("_app.Modes.VisibleModeId", home, StringComparison.Ordinal);
         Assert.Contains("_app.Modes.VisibleModeId", compact, StringComparison.Ordinal);
     }
