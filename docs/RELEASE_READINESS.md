@@ -4,7 +4,13 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 ## Current release state
 
-Latest immutable experimental prerelease: `v0.1.0-alpha.59`, published 2026-10-04 18:11:32 UTC, tag commit `94133c0d4c4b4cf8eeaa45a875800923bdf131c5`, with exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`. Real X9 fan and battery behavior remain **UNVERIFIED**.
+Latest published immutable experimental prerelease: **`v0.1.0-alpha.60`**, published **2026-10-04 20:40:48 UTC**, tag/main commit `bda4894040d5b658201613df954430bb27733e36`. Hosted CI and installer/upgrade gates passed; physical X9 fan-profile, battery stop/resume and contextual trigger acceptance remain **UNVERIFIED**.
+
+Published asset SHA-256 digests (GitHub release metadata):
+- Setup `ThinkControl-Setup-0.1.0-alpha.60.exe`: `c024a203b137aad9d839593f4f2a2b0147b8e1201241f54c5ea1971269fcb85f`
+- Payload `ThinkControl-Payload-0.1.0-alpha.60.zip`: `6042f9d7040cbc8cb443355ecf5b8ca2ed051a5cefdb091f2793c43c3b129b90`
+- `SHA256SUMS.txt`: `ea2d0c1bc5bc70efbbc7c612d7a7f66cd71f893a9395417c845ed7481732a38b`
+- `ui-overview.png`: `ebbfe5f6e41e614a28dbaf2604dc2e1e0e868bb12c4ff276bf73868431b3662e`
 
 Previous fully recorded release evidence (alpha.58):
 
@@ -37,9 +43,9 @@ Previous fully recorded release evidence (alpha.58):
 - Safety constraints stay unchanged: rejected direct EC and per-fan target-RPM writes remain disabled; unknown hardware stays read-only; charge-threshold writing remains provider-, identity- and range-gated. `releaseReady=true` here authorizes **publication of an experimental prerelease only**, not claiming completed hardware acceptance.
 - GitHub Releases exposes the four immutable alpha.59 assets at tag SHA `94133c0d4c4b4cf8eeaa45a875800923bdf131c5`. Physical X9 fan behavior remains unverified; this was an experimental release.
 
-## Alpha.60 experimental stabilization — feedback after alpha.59 (2026-10-04)
+## Alpha.60 published experimental stabilization — October 4, 2026
 
-- Tracking: issue #113 and PR #116; candidate branch `fix/x9-mode-ownership-and-header-consistency`, source version `v0.1.0-alpha.60`. This work remains **UNVERIFIED on physical X9** until the owner runs real recovery/AC/DC/resume/fan-noise checks.
+- Tracking: issue #113 remains open for real-device acceptance. PR #116 was squash-merged to `main` at `bda4894040d5b658201613df954430bb27733e36` after frozen source head `6a5958a76a658f061362d609769a470b3e1811d3` passed CI/Package; the feature branch was deleted. Published source version is `v0.1.0-alpha.60`. This work remains **UNVERIFIED on physical X9** until the owner runs real recovery/AC/DC/resume/fan-noise checks.
 - Cooling: identify non-ThinkControl Lenovo full-speed owner explicitly; stop automatic persisted Quiet/Balanced retries for that permanent conflict; offer a deliberate verified-feature `Return to Lenovo Auto` recovery action. Never clear another utility's live ownership silently or re-enable physically rejected per-fan/EC writers.
 - Modes: surface the Windows power-overlay failure reason, avoid rollback of untouched facets and silent auto-handoffs, keep one dropdown as selection, save without auto-activating, restore pre-automation manual mode, apply 5-second context dwell, resolve overlaps by user priority plus deterministic trigger-type specificity, support Any/All and a small locally saved Wi-Fi suggestion list.
 - UI: one shared page-header style and order, Touchpad switch beside Touchpad function, consolidated flat Settings rows with advanced diagnostics/support/reset behind disclosure, restrained copy.
@@ -47,8 +53,9 @@ Previous fully recorded release evidence (alpha.58):
 - [x] interim source head `036780bc2a4c1f85f423fe8cfefce5ce22fa3205` passed CI `37230128783` and Package `37230128739`; preceding compilation error in the Touchpad field was corrected.
 - [x] alpha.60 implementation head `de90d52eab1f6758df30811497ee0bec6ab1b17a` passed CI `37232421497` and Package `37232421493` (Windows build, source tests, shell lifecycle, installer, IPC, oldest-supported updater).
 - [x] inspected actual dark/light WPF snapshots in normal/minimum layouts: Modes list/editor, Settings, Fans external-owner/recovery and other affected surfaces; exact-head artifact `11314471676` includes the full width/theme matrix.
-- [ ] frozen releaseReady=true PR head CI and Package both pass before squash merge with expected-head guard.
-- [ ] post-merge: verify immutable alpha.60 prerelease, exact four assets, SHA256SUMS and updater eligibility.
+- [x] frozen `releaseReady=true` PR head `6a5958a76a658f061362d609769a470b3e1811d3` passed CI `37232679413` and Package `37232679271` before guarded squash merge.
+- [x] published immutable `v0.1.0-alpha.60` matches the PR merge and exactly four nonempty expected public assets, with GitHub SHA-256 digests recorded above. Production installer is accessible through the normal release/updater channel.
+- [x] merged feature branch removed; only `main` remains.
 - [ ] physically test X9 explicit Auto recovery, Quiet/Balanced/Max on AC/DC after reboot and wake, and verify other utility ownership semantics
 - [ ] physically test automatic school-Wi-Fi entry/exit, overlapping conditions, manual selection and keyboard OSD after disabling experimental effects
 - [ ] physical-device acceptance remains separate from experimental prerelease publication. Release notes must disclose it; never convert hosted success into a physical-fan-fix claim.
