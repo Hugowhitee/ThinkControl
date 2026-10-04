@@ -26,9 +26,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: Checkout promoted commit
+      - name: Checkout promoted main
         uses: actions/checkout@v7
         with:
+          ref: main
           fetch-depth: 0
 
       - name: Promote and verify release
@@ -52,6 +53,8 @@ jobs:
             exit 0
           fi
 
+          # Pull request close events may point to a PR head; only tag actual main.
+          promoted_sha=$(git rev-parse HEAD)
           tag="v$version"
           setup="ThinkControl-Setup-$version.exe"
           payload="ThinkControl-Payload-$version.zip"
@@ -70,13 +73,13 @@ jobs:
             fi
 
             if [[ -z "$tag_sha" ]]; then
-              echo "Creating $tag at $GITHUB_SHA"
+              echo "Creating $tag at main $promoted_sha"
               git config user.name "github-actions[bot]"
               git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-              git tag "$tag" "$GITHUB_SHA"
+              git tag "$tag" "$promoted_sha"
               git push origin "refs/tags/$tag"
-            elif [[ "$tag_sha" != "$GITHUB_SHA" ]]; then
-              echo "$tag exists at $tag_sha but has no release; refusing to publish a different main commit ($GITHUB_SHA) under that version."
+            elif [[ "$tag_sha" != "$promoted_sha" ]]; then
+              echo "$tag exists at $tag_sha but has no release; refusing to publish a different main commit ($promoted_sha) under that version."
               exit 1
             else
               echo "$tag already exists at the promoted commit; recovering the missing release."

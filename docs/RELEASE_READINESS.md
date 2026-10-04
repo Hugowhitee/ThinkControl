@@ -4,7 +4,7 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 ## Current release state
 
-Last immutable published prerelease:
+Previous fully recorded immutable release:
 
 - `v0.1.0-alpha.58`
 - immutable tag/release SHA: `8f27003f63fc80142b5d4cb16a11659a0a83c19a`
@@ -26,13 +26,14 @@ Last immutable published prerelease:
 - alpha.58 restores service-owned fan-controller capability truth, recomposes Modes as editable saved modes, restores direct contextual Windows Settings actions, and clarifies Battery Preservation with 80 / 85 / 90 / 95% limits plus a stable 0%→limit modeled-wear comparison
 - physical X9 Quiet/Balanced/Max and battery-threshold behavior remain a separate real-device evidence class; hosted CI does not invent that evidence
 
-## Alpha.59 source integration — NOT RELEASED
+## Alpha.59 experimental prerelease promotion
 
-- Issue #113; PR #114 integrates validated **source** into `main` following Hugo's explicit October 4 request to push code to GitHub, not to distribute a development installer. `version.json` remains `0.1.0-alpha.59` with `releaseReady=false`; last public installer is **alpha.58**.
-- Scope: unified Modes selection / Save & apply, per-facet transition and rollback errors, honest Lenovo cooling acknowledgments and failure feedback, capability-gated custom battery charge thresholds, cautious battery health copy, and consistent Defaults/Windows controls.
-- Exact source PR head `330d63c74b671fd9f4394d65e945a50eb4071d6d`: CI `37221596098` (261 tests, WPF visual QA and Compact↔Advanced shell smoke) and Package `37221596095` (installer, service, updater and oldest-supported upgrade compatibility) both succeeded. Gallery artifact `11310905138` includes normal/min/wide light/dark views and focused custom charge-window states, which were visually checked in the accompanying development session.
-- **RELEASE BLOCKERS REMAIN:** real ThinkPad X9 21Q6/21Q7 firmware policy response (AC/DC, boot, resume, Windows/F8/Vantage interactions) and battery charge stop/resume transitions. A successful LITSSvc pipe acknowledgment is not verified physical-policy readback. Hosted CI cannot supply this evidence.
-- Source integration is separate from release promotion. **Do not set `releaseReady=true`, tag, publish, or advertise alpha.59 as verified until physical hardware acceptance succeeds.** Never enable rejected EC or per-fan target-RPM writers to bypass that requirement.
+- Tracking: issue #113 and merged implementation PR #114 (`main` commit `0154163840ec5f37be086ac20561b68268b75eef`). The next release candidate is `v0.1.0-alpha.59`. This is an explicitly experimental alpha update with outstanding OEM hardware validation, not a claim that physical fan switching was repaired.
+- Implementation: one Modes selector, Save & apply, explicit failed facet/rollback feedback, bounded automation retries, Lenovo firmware acknowledgment caveats, capability-gated custom battery thresholds, clearer battery-aging explanation, and consistent Defaults/Windows links.
+- Existing evidence: final source PR head CI `37222379239`, Package `37222379242` and post-merge main CI `37222491468` all passed. Detailed 261-test source CI `37221596098`, packaging `37221596095`, and visual gallery artifact `11310905138` also passed or were inspected.
+- **UNVERIFIED, still tracked in issue #113:** real X9 21Q6/21Q7 AC/DC Quiet/Balanced/Max policy changes; boot/resume and Windows/F8/Vantage interactions; and real battery charge stop/resume with custom thresholds. The LITSSvc pipe acknowledgment is not proof of active firmware state. Users must not interpret this prerelease as a physically verified fan fix.
+- Safety constraints stay unchanged: rejected direct EC and per-fan target-RPM writes remain disabled; unknown hardware stays read-only; charge-threshold writing remains provider-, identity- and range-gated. `releaseReady=true` here authorizes **publication of an experimental prerelease only**, not claiming completed hardware acceptance.
+- Publish through the repository's tagged immutable release workflow with exactly four assets and verified checksums. On completion record the tag SHA/promotion/package results here. If promotion fails, do not claim that GitHub Releases or the updater exposes alpha.59.
 
 ## Alpha.58 published release — fan capability truth, Modes and Battery clarity
 

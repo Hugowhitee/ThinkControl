@@ -16,6 +16,18 @@ public sealed class ReleasePromotionWorkflowSourceTests
         Assert.DoesNotContain("cd /tmp/thinkcontrol-release-verify\n                gh release download", workflow, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Promotion_TagsTheActualMergedMainCommit_NotThePrHead()
+    {
+        string root = FindRepositoryRoot();
+        string workflow = File.ReadAllText(Path.Combine(root, ".github", "workflows", "promote-release.yml"));
+
+        Assert.Contains("ref: main", workflow, StringComparison.Ordinal);
+        Assert.Contains("promoted_sha=$(git rev-parse HEAD)", workflow, StringComparison.Ordinal);
+        Assert.Contains("git tag \"$tag\" \"$promoted_sha\"", workflow, StringComparison.Ordinal);
+        Assert.DoesNotContain("git tag \"$tag\" \"$GITHUB_SHA\"", workflow, StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         foreach (string start in new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory })

@@ -151,6 +151,7 @@ jobs:
           $overview = Get-Item "artifacts/release-previews/ui-overview.png"
           $overviewUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/ui-overview.png"
           $galleryNotes = "## Interface preview`n`n[![ThinkControl interface overview]($overviewUrl)]($overviewUrl)"
+          $hardwareNotes = "`n`n## Experimental hardware support`n`nLenovo firmware can acknowledge a cooling request without confirming the active fan profile. X9 Quiet/Balanced/Max physical results and real battery-charge stop/resume remain unverified for this prerelease. This release does not establish that fan-control problems are fixed. Unsafe direct EC/target-RPM fan writes remain disabled. See release-readiness documentation and issue #113."
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,
@@ -159,7 +160,7 @@ jobs:
             $overview.FullName,
             '--verify-tag',
             '--title', "ThinkControl v$env:APP_VERSION",
-            '--notes', $galleryNotes,
+            '--notes', ($galleryNotes + $hardwareNotes),
             '--generate-notes',
             '--prerelease'
           )
