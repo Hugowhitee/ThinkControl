@@ -1038,6 +1038,17 @@ public partial class ModesPanel : UserControl
                 AutomationEnabled: true),
         ];
 
+        _syncingModeSelection = true;
+        try
+        {
+            ModeSelector.ItemsSource = fixtures;
+            ModeSelector.SelectedItem = fixtures[0];
+        }
+        finally
+        {
+            _syncingModeSelection = false;
+        }
+
         foreach (ThinkControlModeDefinition mode in fixtures)
             ModeRows.Children.Add(CreateModeRow(mode));
 
