@@ -147,9 +147,11 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(profileName, profileId);
         ApplyProviderCopy(canControl, _fanControlKind);
 
-        CoolingDetailText.Text = _app?.LastCoolingError is string failure
-            ? failure
-            : canControl
+        CoolingDetailText.Text = _app?.ExternalCoolingOwnerConflictDetail is string conflict
+            ? conflict
+            : _app?.LastCoolingError is string failure
+                ? failure
+                : canControl
                 ? UsesFirmwarePolicy ? "Lenovo firmware · policy request, not physical readback" : "Direct fan control"
                 : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry);
         CoolingOwnerText.Text = canControl
@@ -157,6 +159,7 @@ public partial class FansPanel : UserControl
             : "Unavailable";
         RecoverAutoButton.Visibility =
             UsesFirmwarePolicy && App.IsExternalCoolingOwnerConflict(
+                _app?.ExternalCoolingOwnerConflictDetail ??
                 _app?.LastCoolingError ?? _app?.State.HardwareAccess)
                 ? Visibility.Visible : Visibility.Collapsed;
 

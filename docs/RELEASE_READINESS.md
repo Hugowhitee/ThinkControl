@@ -4,7 +4,9 @@ This is the **single persistent handoff/checklist** for unfinished release and c
 
 ## Current release state
 
-Previous fully recorded immutable release:
+Latest immutable experimental prerelease: `v0.1.0-alpha.59`, published 2026-10-04 18:11:32 UTC, tag commit `94133c0d4c4b4cf8eeaa45a875800923bdf131c5`, with exactly Setup, Payload, `SHA256SUMS.txt` and `ui-overview.png`. Real X9 fan and battery behavior remain **UNVERIFIED**.
+
+Previous fully recorded release evidence (alpha.58):
 
 - `v0.1.0-alpha.58`
 - immutable tag/release SHA: `8f27003f63fc80142b5d4cb16a11659a0a83c19a`
@@ -26,23 +28,24 @@ Previous fully recorded immutable release:
 - alpha.58 restores service-owned fan-controller capability truth, recomposes Modes as editable saved modes, restores direct contextual Windows Settings actions, and clarifies Battery Preservation with 80 / 85 / 90 / 95% limits plus a stable 0%→limit modeled-wear comparison
 - physical X9 Quiet/Balanced/Max and battery-threshold behavior remain a separate real-device evidence class; hosted CI does not invent that evidence
 
-## Alpha.59 experimental prerelease promotion
+## Alpha.59 published experimental prerelease
 
-- Tracking: issue #113 and merged implementation PR #114 (`main` commit `0154163840ec5f37be086ac20561b68268b75eef`). The next release candidate is `v0.1.0-alpha.59`. This is an explicitly experimental alpha update with outstanding OEM hardware validation, not a claim that physical fan switching was repaired.
+- Tracking: issue #113 and merged implementation PR #114 (`main` commit `0154163840ec5f37be086ac20561b68268b75eef`). The published immutable release is `v0.1.0-alpha.59`. This is an explicitly experimental alpha update with outstanding OEM hardware validation, not a claim that physical fan switching was repaired.
 - Implementation: one Modes selector, Save & apply, explicit failed facet/rollback feedback, bounded automation retries, Lenovo firmware acknowledgment caveats, capability-gated custom battery thresholds, clearer battery-aging explanation, and consistent Defaults/Windows links.
 - Existing evidence: final source PR head CI `37222379239`, Package `37222379242` and post-merge main CI `37222491468` all passed. Detailed 261-test source CI `37221596098`, packaging `37221596095`, and visual gallery artifact `11310905138` also passed or were inspected.
 - **UNVERIFIED, still tracked in issue #113:** real X9 21Q6/21Q7 AC/DC Quiet/Balanced/Max policy changes; boot/resume and Windows/F8/Vantage interactions; and real battery charge stop/resume with custom thresholds. The LITSSvc pipe acknowledgment is not proof of active firmware state. Users must not interpret this prerelease as a physically verified fan fix.
 - Safety constraints stay unchanged: rejected direct EC and per-fan target-RPM writes remain disabled; unknown hardware stays read-only; charge-threshold writing remains provider-, identity- and range-gated. `releaseReady=true` here authorizes **publication of an experimental prerelease only**, not claiming completed hardware acceptance.
-- Publish through the repository's tagged immutable release workflow with exactly four assets and verified checksums. On completion record the tag SHA/promotion/package results here. If promotion fails, do not claim that GitHub Releases or the updater exposes alpha.59.
+- GitHub Releases exposes the four immutable alpha.59 assets at tag SHA `94133c0d4c4b4cf8eeaa45a875800923bdf131c5`. Physical X9 fan behavior remains unverified; this was an experimental release.
 
-## Follow-up stabilization candidate — feedback after alpha.59 (2026-10-04)
+## Alpha.60 stabilization candidate — feedback after alpha.59 (2026-10-04)
 
-- Tracking: issue #113; candidate branch `fix/x9-mode-ownership-and-header-consistency`. This work remains **UNVERIFIED on physical X9** until the owner runs real recovery/AC/DC/resume/fan-noise checks.
+- Tracking: issue #113 and draft PR #116; candidate branch `fix/x9-mode-ownership-and-header-consistency`, source version `v0.1.0-alpha.60`. This work remains **UNVERIFIED on physical X9** until the owner runs real recovery/AC/DC/resume/fan-noise checks.
 - Cooling: identify non-ThinkControl Lenovo full-speed owner explicitly; stop automatic persisted Quiet/Balanced retries for that permanent conflict; offer a deliberate verified-feature `Return to Lenovo Auto` recovery action. Never clear another utility's live ownership silently or re-enable physically rejected per-fan/EC writers.
 - Modes: surface the Windows power-overlay failure reason, avoid rollback of untouched facets and silent auto-handoffs, keep one dropdown as selection, save without auto-activating, restore pre-automation manual mode, apply 5-second context dwell, resolve overlaps by user priority plus deterministic trigger-type specificity, support Any/All and a small locally saved Wi-Fi suggestion list.
 - UI: one shared page-header style and order, Touchpad switch beside Touchpad function, consolidated flat Settings rows with advanced diagnostics/support/reset behind disclosure, restrained copy.
 - Keyboard: release scoped Lenovo tposd window hiding when an experimental effect ends so subsequent Fn+Space feedback remains visible.
-- [ ] exact candidate PR CI source/test/shell/visual matrix passes
+- [x] interim source head `036780bc2a4c1f85f423fe8cfefce5ce22fa3205` passed CI `37230128783` and Package `37230128739`; preceding compilation error in the Touchpad field was corrected.
+- [ ] frozen alpha.60 PR CI source/test/shell/visual matrix passes
 - [ ] inspect actual dark/light WPF screenshots (min/normal/wide) and behavior states
 - [ ] package/installer/update and service lifecycle smoke against candidate
 - [ ] physically test X9 explicit Auto recovery, Quiet/Balanced/Max on AC/DC after reboot and wake, and verify other utility ownership semantics

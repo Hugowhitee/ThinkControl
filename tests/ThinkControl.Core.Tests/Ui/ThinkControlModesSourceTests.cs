@@ -121,6 +121,8 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("mode.AutomationPriority", policy, StringComparison.Ordinal);
         Assert.Contains("CandidateDwell = TimeSpan.FromSeconds(5)", policy, StringComparison.Ordinal);
         Assert.Contains("_modeBeforeAutomationId", policy, StringComparison.Ordinal);
+        Assert.DoesNotContain("_manualOverrideCandidateId is null", policy, StringComparison.Ordinal);
+        Assert.Contains("string.Equals(candidateId, _manualOverrideCandidateId", policy, StringComparison.Ordinal);
         Assert.Contains("ThinkControlModeActivationOrigin.Restore", policy, StringComparison.Ordinal);
         Assert.Contains("WlanGetProfileList", policy, StringComparison.Ordinal);
         Assert.Contains("SuggestedWifiNetworks", panel, StringComparison.Ordinal);

@@ -226,13 +226,10 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
 
         if (_manualOverride)
         {
-            if (_manualOverrideCandidateId is null)
-            {
-                _manualOverrideCandidateId = candidateId;
-                _lastCandidateId = candidateId;
-                return;
-            }
-
+            // Null is a valid previous context (no matching trigger at home).
+            // Do not absorb the *first* new school Wi-Fi match as the manual
+            // override baseline; that would suppress School until a second
+            // unrelated context change occurred.
             if (string.Equals(candidateId, _manualOverrideCandidateId, StringComparison.OrdinalIgnoreCase))
             {
                 _lastCandidateId = candidateId;
