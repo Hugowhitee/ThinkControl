@@ -27,7 +27,7 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current prerelease target:** `v0.1.0-alpha.59` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) lists the published installer.  
+**Current alpha source:** `v0.1.0-alpha.60` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) is the authoritative list of published installers (the current source version can temporarily be ahead during verification).  
 **Experimental OEM status:** Lenovo firmware acknowledgment is not proof the X9 fan profile physically changed. Physical fan and battery charging-threshold tests remain open; see [Release readiness](docs/RELEASE_READINESS.md).
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
@@ -38,8 +38,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.57/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.57/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.59/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.59/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
