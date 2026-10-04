@@ -125,6 +125,9 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("WlanGetProfileList", policy, StringComparison.Ordinal);
         Assert.Contains("SuggestedWifiNetworks", panel, StringComparison.Ordinal);
         Assert.Contains("IsEditable = true", panel, StringComparison.Ordinal);
+        string selection = Read(root, "src", "ThinkControl.UI", "Resources", "SelectionStyles.xaml");
+        Assert.Contains("PART_EditableTextBox", selection, StringComparison.Ordinal);
+        Assert.Contains("IsEditable", selection, StringComparison.Ordinal);
         Assert.Contains("TriggerMatchCombo", editor, StringComparison.Ordinal);
         Assert.Contains("TriggerPriorityCombo", editor, StringComparison.Ordinal);
     }

@@ -113,6 +113,18 @@
                                           ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
                                           ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
                                           IsHitTestVisible="False" />
+                        <!-- Editable selectors use the same popup skin while
+                             allowing a manually typed Wi-Fi SSID. -->
+                        <TextBox x:Name="PART_EditableTextBox"
+                                 Visibility="Collapsed"
+                                 Margin="{TemplateBinding Padding}"
+                                 Padding="0"
+                                 BorderThickness="0"
+                                 Background="Transparent"
+                                 Foreground="{DynamicResource Tc.Text}"
+                                 CaretBrush="{DynamicResource Tc.Text}"
+                                 VerticalContentAlignment="Center"
+                                 Focusable="True" />
                         <Path x:Name="Chevron"
                               Width="7" Height="4"
                               Margin="0,0,12,0"
@@ -162,6 +174,12 @@
                         </Popup>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsEditable" Value="True">
+                            <Setter TargetName="SelectedContent" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="PART_EditableTextBox" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="DropDownToggle" Property="HorizontalAlignment" Value="Right" />
+                            <Setter TargetName="DropDownToggle" Property="Width" Value="34" />
+                        </Trigger>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Root" Property="Background" Value="{DynamicResource Tc.SurfaceHover}" />
                         </Trigger>
