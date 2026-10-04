@@ -26,13 +26,13 @@ Last immutable published prerelease:
 - alpha.58 restores service-owned fan-controller capability truth, recomposes Modes as editable saved modes, restores direct contextual Windows Settings actions, and clarifies Battery Preservation with 80 / 85 / 90 / 95% limits plus a stable 0%→limit modeled-wear comparison
 - physical X9 Quiet/Balanced/Max and battery-threshold behavior remain a separate real-device evidence class; hosted CI does not invent that evidence
 
-## Alpha.59 candidate — NOT RELEASED
+## Alpha.59 source integration — NOT RELEASED
 
-- Issue #113 and draft PR #114, branch `alpha59-modes-cooling-battery-ui`; `version.json` is `0.1.0-alpha.59` with `releaseReady=false`. Last public installer is **alpha.58**.
-- Revised Modes selector, Save & apply, transition error/rollback visibility, OEM cooling failure feedback, supported custom battery thresholds, scientifically cautious battery copy and direct shared Defaults/Windows links.
-- Initial draft candidate `5b71fd9f934875192c6997a634a2fc93955446c9`: Package run #37220481981 succeeded; CI #37220482015 reported three stale source assertions (258 passed/3 failed). Following code updated the tests and alpha.59 unready flag; rerun exact-head validation before promotion.
-- **BLOCKERS:** real X9 21Q6/21Q7 firmware policy results (AC/DC, boot, resume, external Windows/F8/Vantage overrides), real charge window behavior, final WPF screenshot inspection for dark/light and all sizes, installer upgrade/service verification. CI success alone cannot validate OEM physical policy. A named-pipe response is an acknowledgment, not physical readback.
-- Never enable the previously rejected X9 direct per-fan target/EC writers as a workaround. Do not merge/release without physical tests and completed alpha.59 acceptance gates.
+- Issue #113; PR #114 integrates validated **source** into `main` following Hugo's explicit October 4 request to push code to GitHub, not to distribute a development installer. `version.json` remains `0.1.0-alpha.59` with `releaseReady=false`; last public installer is **alpha.58**.
+- Scope: unified Modes selection / Save & apply, per-facet transition and rollback errors, honest Lenovo cooling acknowledgments and failure feedback, capability-gated custom battery charge thresholds, cautious battery health copy, and consistent Defaults/Windows controls.
+- Exact source PR head `330d63c74b671fd9f4394d65e945a50eb4071d6d`: CI `37221596098` (261 tests, WPF visual QA and Compact↔Advanced shell smoke) and Package `37221596095` (installer, service, updater and oldest-supported upgrade compatibility) both succeeded. Gallery artifact `11310905138` includes normal/min/wide light/dark views and focused custom charge-window states, which were visually checked in the accompanying development session.
+- **RELEASE BLOCKERS REMAIN:** real ThinkPad X9 21Q6/21Q7 firmware policy response (AC/DC, boot, resume, Windows/F8/Vantage interactions) and battery charge stop/resume transitions. A successful LITSSvc pipe acknowledgment is not verified physical-policy readback. Hosted CI cannot supply this evidence.
+- Source integration is separate from release promotion. **Do not set `releaseReady=true`, tag, publish, or advertise alpha.59 as verified until physical hardware acceptance succeeds.** Never enable rejected EC or per-fan target-RPM writers to bypass that requirement.
 
 ## Alpha.58 published release — fan capability truth, Modes and Battery clarity
 
