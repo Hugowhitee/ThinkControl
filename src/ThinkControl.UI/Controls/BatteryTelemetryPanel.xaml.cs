@@ -75,12 +75,9 @@ public partial class BatteryTelemetryPanel : UserControl
         if (_subscribedState is not AppState state)
             return;
 
-        int target = state.BatteryProtectionEnabled == true
-            ? state.BatteryProtectionStopPercent ?? 100
-            : 100;
-        ChargeProtectionWearText.Text =
-            BatteryPreservationImpactModel.DescribeLimitWear(target);
-        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
+        ChargeProtectionWearText.Text = DescribeBatteryAging(
+            state.BatteryProtectionEnabled, _batteryProtectionAvailable);
+        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
     }
 
     private void QueueHistoryRefresh()
@@ -322,9 +319,10 @@ public partial class BatteryTelemetryPanel : UserControl
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
             : "Preservation is off; charging is allowed to 100%.";
-        ChargeProtectionWearText.Text = BatteryPreservationImpactModel.DescribeLimitWear(
-            snapshotProtection ? snapshotStop : 100);
-        ChargeProtectionWearText.ToolTip = BatteryPreservationImpactModel.LimitationsText;
+        _batteryProtectionAvailable = true;
+        ChargeProtectionWearText.Text = DescribeBatteryAging(snapshotProtection, available: true);
+        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
+        CustomChargeLimitsButton.IsEnabled = state.BatteryProtectionWritable && snapshotProtection;
         ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
     }
