@@ -66,9 +66,8 @@
                                      Subtitle="">
             <controls:AdvancedPageHeader.Actions>
                 <Button Content="Defaults"
-                        Style="{StaticResource TcInlineButton}"
-                        Padding="10,4"
-                        FontSize="{x:Static ui:TypographyScale.Caption}"
+                        controls:AdvancedPageHeader.ActionRole="Defaults"
+                        Style="{StaticResource TcPageHeaderAction}"
                         Click="Reset_Click" />
             </controls:AdvancedPageHeader.Actions>
         </controls:AdvancedPageHeader>
@@ -128,6 +127,15 @@
                                    FontSize="{x:Static ui:TypographyScale.Caption}"
                                    TextWrapping="Wrap"
                                    Margin="0,4,0,0" />
+                        <Button x:Name="RecoverAutoButton"
+                                Content="Return to Lenovo Auto ›"
+                                Style="{StaticResource TcInlineButton}"
+                                HorizontalAlignment="Left"
+                                Padding="2,5"
+                                Margin="0,6,0,0"
+                                Visibility="Collapsed"
+                                Click="RecoverAuto_Click"
+                                ToolTip="Explicitly release the verified Lenovo full-speed override." />
                     </StackPanel>
                     <ComboBox x:Name="ProfileComboBox"
                               Grid.Column="1"

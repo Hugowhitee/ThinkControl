@@ -149,6 +149,9 @@ public sealed class KeyboardEffectService : IDisposable
             catch { }
         }
         cts?.Dispose();
+        // Reenable OSD visibility even if the user disables the experimental
+        // feature during a write or immediately switches to a static level.
+        _osdSuppressor.Disarm();
     }
 
     private async Task RunEffectAsync(CancellationToken cancellationToken)

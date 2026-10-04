@@ -26,7 +26,6 @@ public partial class TouchpadPanel : UserControl
     private GestureSignal? _signal;
     private bool _syncing;
     private bool _hostUiSubscribed;
-    private CheckBox _gestureEnableSwitch = null!;
     private Button _touchpadDefaultsButton = null!;
 
     private TouchpadEdge SelectedEdge => _selectedZone.Edge ?? TouchpadEdge.Top;
@@ -70,45 +69,22 @@ public partial class TouchpadPanel : UserControl
 
     private void BuildHeaderActions()
     {
-        var label = new TextBlock
-        {
-            Text = "Edge gestures",
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 10, 0)
-        };
-        label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-
-        _gestureEnableSwitch = new CheckBox
-        {
-            Style = TryFindResource("TcSwitch") as Style
-        };
-        _gestureEnableSwitch.Click += GestureEnable_Click;
-
         _touchpadDefaultsButton = new Button
         {
             Content = "Defaults",
-            Style = TryFindResource("TcInlineButton") as Style,
-            Padding = new Thickness(7, 4, 7, 4),
-            FontSize = TypographyScale.Caption,
-            Margin = new Thickness(10, 0, 0, 0)
+            Style = TryFindResource("TcPageHeaderAction") as Style
         };
         _touchpadDefaultsButton.Click += TouchpadDefaults_Click;
 
         var windowsTouchpad = new Button
         {
             Content = "Windows touchpad ↗",
-            Style = TryFindResource("TcExternalSettingsLink") as Style,
-            Padding = new Thickness(7, 4, 7, 4),
-            FontSize = TypographyScale.Caption,
-            Margin = new Thickness(10, 0, 0, 0)
+            Style = TryFindResource("TcPageHeaderExternalAction") as Style
         };
         windowsTouchpad.Click += WindowsTouchpad_Click;
 
-        StackPanel rail = TouchpadHeader.EnsureActionStack();
-        rail.Children.Add(label);
-        rail.Children.Add(_gestureEnableSwitch);
-        rail.Children.Add(_touchpadDefaultsButton);
-        rail.Children.Add(windowsTouchpad);
+        TouchpadHeader.AddAction(windowsTouchpad, PageHeaderActionRole.External);
+        TouchpadHeader.AddAction(_touchpadDefaultsButton, PageHeaderActionRole.Defaults);
     }
 
     private Geometry ResolveIcon(string resourceKey)
@@ -148,7 +124,7 @@ public partial class TouchpadPanel : UserControl
         try
         {
             _configuration = _host.Configuration.Sanitize();
-            _gestureEnableSwitch.IsChecked = _configuration.Enabled;
+            GestureEnableSwitch.IsChecked = _configuration.Enabled;
             EdgeWidthSlider.Value = _configuration.EdgeWidthMm;
             ActivationSlider.Value = _configuration.ActivationDistanceMm;
             ToleranceSlider.Value = _configuration.ContinuationToleranceMm;
@@ -308,7 +284,7 @@ public partial class TouchpadPanel : UserControl
     {
         if (_syncing || _host is null)
             return;
-        _configuration = _configuration with { Enabled = _gestureEnableSwitch.IsChecked == true };
+        _configuration = _configuration with { Enabled = GestureEnableSwitch.IsChecked == true };
         _host.UpdateConfiguration(_configuration, releaseGestureModeOwnership: true);
         if (_configuration.Enabled)
             _host.EnsureInputStarted();

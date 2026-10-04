@@ -42,17 +42,11 @@ public partial class AdvancedWindow
         {
             Tag = WindowsSettingsLinkTag,
             Content = label,
-            Style = TryFindResource("TcExternalSettingsLink") as Style,
-            Padding = new Thickness(7, 4, 7, 4),
-            FontSize = TypographyScale.Caption,
-            VerticalAlignment = VerticalAlignment.Center,
+            Style = TryFindResource("TcPageHeaderExternalAction") as Style,
             ToolTip = "Open the matching Windows Settings page"
         };
-        if (rail.Children.Count > 0)
-            button.Margin = new Thickness(PageHeaderActionGap, 0, 0, 0);
-
         button.Click += (_, _) => OpenWindowsSettings(uri);
-        rail.Children.Add(button);
+        header.AddAction(button, PageHeaderActionRole.External);
     }
 
     private static void OpenWindowsSettings(string uri)

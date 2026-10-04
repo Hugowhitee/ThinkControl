@@ -48,6 +48,12 @@
             <StackPanel x:Name="SettingsStack" Grid.Column="1" Margin="7,0,0,0">
                 <Border Style="{StaticResource TcSection}">
                     <StackPanel>
+                        <Grid Margin="0,0,0,12">
+                            <TextBlock Text="Edge gestures" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <CheckBox x:Name="GestureEnableSwitch" HorizontalAlignment="Right"
+                                      Style="{StaticResource TcSwitch}" Click="GestureEnable_Click" />
+                        </Grid>
+                        <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,0,0,12" />
                         <TextBlock Text="Selected edge" FontWeight="SemiBold" />
                         <TextBlock x:Name="SelectedEdgeDescription" Text="Choose what sliding along this edge controls." Style="{StaticResource TouchpadLabel}" Margin="0,4,0,12" />
                         <TextBlock Text="Action" Style="{StaticResource TouchpadLabel}" />

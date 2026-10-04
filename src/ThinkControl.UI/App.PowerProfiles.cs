@@ -77,11 +77,19 @@ public partial class App
         return true;
     }
 
+    internal string? LastPowerModeError { get; private set; }
+
     internal bool ApplyPowerModeOverride(string value)
     {
         if (!ThinkControlModeCatalog.TryParsePowerMode(value, out ThinkControlPowerMode mode))
+        {
+            LastPowerModeError = "Unknown Windows power mode.";
             return false;
+        }
         bool applied = PowerModeService.SetEffective(mode);
+        LastPowerModeError = applied ? null :
+            PowerModeService.LastEffectiveError ??
+            "Windows did not confirm the selected effective power mode.";
         if (applied)
             State.SelectedPowerMode = mode.ToString();
         return applied;
