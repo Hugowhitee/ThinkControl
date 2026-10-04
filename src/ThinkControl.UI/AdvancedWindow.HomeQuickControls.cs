@@ -295,11 +295,15 @@ public partial class AdvancedWindow
             HomeModeCombo.SelectedItem = active;
             HomeModeModifiedText.Text = _app.Modes.IsTransitioning
                 ? "Applying…"
+                : _app.Modes.LastTransitionError is not null
+                    ? "Apply failed · open Modes"
                 : _app.Modes.IsModified
                     ? "Modified"
                     : "Automatic";
+            HomeModeModifiedText.ToolTip = _app.Modes.LastTransitionError;
             HomeModeModifiedText.Visibility =
                 _app.Modes.IsTransitioning ||
+                _app.Modes.LastTransitionError is not null ||
                 _app.Modes.IsModified ||
                 _app.Modes.ActiveModeAutomatic
                     ? Visibility.Visible
