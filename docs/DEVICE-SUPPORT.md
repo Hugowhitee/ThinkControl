@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model for the **v0.1.0-alpha.58** candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.58` is the current published prerelease; it restores the service capability snapshot as the fan-controller source of truth and preserves all existing direct fan-write safety gates.
+This document describes the support model for the **v0.1.0-alpha.59** unreleased candidate. ThinkControl is intentionally capability-driven: a laptop model name alone does not grant direct write access or decide which setup/calibration/effect workflows appear. Immutable `v0.1.0-alpha.58` is the current published prerelease; it restores the service capability snapshot as the fan-controller source of truth and preserves all existing direct fan-write safety gates.
 
 ## Support levels
 
