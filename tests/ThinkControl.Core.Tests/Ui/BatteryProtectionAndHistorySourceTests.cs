@@ -29,7 +29,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("StopPercent=\"{Binding BatteryProtectionStopPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("CurrentPercent=\"{Binding BatteryPercent}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("IsCharging=\"{Binding BatteryCharging}\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("charging stops at {stop}%", code, StringComparison.Ordinal);
+        Assert.Contains("Charging stops at {stop}%", code, StringComparison.Ordinal);
 
         Assert.Contains("CustomChargeApply_Click", code, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CustomChargeStartComboBox\"", xaml, StringComparison.Ordinal);
@@ -53,7 +53,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Charge hold, resumes below {start}%", state, StringComparison.Ordinal);
         Assert.DoesNotContain("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("there is no reliable wear percentage", code, StringComparison.Ordinal);
+        Assert.Contains("battery age also matter", code, StringComparison.OrdinalIgnoreCase);
 
         string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
         Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);
