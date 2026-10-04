@@ -148,7 +148,7 @@
             </StackPanel>
 
             <Border x:Name="AdvancedCard" Grid.Row="1" Grid.ColumnSpan="2" Style="{StaticResource TcSection}" Margin="0,12,0,0">
-                <Expander Header="Advanced gesture tuning" Foreground="{DynamicResource Tc.Text}" IsExpanded="False">
+                <Expander Style="{StaticResource TcQuietExpander}" Header="Advanced gesture tuning" Foreground="{DynamicResource Tc.Text}" IsExpanded="False">
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="22" /><ColumnDefinition /><ColumnDefinition Width="22" /><ColumnDefinition /></Grid.ColumnDefinitions>
                         <StackPanel>

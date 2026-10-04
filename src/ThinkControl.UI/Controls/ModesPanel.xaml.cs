@@ -53,15 +53,17 @@ public partial class ModesPanel : UserControl
         _cancelButton = HeaderButton("Cancel", Cancel_Click);
         _cancelButton.Visibility = Visibility.Collapsed;
 
-        _saveButton = HeaderButton("Save & apply", Save_Click);
-        _saveButton.Margin = new Thickness(10, 0, 0, 0);
+        // Saving an automatic school mode must not activate it away from school.
+        // Manual application remains the explicit selection in the mode dropdown.
+        _saveButton = HeaderButton("Save", Save_Click);
         _saveButton.Visibility = Visibility.Collapsed;
 
         StackPanel rail = Header.EnsureActionStack();
         rail.Children.Add(_modifiedLabel);
-        rail.Children.Add(_reapplyButton);
-        rail.Children.Add(_cancelButton);
-        rail.Children.Add(_saveButton);
+        Header.AddAction(_reapplyButton, PageHeaderActionRole.Context);
+        Header.AddAction(_cancelButton, PageHeaderActionRole.Context);
+        Header.AddAction(_saveButton, PageHeaderActionRole.Context);
+        _saveButton.Style = TryFindResource("TcButton") as Style;
     }
 
     private Button HeaderButton(string content, RoutedEventHandler handler)
@@ -69,9 +71,8 @@ public partial class ModesPanel : UserControl
         var button = new Button
         {
             Content = content,
-            Style = TryFindResource("TcButton") as Style,
-            Padding = new Thickness(9, 4, 9, 4),
-            FontSize = TypographyScale.Caption
+            Style = TryFindResource("TcPageHeaderAction") as Style,
+            MinHeight = 32
         };
         button.Click += handler;
         return button;
@@ -970,20 +971,9 @@ public partial class ModesPanel : UserControl
             return;
         }
 
-        _saveButton.IsEnabled = false;
-        try
-        {
-            if (!await _app.Modes.ActivateAsync(mode.Id))
-            {
-                ShowEditorStatus(_app.Modes.LastTransitionError ?? "Saved, but the mode could not be applied.");
-                return;
-            }
-            EndEdit();
-        }
-        finally
-        {
-            _saveButton.IsEnabled = true;
-        }
+        // This is configuration, not an unconditional activation request.
+        // Automation will evaluate its conditions independently.
+        EndEdit();
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)

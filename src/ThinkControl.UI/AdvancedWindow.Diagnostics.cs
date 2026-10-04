@@ -34,7 +34,6 @@ public partial class AdvancedWindow
         ConfigureHomeDashboardPolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
-        ConfigureSettingsHierarchy();
         ConfigureAdvancedUiConsistency();
         DiagnosticsPanelControl?.Refresh();
     }

@@ -83,6 +83,69 @@
                 <Setter Property="Padding" Value="14" />
             </Style>
 
+            <Style x:Key="TcSettingsRow" TargetType="Border" BasedOn="{StaticResource TcSection}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0,0,0,1" />
+                <Setter Property="CornerRadius" Value="0" />
+                <Setter Property="Padding" Value="2,15,2,17" />
+                <Setter Property="Margin" Value="0" />
+            </Style>
+            <!-- Shared disclosure style for Fans, Touchpad and Settings. -->
+            <Style x:Key="TcQuietExpander" TargetType="Expander">
+            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <StackPanel>
+                            <ToggleButton x:Name="HeaderToggle"
+                                          Content="{TemplateBinding Header}"
+                                          ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                          IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          Background="Transparent"
+                                          BorderThickness="0"
+                                          Padding="0"
+                                          Focusable="False"
+                                          HorizontalContentAlignment="Left">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Grid Background="Transparent">
+                                            <StackPanel Orientation="Horizontal">
+                                                <Path x:Name="Chevron"
+                                                      Width="10" Height="10"
+                                                      Margin="1,0,8,0"
+                                                      VerticalAlignment="Center"
+                                                      Stretch="Uniform"
+                                                      Stroke="{DynamicResource Tc.TextMuted}"
+                                                      StrokeThickness="1.6"
+                                                      StrokeStartLineCap="Round"
+                                                      StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round"
+                                                      Data="M2,4 L5,7 L8,4" />
+                                                <ContentPresenter ContentSource="Content" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Grid>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Chevron" Property="Stroke" Value="{DynamicResource Tc.Text}" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="Chevron" Property="Data" Value="M2,7 L5,4 L8,7" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <ContentPresenter x:Name="ExpandSite" ContentSource="Content" Visibility="Collapsed" />
+                        </StackPanel>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
             <Style x:Key="TcButton" TargetType="Button">
                 <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
                 <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />

@@ -35,6 +35,20 @@ Previous fully recorded immutable release:
 - Safety constraints stay unchanged: rejected direct EC and per-fan target-RPM writes remain disabled; unknown hardware stays read-only; charge-threshold writing remains provider-, identity- and range-gated. `releaseReady=true` here authorizes **publication of an experimental prerelease only**, not claiming completed hardware acceptance.
 - Publish through the repository's tagged immutable release workflow with exactly four assets and verified checksums. On completion record the tag SHA/promotion/package results here. If promotion fails, do not claim that GitHub Releases or the updater exposes alpha.59.
 
+## Follow-up stabilization candidate — feedback after alpha.59 (2026-10-04)
+
+- Tracking: issue #113; candidate branch `fix/x9-mode-ownership-and-header-consistency`. This work remains **UNVERIFIED on physical X9** until the owner runs real recovery/AC/DC/resume/fan-noise checks.
+- Cooling: identify non-ThinkControl Lenovo full-speed owner explicitly; stop automatic persisted Quiet/Balanced retries for that permanent conflict; offer a deliberate verified-feature `Return to Lenovo Auto` recovery action. Never clear another utility's live ownership silently or re-enable physically rejected per-fan/EC writers.
+- Modes: surface the Windows power-overlay failure reason, avoid rollback of untouched facets and silent auto-handoffs, keep one dropdown as selection, save without auto-activating, restore pre-automation manual mode, apply 5-second context dwell, resolve overlaps by user priority plus deterministic trigger-type specificity, support Any/All and a small locally saved Wi-Fi suggestion list.
+- UI: one shared page-header style and order, Touchpad switch beside Touchpad function, consolidated flat Settings rows with advanced diagnostics/support/reset behind disclosure, restrained copy.
+- Keyboard: release scoped Lenovo tposd window hiding when an experimental effect ends so subsequent Fn+Space feedback remains visible.
+- [ ] exact candidate PR CI source/test/shell/visual matrix passes
+- [ ] inspect actual dark/light WPF screenshots (min/normal/wide) and behavior states
+- [ ] package/installer/update and service lifecycle smoke against candidate
+- [ ] physically test X9 explicit Auto recovery, Quiet/Balanced/Max on AC/DC after reboot and wake, and verify other utility ownership semantics
+- [ ] physically test automatic school-Wi-Fi entry/exit, overlapping conditions, manual selection and keyboard OSD after disabling experimental effects
+- [ ] validate release notes/version and published immutable assets/checksums only after the gates above; no physical-verification claim based on hosted CI
+
 ## Alpha.58 published release — fan capability truth, Modes and Battery clarity
 
 Completion evidence:

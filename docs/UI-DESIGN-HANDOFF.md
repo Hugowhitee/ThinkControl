@@ -43,13 +43,16 @@ Keep the context-engine model, but continue improving interaction.
 
 Desired interaction:
 
-- clicking the mode row selects it directly;
-- Edit remains a separate secondary action;
+- one mode dropdown selects/applies the mode; vertical rows summarize saved modes;
+- Edit remains a separate secondary action on the row;
 - active/automatic/modified/applying state is obvious without a separate Activate button;
 - Focus, Battery saver and Performance are seeded once as normal editable saved modes, not shown as three permanent starter CTA buttons;
 - New mode may still offer those definitions as optional templates after Blank mode;
 - editor remains Controls + Automation, with compact direct controls rather than repetitive admin-table rows;
 - automation should feel like laptop context, not a generic IFTTT builder.
+- the mode editor **saves without activating** away from its trigger context; users can select a mode manually when needed;
+- automation evaluates a stable condition for at least 5 seconds, supports Any/All conditions, a visible priority, and restores the prior manual mode or ordinary settings when the trigger ends;
+- Wi-Fi suggestions show the currently connected and a short list of saved networks with custom SSID entry, never unrelated scans or credentials;
 
 Starter direction:
 
@@ -69,7 +72,7 @@ Preserve the compact gauge itself, but make the decision surface explicit:
 
 ### Header actions and Windows links
 
-Title-level actions stay direct and contextual. Do not hide a common destination behind a generic **Windows settings** dropdown. Display may link directly to Windows display settings; Battery may link directly to Power & battery. Page Defaults remains a quiet secondary direct action rather than becoming another menu/list item.
+Title-level actions stay direct and contextual. Do not hide a common destination behind a generic **Windows settings** dropdown. Display may link directly to Windows display settings; Battery may link directly to Power & battery. Page Defaults remains a quiet secondary direct action rather than becoming another menu/list item. External links, Defaults and contextual actions share one fixed header rail, style and right alignment. Feature switches sit beside the related setting rather than in the header. Settings uses flat general rows and a collapsed advanced diagnostics/recovery section.
 
 ### Home quick controls
 

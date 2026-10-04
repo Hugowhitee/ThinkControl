@@ -97,8 +97,8 @@ public partial class AdvancedWindow
 
     private void AddGlobalResetCard()
     {
-        if (PageSettings.Content is not WpfStackPanel stack ||
-            stack.Children.OfType<Border>().Any(border => Equals(border.Tag, GlobalResetCardTag)))
+        WpfStackPanel stack = SettingsAdvancedBody;
+        if (stack.Children.OfType<Border>().Any(border => Equals(border.Tag, GlobalResetCardTag)))
         {
             return;
         }

@@ -91,7 +91,7 @@ Home and Compact prefer controls plus live state over explanatory paragraphs. De
 
 Every Advanced page uses the same left anchor/readable maximum width and must survive the documented minimum, normal and wide snapshots without horizontal escape or clipped labels.
 
-The page header is also one shared rail. The title occupies a 38 px title row; title-level actions such as Defaults, Windows links and persistent switches align to that same row. Subtitle/help text sits below it. Changing destinations must not make the top action jump because one page centered it against a two-line title block while another centered it against the title alone.
+The page header is also one shared rail. The title occupies a 38 px title row; true page actions align on that row, ordered consistently as contextual actions, external Windows links and Defaults. Subtitle/help text sits below it. Feature state switches (for example, Touchpad edge gestures) belong next to the relevant feature in the page body, not between unrelated page actions. Changing destinations must not make the top action jump because one page centered it against a two-line title block while another centered it against the title alone.
 
 - Prefer wrapping concise helper copy over ellipsizing a sentence that changes the meaning of a setting.
 - Values/telemetry may use ellipsis only where the complete value can genuinely exceed the available semantic slot.

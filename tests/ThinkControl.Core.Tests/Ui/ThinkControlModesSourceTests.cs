@@ -107,6 +107,29 @@ public sealed class ThinkControlModesSourceTests
     }
 
     [Fact]
+    public void ModeAutomation_ExplainsConditionsPriorityAndRestoresPriorManualMode()
+    {
+        string root = FindRepositoryRoot();
+        string models = Read(root, "src", "ThinkControl.UI", "Services", "ThinkControlModeModels.cs");
+        string policy = Read(root, "src", "ThinkControl.UI", "Services", "ThinkControlModeAutomationService.cs");
+        string editor = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml");
+        string panel = Read(root, "src", "ThinkControl.UI", "Controls", "ModesPanel.xaml.cs");
+
+        Assert.Contains("bool MatchAllTriggers = false", models, StringComparison.Ordinal);
+        Assert.Contains("int AutomationPriority = 0", models, StringComparison.Ordinal);
+        Assert.Contains("if (mode.MatchAllTriggers)", policy, StringComparison.Ordinal);
+        Assert.Contains("mode.AutomationPriority", policy, StringComparison.Ordinal);
+        Assert.Contains("CandidateDwell = TimeSpan.FromSeconds(5)", policy, StringComparison.Ordinal);
+        Assert.Contains("_modeBeforeAutomationId", policy, StringComparison.Ordinal);
+        Assert.Contains("ThinkControlModeActivationOrigin.Restore", policy, StringComparison.Ordinal);
+        Assert.Contains("WlanGetProfileList", policy, StringComparison.Ordinal);
+        Assert.Contains("SuggestedWifiNetworks", panel, StringComparison.Ordinal);
+        Assert.Contains("IsEditable = true", panel, StringComparison.Ordinal);
+        Assert.Contains("TriggerMatchCombo", editor, StringComparison.Ordinal);
+        Assert.Contains("TriggerPriorityCombo", editor, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PerformanceCoolingAndRefreshModeWrites_DoNotPersistOrdinaryPreferences()
     {
         string root = FindRepositoryRoot();
@@ -206,7 +229,8 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("ThinkControlModeCatalog.CreateStarterTemplate", code, StringComparison.Ordinal);
         Assert.Contains("ModeSelector_SelectionChanged", code, StringComparison.Ordinal);
         Assert.Contains("LastTransitionError", code, StringComparison.Ordinal);
-        Assert.Contains("Save & apply", code, StringComparison.Ordinal);
+        Assert.Contains("HeaderButton(\"Save\", Save_Click)", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Saved, but the mode could not be applied.", code, StringComparison.Ordinal);
         Assert.DoesNotContain("select.Click += Activate_Click", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MutedText(\"Select\")", code, StringComparison.Ordinal);
         Assert.DoesNotContain("Content = mode.Id == ThinkControlModeCatalog.NormalId ? \"Use\" : \"Activate\"", code, StringComparison.Ordinal);
