@@ -71,6 +71,10 @@ public partial class FansPanel : UserControl
         CoolingOwnerText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
             : "Unavailable";
+        bool ownershipConflict = UsesFirmwarePolicy && App.IsExternalCoolingOwnerConflict(state.HardwareAccess);
+        RecoverAutoButton.Visibility = ownershipConflict ? Visibility.Visible : Visibility.Collapsed;
+        if (ownershipConflict)
+            CoolingDetailText.Text = state.HardwareAccess;
         AppliedLevelText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : state.FanStateText
             : "Unavailable";
@@ -147,14 +151,21 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(profileName, profileId);
         ApplyProviderCopy(canControl, _fanControlKind);
 
-        CoolingDetailText.Text = _app?.LastCoolingError is string failure
-            ? failure
-            : canControl
+        CoolingDetailText.Text = _app?.ExternalCoolingOwnerConflictDetail is string conflict
+            ? conflict
+            : _app?.LastCoolingError is string failure
+                ? failure
+                : canControl
                 ? UsesFirmwarePolicy ? "Lenovo firmware · policy request, not physical readback" : "Direct fan control"
                 : DescribeUnavailable(telemetry?.HardwareAccess ?? _app?.State.HardwareAccess, hasTelemetry);
         CoolingOwnerText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
             : "Unavailable";
+        RecoverAutoButton.Visibility =
+            UsesFirmwarePolicy && App.IsExternalCoolingOwnerConflict(
+                _app?.ExternalCoolingOwnerConflictDetail ??
+                _app?.LastCoolingError ?? _app?.State.HardwareAccess)
+                ? Visibility.Visible : Visibility.Collapsed;
 
         if (UsesFirmwarePolicy && !profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) &&
             !profileName.Equals("Auto", StringComparison.OrdinalIgnoreCase))
@@ -483,6 +494,31 @@ public partial class FansPanel : UserControl
                 CoolingDetailText.Text = "Couldn’t apply the temporary fan target. Retry, or open System if it keeps failing.";
         }
         finally { button.IsEnabled = HasDirectFanWriter && !_app.FanCalibrationState.Required; }
+    }
+
+    private async void RecoverAuto_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null)
+            return;
+        RecoverAutoButton.IsEnabled = false;
+        try
+        {
+            // Explicit user Auto is the only recovery action allowed to clear a
+            // verified full-speed bit left by another service instance/utility.
+            bool success = await _app.SetCoolingProfileAsync("Lenovo Auto");
+            if (!success)
+                CoolingDetailText.Text = _app.LastCoolingError ?? "Lenovo Auto was not confirmed.";
+            else
+            {
+                RecoverAutoButton.Visibility = Visibility.Collapsed;
+                CoolingDetailText.Text = "Lenovo Auto requested. Select a profile when the other utility has released control.";
+            }
+            SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
+        }
+        finally
+        {
+            RecoverAutoButton.IsEnabled = true;
+        }
     }
 
     private async void Reset_Click(object sender, RoutedEventArgs e)

@@ -22,6 +22,8 @@ public partial class ModesPanel : UserControl
     private string? _editingKeyboardLight;
     private readonly List<ThinkControlModeTrigger> _editingTriggers = [];
     private bool _editingAutomationEnabled;
+    private bool _editingMatchAllTriggers;
+    private int _editingAutomationPriority;
 
     private TextBlock _modifiedLabel = null!;
     private Button _reapplyButton = null!;
@@ -51,15 +53,17 @@ public partial class ModesPanel : UserControl
         _cancelButton = HeaderButton("Cancel", Cancel_Click);
         _cancelButton.Visibility = Visibility.Collapsed;
 
-        _saveButton = HeaderButton("Save & apply", Save_Click);
-        _saveButton.Margin = new Thickness(10, 0, 0, 0);
+        // Saving an automatic school mode must not activate it away from school.
+        // Manual application remains the explicit selection in the mode dropdown.
+        _saveButton = HeaderButton("Save", Save_Click);
         _saveButton.Visibility = Visibility.Collapsed;
 
         StackPanel rail = Header.EnsureActionStack();
         rail.Children.Add(_modifiedLabel);
-        rail.Children.Add(_reapplyButton);
-        rail.Children.Add(_cancelButton);
-        rail.Children.Add(_saveButton);
+        Header.AddAction(_reapplyButton, PageHeaderActionRole.Context);
+        Header.AddAction(_cancelButton, PageHeaderActionRole.Context);
+        Header.AddAction(_saveButton, PageHeaderActionRole.Context);
+        _saveButton.Style = TryFindResource("TcButton") as Style;
     }
 
     private Button HeaderButton(string content, RoutedEventHandler handler)
@@ -67,9 +71,8 @@ public partial class ModesPanel : UserControl
         var button = new Button
         {
             Content = content,
-            Style = TryFindResource("TcButton") as Style,
-            Padding = new Thickness(9, 4, 9, 4),
-            FontSize = TypographyScale.Caption
+            Style = TryFindResource("TcPageHeaderAction") as Style,
+            MinHeight = 32
         };
         button.Click += handler;
         return button;
@@ -311,6 +314,10 @@ public partial class ModesPanel : UserControl
         _editingTriggers.Clear();
         _editingTriggers.AddRange(mode.Triggers ?? []);
         _editingAutomationEnabled = mode.AutomationEnabled;
+        _editingMatchAllTriggers = mode.MatchAllTriggers;
+        _editingAutomationPriority = mode.AutomationPriority;
+        TriggerMatchCombo.SelectedIndex = _editingMatchAllTriggers ? 1 : 0;
+        TriggerPriorityCombo.SelectedIndex = _editingAutomationPriority + 1;
 
         ModeNameTextBox.Text = mode.Name;
         AutomationSwitch.IsChecked = _editingAutomationEnabled;
@@ -597,6 +604,12 @@ public partial class ModesPanel : UserControl
         UpdateAutomationState();
     }
 
+    private void TriggerMatch_Changed(object sender, SelectionChangedEventArgs e) =>
+        _editingMatchAllTriggers = TriggerMatchCombo.SelectedIndex == 1;
+
+    private void TriggerPriority_Changed(object sender, SelectionChangedEventArgs e) =>
+        _editingAutomationPriority = TriggerPriorityCombo.SelectedIndex - 1;
+
     private void UpdateAutomationState()
     {
         AutomationSwitch.IsChecked = _editingAutomationEnabled;
@@ -679,7 +692,7 @@ public partial class ModesPanel : UserControl
 
         FrameworkElement editor = trigger.Type switch
         {
-            "Wifi" => TriggerTextBox(index, "Value", trigger.Value, "Network name"),
+            "Wifi" => WifiTriggerCombo(index, trigger.Value),
             "Process" => TriggerTextBox(index, "Value", trigger.Value, "App or process"),
             "Power" => TriggerCombo(index, "Value", ["Battery", "AC"], trigger.Value),
             "BatteryBelow" => TriggerCombo(
@@ -727,6 +740,31 @@ public partial class ModesPanel : UserControl
         };
         box.LostFocus += TriggerText_LostFocus;
         return box;
+    }
+
+    private ComboBox WifiTriggerCombo(int index, string value)
+    {
+        // Offer the connected network and a few locally saved profiles; typing
+        // remains available for networks not currently known to Windows.
+        var combo = new ComboBox
+        {
+            Tag = new TriggerBinding(index, "Value"),
+            ItemsSource = ModeTriggerEnvironment.SuggestedWifiNetworks(),
+            Text = value,
+            IsEditable = true,
+            IsTextSearchEnabled = false,
+            MaxDropDownHeight = 230,
+            MinHeight = 38,
+            Style = TryFindResource("TcComboBox") as Style,
+            ToolTip = "Current and saved Windows networks; type any network name."
+        };
+        combo.SelectionChanged += TriggerCombo_SelectionChanged;
+        combo.LostKeyboardFocus += (_, _) =>
+        {
+            if (index >= 0 && index < _editingTriggers.Count)
+                _editingTriggers[index] = _editingTriggers[index] with { Value = combo.Text.Trim() };
+        };
+        return combo;
     }
 
     private ComboBox TriggerCombo(
@@ -917,7 +955,9 @@ public partial class ModesPanel : UserControl
             _editingCoolingProfile,
             _editingRefreshRate,
             _editingTriggers.ToArray(),
-            _editingAutomationEnabled);
+            _editingAutomationEnabled,
+            _editingMatchAllTriggers,
+            _editingAutomationPriority);
 
         if (!ThinkControlModeCatalog.Facets(mode).Any())
         {
@@ -931,20 +971,9 @@ public partial class ModesPanel : UserControl
             return;
         }
 
-        _saveButton.IsEnabled = false;
-        try
-        {
-            if (!await _app.Modes.ActivateAsync(mode.Id))
-            {
-                ShowEditorStatus(_app.Modes.LastTransitionError ?? "Saved, but the mode could not be applied.");
-                return;
-            }
-            EndEdit();
-        }
-        finally
-        {
-            _saveButton.IsEnabled = true;
-        }
+        // This is configuration, not an unconditional activation request.
+        // Automation will evaluate its conditions independently.
+        EndEdit();
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)

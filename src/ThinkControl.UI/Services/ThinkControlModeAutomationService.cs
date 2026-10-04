@@ -20,14 +20,27 @@ internal static class ThinkControlModeAutomationPolicy
         if (!mode.AutomationEnabled)
             return 0;
 
+        ThinkControlModeTrigger[] triggers = ThinkControlModeCatalog.SanitizeTriggers(mode.Triggers)
+            .Where(trigger => trigger.Enabled)
+            .ToArray();
+        if (triggers.Length == 0)
+            return 0;
+
         int score = 0;
-        foreach (ThinkControlModeTrigger trigger in ThinkControlModeCatalog.SanitizeTriggers(mode.Triggers))
+        foreach (ThinkControlModeTrigger trigger in triggers)
         {
-            if (!trigger.Enabled || !Matches(trigger, snapshot))
+            if (!Matches(trigger, snapshot))
+            {
+                if (mode.MatchAllTriggers)
+                    return 0;
                 continue;
+            }
             score = Math.Max(score, TriggerScore(trigger.Type));
         }
-        return score;
+
+        // Priority is user controlled; the type rank only resolves equally
+        // prioritized matches. No overlapping modes are stacked.
+        return score == 0 ? 0 : (mode.AutomationPriority + 1) * 1000 + score;
     }
 
     internal static bool Matches(ThinkControlModeTrigger trigger, ModeAutomationSnapshot snapshot) =>
@@ -92,6 +105,11 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     private int _evaluating;
     private bool _started;
     private string? _lastCandidateId;
+    private string? _modeBeforeAutomationId;
+    private string? _pendingCandidateId;
+    private DateTimeOffset _pendingCandidateSince = DateTimeOffset.MinValue;
+    private bool _pendingCandidateSet;
+    private static readonly TimeSpan CandidateDwell = TimeSpan.FromSeconds(5);
     private string? _failedCandidateId;
     private DateTimeOffset _failedCandidateUntil;
     private bool _manualOverride;
@@ -126,6 +144,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     {
         _manualOverride = true;
         _manualOverrideCandidateId = _lastCandidateId;
+        _modeBeforeAutomationId = null; // The user just made an explicit choice.
     }
 
     internal void RequestEvaluation()
@@ -170,11 +189,28 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
             foreach (ThinkControlModeDefinition mode in modes)
             {
                 int score = ThinkControlModeAutomationPolicy.MatchScore(mode, snapshot);
-                if (score <= bestScore)
+                if (score < bestScore || score == 0)
+                    continue;
+                if (score == bestScore &&
+                    !string.Equals(mode.Id, _lastCandidateId, StringComparison.OrdinalIgnoreCase))
                     continue;
                 bestScore = score;
                 candidate = mode;
             }
+
+            // A 5-second stable dwell avoids Wi-Fi roaming or short-lived app
+            // probes bouncing Quiet/Performance and damaging the restore chain.
+            string? id = candidate?.Id;
+            if (!_pendingCandidateSet ||
+                !string.Equals(id, _pendingCandidateId, StringComparison.OrdinalIgnoreCase))
+            {
+                _pendingCandidateSet = true;
+                _pendingCandidateId = id;
+                _pendingCandidateSince = DateTimeOffset.UtcNow;
+                return;
+            }
+            if (DateTimeOffset.UtcNow - _pendingCandidateSince < CandidateDwell)
+                return;
 
             await ApplyCandidateAsync(candidate);
         }
@@ -190,13 +226,10 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
 
         if (_manualOverride)
         {
-            if (_manualOverrideCandidateId is null)
-            {
-                _manualOverrideCandidateId = candidateId;
-                _lastCandidateId = candidateId;
-                return;
-            }
-
+            // Null is a valid previous context (no matching trigger at home).
+            // Do not absorb the *first* new school Wi-Fi match as the manual
+            // override baseline; that would suppress School until a second
+            // unrelated context change occurred.
             if (string.Equals(candidateId, _manualOverrideCandidateId, StringComparison.OrdinalIgnoreCase))
             {
                 _lastCandidateId = candidateId;
@@ -217,11 +250,15 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
                 DateTimeOffset.UtcNow < _failedCandidateUntil)
                 return;
 
+            string? previous = _app.Modes.ActiveModeAutomatic
+                ? _modeBeforeAutomationId
+                : _app.Modes.ActiveModeId;
             bool applied = await _app.Modes.ActivateAsync(
                 candidate.Id,
                 ThinkControlModeActivationOrigin.Automatic);
             if (applied)
             {
+                _modeBeforeAutomationId = previous;
                 _lastCandidateId = candidate.Id;
                 _failedCandidateId = null;
             }
@@ -238,14 +275,20 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         if (_app.Modes.ActiveModeAutomatic &&
             _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId)
         {
+            // Leaving school (or another trigger) returns to the explicit
+            // pre-automation mode, otherwise the original normal settings.
+            string restoreId = _modeBeforeAutomationId ?? ThinkControlModeCatalog.NormalId;
+            if (ThinkControlModeCatalog.Find(restoreId, _app.UserSettings.Current.CustomModes) is null)
+                restoreId = ThinkControlModeCatalog.NormalId;
             bool restored = await _app.Modes.ActivateAsync(
-                ThinkControlModeCatalog.NormalId,
-                ThinkControlModeActivationOrigin.Automatic);
+                restoreId,
+                ThinkControlModeActivationOrigin.Restore);
             if (!restored)
                 return;
         }
 
         _lastCandidateId = null;
+        _modeBeforeAutomationId = null;
         _failedCandidateId = null;
     }
 
@@ -262,7 +305,74 @@ internal sealed record ModeEnvironmentData(
 
 internal static class ModeTriggerEnvironment
 {
+    private const int MaxSuggestedNetworks = 7;
     private const uint WlanClientVersion = 2;
+
+    // Local WLAN profile names only (no passwords, no scan of nearby networks).
+    // Windows orders profiles by preference, not by last-connected timestamp.
+    internal static IReadOnlyList<string> SuggestedWifiNetworks()
+    {
+        var names = new List<string>(MaxSuggestedNetworks);
+        string? connected = GetConnectedWifiSsid();
+        if (!string.IsNullOrWhiteSpace(connected))
+            names.Add(connected);
+
+        IntPtr client = IntPtr.Zero;
+        IntPtr interfaces = IntPtr.Zero;
+        try
+        {
+            if (WlanOpenHandle(WlanClientVersion, IntPtr.Zero, out _, out client) != 0 ||
+                client == IntPtr.Zero ||
+                WlanEnumInterfaces(client, IntPtr.Zero, out interfaces) != 0 ||
+                interfaces == IntPtr.Zero)
+                return names;
+
+            int count = Math.Clamp(Marshal.ReadInt32(interfaces), 0, 16);
+            IntPtr current = IntPtr.Add(interfaces, 8);
+            int size = Marshal.SizeOf<WlanInterfaceInfo>();
+            for (int index = 0; index < count && names.Count < MaxSuggestedNetworks; index++)
+            {
+                WlanInterfaceInfo info = Marshal.PtrToStructure<WlanInterfaceInfo>(
+                    IntPtr.Add(current, index * size));
+                IntPtr profiles = IntPtr.Zero;
+                try
+                {
+                    if (WlanGetProfileList(client, ref info.InterfaceGuid, IntPtr.Zero, out profiles) != 0 ||
+                        profiles == IntPtr.Zero)
+                        continue;
+                    int profileCount = Math.Clamp(Marshal.ReadInt32(profiles), 0, 128);
+                    IntPtr start = IntPtr.Add(profiles, 8);
+                    int stride = Marshal.SizeOf<WlanProfileInfo>();
+                    for (int profileIndex = 0;
+                         profileIndex < profileCount && names.Count < MaxSuggestedNetworks;
+                         profileIndex++)
+                    {
+                        WlanProfileInfo profile = Marshal.PtrToStructure<WlanProfileInfo>(
+                            IntPtr.Add(start, profileIndex * stride));
+                        string name = profile.Name?.Trim() ?? string.Empty;
+                        if (name.Length > 0 && !names.Contains(name, StringComparer.OrdinalIgnoreCase))
+                            names.Add(name);
+                    }
+                }
+                finally
+                {
+                    if (profiles != IntPtr.Zero)
+                        WlanFreeMemory(profiles);
+                }
+            }
+        }
+        catch (DllNotFoundException) { }
+        catch (EntryPointNotFoundException) { }
+        catch { }
+        finally
+        {
+            if (interfaces != IntPtr.Zero)
+                WlanFreeMemory(interfaces);
+            if (client != IntPtr.Zero)
+                WlanCloseHandle(client, IntPtr.Zero);
+        }
+        return names;
+    }
     private const int WlanIntfOpcodeCurrentConnection = 7;
     private const int ConnectionAttributesAssociationOffset = 520;
 
@@ -388,6 +498,14 @@ internal static class ModeTriggerEnvironment
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WlanProfileInfo
+    {
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string Name;
+        public uint Flags;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct WlanInterfaceInfo
     {
         public Guid InterfaceGuid;
@@ -413,6 +531,13 @@ internal static class ModeTriggerEnvironment
         IntPtr clientHandle,
         IntPtr reserved,
         out IntPtr interfaceList);
+
+    [DllImport("wlanapi.dll")]
+    private static extern uint WlanGetProfileList(
+        IntPtr clientHandle,
+        ref Guid interfaceGuid,
+        IntPtr reserved,
+        out IntPtr profileList);
 
     [DllImport("wlanapi.dll")]
     private static extern uint WlanQueryInterface(

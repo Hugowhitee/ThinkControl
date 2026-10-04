@@ -8,9 +8,8 @@
                                      Subtitle="System audio and Dolby controls.">
             <controls:AdvancedPageHeader.Actions>
                 <Button Content="Defaults"
-                        Style="{StaticResource TcInlineButton}"
-                        Padding="10,4"
-                        FontSize="{x:Static ui:TypographyScale.Caption}"
+                        controls:AdvancedPageHeader.ActionRole="Defaults"
+                        Style="{StaticResource TcPageHeaderAction}"
                         Click="Reset_Click"
                         ToolTip="Restore Dolby Dynamic" />
             </controls:AdvancedPageHeader.Actions>

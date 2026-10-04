@@ -70,8 +70,6 @@ public partial class AdvancedWindow
 
         WpfButton button = CreatePageResetButton(tooltip);
         button.Tag = PageResetButtonTag;
-        if (rail.Children.Count > 0)
-            button.Margin = new Thickness(PageHeaderActionGap, 0, 0, 0);
 
         button.Click += async (_, _) =>
         {
@@ -79,7 +77,7 @@ public partial class AdvancedWindow
             try { await reset(); }
             finally { button.IsEnabled = true; }
         };
-        rail.Children.Add(button);
+        header.AddAction(button, PageHeaderActionRole.Defaults);
     }
 
     private WpfButton CreatePageResetButton(string tooltip)
@@ -90,10 +88,8 @@ public partial class AdvancedWindow
             ToolTip = "Reset this page · " + tooltip,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
-            Padding = new Thickness(7, 4, 7, 4),
-            FontSize = TypographyScale.Caption,
             Cursor = System.Windows.Input.Cursors.Hand,
-            Style = TryFindResource("TcInlineButton") as Style
+            Style = TryFindResource("TcPageHeaderAction") as Style
         };
         button.SetResourceReference(WpfButton.ForegroundProperty, "Tc.TextMuted");
         return button;
@@ -101,8 +97,8 @@ public partial class AdvancedWindow
 
     private void AddGlobalResetCard()
     {
-        if (PageSettings.Content is not WpfStackPanel stack ||
-            stack.Children.OfType<Border>().Any(border => Equals(border.Tag, GlobalResetCardTag)))
+        WpfStackPanel stack = SettingsAdvancedBody;
+        if (stack.Children.OfType<Border>().Any(border => Equals(border.Tag, GlobalResetCardTag)))
         {
             return;
         }

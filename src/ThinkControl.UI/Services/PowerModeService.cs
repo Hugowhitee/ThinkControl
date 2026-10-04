@@ -17,6 +17,7 @@ public sealed class PowerModeService
     private static bool _effectiveOverlayAvailable = true;
 
     public event Action<ThinkControlPowerMode>? ModeApplied;
+    public string? LastEffectiveError { get; private set; }
 
     /// <summary>
     /// Applies a mode to the currently active power source and stores it only for
@@ -38,7 +39,8 @@ public sealed class PowerModeService
 
     public bool SetEffective(ThinkControlPowerMode mode)
     {
-        bool changed = TrySetEffective(ToGuid(mode));
+        bool changed = TrySetEffective(ToGuid(mode), out string? detail);
+        LastEffectiveError = changed ? null : detail;
         if (changed)
         {
             try { ModeApplied?.Invoke(mode); }
@@ -104,17 +106,37 @@ public sealed class PowerModeService
         }
     }
 
-    private static bool TrySetEffective(Guid requested)
+    private static bool TrySetEffective(Guid requested, out string? detail)
     {
+        detail = null;
         if (!_effectiveOverlayAvailable)
+        {
+            detail = "The Windows power-overlay API is unavailable on this system.";
             return false;
+        }
 
         try
         {
-            if (PowerSetActiveOverlayScheme(requested) != 0)
+            uint result = PowerSetActiveOverlayScheme(requested);
+            if (result != 0)
+            {
+                detail = $"Windows rejected the power-mode request (code {result}).";
                 return false;
+            }
 
-            return !TryGetEffective(out Guid effective) || effective == requested;
+            if (!TryGetEffective(out Guid effective))
+            {
+                detail = "Windows accepted the request but did not confirm its effective power mode.";
+                return false;
+            }
+
+            if (effective != requested)
+            {
+                detail = $"Windows still reports {DisplayName(FromGuid(effective))}; requested {DisplayName(FromGuid(requested))}.";
+                return false;
+            }
+
+            return true;
         }
         catch (EntryPointNotFoundException)
         {
@@ -125,6 +147,7 @@ public sealed class PowerModeService
             _effectiveOverlayAvailable = false;
         }
 
+        detail = "The Windows power-overlay API is unavailable on this system.";
         return false;
     }
 

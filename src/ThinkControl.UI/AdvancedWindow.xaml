@@ -219,7 +219,56 @@
 
                     <ScrollViewer x:Name="PageUpdates" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="Updates" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Current version" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="Light" Margin="0,5,0,16" /><TextBlock Text="{Binding UpdateStatus}" FontSize="{x:Static ui:TypographyScale.Secondary}" /><StackPanel Orientation="Horizontal" Margin="0,15,0,0"><Button Content="Check for updates" Style="{StaticResource TcButton}" Click="CheckUpdates_Click" /><Button x:Name="OpenReleaseButton" Content="Open release" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="OpenRelease_Click" IsEnabled="False" /></StackPanel></StackPanel></Border></StackPanel></ScrollViewer>
 
-                    <ScrollViewer x:Name="PageSettings" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="Settings" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Theme" FontWeight="SemiBold" /><Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="ThemeSystem" GroupName="Theme" Style="{StaticResource TcSegment}" Content="System" Tag="System" Click="Theme_Click" Margin="0,0,6,0" IsChecked="True" /><RadioButton Grid.Column="1" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Dark" Tag="Dark" Click="Theme_Click" Margin="3,0" /><RadioButton Grid.Column="2" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Light" Tag="Light" Click="Theme_Click" Margin="6,0,0,0" /></Grid></StackPanel></Border><Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><Grid><StackPanel><TextBlock Text="Start with Windows" FontWeight="SemiBold" /><TextBlock Text="Launch ThinkControl directly into the tray after sign-in." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,70,0" /></StackPanel><CheckBox x:Name="StartupSwitch" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" /></Grid></Border><Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel><TextBlock Text="Background behavior" FontWeight="SemiBold" /><TextBlock Text="Closing either window hides it to the tray. Use Quit from the tray menu to stop ThinkControl completely." Foreground="{DynamicResource Tc.TextMuted}" Margin="0,7,0,0" TextWrapping="Wrap" /></StackPanel></Border><controls:DiagnosticsPanel x:Name="DiagnosticsPanelControl" Margin="0,14,0,0" /></StackPanel></ScrollViewer>
+                    <ScrollViewer x:Name="PageSettings" Visibility="Collapsed"
+                                  VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                            <controls:AdvancedPageHeader Title="Settings" />
+                            <TextBlock Text="Appearance" Style="{StaticResource TcText.SectionTitle}" Margin="2,0,0,8" />
+                            <Border Style="{StaticResource TcSettingsRow}">
+                                <StackPanel>
+                                    <TextBlock Text="Theme" FontWeight="SemiBold" />
+                                    <Grid Margin="0,12,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition /><ColumnDefinition /><ColumnDefinition />
+                                        </Grid.ColumnDefinitions>
+                                        <RadioButton x:Name="ThemeSystem" GroupName="Theme" Style="{StaticResource TcSegment}"
+                                                     Content="System" Tag="System" Click="Theme_Click" Margin="0,0,6,0" IsChecked="True" />
+                                        <RadioButton x:Name="ThemeDark" Grid.Column="1" GroupName="Theme" Style="{StaticResource TcSegment}"
+                                                     Content="Dark" Tag="Dark" Click="Theme_Click" Margin="3,0" />
+                                        <RadioButton x:Name="ThemeLight" Grid.Column="2" GroupName="Theme" Style="{StaticResource TcSegment}"
+                                                     Content="Light" Tag="Light" Click="Theme_Click" Margin="6,0,0,0" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                            <TextBlock Text="Application" Style="{StaticResource TcText.SectionTitle}" Margin="2,23,0,8" />
+                            <Border Style="{StaticResource TcSettingsRow}">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition /><ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Margin="0,0,18,0">
+                                        <TextBlock Text="Start with Windows" FontWeight="SemiBold" />
+                                        <TextBlock Text="Starts in the tray; closing keeps ThinkControl running."
+                                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                                   FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,0,0"
+                                                   TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <CheckBox x:Name="StartupSwitch" Grid.Column="1" VerticalAlignment="Center"
+                                              Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" />
+                                </Grid>
+                            </Border>
+                            <!-- Opening view and battery history rows follow this row, using the same style. -->
+                            <Expander x:Name="SettingsAdvancedExpander"
+                                      Style="{StaticResource TcQuietExpander}"
+                                      Header="Diagnostics, support &amp; reset"
+                                      Margin="2,26,0,0"
+                                      IsExpanded="False">
+                                <StackPanel x:Name="SettingsAdvancedBody" Margin="0,12,0,0">
+                                    <controls:DiagnosticsPanel x:Name="DiagnosticsPanelControl" Margin="0" />
+                                </StackPanel>
+                            </Expander>
+                        </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
         </Grid>

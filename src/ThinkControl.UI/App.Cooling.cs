@@ -44,6 +44,16 @@ public partial class App
     private string? _coolingExpectedDisplayProfile;
     private DateTimeOffset _coolingExpectedUntil = DateTimeOffset.MinValue;
     internal string? LastCoolingError { get; private set; }
+    // Preserve a startup ownership conflict until explicit user recovery.
+    // Generic hardware telemetry can overwrite State.HardwareAccess later.
+    internal string? ExternalCoolingOwnerConflictDetail { get; private set; }
+    // A live Lenovo full-speed flag owned by another instance/utility is a
+    // persistent ownership conflict. Only an explicit user Auto request may
+    // release it; retrying a saved Quiet/Balanced preference is not recovery.
+    internal static bool IsExternalCoolingOwnerConflict(string? detail) =>
+        detail?.Contains(
+            "was not started by this ThinkControl service instance",
+            StringComparison.OrdinalIgnoreCase) == true;
     private FanProfileCatalog? _fanProfiles;
     private FanCalibrationUiState _fanCalibrationState = FanCalibrationUiState.None;
 
@@ -207,12 +217,15 @@ public partial class App
             {
                 if (success)
                 {
+                    ExternalCoolingOwnerConflictDetail = null;
                     LastCoolingError = null;
                     SetExpectedCoolingProfile(generation, pendingDisplay);
                 }
                 else
                 {
                     LastCoolingError = State.HardwareAccess;
+                    if (IsExternalCoolingOwnerConflict(LastCoolingError))
+                        ExternalCoolingOwnerConflictDetail = LastCoolingError;
                     // A request is not the actual selection until the service accepts it.
                     State.CoolingProfile = previousDisplay;
                 }
@@ -690,8 +703,22 @@ public partial class App
                     : null;
                 if (baseline?.Success != true || applied?.Success != true)
                 {
-                    _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
-                    State.HardwareAccess = baseline?.Error ?? applied?.Error ?? "Saved Lenovo firmware cooling profile could not be restored";
+                    string detail = baseline?.Error ?? applied?.Error ??
+                        "Saved Lenovo firmware cooling profile could not be restored";
+                    State.HardwareAccess = detail;
+                    if (IsExternalCoolingOwnerConflict(detail))
+                    {
+                        ExternalCoolingOwnerConflictDetail = detail;
+                        // Do not fight the owner on every telemetry refresh or on
+                        // the cold-start probe schedule. A user can explicitly
+                        // return to Lenovo Auto, then select a profile again.
+                        _coolingPreferenceRestoreAttempted = true;
+                        _coolingPreferenceRetryAfter = DateTimeOffset.MaxValue;
+                    }
+                    else
+                    {
+                        _coolingPreferenceRetryAfter = DateTimeOffset.UtcNow + CoolingAutoRestoreRetryInterval;
+                    }
                     return;
                 }
 

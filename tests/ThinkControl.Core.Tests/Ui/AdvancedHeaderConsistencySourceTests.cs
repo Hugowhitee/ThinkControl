@@ -20,6 +20,12 @@ public sealed class AdvancedHeaderConsistencySourceTests
         Assert.Contains("Content=\"{Binding Actions", headerXaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Row=\"1\"", headerXaml, StringComparison.Ordinal);
         Assert.Contains("UpdateSubtitleVisibility", headerCode, StringComparison.Ordinal);
+        Assert.Contains("PageHeaderActionRole", headerCode, StringComparison.Ordinal);
+        Assert.Contains("header.AddAction(button, PageHeaderActionRole.Defaults)", resets, StringComparison.Ordinal);
+        Assert.Contains("header.AddAction(button, PageHeaderActionRole.External)", windowsLinks, StringComparison.Ordinal);
+        Assert.Contains("SettingsAdvancedBody", shell, StringComparison.Ordinal);
+        Assert.Contains("TcSettingsRow", shell, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.SettingsHierarchy.cs")));
 
         foreach (string title in new[]
                  {
@@ -46,12 +52,17 @@ public sealed class AdvancedHeaderConsistencySourceTests
         }
 
         Assert.Contains("OfType<AdvancedPageHeader>()", resets, StringComparison.Ordinal);
+        string fans = Read(root, "src", "ThinkControl.UI", "Controls", "FansPanel.xaml");
+        string touchpad = Read(root, "src", "ThinkControl.UI", "Controls", "TouchpadPanel.xaml");
+        Assert.Contains("TcPageHeaderAction", fans, StringComparison.Ordinal);
+        Assert.Contains("GestureEnableSwitch", touchpad, StringComparison.Ordinal);
+        Assert.Contains("TcQuietExpander", touchpad, StringComparison.Ordinal);
         Assert.Contains("OfType<AdvancedPageHeader>()", windowsLinks, StringComparison.Ordinal);
         Assert.Contains("Windows display ↗", windowsLinks, StringComparison.Ordinal);
         Assert.Contains("Power & battery ↗", windowsLinks, StringComparison.Ordinal);
         Assert.DoesNotContain("ContextMenu", windowsLinks, StringComparison.Ordinal);
         Assert.DoesNotContain("Windows settings ▾", windowsLinks, StringComparison.Ordinal);
-        Assert.Contains("TcInlineButton", resets, StringComparison.Ordinal);
+        Assert.Contains("TcPageHeaderAction", resets, StringComparison.Ordinal);
         Assert.False(File.Exists(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Battery.cs")));
 
         Assert.DoesNotContain(

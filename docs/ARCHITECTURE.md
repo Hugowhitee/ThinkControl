@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the current source architecture at **v0.1.0-alpha.59** (unreleased draft). `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.58` is the current published prerelease; it restores explicit service-owned fan capability truth and changes UI composition without broadening provider/write boundaries.
+This document describes the source architecture at **v0.1.0-alpha.60** (experimental candidate). `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.59` is the current published prerelease; real X9 firmware fan-mode changes remain physically unverified.
 
 ## Process boundary
 
@@ -183,7 +183,7 @@ Raw HID recognition receives every frame while WPF visualization is coalesced. C
 
 Alpha.55 supports six sparse facets: Performance, Cooling, Refresh rate, Audio Safety, Touchpad gesture enablement and non-experimental Keyboard light. Performance applies only the effective Windows overlay and never rewrites the saved AC/DC preferences. Cooling uses the existing safe provider path without replacing the saved fan-profile preference. Refresh snapshots and restores Auto/manual state. Audio, Touchpad and Keyboard retain their existing transient owners.
 
-`ThinkControlModeAutomationService` runs only in the normal-user UI process. It observes Wi-Fi SSID, running process names, power source, battery percentage and local schedule context. Trigger priority is Process > Wi-Fi > Battery threshold > Power source > Schedule. Only one mode is active at once. A manual selection suppresses automation until the matching context changes.
+`ThinkControlModeAutomationService` runs only in the normal-user UI process. It observes Wi-Fi SSID, running process names, power source, battery percentage and local schedule context. Only one mode is active. Trigger policy supports Any/All conditions and Low/Normal/High mode priority; at equal priority, Process > Wi-Fi > Battery threshold > Power > Schedule, with preference for the already-active mode. Context is required to remain stable for five seconds. Automatic transitions retain and restore the prior manually selected mode when conditions end; manual selections suppress automation until context changes. WLAN suggestions use bounded local profile discovery without reading credentials.
 
 The privileged service remains unaware of Wi-Fi/process/schedule rules. Hardware writes still cross the existing semantic service API and capability gates.
 

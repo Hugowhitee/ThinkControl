@@ -22,7 +22,9 @@ public sealed record ThinkControlModeDefinition(
     string? CoolingProfile = null,
     string? RefreshRate = null,
     ThinkControlModeTrigger[]? Triggers = null,
-    bool AutomationEnabled = false);
+    bool AutomationEnabled = false,
+    bool MatchAllTriggers = false,
+    int AutomationPriority = 0);
 
 internal enum ThinkControlModeFacet
 {
@@ -275,7 +277,9 @@ internal static class ThinkControlModeCatalog
             cooling,
             refresh,
             triggers,
-            mode.AutomationEnabled && triggers.Length > 0);
+            mode.AutomationEnabled && triggers.Length > 0,
+            mode.MatchAllTriggers,
+            Math.Clamp(mode.AutomationPriority, -1, 1));
     }
 
     internal static ThinkControlModeTrigger[] SanitizeTriggers(
@@ -369,8 +373,17 @@ internal static class ThinkControlModeCatalog
         if (triggers.Length == 0)
             return string.Empty;
 
-        return string.Join(" · ", triggers.Take(2).Select(TriggerSummary)) +
-               (triggers.Length > 2 ? $" +{triggers.Length - 2}" : string.Empty);
+        string match = triggers.Length > 1
+            ? mode.MatchAllTriggers ? "All" : "Any"
+            : "When";
+        string priority = mode.AutomationPriority switch
+        {
+            1 => " · High priority",
+            -1 => " · Low priority",
+            _ => string.Empty
+        };
+        return match + ": " + string.Join(" · ", triggers.Take(2).Select(TriggerSummary)) +
+               (triggers.Length > 2 ? $" +{triggers.Length - 2}" : string.Empty) + priority;
     }
 
     internal static string TriggerSummary(ThinkControlModeTrigger trigger) => trigger.Type switch

@@ -73,6 +73,11 @@ internal sealed class ThinkControlModeCoordinator
 
             HashSet<ThinkControlModeFacet> targetFacets =
                 [.. ThinkControlModeCatalog.Facets(target)];
+            // Rollback only facets that were actually attempted. Replaying
+            // every planned facet can otherwise clear an external Lenovo
+            // full-speed override even when the *first* Windows power action
+            // failed and cooling was never touched.
+            HashSet<ThinkControlModeFacet> attemptedFacets = [];
 
             TransitionModeId = target.Id;
             TransitionModeName = target.Name;
@@ -89,10 +94,16 @@ internal sealed class ThinkControlModeCoordinator
 
                 foreach (ThinkControlModeFacet facet in OrderedFacets(targetFacets))
                 {
+                    attemptedFacets.Add(facet);
                     if (!await TryApplyFacetAsync(target, facet))
                     {
                         string failure = DescribeFacetFailure(facet);
-                        bool recovered = await RollBackAsync(previousDefinition, previousOwned, targetFacets);
+                        // Failed Quiet/Balanced when an unrelated Lenovo utility
+                        // owns full-speed must not cause an implicit Auto write.
+                        if (facet == ThinkControlModeFacet.CoolingProfile &&
+                            App.IsExternalCoolingOwnerConflict(_app.LastCoolingError))
+                            attemptedFacets.Remove(facet);
+                        bool recovered = await RollBackAsync(previousDefinition, previousOwned, attemptedFacets);
                         LastTransitionError = failure + (recovered
                             ? " Previous settings were requested again."
                             : " Recovery was incomplete; check the affected settings.");
@@ -113,10 +124,11 @@ internal sealed class ThinkControlModeCoordinator
 
                 foreach (ThinkControlModeFacet facet in OrderedFacets(previousOwned.Except(targetFacets)))
                 {
+                    attemptedFacets.Add(facet);
                     if (!await TryRestoreBaselineAsync(facet))
                     {
                         string failure = DescribeFacetFailure(facet);
-                        bool recovered = await RollBackAsync(previousDefinition, previousOwned, targetFacets);
+                        bool recovered = await RollBackAsync(previousDefinition, previousOwned, attemptedFacets);
                         LastTransitionError = failure + (recovered
                             ? " Previous settings were requested again."
                             : " Recovery was incomplete; check the affected settings.");
@@ -393,7 +405,8 @@ internal sealed class ThinkControlModeCoordinator
     private string DescribeFacetFailure(ThinkControlModeFacet facet)
     {
         string? detail = _lastFacetException ??
-            (facet == ThinkControlModeFacet.CoolingProfile ? _app.LastCoolingError : null);
+            (facet == ThinkControlModeFacet.CoolingProfile ? _app.LastCoolingError :
+             facet == ThinkControlModeFacet.PerformanceMode ? _app.LastPowerModeError : null);
         string label = facet switch
         {
             ThinkControlModeFacet.CoolingProfile => "Cooling",
@@ -420,7 +433,7 @@ internal sealed class ThinkControlModeCoordinator
 
         if (previousDefinition is not null)
         {
-            foreach (ThinkControlModeFacet facet in OrderedFacets(previousOwned))
+            foreach (ThinkControlModeFacet facet in OrderedFacets(previousOwned.Intersect(attemptedFacets)))
                 recovered = await TryApplyFacetAsync(previousDefinition, facet) && recovered;
         }
         return recovered;

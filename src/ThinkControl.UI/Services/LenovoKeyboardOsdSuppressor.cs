@@ -19,6 +19,8 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
     private CancellationTokenSource? _watchCts;
     private Task? _watchTask;
     private HashSet<IntPtr> _baseline = [];
+    private readonly HashSet<IntPtr> _hidden = [];
+    private int _generation;
     private int? _tposdPid;
     private DateTimeOffset _pidCheckedAt = DateTimeOffset.MinValue;
     private DateTimeOffset _deadline = DateTimeOffset.MinValue;
@@ -49,11 +51,12 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
             _watchCts?.Dispose();
             _watchCts = new CancellationTokenSource();
             CancellationToken token = _watchCts.Token;
-            _watchTask = Task.Run(() => WatchAsync(pid.Value, token), token);
+            int generation = ++_generation;
+            _watchTask = Task.Run(() => WatchAsync(pid.Value, generation, token), token);
         }
     }
 
-    private async Task WatchAsync(int pid, CancellationToken token)
+    private async Task WatchAsync(int pid, int generation, CancellationToken token)
     {
         try
         {
@@ -72,8 +75,15 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
 
                 foreach (IntPtr hwnd in EnumerateVisibleWindows(pid))
                 {
-                    if (!baseline.Contains(hwnd))
+                    if (baseline.Contains(hwnd))
+                        continue;
+                    lock (_gate)
+                    {
+                        if (_disposed || token.IsCancellationRequested || generation != _generation)
+                            return;
                         _ = ShowWindow(hwnd, SwHide);
+                        _hidden.Add(hwnd);
+                    }
                 }
 
                 await Task.Delay(WatchInterval, token).ConfigureAwait(false);
@@ -86,7 +96,7 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
         {
             lock (_gate)
             {
-                if (_watchTask?.IsCompleted != false || DateTimeOffset.UtcNow >= _deadline)
+                if (generation == _generation)
                 {
                     _baseline = [];
                     _watchTask = null;
@@ -165,32 +175,66 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
         return windows;
     }
 
+    // Ending experimental effects must restore any Lenovo OSD windows this
+    // session hid. Otherwise some tposd builds reuse the hidden HWND for
+    // later Fn+Space presses and the popup never becomes visible again.
+    internal void Disarm()
+    {
+        CancellationTokenSource? cts;
+        IntPtr[] hidden;
+        int? pid;
+        lock (_gate)
+        {
+            ++_generation;
+            _deadline = DateTimeOffset.MinValue;
+            cts = _watchCts;
+            _watchCts = null;
+            _watchTask = null;
+            _baseline = [];
+            hidden = [.. _hidden];
+            _hidden.Clear();
+            pid = _tposdPid;
+        }
+
+        try { cts?.Cancel(); } catch { }
+        // Show only windows hidden by this suppressor, and only if the OEM
+        // still owns the HWND. Never blindly show unrelated OS windows.
+        if (pid is int expectedPid)
+        {
+            foreach (IntPtr hwnd in hidden)
+            {
+                if (IsWindow(hwnd))
+                {
+                    _ = GetWindowThreadProcessId(hwnd, out uint actualPid);
+                    if (actualPid == (uint)expectedPid)
+                        _ = ShowWindow(hwnd, SwShowNoActivate);
+                }
+            }
+        }
+        cts?.Dispose();
+    }
+
     public void Dispose()
     {
         if (_disposed)
             return;
 
+        Disarm();
         _disposed = true;
-        CancellationTokenSource? cts;
-        lock (_gate)
-        {
-            cts = _watchCts;
-            _watchCts = null;
-            _watchTask = null;
-            _baseline = [];
-        }
-
-        try { cts?.Cancel(); } catch { }
-        cts?.Dispose();
     }
 
     private const int SwHide = 0;
+    private const int SwShowNoActivate = 8;
 
     private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindow(IntPtr hwnd);
 
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]

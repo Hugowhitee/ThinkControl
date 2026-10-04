@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for the **v0.1.0-alpha.59** unreleased candidate and retain prior **v0.1.0-alpha.58** cases as historical coverage. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
+Use this checklist for the **v0.1.0-alpha.60** experimental candidate and retain prior immutable **v0.1.0-alpha.59** cases as historical coverage. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 
@@ -55,7 +55,7 @@ Alpha.41 established **input/tray first, rich discovery later** and alpha.43 pre
 
 Alpha.59 is not released; historical alpha.58 tests below describe the earlier product.
 
-- Modes: choose No mode, Focus, Battery saver and Performance from one dropdown. Explanatory rows are not competing selectors. Save & apply activates saved definitions. Verify per-facet failure and failed rollback states, and synchronization with Home/Compact.
+- Modes: choose No mode, Focus, Battery saver and Performance from one dropdown. Explanatory rows are not competing selectors. Saving edits does not force a mode active; choosing it manually does. Verify per-facet failure and failed rollback states, and synchronization with Home/Compact.
 - Cooling: physically verify Lenovo X9 Auto, Quiet, Balanced and Max under AC/DC, boot, resume, external Lenovo Vantage/F8 and Windows power policy changes. Compare actual acoustics/RPM/temperature under controlled safe loads. The OEM policy pipe acknowledgment alone is not readback. Direct EC and target-RPM writers remain blocked.
 - Battery: review 80/85/90/95 presets, supported custom start/stop 5% windows, external custom preservation, real charge-stop/restart under AC. Do not imply a precise cycle-wear reduction or repeated charging when plugged in.
 - UI: inspect WPF min/normal/wide dark/light visual QA for all pages; Defaults and Windows ↗ links must share controls.
@@ -75,8 +75,8 @@ Alpha.59 is not released; historical alpha.58 tests below describe the earlier p
 ## Alpha.55 context Modes and X9 fan ownership
 
 1. Create a mode with Performance, Cooling, Refresh rate, Audio, Touchpad gestures and Keyboard light in different sparse combinations. Omitted settings must remain untouched.
-2. Enable Wi-Fi automation for one mode and confirm it activates only when that SSID is connected. Manually select another mode while the SSID still matches; the manual choice must remain until the context actually changes.
-3. Repeat automation with an app/process trigger, AC/battery, a battery threshold and a schedule. When two triggers match different modes, the documented priority is Process > Wi-Fi > Battery threshold > Power > Schedule.
+2. Build a **School** mode with Wi-Fi trigger chosen from the current/saved Windows profiles or typed manually. Save without applying while away from school. After a stable match, the mode takes effect; disconnect/leave school and confirm the previous manual mode or regular settings return. Test a Wi-Fi roam shorter than five seconds: it must not flap. Manual choice wins until context changes.
+3. Repeat with process, AC/battery, battery threshold and schedule. Test both Any/All on multi-trigger modes. When modes overlap, High > Normal > Low priority, then Process > Wi-Fi > Battery threshold > Power > Schedule; stable ties do not flap. Leaving a high-priority mode should activate a still-matching lower-priority mode before ultimately restoring the manual state.
 4. Leave an automatically activated mode and confirm its owned settings restore. A subsystem changed manually while the mode is active must remain manual and the mode must show Modified.
 5. On the reference X9, force/observe a transient provider/telemetry miss. Fans must still expose Auto / Quiet / Balanced / Max through the verified Lenovo firmware-policy fallback; custom curves and manual percentages remain unavailable without a physically accepted direct writer.
 6. Select Quiet, Balanced and Max repeatedly on the physical X9. The selector must not snap to Auto merely because RPM/provider telemetry is temporarily missing. Each profile action must complete through the reviewed Lenovo policy path or show a real error.
@@ -132,7 +132,7 @@ Alpha.59 is not released; historical alpha.58 tests below describe the earlier p
 10. The wear line must remain explicitly comparative rather than claiming measured pack wear. Its tooltip/caveat must mention the generic Li-ion SOC/voltage model, the high-voltage end-charge relationship, and pack-dependent chemistry/temperature/use.
 11. Review Compact/Advanced Silent states and Battery Preservation dark/light screenshots at full resolution. The wear line must stay visually secondary and the shorter gauge must not clip/collide with the selector.
 12. From **Max cooling**, click fan **Auto** several times under live telemetry from **Home** as well as the Fans page. Home Auto must become the visible intent immediately, stay disabled while the write is in flight, and remain selected during the short post-success confirmation lease rather than bouncing back to stale Max/Quiet telemetry.
-13. With Breathing or Reactive active through the experimental fallback, automatic level changes must not leave Lenovo's keyboard-backlight popup on screen. Pressing Fn+Space outside an automatic effect write must still retain ordinary Lenovo/Windows feedback.
+13. With Breathing or Reactive through the experimental fallback, repeated automatic level changes may hide only ThinkControl-generated Lenovo tposd popups. Disable the effect, then press Fn+Space: the normal Lenovo popup must return. Test quick disable during an effect burst and app Quit; no permanently hidden OEM popup.
 14. Select keyboard **Audio**, play silence, quiet audio and louder audio. The fallback should visibly move through Off / Low / High instead of idling at Low; repeat after changing the default output device or after a stop/restart of playback.
 15. Audio mode must store no audio and a loopback failure must not create a permanent restart loop; switching away from Audio must cancel any pending restart.
 16. Install an `alpha.50-dev.N` package, then publish/check against canonical `alpha.50`. The updater must treat the public alpha.50 as newer. A dev test build must never strand the user from the matching public release.

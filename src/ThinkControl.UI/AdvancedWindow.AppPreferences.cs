@@ -37,12 +37,13 @@ public partial class AdvancedWindow
         stack.Children.Insert(openingIndex, openingCard);
         stack.Children.Insert(Math.Min(openingIndex + 1, stack.Children.Count), CreateBatteryRetentionCard());
 
+        StackPanel advanced = SettingsAdvancedBody;
         Border githubCard = CreateGitHubCard();
-        Border? resetCard = stack.Children
+        Border? resetCard = advanced.Children
             .OfType<Border>()
             .FirstOrDefault(border => Equals(border.Tag, GlobalResetCardTag));
-        int githubIndex = resetCard is null ? stack.Children.Count : stack.Children.IndexOf(resetCard);
-        stack.Children.Insert(githubIndex, githubCard);
+        int githubIndex = resetCard is null ? advanced.Children.Count : advanced.Children.IndexOf(resetCard);
+        advanced.Children.Insert(githubIndex, githubCard);
 
         NavSettings.Checked += (_, _) => RefreshOpeningViewSelection();
 
@@ -56,14 +57,15 @@ public partial class AdvancedWindow
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(132) });
-        var copy = new StackPanel { Margin = new Thickness(0, 0, 22, 0) };
+
+        var copy = new StackPanel { Margin = new Thickness(0, 0, 18, 0) };
         copy.Children.Add(new TextBlock { Text = "Battery history detail", FontWeight = FontWeights.SemiBold });
         var detail = new TextBlock
         {
-            Text = "Keep session graphs for this long. Older sessions are compacted into daily summaries; health trends and learned estimates are retained.",
+            Text = "Older samples become daily summaries; health trends remain.",
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 5, 0, 0)
+            Margin = new Thickness(0, 4, 0, 0)
         };
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         copy.Children.Add(detail);
@@ -78,12 +80,7 @@ public partial class AdvancedWindow
         _batteryRetention.SelectionChanged += BatteryRetention_SelectionChanged;
         Grid.SetColumn(_batteryRetention, 1);
         grid.Children.Add(_batteryRetention);
-        return new Border
-        {
-            Style = TryFindResource("TcSection") as Style,
-            Margin = new Thickness(0, 14, 0, 0),
-            Child = grid
-        };
+        return new Border { Style = TryFindResource("TcSettingsRow") as Style, Child = grid };
     }
 
     private void BatteryRetention_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -103,27 +100,26 @@ public partial class AdvancedWindow
 
     private Border CreateOpeningViewCard()
     {
-        var content = new StackPanel();
-        content.Children.Add(new TextBlock
-        {
-            Text = "App icon opens",
-            FontWeight = FontWeights.SemiBold
-        });
+        var grid = new Grid();
+        grid.ColumnDefinitions.Add(new ColumnDefinition());
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(260) });
 
+        var copy = new StackPanel { Margin = new Thickness(0, 0, 18, 0), VerticalAlignment = VerticalAlignment.Center };
+        copy.Children.Add(new TextBlock { Text = "App icon opens", FontWeight = FontWeights.SemiBold });
         var detail = new TextBlock
         {
-            Text = "Choose what opens from Start, a desktop shortcut, the taskbar app icon or a second launch. The tray icon always remains the Compact quick view; Start with Windows stays tray-only.",
+            Text = "The tray icon always opens Compact.",
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 5, 0, 0)
+            Margin = new Thickness(0, 4, 0, 0)
         };
         detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        content.Children.Add(detail);
+        copy.Children.Add(detail);
+        grid.Children.Add(copy);
 
-        var choices = new Grid { Margin = new Thickness(0, 12, 0, 0) };
+        var choices = new Grid { VerticalAlignment = VerticalAlignment.Center };
         choices.ColumnDefinitions.Add(new ColumnDefinition());
         choices.ColumnDefinitions.Add(new ColumnDefinition());
-
         _openingCompact = new RadioButton
         {
             GroupName = "DefaultOpeningView",
@@ -134,7 +130,6 @@ public partial class AdvancedWindow
         };
         _openingCompact.Click += OpeningView_Click;
         choices.Children.Add(_openingCompact);
-
         _openingAdvanced = new RadioButton
         {
             GroupName = "DefaultOpeningView",
@@ -146,16 +141,10 @@ public partial class AdvancedWindow
         _openingAdvanced.Click += OpeningView_Click;
         Grid.SetColumn(_openingAdvanced, 1);
         choices.Children.Add(_openingAdvanced);
+        Grid.SetColumn(choices, 1);
+        grid.Children.Add(choices);
 
-        content.Children.Add(choices);
-
-        return new Border
-        {
-            Tag = DefaultOpeningViewCardTag,
-            Style = TryFindResource("TcSection") as Style,
-            Margin = new Thickness(0, 14, 0, 0),
-            Child = content
-        };
+        return new Border { Tag = DefaultOpeningViewCardTag, Style = TryFindResource("TcSettingsRow") as Style, Child = grid };
     }
 
     private Border CreateGitHubCard()
@@ -163,45 +152,23 @@ public partial class AdvancedWindow
         var grid = new Grid();
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var copy = new StackPanel { Margin = new Thickness(0, 0, 24, 0) };
-        copy.Children.Add(new TextBlock
+        grid.Children.Add(new TextBlock
         {
-            Text = "ThinkControl on GitHub",
-            FontWeight = FontWeights.SemiBold
+            Text = "Source & releases",
+            FontWeight = FontWeights.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
         });
-        var detail = new TextBlock
-        {
-            Text = "Source code, releases, changelog and issue tracker.",
-            FontSize = TypographyScale.Caption,
-            TextWrapping = TextWrapping.Wrap,
-            Margin = new Thickness(0, 5, 0, 0)
-        };
-        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        copy.Children.Add(detail);
-        grid.Children.Add(copy);
-
         var button = new Button
         {
-            Content = "Open GitHub  ↗",
+            Content = "GitHub ↗",
             Tag = "https://github.com/Hugowhitee/ThinkControl",
-            ToolTip = "Open the ThinkControl repository on GitHub",
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            Style = TryFindResource("TcButton") as Style,
-            Padding = new Thickness(13, 7, 13, 7)
+            ToolTip = "Source, releases, changelog and issues",
+            Style = TryFindResource("TcExternalSettingsLink") as Style
         };
         button.Click += OpenUrl_Click;
         Grid.SetColumn(button, 1);
         grid.Children.Add(button);
-
-        return new Border
-        {
-            Tag = GitHubCardTag,
-            Style = TryFindResource("TcSection") as Style,
-            Margin = new Thickness(0, 18, 0, 0),
-            Child = grid
-        };
+        return new Border { Tag = GitHubCardTag, Style = TryFindResource("TcSettingsRow") as Style, Child = grid };
     }
 
     private void OpeningView_Click(object sender, RoutedEventArgs e)

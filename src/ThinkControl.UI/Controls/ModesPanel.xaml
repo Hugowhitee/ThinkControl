@@ -142,7 +142,7 @@
                             <TextBlock Text="Automation"
                                        FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                        FontWeight="SemiBold" />
-                            <TextBlock Text="Turn this mode on when one of its triggers matches."
+                            <TextBlock Text="Activates automatically when its conditions match. Restores your previous mode when they end."
                                        Foreground="{DynamicResource Tc.TextMuted}"
                                        FontSize="{x:Static ui:TypographyScale.Caption}"
                                        Margin="0,4,70,0"
@@ -156,6 +156,43 @@
                     </Grid>
 
                     <StackPanel x:Name="AutomationBody" Margin="0,16,0,0">
+                        <Grid Margin="0,0,0,13">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="155" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Match" FontWeight="SemiBold" />
+                                <TextBlock Text="Any condition or all conditions."
+                                           Foreground="{DynamicResource Tc.TextMuted}"
+                                           FontSize="{x:Static ui:TypographyScale.Caption}" />
+                            </StackPanel>
+                            <ComboBox x:Name="TriggerMatchCombo" Grid.Column="1"
+                                      Style="{StaticResource TcComboBox}"
+                                      MinHeight="38" SelectionChanged="TriggerMatch_Changed">
+                                <ComboBoxItem Content="Any condition" />
+                                <ComboBoxItem Content="All conditions" />
+                            </ComboBox>
+                        </Grid>
+                        <Grid Margin="0,0,0,13">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="155" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
+                                <TextBlock Text="Priority" FontWeight="SemiBold" />
+                                <TextBlock Text="When several modes match."
+                                           Foreground="{DynamicResource Tc.TextMuted}"
+                                           FontSize="{x:Static ui:TypographyScale.Caption}" />
+                            </StackPanel>
+                            <ComboBox x:Name="TriggerPriorityCombo" Grid.Column="1"
+                                      Style="{StaticResource TcComboBox}"
+                                      MinHeight="38" SelectionChanged="TriggerPriority_Changed">
+                                <ComboBoxItem Content="Low" />
+                                <ComboBoxItem Content="Normal" />
+                                <ComboBoxItem Content="High" />
+                            </ComboBox>
+                        </Grid>
                         <Grid>
                             <TextBlock Text="Triggers"
                                        FontWeight="SemiBold"
@@ -167,6 +204,11 @@
                                     Click="AddTrigger_Click" />
                         </Grid>
                         <StackPanel x:Name="EditorTriggers" Margin="0,8,0,0" />
+                        <TextBlock Margin="0,12,0,0"
+                                   Text="If modes overlap, higher priority wins. At equal priority: apps, Wi-Fi, battery level, power, then time. A manual selection pauses automation until conditions change."
+                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                   FontSize="{x:Static ui:TypographyScale.Caption}"
+                                   TextWrapping="Wrap" />
                     </StackPanel>
                 </StackPanel>
             </Border>
