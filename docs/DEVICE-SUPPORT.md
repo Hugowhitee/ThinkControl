@@ -1,6 +1,6 @@
 # Device support
 
-This document describes the support model for the **v0.1.0-alpha.60** experimental candidate. ThinkControl remains capability-driven: a laptop model name alone does not grant write access or decide supported control workflows. Immutable `v0.1.0-alpha.59` is the current published prerelease. X9 firmware fan-mode switching remains physically unverified and direct EC/per-fan target output remains disallowed.
+This document describes the support model for the published experimental **v0.1.0-alpha.60** prerelease. ThinkControl remains capability-driven: a laptop model name alone does not grant write access or decide supported control workflows. X9 firmware fan-mode switching remains physically unverified and direct EC/per-fan target output remains disallowed.
 
 ## Support levels
 

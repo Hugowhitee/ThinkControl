@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Use this checklist for the **v0.1.0-alpha.60** experimental candidate and retain prior immutable **v0.1.0-alpha.59** cases as historical coverage. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
+Use this checklist for published experimental **v0.1.0-alpha.60** and retain prior immutable **v0.1.0-alpha.59** cases as historical coverage. Hosted CI/installer gates have passed; physical acceptance checks still require an actual X9. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity
 

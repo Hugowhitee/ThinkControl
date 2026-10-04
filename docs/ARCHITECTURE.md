@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the source architecture at **v0.1.0-alpha.60** (experimental candidate). `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Immutable `v0.1.0-alpha.59` is the current published prerelease; real X9 firmware fan-mode changes remain physically unverified.
+This document describes the source architecture at published experimental **v0.1.0-alpha.60**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Real X9 firmware fan-mode changes remain physically unverified.
 
 ## Process boundary
 
