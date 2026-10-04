@@ -36,8 +36,9 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("x:Name=\"CustomChargeStopComboBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("A lower cap reduces time spent at high charge", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeLimitWear", code, StringComparison.Ordinal);
-        Assert.Contains("BatteryPreservationImpactModel.DescribeLimitWear", panel, StringComparison.Ordinal);
+        Assert.Contains("DescribeBatteryAging", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeLimitWear", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
         Assert.Contains("RefreshChargeProtectionWearEstimate", panel, StringComparison.Ordinal);
         Assert.Contains("_batteryProtectionWriteInFlight", code, StringComparison.Ordinal);
