@@ -12,6 +12,7 @@ public partial class ModesPanel : UserControl
 
     private App? _app;
     private bool _busy;
+    private bool _syncingModeSelection;
     private string? _editingId;
     private string? _editingPerformanceMode;
     private string? _editingCoolingProfile;
@@ -50,7 +51,7 @@ public partial class ModesPanel : UserControl
         _cancelButton = HeaderButton("Cancel", Cancel_Click);
         _cancelButton.Visibility = Visibility.Collapsed;
 
-        _saveButton = HeaderButton("Save", Save_Click);
+        _saveButton = HeaderButton("Save & apply", Save_Click);
         _saveButton.Margin = new Thickness(10, 0, 0, 0);
         _saveButton.Visibility = Visibility.Collapsed;
 
@@ -114,6 +115,19 @@ public partial class ModesPanel : UserControl
         foreach (ThinkControlModeDefinition mode in modes)
             ModeRows.Children.Add(CreateModeRow(mode));
 
+        _syncingModeSelection = true;
+        try
+        {
+            ModeSelector.ItemsSource = modes;
+            ModeSelector.SelectedItem = modes.FirstOrDefault(mode =>
+                mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase));
+            ModeSelector.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
+        }
+        finally
+        {
+            _syncingModeSelection = false;
+        }
+
         int customCount = modes.Count(mode =>
             mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase));
         EmptyModesText.Visibility = customCount == 0 ? Visibility.Visible : Visibility.Collapsed;
@@ -124,88 +138,53 @@ public partial class ModesPanel : UserControl
     private Border CreateModeRow(ThinkControlModeDefinition mode)
     {
         bool editable = mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase);
-
-        var row = new Grid { MinHeight = 60 };
+        bool active = _app is not null &&
+                      _app.Modes.ActiveModeId.Equals(mode.Id, StringComparison.OrdinalIgnoreCase);
+        var row = new Grid { MinHeight = 50 };
         row.ColumnDefinitions.Add(new ColumnDefinition());
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
-        var copy = new StackPanel
-        {
-            VerticalAlignment = VerticalAlignment.Center,
-            Margin = new Thickness(0, 0, 18, 0)
-        };
+        var copy = new StackPanel { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 14, 0) };
         copy.Children.Add(new TextBlock
         {
             Text = mode.Name,
-            FontWeight = FontWeights.SemiBold,
+            FontWeight = active ? FontWeights.SemiBold : FontWeights.Normal,
             FontSize = TypographyScale.ControlLabel
         });
-
-        var summary = MutedText(ThinkControlModeCatalog.Summary(mode));
-        summary.Margin = new Thickness(0, 4, 0, 0);
+        TextBlock summary = MutedText(ThinkControlModeCatalog.Summary(mode));
+        summary.Margin = new Thickness(0, 3, 0, 0);
         copy.Children.Add(summary);
-
         string automation = ThinkControlModeCatalog.AutomationSummary(mode);
         if (automation.Length > 0)
         {
-            var automatic = MutedText(automation);
-            automatic.Margin = new Thickness(0, 3, 0, 0);
-            copy.Children.Add(automatic);
+            TextBlock note = MutedText(automation);
+            note.Margin = new Thickness(0, 2, 0, 0);
+            copy.Children.Add(note);
         }
-        var select = new Button
-        {
-            Content = copy,
-            Tag = mode.Id,
-            Style = TryFindResource("ModeRowButton") as Style,
-            IsEnabled = _app?.Modes.IsTransitioning != true
-        };
-        select.Click += Activate_Click;
-        Grid.SetColumnSpan(select, 2);
-        row.Children.Add(select);
+        row.Children.Add(copy);
 
         var actions = new StackPanel
         {
             Orientation = Orientation.Horizontal,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right
         };
-
-        bool applying = _app is not null &&
-                        _app.Modes.IsTransitioning &&
-                        _app.Modes.TransitionModeId?.Equals(mode.Id, StringComparison.OrdinalIgnoreCase) == true;
-        bool active = _app is not null &&
-                      !applying &&
-                      _app.Modes.ActiveModeId.Equals(mode.Id, StringComparison.OrdinalIgnoreCase);
-
+        if (active)
+            actions.Children.Add(StateText(_app?.Modes.IsModified == true ? "Modified" : "Active"));
         if (editable)
         {
-            var edit = InlineButton("Edit", Edit_Click, mode.Id);
-            edit.IsEnabled = !applying;
-            edit.Margin = new Thickness(0, 0, 9, 0);
+            Button edit = InlineButton("Edit", Edit_Click, mode.Id);
+            edit.Margin = new Thickness(8, 0, 0, 0);
+            edit.IsEnabled = _app?.Modes.IsTransitioning != true;
             actions.Children.Add(edit);
-        }
-
-        if (applying)
-        {
-            actions.Children.Add(StateText("Applying…"));
-        }
-        else if (active)
-        {
-            actions.Children.Add(StateText(_app?.Modes.ActiveModeAutomatic == true ? "Automatic" : "Active"));
         }
         Grid.SetColumn(actions, 1);
         row.Children.Add(actions);
 
-        var shell = new Border
-        {
-            BorderThickness = new Thickness(0, 1, 0, 0),
-            Padding = new Thickness(12, 8, 12, 8),
-            Child = row
-        };
+        var shell = new Border { BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(14, 8, 14, 8), Child = row };
         shell.SetResourceReference(Border.BorderBrushProperty, "Tc.Border");
-        shell.SetResourceReference(
-            Border.BackgroundProperty,
-            active ? "Tc.SurfaceAlt" : "Tc.Surface");
+        if (active)
+            shell.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
         return shell;
     }
 
@@ -248,30 +227,25 @@ public partial class ModesPanel : UserControl
         return button;
     }
 
-    private async void Activate_Click(object sender, RoutedEventArgs e)
+    private async void ModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        e.Handled = true;
-        if (_busy || _app is null || sender is not FrameworkElement { Tag: string id })
+        if (_syncingModeSelection || _busy || _app is null ||
+            ModeSelector.SelectedItem is not ThinkControlModeDefinition mode ||
+            (mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase) &&
+             !_app.Modes.IsModified))
             return;
-        if (_app.Modes.ActiveModeId.Equals(id, StringComparison.OrdinalIgnoreCase) &&
-            !_app.Modes.IsModified)
-        {
-            return;
-        }
 
         _busy = true;
         ListStatusText.Visibility = Visibility.Collapsed;
-        ListView.IsEnabled = false;
+        ModeSelector.IsEnabled = false;
         try
         {
-            bool success = await _app.Modes.ActivateAsync(id, ThinkControlModeActivationOrigin.Manual);
-            if (!success)
-                ShowListStatus("Mode could not be applied.");
+            if (!await _app.Modes.ActivateAsync(mode.Id))
+                ShowListStatus(_app.Modes.LastTransitionError ?? "The mode could not be applied.");
         }
         finally
         {
             _busy = false;
-            ListView.IsEnabled = true;
             RefreshList();
         }
     }
@@ -896,7 +870,11 @@ public partial class ModesPanel : UserControl
         if (_busy || _app is null)
             return;
         _busy = true;
-        try { await _app.Modes.ReapplyAsync(); }
+        try
+        {
+            if (!await _app.Modes.ReapplyAsync())
+                ShowListStatus(_app.Modes.LastTransitionError ?? "Could not reapply the mode.");
+        }
         finally
         {
             _busy = false;
@@ -906,7 +884,7 @@ public partial class ModesPanel : UserControl
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => EndEdit();
 
-    private void Save_Click(object sender, RoutedEventArgs e)
+    private async void Save_Click(object sender, RoutedEventArgs e)
     {
         if (_app is null || string.IsNullOrWhiteSpace(_editingId))
             return;
@@ -952,7 +930,20 @@ public partial class ModesPanel : UserControl
             return;
         }
 
-        EndEdit();
+        _saveButton.IsEnabled = false;
+        try
+        {
+            if (!await _app.Modes.ActivateAsync(mode.Id))
+            {
+                ShowEditorStatus(_app.Modes.LastTransitionError ?? "Saved, but the mode could not be applied.");
+                return;
+            }
+            EndEdit();
+        }
+        finally
+        {
+            _saveButton.IsEnabled = true;
+        }
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)
