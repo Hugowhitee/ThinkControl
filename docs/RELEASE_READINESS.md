@@ -26,6 +26,14 @@ Last immutable published prerelease:
 - alpha.58 restores service-owned fan-controller capability truth, recomposes Modes as editable saved modes, restores direct contextual Windows Settings actions, and clarifies Battery Preservation with 80 / 85 / 90 / 95% limits plus a stable 0%→limit modeled-wear comparison
 - physical X9 Quiet/Balanced/Max and battery-threshold behavior remain a separate real-device evidence class; hosted CI does not invent that evidence
 
+## Alpha.59 candidate — NOT RELEASED
+
+- Issue #113 and draft PR #114, branch `alpha59-modes-cooling-battery-ui`; `version.json` is `0.1.0-alpha.59` with `releaseReady=false`. Last public installer is **alpha.58**.
+- Revised Modes selector, Save & apply, transition error/rollback visibility, OEM cooling failure feedback, supported custom battery thresholds, scientifically cautious battery copy and direct shared Defaults/Windows links.
+- Initial draft candidate `5b71fd9f934875192c6997a634a2fc93955446c9`: Package run #37220481981 succeeded; CI #37220482015 reported three stale source assertions (258 passed/3 failed). Following code updated the tests and alpha.59 unready flag; rerun exact-head validation before promotion.
+- **BLOCKERS:** real X9 21Q6/21Q7 firmware policy results (AC/DC, boot, resume, external Windows/F8/Vantage overrides), real charge window behavior, final WPF screenshot inspection for dark/light and all sizes, installer upgrade/service verification. CI success alone cannot validate OEM physical policy. A named-pipe response is an acknowledgment, not physical readback.
+- Never enable the previously rejected X9 direct per-fan target/EC writers as a workaround. Do not merge/release without physical tests and completed alpha.59 acceptance gates.
+
 ## Alpha.58 published release — fan capability truth, Modes and Battery clarity
 
 Completion evidence:
