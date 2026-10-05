@@ -434,7 +434,7 @@ public partial class App : System.Windows.Application
         string normalized = NormalizeStaticKeyboardLevel(level);
         string restingLevel = State.KeyboardBaseLevel;
         DateTimeOffset started = DateTimeOffset.UtcNow;
-        await KeyboardEffects.SetStaticLevelAsync(normalized);
+        if (!await KeyboardEffects.SetStaticLevelAsync(normalized)) return;
         KeyboardEffects.SetBaseLevel(restingLevel);
         UserSettings.Update(settings => settings with
         {
@@ -452,7 +452,13 @@ public partial class App : System.Windows.Application
 
     public async Task SetKeyboardModeAsync(string mode)
     {
-        await KeyboardEffects.SetModeAsync(mode);
+        if (mode == "Static")
+        {
+            string restingLevel = State.KeyboardBaseLevel;
+            if (!await KeyboardEffects.SetStaticLevelAsync(UserSettings.Current.KeyboardStaticLevel)) return;
+            KeyboardEffects.SetBaseLevel(restingLevel);
+        }
+        else if (!await KeyboardEffects.SetModeAsync(mode)) return;
         bool experimentalFallbackActive =
             !State.CanKeyboardEffects &&
             State.ExperimentalKeyboardEffectsEnabled &&

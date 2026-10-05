@@ -9,7 +9,8 @@ public sealed class KeyboardEffectService : IDisposable
     private static readonly TimeSpan MinHardwareWriteInterval = TimeSpan.FromMilliseconds(260);
     private static readonly TimeSpan ReactiveHold = TimeSpan.FromMilliseconds(430);
 
-    private readonly HardwareServiceClient _hardware;
+    private readonly Func<string, CancellationToken, Task<ServiceResponse?>> _writeBacklight;
+    private readonly bool _suppressOsd;
     private readonly AppState _state;
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly object _runtimeGate = new();
@@ -26,11 +27,19 @@ public sealed class KeyboardEffectService : IDisposable
     private double _audioRms;
     private double _audioPeakRms;
     private int _audioRestartGeneration;
+    private int _selectionGeneration;
     private bool _disposed;
 
     public KeyboardEffectService(HardwareServiceClient hardware, AppState state)
+        : this(hardware.SetKeyboardBacklightAsync, state, suppressOsd: true)
     {
-        _hardware = hardware;
+    }
+
+    internal KeyboardEffectService(Func<string, CancellationToken, Task<ServiceResponse?>> writeBacklight,
+        AppState state, bool suppressOsd = false)
+    {
+        _writeBacklight = writeBacklight;
+        _suppressOsd = suppressOsd;
         _state = state;
     }
 
@@ -39,19 +48,24 @@ public sealed class KeyboardEffectService : IDisposable
     // keystroke flowing through ThinkControl even when the user selected Static.
     public bool ReactiveInputAvailable => _keyboardHook?.IsAvailable == true;
 
-    public async Task SetStaticLevelAsync(string level, CancellationToken cancellationToken = default)
+    public async Task<bool> SetStaticLevelAsync(string level, CancellationToken cancellationToken = default)
     {
-        await StopEffectRuntimeAsync().ConfigureAwait(false);
+        if (_disposed) return false;
+        int generation = Interlocked.Increment(ref _selectionGeneration);
+        await StopEffectRuntimeAsync(generation).ConfigureAwait(false);
+        if (!IsCurrentSelection(generation)) return false;
         StopAudioCapture();
         StopKeyboardHook();
         _state.KeyboardMode = "Static";
         _state.KeyboardBaseLevel = NormalizeLevel(level);
         _breathingStarted = DateTimeOffset.UtcNow;
-        await ApplyLevelAsync(_state.KeyboardBaseLevel, force: true, cancellationToken).ConfigureAwait(false);
+        return await ApplyLevelAsync(_state.KeyboardBaseLevel, force: true, cancellationToken, generation).ConfigureAwait(false);
     }
 
-    public async Task SetModeAsync(string mode, CancellationToken cancellationToken = default)
+    public async Task<bool> SetModeAsync(string mode, CancellationToken cancellationToken = default)
     {
+        if (_disposed) return false;
+        int generation = Interlocked.Increment(ref _selectionGeneration);
         string normalized = mode switch
         {
             "Auto" => "Auto",
@@ -61,7 +75,8 @@ public sealed class KeyboardEffectService : IDisposable
             _ => "Static"
         };
 
-        await StopEffectRuntimeAsync().ConfigureAwait(false);
+        await StopEffectRuntimeAsync(generation).ConfigureAwait(false);
+        if (!IsCurrentSelection(generation)) return false;
         StopAudioCapture();
         StopKeyboardHook();
 
@@ -71,8 +86,7 @@ public sealed class KeyboardEffectService : IDisposable
 
         if (normalized == "Static")
         {
-            await ApplyLevelAsync(_state.KeyboardBaseLevel, force: true, cancellationToken).ConfigureAwait(false);
-            return;
+            return await ApplyLevelAsync(_state.KeyboardBaseLevel, force: true, cancellationToken, generation).ConfigureAwait(false);
         }
 
         // Auto is exclusively Lenovo's verified firmware mode. It is intentionally
@@ -81,11 +95,10 @@ public sealed class KeyboardEffectService : IDisposable
         // state and return the editor to Static rather than starting a hidden loop.
         if (normalized == "Auto")
         {
-            if (_state.CanKeyboardBacklight && await TryEnableFirmwareAutoAsync(cancellationToken).ConfigureAwait(false))
-                return;
-
-            _state.KeyboardMode = "Static";
-            return;
+            if (_state.CanKeyboardBacklight && await TryEnableFirmwareAutoAsync(cancellationToken, generation).ConfigureAwait(false))
+                return true;
+            if (IsCurrentSelection(generation)) _state.KeyboardMode = "Static";
+            return false;
         }
 
         // Native effects use a provider that explicitly advertises bounded repeated
@@ -95,7 +108,7 @@ public sealed class KeyboardEffectService : IDisposable
         if (!_state.KeyboardEffectsUsable)
         {
             _state.KeyboardMode = "Static";
-            return;
+            return false;
         }
 
         if (normalized == "Reactive")
@@ -103,37 +116,42 @@ public sealed class KeyboardEffectService : IDisposable
         else if (normalized == "Audio")
             StartAudioCapture();
 
-        await TickEffectAsync(cancellationToken).ConfigureAwait(false);
-        StartEffectRuntime();
+        await TickEffectAsync(cancellationToken, generation).ConfigureAwait(false);
+        if (IsCurrentSelection(generation)) StartEffectRuntime(generation);
+        return IsCurrentSelection(generation);
     }
 
     public void SetBaseLevel(string level) => _state.KeyboardBaseLevel = NormalizeLevel(level);
 
     public void SetSpeed(double speed) => _state.KeyboardEffectSpeed = speed;
 
-    private void StartEffectRuntime()
+    private bool IsCurrentSelection(int generation) => !_disposed && generation == Volatile.Read(ref _selectionGeneration);
+
+    private void StartEffectRuntime(int generation)
     {
-        if (_disposed || _state.KeyboardMode is "Static" or "Auto")
+        if (!IsCurrentSelection(generation) || _state.KeyboardMode is "Static" or "Auto")
             return;
 
         lock (_runtimeGate)
         {
+            if (!IsCurrentSelection(generation)) return;
             if (_effectLoop is { IsCompleted: false })
                 return;
 
             _effectCts?.Dispose();
             _effectCts = new CancellationTokenSource();
             CancellationToken token = _effectCts.Token;
-            _effectLoop = Task.Run(() => RunEffectAsync(token), token);
+            _effectLoop = Task.Run(() => RunEffectAsync(token, generation), token);
         }
     }
 
-    private async Task StopEffectRuntimeAsync()
+    private async Task StopEffectRuntimeAsync(int generation)
     {
         CancellationTokenSource? cts;
         Task? loop;
         lock (_runtimeGate)
         {
+            if (generation != Volatile.Read(ref _selectionGeneration)) return;
             cts = _effectCts;
             loop = _effectLoop;
             _effectCts = null;
@@ -151,17 +169,18 @@ public sealed class KeyboardEffectService : IDisposable
         cts?.Dispose();
         // Reenable OSD visibility even if the user disables the experimental
         // feature during a write or immediately switches to a static level.
-        _osdSuppressor.Disarm();
+        lock (_runtimeGate)
+            if (generation == Volatile.Read(ref _selectionGeneration)) _osdSuppressor.Disarm();
     }
 
-    private async Task RunEffectAsync(CancellationToken cancellationToken)
+    private async Task RunEffectAsync(CancellationToken cancellationToken, int generation)
     {
         try
         {
-            while (!cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested && IsCurrentSelection(generation))
             {
                 await Task.Delay(CurrentEffectInterval(), cancellationToken).ConfigureAwait(false);
-                await TickEffectAsync(cancellationToken).ConfigureAwait(false);
+                await TickEffectAsync(cancellationToken, generation).ConfigureAwait(false);
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -177,9 +196,9 @@ public sealed class KeyboardEffectService : IDisposable
         _ => TimeSpan.FromSeconds(1)
     };
 
-    private async Task TickEffectAsync(CancellationToken cancellationToken)
+    private async Task TickEffectAsync(CancellationToken cancellationToken, int generation)
     {
-        if (!_state.KeyboardEffectsUsable)
+        if (!IsCurrentSelection(generation) || !_state.KeyboardEffectsUsable)
             return;
 
         string? target = _state.KeyboardMode switch
@@ -191,17 +210,18 @@ public sealed class KeyboardEffectService : IDisposable
         };
 
         if (target is not null)
-            await ApplyLevelAsync(target, force: false, cancellationToken).ConfigureAwait(false);
+            await ApplyLevelAsync(target, force: false, cancellationToken, generation).ConfigureAwait(false);
     }
 
-    private async Task<bool> TryEnableFirmwareAutoAsync(CancellationToken cancellationToken)
+    private async Task<bool> TryEnableFirmwareAutoAsync(CancellationToken cancellationToken, int generation)
     {
         await _writeGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            ServiceResponse? result = await _hardware.SetKeyboardBacklightAsync("FirmwareAuto", cancellationToken).ConfigureAwait(false);
+            if (!IsCurrentSelection(generation)) return false;
+            ServiceResponse? result = await _writeBacklight("FirmwareAuto", cancellationToken).ConfigureAwait(false);
             _lastHardwareWrite = DateTimeOffset.UtcNow;
-            if (result?.Success != true)
+            if (result?.Success != true || !IsCurrentSelection(generation))
                 return false;
 
             _lastAppliedLevel = null;
@@ -249,16 +269,16 @@ public sealed class KeyboardEffectService : IDisposable
         return "Off";
     }
 
-    private async Task ApplyLevelAsync(string level, bool force, CancellationToken cancellationToken)
+    private async Task<bool> ApplyLevelAsync(string level, bool force, CancellationToken cancellationToken, int generation)
     {
         level = NormalizeLevel(level);
         DateTimeOffset now = DateTimeOffset.UtcNow;
         if (!force)
         {
             if (string.Equals(_lastAppliedLevel, level, StringComparison.OrdinalIgnoreCase))
-                return;
+                return IsCurrentSelection(generation);
             if (now - _lastHardwareWrite < MinHardwareWriteInterval)
-                return;
+                return false;
         }
 
         if (force)
@@ -271,7 +291,7 @@ public sealed class KeyboardEffectService : IDisposable
         }
         else if (!await _writeGate.WaitAsync(0, cancellationToken).ConfigureAwait(false))
         {
-            return;
+            return false;
         }
 
         try
@@ -280,16 +300,22 @@ public sealed class KeyboardEffectService : IDisposable
             // for every automatic backlight write. Hide only OSD windows created in
             // the short interval around effect writes; explicit static clicks and
             // ordinary Fn+Space feedback remain outside this suppression path.
-            if (!force)
-                _osdSuppressor.Arm();
+            lock (_runtimeGate)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!IsCurrentSelection(generation)) return false;
+                if (!force && _suppressOsd) _osdSuppressor.Arm();
+            }
 
-            ServiceResponse? result = await _hardware.SetKeyboardBacklightAsync(level, cancellationToken).ConfigureAwait(false);
+            ServiceResponse? result = await _writeBacklight(level, cancellationToken).ConfigureAwait(false);
             _lastHardwareWrite = DateTimeOffset.UtcNow;
-            if (result?.Success == true)
+            if (result?.Success == true && IsCurrentSelection(generation))
             {
                 _lastAppliedLevel = level;
                 _state.KeyboardStatus = level;
+                return true;
             }
+            return false;
         }
         finally
         {
@@ -543,10 +569,13 @@ public sealed class KeyboardEffectService : IDisposable
         if (_disposed)
             return;
         _disposed = true;
-        try { StopEffectRuntimeAsync().GetAwaiter().GetResult(); } catch { }
+        int generation = Interlocked.Increment(ref _selectionGeneration);
+        try { StopEffectRuntimeAsync(generation).GetAwaiter().GetResult(); } catch { }
         StopAudioCapture();
         StopKeyboardHook();
         _osdSuppressor.Dispose();
-        _writeGate.Dispose();
+        // A cancelled IPC request can still finish after the bounded stop wait.
+        // This semaphore allocates no WaitHandle; let it be collected after those
+        // continuations release it instead of disposing beneath an in-flight write.
     }
 }

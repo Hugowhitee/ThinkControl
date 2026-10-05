@@ -43,6 +43,7 @@ internal static class Program
                 try
                 {
                     await ValidateAutomationTransitions(app);
+                    await ValidateKeyboardTransitions();
                     RunScenario(app);
                     exitCode = 0;
                 }
@@ -63,7 +64,7 @@ internal static class Program
                 return 1;
             }
 
-            Console.WriteLine("Interactive shell lifecycle smoke passed: durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Advanced/Compact routing, passive-update dismissal on Full transition, diagnostics Ready/Shared/Verified lifecycle, repeated real Compact/Full routing, notification activation/action/dismiss, minimized Touchpad recovery, bounded page-navigation latency, sole-primary-surface and dispatcher-alive assertions.");
+            Console.WriteLine("Interactive shell lifecycle smoke passed: deterministic rule precedence/restoration, keyboard latest-selection/delayed-write/disposal, durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Advanced/Compact routing, passive-update dismissal on Full transition, diagnostics Ready/Shared/Verified lifecycle, repeated real Compact/Full routing, notification activation/action/dismiss, minimized Touchpad recovery, bounded page-navigation latency, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
         catch (Exception ex)
@@ -189,6 +190,70 @@ internal static class Program
             await app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId);
             app.UserSettings.Update(_ => original);
             engine.Stop();
+        }
+    }
+
+    private static async Task ValidateKeyboardTransitions()
+    {
+        var state = new ThinkControl.UI.ViewModels.AppState { CanKeyboardBacklight = true, CanKeyboardEffects = true,
+            KeyboardBaseLevel = "Low", KeyboardEffectSpeed = 2 };
+        var writeStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseWrite = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var writes = new List<string>();
+        string heldLevel = "High";
+        async Task<ThinkControl.Core.Ipc.ServiceResponse?> Write(string level, CancellationToken token)
+        {
+            lock (writes) writes.Add(level);
+            if (level == heldLevel)
+            {
+                writeStarted.TrySetResult();
+                // A provider may finish an already accepted request after cancellation.
+                await releaseWrite.Task;
+            }
+            return new(ThinkControl.Core.Ipc.ThinkControlProtocol.Version, true);
+        }
+        using var effects = new KeyboardEffectService(Write, state);
+        try
+        {
+            await effects.SetModeAsync("Breathing");
+            await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            var olderChoice = effects.SetModeAsync("Breathing");
+            await Task.Delay(15);
+            var latestChoice = effects.SetStaticLevelAsync("Low");
+            await Task.Delay(600);
+            releaseWrite.TrySetResult();
+            await Task.WhenAll(olderChoice, latestChoice).WaitAsync(TimeSpan.FromSeconds(3));
+            await Task.Delay(550);
+            if (state.KeyboardMode != "Static" || state.KeyboardStatus != "Low" || writes[^1] != "Low")
+                throw new InvalidOperationException("Keyboard lifecycle: an older effect selection replaced the latest static choice after a delayed write.");
+
+            heldLevel = "Off";
+            writeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            releaseWrite = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (writes) writes.Clear();
+            var oldStatic = effects.SetStaticLevelAsync("Off");
+            await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            var supersededStatic = effects.SetStaticLevelAsync("High");
+            var finalStatic = effects.SetStaticLevelAsync("Low");
+            releaseWrite.TrySetResult();
+            var results = await Task.WhenAll(oldStatic, supersededStatic, finalStatic);
+            if (!results.SequenceEqual(new[] { false, false, true }) || !writes.SequenceEqual(new[] { "Off", "Low" }) || state.KeyboardStatus != "Low")
+                throw new InvalidOperationException("Keyboard lifecycle: superseded static commands wrote hardware or reported success.");
+
+            heldLevel = "High";
+            writeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            releaseWrite = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            var closingWrite = effects.SetStaticLevelAsync("High");
+            await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            effects.Dispose();
+            releaseWrite.TrySetResult();
+            if (await closingWrite || state.KeyboardStatus != "Low")
+                throw new InvalidOperationException("Keyboard lifecycle: a late request updated a disposed owner.");
+        }
+        finally
+        {
+            releaseWrite.TrySetResult();
+            await effects.SetStaticLevelAsync("Low");
         }
     }
 
