@@ -47,7 +47,7 @@ internal static class ThinkControlModeAutomationPolicy
         trigger.Type switch
         {
             "Wifi" => !string.IsNullOrWhiteSpace(snapshot.WifiSsid) &&
-                      snapshot.WifiSsid.Equals(trigger.Value, StringComparison.OrdinalIgnoreCase),
+                      snapshot.WifiSsid.Equals(trigger.Value, StringComparison.Ordinal),
             "Process" => snapshot.RunningProcesses.Contains(NormalizeProcess(trigger.Value)),
             "Power" => trigger.Value == "Battery" ? snapshot.OnBattery : !snapshot.OnBattery,
             "BatteryBelow" => snapshot.OnBattery &&
@@ -98,217 +98,195 @@ internal static class ThinkControlModeAutomationPolicy
     }
 }
 
+internal sealed record AutomationRuleMatch(string Id, string Name, string ModeName, bool Matches, string State);
+
 internal sealed class ThinkControlModeAutomationService : IDisposable
 {
     private readonly App _app;
     private readonly DispatcherTimer _timer;
     private int _evaluating;
     private bool _started;
-    private string? _lastCandidateId;
-    private string? _modeBeforeAutomationId;
-    private string? _pendingCandidateId;
-    private DateTimeOffset _pendingCandidateSince = DateTimeOffset.MinValue;
-    private bool _pendingCandidateSet;
-    private static readonly TimeSpan CandidateDwell = TimeSpan.FromSeconds(5);
-    private string? _failedCandidateId;
-    private DateTimeOffset _failedCandidateUntil;
+    private string? _activeRuleId;
+    private ThinkControlModeDefinition? _appliedDefinition;
+    private ThinkControlModeCoordinator.Session? _beforeAutomation;
+    private string? _pendingRuleId;
+    private bool _pendingSet;
+    private DateTimeOffset _pendingSince;
+    private string? _failedRuleId;
+    private DateTimeOffset _failedUntil;
     private bool _manualOverride;
-    private string? _manualOverrideCandidateId;
+    private string? _manualContextId;
+    private string? _observedWinnerId;
+    internal event Action? Changed;
+    internal string Status { get; private set; } = "Checking conditions…";
+    internal bool Paused => _manualOverride;
+    internal string RestoreTarget => _beforeAutomation?.Definition.Name ?? "Regular settings";
+    internal IReadOnlyList<AutomationRuleMatch> Matches { get; private set; } = [];
 
     internal ThinkControlModeAutomationService(App app)
     {
         _app = app;
-        _timer = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher)
-        {
-            Interval = TimeSpan.FromSeconds(5)
-        };
+        _timer = new DispatcherTimer(DispatcherPriority.Background, app.Dispatcher) { Interval = TimeSpan.FromSeconds(5) };
         _timer.Tick += Timer_Tick;
     }
 
-    internal void Start()
-    {
-        if (_started)
-            return;
-        _started = true;
-        _timer.Start();
-        RequestEvaluation();
-    }
-
-    internal void Stop()
-    {
-        _started = false;
-        _timer.Stop();
-    }
-
+    internal void Start() { if (_started) return; _started = true; _timer.Start(); RequestEvaluation(); }
+    internal void Stop() { _started = false; _timer.Stop(); }
     internal void SuppressUntilContextChanges()
     {
         _manualOverride = true;
-        _manualOverrideCandidateId = _lastCandidateId;
-        _modeBeforeAutomationId = null; // The user just made an explicit choice.
+        // Use the latest observed context even during the dwell period.
+        _manualContextId = _observedWinnerId;
+        _beforeAutomation = null;
+        _activeRuleId = null;
+        SetStatus("Paused by your manual selection until matching conditions change.");
     }
-
+    internal void Resume()
+    {
+        _manualOverride = false;
+        _failedRuleId = null;
+        _pendingSet = false;
+        RequestEvaluation();
+    }
+    internal void ReleaseRestoreFacet(ThinkControlModeFacet facet)
+    {
+        if (_beforeAutomation is not null)
+            _beforeAutomation = _beforeAutomation with { Definition = ThinkControlModeCoordinator.WithoutFacet(_beforeAutomation.Definition, facet), Modified = true };
+    }
+    private static bool SameSettings(ThinkControlModeDefinition? first, ThinkControlModeDefinition? second) =>
+        first is not null && second is not null && first.Id == second.Id &&
+        first.AudioSafety == second.AudioSafety && first.TouchpadGesturesEnabled == second.TouchpadGesturesEnabled &&
+        first.KeyboardLight == second.KeyboardLight && first.PerformanceMode == second.PerformanceMode &&
+        first.CoolingProfile == second.CoolingProfile && first.RefreshRate == second.RefreshRate;
     internal void RequestEvaluation()
     {
-        if (!_started)
-            return;
-        _app.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(async () =>
-        {
-            await EvaluateAsync();
-        }));
+        if (!_started) return;
+        _app.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(async () => await EvaluateAsync()));
     }
-
     private async void Timer_Tick(object? sender, EventArgs e) => await EvaluateAsync();
-
     private async Task EvaluateAsync()
     {
-        if (!_started || Interlocked.Exchange(ref _evaluating, 1) != 0)
-            return;
-
+        if (!_started || Interlocked.Exchange(ref _evaluating, 1) != 0) return;
         try
         {
-            ThinkControlModeDefinition[] modes = _app.UserSettings.Current.CustomModes ?? [];
-            if (modes.Length == 0 || !modes.Any(mode => mode.AutomationEnabled))
+            var environment = await Task.Run(ModeTriggerEnvironment.Capture);
+            if (!environment.WifiKnown && (_app.UserSettings.Current.AutomationRules ?? [])
+                .Any(rule => rule.Enabled && rule.Conditions.Any(condition => condition.Enabled && condition.Type == "Wifi")))
             {
-                await ApplyCandidateAsync(null);
+                SetStatus("Wi-Fi could not be checked. Current settings are kept; check Windows Wi-Fi permissions.");
+                _pendingSet = false;
                 return;
             }
-
-            bool onBattery = _app.IsCurrentlyOnBattery();
-            int batteryPercent = _app.State.BatteryPercent;
-
-            ModeEnvironmentData environment = await Task.Run(ModeTriggerEnvironment.Capture);
-            var snapshot = new ModeAutomationSnapshot(
-                environment.WifiSsid,
-                onBattery,
-                batteryPercent,
-                environment.RunningProcesses,
-                DateTimeOffset.Now);
-
-            ThinkControlModeDefinition? candidate = null;
-            int bestScore = 0;
-            foreach (ThinkControlModeDefinition mode in modes)
-            {
-                int score = ThinkControlModeAutomationPolicy.MatchScore(mode, snapshot);
-                if (score < bestScore || score == 0)
-                    continue;
-                if (score == bestScore &&
-                    !string.Equals(mode.Id, _lastCandidateId, StringComparison.OrdinalIgnoreCase))
-                    continue;
-                bestScore = score;
-                candidate = mode;
-            }
-
-            // A 5-second stable dwell avoids Wi-Fi roaming or short-lived app
-            // probes bouncing Quiet/Performance and damaging the restore chain.
-            string? id = candidate?.Id;
-            if (!_pendingCandidateSet ||
-                !string.Equals(id, _pendingCandidateId, StringComparison.OrdinalIgnoreCase))
-            {
-                _pendingCandidateSet = true;
-                _pendingCandidateId = id;
-                _pendingCandidateSince = DateTimeOffset.UtcNow;
-                return;
-            }
-            if (DateTimeOffset.UtcNow - _pendingCandidateSince < CandidateDwell)
-                return;
-
-            await ApplyCandidateAsync(candidate);
+            await EvaluateSnapshotAsync(new ModeAutomationSnapshot(environment.WifiSsid,
+                _app.IsCurrentlyOnBattery(), _app.State.BatteryPercent, environment.RunningProcesses, DateTimeOffset.Now));
         }
-        finally
+        catch (Exception)
         {
-            Interlocked.Exchange(ref _evaluating, 0);
+            SetStatus("Conditions could not be checked. Current settings are kept; retrying shortly.");
         }
+        finally { Interlocked.Exchange(ref _evaluating, 0); }
     }
 
-    private async Task ApplyCandidateAsync(ThinkControlModeDefinition? candidate)
+    // The installed runtime and dispatcher tests use the same transition path.
+    internal async Task EvaluateSnapshotAsync(ModeAutomationSnapshot context)
     {
-        string? candidateId = candidate?.Id;
-
-        if (_manualOverride)
+        var modes = _app.UserSettings.Current.CustomModes ?? [];
+        var rules = _app.UserSettings.Current.AutomationRules ?? [];
+        var ranked = rules.Select(rule => new
         {
-            // Null is a valid previous context (no matching trigger at home).
-            // Do not absorb the *first* new school Wi-Fi match as the manual
-            // override baseline; that would suppress School until a second
-            // unrelated context change occurred.
-            if (string.Equals(candidateId, _manualOverrideCandidateId, StringComparison.OrdinalIgnoreCase))
-            {
-                _lastCandidateId = candidateId;
-                return;
-            }
+            Rule = rule,
+            Mode = ThinkControlModeCatalog.Find(rule.ModeId, modes),
+            Score = ThinkControlModeAutomationPolicy.MatchScore(ThinkControlAutomationRules.AsPolicyMode(rule), context)
+        }).ToArray();
+        var winner = ranked.Where(item => item.Mode is not null && item.Score > 0)
+            .OrderByDescending(item => item.Score)
+            .ThenByDescending(item => item.Rule.Id == _activeRuleId)
+            .FirstOrDefault();
+        _observedWinnerId = winner?.Rule.Id;
+        var matches = ranked.Select(item => new AutomationRuleMatch(item.Rule.Id, item.Rule.Name,
+            item.Mode?.Name ?? "Missing mode", item.Score > 0,
+            item.Mode is null ? "Choose a mode" : !item.Rule.Enabled ? "Disabled" :
+            item.Score == 0 ? "Not matched" : item.Rule.Id == winner?.Rule.Id ? "Winner" : "Matched; lower precedence")).ToArray();
+        if (!Matches.SequenceEqual(matches)) { Matches = matches; Changed?.Invoke(); }
 
-            _manualOverride = false;
-            _manualOverrideCandidateId = null;
-        }
-
-        if (string.Equals(candidateId, _lastCandidateId, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        if (candidate is not null)
+        if (_manualOverride && _observedWinnerId == _manualContextId)
         {
-            // An unavailable hardware provider must not cause retries every five seconds.
-            if (string.Equals(candidate.Id, _failedCandidateId, StringComparison.OrdinalIgnoreCase) &&
-                DateTimeOffset.UtcNow < _failedCandidateUntil)
-                return;
-
-            string? previous = _app.Modes.ActiveModeAutomatic
-                ? _modeBeforeAutomationId
-                : _app.Modes.ActiveModeId;
-            bool applied = await _app.Modes.ActivateAsync(
-                candidate.Id,
-                ThinkControlModeActivationOrigin.Automatic);
-            if (applied)
-            {
-                _modeBeforeAutomationId = previous;
-                _lastCandidateId = candidate.Id;
-                _failedCandidateId = null;
-            }
-            else
-            {
-                _failedCandidateId = candidate.Id;
-                _failedCandidateUntil = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(1);
-            }
+            SetStatus("Paused by your manual selection until matching conditions change.");
             return;
         }
+        if (_manualOverride) { _manualOverride = false; _manualContextId = null; }
 
-        // If the context that automatically activated a mode disappears, restore the
-        // user's regular settings. A manually selected mode is left alone.
-        if (_app.Modes.ActiveModeAutomatic &&
-            _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId)
+        if (!_pendingSet || _pendingRuleId != _observedWinnerId)
         {
-            // Leaving school (or another trigger) returns to the explicit
-            // pre-automation mode, otherwise the original normal settings.
-            string restoreId = _modeBeforeAutomationId ?? ThinkControlModeCatalog.NormalId;
-            if (ThinkControlModeCatalog.Find(restoreId, _app.UserSettings.Current.CustomModes) is null)
-                restoreId = ThinkControlModeCatalog.NormalId;
-            if (string.Equals(restoreId, _failedCandidateId, StringComparison.OrdinalIgnoreCase) &&
-                DateTimeOffset.UtcNow < _failedCandidateUntil)
-                return;
-            bool restored = await _app.Modes.ActivateAsync(
-                restoreId,
-                ThinkControlModeActivationOrigin.Restore);
-            if (!restored)
+            _pendingSet = true;
+            _pendingRuleId = _observedWinnerId;
+            _pendingSince = context.Now;
+            SetStatus(winner is null ? (_beforeAutomation is null ? "No rules match." : $"Waiting to restore {RestoreTarget}…")
+                : $"Waiting for {winner.Rule.Name} to remain matched…");
+            return;
+        }
+        if (context.Now - _pendingSince < TimeSpan.FromSeconds(5)) return;
+
+        string transitionKey = winner?.Rule.Id ?? "restore";
+        if (_failedRuleId == transitionKey && context.Now < _failedUntil) return;
+        if (winner is not null)
+        {
+            bool definitionChanged = !SameSettings(_appliedDefinition, winner.Mode);
+            if (_activeRuleId == winner.Rule.Id && !definitionChanged)
             {
-                _failedCandidateId = restoreId;
-                _failedCandidateUntil = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(1);
+                PublishWinner(winner.Rule, context);
                 return;
             }
+            var previous = _beforeAutomation ?? _app.Modes.CaptureSession();
+            // Changing the winning rule to the same unchanged mode is arbitration,
+            // not permission to reclaim facets the user manually released.
+            bool alreadyApplied = _app.Modes.ActiveModeAutomatic && SameSettings(_appliedDefinition, winner.Mode);
+            if (alreadyApplied || await _app.Modes.ActivateAsync(winner.Mode!.Id, ThinkControlModeActivationOrigin.Automatic))
+            {
+                _beforeAutomation = previous;
+                _activeRuleId = winner.Rule.Id;
+                _appliedDefinition = winner.Mode;
+                _failedRuleId = null;
+                PublishWinner(winner.Rule, context);
+            }
+            else RecordFailure(transitionKey, context.Now);
+            return;
         }
-
-        _lastCandidateId = null;
-        _modeBeforeAutomationId = null;
-        _failedCandidateId = null;
+        if (_beforeAutomation is not null && _app.Modes.ActiveModeAutomatic)
+        {
+            if (!await _app.Modes.RestoreSessionAsync(_beforeAutomation))
+            { RecordFailure(transitionKey, context.Now); return; }
+            SetStatus($"Restored {_app.Modes.ActiveModeName}. No rules match.");
+        }
+        else if (!Status.StartsWith("Restored ", StringComparison.Ordinal)) SetStatus("No rules match.");
+        _beforeAutomation = null;
+        _activeRuleId = null;
+        _appliedDefinition = null;
+        _failedRuleId = null;
     }
-
-    public void Dispose()
+    private void PublishWinner(ThinkControlAutomationRule rule, ModeAutomationSnapshot context)
     {
-        Stop();
-        _timer.Tick -= Timer_Tick;
+        var reasons = rule.Conditions.Where(condition => condition.Enabled && ThinkControlModeAutomationPolicy.Matches(condition, context))
+            .Select(ThinkControlModeCatalog.TriggerSummary);
+        SetStatus($"{rule.Name} activates {_app.Modes.ActiveModeName}: {string.Join(", ", reasons)}. Afterwards: {RestoreTarget}.");
     }
+    private void RecordFailure(string id, DateTimeOffset now)
+    {
+        _failedRuleId = id;
+        _failedUntil = now + TimeSpan.FromMinutes(1);
+        SetStatus("Could not apply or restore the mode. " + _app.Modes.LastTransitionError + " Retrying in one minute.");
+    }
+    private void SetStatus(string value)
+    {
+        if (Status == value) return;
+        Status = value;
+        Changed?.Invoke();
+    }
+    public void Dispose() { Stop(); _timer.Tick -= Timer_Tick; }
 }
-
 internal sealed record ModeEnvironmentData(
     string? WifiSsid,
-    IReadOnlySet<string> RunningProcesses);
+    IReadOnlySet<string> RunningProcesses, bool WifiKnown = true);
 
 internal static class ModeTriggerEnvironment
 {
@@ -383,8 +361,11 @@ internal static class ModeTriggerEnvironment
     private const int WlanIntfOpcodeCurrentConnection = 7;
     private const int ConnectionAttributesAssociationOffset = 520;
 
-    internal static ModeEnvironmentData Capture() =>
-        new(GetConnectedWifiSsid(), GetRunningProcesses());
+    internal static ModeEnvironmentData Capture()
+    {
+        string? ssid = GetConnectedWifiSsid(out bool known);
+        return new(ssid, GetRunningProcesses(), known);
+    }
 
     private static IReadOnlySet<string> GetRunningProcesses()
     {
@@ -412,8 +393,10 @@ internal static class ModeTriggerEnvironment
         return result;
     }
 
-    internal static string? GetConnectedWifiSsid()
+    internal static string? GetConnectedWifiSsid() => GetConnectedWifiSsid(out _);
+    private static string? GetConnectedWifiSsid(out bool known)
     {
+        known = true;
         IntPtr client = IntPtr.Zero;
         IntPtr interfaces = IntPtr.Zero;
         try
@@ -421,35 +404,40 @@ internal static class ModeTriggerEnvironment
             if (WlanOpenHandle(WlanClientVersion, IntPtr.Zero, out _, out client) != 0 ||
                 client == IntPtr.Zero)
             {
-                return null;
+                known = false; return null;
             }
 
             if (WlanEnumInterfaces(client, IntPtr.Zero, out interfaces) != 0 ||
                 interfaces == IntPtr.Zero)
             {
-                return null;
+                known = false; return null;
             }
 
-            int count = Marshal.ReadInt32(interfaces);
+            int count = Math.Clamp(Marshal.ReadInt32(interfaces), 0, 16);
             IntPtr current = IntPtr.Add(interfaces, 8);
             int size = Marshal.SizeOf<WlanInterfaceInfo>();
             for (int index = 0; index < count; index++)
             {
                 WlanInterfaceInfo info =
                     Marshal.PtrToStructure<WlanInterfaceInfo>(IntPtr.Add(current, index * size));
-                string? ssid = QuerySsid(client, info.InterfaceGuid);
+                if (info.State != 1) continue;
+                string? ssid = QuerySsid(client, info.InterfaceGuid, out bool queryKnown);
+                known &= queryKnown;
                 if (!string.IsNullOrWhiteSpace(ssid))
                     return ssid;
             }
         }
         catch (DllNotFoundException)
         {
+            known = false;
         }
         catch (EntryPointNotFoundException)
         {
+            known = false;
         }
         catch
         {
+            known = false;
         }
         finally
         {
@@ -461,8 +449,9 @@ internal static class ModeTriggerEnvironment
         return null;
     }
 
-    private static string? QuerySsid(IntPtr client, Guid interfaceGuid)
+    private static string? QuerySsid(IntPtr client, Guid interfaceGuid, out bool known)
     {
+        known = true;
         IntPtr data = IntPtr.Zero;
         try
         {
@@ -476,7 +465,7 @@ internal static class ModeTriggerEnvironment
                     out _) != 0 ||
                 data == IntPtr.Zero)
             {
-                return null;
+                known = false; return null;
             }
 
             if (dataSize >= ConnectionAttributesAssociationOffset + 36)
@@ -493,9 +482,8 @@ internal static class ModeTriggerEnvironment
                 }
             }
 
-            // Some drivers expose a profile even when association details are sparse.
-            string? profile = Marshal.PtrToStringUni(IntPtr.Add(data, 8), 256)?.TrimEnd('\0').Trim();
-            return string.IsNullOrWhiteSpace(profile) ? null : profile;
+            // A profile alias is not an observed SSID; unknown must not masquerade as disconnection.
+            known = false; return null;
         }
         finally
         {

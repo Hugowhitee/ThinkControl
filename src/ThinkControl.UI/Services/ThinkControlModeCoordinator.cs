@@ -14,6 +14,39 @@ internal sealed class ThinkControlModeCoordinator
     private bool? _touchpadBaseline;
     private KeyboardModeSnapshot? _keyboardBaseline;
     private bool _applying;
+    private ThinkControlModeDefinition _activeDefinition = ThinkControlModeCatalog.NoMode;
+
+    internal sealed record Session(ThinkControlModeDefinition Definition, bool Modified);
+    internal static ThinkControlModeDefinition WithoutFacet(ThinkControlModeDefinition definition, ThinkControlModeFacet facet) => facet switch
+    {
+        ThinkControlModeFacet.PerformanceMode => definition with { PerformanceMode = null },
+        ThinkControlModeFacet.CoolingProfile => definition with { CoolingProfile = null },
+        ThinkControlModeFacet.RefreshRate => definition with { RefreshRate = null },
+        ThinkControlModeFacet.AudioSafety => definition with { AudioSafety = null },
+        ThinkControlModeFacet.TouchpadGestures => definition with { TouchpadGesturesEnabled = null },
+        ThinkControlModeFacet.KeyboardLight => definition with { KeyboardLight = null },
+        _ => definition
+    };
+
+    internal Session CaptureSession() => new(_activeDefinition with
+    {
+        PerformanceMode = _owned.Contains(ThinkControlModeFacet.PerformanceMode) ? _activeDefinition.PerformanceMode : null,
+        CoolingProfile = _owned.Contains(ThinkControlModeFacet.CoolingProfile) ? _activeDefinition.CoolingProfile : null,
+        RefreshRate = _owned.Contains(ThinkControlModeFacet.RefreshRate) ? _activeDefinition.RefreshRate : null,
+        AudioSafety = _owned.Contains(ThinkControlModeFacet.AudioSafety) ? _activeDefinition.AudioSafety : null,
+        TouchpadGesturesEnabled = _owned.Contains(ThinkControlModeFacet.TouchpadGestures) ? _activeDefinition.TouchpadGesturesEnabled : null,
+        KeyboardLight = _owned.Contains(ThinkControlModeFacet.KeyboardLight) ? _activeDefinition.KeyboardLight : null
+    }, IsModified);
+
+    internal async Task<bool> RestoreSessionAsync(Session session)
+    {
+        var definition = ThinkControlModeCatalog.Find(session.Definition.Id, _app.UserSettings.Current.CustomModes) is null
+            ? ThinkControlModeCatalog.NoMode : session.Definition;
+        if (!await ActivateAsync(definition.Id, ThinkControlModeActivationOrigin.Restore, definition)) return false;
+        IsModified = session.Modified && definition.Id != ThinkControlModeCatalog.NormalId;
+        Publish();
+        return true;
+    }
 
     internal ThinkControlModeCoordinator(App app)
     {
@@ -39,14 +72,26 @@ internal sealed class ThinkControlModeCoordinator
 
     internal bool OwnsFacet(ThinkControlModeFacet facet) => _owned.Contains(facet);
 
+    internal string? AvailabilityError(ThinkControlModeDefinition target)
+    {
+        if (target.CoolingProfile is not null && !_app.State.CanFanControl)
+            return "Cooling is unavailable. Remove Cooling to use the other settings.";
+        if (target.KeyboardLight is not null && !_app.State.CanKeyboardBacklight)
+            return "Keyboard control is unavailable.";
+        if (target.PerformanceMode is not null && _app.PowerModeService.GetPowerPlanError() is not null)
+            return "Performance requires the Windows Balanced power plan.";
+        return null;
+    }
+
     internal async Task<bool> ActivateAsync(
         string id,
-        ThinkControlModeActivationOrigin origin = ThinkControlModeActivationOrigin.Manual)
+        ThinkControlModeActivationOrigin origin = ThinkControlModeActivationOrigin.Manual,
+        ThinkControlModeDefinition? sessionDefinition = null)
     {
         await _gate.WaitAsync();
         try
         {
-            ThinkControlModeDefinition? target = ThinkControlModeCatalog.Find(
+            ThinkControlModeDefinition? target = sessionDefinition ?? ThinkControlModeCatalog.Find(
                 id,
                 _app.UserSettings.Current.CustomModes);
             if (target is null)
@@ -57,18 +102,9 @@ internal sealed class ThinkControlModeCoordinator
             }
 
             LastTransitionError = null;
-            if (target.CoolingProfile is not null && !_app.State.CanFanControl)
+            if (AvailabilityError(target) is string availabilityError)
             {
-                LastTransitionError = "Cooling: no writable cooling controller is available. Open Fans to inspect the current firmware state, or remove Cooling from this mode.";
-                Publish();
-                return false;
-            }
-            // Reject a known incompatible Windows plan before changing any facet
-            // or capturing rollback ownership. Never switch the user's plan here.
-            if (target.PerformanceMode is not null &&
-                _app.PowerModeService.GetPowerPlanError() is string powerPlanError)
-            {
-                LastTransitionError = "Performance: " + powerPlanError;
+                LastTransitionError = availabilityError;
                 Publish();
                 return false;
             }
@@ -82,9 +118,7 @@ internal sealed class ThinkControlModeCoordinator
             AudioSafetyMode? previousAudioBaseline = _audioBaseline;
             bool? previousTouchpadBaseline = _touchpadBaseline;
             KeyboardModeSnapshot? previousKeyboardBaseline = _keyboardBaseline;
-            ThinkControlModeDefinition? previousDefinition = ThinkControlModeCatalog.Find(
-                previousId,
-                _app.UserSettings.Current.CustomModes);
+            ThinkControlModeDefinition previousDefinition = _activeDefinition;
 
             HashSet<ThinkControlModeFacet> targetFacets =
                 [.. ThinkControlModeCatalog.Facets(target)];
@@ -169,6 +203,7 @@ internal sealed class ThinkControlModeCoordinator
                     _owned.Add(facet);
 
                 ActiveModeId = target.Id;
+                _activeDefinition = target;
                 ActiveModeName = target.Name;
                 ActiveModeAutomatic =
                     origin == ThinkControlModeActivationOrigin.Automatic &&
@@ -234,6 +269,7 @@ internal sealed class ThinkControlModeCoordinator
             return;
 
         ClearBaseline(facet);
+        if (ActiveModeAutomatic) _app.ModeAutomation.ReleaseRestoreFacet(facet);
         IsModified = true;
         Publish();
     }

@@ -37,10 +37,11 @@ internal static class Program
             // pump, so routed clicks, activation/deactivation and queued work did
             // not occur in the same ordering as an installed desktop interaction.
             var scenarioFrame = new DispatcherFrame();
-            app.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(() =>
+            app.Dispatcher.BeginInvoke(DispatcherPriority.Normal, new Action(async () =>
             {
                 try
                 {
+                    await ValidateAutomationTransitions(app);
                     RunScenario(app);
                     exitCode = 0;
                 }
@@ -98,6 +99,75 @@ internal static class Program
         if (!ThinkControlModeAutomationPolicy.Matches(overnight, context with { Now = tuesday }) ||
             ThinkControlModeAutomationPolicy.Matches(overnight, context with { Now = tuesday.AddHours(5) }))
             throw new InvalidOperationException("Overnight schedule did not use the originating day or exclusive end boundary.");
+    }
+
+    private static async Task ValidateAutomationTransitions(App app)
+    {
+        var original = app.UserSettings.Current;
+        var manual = new ThinkControlModeDefinition("custom:qa-manual", "Manual", TouchpadGesturesEnabled: false);
+        var school = new ThinkControlModeDefinition("custom:qa-school", "School", TouchpadGesturesEnabled: true);
+        var blocked = new ThinkControlModeDefinition("custom:qa-blocked", "Blocked", CoolingProfile: "Quiet");
+        var wifi = new ThinkControlAutomationRule("rule:qa-wifi", "School network", school.Id, [new("Wifi", "School")]);
+        var process = new ThinkControlAutomationRule("rule:qa-process", "School app", school.Id, [new("Process", "editor")]);
+        var environment = new ModeAutomationSnapshot("Home", true, 50, new HashSet<string>(), DateTimeOffset.Now);
+        var engine = app.ModeAutomation;
+        void Require(bool condition, string message)
+        { if (!condition) throw new InvalidOperationException("Automation lifecycle: " + message); }
+        async Task At(int seconds, string? ssid, bool editor = false) => await engine.EvaluateSnapshotAsync(
+            environment with { Now = environment.Now.AddSeconds(seconds), WifiSsid = ssid,
+                RunningProcesses = editor ? new HashSet<string> { "editor" } : new HashSet<string>() });
+        try
+        {
+            app.UserSettings.Update(settings => settings with { CustomModes = [manual, school, blocked], AutomationRules = [wifi, process] });
+            Require(await app.Modes.ActivateAsync(manual.Id), "manual sparse mode failed");
+            await At(0, "School");
+            Require(!app.Modes.ActiveModeAutomatic, "dwell did not protect a brief Wi-Fi change");
+            await At(6, "School");
+            Require(app.Modes.ActiveModeAutomatic && app.GetEffectiveTouchpadGesturesEnabled(), "school entry did not apply");
+            Require(engine.Status.Contains("School network") && engine.RestoreTarget == "Manual", "winner/restoration explanation missing");
+            await At(7, null);
+            await At(9, "School");
+            await At(15, "School");
+            Require(app.Modes.ActiveModeAutomatic, "short disconnect restored prematurely");
+            await At(20, null);
+            await At(26, null);
+            Require(app.Modes.ActiveModeId == manual.Id && !app.Modes.ActiveModeAutomatic && !app.GetEffectiveTouchpadGesturesEnabled(), "leaving school did not restore the prior manual mode");
+
+            await At(30, "School");
+            Require(await app.Modes.ActivateAsync(manual.Id), "manual selection during dwell failed");
+            await At(36, "School");
+            Require(engine.Paused && !app.Modes.ActiveModeAutomatic, "pending context overwrote a manual selection");
+            await At(42, "Home"); await At(48, "Home");
+            await At(54, "School"); await At(60, "School");
+            app.TouchpadFeature.UpdateConfiguration(app.TouchpadFeature.Configuration with { Enabled = false }, releaseGestureModeOwnership: true);
+            Require(app.Modes.IsModified && !app.Modes.OwnsFacet(ThinkControlModeFacet.TouchpadGestures), "manual facet ownership was not released");
+            await At(66, "School", true); await At(72, "School", true);
+            Require(!app.GetEffectiveTouchpadGesturesEnabled() && !app.Modes.OwnsFacet(ThinkControlModeFacet.TouchpadGestures), "same-mode rule handoff reclaimed a manual override");
+            Require(engine.Matches.Count(match => match.Matches) == 2 && engine.Status.StartsWith("School app"), "overlap arbitration explanation disagrees with the winner");
+            await At(78, "Home"); await At(84, "Home");
+            Require(app.Modes.ActiveModeId == manual.Id && app.Modes.IsModified && !app.GetEffectiveTouchpadGesturesEnabled(), "restoration undid a manual change made during automation");
+
+            app.UserSettings.Update(settings => settings with { AutomationRules = [wifi with { ModeId = blocked.Id }] });
+            app.State.CanFanControl = false;
+            await At(90, "School"); await At(96, "School");
+            Require(app.Modes.ActiveModeId == manual.Id && engine.Status.Contains("Could not apply"), "blocked hardware caused partial activation or false success");
+            string error = engine.Status;
+            await At(102, "School");
+            Require(engine.Status == error, "failed automation did not back off");
+
+            var migrated = ThinkControlAutomationRules.Migrate([school with { Triggers = [new("Wifi", "School")], AutomationEnabled = false }]);
+            Require(migrated.Length == 1 && !migrated[0].Enabled && migrated[0].ModeId == school.Id, "legacy disabled rule was lost or enabled");
+            Require(ThinkControlAutomationRules.Sanitize([wifi, process]).Length == 2, "multiple rules for one mode were collapsed");
+            var roundTrip = System.Text.Json.JsonSerializer.Deserialize<ThinkControlUserSettings>(
+                System.Text.Json.JsonSerializer.Serialize(app.UserSettings.Current));
+            Require(roundTrip?.AutomationRules?.Length == 1 && roundTrip.CustomModes?.Length == 3, "settings migration did not survive serialization");
+        }
+        finally
+        {
+            await app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId);
+            app.UserSettings.Update(_ => original);
+            engine.Stop();
+        }
     }
 
     private static void ValidateBatteryHistoryGaps()

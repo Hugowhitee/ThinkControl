@@ -239,3 +239,11 @@ The installer is a small bootstrapper plus a separately versioned payload. CI ex
 PR CI and Package runs may cancel superseded heads; immutable/tag release packaging remains outside that cancellation behavior.
 
 A cleanup is not permission to remove compatibility code blindly. Server-side legacy protocol handlers and serialized enum values remain where required until the supported installed-client/settings floor is deliberately advanced.
+
+## Modes/rules ownership decision
+
+Keep the existing sparse mode coordinator and single five-second user-session automation worker. Replace embedded rule ownership with `ThinkControlAutomationRule` persisted alongside `CustomModes` in `UserSettingsService`. This gives reusable configurations and multiple independently named rules without a second timer, facet controller or settings store. A UI-only split would preserve ambiguous rule identity and make same-mode arbitration reclaim settings; a second engine would duplicate ownership. Null rule storage is the one-time migration marker; an empty array deliberately means no rules. Disabled legacy conditions are preserved. Missing mode targets remain visible for repair and never activate.
+
+The coordinator captures a session as the applied definition filtered to facets it still owns, plus Modified state. Automation retains this original session across winner changes and removes facets released by manual actions. Rollback uses the actually applied definition, not a subsequently edited saved definition. Context/rule identity is separate from active mode identity. Same-mode winner changes do not rewrite settings unless the configuration itself changed. Wi-Fi capture distinguishes known disconnection from query/access failure; profile aliases are never SSID telemetry.
+
+Native visual QA creates an in-memory preferences owner. Rendering and dispatcher tests cannot migrate or overwrite installed user settings/consent. The installed application remains the persistent preferences owner. `AppState` owns concise capability-derived hardware/cooling copy; System exposes the original provider evidence through a technical disclosure. Raw evidence stays available to diagnostics and ownership logic.

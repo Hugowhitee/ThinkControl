@@ -12,6 +12,7 @@ public partial class App
 
     private App(bool enforceSingleInstance)
     {
+        UserSettings = new UserSettingsService(persist: enforceSingleInstance);
         BatteryHistoryService = new BatteryHistoryService(UserSettings.Current.BatteryDetailRetentionDays);
         if (enforceSingleInstance)
             InitializeSingleInstanceGuard();

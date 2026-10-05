@@ -9,7 +9,7 @@ public partial class App
 
     internal ThinkControlModeCoordinator Modes => _modes ??= new ThinkControlModeCoordinator(this);
 
-    private ThinkControlModeAutomationService ModeAutomation =>
+    internal ThinkControlModeAutomationService ModeAutomation =>
         _modeAutomation ??= new ThinkControlModeAutomationService(this);
 
     internal void InitializeModeAutomation()

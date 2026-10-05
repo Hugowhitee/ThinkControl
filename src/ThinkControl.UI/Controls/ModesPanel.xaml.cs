@@ -14,6 +14,7 @@ public partial class ModesPanel : UserControl
     private bool _busy;
     private bool _syncingModeSelection;
     private string? _editingId;
+    private string? _editingRuleId;
     private string? _editingPerformanceMode;
     private string? _editingCoolingProfile;
     private string? _editingRefreshRate;
@@ -89,10 +90,14 @@ public partial class ModesPanel : UserControl
         }
 
         if (_app is not null)
+        {
             _app.Modes.Changed -= Modes_Changed;
+            _app.ModeAutomation.Changed -= Automation_Changed;
+        }
 
         _app = app;
         _app.Modes.Changed += Modes_Changed;
+        _app.ModeAutomation.Changed += Automation_Changed;
         RefreshList();
     }
 
@@ -107,6 +112,105 @@ public partial class ModesPanel : UserControl
         UpdateHeaderState();
         if (EditorView.Visibility != Visibility.Visible)
             RefreshList();
+    }
+
+    private void Automation_Changed()
+    {
+        if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(Automation_Changed)); return; }
+        if (EditorView.Visibility != Visibility.Visible) RefreshRules();
+    }
+
+    private void RefreshRules()
+    {
+        if (_app is null) return;
+        AutomationStatusText.Text = _app.ModeAutomation.Status;
+        ResumeAutomationButton.Visibility = _app.ModeAutomation.Paused ? Visibility.Visible : Visibility.Collapsed;
+        RuleRows.Children.Clear();
+        var rules = _app.UserSettings.Current.AutomationRules ?? [];
+        NewRuleButton.IsEnabled = rules.Length < ThinkControlAutomationRules.Maximum &&
+            _app.Modes.GetModes().Any(mode => mode.Id != ThinkControlModeCatalog.NormalId);
+        foreach (var rule in rules)
+        {
+            var target = _app.Modes.GetModes().FirstOrDefault(mode => mode.Id == rule.ModeId);
+            var grid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+            grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            var text = new StackPanel { Margin = new Thickness(0, 0, 12, 0) };
+            text.Children.Add(new TextBlock { Text = rule.Name + " → " + (target?.Name ?? "Missing mode"), TextWrapping = TextWrapping.Wrap });
+            text.Children.Add(MutedText(ThinkControlAutomationRules.ConditionsSummary(rule)));
+            string status = _app.ModeAutomation.Matches.FirstOrDefault(match => match.Id == rule.Id)?.State ?? (rule.Enabled ? "Waiting" : "Disabled");
+            string priority = rule.Priority switch { 1 => "High priority", -1 => "Low priority", _ => "Normal priority" };
+            text.Children.Add(MutedText(priority + ". " + status));
+            grid.Children.Add(text);
+            var edit = InlineButton("Edit rule", EditRule_Click, rule.Id);
+            edit.VerticalAlignment = VerticalAlignment.Center;
+            Grid.SetColumn(edit, 1);
+            grid.Children.Add(edit);
+            RuleRows.Children.Add(SeparatorRow(grid));
+        }
+        if (rules.Length == 0) RuleRows.Children.Add(MutedText("No rules. Modes change only when you select them."));
+    }
+
+    private void ResumeAutomation_Click(object sender, RoutedEventArgs e) => _app?.ModeAutomation.Resume();
+
+    private void NewRule_Click(object sender, RoutedEventArgs e)
+    {
+        var mode = _app?.Modes.GetModes().FirstOrDefault(mode => mode.Id != ThinkControlModeCatalog.NormalId);
+        if (mode is not null) BeginRuleEdit(new("rule:" + Guid.NewGuid().ToString("N"), "", mode.Id, [], false));
+    }
+
+    private void EditRule_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string id } &&
+            _app?.UserSettings.Current.AutomationRules?.FirstOrDefault(rule => rule.Id == id) is { } rule)
+            BeginRuleEdit(rule);
+    }
+
+    private void BeginRuleEdit(ThinkControlAutomationRule rule)
+    {
+        BeginEdit(new ThinkControlModeDefinition(rule.ModeId, rule.Name));
+        _editingRuleId = rule.Id;
+        EditorTitleText.Text = "Automation rule";
+        ModeNameTextBox.MaxLength = 48;
+        ModeControlsSection.Visibility = Visibility.Collapsed;
+        RuleTargetPanel.Visibility = Visibility.Visible;
+        RuleConditionsSection.Visibility = Visibility.Visible;
+        var targets = _app?.Modes.GetModes().Where(mode => mode.Id != ThinkControlModeCatalog.NormalId).ToArray() ?? [];
+        RuleTargetCombo.ItemsSource = targets;
+        RuleTargetCombo.SelectedItem = targets.FirstOrDefault(mode => mode.Id == rule.ModeId);
+        _editingTriggers.AddRange(rule.Conditions);
+        _editingAutomationEnabled = rule.Enabled;
+        _editingMatchAllTriggers = rule.MatchAll;
+        _editingAutomationPriority = rule.Priority;
+        TriggerMatchCombo.SelectedIndex = rule.MatchAll ? 1 : 0;
+        TriggerPriorityCombo.SelectedIndex = rule.Priority + 1;
+        AutomationSwitch.IsChecked = rule.Enabled;
+        DeleteButton.Content = "Delete rule";
+        DeleteButton.Visibility = _app?.UserSettings.Current.AutomationRules?.Any(item => item.Id == rule.Id) == true
+            ? Visibility.Visible : Visibility.Collapsed;
+        DeleteButton.IsEnabled = true;
+        BuildEditorTriggers();
+        UpdateAutomationState();
+    }
+
+    private void SaveRule()
+    {
+        if (_app is null || _editingRuleId is null) return;
+        if (RuleTargetCombo.SelectedItem is not ThinkControlModeDefinition target)
+        { ShowEditorStatus("Choose a saved mode."); return; }
+        var conditions = ThinkControlModeCatalog.SanitizeTriggers(_editingTriggers);
+        if (conditions.Length == 0 || conditions.Length != _editingTriggers.Count)
+        { ShowEditorStatus("Finish or remove incomplete conditions."); return; }
+        var rule = new ThinkControlAutomationRule(_editingRuleId, ModeNameTextBox.Text.Trim(), target.Id,
+            conditions, _editingAutomationEnabled, _editingMatchAllTriggers, _editingAutomationPriority);
+        if (ThinkControlAutomationRules.Sanitize([rule]).Length == 0)
+        { ShowEditorStatus("Enter a name and valid conditions."); return; }
+        var rules = (_app.UserSettings.Current.AutomationRules ?? []).ToList();
+        int index = rules.FindIndex(item => item.Id == rule.Id);
+        if (index < 0) rules.Add(rule); else rules[index] = rule;
+        _app.UserSettings.Update(settings => settings with { AutomationRules = rules.ToArray() });
+        _app.RequestModeAutomationEvaluation();
+        EndEdit();
     }
 
     private void RefreshList()
@@ -138,6 +242,7 @@ public partial class ModesPanel : UserControl
             mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase));
         EmptyModesText.Visibility = customCount == 0 ? Visibility.Visible : Visibility.Collapsed;
         NewModeButton.IsEnabled = customCount < ThinkControlModeCatalog.MaxCustomModes;
+        RefreshRules();
         UpdateHeaderState();
     }
 
@@ -160,10 +265,10 @@ public partial class ModesPanel : UserControl
         TextBlock summary = MutedText(ThinkControlModeCatalog.Summary(mode));
         summary.Margin = new Thickness(0, 3, 0, 0);
         copy.Children.Add(summary);
-        string automation = ThinkControlModeCatalog.AutomationSummary(mode);
-        if (automation.Length > 0)
+        string? unavailable = _app?.Modes.AvailabilityError(mode);
+        if (unavailable is not null)
         {
-            TextBlock note = MutedText(automation);
+            TextBlock note = MutedText(unavailable);
             note.Margin = new Thickness(0, 2, 0, 0);
             copy.Children.Add(note);
         }
@@ -258,31 +363,7 @@ public partial class ModesPanel : UserControl
 
     private void NewMode_Click(object sender, RoutedEventArgs e)
     {
-        var menu = new ContextMenu
-        {
-            PlacementTarget = NewModeButton,
-            Placement = PlacementMode.Bottom
-        };
-        AddTemplateItem(menu, "Blank mode", "blank");
-        menu.Items.Add(new Separator());
-        AddTemplateItem(menu, "Focus template", "focus");
-        AddTemplateItem(menu, "Battery saver template", "battery");
-        AddTemplateItem(menu, "Performance template", "performance");
-        NewModeButton.ContextMenu = menu;
-        menu.IsOpen = true;
-    }
-
-    private void AddTemplateItem(ContextMenu menu, string label, string id)
-    {
-        var item = new MenuItem { Header = label, Tag = id };
-        item.Click += NewTemplate_Click;
-        menu.Items.Add(item);
-    }
-
-    private void NewTemplate_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: string template })
-            BeginNewTemplate(template);
+        BeginNewTemplate("blank");
     }
 
     private void BeginNewTemplate(string template)
@@ -305,6 +386,13 @@ public partial class ModesPanel : UserControl
 
     private void BeginEdit(ThinkControlModeDefinition mode)
     {
+        _editingRuleId = null;
+        EditorTitleText.Text = "Mode details";
+        ModeNameTextBox.MaxLength = 32;
+        ModeControlsSection.Visibility = Visibility.Visible;
+        RuleTargetPanel.Visibility = Visibility.Collapsed;
+        RuleConditionsSection.Visibility = Visibility.Collapsed;
+        DeleteButton.Content = "Delete mode";
         _editingId = mode.Id;
         _editingPerformanceMode = mode.PerformanceMode;
         _editingCoolingProfile = mode.CoolingProfile;
@@ -313,8 +401,7 @@ public partial class ModesPanel : UserControl
         _editingTouchpadGestures = mode.TouchpadGesturesEnabled;
         _editingKeyboardLight = mode.KeyboardLight;
         _editingTriggers.Clear();
-        _editingTriggers.AddRange(mode.Triggers ?? []);
-        _editingAutomationEnabled = mode.AutomationEnabled;
+        _editingAutomationEnabled = false;
         _editingMatchAllTriggers = mode.MatchAllTriggers;
         _editingAutomationPriority = mode.AutomationPriority;
         TriggerMatchCombo.SelectedIndex = _editingMatchAllTriggers ? 1 : 0;
@@ -504,6 +591,19 @@ public partial class ModesPanel : UserControl
         if (!visible)
             return;
         var item = new MenuItem { Header = label, Tag = facet };
+        if (_app is not null)
+        {
+            string? unavailable = facet switch
+            {
+                ThinkControlModeFacet.CoolingProfile when !_app.State.CanFanControl => "Cooling control is unavailable on this device.",
+                ThinkControlModeFacet.KeyboardLight when !_app.State.CanKeyboardBacklight => "Keyboard control is unavailable.",
+                ThinkControlModeFacet.PerformanceMode => _app.PowerModeService.GetPowerPlanError(),
+                _ => null
+            };
+            item.IsEnabled = unavailable is null;
+            item.ToolTip = unavailable;
+            ToolTipService.SetShowOnDisabled(item, true);
+        }
         item.Click += AddSettingMenuItem_Click;
         menu.Items.Add(item);
     }
@@ -926,6 +1026,7 @@ public partial class ModesPanel : UserControl
 
     private async void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (_editingRuleId is not null) { SaveRule(); return; }
         if (_app is null || string.IsNullOrWhiteSpace(_editingId))
             return;
 
@@ -979,6 +1080,15 @@ public partial class ModesPanel : UserControl
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
+        if (_editingRuleId is not null)
+        {
+            if (_app is null) return;
+            _app.UserSettings.Update(settings => settings with { AutomationRules =
+                (settings.AutomationRules ?? []).Where(rule => rule.Id != _editingRuleId).ToArray() });
+            _app.RequestModeAutomationEvaluation();
+            EndEdit();
+            return;
+        }
         if (_app is null || string.IsNullOrWhiteSpace(_editingId))
             return;
 
@@ -994,6 +1104,7 @@ public partial class ModesPanel : UserControl
     private void EndEdit()
     {
         _editingId = null;
+        _editingRuleId = null;
         EditorView.Visibility = Visibility.Collapsed;
         ListView.Visibility = Visibility.Visible;
         _saveButton.Visibility = Visibility.Collapsed;
@@ -1092,6 +1203,14 @@ public partial class ModesPanel : UserControl
             ModeRows.Children.Add(CreateModeRow(mode));
 
         EmptyModesText.Visibility = Visibility.Collapsed;
+        if (_app is not null)
+        {
+            var original = _app.UserSettings.Current;
+            _app.UserSettings.Update(settings => settings with { CustomModes = fixtures.Where(mode => mode.Id != ThinkControlModeCatalog.NormalId).ToArray(),
+                AutomationRules = ThinkControlAutomationRules.Migrate(fixtures) });
+            RefreshRules();
+            _app.UserSettings.Update(_ => original);
+        }
         UpdateHeaderState();
     }
 
@@ -1112,5 +1231,16 @@ public partial class ModesPanel : UserControl
                 new ThinkControlModeTrigger("Power", "Battery")
             ],
             AutomationEnabled: true));
+    }
+
+    internal void PrepareRuleEditorForSnapshot()
+    {
+        if (_app is null) return;
+        var original = _app.UserSettings.Current;
+        var mode = new ThinkControlModeDefinition("custom:study-snapshot", "Study", TouchpadGesturesEnabled: false, KeyboardLight: "Low");
+        _app.UserSettings.Update(settings => settings with { CustomModes = [mode] });
+        BeginRuleEdit(new("rule:study-snapshot", "School Wi-Fi", mode.Id,
+            [new("Wifi", "Campus"), new("Power", "Battery")], true, true));
+        _app.UserSettings.Update(_ => original);
     }
 }

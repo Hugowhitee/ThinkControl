@@ -38,7 +38,7 @@ Every Advanced destination is rendered at all three canonical viewports in both 
 
 The matrix includes Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. CI requires every expected PNG to exist and be non-trivial before uploading the gallery.
 
-Modes also has dedicated editor snapshots in dark and light. Special-state snapshots remain additive; they do not replace the baseline matrix.
+Modes also has dedicated configuration and separate automation-rule editor snapshots in dark and light. Visual QA uses in-memory preferences and cannot migrate or overwrite the installed user settings. Special-state snapshots remain additive; they do not replace the baseline matrix.
 
 Header review checks the actual pixels, not only XAML: title baseline, right action rail, subtitle spacing and body start must stay visually stable while navigating between sibling pages. Minimum-width review is authoritative for action-rail crowding; wide review is authoritative for bounded content rails.
 

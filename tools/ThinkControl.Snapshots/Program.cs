@@ -173,6 +173,8 @@ internal static class Program
             "advanced-modes-context.png", "saved context modes", modeList: true);
         RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
             "advanced-modes-editor.png", "context mode editor", modeEditor: true);
+        RenderAdvanced(app, charging, "Modes", 980, 900, output, snapshots,
+            "advanced-rule-editor.png", "separate automation rule", ruleEditor: true);
         RenderAdvanced(app, serviceOffline, "Modes", 980, 650, output, snapshots,
             "advanced-modes-apply-failed-min.png", "cooling unavailable · failed mode preflight", modeFailure: true);
 
@@ -277,6 +279,8 @@ internal static class Program
             "advanced-modes-context-light.png", "saved context modes · light", modeList: true);
         RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
             "advanced-modes-editor-light.png", "context mode editor · light", modeEditor: true);
+        RenderAdvanced(app, charging, "Modes", 980, 900, output, snapshots,
+            "advanced-rule-editor-light.png", "separate automation rule · light", ruleEditor: true);
         RenderAdvanced(app, serviceOffline, "Modes", 980, 650, output, snapshots,
             "advanced-modes-apply-failed-min-light.png", "cooling unavailable · failed mode preflight · light", modeFailure: true);
         RenderAdvanced(app, batteryLongStatus, "Battery", 980, 650, output, snapshots,
@@ -503,7 +507,8 @@ internal static class Program
         bool modeList = false,
         bool batteryCustom = false,
         bool modeFailure = false,
-        bool fanRecoveryResult = false)
+        bool fanRecoveryResult = false,
+        bool ruleEditor = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -542,6 +547,7 @@ internal static class Program
             window.PrepareModesListForSnapshot();
         if (modeEditor && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
             window.PrepareModesEditorForSnapshot();
+        if (ruleEditor) window.PrepareRuleEditorForSnapshot();
         if (modeFailure)
         {
             // Inject only the coordinator error state; no provider or saved mode is

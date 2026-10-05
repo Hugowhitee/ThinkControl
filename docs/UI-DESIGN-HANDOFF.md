@@ -18,7 +18,7 @@ Do not redesign these merely to make a Figma file look more complete:
 - the Compact/Advanced product split;
 - the current ThinkControl logo and restrained accent system;
 - semantic disabled/selected/focus states already defined in shared resources;
-- the alpha.55+ Modes ownership model: sparse settings, one active mode, manual-wins-per-facet behavior and context triggers.
+- the alpha.55+ Modes ownership model: sparse settings, one active mode, manual-wins-per-facet behavior and separate automation rules.
 
 Motion is allowed only when it improves state comprehension. A future Battery motion concept may animate real charging/limit state, but it must not add decorative movement or replace accurate static information.
 

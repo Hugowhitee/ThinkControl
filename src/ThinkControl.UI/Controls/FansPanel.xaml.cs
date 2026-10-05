@@ -70,7 +70,7 @@ public partial class FansPanel : UserControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct fan control"
             : state.FanAutoRecoverySupported == false
                 ? "Cooling is read-only on this firmware. ThinkControl cannot apply profiles or confirm Auto."
-                : DescribeUnavailable(state.CanSensorTelemetry || state.CanFanTelemetry);
+                : state.CoolingAvailabilityText;
         CoolingDetailText.ToolTip = !canControl ? state.HardwareAccess : null;
         CoolingOwnerText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
@@ -165,7 +165,7 @@ public partial class FansPanel : UserControl
                 ? conflict
                 : canControl
                 ? UsesFirmwarePolicy ? "Lenovo firmware · policy request, not physical readback" : "Direct fan control"
-                : DescribeUnavailable(hasTelemetry);
+                : _app?.State.CoolingAvailabilityText ?? DescribeUnavailable(hasTelemetry);
         CoolingDetailText.ToolTip = !canControl ? telemetry?.HardwareAccess ?? _app?.LastCoolingError : null;
         CoolingOwnerText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"

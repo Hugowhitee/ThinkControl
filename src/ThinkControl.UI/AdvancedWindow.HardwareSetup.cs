@@ -34,7 +34,7 @@ public partial class AdvancedWindow
         });
         text.Children.Add(new TextBlock
         {
-            Text = "Inbox lists only the service or provider that currently needs attention. Open the current item to review its one focused install, repair or retry action.",
+            Text = "Check hardware setup and available repairs in Inbox.",
             Foreground = (Brush)FindResource("Tc.TextMuted"),
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
@@ -68,7 +68,7 @@ public partial class AdvancedWindow
         sensorText.Children.Add(new TextBlock { Text = "Sensors & telemetry", FontWeight = FontWeights.SemiBold });
         sensorText.Children.Add(new TextBlock
         {
-            Text = "Live control temperature, fan tachometers and provider-reported hardware readings. Details stay read-only and missing sensors remain unavailable.",
+            Text = "View available temperatures, fan readings and sensors.",
             Foreground = (Brush)FindResource("Tc.TextMuted"),
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,

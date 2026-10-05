@@ -132,7 +132,8 @@ public partial class App
                     Triggers = mode.Triggers?.Select(trigger => trigger with { }).ToArray()
                 })
                 .ToArray(),
-            StarterModesSeeded: true));
+            StarterModesSeeded: true,
+            AutomationRules: ThinkControlAutomationRules.Migrate(ThinkControlModeCatalog.StarterModes)));
 
         ThemeService.Apply(UserThemeMode.System);
         _ = StartupService.SetEnabled(false);

@@ -30,7 +30,7 @@ public partial class App : System.Windows.Application
     public PowerModeService PowerModeService { get; } = new();
     public SystemStatusService SystemStatusService { get; } = new();
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
-    public UserSettingsService UserSettings { get; } = new();
+    public UserSettingsService UserSettings { get; }
     public BatteryHistoryService BatteryHistoryService { get; }
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();

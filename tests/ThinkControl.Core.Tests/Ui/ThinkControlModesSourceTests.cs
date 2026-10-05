@@ -119,11 +119,10 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("int AutomationPriority = 0", models, StringComparison.Ordinal);
         Assert.Contains("if (mode.MatchAllTriggers)", policy, StringComparison.Ordinal);
         Assert.Contains("mode.AutomationPriority", policy, StringComparison.Ordinal);
-        Assert.Contains("CandidateDwell = TimeSpan.FromSeconds(5)", policy, StringComparison.Ordinal);
-        Assert.Contains("_modeBeforeAutomationId", policy, StringComparison.Ordinal);
-        Assert.DoesNotContain("_manualOverrideCandidateId is null", policy, StringComparison.Ordinal);
-        Assert.Contains("string.Equals(candidateId, _manualOverrideCandidateId", policy, StringComparison.Ordinal);
-        Assert.Contains("ThinkControlModeActivationOrigin.Restore", policy, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromSeconds(5)", policy, StringComparison.Ordinal);
+        Assert.Contains("CaptureSession()", policy, StringComparison.Ordinal);
+        Assert.Contains("_observedWinnerId == _manualContextId", policy, StringComparison.Ordinal);
+        Assert.Contains("RestoreSessionAsync", policy, StringComparison.Ordinal);
         Assert.Contains("WlanGetProfileList", policy, StringComparison.Ordinal);
         Assert.Contains("SuggestedWifiNetworks", panel, StringComparison.Ordinal);
         Assert.Contains("IsEditable = true", panel, StringComparison.Ordinal);
@@ -219,7 +218,7 @@ public sealed class ThinkControlModesSourceTests
 
         Assert.Contains("Text=\"Controls\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Add setting\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Automation\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Text=\"Automation rules\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"Add trigger\"", xaml, StringComparison.Ordinal);
         Assert.Contains("\"Wi-Fi network\", \"Wifi\"", code, StringComparison.Ordinal);
         Assert.Contains("\"App running\", \"Process\"", code, StringComparison.Ordinal);
@@ -228,12 +227,11 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("\"Schedule\", \"Schedule\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("No controls yet", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ModeSelector\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Content=\"New mode ▾\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Content=\"New mode\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Click=\"StarterMode_Click\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Header = \"From template\"", code, StringComparison.Ordinal);
-        Assert.Contains("\"Focus template\"", code, StringComparison.Ordinal);
-        Assert.Contains("\"Battery saver template\"", code, StringComparison.Ordinal);
-        Assert.Contains("\"Performance template\"", code, StringComparison.Ordinal);
+        Assert.Contains("BeginRuleEdit", code, StringComparison.Ordinal);
+        Assert.Contains("SaveRule", code, StringComparison.Ordinal);
         Assert.Contains("ThinkControlModeCatalog.CreateStarterTemplate", code, StringComparison.Ordinal);
         Assert.Contains("ModeSelector_SelectionChanged", code, StringComparison.Ordinal);
         Assert.Contains("LastTransitionError", code, StringComparison.Ordinal);

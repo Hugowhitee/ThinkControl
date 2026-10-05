@@ -120,6 +120,11 @@ public sealed class AppState : INotifyPropertyChanged
     public int MaxRefreshHz { get => _maxRefreshHz; set => Set(ref _maxRefreshHz, value); }
     public bool RefreshAutoEnabled { get => _refreshAutoEnabled; set => Set(ref _refreshAutoEnabled, value); }
     public string HardwareAccess { get => _hardwareAccess; set => Set(ref _hardwareAccess, value); }
+    public string HardwareAccessSummary => CanFanControl ? "Cooling control and telemetry available."
+        : CanFanTelemetry || CanSensorTelemetry || CanCpuTemperature ? "Readings available. Manual cooling is unavailable."
+        : "Hardware readings unavailable. Open Inbox to check setup.";
+    public string CoolingAvailabilityText => CanFanControl ? "Cooling control available." :
+        CanFanTelemetry ? "Fan readings available. Manual cooling is unavailable." : "Cooling control and fan readings unavailable.";
     public string CpuName { get => _cpuName; set => Set(ref _cpuName, value); }
     public string GpuName { get => _gpuName; set => Set(ref _gpuName, value); }
     public string RamText { get => _ramText; set => Set(ref _ramText, value); }
@@ -351,6 +356,12 @@ public sealed class AppState : INotifyPropertyChanged
 
         field = value;
         OnPropertyChanged(propertyName);
+
+        if (propertyName is nameof(CanFanControl) or nameof(CanFanTelemetry) or nameof(CanSensorTelemetry) or nameof(CanCpuTemperature))
+        {
+            OnPropertyChanged(nameof(HardwareAccessSummary));
+            OnPropertyChanged(nameof(CoolingAvailabilityText));
+        }
 
         if (propertyName == nameof(CpuTemperatureC))
             OnPropertyChanged(nameof(CpuTemperatureText));
