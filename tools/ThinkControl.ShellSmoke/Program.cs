@@ -85,10 +85,10 @@ internal static class Program
             Triggers: [new("Wifi", "School")]);
         var appMode = new ThinkControlModeDefinition("app", "App", AutomationEnabled: true,
             Triggers: [new("Process", "editor.exe")]);
-        if (ThinkControlModeAutomationPolicy.MatchScore(appMode, context) <= ThinkControlModeAutomationPolicy.MatchScore(school, context))
+        if (ThinkControlModeAutomationPolicy.MatchScore(appMode, context) != ThinkControlModeAutomationPolicy.MatchScore(school, context))
             throw new InvalidOperationException("Equal-priority app/Wi-Fi arbitration disagrees with the UI.");
         if (ThinkControlModeAutomationPolicy.MatchScore(school with { AutomationPriority = 1 }, context) <= ThinkControlModeAutomationPolicy.MatchScore(appMode, context))
-            throw new InvalidOperationException("An explicit user priority failed to outrank a trigger-type tie-breaker.");
+            throw new InvalidOperationException("An explicit user priority failed to outrank a lower-priority rule.");
         if (ThinkControlModeAutomationPolicy.MatchScore(school, context with { WifiSsid = "Home" }) != 0)
             throw new InvalidOperationException("School Wi-Fi remained matched after leaving the network.");
         var all = school with { MatchAllTriggers = true, Triggers = [new("Wifi", "School"), new("Power", "AC")] };
@@ -109,7 +109,7 @@ internal static class Program
         var school = new ThinkControlModeDefinition("custom:qa-school", "School", TouchpadGesturesEnabled: true);
         var blocked = new ThinkControlModeDefinition("custom:qa-blocked", "Blocked", CoolingProfile: "Quiet");
         var wifi = new ThinkControlAutomationRule("rule:qa-wifi", "School network", school.Id, [new("Wifi", "School")]);
-        var process = new ThinkControlAutomationRule("rule:qa-process", "School app", school.Id, [new("Process", "editor")]);
+        var process = new ThinkControlAutomationRule("rule:qa-process", "School app", school.Id, [new("Process", "editor")], Priority: 1);
         var environment = new ModeAutomationSnapshot("Home", true, 50, new HashSet<string>(), DateTimeOffset.Now);
         var engine = app.ModeAutomation;
         void Require(bool condition, string message)
@@ -162,6 +162,27 @@ internal static class Program
             var roundTrip = System.Text.Json.JsonSerializer.Deserialize<ThinkControlUserSettings>(
                 System.Text.Json.JsonSerializer.Serialize(app.UserSettings.Current));
             Require(roundTrip?.AutomationRules?.Length == 1 && roundTrip.CustomModes?.Length == 3, "settings migration did not survive serialization");
+
+            await app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId);
+            engine.Resume();
+            var identical = wifi with { Id = "rule:qa-identical", Name = "Second school rule", ModeId = manual.Id };
+            app.UserSettings.Update(settings => settings with { AutomationRules = [wifi, process with { Priority = -1 }, identical] });
+            await At(120, "School", true); await At(126, "School", true);
+            Require(app.Modes.ActiveModeId == school.Id && engine.Matches.Single(match => match.Id == identical.Id).State.Contains("comes first"),
+                "first rule did not win identical conditions or explain the tie");
+            var reordered = ThinkControlAutomationRules.MoveWithinPriority(app.UserSettings.Current.AutomationRules!, identical.Id, -1);
+            Require(reordered[0].Id == identical.Id && reordered[1].Id == process.Id && reordered[2].Id == wifi.Id,
+                "reordering changed an unrelated priority group");
+            app.UserSettings.Update(settings => settings with { AutomationRules = reordered });
+            await At(132, "School", true);
+            Require(app.Modes.ActiveModeId == school.Id, "reordering skipped transition dwell");
+            await At(138, "School", true);
+            Require(app.Modes.ActiveModeId == manual.Id && engine.Status.StartsWith(identical.Name),
+                "active rule incorrectly kept precedence over the new list order");
+            app.UserSettings.Update(settings => settings with { AutomationRules = reordered.Select(rule => rule.Id == process.Id ? rule with { Priority = 1 } : rule).ToArray() });
+            await At(144, "School", true); await At(150, "School", true);
+            Require(app.Modes.ActiveModeId == school.Id && engine.Matches.Single(match => match.Id == identical.Id).State.Contains("higher priority"),
+                "explicit priority did not outrank list order or explain the result");
         }
         finally
         {

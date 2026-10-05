@@ -22,7 +22,7 @@ internal static class Program
 
     private static readonly string[] AdvancedPages =
     [
-        "Home", "Modes", "Performance", "Fans", "Display", "Audio",
+        "Home", "Modes", "Automation", "Performance", "Fans", "Display", "Audio",
         "Keyboard", "Battery", "Touchpad", "System", "Updates", "Settings"
     ];
 
@@ -173,7 +173,7 @@ internal static class Program
             "advanced-modes-context.png", "saved context modes", modeList: true);
         RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
             "advanced-modes-editor.png", "context mode editor", modeEditor: true);
-        RenderAdvanced(app, charging, "Modes", 980, 900, output, snapshots,
+        RenderAdvanced(app, charging, "Automation", 980, 900, output, snapshots,
             "advanced-rule-editor.png", "separate automation rule", ruleEditor: true);
         RenderAdvanced(app, serviceOffline, "Modes", 980, 650, output, snapshots,
             "advanced-modes-apply-failed-min.png", "cooling unavailable · failed mode preflight", modeFailure: true);
@@ -279,7 +279,7 @@ internal static class Program
             "advanced-modes-context-light.png", "saved context modes · light", modeList: true);
         RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
             "advanced-modes-editor-light.png", "context mode editor · light", modeEditor: true);
-        RenderAdvanced(app, charging, "Modes", 980, 900, output, snapshots,
+        RenderAdvanced(app, charging, "Automation", 980, 900, output, snapshots,
             "advanced-rule-editor-light.png", "separate automation rule · light", ruleEditor: true);
         RenderAdvanced(app, serviceOffline, "Modes", 980, 650, output, snapshots,
             "advanced-modes-apply-failed-min-light.png", "cooling unavailable · failed mode preflight · light", modeFailure: true);
@@ -545,6 +545,8 @@ internal static class Program
                 audioPage: string.Equals(page, "Audio", StringComparison.OrdinalIgnoreCase));
         if (modeList && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
             window.PrepareModesListForSnapshot();
+        if (string.Equals(page, "Automation", StringComparison.OrdinalIgnoreCase) && !ruleEditor)
+            window.PrepareAutomationListForSnapshot();
         if (modeEditor && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
             window.PrepareModesEditorForSnapshot();
         if (ruleEditor) window.PrepareRuleEditorForSnapshot();

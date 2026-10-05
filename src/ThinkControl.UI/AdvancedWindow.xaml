@@ -55,6 +55,9 @@
                             <RadioButton x:Name="NavModes" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Modes" Checked="Nav_Checked">
                                 <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Tune" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Modes" /></StackPanel>
                             </RadioButton>
+                            <RadioButton x:Name="NavAutomation" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Automation" Checked="Nav_Checked">
+                                <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Automation" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Automation" /></StackPanel>
+                            </RadioButton>
                             <RadioButton x:Name="NavSystem" GroupName="Nav" Style="{StaticResource TcNav}" Tag="System" Checked="Nav_Checked">
                                 <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Laptop" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="System" /></StackPanel>
                             </RadioButton>
@@ -162,6 +165,9 @@
 
                     <controls:AdvancedScrollViewer x:Name="PageModes" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <controls:ModesPanel x:Name="ModesPanelControl" Margin="0" />
+                    </controls:AdvancedScrollViewer>
+                    <controls:AdvancedScrollViewer x:Name="PageAutomation" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <controls:ModesPanel x:Name="AutomationPanelControl" Margin="0" />
                     </controls:AdvancedScrollViewer>
 
                     <controls:AdvancedScrollViewer x:Name="PagePerformance" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

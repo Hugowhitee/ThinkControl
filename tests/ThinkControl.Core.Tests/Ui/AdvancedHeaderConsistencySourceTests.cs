@@ -82,7 +82,7 @@ public sealed class AdvancedHeaderConsistencySourceTests
         string snapshots = Read(root, "tools", "ThinkControl.Snapshots", "Program.cs");
         string workflow = Read(root, ".github", "workflows", "ci.yml");
 
-        Assert.Contains("\"Home\", \"Modes\", \"Performance\"", snapshots, StringComparison.Ordinal);
+        Assert.Contains("\"Home\", \"Modes\", \"Automation\", \"Performance\"", snapshots, StringComparison.Ordinal);
         Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-light.png\"", snapshots, StringComparison.Ordinal);
         Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-min-light.png\"", snapshots, StringComparison.Ordinal);
         Assert.Contains("$\"advanced-{page.ToLowerInvariant()}-wide-light.png\"", snapshots, StringComparison.Ordinal);

@@ -45,7 +45,7 @@
                                      Subtitle="Saved settings and the rules that activate them." />
 
         <StackPanel x:Name="ListView">
-            <Border Style="{StaticResource TcSection}" Padding="0">
+            <Border x:Name="ModeListSection" Style="{StaticResource TcSection}" Padding="0">
                 <StackPanel>
                     <Grid Margin="14,12,12,10">
                         <StackPanel VerticalAlignment="Center">
@@ -92,13 +92,16 @@
                        Margin="2,9,2,0"
                        Visibility="Collapsed" />
 
-            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+            <Border x:Name="AutomationListSection" Style="{StaticResource TcSection}" Margin="0,14,0,0">
                 <StackPanel>
                     <Grid>
                         <TextBlock Text="Automation rules" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <Button x:Name="NewRuleButton" Content="New rule" Style="{StaticResource TcInlineButton}"
                                 HorizontalAlignment="Right" Click="NewRule_Click" />
                     </Grid>
+                    <TextBlock Text="Highest priority wins. At the same priority, the first matching rule in this list wins."
+                               Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
                     <TextBlock x:Name="AutomationStatusText" Foreground="{DynamicResource Tc.TextMuted}"
                                TextWrapping="Wrap" Margin="0,8,0,10" />
                     <Button x:Name="ResumeAutomationButton" Content="Resume automation" Style="{StaticResource TcInlineButton}"
@@ -226,7 +229,7 @@
                         </Grid>
                         <StackPanel x:Name="EditorTriggers" Margin="0,8,0,0" />
                         <TextBlock Margin="0,12,0,0"
-                                   Text="Higher priority wins. Ties use app, Wi-Fi, battery, power, then time. A manual selection pauses automation until the winning context changes."
+                                   Text="At the same priority, list order decides. A manual selection pauses automation until a different rule wins, or you choose Resume."
                                    Foreground="{DynamicResource Tc.TextMuted}"
                                    FontSize="{x:Static ui:TypographyScale.Caption}"
                                    TextWrapping="Wrap" />

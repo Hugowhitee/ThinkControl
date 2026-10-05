@@ -26,7 +26,7 @@ internal static class ThinkControlModeAutomationPolicy
         if (triggers.Length == 0)
             return 0;
 
-        int score = 0;
+        bool matched = false;
         foreach (ThinkControlModeTrigger trigger in triggers)
         {
             if (!Matches(trigger, snapshot))
@@ -35,12 +35,11 @@ internal static class ThinkControlModeAutomationPolicy
                     return 0;
                 continue;
             }
-            score = Math.Max(score, TriggerScore(trigger.Type));
+            matched = true;
         }
 
-        // Priority is user controlled; the type rank only resolves equally
-        // prioritized matches. No overlapping modes are stacked.
-        return score == 0 ? 0 : (mode.AutomationPriority + 1) * 1000 + score;
+        // Equal-priority rules keep their saved, visible list order.
+        return matched ? (mode.AutomationPriority + 1) * 1000 + 1 : 0;
     }
 
     internal static bool Matches(ThinkControlModeTrigger trigger, ModeAutomationSnapshot snapshot) =>
@@ -56,16 +55,6 @@ internal static class ThinkControlModeAutomationPolicy
             "Schedule" => MatchesSchedule(trigger, snapshot.Now.ToLocalTime()),
             _ => false
         };
-
-    private static int TriggerScore(string type) => type switch
-    {
-        "Process" => 500,
-        "Wifi" => 400,
-        "BatteryBelow" => 320,
-        "Power" => 300,
-        "Schedule" => 200,
-        _ => 0
-    };
 
     private static bool MatchesSchedule(ThinkControlModeTrigger trigger, DateTimeOffset now)
     {
@@ -139,7 +128,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         _manualContextId = _observedWinnerId;
         _beforeAutomation = null;
         _activeRuleId = null;
-        SetStatus("Paused by your manual selection until matching conditions change.");
+        SetStatus("Paused by your manual selection. Resume, or wait for a different rule to win.");
     }
     internal void Resume()
     {
@@ -200,18 +189,18 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         }).ToArray();
         var winner = ranked.Where(item => item.Mode is not null && item.Score > 0)
             .OrderByDescending(item => item.Score)
-            .ThenByDescending(item => item.Rule.Id == _activeRuleId)
             .FirstOrDefault();
         _observedWinnerId = winner?.Rule.Id;
         var matches = ranked.Select(item => new AutomationRuleMatch(item.Rule.Id, item.Rule.Name,
             item.Mode?.Name ?? "Missing mode", item.Score > 0,
             item.Mode is null ? "Choose a mode" : !item.Rule.Enabled ? "Disabled" :
-            item.Score == 0 ? "Not matched" : item.Rule.Id == winner?.Rule.Id ? "Winner" : "Matched; lower precedence")).ToArray();
+            item.Score == 0 ? "Not matched" : item.Rule.Id == winner?.Rule.Id ? "Winner" :
+            $"Matched; {winner!.Rule.Name} " + (winner.Rule.Priority > item.Rule.Priority ? "has higher priority" : "comes first"))).ToArray();
         if (!Matches.SequenceEqual(matches)) { Matches = matches; Changed?.Invoke(); }
 
         if (_manualOverride && _observedWinnerId == _manualContextId)
         {
-            SetStatus("Paused by your manual selection until matching conditions change.");
+            SetStatus("Paused by your manual selection. Resume, or wait for a different rule to win.");
             return;
         }
         if (_manualOverride) { _manualOverride = false; _manualContextId = null; }

@@ -11,6 +11,8 @@ public partial class ModesPanel : UserControl
     private sealed record TriggerBinding(int Index, string Field);
 
     private App? _app;
+    private bool _automationSurface;
+    internal event Action<string>? NavigateRequested;
     private bool _busy;
     private bool _syncingModeSelection;
     private string? _editingId;
@@ -30,11 +32,16 @@ public partial class ModesPanel : UserControl
     private Button _reapplyButton = null!;
     private Button _cancelButton = null!;
     private Button _saveButton = null!;
+    private Button _linkedPageButton = null!;
 
     public ModesPanel()
     {
         InitializeComponent();
         BuildHeaderActions();
+        IsVisibleChanged += (_, _) =>
+        {
+            if (IsVisible && EditorView.Visibility != Visibility.Visible) RefreshList();
+        };
     }
 
     private void BuildHeaderActions()
@@ -61,11 +68,15 @@ public partial class ModesPanel : UserControl
         _saveButton = HeaderButton("Save", Save_Click);
         _saveButton.Visibility = Visibility.Collapsed;
 
+        _linkedPageButton = HeaderButton("Automation ›", (_, _) =>
+            NavigateRequested?.Invoke(_automationSurface ? "Modes" : "Automation"));
+
         StackPanel rail = Header.EnsureActionStack();
         rail.Children.Add(_modifiedLabel);
         Header.AddAction(_reapplyButton, PageHeaderActionRole.Context);
         Header.AddAction(_cancelButton, PageHeaderActionRole.Context);
         Header.AddAction(_saveButton, PageHeaderActionRole.Context);
+        Header.AddAction(_linkedPageButton, PageHeaderActionRole.Context);
         _saveButton.Style = TryFindResource("TcButton") as Style;
     }
 
@@ -81,8 +92,16 @@ public partial class ModesPanel : UserControl
         return button;
     }
 
-    internal void Initialize(App app)
+    internal void Initialize(App app, bool automationSurface = false)
     {
+        _automationSurface = automationSurface;
+        Header.Title = automationSurface ? "Automation" : "Modes";
+        Header.Subtitle = automationSurface ? "Link conditions to a saved mode. One rule wins at a time."
+            : "Save settings together, then select a mode or link it to an automation rule.";
+        ModeListSection.Visibility = automationSurface ? Visibility.Collapsed : Visibility.Visible;
+        AutomationListSection.Visibility = automationSurface ? Visibility.Visible : Visibility.Collapsed;
+        AutomationListSection.Margin = new Thickness(0);
+        _linkedPageButton.Content = automationSurface ? "Modes ›" : "Automation ›";
         if (ReferenceEquals(_app, app))
         {
             RefreshList();
@@ -129,29 +148,53 @@ public partial class ModesPanel : UserControl
         var rules = _app.UserSettings.Current.AutomationRules ?? [];
         NewRuleButton.IsEnabled = rules.Length < ThinkControlAutomationRules.Maximum &&
             _app.Modes.GetModes().Any(mode => mode.Id != ThinkControlModeCatalog.NormalId);
-        foreach (var rule in rules)
+        var ordered = rules.OrderByDescending(rule => rule.Priority).ToArray();
+        for (int position = 0; position < ordered.Length; position++)
         {
+            var rule = ordered[position];
             var target = _app.Modes.GetModes().FirstOrDefault(mode => mode.Id == rule.ModeId);
             var grid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
             grid.ColumnDefinitions.Add(new ColumnDefinition());
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var text = new StackPanel { Margin = new Thickness(0, 0, 12, 0) };
-            text.Children.Add(new TextBlock { Text = rule.Name + " → " + (target?.Name ?? "Missing mode"), TextWrapping = TextWrapping.Wrap });
+            text.Children.Add(new TextBlock { Text = $"{position + 1}. {rule.Name} → " + (target?.Name ?? "Missing mode"), TextWrapping = TextWrapping.Wrap });
             text.Children.Add(MutedText(ThinkControlAutomationRules.ConditionsSummary(rule)));
             string status = _app.ModeAutomation.Matches.FirstOrDefault(match => match.Id == rule.Id)?.State ?? (rule.Enabled ? "Waiting" : "Disabled");
             string priority = rule.Priority switch { 1 => "High priority", -1 => "Low priority", _ => "Normal priority" };
             text.Children.Add(MutedText(priority + ". " + status));
             grid.Children.Add(text);
             var edit = InlineButton("Edit rule", EditRule_Click, rule.Id);
-            edit.VerticalAlignment = VerticalAlignment.Center;
-            Grid.SetColumn(edit, 1);
-            grid.Children.Add(edit);
+            var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            foreach (int direction in new[] { -1, 1 })
+            {
+                var move = InlineButton(direction < 0 ? "↑" : "↓", MoveRule_Click, (rule.Id, direction));
+                move.MinWidth = 30;
+                move.Margin = new Thickness(0, 0, 5, 0);
+                int peer = position + direction;
+                move.IsEnabled = peer >= 0 && peer < ordered.Length && ordered[peer].Priority == rule.Priority;
+                string label = $"Move {rule.Name} {(direction < 0 ? "up" : "down")}";
+                TcToolTip.Apply(move, label);
+                System.Windows.Automation.AutomationProperties.SetName(move, label);
+                actions.Children.Add(move);
+            }
+            actions.Children.Add(edit);
+            Grid.SetColumn(actions, 1);
+            grid.Children.Add(actions);
             RuleRows.Children.Add(SeparatorRow(grid));
         }
         if (rules.Length == 0) RuleRows.Children.Add(MutedText("No rules. Modes change only when you select them."));
     }
 
     private void ResumeAutomation_Click(object sender, RoutedEventArgs e) => _app?.ModeAutomation.Resume();
+
+    private void MoveRule_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || sender is not FrameworkElement { Tag: ValueTuple<string, int> move }) return;
+        _app.UserSettings.Update(settings => settings with { AutomationRules =
+            ThinkControlAutomationRules.MoveWithinPriority(settings.AutomationRules ?? [], move.Item1, move.Item2) });
+        _app.RequestModeAutomationEvaluation();
+        RefreshRules();
+    }
 
     private void NewRule_Click(object sender, RoutedEventArgs e)
     {
@@ -265,6 +308,9 @@ public partial class ModesPanel : UserControl
         TextBlock summary = MutedText(ThinkControlModeCatalog.Summary(mode));
         summary.Margin = new Thickness(0, 3, 0, 0);
         copy.Children.Add(summary);
+        int linked = _app?.UserSettings.Current.AutomationRules?.Count(rule => rule.ModeId == mode.Id) ?? 0;
+        if (linked > 0)
+            copy.Children.Add(MutedText($"Linked to {linked} automation {(linked == 1 ? "rule" : "rules")}"));
         string? unavailable = _app?.Modes.AvailabilityError(mode);
         if (unavailable is not null)
         {
@@ -422,6 +468,7 @@ public partial class ModesPanel : UserControl
         ListView.Visibility = Visibility.Collapsed;
         EditorView.Visibility = Visibility.Visible;
         _saveButton.Visibility = Visibility.Visible;
+        _linkedPageButton.Visibility = Visibility.Collapsed;
         _cancelButton.Visibility = Visibility.Visible;
         _modifiedLabel.Visibility = Visibility.Collapsed;
         _reapplyButton.Visibility = Visibility.Collapsed;
@@ -1110,6 +1157,7 @@ public partial class ModesPanel : UserControl
         ListView.Visibility = Visibility.Visible;
         _saveButton.Visibility = Visibility.Collapsed;
         _cancelButton.Visibility = Visibility.Collapsed;
+        _linkedPageButton.Visibility = Visibility.Visible;
         EditorStatusText.Visibility = Visibility.Collapsed;
         RefreshList();
     }
@@ -1118,6 +1166,14 @@ public partial class ModesPanel : UserControl
     {
         if (_app is null || EditorView.Visibility == Visibility.Visible)
             return;
+
+        if (_automationSurface)
+        {
+            _modifiedLabel.Visibility = Visibility.Collapsed;
+            _reapplyButton.Visibility = Visibility.Collapsed;
+            ListStatusText.Visibility = Visibility.Collapsed;
+            return;
+        }
 
         bool transitioning = _app.Modes.IsTransitioning;
         bool failed = !transitioning && !string.IsNullOrWhiteSpace(_app.Modes.LastTransitionError);

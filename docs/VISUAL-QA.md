@@ -36,7 +36,7 @@ Every Advanced destination is rendered at all three canonical viewports in both 
 - wide: 1720×980;
 - dark and light for each size.
 
-The matrix includes Home, Modes, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. CI requires every expected PNG to exist and be non-trivial before uploading the gallery.
+The matrix includes Home, Modes, Automation, Performance, Fans, Battery, Display, Audio, Keyboard, Touchpad, System, Updates and Settings. CI requires every expected PNG to exist and be non-trivial before uploading the gallery.
 
 Modes also has dedicated configuration and separate automation-rule editor snapshots in dark and light. Visual QA uses in-memory preferences and cannot migrate or overwrite the installed user settings. Special-state snapshots remain additive; they do not replace the baseline matrix.
 

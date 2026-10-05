@@ -96,11 +96,6 @@ public sealed class ThinkControlModesSourceTests
 
         Assert.Contains("DispatcherTimer", automation, StringComparison.Ordinal);
         Assert.Contains("ModeTriggerEnvironment.Capture", automation, StringComparison.Ordinal);
-        Assert.Contains("\"Process\" => 500", automation, StringComparison.Ordinal);
-        Assert.Contains("\"Wifi\" => 400", automation, StringComparison.Ordinal);
-        Assert.Contains("\"BatteryBelow\" => 320", automation, StringComparison.Ordinal);
-        Assert.Contains("\"Power\" => 300", automation, StringComparison.Ordinal);
-        Assert.Contains("\"Schedule\" => 200", automation, StringComparison.Ordinal);
         Assert.Contains("SuppressUntilContextChanges", automation, StringComparison.Ordinal);
         Assert.Contains("NotifyManualModeSelection", appModes, StringComparison.Ordinal);
         Assert.DoesNotContain("ThinkControl.Service", automation, StringComparison.Ordinal);

@@ -62,6 +62,19 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
+        if (Kind == "Automation")
+        {
+            double branchLeft = width * 0.18, branchRight = width * 0.82;
+            double branchTop = height * 0.18, branchBottom = height * 0.82;
+            drawingContext.DrawLine(pen, new Point(branchLeft, branchTop), new Point(branchLeft, branchBottom));
+            drawingContext.DrawLine(pen, new Point(branchLeft, branchBottom), new Point(branchRight, branchBottom));
+            drawingContext.DrawLine(pen, new Point(branchLeft, branchTop), new Point(branchRight, branchTop));
+            double radius = Math.Min(width, height) * 0.12;
+            foreach (Point point in new[] { new Point(branchLeft, branchTop), new Point(branchRight, branchTop), new Point(branchRight, branchBottom) })
+                drawingContext.DrawEllipse(null, pen, point, radius, radius);
+            return;
+        }
+
         if (Kind is "BatteryHorizontal" or "BatteryChargingHorizontal")
         {
             DrawHorizontalBattery(drawingContext, pen, brush, width, height, charging: Kind == "BatteryChargingHorizontal");

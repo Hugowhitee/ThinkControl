@@ -46,6 +46,20 @@ internal static class ThinkControlAutomationRules
         new(rule.Id, rule.Name, Triggers: rule.Conditions, AutomationEnabled: rule.Enabled,
             MatchAllTriggers: rule.MatchAll, AutomationPriority: rule.Priority);
 
+    internal static ThinkControlAutomationRule[] MoveWithinPriority(
+        IReadOnlyList<ThinkControlAutomationRule> rules, string id, int direction)
+    {
+        var result = rules.ToArray();
+        int index = Array.FindIndex(result, rule => rule.Id == id);
+        if (index < 0 || direction is not (-1 or 1)) return result;
+        int adjacent = index + direction;
+        while (adjacent >= 0 && adjacent < result.Length && result[adjacent].Priority != result[index].Priority)
+            adjacent += direction;
+        if (adjacent >= 0 && adjacent < result.Length)
+            (result[index], result[adjacent]) = (result[adjacent], result[index]);
+        return result;
+    }
+
     internal static string ConditionsSummary(ThinkControlAutomationRule rule) =>
         (rule.MatchAll ? "All: " : "Any: ") +
         string.Join(", ", rule.Conditions.Select(ThinkControlModeCatalog.TriggerSummary));

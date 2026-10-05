@@ -51,7 +51,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Snapshot renderer failed" }
 
           $advancedPages = @(
-            'home', 'modes', 'performance', 'fans', 'display', 'audio',
+            'home', 'modes', 'automation', 'performance', 'fans', 'display', 'audio',
             'keyboard', 'battery', 'touchpad', 'system', 'updates', 'settings'
           )
           $expectedPng = @(

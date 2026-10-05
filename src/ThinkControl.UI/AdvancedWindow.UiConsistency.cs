@@ -22,6 +22,7 @@ public partial class AdvancedWindow
     [
         "PageHome",
         "PageModes",
+        "PageAutomation",
         "PagePerformance",
         "PageFans",
         "PageBattery",
