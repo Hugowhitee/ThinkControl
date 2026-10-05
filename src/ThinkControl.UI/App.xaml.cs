@@ -261,6 +261,7 @@ public partial class App : System.Windows.Application
                 if (service.Capabilities is not null)
                 {
                     State.CanFanControl = service.Capabilities.FanControl;
+                    State.FanAutoRecoverySupported = service.Capabilities.FanAutoRecoverySupported;
                     State.FanControlKind = service.Capabilities.FanControlKind;
                     State.CanFanTelemetry = service.Capabilities.FanTelemetry;
                     State.CanKeyboardBacklight = service.Capabilities.KeyboardBacklight;
@@ -291,6 +292,7 @@ public partial class App : System.Windows.Application
                 State.KeyboardStatus = "Hardware backend unavailable";
                 State.KeyboardBackend = "Not exposed";
                 State.CanFanControl = false;
+                State.FanAutoRecoverySupported = null;
                 State.FanControlKind = FanControlKinds.None;
                 State.CanFanTelemetry = false;
                 State.CanKeyboardBacklight = false;

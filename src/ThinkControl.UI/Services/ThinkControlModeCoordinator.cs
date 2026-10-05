@@ -57,6 +57,21 @@ internal sealed class ThinkControlModeCoordinator
             }
 
             LastTransitionError = null;
+            if (target.CoolingProfile is not null && !_app.State.CanFanControl)
+            {
+                LastTransitionError = "Cooling: no writable cooling controller is available. Open Fans to inspect the current firmware state, or remove Cooling from this mode.";
+                Publish();
+                return false;
+            }
+            // Reject a known incompatible Windows plan before changing any facet
+            // or capturing rollback ownership. Never switch the user's plan here.
+            if (target.PerformanceMode is not null &&
+                _app.PowerModeService.GetPowerPlanError() is string powerPlanError)
+            {
+                LastTransitionError = "Performance: " + powerPlanError;
+                Publish();
+                return false;
+            }
             string previousId = ActiveModeId;
             string previousName = ActiveModeName;
             bool previousAutomatic = ActiveModeAutomatic;

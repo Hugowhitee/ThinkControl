@@ -87,6 +87,18 @@ internal static class Program
         externalFanOwner.CoolingProfile = "Max cooling";
         externalFanOwner.HardwareAccess =
             "A Lenovo full-speed override is already active but was not started by this ThinkControl service instance. Return it to Auto explicitly before applying Quiet/Balanced.";
+        AppState readOnlyCooling = CreateDemoState(charging: true, hardwareReady: true);
+        readOnlyCooling.CanFanControl = false;
+        readOnlyCooling.FanAutoRecoverySupported = false;
+        readOnlyCooling.FanControlKind = FanControlKinds.None;
+        readOnlyCooling.CoolingProfile = "Reported full-speed (read-only)";
+        readOnlyCooling.HardwareAccess = "Lenovo reports a readable state, but firmware exposes no SetFeatureValue method. Physical full-speed behavior is unverified.";
+        AppState autoRecoveryOnly = CreateDemoState(charging: true, hardwareReady: true);
+        autoRecoveryOnly.CanFanControl = false;
+        autoRecoveryOnly.FanAutoRecoverySupported = true;
+        autoRecoveryOnly.FanControlKind = FanControlKinds.None;
+        autoRecoveryOnly.CoolingProfile = "Lenovo Auto";
+        autoRecoveryOnly.HardwareAccess = "Telemetry ready · direct fan profiles remain unavailable · verified Auto recovery is available.";
         AppState pawnIoRepair = CreateDemoState(charging: true, hardwareReady: false);
         pawnIoRepair.DriverStatus = "Hardware service online · one or more providers need attention";
         pawnIoRepair.HardwareAccess =
@@ -159,6 +171,8 @@ internal static class Program
             "advanced-modes-context.png", "saved context modes", modeList: true);
         RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
             "advanced-modes-editor.png", "context mode editor", modeEditor: true);
+        RenderAdvanced(app, serviceOffline, "Modes", 980, 650, output, snapshots,
+            "advanced-modes-apply-failed-min.png", "cooling unavailable · failed mode preflight", modeFailure: true);
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min.png", "minimum window");
@@ -184,6 +198,12 @@ internal static class Program
             "advanced-fans-firmware-policy-recovery.png", "direct provider unavailable · firmware profiles available");
         RenderAdvanced(app, externalFanOwner, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-external-owner.png", "external full-speed owner · explicit Lenovo Auto recovery");
+        RenderAdvanced(app, readOnlyCooling, "Fans", 980, 650, output, snapshots,
+            "advanced-fans-read-only-min.png", "read-only firmware · profiles/Auto unavailable");
+        RenderAdvanced(app, autoRecoveryOnly, "Fans", 980, 650, output, snapshots,
+            "advanced-fans-auto-recovery-min.png", "shared tachometer · independent Auto recovery · profiles unavailable");
+        RenderAdvanced(app, autoRecoveryOnly, "Fans", 980, 650, output, snapshots,
+            "advanced-fans-auto-recovery-result-min.png", "last Auto recovery confirmed · profiles unavailable", fanRecoveryResult: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker", fanActiveCurve: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
@@ -253,10 +273,18 @@ internal static class Program
             "advanced-modes-context-light.png", "saved context modes · light", modeList: true);
         RenderAdvanced(app, charging, "Modes", 1160, 980, output, snapshots,
             "advanced-modes-editor-light.png", "context mode editor · light", modeEditor: true);
+        RenderAdvanced(app, serviceOffline, "Modes", 980, 650, output, snapshots,
+            "advanced-modes-apply-failed-min-light.png", "cooling unavailable · failed mode preflight · light", modeFailure: true);
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery-light.png", "direct provider unavailable · firmware profiles available · light");
         RenderAdvanced(app, externalFanOwner, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-external-owner-light.png", "external full-speed owner · explicit Lenovo Auto recovery · light");
+        RenderAdvanced(app, readOnlyCooling, "Fans", 980, 650, output, snapshots,
+            "advanced-fans-read-only-min-light.png", "read-only firmware · profiles/Auto unavailable · light");
+        RenderAdvanced(app, autoRecoveryOnly, "Fans", 980, 650, output, snapshots,
+            "advanced-fans-auto-recovery-min-light.png", "shared tachometer · independent Auto recovery · light");
+        RenderAdvanced(app, autoRecoveryOnly, "Fans", 980, 650, output, snapshots,
+            "advanced-fans-auto-recovery-result-min-light.png", "last Auto recovery confirmed · light", fanRecoveryResult: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-active-curve-light.png", "Balanced curve · live marker · light", fanActiveCurve: true);
         RenderSensorDetails(app, charging, 900, 700, output, snapshots, "sensor-details-light.png", "normal · light");
@@ -357,7 +385,7 @@ internal static class Program
         {
             state.ApplyHardwareTelemetry(
             [
-                new FanTelemetrySnapshot("fan-ec-primary", "System fan", 2050, "ThinkPad X9 EC tachometer 0x84/0x85 · 0x1604/0x1600", true)
+                new FanTelemetrySnapshot("x9-ec-shared", "Shared tachometer", 2050, "ThinkPad X9 EC shared tachometer 0x84/0x85 · 0x66/0x62", true, Shared: true)
             ],
             [
                 new HardwareSensorSnapshot("cpu-package", "Intel Core Ultra 7 258V", "Cpu", "CPU Package", "Temperature", 47.2, "°C", true, "LibreHardwareMonitor"),
@@ -467,11 +495,16 @@ internal static class Program
         AudioSafetyMode? audioSafetyMode = null,
         bool modeEditor = false,
         bool modeList = false,
-        bool batteryCustom = false)
+        bool batteryCustom = false,
+        bool modeFailure = false,
+        bool fanRecoveryResult = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
+        if (fanRecoveryResult && window.FindName("PageFans") is System.Windows.Controls.ScrollViewer { Content: FansPanel recoveryPanel })
+            typeof(FansPanel).GetMethod("ShowAutoRecoveryResult", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(recoveryPanel, ["Last recovery: Lenovo Auto confirmed."]);
         if (deviceLearning)
             window.PrepareDeviceLearningForSnapshot(deviceReportReady);
         if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)
@@ -503,6 +536,16 @@ internal static class Program
             window.PrepareModesListForSnapshot();
         if (modeEditor && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
             window.PrepareModesEditorForSnapshot();
+        if (modeFailure)
+        {
+            // Inject only the coordinator error state; no provider or saved mode is
+            // changed. Production rendering handles both manual/automatic failure.
+            typeof(ThinkControlModeCoordinator).GetProperty("LastTransitionError", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(app.Modes, "Cooling: no writable cooling controller is available. Open Fans to inspect the current firmware state, or remove Cooling from this mode.");
+            typeof(ThinkControlModeCoordinator).GetProperty("IsModified", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(app.Modes, true);
+            window.PrepareModesListForSnapshot();
+        }
 
         if (string.Equals(page, "Performance", StringComparison.OrdinalIgnoreCase))
             window.PreparePerformanceForSnapshot();
@@ -575,6 +618,11 @@ internal static class Program
 
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, $"Advanced · {page}", stateName, width, height));
+        if (modeFailure)
+        {
+            typeof(ThinkControlModeCoordinator).GetProperty("LastTransitionError", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, null);
+            typeof(ThinkControlModeCoordinator).GetProperty("IsModified", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, false);
+        }
         window.ForceClose();
     }
 

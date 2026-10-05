@@ -35,6 +35,9 @@ public partial class AudioPanel : UserControl
     {
         InitializeComponent();
 
+        _volumeAutomationCommitTimer = CreateAutomationCommitTimer(ApplyVolumeSlider);
+        _microphoneAutomationCommitTimer = CreateAutomationCommitTimer(ApplyMicrophoneSlider);
+
         _volumeRefreshTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
         {
             Interval = TimeSpan.FromSeconds(2)
@@ -51,9 +54,6 @@ public partial class AudioPanel : UserControl
                 QueueVolumeRefresh(applyCacheFirst: false);
             }
         };
-
-        _volumeAutomationCommitTimer = CreateAutomationCommitTimer(ApplyVolumeSlider);
-        _microphoneAutomationCommitTimer = CreateAutomationCommitTimer(ApplyMicrophoneSlider);
 
         VolumeSlider.LostKeyboardFocus += VolumeSlider_LostKeyboardFocus;
         MicrophoneSlider.LostKeyboardFocus += MicrophoneSlider_LostKeyboardFocus;
@@ -193,7 +193,7 @@ public partial class AudioPanel : UserControl
             MuteButton.Tag = false;
             PrepareMicrophoneSnapshot(72, available: true);
 
-            BackendStatusText.Text = _status.Detail;
+            BackendStatusText.Text = "Dolby Access installed";
             InstallButton.Visibility = Visibility.Collapsed;
             OpenButton.IsEnabled = true;
             ProfileGrid.Visibility = Visibility.Visible;
@@ -206,7 +206,7 @@ public partial class AudioPanel : UserControl
             GameProfile.IsChecked = false;
             VoiceProfile.IsChecked = false;
             UpdateToneSection("Dynamic", directToneAvailable: false);
-            ActionStatusText.Text = "Dolby Access available for profile changes.";
+            ActionStatusText.Text = string.Empty;
         }
         finally
         {
@@ -276,7 +276,9 @@ public partial class AudioPanel : UserControl
         bool accessBridge = !directProfiles && CanUseDolbyAccessBridge(_status);
         bool canSelectProfiles = directProfiles || accessBridge;
 
-        BackendStatusText.Text = _directState.Available && (directProfiles || _directState.CanToneControl)
+        BackendStatusText.Text = accessBridge
+            ? _status.DolbyAccessInstalled ? "Dolby Access installed" : "Dolby audio detected"
+            : _directState.Available && (directProfiles || _directState.CanToneControl)
             ? _directState.Detail
             : _status.Detail;
 
@@ -316,8 +318,6 @@ public partial class AudioPanel : UserControl
             _syncing = false;
         }
 
-        if (accessBridge && string.IsNullOrWhiteSpace(ActionStatusText.Text))
-            ActionStatusText.Text = "Dolby Access available for profile changes.";
     }
 
     private static bool CanUseDolbyAccessBridge(DolbyAudioStatus status) =>

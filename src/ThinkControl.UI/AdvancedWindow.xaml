@@ -6,7 +6,7 @@
         xmlns:iconPacks="clr-namespace:ThinkControl.UI.Controls"
         Title="ThinkControl"
         Width="1160" Height="760"
-        MinWidth="780" MinHeight="620"
+        MinWidth="980" MinHeight="650"
         WindowStyle="SingleBorderWindow"
         ResizeMode="CanResize"
         Background="{DynamicResource Tc.Window}"
@@ -24,8 +24,9 @@
                 </Grid.ColumnDefinitions>
 
                 <Border Grid.Column="0" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="0,1,1,0" Background="{DynamicResource Tc.Surface}">
-                    <Grid>
+                    <Grid x:Name="SidebarGrid">
                         <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="48" /></Grid.RowDefinitions>
+                        <controls:AdvancedScrollViewer x:Name="SidebarNavigationScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel Margin="0,10,0,0">
                             <RadioButton x:Name="NavHome" GroupName="Nav" Style="{StaticResource TcNav}" Tag="Home" Checked="Nav_Checked" IsChecked="True">
                                 <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="House" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Home" /></StackPanel>
@@ -64,6 +65,7 @@
                                 <StackPanel Orientation="Horizontal"><iconPacks:PackIconLucide Kind="Settings" Width="15" Height="15" Margin="0,0,12,0" /><TextBlock Text="Settings" /></StackPanel>
                             </RadioButton>
                         </StackPanel>
+                        </controls:AdvancedScrollViewer>
                         <StackPanel Grid.Row="1" Margin="16,0,12,10" VerticalAlignment="Bottom">
                             <TextBlock Text="ThinkControl" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
                             <TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" />
@@ -72,7 +74,7 @@
                 </Border>
 
                 <Grid Grid.Column="1" Margin="14">
-                    <ScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                             <controls:AdvancedPageHeader Title="Overview" />
                             <Border Style="{StaticResource TcSection}" Padding="16,13" Height="124">
@@ -156,28 +158,28 @@
                                 </Grid>
                             </Border>
                         </StackPanel>
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageModes" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageModes" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <controls:ModesPanel x:Name="ModesPanelControl" Margin="0" />
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PagePerformance" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PagePerformance" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <controls:PerformancePanel x:Name="PerformancePanelControl" Margin="0" />
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageFans" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageFans" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <controls:FansPanel x:Name="FansPanelControl" Margin="0" />
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageBattery" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageBattery" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel>
                             <controls:AdvancedPageHeader Title="Battery" Subtitle="Power, health, history and preservation." />
                             <controls:BatteryTelemetryPanel x:Name="BatteryTelemetryPanelControl" />
                         </StackPanel>
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageDisplay" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageDisplay" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
                             <controls:AdvancedPageHeader Title="Display" Subtitle="Refresh rate, brightness and adaptive brightness." />
                             <Border Style="{StaticResource TcSection}"><StackPanel>
@@ -191,35 +193,35 @@
                                 <Grid><StackPanel><TextBlock Text="Adaptive brightness" FontWeight="SemiBold" /><TextBlock Text="Let Windows use the ambient-light sensor when this display exposes the setting." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,70,0" TextWrapping="Wrap" /></StackPanel><CheckBox x:Name="DisplayAdaptiveSwitch" HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource TcSwitch}" IsEnabled="{Binding AdaptiveBrightnessAvailable}" Click="AdaptiveSwitch_Click" /></Grid>
                             </StackPanel></Border>
                         </StackPanel>
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageAudio" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageAudio" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <controls:AudioPanel x:Name="AudioPanelControl" Margin="0" />
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageKeyboard" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageKeyboard" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel MaxWidth="900" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="Keyboard" Subtitle="Backlight level and optional effects." />
                             <Border Style="{StaticResource TcSection}"><StackPanel><Grid><TextBlock Text="Backlight level" FontWeight="SemiBold" /><TextBlock Text="{Binding KeyboardStatus}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" /></Grid><Grid Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="AdvancedKeyboardOff" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Off" Tag="Off" Click="Keyboard_Click" Margin="0,0,5,0" /><RadioButton x:Name="AdvancedKeyboardLow" Grid.Column="1" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Low" Tag="Low" Click="Keyboard_Click" Margin="2,0" /><RadioButton x:Name="AdvancedKeyboardHigh" Grid.Column="2" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="High" Tag="High" Click="Keyboard_Click" Margin="2,0" /><RadioButton x:Name="AdvancedKeyboardAuto" Grid.Column="3" GroupName="KeyboardMode" Style="{StaticResource TcSegment}" Content="Auto" Tag="Auto" Click="Keyboard_Click" Margin="5,0,0,0" /></Grid></StackPanel></Border>
                             <Border Style="{StaticResource TcSection}" Margin="0,14,0,0"><StackPanel><TextBlock Text="Auto behavior" FontWeight="SemiBold" /><TextBlock Text="Active: High     Idle 15 s: Low     Idle 35 s: Off" Margin="0,11,0,0" /><TextBlock Text="Auto is a ThinkControl policy, not a claim that every ThinkPad firmware exposes a native Auto backlight state." Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" /></StackPanel></Border>
                             <controls:KeyboardEffectsPanel x:Name="KeyboardEffectsPanelControl" Margin="0,14,0,0" />
                         </StackPanel>
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageTouchpad" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <controls:AdvancedScrollViewer x:Name="PageTouchpad" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <controls:TouchpadPanel x:Name="TouchpadPanelControl" Margin="0" />
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageSystem" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="960" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="System" />
+                    <controls:AdvancedScrollViewer x:Name="PageSystem" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="960" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="System" />
                         <Border Style="{StaticResource TcSection}"><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="CPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding CpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="GPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding GpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="RAM" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding RamText}" Margin="0,4,0,0" /></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="BIOS" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding BiosVersion}" Margin="0,4,12,13" /><TextBlock Text="Machine type" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding MachineType}" Margin="0,4,12,13" /><TextBlock Text="Hardware access" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding HardwareAccess}" Margin="0,4,12,0" TextWrapping="Wrap" /></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Thermal solution" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding ThermalSolution}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="Drivers" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding DriverStatus}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="ThinkControl" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding AppVersion}" Margin="0,4,0,0" /></StackPanel></Grid></Border>
                         <Grid Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0"><StackPanel><TextBlock Text="Power &amp; startup" FontWeight="SemiBold" /><TextBlock Text="Windows behavior for sleep, the power button and closing the lid." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,12" /><WrapPanel><Button Content="Lid &amp; power buttons ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Click="PowerOptions_Click" /><Button Content="Screen &amp; sleep ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:powersleep" Click="OpenUrl_Click" /><Button Content="Display settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:display" Click="OpenUrl_Click" /></WrapPanel></StackPanel></Border>
                             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0"><StackPanel><TextBlock x:Name="SystemVendorCardTitle" Text="Device &amp; drivers" FontWeight="SemiBold" /><TextBlock x:Name="SystemVendorCardDetail" Text="Windows driver updates plus one detected-vendor shortcut when it is useful." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,12" /><WrapPanel x:Name="SystemVendorButtons"><Button x:Name="SystemVendorPrimaryButton" Visibility="Collapsed" Style="{StaticResource TcButton}" Margin="0,0,8,8" Click="OpenUrl_Click" /><Button Content="Windows Update ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:windowsupdate" Click="OpenUrl_Click" /><Button Content="Optional updates ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:windowsupdate-optionalupdates" Click="OpenUrl_Click" /></WrapPanel></StackPanel></Border>
                         </Grid>
-                    </StackPanel></ScrollViewer>
+                    </StackPanel></controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageUpdates" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="Updates" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Current version" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="Light" Margin="0,5,0,16" /><TextBlock Text="{Binding UpdateStatus}" FontSize="{x:Static ui:TypographyScale.Secondary}" /><StackPanel Orientation="Horizontal" Margin="0,15,0,0"><Button Content="Check for updates" Style="{StaticResource TcButton}" Click="CheckUpdates_Click" /><Button x:Name="OpenReleaseButton" Content="Open release" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="OpenRelease_Click" IsEnabled="False" /></StackPanel></StackPanel></Border></StackPanel></ScrollViewer>
+                    <controls:AdvancedScrollViewer x:Name="PageUpdates" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="Updates" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Current version" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="Light" Margin="0,5,0,16" /><TextBlock Text="{Binding UpdateStatus}" FontSize="{x:Static ui:TypographyScale.Secondary}" /><StackPanel Orientation="Horizontal" Margin="0,15,0,0"><Button Content="Check for updates" Style="{StaticResource TcButton}" Click="CheckUpdates_Click" /><Button x:Name="OpenReleaseButton" Content="Open release" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="OpenRelease_Click" IsEnabled="False" /></StackPanel></StackPanel></Border></StackPanel></controls:AdvancedScrollViewer>
 
-                    <ScrollViewer x:Name="PageSettings" Visibility="Collapsed"
+                    <controls:AdvancedScrollViewer x:Name="PageSettings" Visibility="Collapsed"
                                   VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel MaxWidth="760" HorizontalAlignment="Left">
                             <controls:AdvancedPageHeader Title="Settings" />
@@ -268,7 +270,7 @@
                                 </StackPanel>
                             </Expander>
                         </StackPanel>
-                    </ScrollViewer>
+                    </controls:AdvancedScrollViewer>
                 </Grid>
             </Grid>
         </Grid>

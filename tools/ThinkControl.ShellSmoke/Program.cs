@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using ThinkControl.UI;
@@ -24,6 +25,8 @@ internal static class Program
         try
         {
             ValidateCrashJournal();
+            ValidateBatteryHistoryGaps();
+            ValidateModeAutomationPolicy();
             app = App.CreateForVisualQa();
             app.InitializeComponent();
             ThemeService.Apply(TcThemeMode.Dark);
@@ -69,6 +72,92 @@ internal static class Program
         finally
         {
             try { app?.CleanupInteractiveShellSmoke(); } catch { }
+        }
+    }
+
+    private static void ValidateModeAutomationPolicy()
+    {
+        var context = new ModeAutomationSnapshot("School", true, 20,
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "editor" }, DateTimeOffset.Now);
+        var school = new ThinkControlModeDefinition("school", "School", AutomationEnabled: true,
+            Triggers: [new("Wifi", "School")]);
+        var appMode = new ThinkControlModeDefinition("app", "App", AutomationEnabled: true,
+            Triggers: [new("Process", "editor.exe")]);
+        if (ThinkControlModeAutomationPolicy.MatchScore(appMode, context) <= ThinkControlModeAutomationPolicy.MatchScore(school, context))
+            throw new InvalidOperationException("Equal-priority app/Wi-Fi arbitration disagrees with the UI.");
+        if (ThinkControlModeAutomationPolicy.MatchScore(school with { AutomationPriority = 1 }, context) <= ThinkControlModeAutomationPolicy.MatchScore(appMode, context))
+            throw new InvalidOperationException("An explicit user priority failed to outrank a trigger-type tie-breaker.");
+        if (ThinkControlModeAutomationPolicy.MatchScore(school, context with { WifiSsid = "Home" }) != 0)
+            throw new InvalidOperationException("School Wi-Fi remained matched after leaving the network.");
+        var all = school with { MatchAllTriggers = true, Triggers = [new("Wifi", "School"), new("Power", "AC")] };
+        if (ThinkControlModeAutomationPolicy.MatchScore(all, context) != 0 ||
+            ThinkControlModeAutomationPolicy.MatchScore(all with { MatchAllTriggers = false }, context) == 0)
+            throw new InvalidOperationException("Any/all rule semantics are inconsistent.");
+        var overnight = new ThinkControlModeTrigger("Schedule", StartTime: "22:00", EndTime: "06:00", DaysMask: 1 << (int)DayOfWeek.Monday);
+        DateTimeOffset tuesday = new(new DateTime(2026, 10, 6, 1, 0, 0), TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 10, 6, 1, 0, 0)));
+        if (!ThinkControlModeAutomationPolicy.Matches(overnight, context with { Now = tuesday }) ||
+            ThinkControlModeAutomationPolicy.Matches(overnight, context with { Now = tuesday.AddHours(5) }))
+            throw new InvalidOperationException("Overnight schedule did not use the originating day or exclusive end boundary.");
+    }
+
+    private static void ValidateBatteryHistoryGaps()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "ThinkControl-history-smoke-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            DateTimeOffset start = DateTimeOffset.UtcNow.AddDays(-2);
+            foreach (bool initialCharging in new[] { true, false })
+            {
+                var history = new BatteryHistoryService(Path.Combine(directory, initialCharging + ".json"));
+                history.Record(initialCharging, !initialCharging, start, 60, 20, 45, 75, 80);
+                history.Record(initialCharging, !initialCharging, start.AddMinutes(10), initialCharging ? 65 : 55, 20, initialCharging ? 49 : 41, 75, 80);
+                history.Record(!initialCharging, initialCharging, start.AddDays(1), 50, 20, 38, 75, 80);
+                BatterySessionDetail finished = history.GetRecentSessionDetails().Single(session => !session.IsActive);
+                if (finished.Duration != TimeSpan.FromMinutes(10) || finished.EndPercent != (initialCharging ? 65 : 55))
+                    throw new InvalidOperationException("A battery source change included an unobserved sleep gap in the previous session.");
+            }
+            var shortHistory = new BatteryHistoryService(Path.Combine(directory, "short.json"));
+            shortHistory.Record(false, true, start, 85, 10, 63, 75, 80);
+            shortHistory.Record(false, true, start.AddMinutes(1), 83, 10, 62, 75, 80);
+            shortHistory.Record(false, false, start.AddMinutes(1), 83, null, 62, 75, 80);
+            BatterySessionDetail shortSession = shortHistory.GetRecentSessionDetails().Single();
+            if (shortSession.PercentPerHour is not null || shortSession.Summary.Contains("%/h", StringComparison.Ordinal))
+                throw new InvalidOperationException("A one-minute battery percentage change was extrapolated into a misleading hourly rate.");
+
+            DateTime localMidnight = DateTime.Today.AddDays(-1);
+            var midnight = new DateTimeOffset(localMidnight, TimeZoneInfo.Local.GetUtcOffset(localMidnight));
+            foreach (bool charge in new[] { true, false })
+            {
+                var overnight = new BatteryHistoryService(Path.Combine(directory, "midnight-" + charge + ".json"));
+                overnight.Record(charge, !charge, midnight.AddMinutes(-10), 60, 10, 45, 75, 80);
+                overnight.Record(charge, !charge, midnight.AddMinutes(-5), charge ? 62 : 58, 10, 45, 75, 80);
+                overnight.Record(charge, !charge, midnight.AddMinutes(5), charge ? 65 : 55, 10, 45, 75, 80);
+                overnight.Record(false, false, midnight.AddMinutes(10), charge ? 65 : 55, null, 45, 75, 80);
+                BatteryDaySummary[] days = overnight.GetRecentDays().OrderBy(day => day.Day).ToArray();
+                if (days.Length != 2 ||
+                    (charge ? days[0].ChargingTime : days[0].UsageTime) != TimeSpan.FromMinutes(10) ||
+                    (charge ? days[1].ChargingTime : days[1].UsageTime) != TimeSpan.FromMinutes(10) ||
+                    (charge ? days[0].ChargedPercent : days[0].DischargedPercent) != 2 ||
+                    (charge ? days[1].ChargedPercent : days[1].DischargedPercent) != 3)
+                    throw new InvalidOperationException("An overnight battery session was attributed entirely to its starting day.");
+            }
+            var busy = new BatteryHistoryService(Path.Combine(directory, "many-sessions.json"));
+            DateTimeOffset busyStart = midnight.AddDays(-1);
+            for (int index = 0; index < 50; index++)
+            {
+                DateTimeOffset at = busyStart.AddMinutes(index * 15);
+                busy.Record(true, false, at, 60, 10, 45, 75, 80);
+                busy.Record(true, false, at.AddMinutes(5), 61, 10, 46, 75, 80);
+                busy.Record(false, false, at.AddMinutes(5), 61, null, 46, 75, 80);
+            }
+            BatteryDaySummary busyDay = busy.GetRecentDays().Single();
+            if (busyDay.ChargedPercent != 50 || busyDay.ChargingTime != TimeSpan.FromMinutes(250))
+                throw new InvalidOperationException("The daily battery total was truncated to the forty most recent sessions.");
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
         }
     }
 
@@ -277,12 +366,87 @@ internal static class Program
         AssertAlive(app, "post-notification Advanced");
 
         ValidatePageNavigation(app);
+        ValidateReadOnlyCoolingState(app);
+    }
+
+    private static void ValidateReadOnlyCoolingState(App app)
+    {
+        bool previousControl = app.State.CanFanControl;
+        string previousProfile = app.State.CoolingProfile;
+        try
+        {
+            app.State.CanFanControl = false;
+            app.State.CoolingProfile = "Reported full-speed (read-only)";
+            var panel = new ThinkControl.UI.Controls.FansPanel();
+            panel.Initialize(app);
+            var telemetry = new ThinkControl.Core.Ipc.TelemetrySnapshot(
+                65, "Smoke fixture", 4800, "Smoke fixture", "Read-only", "Read-only firmware state", "Off",
+                CoolingProfile: app.State.CoolingProfile);
+            var capabilities = new ThinkControl.Core.Ipc.HardwareCapabilitySnapshot(
+                true, false, true, true, FanAutoRecoverySupported: false);
+            var response = new ThinkControl.Core.Ipc.ServiceResponse(1, true, Telemetry: telemetry, Capabilities: capabilities);
+            typeof(ThinkControl.UI.Controls.FansPanel)
+                .GetMethod("ApplyStatus", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(panel, [response]);
+            var applied = (TextBlock)panel.FindName("AppliedLevelText");
+            var profile = (ComboBox)panel.FindName("ProfileComboBox");
+            var recovery = (Button)panel.FindName("RecoverAutoButton");
+            var card = (FrameworkElement)panel.FindName("ProfileCard");
+            if (applied.Text != "Not confirmed" || profile.IsEnabled || profile.Text != "Read-only" ||
+                recovery.Visibility != Visibility.Collapsed || card.Opacity != 1)
+                throw new InvalidOperationException("Read-only cooling was presented as Auto, writable, blank or recoverable.");
+            var recoverable = response with { Capabilities = capabilities with { FanAutoRecoverySupported = true } };
+            typeof(ThinkControl.UI.Controls.FansPanel)
+                .GetMethod("ApplyStatus", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(panel, [recoverable]);
+            if (profile.IsEnabled || recovery.Visibility != Visibility.Visible)
+                throw new InvalidOperationException("Independent Auto recovery incorrectly enabled profiles or remained hidden.");
+            typeof(ThinkControl.UI.Controls.FansPanel)
+                .GetMethod("ShowAutoRecoveryResult", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(panel, ["Last recovery: Lenovo Auto confirmed."]);
+            typeof(ThinkControl.UI.Controls.FansPanel)
+                .GetMethod("ApplyStatus", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(panel, [recoverable]);
+            var result = (TextBlock)panel.FindName("AutoRecoveryResultText");
+            if (result.Visibility != Visibility.Visible || result.Text != "Last recovery: Lenovo Auto confirmed." ||
+                recovery.Visibility != Visibility.Visible)
+                throw new InvalidOperationException("Telemetry erased the recovery result or hid the repeat recovery action.");
+        }
+        finally
+        {
+            app.State.CanFanControl = previousControl;
+            app.State.CoolingProfile = previousProfile;
+        }
     }
 
     private static void ValidatePageNavigation(App app)
     {
         AdvancedWindow window = app.AdvancedWindowForShellSmoke
             ?? throw new InvalidOperationException("Page smoke: Advanced window was not available.");
+
+        double oldWidth = window.Width, oldHeight = window.Height;
+        window.Width = window.MinWidth;
+        window.Height = window.MinHeight;
+        Pump(app.Dispatcher);
+        window.Navigate("Settings");
+        Pump(app.Dispatcher);
+        var navigation = (ScrollViewer)window.FindName("SidebarNavigationScroll");
+        var settings = (RadioButton)window.FindName("NavSettings");
+        Point position = settings.TranslatePoint(new Point(), navigation);
+        if (position.Y < -1 || position.Y + settings.ActualHeight > navigation.ActualHeight + 1)
+            throw new InvalidOperationException("Settings navigation remained outside the minimum-window scroll viewport after selecting it.");
+        navigation.ScrollToTop();
+        Pump(app.Dispatcher);
+        navigation.ScrollToEnd();
+        Pump(app.Dispatcher);
+        position = settings.TranslatePoint(new Point(), navigation);
+        if (position.Y < -1 || position.Y + settings.ActualHeight > navigation.ActualHeight + 1)
+            throw new InvalidOperationException("Settings cannot be reached by scrolling the minimum-window sidebar.");
+        window.Width = oldWidth;
+        window.Height = oldHeight;
+        ValidatePrecisionScrolling(app, window);
+        window.Navigate("Home");
+        Pump(app.Dispatcher);
 
         for (int attempt = 1; attempt <= 3; attempt++)
         {
@@ -327,6 +491,40 @@ internal static class Program
         window.Navigate("Home");
         Pump(app.Dispatcher);
         AssertAlive(app, "Touchpad listener detach after leaving page");
+    }
+
+    private static void ValidatePrecisionScrolling(App app, AdvancedWindow window)
+    {
+        window.Navigate("Battery");
+        Pump(app.Dispatcher);
+        var page = (ScrollViewer)window.FindName("PageBattery");
+        page.ScrollToTop();
+        Pump(app.Dispatcher);
+        int lines = SystemParameters.WheelScrollLines;
+        double expected = Math.Min(page.ScrollableHeight, lines < 0 ? page.ViewportHeight : lines * 16d);
+        for (int tick = 0; tick < 12; tick++)
+            page.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -10)
+                { RoutedEvent = Mouse.MouseWheelEvent });
+        Pump(app.Dispatcher);
+        if (Math.Abs(page.VerticalOffset - expected) > 1)
+            throw new InvalidOperationException($"Precision scroll expanded or lost small deltas: expected {expected}, got {page.VerticalOffset}.");
+
+        page.ScrollToTop();
+        Pump(app.Dispatcher);
+        page.RaiseEvent(new MouseWheelEventArgs(Mouse.PrimaryDevice, Environment.TickCount, -120)
+            { RoutedEvent = Mouse.MouseWheelEvent });
+        Pump(app.Dispatcher);
+        if (Math.Abs(page.VerticalOffset - expected) > 1)
+            throw new InvalidOperationException("Ordinary mouse wheel behavior changed during precision-scroll normalization.");
+        page.ScrollToTop();
+        Pump(app.Dispatcher);
+        page.RaiseEvent(new KeyEventArgs(Keyboard.PrimaryDevice, PresentationSource.FromVisual(page), Environment.TickCount, Key.PageDown)
+            { RoutedEvent = Keyboard.KeyDownEvent });
+        Pump(app.Dispatcher);
+        if (page.ScrollableHeight > 0 && page.VerticalOffset <= 0)
+            throw new InvalidOperationException("Keyboard PageDown stopped scrolling after precision-scroll normalization.");
+        page.ScrollToTop();
+        Pump(app.Dispatcher);
     }
 
     private static void InvokeButton(Button button)

@@ -14,14 +14,22 @@ internal static class ThinkPadRegisters
 
     // Linux thinkpad_acpi defines 0x40 as the EC full-speed mode bit and ORs it
     // with level 7 before writing so level 7 remains the safety fallback when a
-    // firmware ignores the override bit. ThinkControl follows the same pattern and
-    // still verifies the EC readback before reporting 100% available.
+    // firmware ignores the override bit. Retained for the disabled historical
+    // discrete provider; this is not the X9 firmware's exact 0x40 contract and
+    // must not be used to claim physically accepted percentage control.
     internal const byte FullSpeedBit = 0x40;
     internal const byte FullSpeedControl = FullSpeedBit | MaxManualLevel; // 0x47
 }
 
 internal static class ThinkPadFanProtocol
 {
+    internal static byte WithFanSelector(byte current, byte selector)
+    {
+        if (selector > 1)
+            throw new ArgumentOutOfRangeException(nameof(selector));
+        return (byte)((current & 0xFE) | selector);
+    }
+
     internal static int CombineRpm(byte low, byte high) => low | (high << 8);
 
     internal static bool IsPlausibleRpm(int rpm) => rpm is >= 0 and <= 10000;

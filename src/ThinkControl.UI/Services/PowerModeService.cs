@@ -15,6 +15,30 @@ public sealed class PowerModeService
     private static readonly Guid Balanced = Guid.Empty;
     private static readonly Guid BestPerformance = new("ded574b5-45a0-4f42-8737-46345c09c238");
     private static bool _effectiveOverlayAvailable = true;
+    private readonly Func<Guid, bool, bool> _configure;
+    private readonly Func<Guid, uint> _writeOverlay;
+    private readonly Func<(bool Success, Guid Mode)> _readOverlay;
+    private readonly Func<Guid?> _readPlan;
+
+    public PowerModeService() : this(
+        ConfigureGuid,
+        PowerSetActiveOverlayScheme,
+        () => (TryGetEffective(out Guid mode), mode),
+        ReadActivePlan)
+    { }
+
+    // A narrow test seam for Windows acceptance/readback; no second state owner.
+    internal PowerModeService(
+        Func<Guid, bool, bool> configure,
+        Func<Guid, uint> writeOverlay,
+        Func<(bool Success, Guid Mode)> readOverlay,
+        Func<Guid?> readPlan)
+    {
+        _configure = configure;
+        _writeOverlay = writeOverlay;
+        _readOverlay = readOverlay;
+        _readPlan = readPlan;
+    }
 
     public event Action<ThinkControlPowerMode>? ModeApplied;
     public string? LastEffectiveError { get; private set; }
@@ -32,9 +56,15 @@ public sealed class PowerModeService
     public bool SetForSource(ThinkControlPowerMode mode, bool onBattery, bool makeEffective)
     {
         Guid guid = ToGuid(mode);
-        bool configured = ConfigureGuid(guid, onBattery);
+        bool configured = _configure(guid, onBattery);
+        if (!configured)
+        {
+            LastEffectiveError = "Windows could not save the power mode for this power source.";
+            return false;
+        }
         bool effective = !makeEffective || SetEffective(mode);
-        return configured || (makeEffective && effective);
+        // Persisting a source preference is not proof that Windows applied it.
+        return effective;
     }
 
     public bool SetEffective(ThinkControlPowerMode mode)
@@ -50,7 +80,7 @@ public sealed class PowerModeService
     }
 
     public bool Configure(ThinkControlPowerMode mode, bool onBattery) =>
-        ConfigureGuid(ToGuid(mode), onBattery);
+        _configure(ToGuid(mode), onBattery);
 
     public ThinkControlPowerMode? GetConfigured(bool onBattery)
     {
@@ -60,7 +90,7 @@ public sealed class PowerModeService
             uint result = onBattery
                 ? PowerGetUserConfiguredDCPowerMode(out configured)
                 : PowerGetUserConfiguredACPowerMode(out configured);
-            return result == 0 ? FromGuid(configured) : null;
+            return result == 0 ? TryFromGuid(configured) : null;
         }
         catch (EntryPointNotFoundException)
         {
@@ -74,8 +104,9 @@ public sealed class PowerModeService
 
     public ThinkControlPowerMode? GetCurrent(bool onBattery)
     {
-        if (TryGetEffective(out Guid effective))
-            return FromGuid(effective);
+        (bool success, Guid effective) = _readOverlay();
+        if (success)
+            return TryFromGuid(effective);
         return GetConfigured(onBattery);
     }
 
@@ -106,9 +137,20 @@ public sealed class PowerModeService
         }
     }
 
-    private static bool TrySetEffective(Guid requested, out string? detail)
+    internal string? GetPowerPlanError() => _readPlan() switch
     {
-        detail = null;
+        Guid plan when plan == new Guid("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c") =>
+            "Windows power modes are unavailable while the High performance power plan is active. Select the Balanced power plan in Windows Power Options, then retry.",
+        Guid plan when plan == new Guid("a1841308-3541-4fab-bc81-f71556f20b4a") =>
+            "Windows power modes are unavailable while the Power saver power plan is active. Select the Balanced power plan in Windows Power Options, then retry.",
+        _ => null
+    };
+
+    private bool TrySetEffective(Guid requested, out string? detail)
+    {
+        detail = GetPowerPlanError();
+        if (detail is not null)
+            return false;
         if (!_effectiveOverlayAvailable)
         {
             detail = "The Windows power-overlay API is unavailable on this system.";
@@ -117,14 +159,15 @@ public sealed class PowerModeService
 
         try
         {
-            uint result = PowerSetActiveOverlayScheme(requested);
+            uint result = _writeOverlay(requested);
             if (result != 0)
             {
                 detail = $"Windows rejected the power-mode request (code {result}).";
                 return false;
             }
 
-            if (!TryGetEffective(out Guid effective))
+            (bool success, Guid effective) = _readOverlay();
+            if (!success)
             {
                 detail = "Windows accepted the request but did not confirm its effective power mode.";
                 return false;
@@ -132,7 +175,9 @@ public sealed class PowerModeService
 
             if (effective != requested)
             {
-                detail = $"Windows still reports {DisplayName(FromGuid(effective))}; requested {DisplayName(FromGuid(requested))}.";
+                string observed = TryFromGuid(effective) is ThinkControlPowerMode mode
+                    ? DisplayName(mode) : $"an unknown power overlay ({effective})";
+                detail = $"Windows still reports {observed}; requested {DisplayName(FromGuid(requested))}. Check the active power plan in Windows Power Options.";
                 return false;
             }
 
@@ -195,6 +240,34 @@ public sealed class PowerModeService
         if (guid == BestPerformance) return ThinkControlPowerMode.Performance;
         return ThinkControlPowerMode.Balanced;
     }
+
+    private static ThinkControlPowerMode? TryFromGuid(Guid guid) =>
+        guid == BestEfficiency ? ThinkControlPowerMode.Quiet :
+        guid == BestPerformance ? ThinkControlPowerMode.Performance :
+        guid == Balanced ? ThinkControlPowerMode.Balanced : null;
+
+    private static Guid? ReadActivePlan()
+    {
+        IntPtr pointer = IntPtr.Zero;
+        try
+        {
+            return PowerGetActiveScheme(IntPtr.Zero, out pointer) == 0 && pointer != IntPtr.Zero
+                ? Marshal.PtrToStructure<Guid>(pointer) : null;
+        }
+        catch (EntryPointNotFoundException) { return null; }
+        catch (DllNotFoundException) { return null; }
+        finally
+        {
+            if (pointer != IntPtr.Zero)
+                LocalFree(pointer);
+        }
+    }
+
+    [DllImport("powrprof.dll", ExactSpelling = true)]
+    private static extern uint PowerGetActiveScheme(IntPtr userRootPowerKey, out IntPtr activePolicyGuid);
+
+    [DllImport("kernel32.dll", ExactSpelling = true)]
+    private static extern IntPtr LocalFree(IntPtr memory);
 
     [DllImport("powrprof.dll", EntryPoint = "PowerSetActiveOverlayScheme")]
     private static extern uint PowerSetActiveOverlayScheme(Guid powerModeGuid);

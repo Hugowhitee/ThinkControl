@@ -20,7 +20,12 @@ else {
 Push-Location $repoRoot
 try {
     foreach ($path in @('artifacts/ui', 'artifacts/service', 'artifacts/payload-root')) {
-        Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+        $artifactRoot = [IO.Path]::GetFullPath((Join-Path $repoRoot 'artifacts')).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
+        $targetPath = [IO.Path]::GetFullPath((Join-Path $repoRoot $path))
+        if (-not $targetPath.StartsWith($artifactRoot, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to clean a path outside this checkout's artifacts directory."
+        }
+        Remove-Item -LiteralPath $targetPath -Recurse -Force -ErrorAction SilentlyContinue
     }
 
     dotnet publish src/ThinkControl.UI/ThinkControl.UI.csproj `

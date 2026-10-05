@@ -1,3 +1,5 @@
+param([string]$CompilerPath = '')
+
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -10,7 +12,11 @@ foreach ($name in @('APP_VERSION', 'NUMERIC_VERSION', 'PAYLOAD_FILE', 'PAYLOAD_U
 
 Push-Location $repoRoot
 try {
-    $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+    $iscc = if ([string]::IsNullOrWhiteSpace($CompilerPath)) {
+        "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+    } else {
+        (Resolve-Path -LiteralPath $CompilerPath -ErrorAction Stop).Path
+    }
     if (-not (Test-Path $iscc)) {
         throw 'Inno Setup compiler not found.'
     }

@@ -168,6 +168,8 @@ public partial class AdvancedWindow : Window
         }
 
         ShowPage(page);
+        if (IsLoaded)
+            BringSelectedNavigationIntoView();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -181,6 +183,7 @@ public partial class AdvancedWindow : Window
         SyncControls();
         ShowPage(GetSelectedPage());
         ApplyThemeToChrome();
+        BringSelectedNavigationIntoView();
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -264,6 +267,14 @@ public partial class AdvancedWindow : Window
         if (!IsLoaded || sender is not FrameworkElement { Tag: string page })
             return;
         ShowPage(page);
+        BringSelectedNavigationIntoView();
+    }
+
+    private void BringSelectedNavigationIntoView()
+    {
+        if (NavHome.Parent is WpfStackPanel navStack)
+            navStack.Children.OfType<System.Windows.Controls.RadioButton>()
+                .FirstOrDefault(button => button.IsChecked == true)?.BringIntoView();
     }
 
     private void ShowPage(string page)

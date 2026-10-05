@@ -65,6 +65,7 @@ public sealed class AppState : INotifyPropertyChanged
     private bool _activeModeAutomatic;
     private string _updateStatus = "Ready to check";
     private bool _canFanControl;
+    private bool? _fanAutoRecoverySupported;
     private bool _canFanTelemetry;
     private string _fanControlKind = FanControlKinds.None;
     private bool _canKeyboardBacklight;
@@ -138,6 +139,7 @@ public sealed class AppState : INotifyPropertyChanged
     public bool ActiveModeAutomatic { get => _activeModeAutomatic; set => Set(ref _activeModeAutomatic, value); }
     public string UpdateStatus { get => _updateStatus; set => Set(ref _updateStatus, value); }
     public bool CanFanControl { get => _canFanControl; set => Set(ref _canFanControl, value); }
+    public bool? FanAutoRecoverySupported { get => _fanAutoRecoverySupported; set => Set(ref _fanAutoRecoverySupported, value); }
     public bool CanFanTelemetry { get => _canFanTelemetry; set => Set(ref _canFanTelemetry, value); }
     public string FanControlKind { get => _fanControlKind; set => Set(ref _fanControlKind, string.IsNullOrWhiteSpace(value) ? FanControlKinds.None : value); }
     public bool CanKeyboardBacklight { get => _canKeyboardBacklight; set => Set(ref _canKeyboardBacklight, value); }
@@ -162,6 +164,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string FanCountText => Fans.Count switch
     {
         0 => "No fan telemetry",
+        1 when Fans[0].Shared => "Shared RPM reading",
         1 => "1 fan reading",
         _ => $"{Fans.Count} fan readings"
     };

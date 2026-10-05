@@ -2,7 +2,7 @@ using System.Management;
 
 namespace ThinkControl.Hardware.Lenovo;
 
-public sealed record LenovoFanReading(string Id, int Rpm, string Label, string Source);
+public sealed record LenovoFanReading(string Id, int Rpm, string Label, string Source, bool Shared = false);
 
 /// <summary>
 /// Read-only fan telemetry discovery for Lenovo and generic Windows surfaces.

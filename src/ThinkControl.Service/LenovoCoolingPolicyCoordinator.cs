@@ -8,7 +8,10 @@ internal sealed record LenovoCoolingPolicySnapshot(
     bool OverrideActive,
     string Profile,
     string? ProfileId,
-    string Status);
+    string Status,
+    bool ControlAvailable,
+    string? UnavailableReason,
+    bool AutoRecoveryAvailable);
 
 /// <summary>
 /// Coordinates the verified X9 Lenovo cooling surfaces between the Windows power
@@ -19,7 +22,7 @@ internal sealed record LenovoCoolingPolicySnapshot(
 /// Performance alone can report high RPM yet remain audibly below Lenovo Auto's real
 /// high-cooling state. Alpha.41 therefore uses Lenovo Other Mode's known global
 /// full-speed boolean only when the exact X9 exposes that exact feature by live GET
-/// (and does not explicitly reject writes). The feature has verified readback and a
+/// and exposes the required setter in its live WMI schema. The feature has readback and a
 /// bounded ownership/rollback lifecycle; the rejected fanX_target writer stays off.
 /// </summary>
 internal sealed class LenovoCoolingPolicyCoordinator
@@ -31,6 +34,8 @@ internal sealed class LenovoCoolingPolicyCoordinator
     private string? _overrideProfileId;
     private bool _fullSpeedOwned;
     private string _status = "Lenovo firmware cooling policy available";
+    private LenovoOtherModeFullSpeedStatus? _fullSpeedStatus;
+    private DateTimeOffset _fullSpeedRefreshAfter;
 
     internal LenovoCoolingPolicyCoordinator(LenovoHardwareController hardware) => _hardware = hardware;
 
@@ -38,17 +43,41 @@ internal sealed class LenovoCoolingPolicyCoordinator
 
     internal LenovoCoolingPolicySnapshot Snapshot()
     {
+        LenovoOtherModeFullSpeedStatus? fullSpeed = Supported ? ReadFullSpeedCached() : null;
+        bool blocked = fullSpeed is { Available: false } or { Enabled: true, Writable: false };
+        string? unavailable = blocked ? fullSpeed!.Detail : null;
+        bool ecAutoRecovery = fullSpeed is { Unsupported: true } && _hardware.CanRecoverFanAuto;
         lock (_gate)
         {
             return new LenovoCoolingPolicySnapshot(
                 Supported,
                 _overrideProfile is not null,
-                _overrideProfile ?? "Lenovo Auto",
+                fullSpeed is { Enabled: true, Writable: false }
+                    ? "Reported full-speed (read-only)" : _overrideProfile ?? "Lenovo Auto",
                 _overrideProfileId,
                 _overrideProfile is not null
                     ? _status
-                    : "Lenovo firmware owns cooling; thermal policy follows the active Windows power preference");
+                    : "Lenovo firmware owns cooling; thermal policy follows the active Windows power preference",
+                Supported && !blocked,
+                unavailable,
+                Supported && (!blocked || (ecAutoRecovery && _overrideProfile is null && !_fullSpeedOwned)));
         }
+    }
+
+    private LenovoOtherModeFullSpeedStatus ReadFullSpeedCached()
+    {
+        lock (_gate)
+        {
+            if (_fullSpeedStatus is not null && DateTimeOffset.UtcNow < _fullSpeedRefreshAfter)
+                return _fullSpeedStatus;
+        }
+        LenovoOtherModeFullSpeedStatus status = LenovoOtherModeFullSpeedService.Read(_hardware.Identity);
+        lock (_gate)
+        {
+            _fullSpeedStatus = status;
+            _fullSpeedRefreshAfter = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(15);
+        }
+        return status;
     }
 
     internal bool SetBasePowerMode(string? raw, out string? detail)
@@ -133,9 +162,25 @@ internal sealed class LenovoCoolingPolicyCoordinator
         bool wantsFullSpeed = profileId == FanCurveDefaults.MaxCoolingId;
         LenovoOtherModeFullSpeedStatus fullSpeed = LenovoOtherModeFullSpeedService.Read(_hardware.Identity);
 
+        if (!fullSpeed.Available)
+        {
+            detail = "Cooling profiles cannot be confirmed while the Lenovo full-speed state is unavailable. " + fullSpeed.Detail;
+            return false;
+        }
+
+        // Reject unsupported Max before changing any thermal policy. GET support
+        // does not imply that this firmware provides the corresponding writer.
+        if (wantsFullSpeed && (!fullSpeed.Available || !fullSpeed.Writable))
+        {
+            detail = "Max cooling is unavailable because Lenovo full-speed has no verified write contract. " + fullSpeed.Detail;
+            return false;
+        }
+
         if (!wantsFullSpeed && fullSpeed.Enabled && !fullSpeedOwned)
         {
-            detail = "A Lenovo full-speed override is already active but was not started by this ThinkControl service instance. Quiet/Balanced will not silently disable another utility's fan ownership; return that utility to Auto first.";
+            detail = fullSpeed.Writable
+                ? "A Lenovo full-speed override is already active but was not started by this ThinkControl service instance. Quiet/Balanced will not silently disable another utility's fan ownership; return that utility to Auto first."
+                : "Lenovo reports an active full-speed state that this ThinkControl service did not start. Quiet/Balanced cannot be confirmed while that state remains active. " + fullSpeed.Detail;
             return false;
         }
 
@@ -161,14 +206,6 @@ internal sealed class LenovoCoolingPolicyCoordinator
 
         if (wantsFullSpeed)
         {
-            if (!fullSpeed.Available || !fullSpeed.Writable)
-            {
-                RestorePreviousPolicy(previousProfile, baseMode, out string? rollback);
-                detail = "Max cooling needs Lenovo Other Mode full-speed feature 0x04020000, but this X9 did not expose a safe live/readback contract. " +
-                         fullSpeed.Detail + (string.IsNullOrWhiteSpace(rollback) ? string.Empty : $" · rollback: {rollback}");
-                return false;
-            }
-
             if (!LenovoOtherModeFullSpeedService.TrySet(_hardware.Identity, enabled: true, out bool changed, out string? fullSpeedDetail))
             {
                 RestorePreviousPolicy(previousProfile, baseMode, out string? rollback);
@@ -265,6 +302,26 @@ internal sealed class LenovoCoolingPolicyCoordinator
             return true;
 
         LenovoOtherModeFullSpeedStatus fullSpeed = LenovoOtherModeFullSpeedService.Read(_hardware.Identity);
+        if (!fullSpeed.Available)
+        {
+            // An absent Other Mode feature does not invalidate the existing,
+            // independently verified EC Auto release contract. A transient probe
+            // failure or an owned OEM override must not be silently downgraded.
+            bool hasOwnedOverride;
+            lock (_gate)
+                hasOwnedOverride = _fullSpeedOwned || _overrideProfile is not null;
+            if (fullSpeed.Unsupported && !hasOwnedOverride && _hardware.CanRecoverFanAuto)
+            {
+                if (!_hardware.ReturnFanToAuto(out detail))
+                    return false;
+                lock (_gate)
+                    _status = "Lenovo Auto confirmed through the verified EC recovery path";
+                detail = "Lenovo Auto confirmed; unsupported Other Mode feature was not called.";
+                return true;
+            }
+            detail = "Lenovo Auto cannot be confirmed because the full-speed state could not be read. " + fullSpeed.Detail;
+            return false;
+        }
         if (fullSpeed.Available && fullSpeed.Enabled)
         {
             if (!LenovoOtherModeFullSpeedService.TrySet(_hardware.Identity, enabled: false, out _, out string? fullSpeedDetail))

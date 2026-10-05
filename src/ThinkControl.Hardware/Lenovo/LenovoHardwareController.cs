@@ -70,6 +70,15 @@ public sealed class LenovoHardwareController : IDisposable
 
     public HardwareDeviceIdentity Identity => _identity;
 
+    public bool CanRecoverFanAuto
+    {
+        get
+        {
+            lock (_gate)
+                return !_disposed && _identity.IsVerifiedX9 && _ec is not null;
+        }
+    }
+
     public void RefreshProviders()
     {
         ThrowIfDisposed();
@@ -617,11 +626,12 @@ public sealed class LenovoHardwareController : IDisposable
             .Where(sensor => string.Equals(sensor.SensorType, "Fan", StringComparison.OrdinalIgnoreCase))
             .Where(sensor => sensor.Value is >= 0 and <= 20000)
             .GroupBy(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Select((group, index) =>
             {
                 HardwareSensorReading sensor = group.First();
                 return new LenovoFanReading(
-                    $"lhm-pawnio-{index + 1}",
+                    $"lhm-pawnio:{sensor.Id}",
                     (int)Math.Round(sensor.Value),
                     string.IsNullOrWhiteSpace(sensor.Name) ? $"Fan {index + 1}" : sensor.Name,
                     sensor.Source);
@@ -661,7 +671,7 @@ public sealed class LenovoHardwareController : IDisposable
         {
             return
             [
-                new LenovoFanReading("x9-ec-shared", _x9FanRpm.Value, "System fan tachometer", _x9FanRpmSource)
+                new LenovoFanReading("x9-ec-shared", _x9FanRpm.Value, "Shared tachometer", _x9FanRpmSource, Shared: true)
             ];
         }
 

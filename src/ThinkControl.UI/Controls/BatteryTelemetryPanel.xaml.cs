@@ -95,13 +95,6 @@ public partial class BatteryTelemetryPanel : UserControl
 
     private void ApplyBatteryGaugePolish()
     {
-        BatteryGauge? gauge = FindVisualChild<BatteryGauge>(this);
-        if (gauge is not null)
-        {
-            gauge.Width = 198;
-            gauge.Height = 58;
-        }
-
         // Never imply that ThinkControl measured continuously while Windows was
         // asleep, hibernated or the app was not scheduled. A real sampling gap is
         // rendered as a gap in the line rather than a fake straight connection.
@@ -216,11 +209,12 @@ public partial class BatteryTelemetryPanel : UserControl
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
         });
-        string charge = day.ChargedPercent > 0 ? $"+{day.ChargedPercent}% · {FormatShortDuration(day.ChargingTime)} charging" : "No charging";
-        string usage = day.DischargedPercent > 0 ? $"−{day.DischargedPercent}% · {FormatShortDuration(day.UsageTime)} usage" : "No battery usage";
+        string charge = day.ChargedPercent > 0 || day.ChargingTime > TimeSpan.Zero ? $"+{day.ChargedPercent}% · {FormatShortDuration(day.ChargingTime)} charging" : "No charging";
+        string usage = day.DischargedPercent > 0 || day.UsageTime > TimeSpan.Zero ? $"−{day.DischargedPercent}% · {FormatShortDuration(day.UsageTime)} usage" : "No battery usage";
         var summary = new TextBlock
         {
             Text = $"{charge}     {usage}",
+            ToolTip = "Time is divided at local midnight. Percentage changes count on the day they were measured; older sessions without samples count on their end day. Expanded sessions show their full duration.",
             FontSize = TypographyScale.Caption,
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center

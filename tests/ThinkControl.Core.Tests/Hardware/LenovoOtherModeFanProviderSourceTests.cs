@@ -36,13 +36,14 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
-    public void OtherModeProvider_AllowsNarrowDirectIdFallbackButNeverOverridesExplicitRejection()
+    public void OtherModeProvider_RequiresAdvertisedChannelsInProductionAndNeverOverridesExplicitRejection()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFanProvider.cs");
         string controller = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
 
         Assert.Contains("bool CapabilityPresent", source, StringComparison.Ordinal);
-        Assert.Contains("allowExactModelDirectIdFallback = true", source, StringComparison.Ordinal);
+        Assert.Contains("allowExactModelDirectIdFallback = false", source, StringComparison.Ordinal);
+        Assert.Contains("private readonly LenovoOtherModeFanProvider _otherModeFans = new();", controller, StringComparison.Ordinal);
         Assert.Contains("capabilities = [];", source, StringComparison.Ordinal);
         Assert.Contains("!IsSaneConstraint(range.MinRpm, range.MaxRpm)", source, StringComparison.Ordinal);
         Assert.Contains("if ((capability & SupportValid) == 0)", source, StringComparison.Ordinal);
@@ -275,6 +276,10 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("catch (UnauthorizedAccessException)", policy, StringComparison.Ordinal);
         Assert.Contains("if (read == 0)", policy, StringComparison.Ordinal);
         Assert.Contains("closed without the legacy Int32 reply", policy, StringComparison.Ordinal);
+        string noReply = policy.Split("if (read == 0)", StringSplitOptions.None)[1]
+            .Split("if (read != response.Length)", StringSplitOptions.None)[0];
+        Assert.Contains("return false;", noReply, StringComparison.Ordinal);
+        Assert.DoesNotContain("return true;", noReply, StringComparison.Ordinal);
         Assert.Contains("incomplete {read}-byte response", policy, StringComparison.Ordinal);
         Assert.Contains("return false;", policy.Split("catch (UnauthorizedAccessException)", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.DoesNotContain("SetFanPercent", policy, StringComparison.Ordinal);

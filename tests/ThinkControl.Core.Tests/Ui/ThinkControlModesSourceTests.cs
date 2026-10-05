@@ -230,7 +230,10 @@ public sealed class ThinkControlModesSourceTests
         Assert.Contains("x:Name=\"ModeSelector\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"New mode ▾\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Click=\"StarterMode_Click\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Header = \"From template\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("Header = \"From template\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"Focus template\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"Battery saver template\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"Performance template\"", code, StringComparison.Ordinal);
         Assert.Contains("ThinkControlModeCatalog.CreateStarterTemplate", code, StringComparison.Ordinal);
         Assert.Contains("ModeSelector_SelectionChanged", code, StringComparison.Ordinal);
         Assert.Contains("LastTransitionError", code, StringComparison.Ordinal);

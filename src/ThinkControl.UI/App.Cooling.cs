@@ -594,6 +594,13 @@ public partial class App
 
         int generation = Volatile.Read(ref _coolingSelectionGeneration);
         string selected = UserSettings.Current.CoolingProfile;
+        // A known read-only firmware contract cannot recover by retrying Auto.
+        // Preserve the preference and surface the observed state without writes.
+        if (response.Capabilities?.FanAutoRecoverySupported == false)
+        {
+            LastCoolingError = response.Telemetry?.CoolingStatus ?? "Cooling is read-only on this firmware.";
+            return;
+        }
         bool wantsAuto = selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
                          selected.Equals("Auto", StringComparison.OrdinalIgnoreCase);
         bool verifiedX9 = DeviceCapabilityExpectations.IsVerifiedX9(State.MachineType);

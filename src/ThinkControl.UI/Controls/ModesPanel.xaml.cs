@@ -41,6 +41,8 @@ public partial class ModesPanel : UserControl
         _modifiedLabel = new TextBlock
         {
             FontSize = TypographyScale.Caption,
+            MaxWidth = 220,
+            TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(0, 0, 10, 0),
             Visibility = Visibility.Collapsed
@@ -263,10 +265,9 @@ public partial class ModesPanel : UserControl
         };
         AddTemplateItem(menu, "Blank mode", "blank");
         menu.Items.Add(new Separator());
-        menu.Items.Add(new MenuItem { Header = "From template", IsEnabled = false });
-        AddTemplateItem(menu, "Focus", "focus");
-        AddTemplateItem(menu, "Battery saver", "battery");
-        AddTemplateItem(menu, "Performance", "performance");
+        AddTemplateItem(menu, "Focus template", "focus");
+        AddTemplateItem(menu, "Battery saver template", "battery");
+        AddTemplateItem(menu, "Performance template", "performance");
         NewModeButton.ContextMenu = menu;
         menu.IsOpen = true;
     }
@@ -1007,6 +1008,7 @@ public partial class ModesPanel : UserControl
             return;
 
         bool transitioning = _app.Modes.IsTransitioning;
+        bool failed = !transitioning && !string.IsNullOrWhiteSpace(_app.Modes.LastTransitionError);
         bool modified = _app.Modes.IsModified && !transitioning;
         bool automatic = _app.Modes.ActiveModeAutomatic &&
                          _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId &&
@@ -1015,13 +1017,19 @@ public partial class ModesPanel : UserControl
 
         _modifiedLabel.Text = transitioning
             ? $"Applying {_app.Modes.VisibleModeName}…"
+            : failed
+                ? "Apply failed"
             : modified
                 ? "Modified"
                 : "Automatic";
-        _modifiedLabel.Visibility = transitioning || modified || automatic
+        _modifiedLabel.Visibility = transitioning || failed || modified || automatic
             ? Visibility.Visible
             : Visibility.Collapsed;
-        _reapplyButton.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
+        _reapplyButton.Visibility = modified && !failed ? Visibility.Visible : Visibility.Collapsed;
+        if (failed)
+            ShowListStatus(_app.Modes.LastTransitionError!);
+        else
+            ListStatusText.Visibility = Visibility.Collapsed;
         _saveButton.Visibility = Visibility.Collapsed;
         _cancelButton.Visibility = Visibility.Collapsed;
     }

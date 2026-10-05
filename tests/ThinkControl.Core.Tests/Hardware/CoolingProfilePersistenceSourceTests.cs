@@ -64,7 +64,7 @@ public sealed class CoolingProfilePersistenceSourceTests
         Assert.Contains("IsExternalCoolingOwnerConflict(detail)", cooling, StringComparison.Ordinal);
         Assert.Contains("_coolingPreferenceRestoreAttempted = true", cooling, StringComparison.Ordinal);
         Assert.Contains("RecoverAuto_Click", fans, StringComparison.Ordinal);
-        Assert.Contains("ownershipConflict ? Visibility.Visible : Visibility.Collapsed", fans, StringComparison.Ordinal);
+        Assert.Contains("ownershipConflict && state.FanAutoRecoverySupported != false", fans, StringComparison.Ordinal);
         Assert.Contains("SetCoolingProfileAsync(\"Lenovo Auto\")", fans, StringComparison.Ordinal);
         Assert.Contains("fullSpeed.Enabled && !fullSpeedOwned", coordinator, StringComparison.Ordinal);
         Assert.Contains("attemptedFacets", mode, StringComparison.Ordinal);

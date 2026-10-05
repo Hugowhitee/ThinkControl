@@ -86,8 +86,9 @@
             </Border>
 
             <TextBlock x:Name="ListStatusText"
-                       Foreground="{DynamicResource Tc.TextMuted}"
-                       FontSize="{x:Static ui:TypographyScale.Caption}"
+                       Foreground="{DynamicResource Tc.Accent}"
+                       FontSize="{x:Static ui:TypographyScale.Secondary}"
+                       TextWrapping="Wrap"
                        Margin="2,9,2,0"
                        Visibility="Collapsed" />
         </StackPanel>

@@ -18,7 +18,7 @@
                 <Grid.ColumnDefinitions><ColumnDefinition Width="245" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,24,0">
                     <TextBlock Text="CHARGE" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <controls:BatteryGauge Width="205" Height="60" HorizontalAlignment="Left" Margin="0,11,0,0" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" />
+                    <controls:BatteryGauge Width="150" Height="60" HorizontalAlignment="Left" Margin="0,11,0,0" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" />
                     <Grid Margin="0,10,0,0">
                         <TextBlock Text="{Binding BatteryPercentText}" FontSize="{x:Static ui:TypographyScale.ValueHero}" FontWeight="Light" />
                         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">

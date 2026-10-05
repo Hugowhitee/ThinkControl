@@ -1,5 +1,7 @@
 # X9 alpha.42 cooling persistence evidence
 
+Historical lifecycle note. [Current local firmware evidence](x9-local-control-path-recovery.md) supersedes the implied full-speed support on the reference X9. Retaining preference and ownership logic does not prove that a firmware feature exists.
+
 Scope: ThinkPad X9-15 Gen 1 `21Q6/21Q7`. This note records the restart/source-transition evidence that changed alpha.42. It does **not** authorize any new low-level fan writer.
 
 ## Physical observation

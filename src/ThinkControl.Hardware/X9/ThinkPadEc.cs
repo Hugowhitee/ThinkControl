@@ -80,6 +80,7 @@ internal sealed class ThinkPadEc : IDisposable
     {
         return WithEcLock(() =>
         {
+            byte originalSelector = (byte)(ReadByteUnlocked(ThinkPadRegisters.FanSelector) & 0x01);
             try
             {
                 int main = ReadSelectedFanRpmUnlocked(ThinkPadRegisters.MainFan);
@@ -88,7 +89,7 @@ internal sealed class ThinkPadEc : IDisposable
             }
             finally
             {
-                TrySelectMainFanUnlocked();
+                SelectFanUnlocked(originalSelector);
             }
         });
     }
@@ -227,14 +228,16 @@ internal sealed class ThinkPadEc : IDisposable
 
     private void SelectFanUnlocked(byte selector)
     {
-        WriteByteUnlocked(ThinkPadRegisters.FanSelector, selector);
+        // 0x31 also contains HUWB, VPON and VRST firmware fields. Only bit zero
+        // selects a tachometer; never replace the whole byte with 0 or 1.
+        byte current = ReadByteUnlocked(ThinkPadRegisters.FanSelector);
+        byte requested = ThinkPadFanProtocol.WithFanSelector(current, selector);
+        if (requested == current)
+            return;
+        WriteByteUnlocked(ThinkPadRegisters.FanSelector, requested);
         Thread.Sleep(FanSelectorSettleMs);
-    }
-
-    private void TrySelectMainFanUnlocked()
-    {
-        try { SelectFanUnlocked(ThinkPadRegisters.MainFan); }
-        catch { }
+        if ((ReadByteUnlocked(ThinkPadRegisters.FanSelector) & 0x01) != selector)
+            throw new InvalidOperationException("Fan tachometer selection was not verified.");
     }
 
     private void DetectPortPair()

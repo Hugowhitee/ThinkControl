@@ -285,7 +285,7 @@ internal static class DeviceSupportReportService
     }
 
     private static bool HasExercise(IEnumerable<DiagnosticEvent> events, string capability) =>
-        events.Any(item => item.Success == true && item.ReadBackVerified != false &&
+        events.Any(item => item.Success == true && item.ReadBackVerified == true &&
                            string.Equals(item.Capability, capability, StringComparison.OrdinalIgnoreCase));
 
     private static IEnumerable<string> ExercisedCapabilities(IEnumerable<DiagnosticEvent> events)

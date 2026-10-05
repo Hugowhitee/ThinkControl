@@ -280,11 +280,18 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
             string restoreId = _modeBeforeAutomationId ?? ThinkControlModeCatalog.NormalId;
             if (ThinkControlModeCatalog.Find(restoreId, _app.UserSettings.Current.CustomModes) is null)
                 restoreId = ThinkControlModeCatalog.NormalId;
+            if (string.Equals(restoreId, _failedCandidateId, StringComparison.OrdinalIgnoreCase) &&
+                DateTimeOffset.UtcNow < _failedCandidateUntil)
+                return;
             bool restored = await _app.Modes.ActivateAsync(
                 restoreId,
                 ThinkControlModeActivationOrigin.Restore);
             if (!restored)
+            {
+                _failedCandidateId = restoreId;
+                _failedCandidateUntil = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(1);
                 return;
+            }
         }
 
         _lastCandidateId = null;

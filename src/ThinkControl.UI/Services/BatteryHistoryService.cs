@@ -78,6 +78,12 @@ public sealed class BatteryHistoryService
         RefreshPriors();
     }
 
+    internal BatteryHistoryService(string path)
+    {
+        _path = path;
+        _document = Load();
+    }
+
     public BatteryHistoryView Record(
         bool charging,
         int percent,
@@ -89,6 +95,13 @@ public sealed class BatteryHistoryService
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool onBattery = System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus !=
                          System.Windows.Forms.PowerLineStatus.Online;
+        return Record(charging, onBattery, now, percent, watts, remainingWh, fullChargeWh, designWh);
+    }
+
+    internal BatteryHistoryView Record(
+        bool charging, bool onBattery, DateTimeOffset now, int percent,
+        double? watts, double? remainingWh, double? fullChargeWh, double? designWh)
+    {
         // Some laptop firmware exposes battery percentage but no ChargeRate/
         // DischargeRate. Session ownership must follow the actual AC state so
         // percentage history remains useful even when power telemetry is absent.
@@ -97,6 +110,21 @@ public sealed class BatteryHistoryService
         // design capacity. Sample that independently of charge-session completion so
         // a deliberate 80–90% charge limit does not prevent the health trend learning.
         bool changed = RecordHealthSample(now, fullChargeWh, designWh);
+
+        // A source change after sleep/restart must close the previous session at
+        // its last observation, not count the unobserved gap as charging/usage.
+        if (_document.ActiveSession is { Points.Count: > 0 } previousCharge &&
+            now - previousCharge.Points[^1].At > ResumeGap)
+        {
+            FinalizeCharge(previousCharge.Points[^1].At, previousCharge.EndPercent, previousCharge.EndRemainingWh);
+            changed = true;
+        }
+        if (_document.ActiveDischargeSession is { Points.Count: > 0 } previousDischarge &&
+            now - previousDischarge.Points[^1].At > ResumeGap)
+        {
+            FinalizeDischarge(previousDischarge.Points[^1].At, previousDischarge.EndPercent, previousDischarge.EndRemainingWh);
+            changed = true;
+        }
 
         if (charging)
         {
@@ -154,45 +182,110 @@ public sealed class BatteryHistoryService
     public IReadOnlyList<BatteryDaySummary> GetRecentDays(int maximum = 14)
     {
         maximum = Math.Clamp(maximum, 1, 60);
-        return GetRecentSessionDetails(40)
-            .GroupBy(session => DateOnly.FromDateTime(session.StartedAt.ToLocalTime().DateTime))
-            .OrderByDescending(group => group.Key)
-            .Take(maximum)
-            .Select(group =>
+        var days = new Dictionary<DateOnly, DayTotals>();
+        foreach (BatterySessionDetail session in EnumerateSessionDetails())
+        {
+            // Live time ends at the last observation: an open file after sleep
+            // must not manufacture usage while the app was not observing it.
+            DateTimeOffset end = session.EndedAt ?? session.PercentTimeline.LastOrDefault()?.At ?? session.StartedAt;
+            if (end < session.StartedAt) continue;
+            DateTimeOffset cursor = session.StartedAt;
+            do
             {
-                BatterySessionDetail[] sessions = group
+                DateOnly day = LocalDay(cursor);
+                DateTime nextDate = day.AddDays(1).ToDateTime(TimeOnly.MinValue);
+                var midnight = new DateTimeOffset(nextDate, TimeZoneInfo.Local.GetUtcOffset(nextDate));
+                DateTimeOffset until = end < midnight ? end : midnight;
+                DayTotals totals = GetDay(day);
+                totals.Sessions.Add(session);
+                TimeSpan elapsed = until - cursor;
+                if (session.Kind == "Charge") totals.ChargingTime += elapsed;
+                else totals.UsageTime += elapsed;
+                cursor = until;
+            } while (cursor < end);
+
+            // Assign measured percentage changes to the day they were observed.
+            // Do not invent a midnight percentage by interpolating across samples.
+            // Summary-only older sessions have no day-level samples; their net
+            // change belongs to the recorded end day and retains its full detail.
+            int remaining = session.Kind == "Charge"
+                ? Math.Max(0, session.EndPercent - session.StartPercent)
+                : Math.Max(0, session.StartPercent - session.EndPercent);
+            double observed = session.StartPercent;
+            foreach (TimeSeriesPoint point in session.PercentTimeline.OrderBy(point => point.At))
+            {
+                if (point.At < session.StartedAt || point.At > end) continue;
+                double next = session.Kind == "Charge" ? Math.Max(observed, point.Value) : Math.Min(observed, point.Value);
+                int delta = Math.Min(remaining, (int)Math.Abs(next - observed));
+                if (delta > 0) AddPercent(GetDay(LocalDay(point.At)), session, delta);
+                observed = next;
+                remaining -= delta;
+            }
+            if (remaining > 0) AddPercent(GetDay(LocalDay(end)), session, remaining);
+        }
+        return days.OrderByDescending(pair => pair.Key)
+            .Take(maximum)
+            .Select(pair =>
+            {
+                BatterySessionDetail[] sessions = pair.Value.Sessions
                     .OrderByDescending(session => session.StartedAt)
                     .ToArray();
-                int charged = sessions.Where(session => session.Kind == "Charge")
-                    .Sum(session => Math.Max(0, session.EndPercent - session.StartPercent));
-                int discharged = sessions.Where(session => session.Kind == "Discharge")
-                    .Sum(session => Math.Max(0, session.StartPercent - session.EndPercent));
-                TimeSpan chargingTime = TimeSpan.FromTicks(sessions.Where(session => session.Kind == "Charge").Sum(session => session.Duration.Ticks));
-                TimeSpan usageTime = TimeSpan.FromTicks(sessions.Where(session => session.Kind == "Discharge").Sum(session => session.Duration.Ticks));
                 DateOnly today = DateOnly.FromDateTime(DateTime.Now);
-                string label = group.Key == today ? "Today" : group.Key == today.AddDays(-1)
+                string label = pair.Key == today ? "Today" : pair.Key == today.AddDays(-1)
                     ? "Yesterday"
-                    : group.Key.ToString("ddd, d MMM", CultureInfo.CurrentCulture);
-                return new BatteryDaySummary(group.Key, label, charged, discharged, chargingTime, usageTime, sessions,
-                    sessions.Any(session => session.IsActive));
+                    : pair.Key.ToString("ddd, d MMM", CultureInfo.CurrentCulture);
+                return new BatteryDaySummary(pair.Key, label, pair.Value.ChargedPercent, pair.Value.DischargedPercent,
+                    pair.Value.ChargingTime, pair.Value.UsageTime, sessions,
+                    sessions.Any(session => session.IsActive && LocalDay(EndOf(session)) == pair.Key));
             })
             .ToArray();
+
+        DayTotals GetDay(DateOnly day)
+        {
+            if (!days.TryGetValue(day, out DayTotals? totals)) days[day] = totals = new DayTotals();
+            return totals;
+        }
+        static DateTimeOffset EndOf(BatterySessionDetail session) =>
+            session.EndedAt ?? session.PercentTimeline.LastOrDefault()?.At ?? session.StartedAt;
+        static void AddPercent(DayTotals totals, BatterySessionDetail session, int delta)
+        {
+            if (delta == 0) return;
+            totals.Sessions.Add(session);
+            if (session.Kind == "Charge") totals.ChargedPercent += delta;
+            else totals.DischargedPercent += delta;
+        }
+    }
+
+    private static DateOnly LocalDay(DateTimeOffset at) => DateOnly.FromDateTime(at.ToLocalTime().DateTime);
+
+    private sealed class DayTotals
+    {
+        public int ChargedPercent;
+        public int DischargedPercent;
+        public TimeSpan ChargingTime;
+        public TimeSpan UsageTime;
+        public HashSet<BatterySessionDetail> Sessions { get; } = [];
     }
 
     public IReadOnlyList<BatterySessionDetail> GetRecentSessionDetails(int maximum = 12)
     {
         maximum = Math.Clamp(maximum, 1, 40);
-        var sessions = new List<BatterySessionDetail>(maximum + 2);
+        return EnumerateSessionDetails()
+            .OrderByDescending(session => session.EndedAt ?? session.StartedAt)
+            .Take(maximum)
+            .ToArray();
+    }
+
+    private IEnumerable<BatterySessionDetail> EnumerateSessionDetails()
+    {
+        var sessions = new List<BatterySessionDetail>();
         if (_document.ActiveSession is not null)
             sessions.Add(ToDetail(_document.ActiveSession, active: true));
         if (_document.ActiveDischargeSession is not null)
             sessions.Add(ToDetail(_document.ActiveDischargeSession, active: true));
         sessions.AddRange(_document.Sessions.Select(session => ToDetail(session, active: false)));
         sessions.AddRange(_document.DischargeSessions.Select(session => ToDetail(session, active: false)));
-        return sessions
-            .OrderByDescending(session => session.EndedAt ?? session.StartedAt)
-            .Take(maximum)
-            .ToArray();
+        return sessions;
     }
 
     public IReadOnlyList<TimeSeriesPoint> GetLatestDischargeTimeline()
@@ -605,7 +698,7 @@ public sealed class BatteryHistoryService
         string energy = session.EnergyUsedWh is double wh ? $" · −{wh:0.#} Wh" : string.Empty;
         double hours = Math.Max(duration.TotalHours, 1d / 60d);
         double rate = Math.Max(0, session.StartPercent - session.EndPercent) / hours;
-        string rateText = rate > 0 ? $" · {rate:0.#}%/h" : string.Empty;
+        string rateText = rate > 0 && duration >= TimeSpan.FromMinutes(5) ? $" · {rate:0.#}%/h" : string.Empty;
         return $"{date} · {session.StartPercent}% → {session.EndPercent}% · {FormatDuration(duration)}{average}{energy}{rateText}";
     }
 
@@ -614,7 +707,7 @@ public sealed class BatteryHistoryService
         DateTimeOffset? ended = active ? null : session.EndedAt;
         TimeSpan duration = (ended ?? DateTimeOffset.UtcNow) - session.StartedAt;
         double hours = Math.Max(duration.TotalHours, 1d / 60d);
-        double? percentPerHour = session.EndPercent > session.StartPercent
+        double? percentPerHour = duration >= TimeSpan.FromMinutes(5) && session.EndPercent > session.StartPercent
             ? (session.EndPercent - session.StartPercent) / hours
             : null;
         return new BatterySessionDetail(
@@ -643,7 +736,7 @@ public sealed class BatteryHistoryService
         DateTimeOffset? ended = active ? null : session.EndedAt;
         TimeSpan duration = (ended ?? DateTimeOffset.UtcNow) - session.StartedAt;
         double hours = Math.Max(duration.TotalHours, 1d / 60d);
-        double? percentPerHour = session.StartPercent > session.EndPercent
+        double? percentPerHour = duration >= TimeSpan.FromMinutes(5) && session.StartPercent > session.EndPercent
             ? (session.StartPercent - session.EndPercent) / hours
             : null;
         return new BatterySessionDetail(

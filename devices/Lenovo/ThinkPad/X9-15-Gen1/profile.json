@@ -19,7 +19,7 @@
     "lenovoThermalPolicy": { "verification": "research-verified" },
     "cpuTemperature": { "verification": "implemented-read-only-provider" },
     "fanRpm": { "verification": "implemented-research-verified" },
-    "fanControl": { "verification": "implemented-research-verified", "implementation": "levels-1-7-plus-lenovo-auto" },
+    "fanControl": { "verification": "physical-recovery-in-progress", "implementation": "classic-level-writer-disabled; exact-0x40-full-speed-effective-in-isolated-probe; lifecycle-not-accepted" },
     "keyboardBacklight": { "verification": "implemented-write-readback" },
     "displayRefresh": { "verification": "implemented-windows-api" },
     "adaptiveBrightness": { "verification": "implemented-windows-api-when-supported" },
@@ -62,7 +62,7 @@
   },
   "safety": {
     "hardwareWritesEnabled": true,
-    "hardwareWritesScope": "verified-x9-fan-and-readback-keyboard-contracts-only",
+    "hardwareWritesScope": "readback-keyboard-contract; fan-writes-require-live-provider-validation-and-physical-acceptance",
     "blockedFanValues": ["0x00", "0x40"],
     "remoteMetadataMayEnableWrites": false
   }

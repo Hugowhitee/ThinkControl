@@ -82,6 +82,7 @@ public partial class App
                     State.CanSensorTelemetry = capabilities.SensorTelemetry;
                     State.CanFanTelemetry = capabilities.FanTelemetry;
                     State.CanFanControl = capabilities.FanControl;
+                    State.FanAutoRecoverySupported = capabilities.FanAutoRecoverySupported;
                     State.FanControlKind = capabilities.FanControlKind;
                     State.CanKeyboardBacklight = capabilities.KeyboardBacklight;
                     State.CanKeyboardEffects = capabilities.KeyboardEffects;
@@ -93,6 +94,8 @@ public partial class App
                 {
                     State.CanSensorTelemetry = State.Sensors.Count > 0;
                     State.CanFanTelemetry = State.Fans.Count > 0;
+                    State.CanFanControl = false;
+                    State.FanAutoRecoverySupported = null;
                     State.FanControlKind = FanControlKinds.None;
                     State.CanKeyboardEffects = false;
                     State.BatteryProtectionWritable = false;
@@ -119,6 +122,7 @@ public partial class App
             State.CanSensorTelemetry = false;
             State.CanFanTelemetry = false;
             State.CanFanControl = false;
+            State.FanAutoRecoverySupported = null;
             State.FanControlKind = FanControlKinds.None;
             State.CanKeyboardBacklight = false;
             State.CanKeyboardEffects = false;
@@ -194,7 +198,14 @@ public partial class App
                 ? null
                 : operation.ResponseReceived ? "operation_rejected" : "service_no_response",
             DurationMs: operation.DurationMs,
-            ReadBackVerified: operation.Success,
+            // A LITS acknowledgement is not a readback of the active OEM policy.
+            // Other unclassified commands also must not acquire verification merely
+            // because IPC returned Success.
+            ReadBackVerified: !operation.Success ? false : operation.Operation switch
+            {
+                "SetKeyboardBacklight" or "SetBatteryChargeLimit" => true,
+                _ => null
+            },
             FanLevel: level,
             Tags: new Dictionary<string, string>
             {

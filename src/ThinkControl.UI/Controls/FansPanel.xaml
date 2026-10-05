@@ -79,7 +79,13 @@
                                 Margin="0,6,0,0"
                                 Visibility="Collapsed"
                                 Click="RecoverAuto_Click"
-                                ToolTip="Explicitly release the verified Lenovo full-speed override." />
+                                ToolTip="Return fan control through the available verified Auto recovery provider." />
+                        <TextBlock x:Name="AutoRecoveryResultText"
+                                   Visibility="Collapsed"
+                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                   FontSize="{x:Static ui:TypographyScale.Caption}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
                     </StackPanel>
                     <ComboBox x:Name="ProfileComboBox"
                               Grid.Column="1"

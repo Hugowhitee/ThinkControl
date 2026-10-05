@@ -31,7 +31,8 @@ public sealed record FanTelemetrySnapshot(
     string Label,
     int Rpm,
     string Source,
-    bool Primary = false);
+    bool Primary = false,
+    bool Shared = false);
 
 public sealed record HardwareSensorSnapshot(
     string Id,
@@ -112,4 +113,5 @@ public sealed record HardwareCapabilitySnapshot(
     bool FanCalibrationRequired = false,
     bool KeyboardEffects = false,
     bool BatteryChargeProtection = false,
-    bool BatteryCustomChargeThresholds = false);
+    bool BatteryCustomChargeThresholds = false,
+    bool? FanAutoRecoverySupported = null);

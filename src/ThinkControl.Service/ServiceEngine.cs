@@ -265,7 +265,7 @@ internal sealed class ServiceEngine : IDisposable
         LenovoBatteryChargeProtectionStatus batteryProtection = ReadBatteryChargeProtection();
         bool firmwareOverride = firmwareCooling.OverrideActive;
         FanTelemetrySnapshot[] fans = status.Fans.Select((fan, index) =>
-            new FanTelemetrySnapshot(fan.Id, fan.Label, fan.Rpm, fan.Source, index == 0)).ToArray();
+            new FanTelemetrySnapshot(fan.Id, fan.Label, fan.Rpm, fan.Source, index == 0, fan.Shared)).ToArray();
         HardwareSensorSnapshot[] sensors = status.Sensors.Select(sensor =>
             new HardwareSensorSnapshot(sensor.Id, sensor.HardwareName, sensor.HardwareType, sensor.Name,
                 sensor.SensorType, sensor.Value, sensor.Unit, sensor.ControlTemperature, sensor.Source)).ToArray();
@@ -276,17 +276,20 @@ internal sealed class ServiceEngine : IDisposable
             status.FanRpm,
             status.FanRpmSource,
             status.FanState,
-            status.HardwareAccess,
+            firmwareCooling.UnavailableReason is string coolingUnavailable
+                ? $"{status.HardwareAccess} · Cooling read-only: {coolingUnavailable}"
+                : status.HardwareAccess,
             status.KeyboardBacklight,
             ThermalSolutionVersion: null,
             Fans: fans,
             Sensors: sensors,
             ControlTemperatureC: status.ControlTemperatureC,
             ControlTemperatureSource: status.ControlTemperatureSource,
-            CoolingProfile: firmwareOverride ? firmwareCooling.Profile : cooling.Profile,
+            CoolingProfile: firmwareCooling.UnavailableReason is not null || firmwareOverride
+                ? firmwareCooling.Profile : cooling.Profile,
             CoolingAppliedLevel: firmwareOverride ? null : cooling.AppliedLevel,
             CoolingSmoothedTemperatureC: firmwareOverride ? null : cooling.SmoothedTemperatureC,
-            CoolingStatus: firmwareOverride ? firmwareCooling.Status : cooling.Status,
+            CoolingStatus: firmwareCooling.UnavailableReason ?? (firmwareOverride ? firmwareCooling.Status : cooling.Status),
             CoolingSafetyOverride: firmwareOverride ? false : cooling.SafetyOverride,
             FanCharacterization: cooling.Characterization,
             CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
@@ -300,7 +303,7 @@ internal sealed class ServiceEngine : IDisposable
             BatteryChargeStopPercent: batteryProtection.Available ? batteryProtection.StopPercent : null,
             BatteryChargeProtectionProvider: batteryProtection.Available ? batteryProtection.Provider : null);
 
-        bool firmwareProfileControl = firmwareCooling.Supported;
+        bool firmwareProfileControl = firmwareCooling.ControlAvailable;
         bool productFanControl = status.CanFanControl || firmwareProfileControl;
         string fanControlKind = status.CanFanControl
             ? ToFanControlKind(status.FanControlKind)
@@ -332,7 +335,8 @@ internal sealed class ServiceEngine : IDisposable
             FanCalibrationRequired: fanCalibrationRequired,
             KeyboardEffects: keyboardEffects,
             BatteryChargeProtection: batteryProtection.Available && batteryProtection.Writable,
-            BatteryCustomChargeThresholds: batteryProtection.Available && batteryProtection.Writable && batteryProtection.CustomThresholds);
+            BatteryCustomChargeThresholds: batteryProtection.Available && batteryProtection.Writable && batteryProtection.CustomThresholds,
+            FanAutoRecoverySupported: firmwareCooling.Supported ? firmwareCooling.AutoRecoveryAvailable : null);
         return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
     }
 

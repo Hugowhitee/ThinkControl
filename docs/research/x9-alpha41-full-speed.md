@@ -1,5 +1,7 @@
 # X9 alpha.41 full-speed research addendum
 
+Historical implementation note. [Current local firmware analysis](x9-local-control-path-recovery.md) disproves the omitted-capability boolean fallback on the reference X9: WMLA returns 1 for unsupported IDs. Candidate detection now requires an advertised capability and live setter. This note is not current physical-support proof.
+
 This addendum records the evidence behind `v0.1.0-alpha.41`'s narrow X9 Max-cooling change. It applies only to the verified ThinkPad X9-15 Gen 1 machine types `21Q6` / `21Q7`. It is not a generic Lenovo feature map or permission to probe/write arbitrary Other Mode attributes.
 
 ## Physical trigger for the investigation
