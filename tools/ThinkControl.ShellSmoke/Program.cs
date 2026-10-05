@@ -402,15 +402,20 @@ internal static class Program
             if (profile.IsEnabled || recovery.Visibility != Visibility.Visible)
                 throw new InvalidOperationException("Independent Auto recovery incorrectly enabled profiles or remained hidden.");
             typeof(ThinkControl.UI.Controls.FansPanel)
-                .GetMethod("ShowAutoRecoveryResult", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                .Invoke(panel, ["Last recovery: Lenovo Auto confirmed."]);
+                .GetMethod("ConfirmAutoRecovery", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(panel, []);
             typeof(ThinkControl.UI.Controls.FansPanel)
                 .GetMethod("ApplyStatus", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                .Invoke(panel, [recoverable]);
+                .Invoke(panel, [recoverable with { Telemetry = telemetry with { FanState = "Lenovo Auto" } }]);
             var result = (TextBlock)panel.FindName("AutoRecoveryResultText");
             if (result.Visibility != Visibility.Visible || result.Text != "Last recovery: Lenovo Auto confirmed." ||
-                recovery.Visibility != Visibility.Visible)
-                throw new InvalidOperationException("Telemetry erased the recovery result or hid the repeat recovery action.");
+                recovery.Visibility != Visibility.Collapsed || applied.Text != "Auto confirmed")
+                throw new InvalidOperationException("Telemetry erased confirmed Auto or reoffered a completed recovery.");
+            typeof(ThinkControl.UI.Controls.FansPanel)
+                .GetMethod("ApplyStatus", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
+                .Invoke(panel, [recoverable with { Telemetry = telemetry with { FanState = "Full speed" } }]);
+            if (recovery.Visibility != Visibility.Visible || applied.Text != "Not confirmed")
+                throw new InvalidOperationException("A later non-Auto observation failed to restore the recovery action.");
         }
         finally
         {

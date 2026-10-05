@@ -69,6 +69,8 @@ internal static class Program
         homeManualFan.FanControlKind = FanControlKinds.DiscreteEc;
         AppState homeFanAuto = CreateDemoState(charging: true, hardwareReady: true);
         homeFanAuto.CoolingProfile = "Lenovo Auto";
+        AppState batteryLongStatus = CreateDemoState(charging: false, hardwareReady: true);
+        batteryLongStatus.BatteryStatus = "Plugged in · charging paused while the battery cools down";
         AppState firmwareFanRecovery = CreateDemoState(charging: true, hardwareReady: false);
         firmwareFanRecovery.MachineType = "21Q6";
         firmwareFanRecovery.CanFanControl = true;
@@ -194,6 +196,8 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
+        RenderAdvanced(app, batteryLongStatus, "Battery", 980, 650, output, snapshots,
+            "advanced-battery-long-status-min.png", "long charge status · minimum");
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery.png", "direct provider unavailable · firmware profiles available");
         RenderAdvanced(app, externalFanOwner, "Fans", 1160, 760, output, snapshots,
@@ -275,6 +279,8 @@ internal static class Program
             "advanced-modes-editor-light.png", "context mode editor · light", modeEditor: true);
         RenderAdvanced(app, serviceOffline, "Modes", 980, 650, output, snapshots,
             "advanced-modes-apply-failed-min-light.png", "cooling unavailable · failed mode preflight · light", modeFailure: true);
+        RenderAdvanced(app, batteryLongStatus, "Battery", 980, 650, output, snapshots,
+            "advanced-battery-long-status-min-light.png", "long charge status · minimum · light");
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery-light.png", "direct provider unavailable · firmware profiles available · light");
         RenderAdvanced(app, externalFanOwner, "Fans", 1160, 760, output, snapshots,
@@ -503,8 +509,8 @@ internal static class Program
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
         if (fanRecoveryResult && window.FindName("PageFans") is System.Windows.Controls.ScrollViewer { Content: FansPanel recoveryPanel })
-            typeof(FansPanel).GetMethod("ShowAutoRecoveryResult", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(recoveryPanel, ["Last recovery: Lenovo Auto confirmed."]);
+            typeof(FansPanel).GetMethod("ConfirmAutoRecovery", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(recoveryPanel, []);
         if (deviceLearning)
             window.PrepareDeviceLearningForSnapshot(deviceReportReady);
         if (string.Equals(page, "Battery", StringComparison.OrdinalIgnoreCase) && state.BatteryTemperatureC is null)

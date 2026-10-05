@@ -19,13 +19,11 @@
                 <StackPanel Margin="0,0,24,0">
                     <TextBlock Text="CHARGE" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
                     <controls:BatteryGauge Width="150" Height="60" HorizontalAlignment="Left" Margin="0,11,0,0" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" />
-                    <Grid Margin="0,10,0,0">
+                    <StackPanel Margin="0,10,0,0">
                         <TextBlock Text="{Binding BatteryPercentText}" FontSize="{x:Static ui:TypographyScale.ValueHero}" FontWeight="Light" />
-                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding BatteryStatus}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Secondary}" Foreground="{DynamicResource Tc.TextMuted}" />
-                            <TextBlock Text="{Binding BatteryEtaText}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="Medium" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,2,0,0" />
-                        </StackPanel>
-                    </Grid>
+                        <TextBlock x:Name="ChargeSummaryStatus" Text="{Binding BatteryStatus}" FontSize="{x:Static ui:TypographyScale.Secondary}" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <TextBlock x:Name="ChargeSummaryEta" Text="{Binding BatteryEtaText}" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="Medium" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    </StackPanel>
                 </StackPanel>
                 <Grid Grid.Column="1">
                     <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
