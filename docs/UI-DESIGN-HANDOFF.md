@@ -22,6 +22,8 @@ Do not redesign these merely to make a Figma file look more complete:
 
 Motion is allowed only when it improves state comprehension. A future Battery motion concept may animate real charging/limit state, but it must not add decorative movement or replace accurate static information.
 
+October 5 owner feedback in Photopea places the charge percentage inside the Battery summary gauge, with status and ETA beneath it. This is implemented and inspected in installed dev.2026100505. Preserve its compact hierarchy and wrapping for longer status text; the separate Battery Preservation threshold gauge is unchanged.
+
 ## Priority redesign surfaces
 
 ### Fans
