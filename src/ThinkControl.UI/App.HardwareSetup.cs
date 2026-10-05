@@ -206,6 +206,12 @@ public partial class App
         if (issue == HardwarePrerequisiteIssue.None || !CanShowAttentionNow())
             return;
 
+        // Provider limitations stay visible in Inbox/System. A startup modal is
+        // reserved for an installable prerequisite; retrying cannot promise support.
+        if (issue is HardwarePrerequisiteIssue.FanControl or
+            HardwarePrerequisiteIssue.Sensors or HardwarePrerequisiteIssue.Keyboard)
+            return;
+
         string promptKey = $"{UpdateService.CurrentVersion}:{issue}";
         string[] prompted = UserSettings.Current.HardwareIssuePromptedKeys
             .Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

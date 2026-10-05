@@ -714,8 +714,9 @@ public partial class ModesPanel : UserControl
     private void UpdateAutomationState()
     {
         AutomationSwitch.IsChecked = _editingAutomationEnabled;
-        AutomationBody.IsEnabled = _editingAutomationEnabled;
-        AutomationBody.Opacity = _editingAutomationEnabled ? 1.0 : 0.5;
+        // Disabled rules remain editable; this switch controls execution after Save.
+        AutomationBody.IsEnabled = true;
+        AutomationBody.Opacity = 1.0;
     }
 
     private void AddTrigger_Click(object sender, RoutedEventArgs e)
