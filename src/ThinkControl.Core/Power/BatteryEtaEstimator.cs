@@ -34,12 +34,15 @@ public sealed class BatteryEtaEstimator
     private const double MinimumPowerWatts = 0.4;
     private static readonly TimeSpan MinimumWarmup = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan MaximumEta = TimeSpan.FromHours(24);
+    private static readonly TimeSpan MaximumSampleGap = TimeSpan.FromMinutes(2);
 
     private readonly Queue<double> _powerSamples = new();
     private bool _charging;
     private bool _discharging;
     private int _chargeTargetPercent = 100;
     private DateTimeOffset? _modeStartedAt;
+    private DateTimeOffset? _lastSampleAt;
+    private DateTimeOffset? _lastValidPowerAt;
     private double? _smoothedPowerWatts;
     private double? _smoothedEtaSeconds;
 
@@ -50,14 +53,19 @@ public sealed class BatteryEtaEstimator
         bool modeChanged = sample.Charging != _charging ||
                            sample.Discharging != _discharging ||
                            targetChanged;
-        if (modeChanged)
+        bool samplingInterrupted = _lastSampleAt.HasValue &&
+            (sample.At <= _lastSampleAt.Value || sample.At - _lastSampleAt.Value > MaximumSampleGap);
+        bool measurementsInterrupted = _lastValidPowerAt.HasValue &&
+            sample.At - _lastValidPowerAt.Value > MaximumSampleGap;
+        if (modeChanged || samplingInterrupted || measurementsInterrupted)
             Reset();
 
         _charging = sample.Charging;
         _discharging = sample.Discharging;
         _chargeTargetPercent = targetPercent;
+        _lastSampleAt = sample.At;
 
-        if (!sample.Charging && !sample.Discharging)
+        if (sample.Charging == sample.Discharging)
         {
             Reset();
             _chargeTargetPercent = targetPercent;
@@ -65,9 +73,11 @@ public sealed class BatteryEtaEstimator
         }
 
         _modeStartedAt ??= sample.At;
-        if (sample.PowerWatts is > MinimumPowerWatts and < 500)
+        bool validPower = sample.PowerWatts is > MinimumPowerWatts and < 500;
+        if (validPower)
         {
-            _powerSamples.Enqueue(sample.PowerWatts.Value);
+            _lastValidPowerAt = sample.At;
+            _powerSamples.Enqueue(sample.PowerWatts.GetValueOrDefault());
             while (_powerSamples.Count > MaximumSamples)
                 _powerSamples.Dequeue();
             double median = Median(_powerSamples);
@@ -78,7 +88,10 @@ public sealed class BatteryEtaEstimator
 
         bool warmedUp = _powerSamples.Count >= MinimumSamples &&
                         sample.At - _modeStartedAt.Value >= MinimumWarmup;
-        double? rawEtaSeconds = warmedUp ? CalculateEnergyEtaSeconds(sample, targetPercent) : null;
+        bool targetReached = sample.Charging && !sample.Discharging &&
+            sample.Percent is int percent && percent >= targetPercent && percent <= 100;
+        double? rawEtaSeconds = targetReached ? 0 :
+            warmedUp && validPower ? CalculateEnergyEtaSeconds(sample, targetPercent) : null;
         if (rawEtaSeconds is >= 0 && rawEtaSeconds <= MaximumEta.TotalSeconds)
         {
             if (rawEtaSeconds.Value == 0)
@@ -97,6 +110,12 @@ public sealed class BatteryEtaEstimator
                     ? _smoothedEtaSeconds.Value + 0.18 * (bounded - _smoothedEtaSeconds.Value)
                     : bounded;
             }
+        }
+        else
+        {
+            // Missing/invalid current energy or power cannot validate an older ETA.
+            // Keep the power window for an isolated dropout, but publish no stale time.
+            _smoothedEtaSeconds = null;
         }
 
         TimeSpan? toChargeTarget = sample.Charging && _smoothedEtaSeconds.HasValue
@@ -123,6 +142,8 @@ public sealed class BatteryEtaEstimator
         _modeStartedAt = null;
         _smoothedPowerWatts = null;
         _smoothedEtaSeconds = null;
+        _lastSampleAt = null;
+        _lastValidPowerAt = null;
     }
 
     private double? CalculateEnergyEtaSeconds(BatteryEtaSample sample, int targetPercent)
@@ -130,7 +151,9 @@ public sealed class BatteryEtaEstimator
         if (_smoothedPowerWatts is not > MinimumPowerWatts)
             return null;
 
-        if (sample.Charging && sample.FullWh is > 0 && sample.RemainingWh is >= 0)
+        if (sample.Charging && !sample.Discharging && sample.FullWh is > 0 &&
+            double.IsFinite(sample.FullWh.Value) && sample.RemainingWh is >= 0 &&
+            double.IsFinite(sample.RemainingWh.Value))
         {
             double targetWh = sample.FullWh.Value * targetPercent / 100d;
             double needed = Math.Max(0, targetWh - sample.RemainingWh.Value);
@@ -139,7 +162,8 @@ public sealed class BatteryEtaEstimator
             return needed / _smoothedPowerWatts.Value * 3600;
         }
 
-        if (sample.Discharging && sample.RemainingWh is > 0)
+        if (sample.Discharging && !sample.Charging && sample.RemainingWh is > 0 &&
+            double.IsFinite(sample.RemainingWh.Value))
             return sample.RemainingWh.Value / _smoothedPowerWatts.Value * 3600;
 
         return null;

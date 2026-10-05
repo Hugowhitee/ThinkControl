@@ -241,6 +241,8 @@ public sealed class AppState : INotifyPropertyChanged
             if (BatteryCharging)
             {
                 int target = BatteryChargeTargetPercent;
+                if (BatteryPercent >= target)
+                    return target >= 100 ? "At 100%" : $"{target}% target reached";
                 if (BatteryEtaToChargeTarget is TimeSpan toTarget)
                 {
                     if (toTarget <= TimeSpan.FromMinutes(1))

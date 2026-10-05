@@ -134,6 +134,101 @@ public sealed class BatteryEtaEstimatorTests
         Assert.Null(idle.SmoothedPowerWatts);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void MissingCurrentPower_DoesNotReuseOldEta(bool charging)
+    {
+        var estimator = new BatteryEtaEstimator();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        estimator.Update(Sample(start, charging, 18, 54, 72));
+        estimator.Update(Sample(start.AddSeconds(10), charging, 18, 54, 72));
+        BatteryEtaEstimate before = estimator.Update(Sample(start.AddSeconds(20), charging, 18, 54, 72));
+        Assert.NotNull(charging ? before.ToChargeTarget : before.Remaining);
+
+        BatteryEtaEstimate missing = estimator.Update(new BatteryEtaSample(
+            start.AddSeconds(30), 75, charging, !charging, null, 54, 72));
+        Assert.Null(missing.ToChargeTarget);
+        Assert.Null(missing.Remaining);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(double.NaN)]
+    [InlineData(double.PositiveInfinity)]
+    public void InvalidCurrentEnergy_DoesNotReuseOldEta(double? remaining)
+    {
+        var estimator = new BatteryEtaEstimator();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        estimator.Update(Sample(start, true, 18, 54, 72));
+        estimator.Update(Sample(start.AddSeconds(10), true, 18, 54, 72));
+        Assert.NotNull(estimator.Update(Sample(start.AddSeconds(20), true, 18, 54, 72)).ToChargeTarget);
+
+        Assert.Null(estimator.Update(new BatteryEtaSample(
+            start.AddSeconds(30), 75, true, false, 18, remaining, 72)).ToChargeTarget);
+    }
+
+    [Theory]
+    [InlineData(300)]
+    [InlineData(-10)]
+    public void InterruptedOrReversedClock_ClearsOldWindow(int secondsAfterLast)
+    {
+        var estimator = new BatteryEtaEstimator();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        estimator.Update(Sample(start, true, 18, 54, 72));
+        estimator.Update(Sample(start.AddSeconds(10), true, 18, 54, 72));
+        Assert.NotNull(estimator.Update(Sample(start.AddSeconds(20), true, 18, 54, 72)).ToChargeTarget);
+
+        BatteryEtaEstimate resumed = estimator.Update(Sample(
+            start.AddSeconds(20 + secondsAfterLast), true, 5, 55, 72));
+        Assert.Null(resumed.ToChargeTarget);
+        Assert.Equal(1, resumed.SampleCount);
+        Assert.Equal(5, resumed.SmoothedPowerWatts);
+    }
+
+    [Fact]
+    public void ReachedTarget_DoesNotNeedPowerWarmup()
+    {
+        var estimator = new BatteryEtaEstimator();
+        BatteryEtaEstimate reached = estimator.Update(new BatteryEtaSample(
+            DateTimeOffset.UtcNow, 85, true, false, null, 61.2, 72,
+            ChargeTargetPercent: 85));
+        Assert.Equal(TimeSpan.Zero, reached.ToChargeTarget);
+    }
+
+    [Fact]
+    public void MissingPower_CanUseCurrentNativeDischargeEstimate()
+    {
+        var estimator = new BatteryEtaEstimator();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        estimator.Update(Sample(start, false, 18, 54, 72));
+        estimator.Update(Sample(start.AddSeconds(10), false, 18, 54, 72));
+        Assert.NotNull(estimator.Update(Sample(start.AddSeconds(20), false, 18, 54, 72)).Remaining);
+
+        BatteryEtaEstimate fallback = estimator.Update(new BatteryEtaSample(
+            start.AddSeconds(30), 75, false, true, null, null, 72,
+            NativeRemaining: TimeSpan.FromHours(2)));
+        Assert.Equal(TimeSpan.FromHours(2), fallback.Remaining);
+    }
+
+    [Fact]
+    public void ContinuousMeasurementLoss_DiscardsPreLossPowerWindow()
+    {
+        var estimator = new BatteryEtaEstimator();
+        DateTimeOffset start = DateTimeOffset.UtcNow;
+        estimator.Update(Sample(start, true, 18, 54, 72));
+        estimator.Update(Sample(start.AddSeconds(10), true, 18, 54, 72));
+        estimator.Update(Sample(start.AddSeconds(20), true, 18, 54, 72));
+        foreach (int seconds in new[] { 30, 90, 150, 210 })
+            Assert.Null(estimator.Update(new BatteryEtaSample(
+                start.AddSeconds(seconds), 75, true, false, null, 54, 72)).ToChargeTarget);
+
+        BatteryEtaEstimate restored = estimator.Update(Sample(start.AddSeconds(220), true, 5, 54, 72));
+        Assert.Null(restored.ToChargeTarget);
+        Assert.Equal(1, restored.SampleCount);
+        Assert.Equal(5, restored.SmoothedPowerWatts);
+    }
+
     private static BatteryEtaSample Sample(
         DateTimeOffset at,
         bool charging,

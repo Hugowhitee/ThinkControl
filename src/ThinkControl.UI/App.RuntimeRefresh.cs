@@ -133,11 +133,11 @@ public partial class App
             State.BatteryFullWh = battery.FullWh ?? State.BatteryFullWh;
             BatteryEtaEstimate eta = _runtimeBatteryEta.Update(new BatteryEtaSample(
                 DateTimeOffset.UtcNow,
-                State.BatteryPercent,
+                battery.Percent,
                 battery.Charging,
                 battery.Discharging,
                 battery.PowerWatts,
-                State.BatteryRemainingWh,
+                battery.RemainingWh,
                 State.BatteryFullWh,
                 battery.EstimatedRemaining,
                 ResolveBatteryChargeTargetPercent()));

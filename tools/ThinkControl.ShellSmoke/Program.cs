@@ -26,6 +26,7 @@ internal static class Program
         {
             ValidateCrashJournal();
             ValidateBatteryHistoryGaps();
+            ValidateBatteryEtaLabels();
             ValidateModeAutomationPolicy();
             app = App.CreateForVisualQa();
             app.InitializeComponent();
@@ -168,6 +169,36 @@ internal static class Program
             app.UserSettings.Update(_ => original);
             engine.Stop();
         }
+    }
+
+    private static void ValidateBatteryEtaLabels()
+    {
+        var state = new ThinkControl.UI.ViewModels.AppState
+        {
+            BatteryCharging = true,
+            BatteryPercent = 84,
+            BatteryProtectionEnabled = true,
+            BatteryProtectionStartPercent = 80,
+            BatteryProtectionStopPercent = 85,
+            BatteryEtaToChargeTarget = TimeSpan.FromMinutes(12)
+        };
+        if (!state.BatteryEtaText.EndsWith("to 85%", StringComparison.Ordinal))
+            throw new InvalidOperationException("Battery ETA must name the verified stop threshold.");
+        state.BatteryPercent = 85;
+        if (state.BatteryEtaText != "85% target reached")
+            throw new InvalidOperationException("A reached target must override a stale nonzero ETA.");
+        state.BatteryCharging = false;
+        state.BatteryStatus = "Plugged in";
+        if (state.BatteryEtaText != "Charge limit 85%")
+            throw new InvalidOperationException("Stopped charging at the threshold must display the limit.");
+        state.BatteryPercent = 82;
+        if (state.BatteryEtaText != "Charge hold, resumes below 80%")
+            throw new InvalidOperationException("Charge-window hysteresis must name the resume threshold.");
+        state.BatteryCharging = true;
+        state.BatteryEtaToChargeTarget = null;
+        state.BatteryProtectionStopPercent = 90;
+        if (state.BatteryEtaText != "Estimating to 90%…")
+            throw new InvalidOperationException("A changed target must not display an old-target duration.");
     }
 
     private static void ValidateBatteryHistoryGaps()
