@@ -63,57 +63,38 @@ public sealed class Alpha47UxSourceTests
     {
         string root = FindRepositoryRoot();
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
-        string code = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
-
-        Assert.Contains("x:Name=\"HomeQuiet\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Tag=\"Battery:Quiet\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"HomeAcQuiet\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Tag=\"Ac:Quiet\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"HomeAcPerformance\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"HomePowerMode_Click\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("_app.GetPowerPreference(onBattery: true)", code, StringComparison.Ordinal);
-        Assert.Contains("_app.GetPowerPreference(onBattery: false)", code, StringComparison.Ordinal);
-        Assert.Contains("_app.SetPowerPreference(mode, onBattery)", code, StringComparison.Ordinal);
+        string home = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
+        string power = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "PerformancePanel.xaml"));
+        Assert.Contains("Tag=\"Current:Quiet\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("HomeUsesBattery", home, StringComparison.Ordinal);
+        Assert.Contains("_app.SetPowerPreference(mode, onBattery)", home, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Battery:Quiet\"", power, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Ac:Quiet\"", power, StringComparison.Ordinal);
     }
-
     [Fact]
-    public void AdvancedHome_FanAutoAndMoreProfilesAreRealControls()
+    public void AdvancedHome_FanSettingsUseTheCanonicalCapabilityGatedController()
     {
         string root = FindRepositoryRoot();
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
-        string code = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeQuickControls.cs"));
-
-        Assert.Contains("x:Name=\"HomeFanAutoSwitch\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("x:Name=\"HomeFanMoreButton\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"HomeFanAuto_Click\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Click=\"HomeFanMore_Click\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("new ContextMenu", code, StringComparison.Ordinal);
-        Assert.Contains("HomeFanAutoSwitch.IsChecked == true ? \"Auto\" :", code, StringComparison.Ordinal);
-        Assert.Contains("FanControlKinds.FullSpeedOnly ? \"Max cooling\" : \"Balanced\"", code, StringComparison.Ordinal);
-        string autoClick = code.Split("private async void HomeFanAuto_Click", StringSplitOptions.None)[1]
-            .Split("private async void HomeFanQuick_Click", StringSplitOptions.None)[0];
-        Assert.Contains("if (_homeFanBusy)", autoClick, StringComparison.Ordinal);
-        Assert.DoesNotContain("if (_syncing || _homeFanBusy)", autoClick, StringComparison.Ordinal);
-        Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && !_app.FanCalibrationState.Running", code, StringComparison.Ordinal);
-        Assert.Contains("HomeFanQuiet.IsEnabled = HomeFanBalanced.IsEnabled = !_app.FanCalibrationState.Required", code, StringComparison.Ordinal);
-        Assert.Contains("HomeFanMoreButton.IsEnabled = enabled && !_app.FanCalibrationState.Required", code, StringComparison.Ordinal);
-        Assert.Contains("HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("MoreFanProfilesLabel", code, StringComparison.Ordinal);
-        Assert.DoesNotContain("HomeFanProfileCombo", code, StringComparison.Ordinal);
+        string fans = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "FansPanel.xaml.cs"));
+        Assert.Contains("Content=\"Fan settings\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Fans\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ProfileComboBox.IsEnabled =", fans, StringComparison.Ordinal);
+        Assert.Contains("_app.State.CanFanControl &&", fans, StringComparison.Ordinal);
+        Assert.Contains("!_app.FanCalibrationState.Running", fans, StringComparison.Ordinal);
+        Assert.Contains("_app.FanCalibrationState.Required || !HasDirectFanWriter", fans, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeFanAutoSwitch", xaml, StringComparison.Ordinal);
     }
-
     [Fact]
-    public void AdvancedHome_SensorsMetricOpensExistingSensorDetails()
+    public void AdvancedDiagnostics_OpensExistingSensorDetails()
     {
         string root = FindRepositoryRoot();
-        string home = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.HomeDashboard.cs"));
-        string normalized = home.Replace("\r\n", "\n", StringComparison.Ordinal);
-
-        Assert.Contains("openSensorDetails: true", home, StringComparison.Ordinal);
-        Assert.Contains("app.OpenSensorDetails(this);", home, StringComparison.Ordinal);
-        Assert.Contains("else\n                Navigate(page);", normalized, StringComparison.Ordinal);
+        string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+        string navigation = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.GroupNavigation.cs"));
+        Assert.Contains("x:Name=\"PageDiagnostics\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"OpenSensors_Click\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("_app.OpenSensorDetails(this)", navigation, StringComparison.Ordinal);
     }
-
     [Fact]
     public void Modes_ReplaceHomeAndCompactAudioSafetyWithoutRemovingTheAudioSubsystemControl()
     {

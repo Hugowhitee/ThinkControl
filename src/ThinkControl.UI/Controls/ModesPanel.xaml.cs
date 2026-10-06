@@ -12,7 +12,6 @@ public partial class ModesPanel : UserControl
 
     private App? _app;
     private bool _automationSurface;
-    internal event Action<string>? NavigateRequested;
     private bool _busy;
     private bool _syncingModeSelection;
     private string? _editingId;
@@ -32,7 +31,6 @@ public partial class ModesPanel : UserControl
     private Button _reapplyButton = null!;
     private Button _cancelButton = null!;
     private Button _saveButton = null!;
-    private Button _linkedPageButton = null!;
 
     public ModesPanel()
     {
@@ -68,15 +66,11 @@ public partial class ModesPanel : UserControl
         _saveButton = HeaderButton("Save", Save_Click);
         _saveButton.Visibility = Visibility.Collapsed;
 
-        _linkedPageButton = HeaderButton("Automation ›", (_, _) =>
-            NavigateRequested?.Invoke(_automationSurface ? "Modes" : "Automation"));
-
         StackPanel rail = Header.EnsureActionStack();
         rail.Children.Add(_modifiedLabel);
         Header.AddAction(_reapplyButton, PageHeaderActionRole.Context);
         Header.AddAction(_cancelButton, PageHeaderActionRole.Context);
         Header.AddAction(_saveButton, PageHeaderActionRole.Context);
-        Header.AddAction(_linkedPageButton, PageHeaderActionRole.Context);
         _saveButton.Style = TryFindResource("TcButton") as Style;
     }
 
@@ -95,13 +89,13 @@ public partial class ModesPanel : UserControl
     internal void Initialize(App app, bool automationSurface = false)
     {
         _automationSurface = automationSurface;
-        Header.Title = automationSurface ? "Automation" : "Modes";
+        Header.Title = "Modes";
+        SurfaceTabs.SelectedPage = automationSurface ? "Automation" : "Modes";
         Header.Subtitle = automationSurface ? "Link conditions to a saved mode. One rule wins at a time."
             : "Save settings together, then select a mode or link it to an automation rule.";
         ModeListSection.Visibility = automationSurface ? Visibility.Collapsed : Visibility.Visible;
         AutomationListSection.Visibility = automationSurface ? Visibility.Visible : Visibility.Collapsed;
         AutomationListSection.Margin = new Thickness(0);
-        _linkedPageButton.Content = automationSurface ? "Modes ›" : "Automation ›";
         if (ReferenceEquals(_app, app))
         {
             RefreshList();
@@ -136,7 +130,11 @@ public partial class ModesPanel : UserControl
     private void Automation_Changed()
     {
         if (!Dispatcher.CheckAccess()) { Dispatcher.BeginInvoke(new Action(Automation_Changed)); return; }
-        if (EditorView.Visibility != Visibility.Visible) RefreshRules();
+        if (EditorView.Visibility != Visibility.Visible)
+        {
+            RefreshRules();
+            UpdateHeaderState();
+        }
     }
 
     private void RefreshRules()
@@ -473,7 +471,6 @@ public partial class ModesPanel : UserControl
         ListView.Visibility = Visibility.Collapsed;
         EditorView.Visibility = Visibility.Visible;
         _saveButton.Visibility = Visibility.Visible;
-        _linkedPageButton.Visibility = Visibility.Collapsed;
         _cancelButton.Visibility = Visibility.Visible;
         _modifiedLabel.Visibility = Visibility.Collapsed;
         _reapplyButton.Visibility = Visibility.Collapsed;
@@ -1168,7 +1165,6 @@ public partial class ModesPanel : UserControl
         ListView.Visibility = Visibility.Visible;
         _saveButton.Visibility = Visibility.Collapsed;
         _cancelButton.Visibility = Visibility.Collapsed;
-        _linkedPageButton.Visibility = Visibility.Visible;
         EditorStatusText.Visibility = Visibility.Collapsed;
         RefreshList();
     }
@@ -1177,6 +1173,13 @@ public partial class ModesPanel : UserControl
     {
         if (_app is null || EditorView.Visibility == Visibility.Visible)
             return;
+
+        ModeOwnershipText.Text = _app.ModeAutomation.Paused
+            ? "Automation paused by your selection. Resume it here, or wait for a different rule to win."
+            : _app.Modes.ActiveModeAutomatic
+                ? "Selected by automation. Choosing a mode here pauses automation."
+                : "Manual selection. Matching automation rules can activate a different mode.";
+        ManualOverrideResumeButton.Visibility = _app.ModeAutomation.Paused ? Visibility.Visible : Visibility.Collapsed;
 
         if (_automationSurface)
         {

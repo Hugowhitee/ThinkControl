@@ -250,7 +250,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.DoesNotContain("firmwareFallback", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("firmwareFallback", home, StringComparison.Ordinal);
         Assert.Contains("CompactFanCombo.IsEnabled = _app.State.CanFanControl", compact, StringComparison.Ordinal);
-        Assert.Contains("bool enabled = _app.State.CanFanControl || firmwarePolicy", home, StringComparison.Ordinal);
+        Assert.Contains("_app.State.CanFanControl", home, StringComparison.Ordinal);
         Assert.DoesNotContain("HardwareAccess", ui.Split("private static string DescribeUnavailable", StringSplitOptions.None)[0].Split("private void ApplyProviderCopy", StringSplitOptions.None)[1], StringComparison.Ordinal);
         Assert.Contains("% OEM target", ui, StringComparison.Ordinal);
         Assert.DoesNotContain("100% means the highest verified standard X9 EC step", xaml, StringComparison.Ordinal);

@@ -36,14 +36,16 @@ public partial class AdvancedWindow
         AttachPageInteraction(NavSettings, PageSettings);
 
         FixSwitchRow(DisplayAdaptiveSwitch);
-        FixSwitchRow(HomeAdaptiveSwitch);
         ConfigureUpdateControls();
     }
 
     private void AttachPageInteraction(RadioButton nav, ScrollViewer page)
     {
         // Checked routes through ShowPage. Click also covers reselecting the active destination.
-        nav.Click += (_, _) => ResetPageForNavigation(page, animate: false);
+        nav.Click += (_, _) =>
+        {
+            if (nav.Tag is string destination) Navigate(destination);
+        };
     }
 
     private void ResetPageForNavigation(ScrollViewer page, bool animate)
@@ -82,6 +84,8 @@ public partial class AdvancedWindow
 
     private static void ResetTransientPageUi(DependencyObject root)
     {
+        if (root is ThinkControl.UI.Controls.BatteryTelemetryPanel battery)
+            battery.ResetNavigationView();
         foreach (Controls.ModesPanel panel in FindVisualChildren<Controls.ModesPanel>(root))
             panel.ResetNavigationView();
         foreach (ComboBox combo in FindVisualChildren<ComboBox>(root))
@@ -103,69 +107,14 @@ public partial class AdvancedWindow
 
     private void ConfigureUpdateControls()
     {
-        if (PageUpdates.Content is not StackPanel stack)
-            return;
-
-        TextBlock? description = stack.Children.OfType<TextBlock>().Skip(1).FirstOrDefault();
-        if (description is not null)
-        {
-            description.Text = "Updates stay manual.";
-        }
-
-        WpfButton? checkButton = FindVisualChildren<WpfButton>(PageUpdates)
-            .FirstOrDefault(button => string.Equals(button.Content?.ToString(), "Check for updates", StringComparison.Ordinal));
-        if (checkButton is not null)
-        {
-            checkButton.Click -= CheckUpdates_Click;
-            checkButton.Click += CheckUpdatesAndPrepare_Click;
-        }
-
-        OpenReleaseButton.Click -= OpenRelease_Click;
-        OpenReleaseButton.Click += InstallUpdate_Click;
-        OpenReleaseButton.Content = "Install update";
-        OpenReleaseButton.ToolTip = "Download, verify and install the newest ThinkControl release";
-        OpenReleaseButton.IsEnabled = false;
-
+        AutomaticUpdatesSwitch.IsChecked = _app.UserSettings.Current.AutomaticUpdates;
         _lastUpdate = _app.LatestUpdateResult;
         _app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
         Closed += (_, _) => _app.UpdateAvailabilityChanged -= App_UpdateAvailabilityChanged;
         SyncPublishedUpdateResult();
-
-        var autoSwitch = new WpfCheckBox
-        {
-            Style = TryFindResource("TcSwitch") as Style,
-            IsChecked = _app.UserSettings.Current.AutomaticUpdates,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        autoSwitch.Click += (_, _) =>
-            _app.UserSettings.Update(settings => settings with { AutomaticUpdates = autoSwitch.IsChecked == true });
-
-        var copy = new StackPanel();
-        copy.Children.Add(new TextBlock { Text = "Automatic update checks", FontWeight = FontWeights.SemiBold });
-        var detail = new TextBlock
-        {
-            Text = "Checks periodically. Installation stays manual.",
-            FontSize = TypographyScale.Caption,
-            Margin = new Thickness(0, 4, 80, 0),
-            TextWrapping = TextWrapping.Wrap
-        };
-        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        copy.Children.Add(detail);
-
-        var grid = new Grid();
-        grid.Children.Add(copy);
-        grid.Children.Add(autoSwitch);
-
-        var card = new Border
-        {
-            Style = TryFindResource("TcSection") as Style,
-            Margin = new Thickness(0, 14, 0, 0),
-            Child = grid
-        };
-        stack.Children.Add(card);
     }
-
+    private void AutomaticUpdates_Click(object sender, RoutedEventArgs e) =>
+        _app.UserSettings.Update(settings => settings with { AutomaticUpdates = AutomaticUpdatesSwitch.IsChecked == true });
     private void App_UpdateAvailabilityChanged(object? sender, EventArgs e) =>
         Dispatcher.BeginInvoke(SyncPublishedUpdateResult);
 

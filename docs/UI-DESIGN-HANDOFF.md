@@ -14,6 +14,16 @@ This is the existing durable design owner. Recover live Git state and read AGENT
 
 ## Canonical screens
 
+Latest owner corrections (2026-10-06): Overview has separate Mode and Keyboard light cards. Canonical Mode remains `6:124`; Keyboard light is `266:6134`, with preserved Auto choice `266:6155`. Light counterparts are `266:6851` and `266:6855`. This overrides the former combined card. Footer actions align with the main navigation icon/text rails. Status copy wraps instead of truncating ordinary battery information. Dark semantic Success/Warning/Error are now `#3ed486`, `#ffb545`, `#ff645c`, bound through the existing Figma variables and WPF theme owner. Charging flow remains tied to real charging; a discharge animation is still UNVERIFIED/unimplemented and must not imply fabricated percentage movement.
+
+Manual mode selection and rules share the production coordinator. Manual selection pauses automation until the winning context changes or Resume is requested; the selector does not constitute a second competing owner. Overview must show that pause explicitly. Modes uses the shared Saved modes/Automation tabs and has no additional duplicate Automation header link.
+
+Latest navigation preference: keep Compact view in the footer with Notifications and Preferences; raise primary destinations 14px (first destination y=110 at the canonical size). Align every action's text/icon rail with the primary destinations. This supersedes the briefly explored placement beneath the wordmark.
+
+Scrollbar override: square thumb corners and a 6px gap between content and the scrollbar, shared across scrollable surfaces. Native scroll interaction and orientation-specific minimum thumb sizes remain intact.
+
+Preservation benefit: green qualitative copy, "Helps reduce battery wear" in WPF / "Helps reduce wear" in the Figma badge `9:358`. Show it only with verified enabled preservation. Do not display invented cycles saved or an exponential improvement estimate. Charge cycles accumulate 100% capacity use across sessions; charge level, temperature, depth of discharge and age all affect wear. Context: https://pcsupport.lenovo.com/lc/en/solutions/ht509084/ and https://www.apple.com/batteries/why-lithium-ion/. Custom start/stop pairs must retain their actual readback instead of selecting a misleading fixed preset.
+
 Advanced canonical section `190:4791` contains the twelve reference screens. Reference size is1200×780; native minimum980×650 must reflow rather than scale the canvas.
 
 | Screen | Frame | Existing behavioral owner |

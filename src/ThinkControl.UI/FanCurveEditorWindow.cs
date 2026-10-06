@@ -881,5 +881,5 @@ internal sealed class FanCurveGraph : FrameworkElement
 
     private FormattedText CreateText(string text, Brush brush, double size) =>
         new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            ThinkControl.UI.TypographyScale.Typeface, size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
 }

@@ -11,7 +11,7 @@ namespace ThinkControl.UI.Controls;
 
 public partial class TouchpadPanel : UserControl
 {
-    private sealed record ActionOption(GestureActionKind Action, string Label, string Description, Geometry Icon)
+    private sealed record ActionOption(GestureActionKind Action, string Label, string Description, string Icon)
     {
         public override string ToString() => Label;
     }
@@ -87,11 +87,9 @@ public partial class TouchpadPanel : UserControl
         TouchpadHeader.AddAction(_touchpadDefaultsButton, PageHeaderActionRole.Defaults);
     }
 
-    private Geometry ResolveIcon(string resourceKey)
+    private static string ResolveIcon(string resourceKey)
     {
-        if (TryFindResource(resourceKey) is Geometry geometry)
-            return geometry;
-        throw new InvalidOperationException($"Gesture action icon '{resourceKey}' is not registered.");
+        return resourceKey;
     }
 
     internal void Initialize(App app)
@@ -156,6 +154,7 @@ public partial class TouchpadPanel : UserControl
     private void SyncSelectedEdge()
     {
         TouchpadEdge edge = SelectedEdge;
+        SelectedZoneTitle.Text = EdgeLabel(edge);
         TouchpadEdgeBinding binding = _configuration.BindingFor(edge);
         TouchpadActionVisualSpec visual = TouchpadActionVisualCatalog.Get(binding.Action);
         SelectedEdgeDescription.Text = visual.Motion == TouchpadGestureMotionKind.Inward
@@ -562,10 +561,12 @@ public partial class TouchpadPanel : UserControl
         if (ContentGrid.ActualWidth <= 0)
             return;
 
-        while (ContentGrid.RowDefinitions.Count < 3)
+        while (ContentGrid.RowDefinitions.Count < 4)
             ContentGrid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
-        bool stacked = ContentGrid.ActualWidth < 900;
+        bool stacked = ContentGrid.ActualWidth < 720;
+        Grid.SetRow(HapticCard, stacked ? 2 : 1);
+        Grid.SetRow(OsdCard, stacked ? 2 : 1);
         if (stacked)
         {
             Grid.SetColumn(VisualizerCard, 0);
@@ -578,7 +579,7 @@ public partial class TouchpadPanel : UserControl
             Grid.SetRow(SettingsStack, 1);
             SettingsStack.Margin = new Thickness(0, 14, 0, 0);
 
-            Grid.SetRow(AdvancedCard, 2);
+            Grid.SetRow(AdvancedCard, 3);
             Grid.SetColumn(AdvancedCard, 0);
             Grid.SetColumnSpan(AdvancedCard, 2);
         }
@@ -594,7 +595,7 @@ public partial class TouchpadPanel : UserControl
             Grid.SetRow(SettingsStack, 0);
             SettingsStack.Margin = new Thickness(7, 0, 0, 0);
 
-            Grid.SetRow(AdvancedCard, 1);
+            Grid.SetRow(AdvancedCard, 2);
             Grid.SetColumn(AdvancedCard, 0);
             Grid.SetColumnSpan(AdvancedCard, 2);
         }

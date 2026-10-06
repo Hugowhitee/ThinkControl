@@ -274,7 +274,7 @@ public sealed class TimeSeriesChart : FrameworkElement
         dc.DrawText(ft, new Point(x, y));
     }
 
-    private FormattedText CreateFormattedText(string text, double size, Brush brush) => new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, new Typeface("Segoe UI"), size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+    private FormattedText CreateFormattedText(string text, double size, Brush brush) => new(text, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight, ThinkControl.UI.TypographyScale.Typeface, size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
     private Brush ResourceBrush(string key, Brush fallback) => TryFindResource(key) as Brush ?? fallback;
 
     private static void OnValuesChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)

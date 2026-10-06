@@ -663,7 +663,7 @@ internal static class Program
         window.Navigate("Settings");
         Pump(app.Dispatcher);
         var navigation = (ScrollViewer)window.FindName("SidebarNavigationScroll");
-        var settings = (RadioButton)window.FindName("NavSettings");
+        var settings = (RadioButton)window.FindName("NavSystem");
         Point position = settings.TranslatePoint(new Point(), navigation);
         if (position.Y < -1 || position.Y + settings.ActualHeight > navigation.ActualHeight + 1)
             throw new InvalidOperationException("Settings navigation remained outside the minimum-window scroll viewport after selecting it.");
@@ -767,7 +767,7 @@ internal static class Program
 
     private static void ValidateSharedNavigationReset(App app, AdvancedWindow window)
     {
-        foreach (string name in new[] { "Home", "Modes", "Automation", "Performance", "Fans", "Battery", "Display", "Audio", "Keyboard", "Touchpad", "System", "Updates", "Settings" })
+        foreach (string name in new[] { "Home", "Modes", "Automation", "Performance", "Battery", "Display", "Audio", "Keyboard", "Touchpad", "System", "Updates", "Diagnostics" })
         {
             window.Navigate(name);
             Pump(app.Dispatcher);
@@ -782,7 +782,11 @@ internal static class Program
             if (expander is not null) expander.IsExpanded = true;
             page.ScrollToEnd();
             Pump(app.Dispatcher);
-            var nav = (RadioButton)window.FindName("Nav" + name);
+            // Grouped destinations are selected through their visible context tab.
+            // Hidden historical navigation fields are not interactive controls.
+            var nav = VisualDescendants<RadioButton>(page).FirstOrDefault(button =>
+                button.IsVisible && button.Tag is string destination && destination == name)
+                ?? (RadioButton)window.FindName("Nav" + name);
             nav.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, nav));
             Pump(app.Dispatcher);
             if (page.VerticalOffset > 0.1 || VisualDescendants<Expander>(page).Any(item => item.IsExpanded))

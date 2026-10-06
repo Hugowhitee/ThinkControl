@@ -14,6 +14,7 @@ public partial class App
     {
         Startup += (_, _) =>
         {
+            if (IsVisualQa) return;
             if (!_powerEventsAttached)
             {
                 SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;

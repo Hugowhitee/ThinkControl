@@ -19,7 +19,7 @@ public sealed class CompactDashboardLayoutSourceTests
         Assert.Contains("Height=\"38\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Width=\"168\"", xaml, StringComparison.Ordinal);
         Assert.Contains("HorizontalAlignment=\"Left\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Height=\"520\"", window, StringComparison.Ordinal);
+        Assert.Contains("Width=\"420\" Height=\"565\"", window, StringComparison.Ordinal);
 
         int footer = xaml.IndexOf("<Grid Grid.Row=\"4\"", StringComparison.Ordinal);
         Assert.True(footer >= 0);

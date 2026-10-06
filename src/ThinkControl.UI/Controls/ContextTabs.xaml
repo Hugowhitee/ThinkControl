@@ -1,0 +1,8 @@
+<UserControl x:Class="ThinkControl.UI.Controls.ContextTabs" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Margin="0,0,0,26">
+    <ItemsControl x:Name="Tabs">
+        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+        <ItemsControl.ItemTemplate><DataTemplate>
+            <RadioButton Content="{Binding Label}" Tag="{Binding Page}" IsChecked="{Binding Selected, Mode=OneWay}" Style="{StaticResource TcContextTab}" Click="Tab_Click" />
+        </DataTemplate></ItemsControl.ItemTemplate>
+    </ItemsControl>
+</UserControl>

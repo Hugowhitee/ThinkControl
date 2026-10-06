@@ -21,65 +21,19 @@ public partial class AdvancedWindow
 
     private void ConfigureUpdateUi()
     {
-        ConfigureHomeUpdateUi();
-
-        if (_updateUiConfigured)
+        if (!_updateUiConfigured)
         {
-            RefreshUpdateUi();
-            return;
+            _updateCheckButton = UpdateCheckButton;
+            _updateLastCheckedText = UpdateLastCheckedText;
+            _updateCheckProgress = UpdateCheckProgress;
+            _updateUpToDateBadge = UpdateUpToDateBadge;
+            _lastUpdateCheckedAt = UpdateCheckHistoryService.Read();
+            UpdateViewState.PropertyChanged += UpdateUiState_PropertyChanged;
+            Closed += (_, _) => UpdateViewState.PropertyChanged -= UpdateUiState_PropertyChanged;
+            _updateUiConfigured = true;
         }
-
-        if (PageUpdates?.Content is not StackPanel root)
-            return;
-
-        Border? section = root.Children.OfType<Border>().FirstOrDefault();
-        if (section?.Child is not StackPanel content)
-            return;
-
-        StackPanel? actions = content.Children
-            .OfType<StackPanel>()
-            .FirstOrDefault(panel => panel.Orientation == Orientation.Horizontal);
-        if (actions is null)
-            return;
-
-        _updateCheckButton = actions.Children
-            .OfType<Button>()
-            .FirstOrDefault(button =>
-                string.Equals(button.Content?.ToString(), "Check for updates", StringComparison.Ordinal) ||
-                string.Equals(button.Content?.ToString(), "Checking…", StringComparison.Ordinal));
-        if (_updateCheckButton is null)
-            return;
-
-        ConfigureVersionStatusBadge(content);
-
-        _updateLastCheckedText = new TextBlock
-        {
-            FontSize = TypographyScale.Caption,
-            Margin = new Thickness(0, 7, 0, 0)
-        };
-        _updateLastCheckedText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-
-        _updateCheckProgress = new WpfProgressBar
-        {
-            Height = 2,
-            IsIndeterminate = true,
-            Visibility = Visibility.Collapsed,
-            Margin = new Thickness(0, 12, 0, 0),
-            BorderThickness = new Thickness(0)
-        };
-
-        int actionIndex = content.Children.IndexOf(actions);
-        content.Children.Insert(actionIndex, _updateLastCheckedText);
-        content.Children.Insert(actionIndex + 1, _updateCheckProgress);
-
-        _lastUpdateCheckedAt ??= UpdateCheckHistoryService.Read();
-        if (DataContext is AppState state)
-            state.PropertyChanged += UpdateUiState_PropertyChanged;
-
-        _updateUiConfigured = true;
         RefreshUpdateUi();
     }
-
     private void ConfigureHomeUpdateUi()
     {
         if (_homeUpdateUiConfigured || PageHome is null)
@@ -168,59 +122,6 @@ public partial class AdvancedWindow
         _homeUpdateCheckButton.Content = "Check now";
         _homeUpdateCheckButton.IsEnabled = !IsUpdateInstallInProgress();
         _homeUpdateCheckButton.ToolTip = "Check the ThinkControl release channel";
-    }
-
-    private void ConfigureVersionStatusBadge(StackPanel content)
-    {
-        TextBlock? versionText = content.Children
-            .OfType<TextBlock>()
-            .FirstOrDefault(text => text.FontSize >= 24);
-        if (versionText is null)
-            return;
-
-        int versionIndex = content.Children.IndexOf(versionText);
-        if (versionIndex < 0)
-            return;
-
-        Thickness versionMargin = versionText.Margin;
-        content.Children.RemoveAt(versionIndex);
-        versionText.Margin = new Thickness(0);
-        versionText.VerticalAlignment = VerticalAlignment.Center;
-
-        var check = new TextBlock
-        {
-            Text = "✓",
-            FontFamily = new System.Windows.Media.FontFamily("Segoe UI Symbol"),
-            FontSize = TypographyScale.Secondary,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = System.Windows.Media.Brushes.White,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
-            TextAlignment = TextAlignment.Center,
-            Margin = new Thickness(0, -1, 0, 0)
-        };
-
-        _updateUpToDateBadge = new Border
-        {
-            Width = 18,
-            Height = 18,
-            CornerRadius = new CornerRadius(9),
-            Margin = new Thickness(8, 1, 0, 0),
-            VerticalAlignment = VerticalAlignment.Center,
-            Visibility = Visibility.Collapsed,
-            ToolTip = "Up to date",
-            Child = check
-        };
-        _updateUpToDateBadge.SetResourceReference(Border.BackgroundProperty, "Tc.Success");
-
-        var versionRow = new StackPanel
-        {
-            Orientation = Orientation.Horizontal,
-            Margin = versionMargin
-        };
-        versionRow.Children.Add(versionText);
-        versionRow.Children.Add(_updateUpToDateBadge);
-        content.Children.Insert(versionIndex, versionRow);
     }
 
     private void UpdateUiState_PropertyChanged(object? sender, PropertyChangedEventArgs e)

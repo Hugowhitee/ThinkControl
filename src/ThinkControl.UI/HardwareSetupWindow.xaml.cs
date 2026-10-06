@@ -22,7 +22,11 @@ public partial class HardwareSetupWindow : Window
         _service = service;
         _requestedIssue = issue;
         InitializeComponent();
-        Loaded += async (_, _) => await RefreshAsync();
+        Loaded += async (_, _) =>
+        {
+            if (!_app.IsVisualQa)
+                await RefreshAsync();
+        };
         Closed += (_, _) =>
         {
             try { _autoClose?.Cancel(); } catch { }
@@ -62,8 +66,8 @@ public partial class HardwareSetupWindow : Window
         switch (_currentIssue)
         {
             case HardwarePrerequisiteIssue.Service:
-                PrimaryTitleText.Text = "ThinkControl service needs repair";
-                PrimaryStatusText.Text = "ThinkControl uses its background service for hardware controls. Windows will ask once to repair and start it; current settings are left unchanged.";
+                PrimaryTitleText.Text = "Hardware controls need the service";
+                PrimaryStatusText.Text = "Repair the ThinkControl service to restore hardware controls. Windows will ask for administrator access.";
                 PrimaryActionButton.Content = "Repair service";
                 break;
             case HardwarePrerequisiteIssue.PawnIo:
@@ -81,7 +85,7 @@ public partial class HardwareSetupWindow : Window
                 break;
             case HardwarePrerequisiteIssue.FanControl:
                 PrimaryTitleText.Text = "Cooling control unavailable";
-                PrimaryStatusText.Text = "The fan provider has not passed its readback checks. Lenovo firmware controls cooling. You can retry the check; this does not guarantee manual control will become available.";
+                PrimaryStatusText.Text = "ThinkControl could not connect to manual fan control. Lenovo controls cooling while you retry.";
                 PrimaryActionButton.Content = "Retry fan provider";
                 break;
             case HardwarePrerequisiteIssue.Keyboard:
@@ -148,7 +152,7 @@ public partial class HardwareSetupWindow : Window
                     break;
                 case HardwarePrerequisiteIssue.FanControl:
                     success = await _app.RefreshHardwareProvidersAsync();
-                    failure = "The supported fan provider still did not pass its safety/readback checks. Firmware remains in control.";
+                    failure = "Manual fan control is still unavailable. Lenovo continues to control cooling.";
                     break;
                 case HardwarePrerequisiteIssue.Keyboard:
                     success = await _app.RefreshKeyboardProviderAsync();
@@ -221,12 +225,12 @@ public partial class HardwareSetupWindow : Window
 
     private void ShowFailure(string detail)
     {
-        PrimaryTitleText.Text = "The issue still persists";
+        PrimaryTitleText.Text = "Could not restore hardware controls";
         PrimaryStatusText.Text = string.IsNullOrWhiteSpace(detail)
             ? "ThinkControl could not verify the required capability. Unsafe hardware actions remain disabled."
             : detail;
-        ResultText.Text = "You can close this message and review the current provider status in Inbox.";
-        SetStatusIcon("Error", "Tc.Accent");
+        ResultText.Text = "Details are available in Diagnostics.";
+        SetStatusIcon("Error", "Tc.Error");
         ShowCloseAction();
     }
 

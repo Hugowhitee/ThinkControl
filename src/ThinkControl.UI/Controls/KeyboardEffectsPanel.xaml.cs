@@ -69,6 +69,7 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
         _syncing = true;
         try
         {
+            EffectOff.IsChecked = _state.KeyboardMode is "Static" or "Auto";
             EffectBreathing.IsChecked = _state.KeyboardMode == "Breathing";
             EffectReactive.IsChecked = _state.KeyboardMode == "Reactive";
             EffectAudio.IsChecked = _state.KeyboardMode == "Audio";
@@ -81,7 +82,8 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
             ExperimentalEffectsSwitch.IsEnabled = fallbackAvailable;
 
             bool usable = _state.KeyboardEffectsUsable;
-            EffectChoicesGrid.IsEnabled = usable;
+            EffectOff.IsEnabled = _state.CanKeyboardBacklight;
+            EffectBreathing.IsEnabled = EffectReactive.IsEnabled = EffectAudio.IsEnabled = usable;
             EffectBaseGrid.IsEnabled = usable;
             EffectSpeed.IsEnabled = usable;
             if (!EffectSpeed.IsMouseCaptureWithin)
@@ -119,8 +121,9 @@ public partial class KeyboardEffectsPanel : System.Windows.Controls.UserControl
 
     private async void Effect_Click(object sender, RoutedEventArgs e)
     {
-        if (_syncing || AppHost is null || _state?.KeyboardEffectsUsable != true ||
-            sender is not FrameworkElement { Tag: string mode })
+        if (_syncing || AppHost is null || _state is null ||
+            sender is not FrameworkElement { Tag: string mode } ||
+            (mode == "Static" ? !_state.CanKeyboardBacklight : !_state.KeyboardEffectsUsable))
         {
             return;
         }

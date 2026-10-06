@@ -126,7 +126,7 @@ Use the shared `TypographyScale`/text styles. Large numeric telemetry may use a 
 
 ## Icons
 
-`PackIconLucide` is a historical type name; its production language is the curated local Material Symbols geometry plus a few ThinkControl-specific glyphs such as Compact/Advanced and touchpad/battery shapes.
+`PackIconLucide` is a compatibility type name. The active redesign uses packaged Microsoft Fluent System Icons through one semantic SVG adapter. The installed alpha.61 baseline uses Material Symbols; those resources are superseded in the redesign. Physical touchpad geometry and battery drawings remain native, driven by their existing owners.
 
 Icons support recognition and navigation, not decoration. Text-first segmented choices such as Efficiency / Balanced / Performance or Auto / 60 Hz / Max do not need individual icons.
 

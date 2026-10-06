@@ -8,11 +8,11 @@ public sealed class ModeVisualCoverageSourceTests
     public void OpeningMode_UsesOneVisibleVocabulary()
     {
         string root = FindRepositoryRoot();
-        string preferences = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.AppPreferences.cs"));
+        string preferences = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
         string shellSmoke = File.ReadAllText(Path.Combine(root, "tools", "ThinkControl.ShellSmoke", "Program.cs"));
 
-        Assert.Contains("Content = \"Advanced\"", preferences, StringComparison.Ordinal);
-        Assert.DoesNotContain("Content = \"Full\"", preferences, StringComparison.Ordinal);
+        Assert.Contains("Content=\"Advanced\"", preferences, StringComparison.Ordinal);
+        Assert.DoesNotContain("Content=\"Full\"", preferences, StringComparison.Ordinal);
         Assert.Contains("preferred app-icon Advanced", shellSmoke, StringComparison.Ordinal);
         Assert.DoesNotContain("preferred app-icon Full", shellSmoke, StringComparison.Ordinal);
     }

@@ -194,6 +194,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
     public string BatteryHealthText => BatteryHealthPercent is double health ? $"{health:0.#}% health" : "Health —";
+    public string BatteryHealthValueText => BatteryHealthPercent is double health ? $"{health:0.#}%" : "—";
     public string BatteryTemperatureLabel => BatteryTemperatureC.HasValue
         ? "BATTERY TEMP"
         : ControlTemperatureC.HasValue ? "DEVICE TEMP" : "TEMP";
@@ -201,6 +202,7 @@ public sealed class AppState : INotifyPropertyChanged
         ? $"{batteryTemperature:0.#} °C"
         : ControlTemperatureC is double deviceTemperature ? $"{deviceTemperature:0.#} °C" : "Not exposed";
     public string BatteryCycleCountText => BatteryCycleCount is int cycles ? $"{cycles:N0} cycles" : "Cycles —";
+    public string BatteryCycleCountValueText => BatteryCycleCount is int cycles ? $"{cycles:N0}" : "—";
     public string BatteryProtectionSummaryText => BatteryProtectionEnabled switch
     {
         true when BatteryProtectionStartPercent is int start && BatteryProtectionStopPercent is int stop => $"{start}–{stop}% active",
@@ -412,14 +414,20 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(BatteryCompactLine));
         }
         else if (propertyName == nameof(BatteryHealthPercent))
+        {
             OnPropertyChanged(nameof(BatteryHealthText));
+            OnPropertyChanged(nameof(BatteryHealthValueText));
+        }
         else if (propertyName == nameof(BatteryTemperatureC))
         {
             OnPropertyChanged(nameof(BatteryTemperatureLabel));
             OnPropertyChanged(nameof(BatteryTemperatureText));
         }
         else if (propertyName == nameof(BatteryCycleCount))
+        {
             OnPropertyChanged(nameof(BatteryCycleCountText));
+            OnPropertyChanged(nameof(BatteryCycleCountValueText));
+        }
         else if (propertyName is nameof(BatteryProtectionEnabled) or nameof(BatteryProtectionStartPercent) or nameof(BatteryProtectionStopPercent) or nameof(BatteryProtectionWritable))
         {
             OnPropertyChanged(nameof(BatteryProtectionSummaryText));

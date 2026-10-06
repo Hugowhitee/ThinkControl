@@ -12,7 +12,6 @@ public partial class AdvancedWindow
 {
     private bool _homeQuickControlsConfigured;
     private bool _homeModeBusy;
-    private bool _homeFanBusy;
 
     private void ConfigureHomeQuickControls()
     {
@@ -21,15 +20,17 @@ public partial class AdvancedWindow
             _homeQuickControlsConfigured = true;
             _app.State.PropertyChanged += HomeQuickState_PropertyChanged;
             _app.Modes.Changed += HomeModes_Changed;
+            _app.ModeAutomation.Changed += HomeModes_Changed;
             Closed += (_, _) =>
             {
                 _app.State.PropertyChanged -= HomeQuickState_PropertyChanged;
                 _app.Modes.Changed -= HomeModes_Changed;
+                _app.ModeAutomation.Changed -= HomeModes_Changed;
             };
         }
 
         SyncHomePowerModes();
-        RefreshHomeFanProfiles();
+        RefreshHomeCoolingSummary();
         RefreshHomeMode();
     }
 
@@ -39,11 +40,11 @@ public partial class AdvancedWindow
             nameof(ViewModels.AppState.CanFanControl) or
             nameof(ViewModels.AppState.FanControlKind))
         {
-            Dispatcher.BeginInvoke(new Action(RefreshHomeFanProfiles));
+            Dispatcher.BeginInvoke(new Action(RefreshHomeCoolingSummary));
             return;
         }
 
-        if (e.PropertyName == nameof(ViewModels.AppState.SelectedPowerMode))
+        if (e.PropertyName is nameof(ViewModels.AppState.SelectedPowerMode) or nameof(ViewModels.AppState.BatteryStatus))
             Dispatcher.BeginInvoke(new Action(SyncHomePowerModes));
     }
 
@@ -56,222 +57,38 @@ public partial class AdvancedWindow
         if (parts.Length != 2 || !Enum.TryParse(parts[1], true, out ThinkControlPowerMode mode))
             return;
 
-        bool onBattery = parts[0].Equals("Battery", StringComparison.OrdinalIgnoreCase);
+        bool onBattery = parts[0] == "Current" ? HomeUsesBattery : parts[0].Equals("Battery", StringComparison.OrdinalIgnoreCase);
         _ = _app.SetPowerPreference(mode, onBattery);
         SyncHomePowerModes();
     }
 
+    private bool HomeUsesBattery => _snapshotUiPrepared
+        ? !_app.State.BatteryStatus.Contains("Plugged", StringComparison.OrdinalIgnoreCase) && !_app.State.BatteryCharging
+        : System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus == System.Windows.Forms.PowerLineStatus.Offline;
+
     private void SyncHomePowerModes()
     {
-        if (HomeQuiet is null || HomeBalanced is null || HomePerformance is null ||
-            HomeAcQuiet is null || HomeAcBalanced is null || HomeAcPerformance is null)
-        {
-            return;
-        }
-
-        ThinkControlPowerMode battery = _app.GetPowerPreference(onBattery: true);
-        ThinkControlPowerMode ac = _app.GetPowerPreference(onBattery: false);
+        if (HomeQuiet is null) return;
+        bool onBattery = HomeUsesBattery;
+        ThinkControlPowerMode mode = _app.GetPowerPreference(onBattery);
         _syncing = true;
         try
         {
-            HomeQuiet.IsChecked = battery == ThinkControlPowerMode.Quiet;
-            HomeBalanced.IsChecked = battery == ThinkControlPowerMode.Balanced;
-            HomePerformance.IsChecked = battery == ThinkControlPowerMode.Performance;
-            HomeAcQuiet.IsChecked = ac == ThinkControlPowerMode.Quiet;
-            HomeAcBalanced.IsChecked = ac == ThinkControlPowerMode.Balanced;
-            HomeAcPerformance.IsChecked = ac == ThinkControlPowerMode.Performance;
+            HomeQuiet.IsChecked = mode == ThinkControlPowerMode.Quiet;
+            HomeBalanced.IsChecked = mode == ThinkControlPowerMode.Balanced;
+            HomePerformance.IsChecked = mode == ThinkControlPowerMode.Performance;
+            HomePowerSourceText.Text = onBattery ? "On battery" : "Plugged in";
+            HomePowerOtherText.Text = $"{(onBattery ? "Plugged-in" : "Battery")} profile: {App.PowerPreferenceDisplayName(_app.GetPowerPreference(!onBattery))}";
         }
-        finally
-        {
-            _syncing = false;
-        }
+        finally { _syncing = false; }
     }
 
-    private void RefreshHomeFanProfiles()
+    private void RefreshHomeCoolingSummary()
     {
-        if (HomeFanMoreButton is null || HomeFanAutoSwitch is null)
-            return;
-
-        string selected = _app.State.CoolingProfileDisplay;
-        bool firmwarePolicy = string.Equals(
-            _app.State.FanControlKind,
-            FanControlKinds.FirmwarePolicy,
-            StringComparison.Ordinal);
-        bool fullSpeedOnly = _app.State.FanControlKind == FanControlKinds.FullSpeedOnly;
-        string[] extraProfiles = fullSpeedOnly ? [] : BuildHomeFanExtraProfiles(selected, firmwarePolicy);
-        bool enabled = _app.State.CanFanControl || firmwarePolicy;
-        bool autoActive =
-            selected.Equals("Auto", StringComparison.OrdinalIgnoreCase) ||
-            selected.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase);
-
-        _syncing = true;
-        try
-        {
-            HomeFanQuickGrid.IsEnabled = enabled && !_app.FanCalibrationState.Running && !_homeFanBusy;
-            HomeFanQuiet.IsEnabled = HomeFanBalanced.IsEnabled = !_app.FanCalibrationState.Required;
-            HomeFanQuiet.IsChecked = selected.Equals("Quiet", StringComparison.OrdinalIgnoreCase);
-            HomeFanBalanced.IsChecked = selected.Equals("Balanced", StringComparison.OrdinalIgnoreCase);
-            HomeFanQuiet.Visibility = HomeFanBalanced.Visibility = fullSpeedOnly ? Visibility.Collapsed : Visibility.Visible;
-            Grid.SetColumn(HomeFanMax, fullSpeedOnly ? 0 : 2);
-            Grid.SetColumnSpan(HomeFanMax, fullSpeedOnly ? 3 : 1);
-            HomeFanMax.IsChecked = selected.Equals("Max cooling", StringComparison.OrdinalIgnoreCase);
-
-            HomeFanAutoSwitch.IsChecked = autoActive;
-            HomeFanAutoSwitch.IsEnabled = enabled && !_homeFanBusy;
-
-            int selectableExtraCount = extraProfiles.Count(profile => !IsManualHomeFanState(profile));
-            bool currentUsesMore = extraProfiles.Contains(selected, StringComparer.OrdinalIgnoreCase);
-            HomeFanMoreButton.Visibility = selectableExtraCount > 0 || currentUsesMore ? Visibility.Visible : Visibility.Collapsed;
-            HomeFanMoreButton.IsEnabled = enabled && !_app.FanCalibrationState.Required && !_homeFanBusy && selectableExtraCount > 0;
-            HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42;
-            HomeFanMoreButton.Content = currentUsesMore
-                ? $"{selected}  ▾"
-                : selectableExtraCount switch
-                {
-                    0 => "No extra profiles",
-                    1 => "More profile  ▾",
-                    _ => $"More profiles ({selectableExtraCount})  ▾"
-                };
-            HomeFanMoreButton.ToolTip = currentUsesMore && IsManualHomeFanState(selected)
-                ? selectableExtraCount > 0
-                    ? "Manual fan output. Choose a saved profile to change it."
-                    : "Manual fan output. No other saved profiles are available."
-                : selectableExtraCount > 0
-                    ? "Show additional saved fan profiles without leaving Home"
-                    : "No additional saved fan profiles are available for the current fan provider";
-        }
-        finally
-        {
-            _syncing = false;
-        }
-    }
-
-    private string[] BuildHomeFanExtraProfiles(string selected, bool firmwarePolicy)
-    {
-        var values = new List<string>();
-        if (IsManualHomeFanState(selected) && !firmwarePolicy)
-            values.Add(selected);
-
-        if (!firmwarePolicy)
-        {
-            values.AddRange(_app.FanProfiles.GetProfiles()
-                .Where(profile => !_app.FanProfiles.IsBuiltIn(profile.Id))
-                .Select(profile => profile.Name));
-        }
-
-        return values
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToArray();
-    }
-
-    private static bool IsManualHomeFanState(string? value) =>
-        !string.IsNullOrWhiteSpace(value) && value.StartsWith("Manual ", StringComparison.OrdinalIgnoreCase);
-
-    private void HomeFanMore_Click(object sender, RoutedEventArgs e)
-    {
-        string selected = _app.State.CoolingProfileDisplay;
-        bool firmwarePolicy = string.Equals(
-            _app.State.FanControlKind,
-            FanControlKinds.FirmwarePolicy,
-            StringComparison.Ordinal);
-        string[] profiles = BuildHomeFanExtraProfiles(selected, firmwarePolicy);
-        if (profiles.Length == 0)
-        {
-            RefreshHomeFanProfiles();
-            return;
-        }
-
-        var menu = new ContextMenu
-        {
-            PlacementTarget = HomeFanMoreButton,
-            Placement = PlacementMode.Bottom
-        };
-
-        foreach (string profile in profiles)
-        {
-            var item = new MenuItem
-            {
-                Header = profile,
-                Tag = profile,
-                IsCheckable = true,
-                IsChecked = profile.Equals(selected, StringComparison.OrdinalIgnoreCase),
-                IsEnabled = !IsManualHomeFanState(profile)
-            };
-            item.Click += HomeFanMoreProfile_Click;
-            menu.Items.Add(item);
-        }
-
-        HomeFanMoreButton.ContextMenu = menu;
-        menu.IsOpen = true;
-    }
-
-    private async void HomeFanMoreProfile_Click(object sender, RoutedEventArgs e)
-    {
-        if (_homeFanBusy || sender is not FrameworkElement { Tag: string profile })
-            return;
-
-        _homeFanBusy = true;
-        SetHomeFanControlsEnabled(false);
-        try
-        {
-            await _app.SetCoolingProfileAsync(profile);
-        }
-        finally
-        {
-            _homeFanBusy = false;
-            RefreshHomeFanProfiles();
-        }
-    }
-
-    private async void HomeFanAuto_Click(object sender, RoutedEventArgs e)
-    {
-        // IsChecked assignments performed by RefreshHomeFanProfiles do not raise
-        // Click. Do not discard a real user click merely because another Home
-        // control is being synchronized on the dispatcher at the same moment.
-        if (_homeFanBusy)
-            return;
-
-        // Like Adaptive brightness, Auto is a real on/off control. Leaving Auto
-        // returns to the neutral Balanced preset rather than silently doing nothing.
-        string profile = HomeFanAutoSwitch.IsChecked == true ? "Auto" :
-            _app.State.FanControlKind == FanControlKinds.FullSpeedOnly ? "Max cooling" : "Balanced";
-        _homeFanBusy = true;
-        SetHomeFanControlsEnabled(false);
-        try
-        {
-            await _app.SetCoolingProfileAsync(profile);
-        }
-        finally
-        {
-            _homeFanBusy = false;
-            RefreshHomeFanProfiles();
-        }
-    }
-
-    private async void HomeFanQuick_Click(object sender, RoutedEventArgs e)
-    {
-        if (_syncing || _homeFanBusy || sender is not FrameworkElement { Tag: string profile })
-            return;
-
-        _homeFanBusy = true;
-        SetHomeFanControlsEnabled(false);
-        try
-        {
-            await _app.SetCoolingProfileAsync(profile);
-        }
-        finally
-        {
-            _homeFanBusy = false;
-            RefreshHomeFanProfiles();
-        }
-    }
-
-    private void SetHomeFanControlsEnabled(bool enabled)
-    {
-        HomeFanQuickGrid.IsEnabled = enabled;
-        HomeFanMoreButton.IsEnabled = enabled;
-        HomeFanAutoSwitch.IsEnabled = enabled;
+        if (HomeCurveAvailabilityText is null) return;
+        HomeCurveAvailabilityText.Text = !_app.State.CanFanControl ||
+            _app.State.FanControlKind is FanControlKinds.FullSpeedOnly or FanControlKinds.FirmwarePolicy
+            ? "Unavailable" : _app.FanCalibrationState.Required ? "Calibration required" : "Available";
     }
 
     private void HomeModes_Changed() =>
@@ -297,15 +114,17 @@ public partial class AdvancedWindow
                     ? "Could not apply. Open Modes for details."
                 : _app.Modes.IsModified
                     ? "Modified"
-                    : "Automatic";
+                    : _app.ModeAutomation.Paused
+                        ? "Manual selection: automation paused"
+                        : "Selected by automation";
             HomeModeModifiedText.ToolTip = _app.Modes.LastTransitionError;
             HomeModeModifiedText.SetResourceReference(TextBlock.ForegroundProperty,
-                _app.Modes.LastTransitionError is null ? "Tc.TextMuted" : "Tc.Accent");
+                _app.Modes.LastTransitionError is null ? "Tc.TextMuted" : "Tc.Error");
             HomeModeModifiedText.Visibility =
                 _app.Modes.IsTransitioning ||
                 _app.Modes.LastTransitionError is not null ||
                 _app.Modes.IsModified ||
-                _app.Modes.ActiveModeAutomatic
+                _app.Modes.ActiveModeAutomatic || _app.ModeAutomation.Paused
                     ? Visibility.Visible
                     : Visibility.Collapsed;
         }

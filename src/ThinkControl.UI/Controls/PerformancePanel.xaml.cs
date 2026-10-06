@@ -8,6 +8,8 @@ namespace ThinkControl.UI.Controls;
 
 public partial class PerformancePanel : UserControl
 {
+    private void WindowsPower_Click(object sender, RoutedEventArgs e) =>
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("ms-settings:powersleep") { UseShellExecute = true });
     private App? _app;
     private AppState? _subscribedState;
     private bool _syncing;

@@ -284,7 +284,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             label,
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
-            new Typeface("Segoe UI Variable Text"),
+            ThinkControl.UI.TypographyScale.Typeface,
             10.2,
             brush,
             pixelsPerDip);

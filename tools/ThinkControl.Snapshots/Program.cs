@@ -38,6 +38,67 @@ internal static class Program
         app.InitializeComponent();
         var snapshots = new List<SnapshotEntry>();
 
+        if (args.Contains("--inspect-hardware", StringComparer.Ordinal))
+        {
+            ThemeService.Apply(args.Contains("--light", StringComparer.Ordinal) ? ThemeMode.Light : ThemeMode.Dark);
+            SyncAppState(CreateDemoState(charging: true, hardwareReady: false), app.State);
+            var setup = new HardwareSetupStatus(true, false, false, false, false,
+                "Visual QA service unavailable", "Not applicable", false);
+            var dialog = new HardwareSetupWindow(app, new HardwareSetupService(), HardwarePrerequisiteIssue.Service)
+            {
+                ShowInTaskbar = true
+            };
+            app.MainWindow = dialog;
+            dialog.PrepareForSnapshot(setup, args.Contains("--failure", StringComparer.Ordinal));
+            dialog.PreviewKeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Escape) dialog.Close(); };
+            dialog.Closed += (_, _) => System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background);
+            dialog.Show();
+            System.Windows.Threading.Dispatcher.Run();
+            return 0;
+        }
+
+        if (args.Contains("--inspect", StringComparer.Ordinal))
+        {
+            ThemeService.Apply(ThemeMode.Dark);
+            SyncAppState(CreateDemoState(charging: true, hardwareReady: true), app.State);
+            var native = new AdvancedWindow(app) { DataContext = app.State, Title = "ThinkControl — visual QA", Width = 1200, Height = 814 };
+            native.PrepareEnhancedUiForSnapshot();
+            native.PreviewKeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Escape) native.ForceClose(); };
+            native.Closed += (_, _) => System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background);
+            native.Show();
+            System.Windows.Threading.Dispatcher.Run();
+            return 0;
+        }
+
+        if (args.Contains("--overview", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+                    RenderAdvanced(app, CreateDemoState(charging: true, hardwareReady: true), "Home", width, height,
+                        output, snapshots, $"overview-{theme}-{width}.png", "Figma migration");
+            }
+            WriteManifest(output, snapshots);
+            WriteGallery(output, snapshots);
+            return 0;
+        }
+
+        if (args.Contains("--canonical", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+                    foreach (string page in new[] { "Home", "Performance", "Battery", "Display", "Keyboard", "Touchpad", "Audio", "Modes", "Automation", "System", "Updates", "Diagnostics" })
+                        RenderAdvanced(app, CreateDemoState(charging: true, hardwareReady: true), page, width, height,
+                            output, snapshots, $"{page}-{theme}-{width}.png", "Figma migration", modeList: page == "Modes");
+            }
+            WriteManifest(output, snapshots);
+            WriteGallery(output, snapshots);
+            return 0;
+        }
+
         AppState charging = CreateDemoState(charging: true, hardwareReady: true);
         AppState onBattery = CreateDemoState(charging: false, hardwareReady: true);
         AppState serviceOffline = CreateDemoState(charging: true, hardwareReady: false);
@@ -805,7 +866,7 @@ internal static class Program
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
-        window.Navigate("Settings");
+        window.Navigate("Diagnostics");
         window.PrepareDiagnosticsForSnapshot(ThinkControl.Core.Diagnostics.DiagnosticsConsent.Enabled, verifiedDevice);
         if (crashQueue)
             window.PrepareCrashQueueForSnapshot();

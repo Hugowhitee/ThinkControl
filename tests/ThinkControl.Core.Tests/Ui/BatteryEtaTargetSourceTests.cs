@@ -60,11 +60,11 @@ public sealed class BatteryEtaTargetSourceTests
     public void AllPrimaryBatterySurfaces_UseOneSharedEtaText()
     {
         string compact = Read("src", "ThinkControl.UI", "Controls", "CompactDashboard.Metrics.cs");
-        string home = Read("src", "ThinkControl.UI", "AdvancedWindow.HomeDashboard.cs");
+        string home = Read("src", "ThinkControl.UI", "AdvancedWindow.xaml");
         string battery = Read("src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml");
 
         Assert.Contains("\"BatteryEtaText\"", compact, StringComparison.Ordinal);
-        Assert.Contains("new Binding(\"BatteryEtaText\")", home, StringComparison.Ordinal);
+        Assert.Contains("Text=\"{Binding BatteryEtaText}\"", home, StringComparison.Ordinal);
         Assert.Contains("Text=\"{Binding BatteryEtaText}\"", battery, StringComparison.Ordinal);
     }
 

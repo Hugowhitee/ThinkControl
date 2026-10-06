@@ -54,7 +54,7 @@ public partial class TouchpadPanel
         _cornerEditorTitle = new TextBlock
         {
             Text = "Selected corner",
-            FontWeight = FontWeights.SemiBold
+            Style = TryFindResource("TcText.SectionTitle") as Style
         };
         stack.Children.Add(_cornerEditorTitle);
 

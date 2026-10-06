@@ -1,5 +1,13 @@
 # ThinkControl release-readiness roadmap
 
+## Current native redesign checkpoint (2026-10-06)
+
+Work continues on draft PR #122, branch `fix/calibrated-curves-and-navigation`. Alpha.61 remains the installed published baseline; alpha.62 is not release-ready. The staged redesign now packages IBM Plex Sans and exact Fluent SVGs, shares dark/light resources, groups twelve Advanced destinations, separates the Overview Mode/Keyboard cards, wraps battery status and aligns sidebar footer actions. Display has its three canonical groups. Keyboard has an explicit effect Off action through its existing owner. Touchpad haptics and gesture feedback follow the editor in separate cards; its former 300px drawing minimum was incompatible with the new 270px host and has been corrected. All geometry/recognition policies remain authoritative in Core.
+
+The native inspection host unexpectedly ran WPF Startup and opened a service-repair prompt, despite not calling Application.Run. QA startup is now explicitly isolated from real tray, polling, first-run repair, power changes and automation startup. This was a QA-host defect, not evidence of a broken installed service. The native Advanced window, Display, Touchpad and Modes were inspected through Windows capture. The isolated hardware repair dialog was inspected with its actual dark DWM caption, Fluent status icon, packaged font and updated service copy. Light/failure dialog acceptance remains UNVERIFIED.
+
+Bounded evidence: 312 Core tests passed; real WPF shell lifecycle/navigation smoke passed; matrix 04 rendered 72 native images covering twelve screens, dark/light and 980×650, 1200×780, 1600×900. The build passed with zero warnings/errors. Battery now has direct preservation presets, truthful Custom windows, qualitative green guidance and grouped history/details; mode ownership has an explicit pause/resume presentation. Inspection found the compact Touchpad reset/value columns were too narrow; those columns were corrected and their final rerender is pending. **UNVERIFIED/in progress:** complete Compact/editor/dialog parity, full minimum/DPI/text-scaling inspection, actual installed redesign interactions, independent post-change visual assessment, package/upgrade/updater and publication. Historical checkpoints below are not acceptance of this new design. Do not promote this partial checkpoint.
+
 This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
 ## Current release state

@@ -12,6 +12,7 @@
         <controls:AdvancedPageHeader x:Name="Header"
                                      Title="Modes"
                                      Subtitle="Saved settings and the rules that activate them." />
+        <controls:ContextTabs x:Name="SurfaceTabs" Section="Modes" SelectedPage="Modes" />
 
         <StackPanel x:Name="ListView">
             <Border x:Name="ModeListSection" Style="{StaticResource TcSection}" Padding="0">
@@ -43,6 +44,11 @@
                               MinHeight="38"
                               Margin="14,0,14,10"
                               SelectionChanged="ModeSelector_SelectionChanged" />
+                    <Grid Margin="14,0,14,12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ModeOwnershipText" Style="{StaticResource TcText.Secondary}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Button x:Name="ManualOverrideResumeButton" Grid.Column="1" Content="Resume automation" Style="{StaticResource TcInlineButton}" Click="ResumeAutomation_Click" Visibility="Collapsed" />
+                    </Grid>
                     <StackPanel x:Name="ModeRows" />
 
                     <TextBlock x:Name="EmptyModesText"

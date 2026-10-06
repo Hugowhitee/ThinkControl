@@ -4,15 +4,15 @@
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="ThinkControl"
-        Width="390" Height="520"
-        MinWidth="390" MinHeight="520"
+        Width="420" Height="565"
+        MinWidth="420" MinHeight="565"
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
         Topmost="True"
         Background="{DynamicResource Tc.Window}"
         Foreground="{DynamicResource Tc.Text}"
-        FontFamily="Segoe UI"
+        FontFamily="{StaticResource Tc.Font}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True">
     <shell:WindowChrome.WindowChrome>

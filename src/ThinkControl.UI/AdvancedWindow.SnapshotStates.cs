@@ -119,9 +119,9 @@ public partial class AdvancedWindow
 
     internal void ScrollDiagnosticsIntoViewForSnapshot()
     {
-        PageSettings.UpdateLayout();
+        PageDiagnostics.UpdateLayout();
         if (DiagnosticsPanelControl?.BringCrashQueueIntoViewForSnapshot() != true)
-            PageSettings.ScrollToEnd();
-        PageSettings.UpdateLayout();
+            PageDiagnostics.ScrollToEnd();
+        PageDiagnostics.UpdateLayout();
     }
 }

@@ -7,6 +7,7 @@ using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
 using ThinkControl.UI.Services;
+using ThinkControl.UI.Controls;
 using MediaFontFamily = System.Windows.Media.FontFamily;
 using WpfApplication = System.Windows.Application;
 
@@ -25,8 +26,6 @@ internal sealed class GestureOsdService : IDisposable
     // Deliberately simple media-action glyphs. The label reports the resulting state,
     // while the glyph follows familiar players such as Spotify and shows the action
     // available next: Pause while playing, Play while paused.
-    private static readonly Geometry PlayStateGeometry = Geometry.Parse("M260,190 L730,480 L260,770 Z");
-    private static readonly Geometry PauseStateGeometry = Geometry.Parse("M260,190 H400 V770 H260 Z M560,190 H700 V770 H560 Z");
 
     private readonly Func<ThinkControlUserSettings> _settings;
     private readonly Func<string, int, bool> _setValue;
@@ -36,7 +35,7 @@ internal sealed class GestureOsdService : IDisposable
     private Border? _shell;
     private TranslateTransform? _shellTransform;
     private Button? _iconButton;
-    private Path? _iconPath;
+    private PackIconLucide? _iconPath;
     private TextBlock? _label;
     private TextBlock? _value;
     private Slider? _slider;
@@ -100,13 +99,13 @@ internal sealed class GestureOsdService : IDisposable
     }
 
     internal void ShowStatus(string label) =>
-        ShowMediaCommand(label, ResolveResourceGeometry(SemanticIconKeys.Volume));
+        ShowMediaCommand(label, SemanticIconKeys.Volume);
 
     internal void ShowTrack(bool next)
     {
         ShowMediaCommand(
             next ? "Next track" : "Previous track",
-            next ? ResolveResourceGeometry(SemanticIconKeys.Next) : ResolveResourceGeometry(SemanticIconKeys.Previous));
+            next ? SemanticIconKeys.Next : SemanticIconKeys.Previous);
     }
 
     internal void ShowTrackCenter(MediaToggleResult result)
@@ -114,20 +113,20 @@ internal sealed class GestureOsdService : IDisposable
         switch (result)
         {
             case MediaToggleResult.Playing:
-                ShowMediaCommand("Playing", PauseStateGeometry);
+                ShowMediaCommand("Playing", "Pause");
                 break;
             case MediaToggleResult.Paused:
-                ShowMediaCommand("Paused", PlayStateGeometry);
+                ShowMediaCommand("Paused", "Play");
                 break;
             case MediaToggleResult.Toggled:
                 // The virtual-key fallback has no reliable post-command playback
                 // state. Say exactly that rather than pretending Play or Pause won.
-                ShowMediaCommand("Playback toggled", Geometry.Empty);
+                ShowMediaCommand("Playback toggled", string.Empty);
                 break;
         }
     }
 
-    private void ShowMediaCommand(string label, Geometry geometry)
+    private void ShowMediaCommand(string label, string kind)
     {
         ThinkControlUserSettings settings = _settings();
         if (!settings.TouchpadOsdEnabled)
@@ -146,10 +145,10 @@ internal sealed class GestureOsdService : IDisposable
         _iconButton.IsHitTestVisible = false;
         _iconButton.Cursor = System.Windows.Input.Cursors.Arrow;
         _iconButton.ToolTip = label;
-        _iconPath.Data = geometry;
-        _iconPath.Stroke = null;
-        _iconPath.StrokeThickness = 0;
-        _iconPath.SetResourceReference(Shape.FillProperty, "Tc.Text");
+        _iconPath.Kind = kind;
+
+
+        _iconPath.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
 
         ApplyBackdrop(settings);
         PositionAndReveal(settings);
@@ -239,17 +238,8 @@ internal sealed class GestureOsdService : IDisposable
         if (_window is not null)
             return;
 
-        _iconPath = new Path
-        {
-            Width = 16,
-            Height = 16,
-            Stretch = Stretch.Uniform,
-            Data = ResolveResourceGeometry(SemanticIconKeys.Volume),
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round
-        };
-        _iconPath.SetResourceReference(Shape.FillProperty, "Tc.Text");
+        _iconPath = new PackIconLucide { Width = 20, Height = 20, Kind = SemanticIconKeys.Volume };
+        _iconPath.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
 
         _iconButton = new Button
         {
@@ -271,7 +261,7 @@ internal sealed class GestureOsdService : IDisposable
 
         _label = new TextBlock
         {
-            FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
+            FontFamily = ThinkControl.UI.TypographyScale.Family,
             FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
@@ -280,7 +270,7 @@ internal sealed class GestureOsdService : IDisposable
 
         _value = new TextBlock
         {
-            FontFamily = new MediaFontFamily("Segoe UI Variable Text, Segoe UI"),
+            FontFamily = ThinkControl.UI.TypographyScale.Family,
             FontSize = TypographyScale.Caption,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
@@ -456,12 +446,11 @@ internal sealed class GestureOsdService : IDisposable
     {
         if (_iconPath is null)
             return;
-        _iconPath.Data = ResolveResourceGeometry(key);
-        _iconPath.Stroke = null;
-        _iconPath.StrokeThickness = 0;
-        _iconPath.SetResourceReference(Shape.FillProperty, "Tc.Text");
+        _iconPath.Kind = key;
+
+
+        _iconPath.SetResourceReference(Control.ForegroundProperty, "Tc.Text");
     }
 
-    private static Geometry ResolveResourceGeometry(string key) =>
-        WpfApplication.Current?.TryFindResource(key) as Geometry ?? Geometry.Empty;
+
 }

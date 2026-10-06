@@ -88,11 +88,11 @@ public sealed class TrackControlPolishSourceTests
         string normalized = Normalize(osd);
 
         Assert.Contains(
-            "case MediaToggleResult.Playing:\n                ShowMediaCommand(\"Playing\", PauseStateGeometry);",
+            "case MediaToggleResult.Playing:\n                ShowMediaCommand(\"Playing\", \"Pause\");",
             normalized,
             StringComparison.Ordinal);
         Assert.Contains(
-            "case MediaToggleResult.Paused:\n                ShowMediaCommand(\"Paused\", PlayStateGeometry);",
+            "case MediaToggleResult.Paused:\n                ShowMediaCommand(\"Paused\", \"Play\");",
             normalized,
             StringComparison.Ordinal);
     }

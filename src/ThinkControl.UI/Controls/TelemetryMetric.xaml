@@ -1,0 +1,9 @@
+<UserControl x:Class="ThinkControl.UI.Controls.TelemetryMetric" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <StackPanel VerticalAlignment="Center" Margin="0,0,12,0">
+        <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=UserControl}}" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
+        <TextBlock Text="{Binding Value, RelativeSource={RelativeSource AncestorType=UserControl}}" Style="{StaticResource TcText.ValueLarge}" FontSize="{Binding ValueFontSize, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,7,0,6" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding Caption, RelativeSource={RelativeSource AncestorType=UserControl}}" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap">
+            <TextBlock.Style><Style TargetType="TextBlock" BasedOn="{StaticResource TcText.Caption}"><Style.Triggers><Trigger Property="Text" Value=""><Setter Property="Visibility" Value="Collapsed" /></Trigger></Style.Triggers></Style></TextBlock.Style>
+        </TextBlock>
+    </StackPanel>
+</UserControl>

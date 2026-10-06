@@ -61,7 +61,7 @@ public sealed class BatteryGauge : FrameworkElement
 
     private void UpdateRenderingHook()
     {
-        bool shouldAnimate = IsLoaded && IsVisible && IsCharging;
+        bool shouldAnimate = IsLoaded && IsVisible && IsCharging && SystemParameters.ClientAreaAnimation;
         if (shouldAnimate && !_renderHooked)
         {
             _lastRenderingTime = TimeSpan.Zero;
@@ -135,7 +135,7 @@ public sealed class BatteryGauge : FrameworkElement
             return;
 
         WpfColor fillColor = IsCharging
-            ? WpfColor.FromRgb(58, 170, 93)
+            ? WpfColor.FromRgb(32, 180, 100)
             : InterpolateBatteryColor(percent);
         var fillBrush = new SolidColorBrush(fillColor);
         fillBrush.Freeze();
@@ -181,13 +181,19 @@ public sealed class BatteryGauge : FrameworkElement
 
     private static WpfColor InterpolateBatteryColor(int percent)
     {
-        WpfColor red = WpfColor.FromRgb(210, 66, 66);
-        WpfColor amber = WpfColor.FromRgb(210, 160, 55);
-        WpfColor green = WpfColor.FromRgb(64, 166, 96);
+        WpfColor red = WpfColor.FromRgb(240, 65, 65);
+        WpfColor amber = WpfColor.FromRgb(245, 166, 35);
+        WpfColor green = WpfColor.FromRgb(32, 180, 100);
 
-        if (percent <= 50)
-            return Lerp(red, amber, percent / 50d);
-        return Lerp(amber, green, (percent - 50) / 50d);
+        // Charge level is a status cue, not an estimate of battery health.
+        // Keep normal levels green instead of blending every reading into olive.
+        if (percent <= 15)
+            return red;
+        if (percent < 30)
+            return Lerp(red, amber, (percent - 15) / 15d);
+        if (percent < 50)
+            return Lerp(amber, green, (percent - 30) / 20d);
+        return green;
     }
 
     private static WpfColor Lerp(WpfColor from, WpfColor to, double amount)

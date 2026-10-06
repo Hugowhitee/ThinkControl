@@ -43,6 +43,17 @@ public partial class App : System.Windows.Application
         var synchronousStartup = Stopwatch.StartNew();
         base.OnStartup(e);
 
+        // Application schedules Startup on its dispatcher even when the render
+        // host never calls Run. QA must keep its explicit fixture and cannot
+        // launch the real tray, hardware refresh or first-run repair workflow.
+        if (IsVisualQa)
+        {
+            KeyboardEffects = new KeyboardEffectService(HardwareClient, State);
+            CompactWindow = new MainWindow(this) { DataContext = State };
+            MainWindow = CompactWindow;
+            return;
+        }
+
         ThinkControlUserSettings preferences = UserSettings.Current;
         BatteryHistoryService.ConfigureDetailedRetentionDays(preferences.BatteryDetailRetentionDays);
         ThemeService.Apply(preferences.Theme);

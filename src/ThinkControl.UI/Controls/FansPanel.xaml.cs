@@ -10,6 +10,8 @@ namespace ThinkControl.UI.Controls;
 
 public partial class FansPanel : UserControl
 {
+    public static readonly DependencyProperty EmbeddedProperty = DependencyProperty.Register(nameof(Embedded), typeof(bool), typeof(FansPanel), new PropertyMetadata(false));
+    public bool Embedded { get => (bool)GetValue(EmbeddedProperty); set => SetValue(EmbeddedProperty, value); }
     private readonly ObservableCollection<CalibrationRow> _calibrationRows = [];
     private readonly ObservableCollection<FanProfileChoice> _profileChoices = [];
     private readonly FanCurveGraph _activeCurveGraph = new() { IsReadOnly = true, ShowLiveLabel = false };

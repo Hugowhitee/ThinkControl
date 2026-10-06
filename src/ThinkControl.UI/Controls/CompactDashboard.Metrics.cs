@@ -72,7 +72,7 @@ public partial class CompactDashboard
         TextBlock value = new()
         {
             FontSize = TypographyScale.Value,
-            FontWeight = FontWeights.Light,
+            FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 5, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
         };
@@ -121,9 +121,14 @@ public partial class CompactDashboard
 
     private void CompactMetricsEdit_Click(object sender, RoutedEventArgs e)
     {
+        OpenCustomization();
+        e.Handled = true;
+    }
+    internal void OpenCustomization()
+    {
+        EnsureCompactMetrics();
         BuildCompactMetricEditor();
         CompactMetricEditorOverlay.Visibility = Visibility.Visible;
-        e.Handled = true;
     }
 
     private void BuildCompactMetricEditor()

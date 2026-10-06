@@ -28,25 +28,18 @@ public static class ThemeService
 
     public static void Apply(ThemeMode mode)
     {
+        WindowCaptionTheme.Register();
         Current = mode;
         bool light = IsLightEffective;
         ResourceDictionary resources = System.Windows.Application.Current.Resources;
 
-        string window = light ? "#F5F5F7" : "#101214";
-        SetBrush(resources, "Tc.Window", window);
-        SetBrush(resources, "Tc.Background", window);
-        SetBrush(resources, "Tc.Surface", light ? "#FFFFFF" : "#171A1D");
-        SetBrush(resources, "Tc.SurfaceAlt", light ? "#F1F2F4" : "#1D2024");
-        SetBrush(resources, "Tc.SurfaceHover", light ? "#E7E9EC" : "#25292E");
-        SetBrush(resources, "Tc.Border", light ? "#D5D8DC" : "#34383D");
-        SetBrush(resources, "Tc.BorderStrong", light ? "#B9BDC3" : "#474C52");
-        SetBrush(resources, "Tc.Text", light ? "#15171A" : "#F2F3F4");
-        SetBrush(resources, "Tc.TextMuted", light ? "#555C64" : "#A8ADB4");
-        SetBrush(resources, "Tc.TextFaint", light ? "#737A82" : "#858B92");
-        SetBrush(resources, "Tc.Accent", "#E32929");
-        SetBrush(resources, "Tc.AccentHover", "#F13B3B");
-        SetBrush(resources, "Tc.Success", light ? "#168A45" : "#4CCB7A");
-        SetBrush(resources, "Tc.Warning", light ? "#A76800" : "#E7A640");
+        foreach (ResourceDictionary previous in resources.MergedDictionaries
+                     .Where(item => item.Source?.OriginalString.Contains("Theme.", StringComparison.Ordinal) == true).ToArray())
+            resources.MergedDictionaries.Remove(previous);
+        resources.MergedDictionaries.Add(new ResourceDictionary
+        {
+            Source = new Uri($"/ThinkControl.UI;component/Resources/Theme.{(light ? "Light" : "Dark")}.xaml", UriKind.Relative)
+        });
 
         // Native WPF selectors can still consult Windows system-selection colors
         // even when a custom container template is not in play. Keep this fallback
@@ -58,6 +51,8 @@ public static class ThemeService
 
         EnsureSharedStyles(resources, SelectionStylesSource, "SelectionStyles.xaml");
         EnsureSharedStyles(resources, ScrollBarStylesSource, "ScrollBarStyles.xaml");
+        foreach (Window window in System.Windows.Application.Current.Windows)
+            WindowCaptionTheme.Apply(window);
     }
 
     private static void EnsureSharedStyles(ResourceDictionary resources, string source, string fileName)
