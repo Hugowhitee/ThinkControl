@@ -7,8 +7,20 @@ namespace ThinkControl.UI.Controls;
 /// <summary>Retains the magnitude of small precision touchpad wheel messages.</summary>
 public sealed class AdvancedScrollViewer : ScrollViewer
 {
+    private static readonly DependencyPropertyKey HasContentBelowPropertyKey =
+        DependencyProperty.RegisterReadOnly(nameof(HasContentBelow), typeof(bool), typeof(AdvancedScrollViewer),
+            new PropertyMetadata(false));
+    public static readonly DependencyProperty HasContentBelowProperty = HasContentBelowPropertyKey.DependencyProperty;
+    public bool HasContentBelow => (bool)GetValue(HasContentBelowProperty);
+
     private double _pendingWheelDistance;
     private bool _wheelFlushQueued;
+
+    protected override void OnScrollChanged(ScrollChangedEventArgs e)
+    {
+        base.OnScrollChanged(e);
+        SetValue(HasContentBelowPropertyKey, ScrollableHeight - VerticalOffset > 0.5);
+    }
 
     protected override void OnMouseWheel(MouseWheelEventArgs e)
     {

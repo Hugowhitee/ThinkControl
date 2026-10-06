@@ -233,7 +233,7 @@
 
         <Grid Margin="2,10,2,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock Text="History: local only · recent detailed graphs · one year of compact summaries" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" />
+            <TextBlock Text="History is saved on this device. Daily summaries are kept for one year." FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" />
             <TextBlock Grid.Column="1" Text="{Binding BatterySource}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" Margin="18,0,0,0" TextTrimming="CharacterEllipsis" />
         </Grid>
     </StackPanel>

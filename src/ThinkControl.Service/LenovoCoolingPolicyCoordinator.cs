@@ -11,7 +11,8 @@ internal sealed record LenovoCoolingPolicySnapshot(
     string Status,
     bool ControlAvailable,
     string? UnavailableReason,
-    bool AutoRecoveryAvailable);
+    bool AutoRecoveryAvailable,
+    bool FullSpeedOnly = false);
 
 /// <summary>
 /// Coordinates the verified X9 Lenovo cooling surfaces between the Windows power
@@ -43,6 +44,20 @@ internal sealed class LenovoCoolingPolicyCoordinator
 
     internal LenovoCoolingPolicySnapshot Snapshot()
     {
+        if (_hardware.CanControlExactFullSpeed)
+        {
+            lock (_gate)
+            {
+                bool owned = _hardware.OwnsExactFullSpeed;
+                if (!owned) { _overrideProfile = null; _overrideProfileId = null; }
+                bool external = !owned && _hardware.ObservedManualFanControl;
+                string observed = _hardware.ObservedExactFullSpeed ? "Max cooling (external)" : "Manual cooling (external)";
+                return new LenovoCoolingPolicySnapshot(true, owned, owned ? "Max cooling" : external ? observed : "Lenovo Auto",
+                    owned ? FanCurveDefaults.MaxCoolingId : null,
+                    owned ? "Max cooling · firmware state verified" : external ? "Fan control was already active. Select Auto to release it." : "Lenovo Auto · Auto and Max cooling available",
+                    true, null, true, FullSpeedOnly: true);
+            }
+        }
         LenovoOtherModeFullSpeedStatus? fullSpeed = Supported ? ReadFullSpeedCached() : null;
         bool blocked = fullSpeed is { Available: false } or { Enabled: true, Writable: false };
         string? unavailable = blocked ? fullSpeed!.Detail : null;
@@ -92,6 +107,13 @@ internal sealed class LenovoCoolingPolicyCoordinator
         {
             detail = "Thermal mode must be Quiet, Balanced or Performance.";
             return false;
+        }
+
+        if (_hardware.CanControlExactFullSpeed)
+        {
+            lock (_gate) _basePowerMode = mode;
+            detail = "Windows power preference updated; Auto/Max cooling keeps its independent fan ownership.";
+            return true;
         }
 
         string? activeProfile;
@@ -160,6 +182,14 @@ internal sealed class LenovoCoolingPolicyCoordinator
         }
 
         bool wantsFullSpeed = profileId == FanCurveDefaults.MaxCoolingId;
+        if (_hardware.CanControlExactFullSpeed)
+        {
+            if (!wantsFullSpeed) { detail = "This controller supports Auto and Max cooling. Lower fixed speeds are unavailable."; return false; }
+            if (!_hardware.SetExactFullSpeed(out detail)) return false;
+            lock (_gate) { _overrideProfile = profile; _overrideProfileId = profileId; }
+            detail = "Max cooling confirmed through the verified firmware full-speed state.";
+            return true;
+        }
         LenovoOtherModeFullSpeedStatus fullSpeed = LenovoOtherModeFullSpeedService.Read(_hardware.Identity);
 
         if (!fullSpeed.Available)
@@ -241,6 +271,13 @@ internal sealed class LenovoCoolingPolicyCoordinator
     internal bool ClearProfileOverride(out string? detail)
     {
         detail = null;
+        if (_hardware.OwnsExactFullSpeed)
+            return RequestFirmwareAuto(out detail);
+        if (_hardware.CanControlExactFullSpeed)
+        {
+            lock (_gate) { _overrideProfile = null; _overrideProfileId = null; }
+            return true;
+        }
         if (!Supported)
             return true;
 
@@ -298,6 +335,13 @@ internal sealed class LenovoCoolingPolicyCoordinator
     internal bool RequestFirmwareAuto(out string? detail)
     {
         detail = null;
+        if (_hardware.CanControlExactFullSpeed || _hardware.OwnsExactFullSpeed)
+        {
+            if (!_hardware.ReturnFanToAuto(out detail)) return false;
+            lock (_gate) { _overrideProfile = null; _overrideProfileId = null; _fullSpeedOwned = false; }
+            detail = "Lenovo Auto confirmed.";
+            return true;
+        }
         if (!Supported)
             return true;
 

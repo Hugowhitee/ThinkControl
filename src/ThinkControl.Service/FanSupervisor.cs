@@ -469,13 +469,17 @@ internal sealed class FanSupervisor : IDisposable
         return success;
     }
 
+    internal void WakeForHardwareLease() => SignalControlWake();
+
     private async Task LoopAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
+            _hardware.CheckFullSpeedSession();
             bool active;
             lock (_gate)
                 active = _activeCurve is not null || _manualLevel.HasValue || _manualPercent.HasValue || _characterizationRunning;
+            active |= _hardware.OwnsExactFullSpeed;
 
             if (!active)
             {

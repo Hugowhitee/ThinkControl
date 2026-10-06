@@ -4,6 +4,8 @@ This file is the durable handoff for future ThinkControl UI/design chats. Read i
 
 ## Product direction
 
+Ordinary status is a short sentence stating availability or a failed action and its next step. Never bind raw provider/error dumps into page summaries or ellipsis footers. System's explicit technical disclosure keeps full diagnostic evidence as separate lines. Auto/Max-only providers expose only those choices, hide unavailable advanced controls, and keep Home's Max control usable directly from Auto. The sidebar fades into its surface at the bottom only when content remains below; it does not cover the scrollbar or block input.
+
 ThinkControl should feel like a precise Windows hardware instrument, not a generic SaaS dashboard. The visual language is restrained, compact and technical with Dieter Rams/Braun-style clarity: strong alignment, thin separators, few surfaces, clear hierarchy, deliberate states and little permanent helper copy.
 
 The ThinkControl logo/brand, existing dark/light tokens, shared Advanced page header, current navigation grammar and compact Windows-native interaction style remain product identity. Figma is a design workspace, not a reason to replace those foundations with a new design language.

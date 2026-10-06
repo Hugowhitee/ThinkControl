@@ -55,6 +55,7 @@ public partial class CompactDashboard
         IEnumerable<Core.Cooling.FanCurveDefinition> profiles = _app.FanProfiles.GetProfiles();
         if (firmwarePolicy)
             profiles = profiles.Where(profile => _app.FanProfiles.IsBuiltIn(profile.Id));
+        profiles = profiles.Where(profile => FanControlKinds.SupportsProfile(_app.State.FanControlKind, profile.Id));
         values.AddRange(profiles.Select(profile => profile.Name));
         return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }

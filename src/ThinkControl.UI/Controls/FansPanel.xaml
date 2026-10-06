@@ -123,7 +123,7 @@
                     <StackPanel Margin="0,0,16,0">
                         <TextBlock Text="Control temperature" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                         <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,4,0,0" />
-                        <TextBlock Text="{Binding ControlTemperatureSource}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding ControlTemperatureCaption}" ToolTip="{Binding ControlTemperatureSource}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
 
                     <Border Grid.Column="1" Width="1" Background="{DynamicResource Tc.Border}" />
@@ -176,7 +176,7 @@
                                Foreground="{DynamicResource Tc.TextFaint}"
                                FontSize="{x:Static ui:TypographyScale.Caption}"
                                TextTrimming="CharacterEllipsis">
-                        <Run Text="Provider · " /><Run Text="{Binding HardwareAccess}" />
+                        <Run Text="{Binding CoolingAvailabilityText, Mode=OneWay}" />
                     </TextBlock>
                     <Button x:Name="EditCurvesButton"
                             Grid.Column="1"

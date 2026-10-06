@@ -205,6 +205,7 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse GetCachedStatusAndRequestRefresh()
     {
+        _hardware.RenewFullSpeedClientLease();
         SignalStatusDemand();
         lock (_statusGate) return _lastStatus ?? ProviderDiscoveryResponse("Service online · detecting hardware providers");
     }
@@ -285,11 +286,11 @@ internal sealed class ServiceEngine : IDisposable
             Sensors: sensors,
             ControlTemperatureC: status.ControlTemperatureC,
             ControlTemperatureSource: status.ControlTemperatureSource,
-            CoolingProfile: firmwareCooling.UnavailableReason is not null || firmwareOverride
+            CoolingProfile: firmwareCooling.FullSpeedOnly || firmwareCooling.UnavailableReason is not null || firmwareOverride
                 ? firmwareCooling.Profile : cooling.Profile,
             CoolingAppliedLevel: firmwareOverride ? null : cooling.AppliedLevel,
             CoolingSmoothedTemperatureC: firmwareOverride ? null : cooling.SmoothedTemperatureC,
-            CoolingStatus: firmwareCooling.UnavailableReason ?? (firmwareOverride ? firmwareCooling.Status : cooling.Status),
+            CoolingStatus: firmwareCooling.UnavailableReason ?? (firmwareCooling.FullSpeedOnly || firmwareOverride ? firmwareCooling.Status : cooling.Status),
             CoolingSafetyOverride: firmwareOverride ? false : cooling.SafetyOverride,
             FanCharacterization: cooling.Characterization,
             CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
@@ -308,7 +309,7 @@ internal sealed class ServiceEngine : IDisposable
         string fanControlKind = status.CanFanControl
             ? ToFanControlKind(status.FanControlKind)
             : firmwareProfileControl
-                ? FanControlKinds.FirmwarePolicy
+                ? firmwareCooling.FullSpeedOnly ? FanControlKinds.FullSpeedOnly : FanControlKinds.FirmwarePolicy
                 : FanControlKinds.None;
         bool fanCalibrationSupported = status.CanFanControl &&
                                        status.CanFanTelemetry &&
@@ -384,7 +385,7 @@ internal sealed class ServiceEngine : IDisposable
     private ServiceResponse ProviderDiscoveryResponse(string detail)
     {
         LenovoCoolingPolicySnapshot firmwareCooling = _coolingPolicy.Snapshot();
-        bool firmwareControl = firmwareCooling.Supported;
+        bool firmwareControl = firmwareCooling.ControlAvailable;
         var telemetry = new TelemetrySnapshot(
             null, "Detecting", null, "Detecting",
             "Lenovo managed · provider discovery in progress",
@@ -408,7 +409,7 @@ internal sealed class ServiceEngine : IDisposable
                 false,
                 false,
                 0,
-                firmwareControl ? FanControlKinds.FirmwarePolicy : FanControlKinds.None));
+                firmwareControl ? firmwareCooling.FullSpeedOnly ? FanControlKinds.FullSpeedOnly : FanControlKinds.FirmwarePolicy : FanControlKinds.None));
     }
 
     private ServiceResponse SetFanLevel(string? raw)
@@ -472,9 +473,9 @@ internal sealed class ServiceEngine : IDisposable
             CoolingSupervisorSnapshot direct = _fanSupervisor.Snapshot();
             if (ThinkControlOwnsFan(direct) && !_fanSupervisor.ReturnToAuto(out string? handoffError))
                 return Error(handoffError ?? "Could not return direct fan ownership to Lenovo Auto before applying the firmware profile.");
-            return _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError)
-                ? RefreshAndReturnStatus()
-                : Error(policyError ?? "Lenovo firmware cooling profile rejected the request.");
+            bool accepted = _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError);
+            _fanSupervisor.WakeForHardwareLease();
+            return accepted ? RefreshAndReturnStatus() : Error(policyError ?? "Lenovo firmware cooling profile rejected the request.");
         }
 
         LenovoHardwareStatus status = _hardware.ReadStatus();
@@ -601,6 +602,12 @@ internal sealed class ServiceEngine : IDisposable
         byte[] bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response, JsonOptions) + "\n");
         await pipe.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
         await pipe.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    internal void PrepareForSuspend()
+    {
+        if (_hardware.OwnsExactFullSpeed && !_coolingPolicy.RequestFirmwareAuto(out string? error))
+            ServiceLog.Write("Suspend Auto recovery pending: " + error);
     }
 
     public void Dispose()

@@ -543,7 +543,8 @@ public partial class ModesPanel : UserControl
                 .Where(profile => !_app.FanProfiles.IsBuiltIn(profile.Id))
                 .Select(profile => profile.Name));
         }
-        return values.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return values.Where(value => FanControlKinds.SupportsProfile(_app?.State.FanControlKind ?? FanControlKinds.None, value))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
     }
 
     private IReadOnlyList<string> BuildRefreshValues(string? selected = null)

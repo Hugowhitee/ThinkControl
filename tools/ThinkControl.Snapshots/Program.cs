@@ -69,6 +69,9 @@ internal static class Program
         homeManualFan.FanControlKind = FanControlKinds.DiscreteEc;
         AppState homeFanAuto = CreateDemoState(charging: true, hardwareReady: true);
         homeFanAuto.CoolingProfile = "Lenovo Auto";
+        AppState fullSpeedOnly = CreateDemoState(charging: true, hardwareReady: true);
+        fullSpeedOnly.FanControlKind = FanControlKinds.FullSpeedOnly;
+        fullSpeedOnly.CoolingProfile = "Max cooling";
         AppState batteryLongStatus = CreateDemoState(charging: false, hardwareReady: true);
         batteryLongStatus.BatteryStatus = "Plugged in · charging paused while the battery cools down";
         AppState firmwareFanRecovery = CreateDemoState(charging: true, hardwareReady: false);
@@ -198,6 +201,8 @@ internal static class Program
         RenderAdvanced(app, serviceOffline, "System", 1160, 760, output, snapshots, "advanced-system-service-offline.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Keyboard", 1160, 760, output, snapshots, "advanced-keyboard-unavailable.png", "hardware service offline");
         RenderAdvanced(app, serviceOffline, "Fans", 1160, 760, output, snapshots, "advanced-fans-unavailable.png", "hardware service offline");
+        RenderAdvanced(app, fullSpeedOnly, "Fans", 980, 650, output, snapshots, "advanced-fans-full-speed-min.png", "verified Auto/Max controller");
+        RenderAdvanced(app, fullSpeedOnly, "Home", 1160, 760, output, snapshots, "advanced-home-full-speed.png", "verified Auto/Max controller");
         RenderAdvanced(app, batteryLongStatus, "Battery", 980, 650, output, snapshots,
             "advanced-battery-long-status-min.png", "long charge status · minimum");
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
@@ -287,6 +292,8 @@ internal static class Program
             "advanced-battery-long-status-min-light.png", "long charge status · minimum · light");
         RenderAdvanced(app, firmwareFanRecovery, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-firmware-policy-recovery-light.png", "direct provider unavailable · firmware profiles available · light");
+        RenderAdvanced(app, fullSpeedOnly, "Fans", 980, 650, output, snapshots, "advanced-fans-full-speed-min-light.png", "verified Auto/Max controller · light");
+        RenderAdvanced(app, fullSpeedOnly, "Home", 1160, 760, output, snapshots, "advanced-home-full-speed-light.png", "verified Auto/Max controller · light");
         RenderAdvanced(app, externalFanOwner, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-external-owner-light.png", "external full-speed owner · explicit Lenovo Auto recovery · light");
         RenderAdvanced(app, readOnlyCooling, "Fans", 980, 650, output, snapshots,

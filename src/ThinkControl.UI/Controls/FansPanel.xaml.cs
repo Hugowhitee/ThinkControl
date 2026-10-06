@@ -22,7 +22,7 @@ public partial class FansPanel : UserControl
     private bool _autoRecoveryConfirmed;
 
     private bool UsesFirmwarePolicy =>
-        string.Equals(_fanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
+        _fanControlKind is FanControlKinds.FirmwarePolicy or FanControlKinds.FullSpeedOnly;
 
     private bool HasDirectFanWriter =>
         string.Equals(_fanControlKind, FanControlKinds.OemTargetRpm, StringComparison.Ordinal) ||
@@ -67,7 +67,8 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
         ApplyProviderCopy(canControl, _fanControlKind);
         CoolingDetailText.Text = canControl
-            ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct fan control"
+            ? _fanControlKind == FanControlKinds.FullSpeedOnly ? "Auto and Max cooling are available."
+                : UsesFirmwarePolicy ? "Lenovo firmware controls the fan speed." : "Direct fan control is available."
             : state.FanAutoRecoverySupported == false
                 ? "Cooling is read-only on this firmware. ThinkControl cannot apply profiles or confirm Auto."
                 : state.CoolingAvailabilityText;
@@ -80,9 +81,10 @@ public partial class FansPanel : UserControl
                                       (!canControl && state.FanAutoRecoverySupported == true)
             ? Visibility.Visible : Visibility.Collapsed;
         if (ownershipConflict)
-            CoolingDetailText.Text = state.HardwareAccess;
+            CoolingDetailText.Text = "Another controller is using the fans. Select Auto before changing cooling.";
         AppliedLevelText.Text = canControl
-            ? UsesFirmwarePolicy ? "Lenovo firmware" : state.FanStateText
+            ? _fanControlKind == FanControlKinds.FullSpeedOnly ? state.CoolingProfile == "Max cooling" ? "Full speed" : "Auto"
+                : UsesFirmwarePolicy ? "Lenovo firmware" : state.FanStateText
             : "Not confirmed";
 
         // Snapshot fixtures do not have a live service capability object. Model the
@@ -160,11 +162,12 @@ public partial class FansPanel : UserControl
         CoolingDetailText.Text = !canControl && response?.Capabilities?.FanAutoRecoverySupported == false
             ? "Cooling is read-only on this firmware. ThinkControl cannot apply profiles or confirm Auto."
             : _app?.LastCoolingError is string failure
-            ? failure
+            ? "Cooling could not be changed. Try Auto or review hardware details in System."
             : _app?.ExternalCoolingOwnerConflictDetail is string conflict
-                ? conflict
+                ? "Another controller is using the fans. Select Auto before changing cooling."
                 : canControl
-                ? UsesFirmwarePolicy ? "Lenovo firmware · policy request, not physical readback" : "Direct fan control"
+                ? _fanControlKind == FanControlKinds.FullSpeedOnly ? "Auto and Max cooling are available."
+                    : UsesFirmwarePolicy ? "Lenovo firmware controls the fan speed." : "Direct fan control is available."
                 : _app?.State.CoolingAvailabilityText ?? DescribeUnavailable(hasTelemetry);
         CoolingDetailText.ToolTip = !canControl ? telemetry?.HardwareAccess ?? _app?.LastCoolingError : null;
         CoolingOwnerText.Text = canControl
@@ -189,7 +192,7 @@ public partial class FansPanel : UserControl
         else if (UsesFirmwarePolicy && !profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) &&
             !profileName.Equals("Auto", StringComparison.OrdinalIgnoreCase))
         {
-            AppliedLevelText.Text = "Lenovo firmware";
+            AppliedLevelText.Text = _fanControlKind == FanControlKinds.FullSpeedOnly ? "Full speed" : "Lenovo firmware";
         }
         else if (telemetry?.CoolingAppliedPercent is int percent)
         {
@@ -399,6 +402,7 @@ public partial class FansPanel : UserControl
         IEnumerable<FanCurveDefinition> profiles = _app.FanProfiles.GetProfiles();
         if (UsesFirmwarePolicy)
             profiles = profiles.Where(profile => _app.FanProfiles.IsBuiltIn(profile.Id));
+        profiles = profiles.Where(profile => FanControlKinds.SupportsProfile(_fanControlKind, profile.Id));
         desired.AddRange(profiles.Select(profile => new FanProfileChoice(profile.Id, profile.Name)));
 
         if (_profileChoices.SequenceEqual(desired))
@@ -580,8 +584,11 @@ public partial class FansPanel : UserControl
         bool oemTargetRpm = canControl && string.Equals(fanControlKind, FanControlKinds.OemTargetRpm, StringComparison.Ordinal);
         bool discreteEcWriter = canControl && string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
         bool directWriter = oemTargetRpm || discreteEcWriter;
+        AdvancedFanControlsExpander.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
 
-        FanMappingDetailText.Text = !canControl
+        FanMappingDetailText.Text = fanControlKind == FanControlKinds.FullSpeedOnly
+            ? "Auto and Max cooling are available. Lower fixed speeds are unavailable."
+            : !canControl
             ? "Fan controls are unavailable right now."
             : firmwarePolicy
                 ? "Custom curves are unavailable with this controller."
@@ -611,6 +618,7 @@ public partial class FansPanel : UserControl
         if (!canControl)
             return FanControlKinds.None;
         if (string.Equals(explicitKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal) ||
+            string.Equals(explicitKind, FanControlKinds.FullSpeedOnly, StringComparison.Ordinal) ||
             string.Equals(explicitKind, FanControlKinds.OemTargetRpm, StringComparison.Ordinal) ||
             string.Equals(explicitKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal))
         {

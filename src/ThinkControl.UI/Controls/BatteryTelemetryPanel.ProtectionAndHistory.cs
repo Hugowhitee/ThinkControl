@@ -140,8 +140,10 @@ public partial class BatteryTelemetryPanel
 
         ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
 
-        ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
-            "Verified OEM charge-threshold provider.";
+        ChargeProtectionProviderText.Text = available
+            ? "This battery controller can read charge limits but cannot change them."
+            : "Charge limits are unavailable. Check your device's battery settings.";
+        ChargeProtectionProviderText.ToolTip = telemetry?.BatteryChargeProtectionDetail;
         ChargeProtectionProviderText.Visibility =
             !available || !_batteryProtectionWritable ? Visibility.Visible : Visibility.Collapsed;
         ChargeProtectionFallbackButton.Visibility = _batteryProtectionWritable ? Visibility.Collapsed : Visibility.Visible;
@@ -394,7 +396,7 @@ public partial class BatteryTelemetryPanel
         {
             _syncingHistoryRetention = false;
         }
-        HistoryStorageSummaryText.Text = $"Detailed graphs: {days} days · compact summaries: 1 year · learned estimates remain available after automatic compaction";
+        HistoryStorageSummaryText.Text = $"Detailed graphs are kept for {days} days, daily summaries for one year. Learned estimates are retained.";
     }
 
     private void BatteryHistoryRetention_SelectionChanged(object sender, SelectionChangedEventArgs e)

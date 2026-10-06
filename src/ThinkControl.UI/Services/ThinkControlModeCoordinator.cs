@@ -1,4 +1,5 @@
 using ThinkControl.Core.Audio;
+using ThinkControl.Core.Ipc;
 
 namespace ThinkControl.UI.Services;
 
@@ -76,6 +77,8 @@ internal sealed class ThinkControlModeCoordinator
     {
         if (target.CoolingProfile is not null && !_app.State.CanFanControl)
             return "Cooling is unavailable. Remove Cooling to use the other settings.";
+        if (target.CoolingProfile is not null && !FanControlKinds.SupportsProfile(_app.State.FanControlKind, target.CoolingProfile))
+            return "Cooling supports Auto or Max cooling. Change or remove this setting.";
         if (target.KeyboardLight is not null && !_app.State.CanKeyboardBacklight)
             return "Keyboard control is unavailable.";
         if (target.PerformanceMode is not null && _app.PowerModeService.GetPowerPlanError() is not null)

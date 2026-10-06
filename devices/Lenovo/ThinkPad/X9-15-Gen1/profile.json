@@ -19,7 +19,7 @@
     "lenovoThermalPolicy": { "verification": "research-verified" },
     "cpuTemperature": { "verification": "implemented-read-only-provider" },
     "fanRpm": { "verification": "implemented-research-verified" },
-    "fanControl": { "verification": "physical-recovery-in-progress", "implementation": "classic-level-writer-disabled; exact-0x40-full-speed-effective-in-isolated-probe; lifecycle-not-accepted" },
+    "fanControl": { "verification": "bounded-physical-auto-max-21Q6-N4CET45W", "implementation": "exact-firmware-auto-full-speed-with-readback-and-lease; lower-states-disabled" },
     "keyboardBacklight": { "verification": "implemented-write-readback" },
     "displayRefresh": { "verification": "implemented-windows-api" },
     "adaptiveBrightness": { "verification": "implemented-windows-api-when-supported" },
@@ -63,7 +63,8 @@
   "safety": {
     "hardwareWritesEnabled": true,
     "hardwareWritesScope": "readback-keyboard-contract; fan-writes-require-live-provider-validation-and-physical-acceptance",
-    "blockedFanValues": ["0x00", "0x40"],
+    "blockedFanValues": ["0x00"],
+    "fullSpeedException": "0x40 only in provider code on 21Q6/N4CET45W; profile metadata cannot authorize it",
     "remoteMetadataMayEnableWrites": false
   }
 }

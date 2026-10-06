@@ -72,6 +72,9 @@ internal sealed class ThinkPadEc : IDisposable
     // managed-mode test candidate and must not be touched merely because the app is open.
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
 
+    internal void SetVerifiedFirmwareFullSpeed() =>
+        SetFanControlVerified(0x40, value => value == 0x40, "firmware full-speed");
+
     // Released builds used the shared tachometer without selector writes. Preserve that
     // path for Lenovo Auto so opening ThinkControl cannot disturb otherwise smooth OEM control.
     internal int ReadFanRpm() => WithEcLock(ReadFanRpmUnlocked);
@@ -154,16 +157,28 @@ internal sealed class ThinkPadEc : IDisposable
         }
     }
 
-    internal void ReturnToBios()
+    internal void ReturnToBios(bool releaseFullSpeedLatch = false)
     {
         try
         {
             WithEcLock(() =>
             {
-                WriteAndVerifyFanControlUnlocked(
-                    ThinkPadRegisters.BiosControl,
-                    readBack => readBack == ThinkPadRegisters.BiosControl,
-                    "Lenovo Auto");
+                try
+                {
+                    WriteAndVerifyFanControlUnlocked(ThinkPadRegisters.BiosControl,
+                        value => value == ThinkPadRegisters.BiosControl, "Lenovo Auto");
+                }
+                // The inspected firmware sometimes keeps 0x40 latched after an
+                // acknowledged Auto write. Release through its known high running
+                // state only when a fresh read still proves that exact latch.
+                catch when ((releaseFullSpeedLatch || _lastManualControl == 0x40) &&
+                            ReadByteUnlocked(ThinkPadRegisters.FanControl) == 0x40)
+                {
+                    WriteAndVerifyFanControlUnlocked(7, value => value == 7, "full-speed release");
+                    Thread.Sleep(1000);
+                    WriteAndVerifyFanControlUnlocked(ThinkPadRegisters.BiosControl,
+                        value => value == ThinkPadRegisters.BiosControl, "Lenovo Auto");
+                }
                 return 0;
             });
         }

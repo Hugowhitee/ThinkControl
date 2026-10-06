@@ -613,6 +613,23 @@ internal static class Program
 
     private static void ValidatePageNavigation(App app)
     {
+        var limitedState = new ThinkControl.UI.ViewModels.AppState
+        {
+            CanFanControl = true,
+            FanControlKind = ThinkControl.Core.Ipc.FanControlKinds.FullSpeedOnly,
+            CoolingProfile = "Max cooling",
+            HardwareAccess = "Internal failure · InvalidClass · driver error"
+        };
+        var limitedFans = new ThinkControl.UI.Controls.FansPanel();
+        limitedFans.Initialize(app);
+        limitedFans.PrepareForSnapshot(limitedState);
+        var limitedSelector = (ComboBox)limitedFans.FindName("ProfileComboBox");
+        string[] limitedNames = limitedSelector.Items.Cast<object>()
+            .Select(item => (string)item.GetType().GetProperty("Name")!.GetValue(item)!).ToArray();
+        if (!limitedNames.SequenceEqual(new[] { "Auto", "Max cooling" }) || !limitedSelector.IsEnabled ||
+            ((Expander)limitedFans.FindName("AdvancedFanControlsExpander")).Visibility != Visibility.Collapsed)
+            throw new InvalidOperationException("Limited fan capability exposed unsupported choices or hid its working selector.");
+
         AdvancedWindow window = app.AdvancedWindowForShellSmoke
             ?? throw new InvalidOperationException("Page smoke: Advanced window was not available.");
 
@@ -629,8 +646,13 @@ internal static class Program
             throw new InvalidOperationException("Settings navigation remained outside the minimum-window scroll viewport after selecting it.");
         navigation.ScrollToTop();
         Pump(app.Dispatcher);
+        var scrollFade = (Border)window.FindName("SidebarScrollFade");
+        if (scrollFade.Visibility != Visibility.Visible || scrollFade.IsHitTestVisible)
+            throw new InvalidOperationException("Sidebar scroll hint did not appear without blocking input while more navigation exists.");
         navigation.ScrollToEnd();
         Pump(app.Dispatcher);
+        if (scrollFade.Visibility != Visibility.Collapsed)
+            throw new InvalidOperationException("Sidebar scroll hint remained visible after reaching the end.");
         position = settings.TranslatePoint(new Point(), navigation);
         if (position.Y < -1 || position.Y + settings.ActualHeight > navigation.ActualHeight + 1)
             throw new InvalidOperationException("Settings cannot be reached by scrolling the minimum-window sidebar.");

@@ -68,7 +68,7 @@ public partial class App
         Volatile.Read(ref _coolingThermalBaselineReady) != 0;
 
     private bool UsesFirmwareCoolingPolicy =>
-        string.Equals(State.FanControlKind, FanControlKinds.FirmwarePolicy, StringComparison.Ordinal);
+        State.FanControlKind is FanControlKinds.FirmwarePolicy or FanControlKinds.FullSpeedOnly;
 
     private void InitializeCoolingCoordinator()
     {
@@ -82,7 +82,7 @@ public partial class App
             // WPF shutdown. This Exit hook is only a last-chance path for external/
             // session shutdown. Never block the UI thread waiting for an async restore
             // continuation: take the gate only if it is immediately available.
-            if (Volatile.Read(ref _coolingShutdownPrepared) != 0 || UsesFirmwareCoolingPolicy)
+            if (Volatile.Read(ref _coolingShutdownPrepared) != 0 || State.FanControlKind == FanControlKinds.FirmwarePolicy)
                 return;
             if (!_coolingWriteGate.Wait(0))
                 return;
@@ -130,7 +130,7 @@ public partial class App
         // Firmware-policy profiles are durable preferences owned by the service.
         // Direct/manual writers must hand ownership back to Lenovo Auto before the
         // UI actually shuts down.
-        if (UsesFirmwareCoolingPolicy)
+        if (State.FanControlKind == FanControlKinds.FirmwarePolicy)
             return;
 
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
@@ -340,6 +340,11 @@ public partial class App
     private async Task<bool> SetCoolingProfileCoreAsync(string profile, int generation, bool persistSelection)
     {
         string raw = profile?.Trim() ?? string.Empty;
+        if (!FanControlKinds.SupportsProfile(State.FanControlKind, raw))
+        {
+            State.HardwareAccess = "This controller supports Auto and Max cooling. Lower fixed speeds are unavailable.";
+            return false;
+        }
         if (raw.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
             raw.Equals("Auto", StringComparison.OrdinalIgnoreCase))
         {
@@ -772,6 +777,9 @@ public partial class App
         int generation,
         bool persistSelection)
     {
+        // The verified two-state controller never fights a lost ownership/readback
+        // check by reissuing full speed after a delay.
+        if (State.FanControlKind == FanControlKinds.FullSpeedOnly) return;
         _ = ReassertFirmwareCoolingAfterStartupSettleAsync(
             profileId,
             generation,

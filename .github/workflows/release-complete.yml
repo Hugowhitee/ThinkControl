@@ -151,7 +151,7 @@ jobs:
           $overview = Get-Item "artifacts/release-previews/ui-overview.png"
           $overviewUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/ui-overview.png"
           $galleryNotes = "## Interface preview`n`n[![ThinkControl interface overview]($overviewUrl)]($overviewUrl)"
-          $hardwareNotes = "`n`n## Experimental hardware support`n`nLenovo firmware can acknowledge a cooling request without confirming the active fan profile. X9 Quiet/Balanced/Max physical results and real battery-charge stop/resume remain unverified for this prerelease. This release does not establish that fan-control problems are fixed. Unsafe direct EC/target-RPM fan writes remain disabled. See release-readiness documentation and issue #113."
+          $hardwareNotes = "`n`n## Experimental hardware support`n`nAuto/Max cooling has bounded physical validation on ThinkPad X9 21Q6 BIOS N4CET45W: steady audible full speed with firmware readback, followed by confirmed Auto recovery. That exact path exposes Auto and Max only. Lower fixed speeds, percentages and independent readings of both fans remain unavailable. Battery stop/resume has bounded device evidence. Installed alpha.61, reboot/wake and broad hardware acceptance remain separate gates; this is not a bug-free claim. Rejected lower EC steps and per-fan target-RPM writers remain disabled. See release-readiness documentation and issue #113."
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,

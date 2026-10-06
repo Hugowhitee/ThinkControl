@@ -12,6 +12,10 @@ public static class FanControlKinds
     public const string DiscreteEc = "ThinkPadEcDiscrete";
     public const string OemTargetRpm = "LenovoOtherModeTargetRpm";
     public const string FirmwarePolicy = "LenovoFirmwarePolicy";
+    public const string FullSpeedOnly = "VerifiedAutoAndFullSpeed";
+
+    public static bool SupportsProfile(string kind, string profile) => kind != FullSpeedOnly ||
+        profile.Trim().ToLowerInvariant() is "auto" or "lenovo auto" or "max cooling" or "maxcooling" or "cool" or "builtin:max";
 }
 
 public sealed record ServiceRequest(

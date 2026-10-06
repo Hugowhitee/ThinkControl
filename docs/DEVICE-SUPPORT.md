@@ -1,6 +1,8 @@
 # Device support
 
-This document describes the support model for the published experimental **v0.1.0-alpha.60** prerelease. ThinkControl remains capability-driven: a laptop model name alone does not grant write access or decide supported control workflows. X9 firmware fan-mode switching remains physically unverified and direct EC/per-fan target output remains disallowed.
+This document describes the support model for experimental **v0.1.0-alpha.61**. ThinkControl remains capability-driven: a laptop model name alone does not grant write access. The narrow 21Q6/N4CET45W Auto/Max contract has bounded physical evidence; lower EC steps and per-fan target-RPM output remain disabled.
+
+Alpha.61 exposes `VerifiedAutoAndFullSpeed` only on Lenovo X9 21Q6 BIOS N4CET45W with a ready EC provider. The inspected DSDT recognizes HFSP `0x40`; Auto is `0x80`. A 30-second production-controller probe reached 9244–9656 RPM with steady audible cooling, then confirmed Auto and 5700 RPM after 12 seconds. This does not establish lower-speed or two-tachometer control. A fresh Auto baseline is required before Max; external ownership is not adopted. Readback loss returns Auto without reissuing Max. The existing supervisor checks ownership, and 45 seconds without client status requests returns Auto. UI exit, service disposal and suspend request Auto; readback failure retains cleanup responsibility. The known high running state 7 is used only to release an exact stuck full-speed latch after normal Auto fails. No selector, PWM or percentage write is introduced.
 
 ## Support levels
 
@@ -131,7 +133,7 @@ RPM telemetry is not treated as a proxy for airflow intensity. Physical evidence
 
 `EnergyDrv` `QueryFanSpeed 0x83102570` remains read-only evidence. `ChangeFanSpeed 0x8310257C` remains blocked until exact X9 encoding and rollback semantics are recovered.
 
-The classic X9 EC states are not production fan controls. On the verified X9 they are **read/Auto-recovery only** because physical testing reproduced audible speed cycling/waves and a lower useful cooling ceiling than Lenovo Auto. Raw EC diagnostics therefore do not appear as a normal X9 control surface. Bounded temporary tests remain available only for a future direct provider that independently passes the physical acceptance gate.
+The classic seven-step X9 EC states are not production fan controls: physical testing reproduced speed cycling and a lower useful cooling ceiling. The exact firmware full-speed exception above does not enable curves, lower steps, selectors or percentages. Other X9 EC paths remain read/Auto-recovery only.
 
 ## Keyboard semantics
 
