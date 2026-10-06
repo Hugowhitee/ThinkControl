@@ -1,155 +1,102 @@
 # ThinkControl UI design handoff
 
-This file is the durable handoff for future ThinkControl UI/design chats. Read it together with `docs/DESIGN.md` and the current `main`/active release PR before changing visual structure.
+This is the existing durable design owner. Recover live Git state and read AGENTS.md, CHAT_STARTER.md, DESIGN.md and PRODUCT.md. Figma owns the selected visual target; the repository owns behavior, capabilities and verification. Do not recover requirements by replaying the old chat.
 
-## Product direction
+## Selected source and migration
 
-Ordinary status is a short sentence stating availability or a failed action and its next step. Never bind raw provider/error dumps into page summaries or ellipsis footers. System's explicit technical disclosure keeps full diagnostic evidence as separate lines. Auto/Max-only providers expose only those choices, hide unavailable advanced controls, and keep Home's Max control usable directly from Auto. The sidebar fades into its surface at the bottom only when content remains below; it does not cover the scrollbar or block input.
+- Approved file: https://www.figma.com/design/U3tJrxFyixV1ubC7ZTlSGM
+- Pages: Advanced `0:1`; Compact/feedback/Light QA `2:2`; design system `2:3`.
+- Selected typography: **IBM Plex Sans Regular and SemiBold**. Selected icon language: **Microsoft Fluent System Icons**, plus purposeful ThinkControl brand/gesture glyphs.
+- The older Fans-only file `Dcl5mMTiWUYwMcwiB0oVdy` is superseded as a visual target. Its Segoe/Inter fallback decision does not apply to this direction.
+- Installed alpha.61 remains Segoe/Material. Replace shared WPF resources and the semantic icon adapter coherently; do not mix systems per page. Package font assets/licenses, retain the wordmark, and compare actual native font metrics.
+- Keep the user/service privilege boundary, IPC, settings schemas, capabilities, session ownership, rollback and data. No flattened screenshot implementation or duplicate mock application.
+- The implementation request now covers the whole real WPF application, near-1:1 visual fidelity and functional integration. Readiness evidence belongs in RELEASE_READINESS.md. Figma completion is not installed-app completion.
 
-Use a colon for a label and value, parentheses for a short qualifier, and normal sentences for an outcome and next action. Avoid middle-dot chains in ordinary controls, statuses, tooltips and notifications. History summaries name the quantity (average power, energy, drain rate); longer captions wrap beneath their heading rather than competing on one row. Raw diagnostic encoding remains unchanged behind the technical disclosure.
+## Canonical screens
 
-ThinkControl should feel like a precise Windows hardware instrument, not a generic SaaS dashboard. The visual language is restrained, compact and technical with Dieter Rams/Braun-style clarity: strong alignment, thin separators, few surfaces, clear hierarchy, deliberate states and little permanent helper copy.
+Advanced canonical section `190:4791` contains the twelve reference screens. Reference size is1200×780; native minimum980×650 must reflow rather than scale the canvas.
 
-The ThinkControl logo/brand, existing dark/light tokens, shared Advanced page header, current navigation grammar and compact Windows-native interaction style remain product identity. Figma is a design workspace, not a reason to replace those foundations with a new design language.
+| Screen | Frame | Existing behavioral owner |
+|---|---|---|
+| Overview | `6:2` | AdvancedWindow Home dashboard/quick controls |
+| Power & cooling | `9:35` | Performance panel, Fans panel, App.Cooling, service |
+| Battery | `9:205` | BatteryTelemetryPanel, preservation and history |
+| Display & input: Display | `10:61` | Display panel |
+| Display & input: Keyboard | `10:221` | Keyboard panel/effects/OSD owner |
+| Display & input: Touchpad | `10:394` | TouchpadPanel and Core recognizer |
+| Audio | `10:574` | Audio panel and AudioSafety coordinator |
+| Modes: Saved presets | `11:85` | ModesPanel, sparse mode definitions |
+| Modes: Automation | `11:256` | Automation rules and ModesCoordinator |
+| System: General | `11:422` | System and general settings |
+| System: Updates | `12:103` | Update service/presentation |
+| System: Diagnostics | `12:220` | Diagnostics/recovery and sensor telemetry |
 
-## Preserve unless evidence says otherwise
+These six navigation groups replace presentation of thirteen old destinations; they do not delete those capabilities. Preferences, detailed sensors and feature-specific editors remain reachable. State examples are not separate application pages.
 
-Do not redesign these merely to make a Figma file look more complete:
+Canonical Compact composition: `12:345` on page2:2. Prototype entry `27:574` is its linked entry/example. Focus `12:407`, charging paused `12:469`, Light `34:1219` are state references, not independent layouts. Compact customization `23:385` and drag examples section `191:5338` describe swaps and unused-item assignment.
 
-- the current Battery Preservation gauge/threshold visual and its information hierarchy;
-- the current Battery history/chart direction;
-- the shared `AdvancedPageHeader` geometry and action rail;
-- the Compact/Advanced product split;
-- the current ThinkControl logo and restrained accent system;
-- semantic disabled/selected/focus states already defined in shared resources;
-- the alpha.55+ Modes ownership model: sparse settings, one active mode, manual-wins-per-facet behavior and separate automation rules.
+## Shared design system
 
-Motion is allowed only when it improves state comprehension. A future Battery motion concept may animate real charging/limit state, but it must not add decorative movement or replace accurate static information.
+Use live component properties and styles instead of copying primitives. Existing IDs are retained where possible.
 
-October 5 owner feedback supersedes the earlier Photopea percentage-inside-gauge experiment: Battery now follows Home with a separate charge value beside the small gauge, and status and ETA beneath it. This composition is implemented and inspected in installed dev.2026100507. Preserve its compact hierarchy and wrapping for longer status text; the separate Battery Preservation threshold gauge is unchanged.
+| Canonical family | ID |
+|---|---|
+| Semantic colors, Dark/Light | `VariableCollectionId:2:4` |
+| Button, three styles × seven interaction states | `241:4625` |
+| Select, seven interaction states | `241:4675` |
+| Navigation item, label and icon properties | `245:4618` |
+| Switch, value and interaction state | `245:4643` |
+| Page header | `245:4644` |
+| Context tabs | `19:338` |
+| Segmented choice | `30:639` |
+| Inline slider | `13:192` |
+| Mode included-settings editor | `183:4907` |
+| Touchpad zone visualizer | `83:1438` |
+| Touchpad bottom assignments | `140:3651` |
+| Compact three-metric status | `55:1112` |
+| Compact unused-item palette | `171:4249` |
+| Notifications, actionable/passive | `38:814` |
+| Automation runtime status | `253:6354` |
 
-## Priority redesign surfaces
+The reconciliation replaced more than800 manual controls with instances and bound more than2200 standalone texts to shared styles, including canonical component text. Exact counts are run evidence, not a permanent completion claim. Do not detach instances during implementation extraction. Purposeful fixed physical geometry is an exception to flexible layout.
 
-### Fans
+Typography/rails are specified in DESIGN.md. The semantic Action background is distinct from Accent so small white action labels have adequate contrast. Faint Light was corrected to `#5b686e`. Disabled presentation dims the entire control, including sliders/thumbs. Preserve visible keyboard focus and selected state separately from hover. Loading blocks duplicate actions and keeps last confirmed hardware state; errors appear next to the rejected action with recovery, rather than turning missing telemetry into a permanent alarm.
 
-Highest-priority Figma surface. Improve composition and clarity around:
+## Secondary screens and state coverage
 
-- current fan profile and ownership;
-- real RPM/telemetry;
-- Lenovo firmware-policy profiles versus direct custom curves;
-- provider unavailable/recovery states;
-- temporary/manual test controls where actually supported;
-- status/error presentation that helps recovery without implementation dumps.
+- Editors/capability section `191:5335`: Mode edit `29:548`, new Mode `29:699`, Rule `29:835`, new Rule `30:644`, thresholds `31:833`, cooling details `31:1067`.
+- Cooling examples: calibrated editor `57:1182`, read-only library `57:1371`, calibrated discrete state `57:1470`, custom dropdown `58:878`, custom edit `58:1531`. These are capability/state examples; static values are not device evidence.
+- Inbox `25:448`; notification and gesture feedback section `198:5007`.
+- Battery history/active-mode examples `191:5336`: discharge `63:990`, health `63:1140`, details `65:1089`, sessions `66:1133`, reset confirmation `66:1311`, active modes `130:2940/3055/3170`.
+- Touchpad QA section `191:5337` groups zone selection, edge assignments, corner launches, bottom actions and live/unavailable states. Preserve these linked tests.
+- Light/contrast section `198:5008`: Overview `34:1054`, source-accurate Touchpad `103:2645`, Battery `67:1707`, Power `67:1814`, curve editor `67:1916`.
+- Page menus `191:5339` are contextual-action references, not navigation destinations. Common Windows links stay direct; Defaults remains a quiet direct page action.
+- Proven obsolete Light Touchpad `67:2002` was removed after checking all three pages for incoming prototype references. It lacked canonical geometry; `103:2645` remains.
 
-Do not imply arbitrary RPM/percentage control when the active provider does not safely expose it. On the verified X9, Auto / Quiet / Balanced / Max may use Lenovo firmware policy while custom curves remain unavailable until a physically accepted direct writer exists.
+Not every real state is drawn. Existing update checkmark/Up to date, download/install/cancel/failure, empty rules/modes, pending/rejected writes, unsupported settings, long names, disconnected telemetry and session overrides remain mandatory. Test them in the real app; never remove functionality because a reference screen omits it.
 
-### Modes
+## Interaction and product contracts
 
-Keep the context-engine model, but continue improving interaction.
+**Navigation and shell:** preserve Windows caption, dragging, resize/Snap, focus, tray ownership and Compact↔Advanced lifecycle. Re-clicking a destination returns to its default list/subview, top scroll and collapsed disclosures consistently. Sidebar bottom fade appears only with remaining content and does not cover/block the scrollbar. Headers share one fixed title/action rail; narrow widths consolidate secondary actions.
 
-Desired interaction:
+**Compact customization:** drag directly in the preview to swap slots. Status and controls are separate rows, shown side-by-side in the editor at the same vertical level. Available lists contain only unused eligible items. Persist changes through the existing settings owner; cancellation, lost capture and a later drag must work. Never duplicate the same item into a second slot.
 
-- one mode dropdown selects/applies the mode; vertical rows summarize saved modes;
-- Edit remains a separate secondary action on the row;
-- active/automatic/modified/applying state is obvious without a separate Activate button;
-- Focus, Battery saver and Performance are seeded once as normal editable saved modes, not shown as three permanent starter CTA buttons;
-- New mode opens a blank editor directly;
-- Modes contains saved settings; Automation contains linked conditions and its own editor. Both pages use shared components and one engine;
-- automation should feel like laptop context, not a generic IFTTT builder.
-- the mode editor **saves without activating** away from its trigger context; users can select a mode manually when needed;
-- automation evaluates a stable condition for at least 5 seconds, supports Any/All conditions, highest priority then visible list order, and restores the prior manual mode or ordinary settings when the trigger ends;
-- Wi-Fi suggestions show the currently connected and a short list of saved networks with custom SSID entry, never unrelated scans or credentials;
+**Modes and Automation:** modes contain removable included settings only. New mode starts with Name and Add setting, no fixed full-settings form; saving does not activate. Supported facets and exclusions are defined in PRODUCT.md. Rules link to modes independently, use Any/All, highest priority then visible list order and five-second stable entry/exit. Identical triggers are valid and modes do not stack. Manual selection pauses until the winning context changes; Resume automation explicitly ends pause. Manual facet overrides survive restoration. Preserve unavailable included settings and report the failing facet. The runtime-status component includes Paused/Uncertain/Error/Restoring examples.
 
-Starter direction:
+**Cooling:** canonical9:35 is a firmware Auto/Max example; it does not promise calibration will create a writer. The exact alpha.62 21Q6/N4CET45W provider can expose measured states4/5/6/7/0x40 after accepted calibration. Show requested percentage separately from effective step/RPM. 0% keeps the lowest accepted state running, 99% maps to Max; no continuous PWM or fabricated second sensor. Only show calibration when supported. Return to Auto is shown for actual ownership/recovery need, not forever after confirmed Auto. Source/hardware evidence lives in COOLING-DESIGN.md and the X9 research owner.
 
-- **Focus** — Efficiency, Quiet, 60 Hz, keyboard Low, ThinkControl Touchpad/edge gestures off;
-- **Battery saver** — Efficiency, Quiet, 60 Hz, keyboard Off, automatic below 25%;
-- **Performance** — Performance power preference, Balanced cooling, max refresh, keyboard Auto.
+**Battery:** retain the functional gauge, charge-limit thresholds/custom pairs, ETA, temperature capability, Wh, health/cycles and actual history axes/time gaps. Percentage is separate like Home. Lower charge limits reduce high-state-of-charge stress; heat, cycles and age also matter. No unsupported precise wear prediction or implementation narration.
 
-### Battery Preservation
+**Audio/Keyboard:** Audio Safety includes Normal/Gesture lock/Silent and one session owner. Dolby direct writes, Access fallback and unavailable states differ; fallback cannot show enabled local profile writes or an unverified selected profile. Effects remain experimental and fully dim when disabled, sliders included. Temporary Lenovo OSD suppression must release on cancellation, shutdown and return to normal; do not permanently disable vendor notifications.
 
-Preserve the compact gauge itself, but make the decision surface explicit:
+**Touchpad geometry:** source is TouchpadCornerZonePolicy and TrackCenterGesturePolicy. Default reference pad135×80mm maps423.5625×251px (3.1375px/mm); edge5mm→15.6875px, quarter-disc guard10mm→31.375px, diagonal lane24mm long with4mm halfwidth and rounded cap. Mirror the right corner. Rendering, clicking and recognition share geometry and corner priority; parameter changes must recompute it. Overlapping lower-edge candidates are not rectangular guesses. Click masks are neutral near-transparent; only the canonical component draws selection.
 
-- present the selectable value as the **charge limit** first;
-- current presets are 80% Strong protection, 85% Recommended, 90% More runtime and 95% Light protection;
-- explain the lower threshold as “charging starts again below X%” instead of making the user decode a range;
-- keep existing non-preset Lenovo pairs visible as Custom and do not overwrite them automatically;
-- comparative wear copy should use a stable 0%→selected-limit percentage against the 0%→100% wear reference; explain in the tooltip that real top-ups starting above 0% are lower and the upper end contributes disproportionately.
+Corners support inward launch and outward close when enabled, with reverse start along≥12mm. Plus/minus stay inside active continuous-control bands; Track/off do not retain volume glyphs. LeftTrack variant `253:6277` is an action-state illustration, not a new Core zone enum. Hold target spans36–64% of the physical edge; hold≥450ms, max3mm movement, commit on release. Previous/next requires12mm travel. Bottom and side assignments use the same vocabulary. Live trails break on lift/jump; feedback is bounded, local and replaced immediately. Haptic capability is distinct from touchpad presence.
 
-### Header actions and Windows links
+## Evidence and remaining gates
 
-Title-level actions stay direct and contextual. Do not hide a common destination behind a generic **Windows settings** dropdown. Display may link directly to Windows display settings; Battery may link directly to Power & battery. Page Defaults remains a quiet secondary direct action rather than becoming another menu/list item. External links, Defaults and contextual actions share one fixed header rail, style and right alignment. Feature switches sit beside the related setting rather than in the header. Settings uses flat general rows and a collapsed advanced diagnostics/recovery section.
+Independent assessment A visually reviewed all twelve canonical screens, Compact, editors and selected QA; isolated assessment B audited the whole hierarchy and compared exact Touchpad paths with Core. Both used current Figma/Drive/Impeccable guidance. The Impeccable CLI detector is unavailable, and Figma has no HTML DOM to validate; no detector/browser-overlay claim is made.
 
-### Home quick controls
+Post-repair Figma rendering/structural review is still required before treating all corrected states as approved. **UNVERIFIED:** native redesign parity; all minimum/reference/wide layouts; actual DPI/text scaling and font fallback; mouse/keyboard/focus/popup/drag behavior; installed candidate lifecycle and publication; broad device sleep/resume/AC/DC and independent fan sensors.
 
-Improve only weak alignment/hierarchy problems. Preserve useful information density.
-
-Pay special attention to:
-
-- segmented-control baselines across sibling cards;
-- equal title/control vertical rhythm;
-- Mode as a quick selector, not another settings editor;
-- a system telemetry strip only if it stays visually secondary;
-- no duplicate subsystem explanations.
-
-## Current editable Fans design source
-
-- Figma file: https://www.figma.com/design/Dcl5mMTiWUYwMcwiB0oVdy
-- dark Fans target: node `3:2`
-- light Fans target: node `3:77`
-- fan state studies: node `3:152`
-- production typography remains `Segoe UI Variable Text, Segoe UI`. The Figma host did not expose Segoe, so the editable mockup uses Inter only as a representational fallback; do not change production typography to match the mockup.
-- runtime behavior, WPF tokens and rendered screenshots remain authoritative; this Figma file owns the selected Fans composition, not hardware semantics.
-
-## Figma workflow
-
-Use installed Figma/Product Design tooling rather than rebuilding screens blindly:
-
-- Product Design `audit` for screenshot-grounded critique;
-- Product Design `get-context` before broad redesign exploration;
-- Figma `figma-use` for direct file edits;
-- Figma `figma-generate-library` when establishing/reconciling reusable tokens/components;
-- Figma `figma-design-to-code` before implementing a selected Figma node back into production;
-- Figma `figma-implement-motion` only when a selected design actually contains meaningful motion.
-
-Impeccable is an external specialist resource rather than a guaranteed native host skill. When an Impeccable pass is requested, use a native installed skill only if one is actually exposed; otherwise retrieve the current upstream `pbakaus/impeccable` skill and only the task-relevant references. ThinkControl’s normal desktop control surfaces are **Operate** interfaces, so favor its craft-floor, critique, layout, clarify and polish guidance. Never claim the pass ran without loading/retrieving the source.
-
-For this WPF application, do not use webpage capture as the source of truth. Start from actual WPF screenshots plus existing code/tokens, build/edit the screen in Figma, then translate selected changes back to shared XAML/resources.
-
-## Required design loop
-
-1. Read `docs/DESIGN.md`, this handoff and the current relevant WPF source.
-2. Capture/inspect the actual runtime screenshot first.
-3. State the problem being solved and preserve already-good mechanisms.
-4. Explore only the affected screen/components in Figma.
-5. Compare dark/light and minimum/normal/wide where relevant.
-6. Translate selected mechanisms back to real WPF components/styles, not runtime visual-tree patches.
-7. Run WPF visual QA and inspect the rendered implementation against the selected Figma target.
-8. Hardware/status surfaces must also be tested in provider-ready and provider-unavailable states.
-
-## Anti-patterns
-
-Avoid:
-
-- gratuitous rounded cards;
-- permanently visible paragraphs explaining implementation;
-- “AI dashboard” metric tiles with decorative gradients;
-- unrelated redesign of good Battery visuals during a Fans task;
-- generic dropdowns that hide one or two obvious Windows destinations;
-- turning a simple mode editor into a settings-table/admin builder with repeated separator rows and Remove labels;
-- replacing precise controls with abstract illustrations;
-- separate one-off styles that drift from shared tokens;
-- Figma-only polish that cannot map cleanly to WPF;
-- invented telemetry or enabled-looking hardware controls without capability support.
-
-## Current hardware boundary
-
-The design file must not blur hardware safety:
-
-- verified X9 Lenovo firmware-policy profiles are semantic cooling controls;
-- the Other Mode per-fan target writer remains read-only after failed physical smoothness/range validation;
-- the classic X9 seven-step EC writer remains non-production after physical cycling/range failure;
-- the narrow Lenovo full-speed boolean remains separately capability/readback gated;
-- custom fan curves/manual percentages require a physically accepted direct-output provider.
-
-When new physical evidence changes those boundaries, update hardware/product docs first, then the Figma state model.
+Use existing WPF fixtures and shell smoke, inspect real renders against corresponding canonical nodes, and exercise actual interactions and persistence. A green build is not pixel or hardware acceptance. Keep current release state and open implementation work in RELEASE_READINESS.md rather than creating another project dossier.

@@ -27,9 +27,9 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current alpha source:** `v0.1.0-alpha.61` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) is the authoritative list of published installers (the current source version can temporarily be ahead during verification).
+**Current alpha source:** `v0.1.0-alpha.62` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) is the authoritative list of published installers (the current source version can temporarily be ahead during verification).
 
-**Experimental OEM status:** Auto/Max cooling has bounded physical validation on X9 21Q6 firmware N4CET45W. Lower fixed fan speeds and independent readings of both fans remain unavailable on that path. Battery stop/resume has bounded device evidence; reboot/wake and broad hardware acceptance remain open. See [Release readiness](docs/RELEASE_READINESS.md).
+**Experimental OEM status:** Auto, Max and calibrated custom curves have bounded physical validation on X9 21Q6 firmware N4CET45W. This path uses five measured running speeds, with a large gap before Max and a shared tachometer. Lower speeds can vary slightly; independent readings of both fans remain unavailable. Battery stop/resume has bounded device evidence; reboot/wake and broad hardware acceptance remain open. See [Release readiness](docs/RELEASE_READINESS.md).
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -91,11 +91,11 @@ Profiles decide which providers are reasonable to probe. Providers own implement
 On the current X9-15 reference path:
 
 - native Lenovo dual-fan RPM telemetry is retained when real channels are exposed;
-- on 21Q6/N4CET45W, Auto/Max uses the inspected firmware's exact full-speed state with readback, bounded ownership and Auto cleanup; lower fixed speeds remain unavailable;
+- on 21Q6/N4CET45W, the reviewed native regulated-cooling contract supports four lower running states and the separately verified Max state, with readback, bounded ownership and Auto cleanup;
 - on other reviewed X9 firmware paths, Quiet/Balanced and the Lenovo Other Mode full-speed boolean require their live provider contracts; firmware acknowledgment is not physical acceptance;
 - the alpha.38 Lenovo Other Mode per-fan target-RPM writer remains read-only after failing physical smoothness/range acceptance;
-- the native-OEM telemetry safety latch prevents silent fallback to the known-inferior seven-step EC writer;
-- custom curves and manual percentages remain direct-writer features and are not faked through the firmware/full-speed semantic backend;
+- the native-OEM telemetry safety latch prevents silent fallback to unverified EC control;
+- custom curves and manual percentages require a complete device/firmware-specific RPM calibration. The verified X9 maps targets upward to available speeds (approximately 37, 39, 43, 47 and 100%); 0% keeps the lowest verified running state and 99% selects Max. This is stepped control rather than continuous PWM or fan-off;
 - raw seven-step EC behavior remains an explicit provider-specific diagnostic contract where genuinely active and validated, not the normal X9 product backend;
 - charge-threshold writes are restricted to the verified X9 identity plus the installed Lenovo PWRMGRV battery configuration and a live `\\.\IBMPmDrv` device; requests are bounded to five-percent start/stop pairs and failures request rollback rather than trying another EC/ACPI path;
 - real provider telemetry is preferred over fallback probes;

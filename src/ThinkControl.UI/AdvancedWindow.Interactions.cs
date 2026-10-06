@@ -11,6 +11,9 @@ namespace ThinkControl.UI;
 public partial class AdvancedWindow
 {
     private const string InteractionPolishKey = "ThinkControl.Advanced.Interactions";
+    private int _pageEntryGeneration;
+    private ScrollViewer? _pendingPageEntry;
+    private bool _pendingPageAnimation;
 
     private void ConfigureInteractionPolish()
     {
@@ -39,11 +42,25 @@ public partial class AdvancedWindow
 
     private void AttachPageInteraction(RadioButton nav, ScrollViewer page)
     {
-        nav.Checked += (_, _) => page.Dispatcher.BeginInvoke(() =>
+        // Checked routes through ShowPage. Click also covers reselecting the active destination.
+        nav.Click += (_, _) => ResetPageForNavigation(page, animate: false);
+    }
+
+    private void ResetPageForNavigation(ScrollViewer page, bool animate)
+    {
+        if (!ReferenceEquals(_pendingPageEntry, page)) _pendingPageAnimation = false;
+        _pendingPageEntry = page;
+        _pendingPageAnimation |= animate;
+        int generation = ++_pageEntryGeneration;
+        page.Dispatcher.BeginInvoke(() =>
         {
+            if (generation != _pageEntryGeneration || page.Visibility != Visibility.Visible) return;
+            bool animateEntry = _pendingPageAnimation;
+            _pendingPageEntry = null;
+            _pendingPageAnimation = false;
             ResetTransientPageUi(page);
             page.ScrollToTop();
-            AnimatePageEntry(page);
+            if (animateEntry) AnimatePageEntry(page);
         });
     }
 
@@ -65,6 +82,8 @@ public partial class AdvancedWindow
 
     private static void ResetTransientPageUi(DependencyObject root)
     {
+        foreach (Controls.ModesPanel panel in FindVisualChildren<Controls.ModesPanel>(root))
+            panel.ResetNavigationView();
         foreach (ComboBox combo in FindVisualChildren<ComboBox>(root))
             combo.IsDropDownOpen = false;
         foreach (Expander expander in FindVisualChildren<Expander>(root))

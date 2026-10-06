@@ -99,7 +99,7 @@ public partial class AdvancedWindow
         Dispatcher.BeginInvoke(SyncNotificationIndicator);
 
     private void App_FanCalibrationStateChanged(object? sender, EventArgs e) =>
-        Dispatcher.BeginInvoke(SyncNotificationIndicator);
+        Dispatcher.BeginInvoke(new Action(() => { SyncNotificationIndicator(); RefreshHomeFanProfiles(); }));
 
     private void NotificationState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

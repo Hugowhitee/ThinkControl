@@ -104,6 +104,8 @@ public partial class AdvancedWindow
     internal void PrepareAutomationListForSnapshot() => AutomationPanelControl.PrepareListForSnapshot();
     internal void PrepareRuleEditorForSnapshot() => AutomationPanelControl.PrepareRuleEditorForSnapshot();
 
+    internal void PrepareSystemDetailsForSnapshot() => SystemHardwareDetails.IsExpanded = true;
+
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
     {
         if (verifiedDevice)

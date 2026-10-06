@@ -32,7 +32,7 @@ public partial class App : System.Windows.Application
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
     public UserSettingsService UserSettings { get; }
     public BatteryHistoryService BatteryHistoryService { get; }
-    public HardwareServiceClient HardwareClient { get; } = new();
+    public HardwareServiceClient HardwareClient { get; }
     public UpdateService UpdateService { get; } = new();
     public DiagnosticsRecorder DiagnosticsRecorder { get; } = new();
     public KeyboardEffectService KeyboardEffects { get; private set; } = null!;

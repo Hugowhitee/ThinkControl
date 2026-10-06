@@ -189,12 +189,54 @@
                 </Setter>
             </Style>
 
+            <Style x:Key="TcTextBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
+                <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Padding" Value="12,7" />
+                <Setter Property="MinHeight" Value="38" />
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.ControlText}" />
+                <Setter Property="CaretBrush" Value="{DynamicResource Tc.Text}" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="Root" Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="3">
+                                <!-- TextBoxView applies Padding; repeating it on the host doubles the inset. -->
+                                <ScrollViewer x:Name="PART_ContentHost" VerticalAlignment="Center" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.42" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+            <Style x:Key="TcText.ActionError" TargetType="TextBlock" BasedOn="{StaticResource TcText.Body}">
+                <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Caption}" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.Accent}" />
+                <Setter Property="TextWrapping" Value="Wrap" />
+            </Style>
+
             <Style x:Key="TcIconButton" TargetType="Button" BasedOn="{StaticResource TcButton}">
                 <Setter Property="Width" Value="34" />
                 <Setter Property="Height" Value="34" />
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="FontFamily" Value="Segoe UI" />
                 <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.BodyLarge}" />
+            </Style>
+
+            <Style x:Key="TcInlineIconButton" TargetType="Button" BasedOn="{StaticResource TcIconButton}">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource Tc.TextMuted}" />
             </Style>
 
             <Style x:Key="TcShellModeButton" TargetType="Button">
@@ -424,6 +466,9 @@
             </Style>
 
             <Style x:Key="TcSlider" TargetType="Slider">
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.42" /></Trigger>
+                </Style.Triggers>
                 <Setter Property="Height" Value="30" />
                 <Setter Property="Minimum" Value="0" />
                 <Setter Property="Maximum" Value="100" />

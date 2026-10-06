@@ -15,11 +15,18 @@ public static class FanCalibrationPolicy
     public static bool TryValidate(
         IReadOnlyList<FanLevelCalibrationSnapshot>? levels,
         out string? error)
+        => TryValidate(levels, Enumerable.Range(1, RequiredLevelCount).ToArray(), out error);
+
+    public static bool TryValidate(
+        IReadOnlyList<FanLevelCalibrationSnapshot>? levels,
+        IReadOnlyList<int> requiredStates,
+        out string? error)
     {
         error = null;
-        if (levels is null || levels.Count != RequiredLevelCount)
+        if (requiredStates.Count < 2 || requiredStates.Distinct().Count() != requiredStates.Count ||
+            levels is null || levels.Count != requiredStates.Count)
         {
-            error = "A reliable calibration requires all seven EC states; incomplete results were discarded.";
+            error = "A reliable calibration requires every supported fan state; incomplete results were discarded.";
             return false;
         }
 
@@ -27,7 +34,7 @@ public static class FanCalibrationPolicy
         for (int index = 0; index < ordered.Length; index++)
         {
             FanLevelCalibrationSnapshot level = ordered[index];
-            if (level.Level != index + 1 || level.Fans is null || level.Fans.Count == 0)
+            if (level.Level != requiredStates[index] || level.Fans is null || level.Fans.Count == 0)
             {
                 error = "Calibration is missing a verified tachometer response for one or more EC states.";
                 return false;
@@ -41,9 +48,14 @@ public static class FanCalibrationPolicy
         }
 
         double maximum = AverageRpm(ordered[^1]);
+        if (!ordered[^1].Stable || ordered[^1].Fans.Any(fan => !fan.Stable))
+        {
+            error = "The highest fan speed varies too much. Let the laptop cool and measure again.";
+            return false;
+        }
         if (!double.IsFinite(maximum) || maximum <= 0)
         {
-            error = "EC step 7 did not produce a usable verified maximum RPM.";
+            error = "The highest fan state did not produce a usable verified maximum RPM.";
             return false;
         }
 
@@ -52,7 +64,7 @@ public static class FanCalibrationPolicy
             double average = AverageRpm(level);
             if (!double.IsFinite(average) || average > maximum * MaximumOvershootRatio)
             {
-                error = $"EC step {level.Level} measured faster than the verified step-7 maximum; the run was rejected.";
+                error = $"Fan state {level.Level} measured faster than the verified maximum; the run was rejected.";
                 return false;
             }
         }

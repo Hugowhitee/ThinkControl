@@ -36,30 +36,25 @@ public sealed class X9DualFanSourceTests
             ec,
             StringComparison.Ordinal);
         Assert.Contains("internal int ReadFanRpm() => WithEcLock(ReadFanRpmUnlocked);", ec, StringComparison.Ordinal);
-        Assert.Contains("bool ownsDiscreteEc =", controller, StringComparison.Ordinal);
         Assert.Contains("_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete", controller, StringComparison.Ordinal);
-        Assert.Contains("IsThinkControlFanState(_fanControl);", controller, StringComparison.Ordinal);
-        Assert.Contains("if (ownsDiscreteEc)", controller, StringComparison.Ordinal);
+        Assert.DoesNotContain("_ec.ReadFanRpms()", controller, StringComparison.Ordinal);
         Assert.Contains("_x9FanRpm = _ec.ReadFanRpm();", controller, StringComparison.Ordinal);
         Assert.Contains("FirmwareFanRpmPollInterval = TimeSpan.FromSeconds(10)", controller, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void X9Controller_ExposesBothExactEcTachometersOnlyWhenThinkControlOwnsEc()
+    public void X9Controller_UsesOnlyVerifiedSharedTachometerEvenWhenManaged()
     {
         string root = FindRepositoryRoot();
         string controller = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs"));
         string normalized = controller.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-        Assert.Contains("_ec.ReadFanRpms()", controller, StringComparison.Ordinal);
-        Assert.Contains("x9-ec-main", controller, StringComparison.Ordinal);
-        Assert.Contains("x9-ec-auxiliary", controller, StringComparison.Ordinal);
-        Assert.Contains("ThinkPad X9 EC dual tachometers", controller, StringComparison.Ordinal);
-        Assert.Contains(
-            "bool managedX9 = _identity.IsVerifiedX9 && ecAvailable &&\n                         _activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete &&\n                         IsThinkControlFanState(_fanControl);",
-            normalized,
-            StringComparison.Ordinal);
-        Assert.Contains("return lhmFans.Count >= 2 ? lhmFans : Array.Empty<LenovoFanReading>();", controller, StringComparison.Ordinal);
+        Assert.DoesNotContain("_ec.ReadFanRpms()", controller, StringComparison.Ordinal);
+        Assert.DoesNotContain("x9-ec-auxiliary", controller, StringComparison.Ordinal);
+        Assert.Contains("x9-ec-shared", controller, StringComparison.Ordinal);
+        Assert.Contains("Shared tachometer", controller, StringComparison.Ordinal);
+        Assert.DoesNotContain("return lhmFans.Count >= 2 ? lhmFans : Array.Empty<LenovoFanReading>();", controller, StringComparison.Ordinal);
+        Assert.Contains("Shared: true", controller, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -72,7 +67,7 @@ public sealed class X9DualFanSourceTests
         Assert.Contains("PostFanStateChangeReadDelay = TimeSpan.FromSeconds(2)", controller, StringComparison.Ordinal);
         Assert.Contains("InvalidateFanRpmAfterStateChange(now);", controller, StringComparison.Ordinal);
         Assert.Contains("_x9FanRpm = null;", controller, StringComparison.Ordinal);
-        Assert.Contains("_x9AuxFanRpm = null;", controller, StringComparison.Ordinal);
+        Assert.DoesNotContain("_x9AuxFanRpm", controller, StringComparison.Ordinal);
         Assert.Contains("Settling after fan-state change", controller, StringComparison.Ordinal);
     }
 

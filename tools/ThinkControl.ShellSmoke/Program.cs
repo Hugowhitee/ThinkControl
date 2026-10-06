@@ -44,6 +44,7 @@ internal static class Program
                 {
                     await ValidateAutomationTransitions(app);
                     await ValidateKeyboardTransitions();
+                    await ValidateKeyboardOsdVisibilityLease();
                     RunScenario(app);
                     exitCode = 0;
                 }
@@ -255,6 +256,28 @@ internal static class Program
             releaseWrite.TrySetResult();
             await effects.SetStaticLevelAsync("Low");
         }
+    }
+
+    private static async Task ValidateKeyboardOsdVisibilityLease()
+    {
+        object gate = new();
+        bool popup = false, visible = true;
+        var changed = new List<bool>();
+        using var suppressor = new LenovoKeyboardOsdSuppressor(() => 42,
+            _ => { lock (gate) return popup && visible ? new[] { new IntPtr(1) } : []; },
+            (_, show) => { lock (gate) { visible = show; changed.Add(show); } },
+            (_, pid) => pid == 42, TimeSpan.FromMilliseconds(100));
+        suppressor.Arm();
+        lock (gate) popup = true;
+        await Task.Delay(160);
+        lock (gate)
+            if (!changed.SequenceEqual(new[] { false, true }) || !visible)
+                throw new InvalidOperationException("Keyboard OSD: burst expiry left the reusable Lenovo popup hidden.");
+        // A window visible before an effect must remain untouched (e.g. Fn+Space).
+        suppressor.Arm();
+        await Task.Delay(160);
+        lock (gate)
+            if (changed.Count != 2) throw new InvalidOperationException("Keyboard OSD: an existing popup was hidden.");
     }
 
     private static void ValidateBatteryEtaLabels()
@@ -659,6 +682,7 @@ internal static class Program
         window.Width = oldWidth;
         window.Height = oldHeight;
         ValidatePrecisionScrolling(app, window);
+        ValidateSharedNavigationReset(app, window);
         window.Navigate("Home");
         Pump(app.Dispatcher);
 
@@ -739,6 +763,43 @@ internal static class Program
             throw new InvalidOperationException("Keyboard PageDown stopped scrolling after precision-scroll normalization.");
         page.ScrollToTop();
         Pump(app.Dispatcher);
+    }
+
+    private static void ValidateSharedNavigationReset(App app, AdvancedWindow window)
+    {
+        foreach (string name in new[] { "Home", "Modes", "Automation", "Performance", "Fans", "Battery", "Display", "Audio", "Keyboard", "Touchpad", "System", "Updates", "Settings" })
+        {
+            window.Navigate(name);
+            Pump(app.Dispatcher);
+            var page = (ScrollViewer)window.FindName("Page" + name);
+            ThinkControl.UI.Controls.ModesPanel? modes = page.Content as ThinkControl.UI.Controls.ModesPanel;
+            if (modes is not null)
+            {
+                if (name == "Automation") modes.PrepareRuleEditorForSnapshot();
+                else modes.PrepareEditorForSnapshot();
+            }
+            Expander? expander = VisualDescendants<Expander>(page).FirstOrDefault();
+            if (expander is not null) expander.IsExpanded = true;
+            page.ScrollToEnd();
+            Pump(app.Dispatcher);
+            var nav = (RadioButton)window.FindName("Nav" + name);
+            nav.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, nav));
+            Pump(app.Dispatcher);
+            if (page.VerticalOffset > 0.1 || VisualDescendants<Expander>(page).Any(item => item.IsExpanded))
+                throw new InvalidOperationException($"Navigation: {name} did not reset its scroll/disclosures on reselect.");
+            if (modes is not null && ((FrameworkElement)modes.FindName("EditorView")).Visibility != Visibility.Collapsed)
+                throw new InvalidOperationException($"Navigation: {name} did not return from its editor to the list.");
+        }
+    }
+
+    private static IEnumerable<T> VisualDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is T matching) yield return matching;
+            foreach (T nested in VisualDescendants<T>(child)) yield return nested;
+        }
     }
 
     private static void InvokeButton(Button button)

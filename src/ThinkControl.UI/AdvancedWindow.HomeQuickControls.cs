@@ -107,7 +107,8 @@ public partial class AdvancedWindow
         _syncing = true;
         try
         {
-            HomeFanQuickGrid.IsEnabled = enabled && (fullSpeedOnly || !autoActive) && !_homeFanBusy;
+            HomeFanQuickGrid.IsEnabled = enabled && !_app.FanCalibrationState.Running && !_homeFanBusy;
+            HomeFanQuiet.IsEnabled = HomeFanBalanced.IsEnabled = !_app.FanCalibrationState.Required;
             HomeFanQuiet.IsChecked = selected.Equals("Quiet", StringComparison.OrdinalIgnoreCase);
             HomeFanBalanced.IsChecked = selected.Equals("Balanced", StringComparison.OrdinalIgnoreCase);
             HomeFanQuiet.Visibility = HomeFanBalanced.Visibility = fullSpeedOnly ? Visibility.Collapsed : Visibility.Visible;
@@ -121,7 +122,7 @@ public partial class AdvancedWindow
             int selectableExtraCount = extraProfiles.Count(profile => !IsManualHomeFanState(profile));
             bool currentUsesMore = extraProfiles.Contains(selected, StringComparer.OrdinalIgnoreCase);
             HomeFanMoreButton.Visibility = selectableExtraCount > 0 || currentUsesMore ? Visibility.Visible : Visibility.Collapsed;
-            HomeFanMoreButton.IsEnabled = enabled && !autoActive && !_homeFanBusy && selectableExtraCount > 0;
+            HomeFanMoreButton.IsEnabled = enabled && !_app.FanCalibrationState.Required && !_homeFanBusy && selectableExtraCount > 0;
             HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42;
             HomeFanMoreButton.Content = currentUsesMore
                 ? $"{selected}  ▾"
@@ -298,6 +299,8 @@ public partial class AdvancedWindow
                     ? "Modified"
                     : "Automatic";
             HomeModeModifiedText.ToolTip = _app.Modes.LastTransitionError;
+            HomeModeModifiedText.SetResourceReference(TextBlock.ForegroundProperty,
+                _app.Modes.LastTransitionError is null ? "Tc.TextMuted" : "Tc.Accent");
             HomeModeModifiedText.Visibility =
                 _app.Modes.IsTransitioning ||
                 _app.Modes.LastTransitionError is not null ||

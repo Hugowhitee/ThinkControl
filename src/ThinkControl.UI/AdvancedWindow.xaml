@@ -119,7 +119,7 @@
                                             <StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Gauge" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Performance" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel>
                                         </Grid>
                                         
-                                        <Grid Margin="0,0,0,6">
+                                        <Grid Margin="0,11,0,6">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="70" /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                             <TextBlock Text="Battery" VerticalAlignment="Center" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                                             <RadioButton x:Name="HomeQuiet" Grid.Column="1" GroupName="HomeBatteryMode" Style="{StaticResource TcSegment}" Content="Efficiency" Tag="Battery:Quiet" Click="HomePowerMode_Click" Margin="0,0,3,0" Padding="0,6"  FontSize="{x:Static ui:TypographyScale.Caption}"/>
@@ -143,7 +143,7 @@
                                             <TextBlock Text="{Binding ControlTemperatureText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                                         </Grid>
                                         
-                                        <Grid x:Name="HomeFanQuickGrid">
+                                        <Grid x:Name="HomeFanQuickGrid" Margin="0,11,0,0">
                                             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                                             <RadioButton x:Name="HomeFanQuiet" GroupName="HomeFan" Style="{StaticResource TcSegment}" Content="Quiet" Tag="Quiet" Click="HomeFanQuick_Click" Padding="7,6" Margin="0,0,4,0" />
                                             <RadioButton x:Name="HomeFanBalanced" Grid.Column="1" GroupName="HomeFan" Style="{StaticResource TcSegment}" Content="Balanced" Tag="Balanced" Click="HomeFanQuick_Click" Padding="7,6" Margin="2,0" />
@@ -163,20 +163,18 @@
                                 <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,7,0,0" Height="190"><StackPanel><Grid><StackPanel Orientation="Horizontal"><controls:PackIconLucide Kind="Keyboard" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="Keyboard light" FontWeight="SemiBold" Margin="8,0,0,0" /></StackPanel><TextBlock Text="{Binding KeyboardStatus}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /></Grid><Grid Margin="0,11,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><RadioButton x:Name="HomeKeyboardOff" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="Off" Tag="Off" Click="Keyboard_Click" Margin="0,0,3,0" Padding="5,7" /><RadioButton x:Name="HomeKeyboardLow" Grid.Column="1" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="Low" Tag="Low" Click="Keyboard_Click" Margin="1,0" Padding="5,7" /><RadioButton x:Name="HomeKeyboardHigh" Grid.Column="2" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="High" Tag="High" Click="Keyboard_Click" Margin="1,0" Padding="5,7" /><RadioButton x:Name="HomeKeyboardAuto" Grid.Column="3" GroupName="HomeKeyboard" Style="{StaticResource TcSegment}" Content="Auto" Tag="Auto" Click="Keyboard_Click" Margin="3,0,0,0" Padding="5,7" /></Grid><Button Content="Effects &amp; behavior  ›" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Margin="0,12,0,0" Click="HomeOpenPage_Click" Tag="Keyboard" /></StackPanel></Border>
                             </Grid>
 
-                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0" Height="88">
+                            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0" MaxWidth="430" HorizontalAlignment="Left">
                                 <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <StackPanel VerticalAlignment="Center">
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <Button Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Click="HomeOpenPage_Click" Tag="Modes">
                                         <StackPanel Orientation="Horizontal">
                                             <controls:PackIconLucide Kind="Tune" Width="15" Height="15" Foreground="{DynamicResource Tc.TextMuted}" />
                                             <TextBlock Text="Mode" FontWeight="SemiBold" Margin="8,0,0,0" />
+                                            <controls:PackIconLucide Kind="ChevronRight" Width="18" Height="18" Margin="5,0,0,0" Foreground="{DynamicResource Tc.TextMuted}" />
                                         </StackPanel>
-                                        <TextBlock x:Name="HomeModeModifiedText" Text="Modified" Foreground="{DynamicResource Tc.Accent}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="23,5,0,0" Visibility="Collapsed" />
-                                    </StackPanel>
-                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" Width="210" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
-                                        <Button Content="Manage  ›" Style="{StaticResource TcInlineButton}" Margin="10,0,0,0" Click="HomeOpenPage_Click" Tag="Modes" />
-                                    </StackPanel>
+                                    </Button>
+                                    <ComboBox x:Name="HomeModeCombo" Grid.Row="1" Style="{StaticResource TcComboBox}" MinWidth="240" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" Margin="0,11,0,0" />
+                                    <TextBlock x:Name="HomeModeModifiedText" Grid.Row="2" Text="Modified" Foreground="{DynamicResource Tc.Accent}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,0" Visibility="Collapsed" />
                                 </Grid>
                             </Border>
                         </StackPanel>
@@ -238,13 +236,31 @@
 
                     <controls:AdvancedScrollViewer x:Name="PageSystem" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="960" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="System" />
                         <Border Style="{StaticResource TcSection}"><Grid><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions><StackPanel><TextBlock Text="CPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding CpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="GPU" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding GpuName}" Margin="0,4,12,13" TextWrapping="Wrap" /><TextBlock Text="RAM" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding RamText}" Margin="0,4,0,0" /></StackPanel><StackPanel Grid.Column="1"><TextBlock Text="BIOS" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding BiosVersion}" Margin="0,4,12,13" /><TextBlock Text="Machine type" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding MachineType}" Margin="0,4,12,13" /><TextBlock Text="Hardware access" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding HardwareAccessSummary}" Margin="0,4,12,0" TextWrapping="Wrap" /></StackPanel><StackPanel Grid.Column="2"><TextBlock Text="Thermal solution" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding ThermalSolution}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="Drivers" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding DriverStatus}" Margin="0,4,0,13" TextWrapping="Wrap" /><TextBlock Text="ThinkControl" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /><TextBlock Text="{Binding AppVersion}" Margin="0,4,0,0" /></StackPanel></Grid></Border>
-                        <Expander Header="Technical hardware details" Margin="2,12,2,0" Foreground="{DynamicResource Tc.TextMuted}">
-    <TextBlock Text="{Binding HardwareEvidenceText}" TextWrapping="Wrap" Margin="0,8,0,4" FontSize="{x:Static ui:TypographyScale.Caption}" />
-</Expander>
                         <Grid Margin="0,14,0,0"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0"><StackPanel><TextBlock Text="Power &amp; startup" FontWeight="SemiBold" /><TextBlock Text="Windows behavior for sleep, the power button and closing the lid." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,12" /><WrapPanel><Button Content="Lid &amp; power buttons ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Click="PowerOptions_Click" /><Button Content="Screen &amp; sleep ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:powersleep" Click="OpenUrl_Click" /><Button Content="Display settings ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:display" Click="OpenUrl_Click" /></WrapPanel></StackPanel></Border>
                             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0,0,0"><StackPanel><TextBlock x:Name="SystemVendorCardTitle" Text="Device &amp; drivers" FontWeight="SemiBold" /><TextBlock x:Name="SystemVendorCardDetail" Text="Windows driver updates plus one detected-vendor shortcut when it is useful." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,12" /><WrapPanel x:Name="SystemVendorButtons"><Button x:Name="SystemVendorPrimaryButton" Visibility="Collapsed" Style="{StaticResource TcButton}" Margin="0,0,8,8" Click="OpenUrl_Click" /><Button Content="Windows Update ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:windowsupdate" Click="OpenUrl_Click" /><Button Content="Optional updates ↗" Style="{StaticResource TcExternalSettingsLink}" Margin="0,0,8,8" Tag="ms-settings:windowsupdate-optionalupdates" Click="OpenUrl_Click" /></WrapPanel></StackPanel></Border>
                         </Grid>
+                        <Expander x:Name="SystemHardwareDetails" Header="Hardware details" Style="{StaticResource TcQuietExpander}" Margin="2,14,2,0" HorizontalAlignment="Right" MaxWidth="560">
+                            <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="120" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                        <TextBlock Text="Cooling" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,0,12,12" />
+                                        <TextBlock Grid.Column="1" Text="{Binding CoolingAvailabilityText}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                        <TextBlock Grid.Row="1" Text="Fan reading" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,0,12,12" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FanRpmSource}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                        <TextBlock Grid.Row="2" Text="Temperature" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,0,12,12" />
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding ControlTemperatureSource}" TextWrapping="Wrap" Margin="0,0,0,12" />
+                                        <TextBlock Grid.Row="3" Text="Keyboard" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,0,12,0" />
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding KeyboardBackend}" TextWrapping="Wrap" />
+                                    </Grid>
+                                    <Expander Header="Provider diagnostics" Style="{StaticResource TcQuietExpander}" Margin="0,14,0,0">
+                                        <TextBlock Text="{Binding HardwareEvidenceText}" TextWrapping="Wrap" Margin="0,8,0,0" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                                    </Expander>
+                                </StackPanel>
+                            </Border>
+                        </Expander>
                     </StackPanel></controls:AdvancedScrollViewer>
 
                     <controls:AdvancedScrollViewer x:Name="PageUpdates" Visibility="Collapsed" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"><StackPanel MaxWidth="760" HorizontalAlignment="Left"><controls:AdvancedPageHeader Title="Updates" /><Border Style="{StaticResource TcSection}"><StackPanel><TextBlock Text="Current version" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding AppVersion}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="Light" Margin="0,5,0,16" /><TextBlock Text="{Binding UpdateStatus}" FontSize="{x:Static ui:TypographyScale.Secondary}" /><StackPanel Orientation="Horizontal" Margin="0,15,0,0"><Button Content="Check for updates" Style="{StaticResource TcButton}" Click="CheckUpdates_Click" /><Button x:Name="OpenReleaseButton" Content="Open release" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="OpenRelease_Click" IsEnabled="False" /></StackPanel></StackPanel></Border></StackPanel></controls:AdvancedScrollViewer>

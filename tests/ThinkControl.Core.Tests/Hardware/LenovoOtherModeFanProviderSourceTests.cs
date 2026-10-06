@@ -140,14 +140,14 @@ public sealed class LenovoOtherModeFanProviderSourceTests
 
         Assert.Contains("bool oemFanControl = _identity.IsVerifiedX9 && oemFanStatus.CanControl;", source, StringComparison.Ordinal);
         Assert.Contains("ResolveFanControlKind(oemFanControl)", source, StringComparison.Ordinal);
-        Assert.Contains("The exact X9 EC path is intentionally telemetry/Auto-recovery only", source, StringComparison.Ordinal);
+        Assert.Contains("if (CanControlRegulatedFans) return LenovoFanControlKind.ThinkPadEcDiscrete", source, StringComparison.Ordinal);
         Assert.Contains("_nativeOemFanTelemetryConfirmed = true", source, StringComparison.Ordinal);
         Assert.Contains("transient provider miss must never silently", source, StringComparison.Ordinal);
         Assert.Contains("re-authorize the known-inferior EC writer", source, StringComparison.Ordinal);
         Assert.Contains("bool nativeOemSafetyBoundary = _identity.IsVerifiedX9 && _nativeOemFanTelemetryConfirmed;", source, StringComparison.Ordinal);
         Assert.Contains("bool ecAvailable = !nativeOemSafetyBoundary || needEcForThermals", source, StringComparison.Ordinal);
-        Assert.Contains("A transient telemetry miss cannot fall through to EC control", source, StringComparison.Ordinal);
-        Assert.Contains("ownsDiscreteEc = _activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete", source, StringComparison.Ordinal);
+        Assert.Contains("Never enable bare EC levels merely because an OEM query failed", source, StringComparison.Ordinal);
+        Assert.Contains("_regulatedFanContract is not null", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -182,7 +182,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
 
         Assert.Contains("FanControlKinds.FirmwarePolicy", service, StringComparison.Ordinal);
         Assert.Contains("status.CanFanControl || firmwareProfileControl", service, StringComparison.Ordinal);
-        Assert.Contains("_coolingPolicy.Supported && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized)", service, StringComparison.Ordinal);
+        Assert.Contains("_coolingPolicy.Supported && !measuredProfile && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized)", service, StringComparison.Ordinal);
+        Assert.Contains("bool measuredProfile = _hardware.CanControlRegulatedFans", service, StringComparison.Ordinal);
         Assert.Contains("ThinkControlOwnsFan(direct) && !_fanSupervisor.ReturnToAuto", service, StringComparison.Ordinal);
         Assert.Contains("firmwareCooling.ControlAvailable", service, StringComparison.Ordinal);
         Assert.Contains("firmwareCooling.FullSpeedOnly ? FanControlKinds.FullSpeedOnly : FanControlKinds.FirmwarePolicy", service, StringComparison.Ordinal);
@@ -215,7 +216,7 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("public string FanControlKind", appState, StringComparison.Ordinal);
 
         Assert.Contains("reported maximum target RPM", ui, StringComparison.Ordinal);
-        Assert.Contains("RawEcStepsExpander.Visibility = discreteEcWriter", ui, StringComparison.Ordinal);
+        Assert.Contains("RawEcStepsExpander.Visibility = Visibility.Collapsed", ui, StringComparison.Ordinal);
         Assert.Contains("bool showCalibrationTask = calibration.Relevant && attention", ui, StringComparison.Ordinal);
         Assert.Contains("CalibrationCard.Visibility = showCalibrationTask", ui, StringComparison.Ordinal);
         Assert.Contains("Calibration measures how this laptop's fan responds", ui, StringComparison.Ordinal);

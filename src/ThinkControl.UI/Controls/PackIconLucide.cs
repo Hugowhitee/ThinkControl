@@ -75,6 +75,30 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
             return;
         }
 
+        if (Kind is "ChevronRight" or "ChevronLeft" or "ChevronUp" or "ChevronDown")
+        {
+            Point start, middle, end;
+            if (Kind is "ChevronUp" or "ChevronDown")
+            {
+                double tip = Kind == "ChevronUp" ? .36 : .64;
+                double edge = Kind == "ChevronUp" ? .64 : .36;
+                start = new Point(width * .28, height * edge);
+                middle = new Point(width * .5, height * tip);
+                end = new Point(width * .72, height * edge);
+            }
+            else
+            {
+                double tip = Kind == "ChevronLeft" ? .36 : .64;
+                double edge = Kind == "ChevronLeft" ? .64 : .36;
+                start = new Point(width * edge, height * .28);
+                middle = new Point(width * tip, height * .5);
+                end = new Point(width * edge, height * .72);
+            }
+            drawingContext.DrawLine(pen, start, middle);
+            drawingContext.DrawLine(pen, middle, end);
+            return;
+        }
+
         if (Kind is "BatteryHorizontal" or "BatteryChargingHorizontal")
         {
             DrawHorizontalBattery(drawingContext, pen, brush, width, height, charging: Kind == "BatteryChargingHorizontal");

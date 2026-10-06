@@ -94,8 +94,9 @@ public sealed class Alpha47UxSourceTests
             .Split("private async void HomeFanQuick_Click", StringSplitOptions.None)[0];
         Assert.Contains("if (_homeFanBusy)", autoClick, StringComparison.Ordinal);
         Assert.DoesNotContain("if (_syncing || _homeFanBusy)", autoClick, StringComparison.Ordinal);
-        Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && (fullSpeedOnly || !autoActive)", code, StringComparison.Ordinal);
-        Assert.Contains("HomeFanMoreButton.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && !_app.FanCalibrationState.Running", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanQuiet.IsEnabled = HomeFanBalanced.IsEnabled = !_app.FanCalibrationState.Required", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanMoreButton.IsEnabled = enabled && !_app.FanCalibrationState.Required", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MoreFanProfilesLabel", code, StringComparison.Ordinal);
         Assert.DoesNotContain("HomeFanProfileCombo", code, StringComparison.Ordinal);

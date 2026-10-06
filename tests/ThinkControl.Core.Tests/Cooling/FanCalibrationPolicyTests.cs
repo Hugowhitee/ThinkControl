@@ -17,7 +17,7 @@ public sealed class FanCalibrationPolicyTests
     {
         FanLevelCalibrationSnapshot[] partial = CompleteRun()[..6];
         Assert.False(FanCalibrationPolicy.TryValidate(partial, out string? error));
-        Assert.Contains("all seven", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("every supported fan state", error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -48,7 +48,7 @@ public sealed class FanCalibrationPolicyTests
         run[6] = Point(7, 5000);
 
         Assert.False(FanCalibrationPolicy.TryValidate(run, out string? error));
-        Assert.Contains("step-7 maximum", error, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("verified maximum", error, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -81,6 +81,32 @@ public sealed class FanCalibrationPolicyTests
         Point(6, 3700),
         Point(7, 5000)
     ];
+
+    [Fact]
+    public void ProviderSubsetUsesMeasuredMaximumAndRejectsLegacyOrPartialRuns()
+    {
+        int[] states = [4, 5, 6, 7, 0x40];
+        var rpm = new Dictionary<int, int> { [4] = 3500, [5] = 3700, [6] = 4000, [7] = 4400, [0x40] = 9400 };
+        var run = states.Select(state => Point(state, rpm[state])).ToArray();
+        Assert.True(FanCalibrationPolicy.TryValidate(run, states, out _));
+        Assert.False(FanCalibrationPolicy.TryValidate(CompleteRun(), states, out _));
+        Assert.False(FanCalibrationPolicy.TryValidate(run[..^1], states, out _));
+        var mapping = FanOutputMapping.BuildStates(rpm, states);
+        Assert.Equal(4, mapping.First(state => state.EstimatedPercent >= 0).HardwareState);
+        Assert.Equal(7, mapping.First(state => state.EstimatedPercent >= 45).HardwareState);
+        Assert.Equal(0x40, mapping.First(state => state.EstimatedPercent >= 99).HardwareState);
+        Assert.Equal(100, mapping[^1].EstimatedPercent);
+        rpm.Remove(6);
+        Assert.Throws<InvalidOperationException>(() => FanOutputMapping.BuildStates(rpm, states));
+    }
+
+    [Fact]
+    public void VariableMaximumCannotAuthorizeAStoredCurve()
+    {
+        var run = CompleteRun();
+        run[^1] = run[^1] with { Stable = false };
+        Assert.False(FanCalibrationPolicy.TryValidate(run, out _));
+    }
 
     private static FanLevelCalibrationSnapshot Point(int level, int rpm) =>
         new(level,

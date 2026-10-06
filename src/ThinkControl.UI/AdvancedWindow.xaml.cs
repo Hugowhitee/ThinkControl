@@ -285,15 +285,6 @@ public partial class AdvancedWindow : Window
         if (PageHome is null)
             return;
 
-        foreach (FrameworkElement element in new FrameworkElement[]
-        {
-            PageHome, PageModes, PageAutomation, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
-            PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageSettings
-        })
-        {
-            element.Visibility = Visibility.Collapsed;
-        }
-
         FrameworkElement selected = page switch
         {
             "Modes" => PageModes,
@@ -310,7 +301,14 @@ public partial class AdvancedWindow : Window
             "Settings" => PageSettings,
             _ => PageHome
         };
-        selected.Visibility = Visibility.Visible;
+        bool entering = selected.Visibility != Visibility.Visible;
+        foreach (FrameworkElement element in new FrameworkElement[]
+        {
+            PageHome, PageModes, PageAutomation, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
+            PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageSettings
+        })
+            element.Visibility = ReferenceEquals(element, selected) ? Visibility.Visible : Visibility.Collapsed;
+        ResetPageForNavigation((System.Windows.Controls.ScrollViewer)selected, animate: entering);
     }
 
     private string GetSelectedPage()

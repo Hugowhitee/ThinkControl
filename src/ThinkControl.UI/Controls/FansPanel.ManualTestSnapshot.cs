@@ -4,6 +4,35 @@ namespace ThinkControl.UI.Controls;
 
 public partial class FansPanel
 {
+    internal void PrepareMeasuredCurveForSnapshot()
+    {
+        if (_app is null) return;
+        _fanControlKind = FanControlKinds.DiscreteEc;
+        _app.State.FanControlKind = _fanControlKind;
+        _app.State.ControlTemperatureC = 66;
+        _app.State.ApplyHardwareTelemetry(
+            [new FanTelemetrySnapshot("measured-shared", "Shared tachometer", 4400, "Measured provider fixture", true, true)], []);
+        ApplyProviderCopy(true, _fanControlKind);
+        ApplyCalibrationUi(new FanCalibrationUiState(true, false, true, 5, 5, "Five speeds measured"), true);
+        _syncingProfileSelection = true;
+        try
+        {
+            var choice = new FanProfileChoice("custom:measured-snapshot", "My curve");
+            _profileChoices.Add(choice);
+            ProfileComboBox.SelectedItem = choice;
+        }
+        finally { _syncingProfileSelection = false; }
+        _activeCurveGraph.SetCurve([new(35, 37), new(60, 43), new(75, 47), new(85, 100), new(92, 100)]);
+        _activeCurveGraph.SetLiveState(66, 45, 4400);
+        LiveCurveStatus.Text = "66.0 °C → 45% target, current speed: 4,400 RPM";
+        CoolingDetailText.Text = "My curve is active.";
+        AppliedLevelText.Text = "Approx. 47%";
+        CoolingOwnerText.Text = "Direct control";
+        ActiveCurvePreview.Visibility = System.Windows.Visibility.Visible;
+        AdvancedFanControlsExpander.IsExpanded = true;
+        UpdateLayout();
+    }
+
     /// <summary>
     /// Visual-QA only: makes the baseline discrete-provider fixture exercise the
     /// generic calibration prerequisite without teaching production UI about a

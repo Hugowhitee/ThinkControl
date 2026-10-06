@@ -152,6 +152,8 @@ internal static class Program
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}.png", "normal");
+        RenderAdvanced(app, charging, "System", 980, 650, output, snapshots,
+            "advanced-system-details-min.png", "live hardware details below shortcuts", systemDetails: true);
         RenderAdvanced(app, charging, "Home", 1160, 760, output, snapshots,
             "advanced-home-audio-media-lock.png", "Audio safety · Gesture lock", audioSafetyMode: AudioSafetyMode.MediaLock);
         RenderAdvanced(app, homeFanAuto, "Home", 1160, 760, output, snapshots,
@@ -216,6 +218,9 @@ internal static class Program
         RenderAdvanced(app, autoRecoveryOnly, "Fans", 980, 650, output, snapshots,
             "advanced-fans-auto-recovery-result-min.png", "last Auto recovery confirmed · profiles unavailable", fanRecoveryResult: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots, "advanced-fans-active-curve.png", "Balanced curve · live marker", fanActiveCurve: true);
+        foreach (var size in new[] { (980, 650, "min"), (1160, 760, "normal"), (1720, 980, "wide") })
+            RenderAdvanced(app, activeFanCurve, "Fans", size.Item1, size.Item2, output, snapshots,
+                $"advanced-fans-measured-{size.Item3}.png", "custom curve, shared reading, measured steps", fanMeasuredCurve: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
         RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
@@ -266,6 +271,11 @@ internal static class Program
 
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 1160, 760, output, snapshots, $"advanced-{page.ToLowerInvariant()}-light.png", "normal · light");
+        RenderAdvanced(app, charging, "System", 980, 650, output, snapshots,
+            "advanced-system-details-min-light.png", "live hardware details below shortcuts, light", systemDetails: true);
+        foreach (var size in new[] { (980, 650, "min"), (1160, 760, "normal"), (1720, 980, "wide") })
+            RenderAdvanced(app, activeFanCurve, "Fans", size.Item1, size.Item2, output, snapshots,
+                $"advanced-fans-measured-{size.Item3}-light.png", "custom curve, shared reading, measured steps, light", fanMeasuredCurve: true);
         foreach (string page in AdvancedPages)
             RenderAdvanced(app, charging, page, 980, 650, output, snapshots, $"advanced-{page.ToLowerInvariant()}-min-light.png", "minimum window · light");
         foreach (string page in AdvancedPages)
@@ -515,7 +525,9 @@ internal static class Program
         bool batteryCustom = false,
         bool modeFailure = false,
         bool fanRecoveryResult = false,
-        bool ruleEditor = false)
+        bool ruleEditor = false,
+        bool fanMeasuredCurve = false,
+        bool systemDetails = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -541,6 +553,9 @@ internal static class Program
         else
             window.Navigate(page);
 
+        // Drain real navigation callbacks before applying presentation fixtures.
+        window.Dispatcher.Invoke(() => { }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+
         // Page navigation refreshes a few Settings/Home selectors from the real app
         // state. Apply deterministic visual-only overrides after navigation so the
         // screenshot name and the actually rendered selection cannot disagree.
@@ -557,6 +572,7 @@ internal static class Program
         if (modeEditor && string.Equals(page, "Modes", StringComparison.OrdinalIgnoreCase))
             window.PrepareModesEditorForSnapshot();
         if (ruleEditor) window.PrepareRuleEditorForSnapshot();
+        if (systemDetails) window.PrepareSystemDetailsForSnapshot();
         if (modeFailure)
         {
             // Inject only the coordinator error state; no provider or saved mode is
@@ -580,6 +596,9 @@ internal static class Program
         {
             activeCurvePanel.PrepareActiveFanCurveForSnapshot();
         }
+
+        if (fanMeasuredCurve && window.FindName("PageFans") is System.Windows.Controls.ScrollViewer { Content: FansPanel measuredPanel })
+            measuredPanel.PrepareMeasuredCurveForSnapshot();
 
         if (fanManualTest &&
             string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&

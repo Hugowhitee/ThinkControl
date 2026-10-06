@@ -56,11 +56,12 @@ public sealed class Alpha50RuntimeSourceTests
         Assert.Contains("if (!force)", service, StringComparison.Ordinal);
         Assert.Contains("_osdSuppressor.Arm();", service, StringComparison.Ordinal);
         Assert.Contains("Process.GetProcessesByName(\"tposd\")", suppressor, StringComparison.Ordinal);
-        Assert.Contains("ShowWindow(hwnd, SwHide)", suppressor, StringComparison.Ordinal);
+        Assert.Contains("_setVisible(hwnd, false)", suppressor, StringComparison.Ordinal);
         Assert.Contains("WatchWindow = TimeSpan.FromMilliseconds(700)", suppressor, StringComparison.Ordinal);
         Assert.Contains("ProcessCacheLifetime = TimeSpan.FromSeconds(30)", suppressor, StringComparison.Ordinal);
         Assert.Contains("_osdSuppressor.Disarm();", service, StringComparison.Ordinal);
-        Assert.Contains("ShowWindow(hwnd, SwShowNoActivate)", suppressor, StringComparison.Ordinal);
+        Assert.Contains("_setVisible(hwnd, true)", suppressor, StringComparison.Ordinal);
+        Assert.Contains("DateTimeOffset.UtcNow >= _deadline", suppressor, StringComparison.Ordinal);
         Assert.Contains("generation != _generation", suppressor, StringComparison.Ordinal);
         Assert.DoesNotContain("LenovoUtility", suppressor, StringComparison.OrdinalIgnoreCase);
     }

@@ -60,21 +60,21 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
         Assert.Contains("bool nativeOemSafetyBoundary = _identity.IsVerifiedX9 && _nativeOemFanTelemetryConfirmed;", controller, StringComparison.Ordinal);
         Assert.Contains("bool ecAvailable = !nativeOemSafetyBoundary || needEcForThermals", controller, StringComparison.Ordinal);
         Assert.Contains("ResolveFanControlKind(oemFanControl)", controller, StringComparison.Ordinal);
-        Assert.Contains("The exact X9 EC path is intentionally telemetry/Auto-recovery only", controller, StringComparison.Ordinal);
+        Assert.Contains("Never enable bare EC levels merely because an OEM query failed", controller, StringComparison.Ordinal);
         Assert.Contains("transient provider miss must never silently", controller, StringComparison.Ordinal);
-        Assert.Contains("A transient telemetry miss cannot fall through to EC control", controller, StringComparison.Ordinal);
+        Assert.Contains("if (CanControlRegulatedFans) return LenovoFanControlKind.ThinkPadEcDiscrete", controller, StringComparison.Ordinal);
         Assert.Contains("Deliberately do not clear _nativeOemFanTelemetryConfirmed", controller, StringComparison.Ordinal);
         Assert.DoesNotContain("_nativeOemFanTelemetryConfirmed = false", controller, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void NativeX9_DisablesKnownInferiorEcWriterEvenBeforeOemTelemetryIsAvailable()
+    public void RegulatedX9_RequiresExactFirmwareAndReviewedNativeOwnership()
     {
         string controller = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
 
-        Assert.Contains("Raw EC fan steps are read-only on this X9", controller, StringComparison.Ordinal);
-        Assert.Contains("speed cycling and lower useful cooling than Lenovo Auto", controller, StringComparison.Ordinal);
-        Assert.DoesNotContain("_activeFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;", controller, StringComparison.Ordinal);
+        Assert.Contains("_identity.MachineType == \"21Q6\" && _exactFullSpeedFirmware", controller, StringComparison.Ordinal);
+        Assert.Contains("!CanControlRegulatedFans || _ec is null || !FanCalibrationStates.Contains(level)", controller, StringComparison.Ordinal);
+        Assert.Contains("_fullSpeedSession!.SetRegulatedState", controller, StringComparison.Ordinal);
         Assert.Contains("native fan writer pending validation", controller, StringComparison.Ordinal);
         Assert.Contains("Lenovo managed · OEM fan telemetry", controller, StringComparison.Ordinal);
     }
@@ -85,7 +85,7 @@ public sealed class LenovoEnergyDrvFanProviderSourceTests
         string controller = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoHardwareController.cs");
         string normalized = controller.Replace("\r\n", "\n", StringComparison.Ordinal);
 
-        Assert.DoesNotContain("_activeFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;", controller, StringComparison.Ordinal);
+        Assert.Contains("if (_fullSpeedSession?.Owned == true)", controller, StringComparison.Ordinal);
         Assert.Contains(
             "if (_activeFanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete && _ec is not null)",
             normalized,

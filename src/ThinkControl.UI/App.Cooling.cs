@@ -362,7 +362,8 @@ public partial class App
             return true;
         }
 
-        if (FanCalibrationState.Required)
+        if (FanCalibrationState.Required &&
+            (FanCalibrationState.Running || NormalizeProfileId(raw) != FanCurveDefaults.MaxCoolingId))
         {
             State.HardwareAccess = FanCalibrationState.Running
                 ? "Fan calibration currently owns the active fan provider. Finish or stop calibration before selecting a profile."
@@ -442,7 +443,8 @@ public partial class App
 
     private async Task<bool> ApplyFanCurveCoreAsync(FanCurveDefinition definition, bool persistSelection)
     {
-        if (FanCalibrationState.Required)
+        if (FanCalibrationState.Required &&
+            (FanCalibrationState.Running || definition.Id != FanCurveDefaults.MaxCoolingId))
         {
             State.HardwareAccess = FanCalibrationState.Running
                 ? "Fan calibration currently owns the active fan provider. Finish or stop calibration before applying a curve."

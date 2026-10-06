@@ -167,8 +167,13 @@ public partial class ModesPanel : UserControl
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
             foreach (int direction in new[] { -1, 1 })
             {
-                var move = InlineButton(direction < 0 ? "↑" : "↓", MoveRule_Click, (rule.Id, direction));
-                move.MinWidth = 30;
+                var move = new Button
+                {
+                    Content = new PackIconLucide { Kind = direction < 0 ? "ChevronUp" : "ChevronDown", Width = 20, Height = 20 },
+                    Tag = (rule.Id, direction),
+                    Style = TryFindResource("TcInlineIconButton") as Style
+                };
+                move.Click += MoveRule_Click;
                 move.Margin = new Thickness(0, 0, 5, 0);
                 int peer = position + direction;
                 move.IsEnabled = peer >= 0 && peer < ordered.Length && ordered[peer].Priority == rule.Priority;
@@ -1072,6 +1077,11 @@ public partial class ModesPanel : UserControl
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => EndEdit();
+
+    internal void ResetNavigationView()
+    {
+        if (!_busy) EndEdit();
+    }
 
     private async void Save_Click(object sender, RoutedEventArgs e)
     {

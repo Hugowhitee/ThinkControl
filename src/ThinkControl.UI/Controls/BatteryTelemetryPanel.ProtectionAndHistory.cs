@@ -299,7 +299,7 @@ public partial class BatteryTelemetryPanel
         !available
             ? "Battery aging cannot be estimated from unavailable charge settings."
             : enabled == true
-                ? "A lower charge limit reduces time near full. Heat and battery age also matter."
+                ? "A lower charge limit reduces battery stress at high charge levels. Wear also depends on heat, charge cycles and age."
                 : "Staying near 100% for long periods may speed aging, especially when warm.";
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>

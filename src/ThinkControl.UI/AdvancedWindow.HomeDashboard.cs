@@ -288,19 +288,18 @@ public partial class AdvancedWindow
             Grid? heading = stack.Children.OfType<Grid>().FirstOrDefault();
             StackPanel? title = heading?.Children.OfType<StackPanel>()
                 .FirstOrDefault(panel => panel.Orientation == Orientation.Horizontal);
-            if (title is not null && !title.Children.OfType<TextBlock>().Any(text => Equals(text.Tag, "ThinkControl.InternalChevron")))
+            if (title is not null && !title.Children.OfType<PackIconLucide>().Any(icon => Equals(icon.Tag, "ThinkControl.InternalChevron")))
             {
-                var chevron = new TextBlock
+                var chevron = new PackIconLucide
                 {
                     Tag = "ThinkControl.InternalChevron",
-                    Text = "›",
-                    FontSize = TypographyScale.SectionTitle,
-                    FontWeight = FontWeights.SemiBold,
-                    Margin = new Thickness(7, -1, 0, 0),
+                    Kind = "ChevronRight",
+                    Width = 18, Height = 18,
+                    Margin = new Thickness(5, 0, 0, 0),
                     VerticalAlignment = VerticalAlignment.Center,
                     IsHitTestVisible = false
                 };
-                chevron.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+                chevron.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
                 title.Children.Add(chevron);
             }
         }

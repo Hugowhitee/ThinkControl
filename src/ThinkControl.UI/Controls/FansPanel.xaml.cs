@@ -170,6 +170,8 @@ public partial class FansPanel : UserControl
                     : UsesFirmwarePolicy ? "Lenovo firmware controls the fan speed." : "Direct fan control is available."
                 : _app?.State.CoolingAvailabilityText ?? DescribeUnavailable(hasTelemetry);
         CoolingDetailText.ToolTip = !canControl ? telemetry?.HardwareAccess ?? _app?.LastCoolingError : null;
+        CoolingDetailText.SetResourceReference(TextBlock.ForegroundProperty,
+            _app?.LastCoolingError is null ? "Tc.TextMuted" : "Tc.Accent");
         CoolingOwnerText.Text = canControl
             ? UsesFirmwarePolicy ? "Lenovo firmware" : "Direct control"
             : "Unavailable";
@@ -199,9 +201,7 @@ public partial class FansPanel : UserControl
             if (_fanControlKind == FanControlKinds.OemTargetRpm && telemetry.CoolingAppliedLevel is null)
                 AppliedLevelText.Text = $"{percent}% OEM target";
             else
-                AppliedLevelText.Text = telemetry.CoolingAppliedLevel is int step
-                    ? $"{percent}% (state {step})"
-                    : $"{percent}%";
+                AppliedLevelText.Text = $"Approx. {percent}%";
         }
         else if (telemetry?.CoolingAppliedLevel is int legacyLevel)
         {
@@ -270,7 +270,7 @@ public partial class FansPanel : UserControl
             : Visibility.Collapsed;
 
         bool semanticControlsEnabled = canControl && ready;
-        ProfileComboBox.IsEnabled = semanticControlsEnabled;
+        ProfileComboBox.IsEnabled = canControl && !running;
         EditCurvesButton.IsEnabled = semanticControlsEnabled;
         EditCurvesButton.Visibility = semanticControlsEnabled ? Visibility.Visible : Visibility.Collapsed;
         ProfileCard.Opacity = 1;
@@ -285,7 +285,7 @@ public partial class FansPanel : UserControl
         {
             CoolingDetailText.Text = running
                 ? "Calibration currently owns fan output. Profile controls return after the run finishes or is stopped."
-                : "Firmware Auto remains active until the provider's calibration requirement is satisfied.";
+                : "Measure fan speeds to enable curves. Auto and Max remain available.";
         }
     }
 
@@ -298,9 +298,11 @@ public partial class FansPanel : UserControl
         FanLevelCalibrationSnapshot? maximum = characterization.Levels.MaxBy(static level => level.Level);
         double? maximumRpm = maximum?.Fans.Count > 0 ? maximum.Fans.Average(fan => fan.MedianRpm) : null;
 
+        int speedIndex = 0;
         foreach (FanLevelCalibrationSnapshot point in characterization.Levels.OrderBy(level => level.Level))
         {
-            string label = $"Output state {point.Level}";
+            string label = point.Level == maximum?.Level && characterization.Levels.Count == characterization.TotalLevels
+                ? "Max" : $"Speed {++speedIndex}";
             string rpm;
             if (point.Fans.Count == 0)
             {
@@ -403,6 +405,8 @@ public partial class FansPanel : UserControl
         if (UsesFirmwarePolicy)
             profiles = profiles.Where(profile => _app.FanProfiles.IsBuiltIn(profile.Id));
         profiles = profiles.Where(profile => FanControlKinds.SupportsProfile(_fanControlKind, profile.Id));
+        if (_app.FanCalibrationState.Required)
+            profiles = profiles.Where(profile => profile.Id == FanCurveDefaults.MaxCoolingId);
         desired.AddRange(profiles.Select(profile => new FanProfileChoice(profile.Id, profile.Name)));
 
         if (_profileChoices.SequenceEqual(desired))
@@ -462,7 +466,7 @@ public partial class FansPanel : UserControl
 
     private void ProfileComboBox_DropDownOpened(object sender, EventArgs e)
     {
-        if (_app is null || _app.FanCalibrationState.Required)
+        if (_app is null || _app.FanCalibrationState.Running)
             return;
         SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
         ProfileComboBox.IsDropDownOpen = true;
@@ -492,7 +496,7 @@ public partial class FansPanel : UserControl
         {
             ProfileComboBox.IsEnabled =
                 _app.State.CanFanControl &&
-                !_app.FanCalibrationState.Required;
+                !_app.FanCalibrationState.Running;
         }
     }
 
@@ -596,17 +600,19 @@ public partial class FansPanel : UserControl
                     ? "Custom curves and temporary fan tests are available."
                     : "Advanced controls depend on the active fan controller.";
         FanProviderDetailText.ToolTip = null;
+        if (discreteEcWriter)
+            FanMappingDetailText.Text = "Targets use the next measured speed. 0% keeps the fan running; gaps between available speeds can be large.";
 
         // Raw EC diagnostics exist only for a provider that explicitly advertises
         // the discrete-EC semantic contract. They are never a generic laptop option.
-        RawEcStepsExpander.Visibility = discreteEcWriter ? Visibility.Visible : Visibility.Collapsed;
+        RawEcStepsExpander.Visibility = Visibility.Collapsed;
         ManualControlExpander.Visibility = directWriter ? Visibility.Visible : Visibility.Collapsed;
         ManualControlDescriptionText.Text = firmwarePolicy
             ? "Manual percentage tests are intentionally unavailable on the firmware-policy backend. Use the built-in profiles above; they keep Lenovo's own smooth fan loop in control."
             : oemTargetRpm
                 ? "Temporary 30-second test. 0% requests the provider-reported minimum running target and 100% its reported maximum target RPM; the previous profile is restored automatically. Firmware Auto remains a separate ownership state."
                 : discreteEcWriter
-                    ? "Temporary 30-second test. The percentage target maps onto the provider's calibrated discrete states; raw EC diagnostics remain available below for this provider only. The previous profile is restored automatically."
+                    ? "Try a measured speed for 30 seconds. Targets use the next available speed; low targets keep the fan running. The previous profile is restored afterwards."
                     : "Temporary tests use only the active provider's verified output range and restore the previous profile automatically. Provider-specific raw diagnostics appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = directWriter;
         EditCurvesButton.IsEnabled = directWriter && !_app?.FanCalibrationState.Required == true;
