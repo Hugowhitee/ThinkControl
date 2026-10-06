@@ -72,6 +72,9 @@ internal sealed class ThinkPadEc : IDisposable
     // managed-mode test candidate and must not be touched merely because the app is open.
     internal byte ReadFanControl() => WithEcLock(() => ReadByteUnlocked(ThinkPadRegisters.FanControl));
 
+    internal void SetVerifiedFirmwareFullSpeed() =>
+        SetFanControlVerified(0x40, value => value == 0x40, "firmware full-speed");
+
     // Released builds used the shared tachometer without selector writes. Preserve that
     // path for Lenovo Auto so opening ThinkControl cannot disturb otherwise smooth OEM control.
     internal int ReadFanRpm() => WithEcLock(ReadFanRpmUnlocked);
@@ -80,6 +83,7 @@ internal sealed class ThinkPadEc : IDisposable
     {
         return WithEcLock(() =>
         {
+            byte originalSelector = (byte)(ReadByteUnlocked(ThinkPadRegisters.FanSelector) & 0x01);
             try
             {
                 int main = ReadSelectedFanRpmUnlocked(ThinkPadRegisters.MainFan);
@@ -88,7 +92,7 @@ internal sealed class ThinkPadEc : IDisposable
             }
             finally
             {
-                TrySelectMainFanUnlocked();
+                SelectFanUnlocked(originalSelector);
             }
         });
     }
@@ -153,16 +157,28 @@ internal sealed class ThinkPadEc : IDisposable
         }
     }
 
-    internal void ReturnToBios()
+    internal void ReturnToBios(bool releaseFullSpeedLatch = false)
     {
         try
         {
             WithEcLock(() =>
             {
-                WriteAndVerifyFanControlUnlocked(
-                    ThinkPadRegisters.BiosControl,
-                    readBack => readBack == ThinkPadRegisters.BiosControl,
-                    "Lenovo Auto");
+                try
+                {
+                    WriteAndVerifyFanControlUnlocked(ThinkPadRegisters.BiosControl,
+                        value => value == ThinkPadRegisters.BiosControl, "Lenovo Auto");
+                }
+                // The inspected firmware sometimes keeps 0x40 latched after an
+                // acknowledged Auto write. Release through its known high running
+                // state only when a fresh read still proves that exact latch.
+                catch when ((releaseFullSpeedLatch || _lastManualControl == 0x40) &&
+                            ReadByteUnlocked(ThinkPadRegisters.FanControl) == 0x40)
+                {
+                    WriteAndVerifyFanControlUnlocked(7, value => value == 7, "full-speed release");
+                    Thread.Sleep(1000);
+                    WriteAndVerifyFanControlUnlocked(ThinkPadRegisters.BiosControl,
+                        value => value == ThinkPadRegisters.BiosControl, "Lenovo Auto");
+                }
                 return 0;
             });
         }
@@ -227,14 +243,16 @@ internal sealed class ThinkPadEc : IDisposable
 
     private void SelectFanUnlocked(byte selector)
     {
-        WriteByteUnlocked(ThinkPadRegisters.FanSelector, selector);
+        // 0x31 also contains HUWB, VPON and VRST firmware fields. Only bit zero
+        // selects a tachometer; never replace the whole byte with 0 or 1.
+        byte current = ReadByteUnlocked(ThinkPadRegisters.FanSelector);
+        byte requested = ThinkPadFanProtocol.WithFanSelector(current, selector);
+        if (requested == current)
+            return;
+        WriteByteUnlocked(ThinkPadRegisters.FanSelector, requested);
         Thread.Sleep(FanSelectorSettleMs);
-    }
-
-    private void TrySelectMainFanUnlocked()
-    {
-        try { SelectFanUnlocked(ThinkPadRegisters.MainFan); }
-        catch { }
+        if ((ReadByteUnlocked(ThinkPadRegisters.FanSelector) & 0x01) != selector)
+            throw new InvalidOperationException("Fan tachometer selection was not verified.");
     }
 
     private void DetectPortPair()

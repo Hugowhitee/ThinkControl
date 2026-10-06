@@ -100,7 +100,7 @@ public partial class BatteryTelemetryPanel
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom · {selectedStop}% limit · resume {selectedStart}%",
+                    Content = $"Custom: {selectedStart}–{selectedStop}%",
                     Tag = $"custom:{selectedStart},{selectedStop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
@@ -133,15 +133,17 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable
                 ? $"{stop}% limit active"
-                : $"{stop}% limit · read-only";
+                : $"{stop}% limit (read-only)";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
             ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: true, available: true);
         }
 
         ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
 
-        ChargeProtectionProviderText.Text = telemetry?.BatteryChargeProtectionDetail ??
-            "Verified OEM charge-threshold provider.";
+        ChargeProtectionProviderText.Text = available
+            ? "This battery controller can read charge limits but cannot change them."
+            : "Charge limits are unavailable. Check your device's battery settings.";
+        ChargeProtectionProviderText.ToolTip = telemetry?.BatteryChargeProtectionDetail;
         ChargeProtectionProviderText.Visibility =
             !available || !_batteryProtectionWritable ? Visibility.Visible : Visibility.Collapsed;
         ChargeProtectionFallbackButton.Visibility = _batteryProtectionWritable ? Visibility.Collapsed : Visibility.Visible;
@@ -394,7 +396,7 @@ public partial class BatteryTelemetryPanel
         {
             _syncingHistoryRetention = false;
         }
-        HistoryStorageSummaryText.Text = $"Detailed graphs: {days} days · compact summaries: 1 year · learned estimates remain available after automatic compaction";
+        HistoryStorageSummaryText.Text = $"Detailed graphs are kept for {days} days, daily summaries for one year. Learned estimates are retained.";
     }
 
     private void BatteryHistoryRetention_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -423,7 +425,7 @@ public partial class BatteryTelemetryPanel
         bool hasOlder = availableDays > 7;
         HistoryRangeButton.Visibility = hasOlder ? Visibility.Visible : Visibility.Collapsed;
         HistoryRangeButton.Content = _historyVisibleDays <= 7
-            ? $"Show older{(availableDays > 7 ? $" · {Math.Min(7, availableDays - 7)} more days" : string.Empty)}"
+            ? $"Show older{(availableDays > 7 ? $" ({Math.Min(7, availableDays - 7)} more days)" : string.Empty)}"
             : "Show recent 7 days";
     }
 
@@ -434,7 +436,7 @@ public partial class BatteryTelemetryPanel
 
         MessageBoxResult answer = MessageBox.Show(
             "Reset all ThinkControl battery history?\n\nThis deletes local session summaries, detailed graphs, the health trend and ThinkControl's learned charge/discharge estimates. Current firmware battery health, cycle count and charge protection are not changed.\n\nThinkControl will learn new estimates automatically from future use.",
-            "ThinkControl · Reset battery history",
+            "ThinkControl: Reset battery history",
             MessageBoxButton.YesNo,
             MessageBoxImage.Warning);
         if (answer != MessageBoxResult.Yes)

@@ -74,8 +74,8 @@ public partial class TouchpadPanel
         SyncGestureZoneOverlay();
         SyncTrackCenterOption();
         GestureStatusText.Text = enabled
-            ? "Track control · Previous / Play-Pause / Next."
-            : "Track control · Previous / Next only.";
+            ? "Track controls: Previous, Play/Pause and Next."
+            : "Track controls: Previous and Next.";
     }
 
     private static void EnsureValueColumnWidth(TextBlock value, double minimumWidth)

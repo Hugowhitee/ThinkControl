@@ -177,8 +177,8 @@ internal sealed class FanSupervisor : IDisposable
             _managedFanControlKind = status.FanControlKind;
             _safetyOverride = false;
             _status = status.FanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm
-                ? $"{name} fan curve active · continuous targets use Lenovo OEM target-RPM control"
-                : $"{name} fan curve active · targets map to verified X9 EC fan states";
+                ? $"{name} curve active: Lenovo target RPM control"
+                : $"{name} curve active: measured EC states";
             _lastOutputChange = DateTimeOffset.MinValue;
             ClearPendingTransitionLocked();
         }
@@ -263,7 +263,7 @@ internal sealed class FanSupervisor : IDisposable
             _smoothedTemperatureC = preflight.ControlTemperatureC!.Value;
             _managedFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;
             _safetyOverride = false;
-            _status = $"Manual EC step {level} · ~{estimated}% of verified EC range · {preflight.ControlTemperatureC.Value:0.#} °C";
+            _status = $"Manual EC state: {level}, approximately {estimated}% of measured normal range, temperature: {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
             ClearPendingTransitionLocked();
         }
@@ -313,7 +313,7 @@ internal sealed class FanSupervisor : IDisposable
             _smoothedTemperatureC = preflight.ControlTemperatureC!.Value;
             _managedFanControlKind = preflight.FanControlKind;
             _safetyOverride = false;
-            _status = $"Manual {percent}% target · {hardwareDetail} · {preflight.ControlTemperatureC.Value:0.#} °C";
+            _status = $"Manual target: {percent}%, {hardwareDetail}, temperature: {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
             ClearPendingTransitionLocked();
         }
@@ -406,8 +406,8 @@ internal sealed class FanSupervisor : IDisposable
             _characterizationLevel = 7;
             _characterizationCandidate.Clear();
             _characterizationStatus = _calibration.Count == 7
-                ? "Safety spin-up · existing calibration stays active until the new 7-step run verifies"
-                : "Safety spin-up · collecting a complete verified 7-step calibration";
+                ? "Measuring fan states. Existing calibration stays active until all 7 states are verified."
+                : "Measuring all 7 fan states.";
             CancellationToken token = _characterizationCts.Token;
             _characterizationTask = Task.Run(() => CharacterizeAsync(token), token);
         }
@@ -444,8 +444,8 @@ internal sealed class FanSupervisor : IDisposable
             _characterizationRunning = false;
             _characterizationLevel = null;
             _characterizationStatus = _calibration.Count == 7
-                ? "Calibration stopped · previous verified calibration kept · returning to Lenovo Auto"
-                : "Calibration stopped · no partial calibration saved · returning to Lenovo Auto";
+                ? "Calibration stopped. Previous calibration retained; returning to Auto."
+                : "Calibration stopped. No partial results saved; returning to Auto.";
         }
         try { cts?.Cancel(); } catch { }
 
@@ -469,13 +469,17 @@ internal sealed class FanSupervisor : IDisposable
         return success;
     }
 
+    internal void WakeForHardwareLease() => SignalControlWake();
+
     private async Task LoopAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested)
         {
+            _hardware.CheckFullSpeedSession();
             bool active;
             lock (_gate)
                 active = _activeCurve is not null || _manualLevel.HasValue || _manualPercent.HasValue || _characterizationRunning;
+            active |= _hardware.OwnsExactFullSpeed;
 
             if (!active)
             {
@@ -552,15 +556,15 @@ internal sealed class FanSupervisor : IDisposable
                 _smoothedTemperatureC = raw;
                 if (manualPercent.HasValue && _managedFanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm)
                 {
-                    _status = $"Manual {manualPercent.Value}% target · Lenovo OEM target-RPM control · {raw:0.#} °C";
+                    _status = $"Manual target: {manualPercent.Value}%, Lenovo target RPM control, temperature: {raw:0.#} °C";
                 }
                 else if (manualPercent.HasValue)
                 {
-                    _status = $"Manual {manualPercent.Value}% target · {_appliedPercent ?? 0}% calibrated EC output · {raw:0.#} °C";
+                    _status = $"Manual target: {manualPercent.Value}%, measured EC output: {_appliedPercent ?? 0}%, temperature: {raw:0.#} °C";
                 }
                 else
                 {
-                    _status = $"Manual EC step {manualLevel!.Value} · ~{_appliedPercent ?? 0}% of verified EC range · {raw:0.#} °C";
+                    _status = $"Manual EC state: {manualLevel!.Value}, approximately {_appliedPercent ?? 0}% of measured normal range, temperature: {raw:0.#} °C";
                 }
             }
             return;
@@ -572,7 +576,7 @@ internal sealed class FanSupervisor : IDisposable
         {
             if (!FanCurvePolicy.CanResumeAfterSafetyHandoff(raw))
             {
-                lock (_gate) _status = $"Safety handoff · Lenovo firmware control · {raw:0.#} °C";
+                lock (_gate) _status = $"Firmware resumed cooling for safety. Temperature: {raw:0.#} °C";
                 return;
             }
             lock (_gate)
@@ -641,7 +645,7 @@ internal sealed class FanSupervisor : IDisposable
             shouldWrite = ShouldCommitOemPercentTransitionLocked(currentPercent, requestedPercent, raw, now);
             _curveTargetPercent = requestedPercent;
             if (!shouldWrite)
-                _status = DescribeOemCurveOutput(curve.Name, requestedPercent, smooth) + " · stabilizing";
+                _status = DescribeOemCurveOutput(curve.Name, requestedPercent, smooth) + ". Settling.";
         }
         if (!shouldWrite)
             return;
@@ -667,7 +671,7 @@ internal sealed class FanSupervisor : IDisposable
             _managedFanControlKind = LenovoFanControlKind.LenovoOtherModeTargetRpm;
             _lastOutputChange = now;
             ClearPendingTransitionLocked();
-            _status = $"{DescribeOemCurveOutput(curve.Name, requestedPercent, smooth)} · {detail}";
+            _status = $"{DescribeOemCurveOutput(curve.Name, requestedPercent, smooth)}. {detail}";
         }
     }
 
@@ -699,7 +703,7 @@ internal sealed class FanSupervisor : IDisposable
         {
             shouldWrite = ShouldCommitDiscreteTransitionLocked(currentState, desired.HardwareState, raw, now);
             if (!shouldWrite)
-                _status = $"{DescribeDiscreteCurveOutput(curve.Name, requestedPercent, desired, smooth)} · stabilizing";
+                _status = $"{DescribeDiscreteCurveOutput(curve.Name, requestedPercent, desired, smooth)}. Settling.";
         }
         if (!shouldWrite)
             return;
@@ -791,10 +795,10 @@ internal sealed class FanSupervisor : IDisposable
     }
 
     private static string DescribeDiscreteCurveOutput(string name, int target, FanOutputMapping.State state, double temperature) =>
-        $"{name} · {target}% target · ~{state.EstimatedPercent}% verified EC output · EC step {state.HardwareState} · {temperature:0.#} °C";
+        $"{name}: target {target}%, approximately {state.EstimatedPercent}% of measured normal range, EC state {state.HardwareState}, temperature: {temperature:0.#} °C";
 
     private static string DescribeOemCurveOutput(string name, int target, double temperature) =>
-        $"{name} · {target}% target · Lenovo OEM target-RPM control · {temperature:0.#} °C";
+        $"{name}: target {target}%, Lenovo target RPM control, temperature: {temperature:0.#} °C";
 
     private static string DescribeControlKind(LenovoFanControlKind kind) => kind switch
     {
@@ -821,14 +825,14 @@ internal sealed class FanSupervisor : IDisposable
             if (preserveCurve && _activeCurve is not null)
             {
                 _safetyOverride = true;
-                _status = reason + " · Lenovo firmware owns cooling temporarily";
+                _status = reason + ". Firmware is temporarily controlling cooling.";
             }
             else
             {
                 _activeCurve = null;
                 _safetyOverride = false;
                 _smoothedTemperatureC = null;
-                _status = reason + " · returned to Lenovo Auto";
+                _status = reason + ". Returned to Auto.";
             }
         }
     }
@@ -850,7 +854,7 @@ internal sealed class FanSupervisor : IDisposable
                     if (!_characterizationRunning)
                         return;
                     _characterizationLevel = state;
-                    _characterizationStatus = $"Testing EC step {state} of 7 · settling before three tachometer samples";
+                    _characterizationStatus = $"Measuring EC state {state} of 7: waiting for a stable speed";
                 }
 
                 _ = ReadCalibrationSampleOrThrow();
@@ -878,8 +882,8 @@ internal sealed class FanSupervisor : IDisposable
                     _characterizationCandidate.Add(point);
                     string label = $"EC step {state}";
                     _characterizationStatus = point.Stable
-                        ? $"{label}: stable · {_characterizationCandidate.Count}/7 measured"
-                        : $"{label}: variable RPM · {_characterizationCandidate.Count}/7 measured; validation continues";
+                        ? $"{label}: stable. {_characterizationCandidate.Count} of 7 states measured."
+                        : $"{label}: speed varies. {_characterizationCandidate.Count} of 7 states measured; checking continues.";
                 }
             }
 
@@ -896,8 +900,8 @@ internal sealed class FanSupervisor : IDisposable
                 foreach (FanLevelCalibrationSnapshot level in candidate.Where(level => !level.Stable))
                     _unstableLevels.Add(level.Level);
                 _characterizationStatus = _unstableLevels.Count == 0
-                    ? "Calibration verified · three tachometer samples per EC step · percentage mapping updated"
-                    : $"Calibration verified · {_unstableLevels.Count} variable state(s) recorded and skipped upward when needed";
+                    ? "Calibration verified. Three speed readings per state; mapping updated."
+                    : $"Calibration verified. {_unstableLevels.Count} variable states recorded; higher states are used when needed.";
             }
             SaveCalibration();
         }
@@ -908,8 +912,8 @@ internal sealed class FanSupervisor : IDisposable
                 if (!_characterizationStatus.StartsWith("Calibration stopped", StringComparison.Ordinal))
                 {
                     _characterizationStatus = _calibration.Count == 7
-                        ? "Calibration cancelled · previous verified calibration kept"
-                        : "Calibration cancelled · no partial calibration saved";
+                        ? "Calibration cancelled. Previous calibration retained."
+                        : "Calibration cancelled. No partial results saved.";
                 }
             }
         }
@@ -918,9 +922,9 @@ internal sealed class FanSupervisor : IDisposable
             lock (_gate)
             {
                 string preserved = _calibration.Count == 7
-                    ? " · previous verified calibration kept"
-                    : " · no partial calibration saved";
-                _characterizationStatus = $"Calibration stopped safely · {ex.Message}{preserved}";
+                    ? ". Previous calibration retained."
+                    : ". No partial results saved.";
+                _characterizationStatus = $"Calibration stopped: {ex.Message}{preserved}";
             }
         }
         finally
@@ -1011,7 +1015,7 @@ internal sealed class FanSupervisor : IDisposable
     {
         bool levelSuccess = _hardware.SetFanLevel(state.HardwareState, out error);
         detail = levelSuccess
-            ? $"~{state.EstimatedPercent}% calibrated EC output · EC step {state.HardwareState}"
+            ? $"approximately {state.EstimatedPercent}% of measured normal range (EC state {state.HardwareState})"
             : null;
         return levelSuccess;
     }
@@ -1158,7 +1162,7 @@ internal sealed class FanSupervisor : IDisposable
             FanLevelCalibrationSnapshot[] levels = stored.Levels ?? [];
             if (!TryValidateCalibration(levels, out string? validationError))
             {
-                _characterizationStatus = "Stored fan calibration ignored · " + (validationError ?? "invalid calibration data");
+                _characterizationStatus = "Stored fan calibration unavailable: " + (validationError ?? "invalid calibration data");
                 return;
             }
 

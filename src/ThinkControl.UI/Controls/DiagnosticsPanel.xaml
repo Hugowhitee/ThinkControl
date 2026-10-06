@@ -102,7 +102,7 @@
                                Foreground="{DynamicResource Tc.TextMuted}"
                                TextWrapping="Wrap"
                                Margin="0,6,0,0" />
-                    <TextBlock x:Name="CrashStateText" Text="Ready to review locally · nothing has been uploaded."
+                    <TextBlock x:Name="CrashStateText" Text="Ready to review. Nothing has been uploaded."
                                FontSize="{x:Static ui:TypographyScale.Caption}"
                                Foreground="{DynamicResource Tc.TextMuted}"
                                Margin="0,5,0,0" />

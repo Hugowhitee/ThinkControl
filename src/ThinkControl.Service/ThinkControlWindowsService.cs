@@ -14,6 +14,7 @@ internal sealed class ThinkControlWindowsService : ServiceBase
         ServiceName = "ThinkControlService";
         CanStop = true;
         CanShutdown = true;
+        CanHandlePowerEvent = true;
         CanPauseAndContinue = false;
         AutoLog = false;
     }
@@ -57,6 +58,15 @@ internal sealed class ThinkControlWindowsService : ServiceBase
     {
         ServiceLog.Write("Windows shutdown requested service stop.");
         StopEngine();
+    }
+
+    protected override bool OnPowerEvent(PowerBroadcastStatus powerStatus)
+    {
+        if (powerStatus == PowerBroadcastStatus.Suspend)
+        {
+            lock (_gate) _engine?.PrepareForSuspend();
+        }
+        return true;
     }
 
     private void StopEngine()

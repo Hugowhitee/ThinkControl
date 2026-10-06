@@ -66,7 +66,7 @@ internal static class DeviceSupportReportService
                 0,
                 0,
                 "Supported device",
-                "Known profile · compatibility learning is skipped; only bounded local troubleshooting history remains active",
+                "Supported device. Local troubleshooting history is available.",
                 null);
             Cache(state, verified);
             return verified;
@@ -93,16 +93,16 @@ internal static class DeviceSupportReportService
 
         string label = phase switch
         {
-            DeviceSupportPhase.Learning => "New device · learning",
+            DeviceSupportPhase.Learning => "New device: learning",
             DeviceSupportPhase.ReadyToShare => "Device report ready",
             DeviceSupportPhase.Shared => "Device report shared",
             _ => "Supported device"
         };
         string detail = phase switch
         {
-            DeviceSupportPhase.Learning => $"{completed}/{total} checks · learning continues quietly while you use ThinkControl",
-            DeviceSupportPhase.ReadyToShare => "Background learning found stable compatibility evidence · review one redacted report",
-            DeviceSupportPhase.Shared => "Shared · no new compatibility findings since the current report was handled",
+            DeviceSupportPhase.Learning => $"{completed} of {total} checks completed. Learning continues in the background.",
+            DeviceSupportPhase.ReadyToShare => "Compatibility report ready. Review it before sharing.",
+            DeviceSupportPhase.Shared => "Report shared. No new compatibility findings. since the current report was handled",
             _ => "Known profile"
         };
 
@@ -182,11 +182,11 @@ internal static class DeviceSupportReportService
         body.AppendLine($"- BIOS: `{Safe(biosVersion, "unknown")}`");
         body.AppendLine();
         body.AppendLine("### Compatibility evidence");
-        body.AppendLine($"- Sensor telemetry: `{YesNo(state.CanSensorTelemetry)}` · types: `{Join(sensorTypes)}`");
-        body.AppendLine($"- CPU/control temperature: `{YesNo(state.CanCpuTemperature)}` · source: `{ProviderFamily(state.ControlTemperatureSource)}`");
+        body.AppendLine($"- Sensor telemetry: `{YesNo(state.CanSensorTelemetry)}`, types: `{Join(sensorTypes)}`");
+        body.AppendLine($"- CPU/control temperature: `{YesNo(state.CanCpuTemperature)}`, source: `{ProviderFamily(state.ControlTemperatureSource)}`");
         body.AppendLine($"- Fan telemetry: `{YesNo(state.CanFanTelemetry)}`");
-        body.AppendLine($"- Fan control advertised: `{YesNo(state.CanFanControl)}` · exercised: `{YesNo(exercised.Contains("fan", StringComparer.OrdinalIgnoreCase))}`");
-        body.AppendLine($"- Keyboard backlight advertised: `{YesNo(state.CanKeyboardBacklight)}` · exercised: `{YesNo(exercised.Contains("keyboard", StringComparer.OrdinalIgnoreCase))}`");
+        body.AppendLine($"- Fan control advertised: `{YesNo(state.CanFanControl)}`, exercised: `{YesNo(exercised.Contains("fan", StringComparer.OrdinalIgnoreCase))}`");
+        body.AppendLine($"- Keyboard backlight advertised: `{YesNo(state.CanKeyboardBacklight)}`, exercised: `{YesNo(exercised.Contains("keyboard", StringComparer.OrdinalIgnoreCase))}`");
         body.AppendLine($"- Provider families: `{Join(providers)}`");
         body.AppendLine($"- Recent exercised areas: `{Join(exercised)}`");
         body.AppendLine($"- Grouped recent failures: `{Join(failures)}`");
@@ -285,7 +285,7 @@ internal static class DeviceSupportReportService
     }
 
     private static bool HasExercise(IEnumerable<DiagnosticEvent> events, string capability) =>
-        events.Any(item => item.Success == true && item.ReadBackVerified != false &&
+        events.Any(item => item.Success == true && item.ReadBackVerified == true &&
                            string.Equals(item.Capability, capability, StringComparison.OrdinalIgnoreCase));
 
     private static IEnumerable<string> ExercisedCapabilities(IEnumerable<DiagnosticEvent> events)

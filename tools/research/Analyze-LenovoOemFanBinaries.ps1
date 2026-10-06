@@ -16,11 +16,11 @@ $ErrorActionPreference = "Stop"
 # so an exact X9 command path can be reverse-engineered before any new writer exists.
 
 $knownIoctls = [ordered]@{
-    dustRemovalWrite = [uint32]0x831020C0
-    fanStateQuery = [uint32]0x831020C4
-    legacyItsFullSpeed = [uint32]0x8310213C
-    queryFanSpeed = [uint32]0x83102570
-    changeFanSpeed = [uint32]0x8310257C
+    dustRemovalWrite = [uint32]0x831020C0L
+    fanStateQuery = [uint32]0x831020C4L
+    legacyItsFullSpeed = [uint32]0x8310213CL
+    queryFanSpeed = [uint32]0x83102570L
+    changeFanSpeed = [uint32]0x8310257CL
 }
 
 $keywords = @(
@@ -113,7 +113,7 @@ function Find-BytePatternOffsets {
         $hits.Add($offset)
         if ($hits.Count -ge $Limit) { break }
     }
-    return @($hits)
+    return $hits.ToArray()
 }
 
 function Convert-HexContext {
@@ -203,7 +203,7 @@ function Get-PrintableStrings {
         }
     }
 
-    return @($results)
+    return $results.ToArray()
 }
 
 function Get-NearbyRelevantStrings {
@@ -336,6 +336,8 @@ try {
         }
         scannedFiles = $files.Count
         interestingFiles = $interesting.Count
+        failedFiles = @($analyses | Where-Object { $_.error -ne "" }).Count
+        failures = @($analyses | Where-Object { $_.error -ne "" })
         files = $interesting
     }
 

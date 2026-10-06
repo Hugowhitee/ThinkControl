@@ -4,6 +4,10 @@ This file is the durable handoff for future ThinkControl UI/design chats. Read i
 
 ## Product direction
 
+Ordinary status is a short sentence stating availability or a failed action and its next step. Never bind raw provider/error dumps into page summaries or ellipsis footers. System's explicit technical disclosure keeps full diagnostic evidence as separate lines. Auto/Max-only providers expose only those choices, hide unavailable advanced controls, and keep Home's Max control usable directly from Auto. The sidebar fades into its surface at the bottom only when content remains below; it does not cover the scrollbar or block input.
+
+Use a colon for a label and value, parentheses for a short qualifier, and normal sentences for an outcome and next action. Avoid middle-dot chains in ordinary controls, statuses, tooltips and notifications. History summaries name the quantity (average power, energy, drain rate); longer captions wrap beneath their heading rather than competing on one row. Raw diagnostic encoding remains unchanged behind the technical disclosure.
+
 ThinkControl should feel like a precise Windows hardware instrument, not a generic SaaS dashboard. The visual language is restrained, compact and technical with Dieter Rams/Braun-style clarity: strong alignment, thin separators, few surfaces, clear hierarchy, deliberate states and little permanent helper copy.
 
 The ThinkControl logo/brand, existing dark/light tokens, shared Advanced page header, current navigation grammar and compact Windows-native interaction style remain product identity. Figma is a design workspace, not a reason to replace those foundations with a new design language.
@@ -18,9 +22,11 @@ Do not redesign these merely to make a Figma file look more complete:
 - the Compact/Advanced product split;
 - the current ThinkControl logo and restrained accent system;
 - semantic disabled/selected/focus states already defined in shared resources;
-- the alpha.55+ Modes ownership model: sparse settings, one active mode, manual-wins-per-facet behavior and context triggers.
+- the alpha.55+ Modes ownership model: sparse settings, one active mode, manual-wins-per-facet behavior and separate automation rules.
 
 Motion is allowed only when it improves state comprehension. A future Battery motion concept may animate real charging/limit state, but it must not add decorative movement or replace accurate static information.
+
+October 5 owner feedback supersedes the earlier Photopea percentage-inside-gauge experiment: Battery now follows Home with a separate charge value beside the small gauge, and status and ETA beneath it. This composition is implemented and inspected in installed dev.2026100507. Preserve its compact hierarchy and wrapping for longer status text; the separate Battery Preservation threshold gauge is unchanged.
 
 ## Priority redesign surfaces
 
@@ -47,11 +53,11 @@ Desired interaction:
 - Edit remains a separate secondary action on the row;
 - active/automatic/modified/applying state is obvious without a separate Activate button;
 - Focus, Battery saver and Performance are seeded once as normal editable saved modes, not shown as three permanent starter CTA buttons;
-- New mode may still offer those definitions as optional templates after Blank mode;
-- editor remains Controls + Automation, with compact direct controls rather than repetitive admin-table rows;
+- New mode opens a blank editor directly;
+- Modes contains saved settings; Automation contains linked conditions and its own editor. Both pages use shared components and one engine;
 - automation should feel like laptop context, not a generic IFTTT builder.
 - the mode editor **saves without activating** away from its trigger context; users can select a mode manually when needed;
-- automation evaluates a stable condition for at least 5 seconds, supports Any/All conditions, a visible priority, and restores the prior manual mode or ordinary settings when the trigger ends;
+- automation evaluates a stable condition for at least 5 seconds, supports Any/All conditions, highest priority then visible list order, and restores the prior manual mode or ordinary settings when the trigger ends;
 - Wi-Fi suggestions show the currently connected and a short list of saved networks with custom SSID entry, never unrelated scans or credentials;
 
 Starter direction:

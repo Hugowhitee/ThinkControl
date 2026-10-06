@@ -41,7 +41,7 @@ public partial class App
         }
         catch
         {
-            State.DriverStatus = "Hardware status unavailable · open Inbox to retry";
+            State.DriverStatus = "Hardware status unavailable. Retry from Inbox.";
         }
     }
 
@@ -149,17 +149,17 @@ public partial class App
         if (!status.ServiceInstalled)
             return "ThinkControl hardware service not installed";
         if (!status.ServiceRunning)
-            return "Hardware service stopped · action available in Inbox";
+            return "Hardware service stopped. Open Inbox to restart it.";
         if (!status.ServiceReachable)
-            return "Hardware service running · app connection needs attention";
+            return "Hardware service running. Reconnect from Inbox.";
         if (status.LowLevelAccessRelevant && !status.LowLevelAccessInstalled)
         {
             return status.LowLevelAccessRegistered
-                ? "PawnIO needs repair · action available in Inbox"
-                : "PawnIO installation required · action available in Inbox";
+                ? "PawnIO needs repair. Open Inbox for help."
+                : "PawnIO is required. Open Inbox to install it.";
         }
         if (status.LowLevelAccessRelevant && HasConcretePawnIoReadinessFailure(State.HardwareAccess))
-            return "PawnIO needs repair · action available in Inbox";
+            return "PawnIO needs repair. Open Inbox for help.";
 
         bool providerAttention =
             !State.CanSensorTelemetry ||
@@ -167,7 +167,7 @@ public partial class App
             (DeviceCapabilityExpectations.ExpectsKeyboardBacklight(State) && !State.CanKeyboardBacklight) ||
             (DeviceCapabilityExpectations.ExpectsWritableFanControl(State) && !State.CanFanControl);
         return providerAttention
-            ? "Hardware service online · one or more expected providers need attention"
+            ? "Hardware service online. Some controls need attention."
             : "Ready";
     }
 
@@ -204,6 +204,12 @@ public partial class App
     {
         HardwarePrerequisiteIssue issue = ResolvePrimaryHardwareIssue(status);
         if (issue == HardwarePrerequisiteIssue.None || !CanShowAttentionNow())
+            return;
+
+        // Provider limitations stay visible in Inbox/System. A startup modal is
+        // reserved for an installable prerequisite; retrying cannot promise support.
+        if (issue is HardwarePrerequisiteIssue.FanControl or
+            HardwarePrerequisiteIssue.Sensors or HardwarePrerequisiteIssue.Keyboard)
             return;
 
         string promptKey = $"{UpdateService.CurrentVersion}:{issue}";

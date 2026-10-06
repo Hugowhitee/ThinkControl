@@ -5,6 +5,17 @@ namespace ThinkControl.Core.Tests.Hardware;
 public sealed class LenovoOtherModeFullSpeedSourceTests
 {
     [Fact]
+    public void AbsentOtherModeFeature_UsesIndependentAutoRecoveryWithoutEnablingProfiles()
+    {
+        string coordinator = ReadSource("src", "ThinkControl.Service", "LenovoCoolingPolicyCoordinator.cs");
+        string service = ReadSource("src", "ThinkControl.Service", "ServiceEngine.cs");
+        Assert.Contains("fullSpeed.Unsupported && !hasOwnedOverride && _hardware.CanRecoverFanAuto", coordinator, StringComparison.Ordinal);
+        Assert.Contains("_hardware.ReturnFanToAuto(out detail)", coordinator, StringComparison.Ordinal);
+        Assert.Contains("Supported && !blocked", coordinator, StringComparison.Ordinal);
+        Assert.Contains("firmwareCooling.AutoRecoveryAvailable", service, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FullSpeedSemantic_IsExactX9BooleanAndReadbackGated()
     {
         string source = ReadSource("src", "ThinkControl.Hardware", "Lenovo", "LenovoOtherModeFullSpeedService.cs");
@@ -18,7 +29,14 @@ public sealed class LenovoOtherModeFullSpeedSourceTests
         Assert.Contains("verified != (enabled ? 1u : 0u)", source, StringComparison.Ordinal);
         Assert.Contains("RequiredWriteSupport", source, StringComparison.Ordinal);
         Assert.Contains("capabilityPresent", source, StringComparison.Ordinal);
-        Assert.Contains("live direct-ID fallback; capability row omitted", source, StringComparison.Ordinal);
+        // Reference-X9 AML returns 1 for unsupported IDs. Reject omitted capability
+        // before the generic getter, rather than treating that default as fan state.
+        int missingCapabilityGate = source.IndexOf("if (!capabilityPresent)", StringComparison.Ordinal);
+        int liveGet = source.IndexOf("if (!TryGetFeatureValue", StringComparison.Ordinal);
+        Assert.True(missingCapabilityGate >= 0 && missingCapabilityGate < liveGet);
+        Assert.Contains("no fan state or ownership is inferred", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("live direct-ID fallback; capability row omitted", source, StringComparison.Ordinal);
+        Assert.Contains("HasFeatureSetter", source, StringComparison.Ordinal);
         Assert.DoesNotContain("0x8310257C", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("0x831020C0", source, StringComparison.OrdinalIgnoreCase);
     }

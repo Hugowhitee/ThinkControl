@@ -15,7 +15,7 @@ internal static class DeviceCapabilityExpectations
         IsVerifiedX9(state.MachineType);
 
     internal static bool ExpectsWritableFanControl(AppState state) =>
-        IsVerifiedX9(state.MachineType);
+        state.FanAutoRecoverySupported != false && IsVerifiedX9(state.MachineType);
 
     internal static bool ExpectsKeyboardBacklight(AppState state) =>
         IsVerifiedX9(state.MachineType);

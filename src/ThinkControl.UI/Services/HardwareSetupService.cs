@@ -96,20 +96,20 @@ internal sealed class HardwareSetupService
         {
             PawnIoBootstrapState.NotRequired => "Not currently required by detected capabilities",
             PawnIoBootstrapState.MissingRegistration => verifiedWriteProfile
-                ? "Missing · required for X9 sensor discovery and the verified EC fan provider"
-                : "Missing · install it for additional LibreHardwareMonitor sensor discovery",
-            PawnIoBootstrapState.UnknownVersion => "Installed · version could not be verified · repair recommended",
-            PawnIoBootstrapState.IncompatibleVersion => $"Installed {pawnIoInstall.Version} · PawnIO {PawnIoVersion} or newer is required",
-            PawnIoBootstrapState.MissingKernelService => $"Registered {pawnIoInstall.Version} · kernel service missing · repair required",
-            PawnIoBootstrapState.ReadyForProviderProbe when pawnIoDriver.Running => $"Installed {pawnIoInstall.Version} · driver active",
-            PawnIoBootstrapState.ReadyForProviderProbe => $"Installed {pawnIoInstall.Version} · driver registered · starts on demand",
+                ? "Required for X9 sensors and cooling controls."
+                : "Install to enable additional hardware readings.",
+            PawnIoBootstrapState.UnknownVersion => "Installed, but the version could not be verified. Repair recommended.",
+            PawnIoBootstrapState.IncompatibleVersion => $"Version {pawnIoInstall.Version} installed. Version {PawnIoVersion} or newer is required.",
+            PawnIoBootstrapState.MissingKernelService => $"Version {pawnIoInstall.Version} registered, but the driver is missing. Repair required.",
+            PawnIoBootstrapState.ReadyForProviderProbe when pawnIoDriver.Running => $"Version {pawnIoInstall.Version} installed. Driver active.",
+            PawnIoBootstrapState.ReadyForProviderProbe => $"Version {pawnIoInstall.Version} installed. Driver starts when needed.",
             _ => "PawnIO state could not be verified"
         };
 
         string serviceDetail = service.Running
             ? serviceReachable
-                ? "Running · ThinkControl app connection ready"
-                : "Running in Windows · app connection is not responding"
+                ? "Running and connected to ThinkControl"
+                : "Running, but ThinkControl cannot connect"
             : service.Exists
                 ? "Installed but not running"
                 : "Not registered";

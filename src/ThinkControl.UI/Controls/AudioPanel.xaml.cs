@@ -35,6 +35,9 @@ public partial class AudioPanel : UserControl
     {
         InitializeComponent();
 
+        _volumeAutomationCommitTimer = CreateAutomationCommitTimer(ApplyVolumeSlider);
+        _microphoneAutomationCommitTimer = CreateAutomationCommitTimer(ApplyMicrophoneSlider);
+
         _volumeRefreshTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle)
         {
             Interval = TimeSpan.FromSeconds(2)
@@ -51,9 +54,6 @@ public partial class AudioPanel : UserControl
                 QueueVolumeRefresh(applyCacheFirst: false);
             }
         };
-
-        _volumeAutomationCommitTimer = CreateAutomationCommitTimer(ApplyVolumeSlider);
-        _microphoneAutomationCommitTimer = CreateAutomationCommitTimer(ApplyMicrophoneSlider);
 
         VolumeSlider.LostKeyboardFocus += VolumeSlider_LostKeyboardFocus;
         MicrophoneSlider.LostKeyboardFocus += MicrophoneSlider_LostKeyboardFocus;
@@ -113,7 +113,7 @@ public partial class AudioPanel : UserControl
                 VolumeSlider.IsEnabled = true;
                 VolumeSlider.Value = 58;
                 VolumeValueText.Text = "58%";
-                VolumeDeviceText.Text = "Speakers · default Windows output";
+                VolumeDeviceText.Text = "Speakers (default output)";
                 MuteButton.IsEnabled = true;
                 MuteButton.Content = "Mute";
                 MuteButton.Tag = false;
@@ -136,7 +136,7 @@ public partial class AudioPanel : UserControl
                 DetailedTone.IsChecked = false;
                 WarmTone.IsChecked = false;
                 OffTone.IsChecked = false;
-                ActionStatusText.Text = "Direct DAX · changes stay inside ThinkControl";
+                ActionStatusText.Text = "Dolby controls available in ThinkControl";
             }
             else
             {
@@ -187,13 +187,13 @@ public partial class AudioPanel : UserControl
             VolumeSlider.IsEnabled = true;
             VolumeSlider.Value = 58;
             VolumeValueText.Text = "58%";
-            VolumeDeviceText.Text = "Speakers · default Windows output";
+            VolumeDeviceText.Text = "Speakers (default output)";
             MuteButton.IsEnabled = true;
             MuteButton.Content = "Mute";
             MuteButton.Tag = false;
             PrepareMicrophoneSnapshot(72, available: true);
 
-            BackendStatusText.Text = _status.Detail;
+            BackendStatusText.Text = "Dolby Access installed";
             InstallButton.Visibility = Visibility.Collapsed;
             OpenButton.IsEnabled = true;
             ProfileGrid.Visibility = Visibility.Visible;
@@ -206,7 +206,7 @@ public partial class AudioPanel : UserControl
             GameProfile.IsChecked = false;
             VoiceProfile.IsChecked = false;
             UpdateToneSection("Dynamic", directToneAvailable: false);
-            ActionStatusText.Text = "Dolby Access available for profile changes.";
+            ActionStatusText.Text = string.Empty;
         }
         finally
         {
@@ -276,7 +276,9 @@ public partial class AudioPanel : UserControl
         bool accessBridge = !directProfiles && CanUseDolbyAccessBridge(_status);
         bool canSelectProfiles = directProfiles || accessBridge;
 
-        BackendStatusText.Text = _directState.Available && (directProfiles || _directState.CanToneControl)
+        BackendStatusText.Text = accessBridge
+            ? _status.DolbyAccessInstalled ? "Dolby Access installed" : "Dolby audio detected"
+            : _directState.Available && (directProfiles || _directState.CanToneControl)
             ? _directState.Detail
             : _status.Detail;
 
@@ -316,8 +318,6 @@ public partial class AudioPanel : UserControl
             _syncing = false;
         }
 
-        if (accessBridge && string.IsNullOrWhiteSpace(ActionStatusText.Text))
-            ActionStatusText.Text = "Dolby Access available for profile changes.";
     }
 
     private static bool CanUseDolbyAccessBridge(DolbyAudioStatus status) =>
@@ -329,7 +329,7 @@ public partial class AudioPanel : UserControl
         SubprofileCard.Visibility = music && directToneAvailable ? Visibility.Visible : Visibility.Collapsed;
         SetToneEnabled(music && directToneAvailable);
         SubprofileStatusText.Text = directToneAvailable
-            ? "Direct DAX · Music"
+            ? "Dolby profile: Music"
             : _status is not null && CanUseDolbyAccessBridge(_status)
                 ? "Dolby Access fallback"
                 : "Not exposed by this Dolby build";
@@ -396,7 +396,7 @@ public partial class AudioPanel : UserControl
                 if (!_volumeDragging && !_volumeAutomationCommitTimer.IsEnabled)
                 {
                     VolumeSlider.Value = status.Percent;
-                    VolumeValueText.Text = status.Muted ? $"{status.Percent}% · muted" : $"{status.Percent}%";
+                    VolumeValueText.Text = status.Muted ? $"{status.Percent}% (muted)" : $"{status.Percent}%";
                 }
                 MuteButton.Content = status.Muted ? "Unmute" : "Mute";
                 MuteButton.Tag = status.Muted;
@@ -410,7 +410,7 @@ public partial class AudioPanel : UserControl
                 if (!_microphoneDragging && !_microphoneAutomationCommitTimer.IsEnabled)
                 {
                     MicrophoneSlider.Value = microphone.Percent;
-                    MicrophoneValueText.Text = microphone.Muted ? $"{microphone.Percent}% · muted" : $"{microphone.Percent}%";
+                    MicrophoneValueText.Text = microphone.Muted ? $"{microphone.Percent}% (muted)" : $"{microphone.Percent}%";
                 }
                 MicrophoneMuteButton.Content = microphone.Muted ? "Unmute" : "Mute";
             }
@@ -552,7 +552,7 @@ public partial class AudioPanel : UserControl
         MicrophoneSlider.IsEnabled = available;
         MicrophoneSlider.Value = percent;
         MicrophoneValueText.Text = available ? $"{percent}%" : "—";
-        MicrophoneDeviceText.Text = available ? "Microphone Array · default Windows input" : "Windows input endpoint unavailable";
+        MicrophoneDeviceText.Text = available ? "Microphone array (default input)" : "Windows input endpoint unavailable";
         MicrophoneMuteButton.IsEnabled = available;
         MicrophoneMuteButton.Content = "Mute";
     }
@@ -736,7 +736,7 @@ public partial class AudioPanel : UserControl
         await RefreshStatusAsync();
         ActionStatusText.Text = result.Success
             ? result.Detail
-            : result.Detail + " · Audio was left unchanged.";
+            : result.Detail + " Audio was left unchanged.";
     }
 
     private async void Tone_Click(object sender, RoutedEventArgs e)
@@ -757,7 +757,7 @@ public partial class AudioPanel : UserControl
         await RefreshStatusAsync();
         ActionStatusText.Text = result.Success
             ? result.Detail
-            : result.Detail + " · Direct tone control was not accepted.";
+            : result.Detail + " Tone control could not be changed.";
     }
 
     private async void Reset_Click(object sender, RoutedEventArgs e)

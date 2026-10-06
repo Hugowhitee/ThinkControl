@@ -52,7 +52,7 @@ public partial class AdvancedWindow
             Math.Min(navStack.Children.Count, utilityIndex + 1),
             CreateSidebarDivider("ThinkControl.NavigationDivider"));
 
-        if (navStack.Parent is Grid sidebarGrid)
+        if (SidebarGrid is Grid sidebarGrid)
         {
             StackPanel? footer = sidebarGrid.Children
                 .OfType<StackPanel>()

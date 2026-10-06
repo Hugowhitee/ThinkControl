@@ -42,10 +42,10 @@
     <StackPanel>
         <controls:AdvancedPageHeader x:Name="Header"
                                      Title="Modes"
-                                     Subtitle="Switch several settings together, manually or automatically." />
+                                     Subtitle="Saved settings and the rules that activate them." />
 
         <StackPanel x:Name="ListView">
-            <Border Style="{StaticResource TcSection}" Padding="0">
+            <Border x:Name="ModeListSection" Style="{StaticResource TcSection}" Padding="0">
                 <StackPanel>
                     <Grid Margin="14,12,12,10">
                         <StackPanel VerticalAlignment="Center">
@@ -59,7 +59,7 @@
                                        TextWrapping="Wrap" />
                         </StackPanel>
                         <Button x:Name="NewModeButton"
-                                Content="New mode ▾"
+                                Content="New mode"
                                 Style="{StaticResource TcButton}"
                                 Padding="10,4"
                                 FontSize="{x:Static ui:TypographyScale.Caption}"
@@ -86,16 +86,35 @@
             </Border>
 
             <TextBlock x:Name="ListStatusText"
-                       Foreground="{DynamicResource Tc.TextMuted}"
-                       FontSize="{x:Static ui:TypographyScale.Caption}"
+                       Foreground="{DynamicResource Tc.Accent}"
+                       FontSize="{x:Static ui:TypographyScale.Secondary}"
+                       TextWrapping="Wrap"
                        Margin="2,9,2,0"
                        Visibility="Collapsed" />
+
+            <Border x:Name="AutomationListSection" Style="{StaticResource TcSection}" Margin="0,14,0,0">
+                <StackPanel>
+                    <Grid>
+                        <TextBlock Text="Automation rules" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Button x:Name="NewRuleButton" Content="New rule" Style="{StaticResource TcInlineButton}"
+                                HorizontalAlignment="Right" Click="NewRule_Click" />
+                    </Grid>
+                    <TextBlock Text="Highest priority wins. At the same priority, the first matching rule in this list wins."
+                               Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}"
+                               TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <TextBlock x:Name="AutomationStatusText" Foreground="{DynamicResource Tc.TextMuted}"
+                               TextWrapping="Wrap" Margin="0,8,0,10" />
+                    <Button x:Name="ResumeAutomationButton" Content="Resume automation" Style="{StaticResource TcInlineButton}"
+                            HorizontalAlignment="Left" Click="ResumeAutomation_Click" Visibility="Collapsed" />
+                    <StackPanel x:Name="RuleRows" />
+                </StackPanel>
+            </Border>
         </StackPanel>
 
         <StackPanel x:Name="EditorView" Visibility="Collapsed">
             <Border Style="{StaticResource TcSection}">
                 <StackPanel>
-                    <TextBlock Text="Mode details"
+                    <TextBlock x:Name="EditorTitleText" Text="Mode details"
                                FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                FontWeight="SemiBold" />
                     <TextBlock Text="Name"
@@ -104,14 +123,18 @@
                                Margin="0,13,0,0" />
                     <TextBox x:Name="ModeNameTextBox"
                              Style="{StaticResource ModeTextBox}"
-                             MaxWidth="520"
                              HorizontalAlignment="Stretch"
                              MaxLength="32"
                              Margin="0,7,0,0" />
+                    <StackPanel x:Name="RuleTargetPanel" Visibility="Collapsed" Margin="0,13,0,0">
+                        <TextBlock Text="Activate mode" Foreground="{DynamicResource Tc.TextMuted}" />
+                        <ComboBox x:Name="RuleTargetCombo" DisplayMemberPath="Name" Style="{StaticResource TcComboBox}"
+                                  Margin="0,7,0,0" MinHeight="38" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+            <Border x:Name="ModeControlsSection" Style="{StaticResource TcSection}" Margin="0,14,0,0">
                 <StackPanel>
                     <Grid>
                         <StackPanel>
@@ -135,20 +158,21 @@
                 </StackPanel>
             </Border>
 
-            <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
+            <Border x:Name="RuleConditionsSection" Style="{StaticResource TcSection}" Margin="0,14,0,0">
                 <StackPanel>
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="Automation"
+                            <TextBlock Text="Conditions"
                                        FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                        FontWeight="SemiBold" />
-                            <TextBlock Text="Activates automatically when its conditions match. Restores your previous mode when they end."
+                            <TextBlock Text="Restores your previous settings when conditions stop matching."
                                        Foreground="{DynamicResource Tc.TextMuted}"
                                        FontSize="{x:Static ui:TypographyScale.Caption}"
                                        Margin="0,4,70,0"
                                        TextWrapping="Wrap" />
                         </StackPanel>
                         <CheckBox x:Name="AutomationSwitch"
+                                  AutomationProperties.Name="Enable rule"
                                   Style="{StaticResource TcSwitch}"
                                   HorizontalAlignment="Right"
                                   VerticalAlignment="Center"
@@ -181,7 +205,7 @@
                             </Grid.ColumnDefinitions>
                             <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
                                 <TextBlock Text="Priority" FontWeight="SemiBold" />
-                                <TextBlock Text="When several modes match."
+                                <TextBlock Text="When several rules match."
                                            Foreground="{DynamicResource Tc.TextMuted}"
                                            FontSize="{x:Static ui:TypographyScale.Caption}" />
                             </StackPanel>
@@ -205,7 +229,7 @@
                         </Grid>
                         <StackPanel x:Name="EditorTriggers" Margin="0,8,0,0" />
                         <TextBlock Margin="0,12,0,0"
-                                   Text="If modes overlap, higher priority wins. At equal priority: apps, Wi-Fi, battery level, power, then time. A manual selection pauses automation until conditions change."
+                                   Text="At the same priority, list order decides. A manual selection pauses automation until a different rule wins, or you choose Resume."
                                    Foreground="{DynamicResource Tc.TextMuted}"
                                    FontSize="{x:Static ui:TypographyScale.Caption}"
                                    TextWrapping="Wrap" />
@@ -214,6 +238,7 @@
             </Border>
 
             <Grid Margin="2,10,2,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                 <Button x:Name="DeleteButton"
                         Content="Delete mode"
                         Style="{StaticResource TcInlineButton}"
@@ -221,7 +246,8 @@
                         Click="Delete_Click"
                         Visibility="Collapsed" />
                 <TextBlock x:Name="EditorStatusText"
-                           HorizontalAlignment="Right"
+                           Grid.Column="1" Margin="12,0,0,0" TextWrapping="Wrap"
+                           HorizontalAlignment="Stretch"
                            VerticalAlignment="Center"
                            Foreground="{DynamicResource Tc.TextMuted}"
                            FontSize="{x:Static ui:TypographyScale.Caption}"

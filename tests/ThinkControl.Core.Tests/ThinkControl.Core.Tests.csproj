@@ -10,6 +10,9 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" PrivateAssets="all" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="../../src/ThinkControl.UI/Services/PowerModeService.cs" Link="Runtime/PowerModeService.cs" />
+    <Compile Include="../../src/ThinkControl.Hardware/X9/ThinkPadRegisters.cs" Link="Runtime/ThinkPadRegisters.cs" />
+    <Compile Include="../../src/ThinkControl.Hardware/X9/X9FullSpeedSession.cs" Link="Runtime/X9FullSpeedSession.cs" />
     <ProjectReference Include="../../src/ThinkControl.Core/ThinkControl.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -101,6 +101,8 @@ public partial class AdvancedWindow
 
     internal void PrepareModesEditorForSnapshot() =>
         ModesPanelControl.PrepareEditorForSnapshot();
+    internal void PrepareAutomationListForSnapshot() => AutomationPanelControl.PrepareListForSnapshot();
+    internal void PrepareRuleEditorForSnapshot() => AutomationPanelControl.PrepareRuleEditorForSnapshot();
 
     internal void PrepareDiagnosticsForSnapshot(Core.Diagnostics.DiagnosticsConsent consent, bool verifiedDevice)
     {

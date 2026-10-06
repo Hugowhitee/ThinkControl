@@ -33,10 +33,10 @@ public sealed class AppState : INotifyPropertyChanged
     private int? _batteryProtectionStartPercent;
     private int? _batteryProtectionStopPercent;
     private bool _batteryProtectionWritable;
-    private string _batteryChargeCurveLabel = "Charge curve · learning";
+    private string _batteryChargeCurveLabel = "Learning charge pattern";
     private string _batteryCurrentSessionText = "No active charge session";
-    private string _batteryTypicalChargeText = "Typical charge · learning";
-    private string _batteryHealthTrendText = "Health trend · learning";
+    private string _batteryTypicalChargeText = "Learning typical charge power";
+    private string _batteryHealthTrendText = "Waiting for capacity history";
     private string _batterySource = "Windows battery";
     private int _brightness = 50;
     private bool _brightnessAvailable;
@@ -65,6 +65,7 @@ public sealed class AppState : INotifyPropertyChanged
     private bool _activeModeAutomatic;
     private string _updateStatus = "Ready to check";
     private bool _canFanControl;
+    private bool? _fanAutoRecoverySupported;
     private bool _canFanTelemetry;
     private string _fanControlKind = FanControlKinds.None;
     private bool _canKeyboardBacklight;
@@ -119,6 +120,14 @@ public sealed class AppState : INotifyPropertyChanged
     public int MaxRefreshHz { get => _maxRefreshHz; set => Set(ref _maxRefreshHz, value); }
     public bool RefreshAutoEnabled { get => _refreshAutoEnabled; set => Set(ref _refreshAutoEnabled, value); }
     public string HardwareAccess { get => _hardwareAccess; set => Set(ref _hardwareAccess, value); }
+    public string HardwareAccessSummary => CanFanControl ? CoolingAvailabilityText
+        : CanFanTelemetry || CanSensorTelemetry || CanCpuTemperature ? "Readings available. Manual cooling is unavailable."
+        : "Hardware readings unavailable. Open Inbox to check setup.";
+    public string CoolingAvailabilityText => CanFanControl ? FanControlKind == FanControlKinds.FullSpeedOnly
+        ? "Auto and Max cooling are available." : "Cooling controls are available." :
+        CanFanTelemetry ? "Fan readings available. Manual cooling is unavailable." : "Cooling control and fan readings unavailable.";
+    public string HardwareEvidenceText => string.Join(Environment.NewLine,
+        HardwareAccess.Split(" · ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
     public string CpuName { get => _cpuName; set => Set(ref _cpuName, value); }
     public string GpuName { get => _gpuName; set => Set(ref _gpuName, value); }
     public string RamText { get => _ramText; set => Set(ref _ramText, value); }
@@ -138,6 +147,7 @@ public sealed class AppState : INotifyPropertyChanged
     public bool ActiveModeAutomatic { get => _activeModeAutomatic; set => Set(ref _activeModeAutomatic, value); }
     public string UpdateStatus { get => _updateStatus; set => Set(ref _updateStatus, value); }
     public bool CanFanControl { get => _canFanControl; set => Set(ref _canFanControl, value); }
+    public bool? FanAutoRecoverySupported { get => _fanAutoRecoverySupported; set => Set(ref _fanAutoRecoverySupported, value); }
     public bool CanFanTelemetry { get => _canFanTelemetry; set => Set(ref _canFanTelemetry, value); }
     public string FanControlKind { get => _fanControlKind; set => Set(ref _fanControlKind, string.IsNullOrWhiteSpace(value) ? FanControlKinds.None : value); }
     public bool CanKeyboardBacklight { get => _canKeyboardBacklight; set => Set(ref _canKeyboardBacklight, value); }
@@ -158,10 +168,12 @@ public sealed class AppState : INotifyPropertyChanged
     public string AppVersion => $"v{UpdateService.CurrentVersion}";
     public string CpuTemperatureText => CpuTemperatureC is double value ? $"{value:0}°C" : "—°C";
     public string ControlTemperatureText => ControlTemperatureC is double value ? $"{value:0.0} °C" : "— °C";
+    public string ControlTemperatureCaption => ControlTemperatureC.HasValue ? "Temperature sensor" : "No temperature reading";
     public string FanRpmText => FanRpm is int value ? $"{value:N0} RPM" : "— RPM";
     public string FanCountText => Fans.Count switch
     {
         0 => "No fan telemetry",
+        1 when Fans[0].Shared => "Shared RPM reading",
         1 => "1 fan reading",
         _ => $"{Fans.Count} fan readings"
     };
@@ -233,6 +245,8 @@ public sealed class AppState : INotifyPropertyChanged
             if (BatteryCharging)
             {
                 int target = BatteryChargeTargetPercent;
+                if (BatteryPercent >= target)
+                    return target >= 100 ? "At 100%" : $"{target}% target reached";
                 if (BatteryEtaToChargeTarget is TimeSpan toTarget)
                 {
                     if (toTarget <= TimeSpan.FromMinutes(1))
@@ -283,10 +297,10 @@ public sealed class AppState : INotifyPropertyChanged
     public string MaxRefreshText => MaxRefreshHz > 0 ? $"{MaxRefreshHz} Hz" : "Max";
     public string KeyboardModeText => KeyboardMode switch
     {
-        "Breathing" => "Breathing · Low ↔ High",
-        "Reactive" => $"Reactive · returns to {KeyboardBaseLevel}",
-        "Audio" => "Audio reactive · experimental",
-        "Auto" => "Auto · firmware managed",
+        "Breathing" => "Breathing: Low to High",
+        "Reactive" => $"Reactive: returns to {KeyboardBaseLevel}",
+        "Audio" => "Audio reactive (experimental)",
+        "Auto" => "Auto: controlled by firmware",
         _ => KeyboardStatus
     };
 
@@ -349,11 +363,19 @@ public sealed class AppState : INotifyPropertyChanged
         field = value;
         OnPropertyChanged(propertyName);
 
+        if (propertyName is nameof(CanFanControl) or nameof(CanFanTelemetry) or nameof(CanSensorTelemetry) or nameof(CanCpuTemperature) or nameof(FanControlKind))
+        {
+            OnPropertyChanged(nameof(HardwareAccessSummary));
+            OnPropertyChanged(nameof(CoolingAvailabilityText));
+        }
+        if (propertyName == nameof(HardwareAccess)) OnPropertyChanged(nameof(HardwareEvidenceText));
+
         if (propertyName == nameof(CpuTemperatureC))
             OnPropertyChanged(nameof(CpuTemperatureText));
         else if (propertyName == nameof(ControlTemperatureC))
         {
             OnPropertyChanged(nameof(ControlTemperatureText));
+            OnPropertyChanged(nameof(ControlTemperatureCaption));
             OnPropertyChanged(nameof(BatteryTemperatureLabel));
             OnPropertyChanged(nameof(BatteryTemperatureText));
         }

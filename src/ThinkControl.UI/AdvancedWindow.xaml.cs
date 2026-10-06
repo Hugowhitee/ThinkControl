@@ -85,6 +85,9 @@ public partial class AdvancedWindow : Window
     private void InitializeFeaturePanels()
     {
         ModesPanelControl.Initialize(_app);
+        AutomationPanelControl.Initialize(_app, automationSurface: true);
+        ModesPanelControl.NavigateRequested += Navigate;
+        AutomationPanelControl.NavigateRequested += Navigate;
         PerformancePanelControl.Initialize(_app);
         FansPanelControl.Initialize(_app);
         AudioPanelControl.Initialize(_app);
@@ -154,6 +157,7 @@ public partial class AdvancedWindow : Window
         switch (page)
         {
             case "Modes": NavModes.IsChecked = true; break;
+            case "Automation": NavAutomation.IsChecked = true; break;
             case "Performance": NavPerformance.IsChecked = true; break;
             case "Fans": NavFans.IsChecked = true; break;
             case "Battery": NavBattery.IsChecked = true; break;
@@ -168,6 +172,8 @@ public partial class AdvancedWindow : Window
         }
 
         ShowPage(page);
+        if (IsLoaded)
+            BringSelectedNavigationIntoView();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -181,6 +187,7 @@ public partial class AdvancedWindow : Window
         SyncControls();
         ShowPage(GetSelectedPage());
         ApplyThemeToChrome();
+        BringSelectedNavigationIntoView();
     }
 
     private void OnClosing(object? sender, CancelEventArgs e)
@@ -226,7 +233,6 @@ public partial class AdvancedWindow : Window
             HomeAcQuiet.IsChecked = acPreference == ThinkControlPowerMode.Quiet;
             HomeAcBalanced.IsChecked = acPreference == ThinkControlPowerMode.Balanced;
             HomeAcPerformance.IsChecked = acPreference == ThinkControlPowerMode.Performance;
-            HomePowerSummary.Text = $"Battery {PowerShortName(batteryPreference)} · AC {PowerShortName(acPreference)}";
 
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);
@@ -264,6 +270,14 @@ public partial class AdvancedWindow : Window
         if (!IsLoaded || sender is not FrameworkElement { Tag: string page })
             return;
         ShowPage(page);
+        BringSelectedNavigationIntoView();
+    }
+
+    private void BringSelectedNavigationIntoView()
+    {
+        if (NavHome.Parent is WpfStackPanel navStack)
+            navStack.Children.OfType<System.Windows.Controls.RadioButton>()
+                .FirstOrDefault(button => button.IsChecked == true)?.BringIntoView();
     }
 
     private void ShowPage(string page)
@@ -273,7 +287,7 @@ public partial class AdvancedWindow : Window
 
         foreach (FrameworkElement element in new FrameworkElement[]
         {
-            PageHome, PageModes, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
+            PageHome, PageModes, PageAutomation, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
             PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageSettings
         })
         {
@@ -283,6 +297,7 @@ public partial class AdvancedWindow : Window
         FrameworkElement selected = page switch
         {
             "Modes" => PageModes,
+            "Automation" => PageAutomation,
             "Performance" => PagePerformance,
             "Fans" => PageFans,
             "Battery" => PageBattery,
@@ -301,6 +316,7 @@ public partial class AdvancedWindow : Window
     private string GetSelectedPage()
     {
         if (NavModes.IsChecked == true) return "Modes";
+        if (NavAutomation.IsChecked == true) return "Automation";
         if (NavPerformance.IsChecked == true) return "Performance";
         if (NavFans.IsChecked == true) return "Fans";
         if (NavBattery.IsChecked == true) return "Battery";

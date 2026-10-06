@@ -17,15 +17,19 @@
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="245" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                 <StackPanel Margin="0,0,24,0">
-                    <TextBlock Text="CHARGE" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <controls:BatteryGauge Width="205" Height="60" HorizontalAlignment="Left" Margin="0,11,0,0" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" />
-                    <Grid Margin="0,10,0,0">
-                        <TextBlock Text="{Binding BatteryPercentText}" FontSize="{x:Static ui:TypographyScale.ValueHero}" FontWeight="Light" />
-                        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding BatteryStatus}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Secondary}" Foreground="{DynamicResource Tc.TextMuted}" />
-                            <TextBlock Text="{Binding BatteryEtaText}" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="Medium" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,2,0,0" />
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="118" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                        <controls:BatteryGauge Width="108" Height="44" HorizontalAlignment="Left"
+                                               VerticalAlignment="Center" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="CHARGE" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
+                            <TextBlock Text="{Binding BatteryPercentText}" FontSize="{x:Static ui:TypographyScale.ValueLarge}" FontWeight="Light" Margin="0,2,0,0" />
                         </StackPanel>
                     </Grid>
+                    <StackPanel Margin="0,10,0,0">
+                        <TextBlock x:Name="ChargeSummaryStatus" Text="{Binding BatteryStatus}" FontSize="{x:Static ui:TypographyScale.Secondary}" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Margin="0,3,0,0" />
+                        <TextBlock x:Name="ChargeSummaryEta" Text="{Binding BatteryEtaText}" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="Medium" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                    </StackPanel>
                 </StackPanel>
                 <Grid Grid.Column="1">
                     <Grid.RowDefinitions><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
@@ -34,7 +38,7 @@
                     <Border Grid.Column="1" Grid.RowSpan="2" Width="1" HorizontalAlignment="Right" Background="{DynamicResource Tc.Border}" Margin="0,3,8,3" />
                     <StackPanel Margin="0,0,16,12"><TextBlock Text="POWER" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryPowerText}" FontSize="{x:Static ui:TypographyScale.Value}" Margin="0,5,0,0" /><TextBlock Text="{Binding BatteryAveragePowerText}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,2,0,0" /></StackPanel>
                     <StackPanel Grid.Column="1" Margin="8,0,16,12"><TextBlock Text="HEALTH" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryHealthText}" FontSize="{x:Static ui:TypographyScale.Value}" Margin="0,5,0,0" /></StackPanel>
-                    <StackPanel Grid.Column="2" Margin="8,0,0,12"><TextBlock Text="CYCLES" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryCycleCountText}" FontSize="{x:Static ui:TypographyScale.Value}" Margin="0,5,0,0" /></StackPanel>
+                    <StackPanel Grid.Column="2" Margin="8,0,0,12" ToolTip="Reported by battery firmware. This lifetime count is separate from the individual charge sessions in history."><TextBlock Text="CYCLES" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryCycleCountText}" FontSize="{x:Static ui:TypographyScale.Value}" Margin="0,5,0,0" /></StackPanel>
                     <StackPanel Grid.Row="1" Margin="0,3,16,0"><TextBlock Text="ENERGY" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryCapacityText}" FontSize="{x:Static ui:TypographyScale.Value}" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="1" Margin="8,3,16,0"><TextBlock Text="{Binding BatteryTemperatureLabel}" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryTemperatureText}" FontSize="{x:Static ui:TypographyScale.Value}" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
                     <StackPanel Grid.Row="1" Grid.Column="2" Margin="8,3,0,0"><TextBlock Text="LEARNED" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" /><TextBlock Text="{Binding BatteryTypicalChargeText}" FontSize="{x:Static ui:TypographyScale.Value}" Margin="0,5,0,0" TextWrapping="Wrap" /></StackPanel>
@@ -82,8 +86,11 @@
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="125" /></Grid.RowDefinitions>
-                    <Grid><TextBlock Text="Battery health trend" FontWeight="SemiBold" /><TextBlock Text="{Binding BatteryHealthTrendText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /></Grid>
-                    <TextBlock Grid.Row="1" Text="Uses firmware full-charge versus design capacity. A charge cap such as 80–90% does not need to be disabled for this trend." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <StackPanel>
+                        <TextBlock Text="Battery health trend" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding BatteryHealthTrendText}" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Text="Compares full-charge capacity with the battery's original capacity. Charging limits do not affect this calculation." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     <controls:TimeSeriesChart Grid.Row="2" Margin="0,8,0,0" Values="{Binding BatteryHealthTrendTimeline}" Unit="%" ValueFormat="0.0" IncludeZero="False" />
                 </Grid>
             </Border>
@@ -126,10 +133,10 @@
                               MinHeight="38"
                               IsEnabled="False"
                               SelectionChanged="ChargeProtection_SelectionChanged">
-                        <ComboBoxItem Content="80% · Strong protection" Tag="75,80" />
-                        <ComboBoxItem Content="85% · Recommended" Tag="80,85" />
-                        <ComboBoxItem Content="90% · More runtime" Tag="85,90" />
-                        <ComboBoxItem Content="95% · Light protection" Tag="90,95" />
+                        <ComboBoxItem Content="80% (strong protection)" Tag="75,80" />
+                        <ComboBoxItem Content="85% (recommended)" Tag="80,85" />
+                        <ComboBoxItem Content="90% (more runtime)" Tag="85,90" />
+                        <ComboBoxItem Content="95% (light protection)" Tag="90,95" />
                     </ComboBox>
                     <Button x:Name="CustomChargeLimitsButton"
                             Content="Custom limits"
@@ -213,7 +220,7 @@
                                 <ComboBoxItem Content="30 days" Tag="30" />
                             </ComboBox>
                         </Grid>
-                        <TextBlock x:Name="HistoryStorageSummaryText" Text="Detailed graphs: 7 days · compact summaries: 1 year" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" />
+                        <TextBlock x:Name="HistoryStorageSummaryText" Text="Detailed graphs: 7 days. Daily summaries: 1 year." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" />
                         <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,10,0,9" />
                         <Grid>
                             <StackPanel Margin="0,0,170,0">
@@ -229,7 +236,7 @@
 
         <Grid Margin="2,10,2,0">
             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock Text="History: local only · recent detailed graphs · one year of compact summaries" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" />
+            <TextBlock Text="History is saved on this device. Daily summaries are kept for one year." FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" TextWrapping="Wrap" />
             <TextBlock Grid.Column="1" Text="{Binding BatterySource}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" HorizontalAlignment="Right" Margin="18,0,0,0" TextTrimming="CharacterEllipsis" />
         </Grid>
     </StackPanel>

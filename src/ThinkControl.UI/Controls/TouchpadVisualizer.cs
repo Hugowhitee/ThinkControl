@@ -223,7 +223,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         string size = _geometry.PhysicalSizeEstimated
             ? $"~{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm"
             : $"{_geometry.EffectiveWidthMm:0} × {_geometry.EffectiveHeightMm:0} mm";
-        DrawLabel(dc, $"{size} · click a zone to edit", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 12),
+        DrawLabel(dc, $"{size}. Select a zone to edit.", new WpfPoint(pad.Left + pad.Width / 2, pad.Top + pad.Height / 2 + 12),
             TypographyScale.Caption, faint, centered: true);
 
         foreach (TouchContact contact in _contacts.Where(static c => c.IsDown))

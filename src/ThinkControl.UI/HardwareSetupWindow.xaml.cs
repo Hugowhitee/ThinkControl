@@ -43,6 +43,10 @@ public partial class HardwareSetupWindow : Window
             ? _app.ResolvePrimaryHardwareIssue(status)
             : _requestedIssue;
 
+        bool prerequisite = _currentIssue is HardwarePrerequisiteIssue.Service or HardwarePrerequisiteIssue.PawnIo;
+        IssueCategoryText.Text = prerequisite ? "Required component" : "Hardware status";
+        Title = $"ThinkControl: {IssueCategoryText.Text}";
+
         if (IsIssueReady(_currentIssue, status))
         {
             ShowSuccess();
@@ -76,8 +80,8 @@ public partial class HardwareSetupWindow : Window
                 PrimaryActionButton.Content = "Retry sensors";
                 break;
             case HardwarePrerequisiteIssue.FanControl:
-                PrimaryTitleText.Text = "Fan provider needs a retry";
-                PrimaryStatusText.Text = "ThinkControl has not verified the supported fan path. Firmware remains safely in control while the provider is refreshed and checked again.";
+                PrimaryTitleText.Text = "Cooling control unavailable";
+                PrimaryStatusText.Text = "The fan provider has not passed its readback checks. Lenovo firmware controls cooling. You can retry the check; this does not guarantee manual control will become available.";
                 PrimaryActionButton.Content = "Retry fan provider";
                 break;
             case HardwarePrerequisiteIssue.Keyboard:

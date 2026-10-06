@@ -95,13 +95,6 @@ public partial class BatteryTelemetryPanel : UserControl
 
     private void ApplyBatteryGaugePolish()
     {
-        BatteryGauge? gauge = FindVisualChild<BatteryGauge>(this);
-        if (gauge is not null)
-        {
-            gauge.Width = 198;
-            gauge.Height = 58;
-        }
-
         // Never imply that ThinkControl measured continuously while Windows was
         // asleep, hibernated or the app was not scheduled. A real sampling gap is
         // rendered as a gap in the line rather than a fake straight connection.
@@ -212,15 +205,16 @@ public partial class BatteryTelemetryPanel : UserControl
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.Children.Add(new TextBlock
         {
-            Text = day.HasActiveSession ? $"{day.Label} · live" : day.Label,
+            Text = day.HasActiveSession ? $"{day.Label} (live)" : day.Label,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
         });
-        string charge = day.ChargedPercent > 0 ? $"+{day.ChargedPercent}% · {FormatShortDuration(day.ChargingTime)} charging" : "No charging";
-        string usage = day.DischargedPercent > 0 ? $"−{day.DischargedPercent}% · {FormatShortDuration(day.UsageTime)} usage" : "No battery usage";
+        string charge = day.ChargedPercent > 0 || day.ChargingTime > TimeSpan.Zero ? $"Charged {day.ChargedPercent}% in {FormatShortDuration(day.ChargingTime)}" : "No charging";
+        string usage = day.DischargedPercent > 0 || day.UsageTime > TimeSpan.Zero ? $"Used {day.DischargedPercent}% in {FormatShortDuration(day.UsageTime)}" : "No battery usage";
         var summary = new TextBlock
         {
             Text = $"{charge}     {usage}",
+            ToolTip = "Time is divided at local midnight. Percentage changes count on the day they were measured; older sessions without samples count on their end day. Expanded sessions show their full duration.",
             FontSize = TypographyScale.Caption,
             TextTrimming = TextTrimming.CharacterEllipsis,
             VerticalAlignment = VerticalAlignment.Center
@@ -266,18 +260,18 @@ public partial class BatteryTelemetryPanel : UserControl
 
         DischargeChart.Values = dischargePower;
         DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
-        DischargeSummaryText.Text = "Latest discharge · 88% → 63% · 3h 45m · 6.9 W avg";
+        DischargeSummaryText.Text = "Latest discharge: 88% to 63% in 3h 45m, average power: 6.9 W";
 
         BatterySessionDetail charge = new(
             "snapshot-charge", "Charge", end - TimeSpan.FromMinutes(43), end,
             61, 78, 17.8, 20.4, 12.1, 23.7,
             chargePower, ChargePercentChart.Values.ToArray(),
-            "61% → 78% · 43 min · 17.8 W avg");
+            "61% to 78% in 43 min, average power: 17.8 W");
         BatterySessionDetail discharge = new(
             "snapshot-discharge", "Discharge", end - TimeSpan.FromHours(4), end - TimeSpan.FromMinutes(15),
             88, 63, 6.9, 8.2, 25.0, 6.7,
             dischargePower, DischargePercentChart.Values.ToArray(),
-            "88% → 63% · 3h 45m · 6.9 W avg");
+            "88% to 63% in 3h 45m, average power: 6.9 W");
         var today = new BatteryDaySummary(
             DateOnly.FromDateTime(DateTime.Today), "Today", 17, 25,
             charge.Duration, discharge.Duration, [charge, discharge], false);
@@ -299,7 +293,7 @@ public partial class BatteryTelemetryPanel : UserControl
             {
                 selected = new ComboBoxItem
                 {
-                    Content = $"Custom · {snapshotStop}% limit · resume {snapshotStart}%",
+                    Content = $"Custom: {snapshotStart}–{snapshotStop}%",
                     Tag = $"custom:{snapshotStart},{snapshotStop}"
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
@@ -323,7 +317,7 @@ public partial class BatteryTelemetryPanel : UserControl
         ChargeProtectionWearText.Text = DescribeBatteryAging(snapshotProtection, available: true);
         ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
         CustomChargeLimitsButton.IsEnabled = state.BatteryProtectionWritable && snapshotProtection;
-        ChargeProtectionProviderText.Text = "Lenovo PM Device · charge thresholds · snapshot fixture";
+        ChargeProtectionProviderText.Text = "Charging limits verified";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;
     }
 
@@ -350,7 +344,7 @@ public partial class BatteryTelemetryPanel : UserControl
         kind.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
         var kindText = new TextBlock
         {
-            Text = session.IsActive ? $"{session.Kind} · live" : session.Kind,
+            Text = session.IsActive ? $"{session.Kind} (live)" : session.Kind,
             FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
@@ -416,7 +410,7 @@ public partial class BatteryTelemetryPanel : UserControl
         string rate = session.PercentPerHour is double pp ? $"{pp:0.#}%/h" : "—";
 
         DateTimeOffset local = session.StartedAt.ToLocalTime();
-        string subtitle = $"{session.Kind} · {local.ToString("g", CultureInfo.CurrentCulture)} · {session.StartPercent}% → {session.EndPercent}%";
+        string subtitle = $"{session.Kind}: {session.StartPercent}% to {session.EndPercent}% ({local.ToString("g", CultureInfo.CurrentCulture)})";
         TelemetryDetailMetric[] metrics =
         [
             new("Duration", durationText),

@@ -27,8 +27,9 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current alpha source:** `v0.1.0-alpha.60` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) is the authoritative list of published installers (the current source version can temporarily be ahead during verification).  
-**Experimental OEM status:** Lenovo firmware acknowledgment is not proof the X9 fan profile physically changed. Physical fan and battery charging-threshold tests remain open; see [Release readiness](docs/RELEASE_READINESS.md).
+**Current alpha source:** `v0.1.0-alpha.61` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) is the authoritative list of published installers (the current source version can temporarily be ahead during verification).
+
+**Experimental OEM status:** Auto/Max cooling has bounded physical validation on X9 21Q6 firmware N4CET45W. Lower fixed fan speeds and independent readings of both fans remain unavailable on that path. Battery stop/resume has bounded device evidence; reboot/wake and broad hardware acceptance remain open. See [Release readiness](docs/RELEASE_READINESS.md).
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  
 **Platform:** Windows 10 version 2004 (build 19041) or newer, x64 · .NET 10
@@ -69,7 +70,7 @@ Updates are explicit: ThinkControl downloads Setup + Payload + checksums, verifi
 | --- | --- |
 | **Home** | Live Battery, CPU, fan/RPM, power and sensor overview plus quick controls |
 | **Performance** | Separate battery and plugged-in preferences using Windows power integration |
-| **Fans** | Firmware/OEM Auto, Quiet and Balanced plus exact-capability-gated X9 Max cooling; custom curves and bounded direct tests only where a physically accepted direct writer exists |
+| **Fans** | Firmware/OEM Auto and capability-gated cooling profiles; verified Auto/Max on the inspected X9 firmware; custom curves only where a physically accepted direct writer exists |
 | **Battery** | Watts, Wh, health, ETA, cycle telemetry, compact history, retention management and capability-gated charge-preservation thresholds |
 | **Display** | Brightness, adaptive brightness, refresh rate, automatic refresh switching and Windows display shortcuts |
 | **Audio** | Windows output/microphone control, session Audio Safety, plus semantic Dolby controls where the installed DAX provider safely exposes them |
@@ -90,8 +91,8 @@ Profiles decide which providers are reasonable to probe. Providers own implement
 On the current X9-15 reference path:
 
 - native Lenovo dual-fan RPM telemetry is retained when real channels are exposed;
-- Quiet/Balanced use the reviewed X9 Lenovo firmware thermal-policy contract and are reasserted after startup/source/resume transitions when selected;
-- Max cooling uses the known Lenovo Other Mode full-speed boolean only if this exact X9 itself returns a safe live boolean contract; otherwise the request fails explicitly rather than pretending Performance policy is literal maximum;
+- on 21Q6/N4CET45W, Auto/Max uses the inspected firmware's exact full-speed state with readback, bounded ownership and Auto cleanup; lower fixed speeds remain unavailable;
+- on other reviewed X9 firmware paths, Quiet/Balanced and the Lenovo Other Mode full-speed boolean require their live provider contracts; firmware acknowledgment is not physical acceptance;
 - the alpha.38 Lenovo Other Mode per-fan target-RPM writer remains read-only after failing physical smoothness/range acceptance;
 - the native-OEM telemetry safety latch prevents silent fallback to the known-inferior seven-step EC writer;
 - custom curves and manual percentages remain direct-writer features and are not faked through the firmware/full-speed semantic backend;

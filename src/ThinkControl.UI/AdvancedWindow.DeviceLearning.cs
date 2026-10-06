@@ -72,7 +72,7 @@ public partial class AdvancedWindow
         if (_deviceLearningBaseBrand is not null)
             _deviceLearningBaseBrand.Visibility = Visibility.Collapsed;
 
-        _deviceLearningStatusButton.Content = reportReady ? "Report ready" : "New device · 2/4";
+        _deviceLearningStatusButton.Content = reportReady ? "Report ready" : "New device: 2/4";
         _deviceLearningStatusButton.SetResourceReference(
             Control.ForegroundProperty,
             reportReady ? "Tc.Accent" : "Tc.TextMuted");
@@ -113,7 +113,7 @@ public partial class AdvancedWindow
 
         int completed = Math.Max(0, status.CompletedChecks);
         int total = Math.Max(1, status.TotalChecks);
-        _deviceLearningStatusButton.Content = $"New device · {completed}/{total}";
+        _deviceLearningStatusButton.Content = $"New device: {completed}/{total}";
         _deviceLearningStatusButton.ToolTip = "ThinkControl is learning provider and control compatibility in the background while you use the laptop normally. Nothing is uploaded automatically.";
         _deviceLearningStatusButton.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
     }

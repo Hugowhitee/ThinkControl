@@ -28,7 +28,7 @@ public partial class DiagnosticsPanel
             DiagnosticsSwitch.IsEnabled = true;
             DiagnosticsSwitch.Visibility = Visibility.Visible;
             DiagnosticsSwitch.ToolTip = "Prepare a compact compatibility report locally. Nothing is uploaded automatically.";
-            LastEventText.Text = "Last local activity · just now";
+            LastEventText.Text = "Last local activity: just now";
             CrashCard.Visibility = Visibility.Collapsed;
             CrashSeparator.Visibility = Visibility.Collapsed;
             LearningCard.Visibility = Visibility.Visible;
@@ -39,27 +39,27 @@ public partial class DiagnosticsPanel
             if (reportReady)
             {
                 CompatibilityStateText.Text = "Compatibility report ready";
-                CompatibilityDetailText.Text = "5/5 checks · stable provider and control evidence collected.";
+                CompatibilityDetailText.Text = "5 of 5 checks completed. Compatibility report ready.";
                 LearningTitleText.Text = "Compatibility evidence complete";
                 LearningProgress.Value = 5;
                 LearningProgressText.Text = "5/5";
                 SharingStateText.Text = sharingEnabled
                     ? "New compatibility findings are ready to review"
-                    : "Report is ready locally · enable review to open the GitHub draft";
+                    : "Report ready. Enable review to open a GitHub draft.";
                 ShareDeviceButton.Content = "Review report";
                 ShareDeviceButton.IsEnabled = sharingEnabled;
                 StatusText.Text = "The compatibility report stays local until you explicitly review it.";
             }
             else
             {
-                CompatibilityStateText.Text = "New device · learning";
-                CompatibilityDetailText.Text = "3/5 checks · learning continues quietly while you use ThinkControl.";
+                CompatibilityStateText.Text = "New device: learning";
+                CompatibilityDetailText.Text = "3 of 5 checks completed. Learning continues in the background.";
                 LearningTitleText.Text = "Learning compatibility";
                 LearningProgress.Value = 3;
                 LearningProgressText.Text = "3/5";
                 SharingStateText.Text = sharingEnabled
-                    ? "Keep using ThinkControl normally · no report is ready yet"
-                    : "Learning stays local · report review is disabled";
+                    ? "No report is ready yet. Keep using ThinkControl normally."
+                    : "Learning stays on this device. Report review is disabled.";
                 ShareDeviceButton.Content = "Review report";
                 ShareDeviceButton.IsEnabled = false;
                 StatusText.Text = "Compatibility learning stays local. Nothing is uploaded automatically.";
@@ -87,19 +87,19 @@ public partial class DiagnosticsPanel
             _selectedCrashId = latestId;
             CrashCard.Visibility = Visibility.Visible;
             CrashSeparator.Visibility = Visibility.Visible;
-            CrashTitleText.Text = "Crashes preserved · 3";
-            CrashSummaryText.Text = "NotSupportedException · ToolTip property contract · today 14:32 · repeated 2 times · 2 previous unresolved";
+            CrashTitleText.Text = "Saved crashes: 3";
+            CrashSummaryText.Text = "NotSupportedException: ToolTip property contract (today 14:32). Repeated 2 times. 2 previous crashes still unresolved.";
             CrashHistoryCombo.ItemsSource = new[]
             {
-                new CrashHistoryOption(latestId, "NotSupportedException · ×2 · today 14:32"),
-                new CrashHistoryOption("snapshot-previous", "InvalidOperationException · today 13:58"),
-                new CrashHistoryOption("snapshot-oldest", "COMException · yesterday 22:11")
+                new CrashHistoryOption(latestId, "NotSupportedException: today 14:32, 2 occurrences"),
+                new CrashHistoryOption("snapshot-previous", "InvalidOperationException: today 13:58"),
+                new CrashHistoryOption("snapshot-oldest", "COMException: yesterday 22:11")
             };
             CrashHistoryCombo.SelectedValue = latestId;
             CrashHistoryCombo.Visibility = Visibility.Visible;
             MarkCrashReportedButton.Visibility = Visibility.Visible;
             OpenCrashDraftButton.Content = "Reopen GitHub draft";
-            CrashStateText.Text = "GitHub draft opened · mark reported after you submit it.";
+            CrashStateText.Text = "GitHub draft opened. Mark it as reported after submitting.";
         }
         finally
         {

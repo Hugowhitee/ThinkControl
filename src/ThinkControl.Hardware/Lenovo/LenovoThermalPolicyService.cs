@@ -98,8 +98,11 @@ public static class LenovoThermalPolicyService
                 if (read == 0)
                 {
                     detail =
-                        $"LITSSvc accepted command {command} ({mode}, {(onAc ? "AC" : "DC")}) and closed without the legacy Int32 reply.";
-                    return true;
+                        $"LITSSvc closed without the legacy Int32 reply for command {command} ({mode}, {(onAc ? "AC" : "DC")}); the policy change was not confirmed.";
+                    // Installed LITSSvc validates the connecting executable before
+                    // reading commands. A rejected client is disconnected without
+                    // a reply; successful delivery is not acceptance or application.
+                    return false;
                 }
 
                 if (read != response.Length)
@@ -114,7 +117,8 @@ public static class LenovoThermalPolicyService
 
                 // The observed Lenovo contract is request/Int32-response. Lenovo has
                 // not published response-value semantics, so receiving the complete
-                // response is the readback boundary; do not invent a 0/nonzero rule.
+                // response confirms transport only, not active policy readback;
+                // do not invent a 0/nonzero rule.
                 return true;
             }
             catch (TimeoutException)

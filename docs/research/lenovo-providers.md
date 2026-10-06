@@ -1,5 +1,7 @@
 # Lenovo provider research
 
+Current reference-X9 evidence is in [local control-path recovery](x9-local-control-path-recovery.md). Older direct-ID/full-speed hypotheses below are historical: this firmware returns 1 for unhandled Other Mode IDs, so omitted capability plus a boolean reply is not support. Rejected per-fan targets remain read-only.
+
 Lenovo laptops do not expose one universal hardware-control interface. This reference records provider families that ThinkControl may probe and the boundaries that keep one model's implementation from leaking into another.
 
 A profile selects reasonable provider candidates. The provider itself owns probing, readback, lifecycle and write safety. Installed-file/class presence alone is never sufficient to make a provider writable.

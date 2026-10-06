@@ -57,7 +57,7 @@ public partial class AdvancedWindow
 
         if (vendor is not { } resolved)
         {
-            SystemVendorCardDetail.Text = "Windows Update remains the universal driver path. ThinkControl adds no vendor shortcut when one is not confidently identified.";
+            SystemVendorCardDetail.Text = "Find driver updates and manage connected devices in Windows.";
             return;
         }
 

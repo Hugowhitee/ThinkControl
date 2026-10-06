@@ -80,21 +80,12 @@ public partial class AdvancedWindow
             HomeAcQuiet.IsChecked = ac == ThinkControlPowerMode.Quiet;
             HomeAcBalanced.IsChecked = ac == ThinkControlPowerMode.Balanced;
             HomeAcPerformance.IsChecked = ac == ThinkControlPowerMode.Performance;
-            if (HomePowerSummary is not null)
-                HomePowerSummary.Text = $"Battery {PowerShortName(battery)} · AC {PowerShortName(ac)}";
         }
         finally
         {
             _syncing = false;
         }
     }
-
-    private static string PowerShortName(ThinkControlPowerMode mode) => mode switch
-    {
-        ThinkControlPowerMode.Quiet => "Efficiency",
-        ThinkControlPowerMode.Performance => "Fast",
-        _ => "Balanced"
-    };
 
     private void RefreshHomeFanProfiles()
     {
@@ -106,7 +97,8 @@ public partial class AdvancedWindow
             _app.State.FanControlKind,
             FanControlKinds.FirmwarePolicy,
             StringComparison.Ordinal);
-        string[] extraProfiles = BuildHomeFanExtraProfiles(selected, firmwarePolicy);
+        bool fullSpeedOnly = _app.State.FanControlKind == FanControlKinds.FullSpeedOnly;
+        string[] extraProfiles = fullSpeedOnly ? [] : BuildHomeFanExtraProfiles(selected, firmwarePolicy);
         bool enabled = _app.State.CanFanControl || firmwarePolicy;
         bool autoActive =
             selected.Equals("Auto", StringComparison.OrdinalIgnoreCase) ||
@@ -115,9 +107,12 @@ public partial class AdvancedWindow
         _syncing = true;
         try
         {
-            HomeFanQuickGrid.IsEnabled = enabled && !autoActive && !_homeFanBusy;
+            HomeFanQuickGrid.IsEnabled = enabled && (fullSpeedOnly || !autoActive) && !_homeFanBusy;
             HomeFanQuiet.IsChecked = selected.Equals("Quiet", StringComparison.OrdinalIgnoreCase);
             HomeFanBalanced.IsChecked = selected.Equals("Balanced", StringComparison.OrdinalIgnoreCase);
+            HomeFanQuiet.Visibility = HomeFanBalanced.Visibility = fullSpeedOnly ? Visibility.Collapsed : Visibility.Visible;
+            Grid.SetColumn(HomeFanMax, fullSpeedOnly ? 0 : 2);
+            Grid.SetColumnSpan(HomeFanMax, fullSpeedOnly ? 3 : 1);
             HomeFanMax.IsChecked = selected.Equals("Max cooling", StringComparison.OrdinalIgnoreCase);
 
             HomeFanAutoSwitch.IsChecked = autoActive;
@@ -125,6 +120,7 @@ public partial class AdvancedWindow
 
             int selectableExtraCount = extraProfiles.Count(profile => !IsManualHomeFanState(profile));
             bool currentUsesMore = extraProfiles.Contains(selected, StringComparer.OrdinalIgnoreCase);
+            HomeFanMoreButton.Visibility = selectableExtraCount > 0 || currentUsesMore ? Visibility.Visible : Visibility.Collapsed;
             HomeFanMoreButton.IsEnabled = enabled && !autoActive && !_homeFanBusy && selectableExtraCount > 0;
             HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42;
             HomeFanMoreButton.Content = currentUsesMore
@@ -137,8 +133,8 @@ public partial class AdvancedWindow
                 };
             HomeFanMoreButton.ToolTip = currentUsesMore && IsManualHomeFanState(selected)
                 ? selectableExtraCount > 0
-                    ? "Current manual fan output · choose a saved profile from this menu"
-                    : "Current manual fan output · no additional saved profiles are available"
+                    ? "Manual fan output. Choose a saved profile to change it."
+                    : "Manual fan output. No other saved profiles are available."
                 : selectableExtraCount > 0
                     ? "Show additional saved fan profiles without leaving Home"
                     : "No additional saved fan profiles are available for the current fan provider";
@@ -237,7 +233,8 @@ public partial class AdvancedWindow
 
         // Like Adaptive brightness, Auto is a real on/off control. Leaving Auto
         // returns to the neutral Balanced preset rather than silently doing nothing.
-        string profile = HomeFanAutoSwitch.IsChecked == true ? "Auto" : "Balanced";
+        string profile = HomeFanAutoSwitch.IsChecked == true ? "Auto" :
+            _app.State.FanControlKind == FanControlKinds.FullSpeedOnly ? "Max cooling" : "Balanced";
         _homeFanBusy = true;
         SetHomeFanControlsEnabled(false);
         try
@@ -296,7 +293,7 @@ public partial class AdvancedWindow
             HomeModeModifiedText.Text = _app.Modes.IsTransitioning
                 ? "Applying…"
                 : _app.Modes.LastTransitionError is not null
-                    ? "Apply failed · open Modes"
+                    ? "Could not apply. Open Modes for details."
                 : _app.Modes.IsModified
                     ? "Modified"
                     : "Automatic";

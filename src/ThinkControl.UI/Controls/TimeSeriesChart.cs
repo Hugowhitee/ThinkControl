@@ -231,7 +231,7 @@ public sealed class TimeSeriesChart : FrameworkElement
         TimeSpan span = xMax - xMin;
         string time = FormatHoverTime(nearest.At.ToLocalTime(), span);
         string value = FormatValue(nearest.Value);
-        string text = string.IsNullOrWhiteSpace(nearest.Label) ? $"{time}  ·  {value}" : $"{nearest.Label}  ·  {time}  ·  {value}";
+        string text = string.IsNullOrWhiteSpace(nearest.Label) ? $"{time}: {value}" : $"{nearest.Label}: {value} ({time})";
         FormattedText ft = CreateFormattedText(text, 10, foreground);
         double boxWidth = ft.Width + 16;
         double boxHeight = ft.Height + 10;

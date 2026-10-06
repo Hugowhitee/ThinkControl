@@ -38,7 +38,8 @@ public sealed record ThinkControlUserSettings(
     bool DiagnosticsSharingPrompted = false,
     string HardwareIssuePromptedKeys = "",
     ThinkControlModeDefinition[]? CustomModes = null,
-    bool StarterModesSeeded = false);
+    bool StarterModesSeeded = false,
+    ThinkControlAutomationRule[]? AutomationRules = null);
 
 public sealed class UserSettingsService
 {
@@ -51,10 +52,18 @@ public sealed class UserSettingsService
 
     private readonly object _gate = new();
     private readonly string _path;
+    private readonly bool _persist;
     private ThinkControlUserSettings _current;
 
-    public UserSettingsService()
+    public UserSettingsService(bool persist = true)
     {
+        _persist = persist;
+        if (!persist)
+        {
+            _path = string.Empty;
+            _current = Sanitize(new ThinkControlUserSettings(CustomModes: [], StarterModesSeeded: true, AutomationRules: []));
+            return;
+        }
         string folder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ThinkControl");
@@ -70,8 +79,11 @@ public sealed class UserSettingsService
             };
         }
 
+        bool migrateRules = loaded.AutomationRules is null;
+        if (migrateRules)
+            loaded = loaded with { AutomationRules = ThinkControlAutomationRules.Migrate(loaded.CustomModes ?? []) };
         _current = ApplyInstallerConsent(loaded);
-        if (_current.DiagnosticsConsent != loaded.DiagnosticsConsent || seedStarterModes)
+        if (_current.DiagnosticsConsent != loaded.DiagnosticsConsent || seedStarterModes || migrateRules)
             SaveInternal(_current);
     }
 
@@ -85,8 +97,11 @@ public sealed class UserSettingsService
         lock (_gate)
         {
             _current = Sanitize(update(_current));
-            SaveInternal(_current);
-            SaveDiagnosticsConsentPreference(_current.DiagnosticsConsent);
+            if (_persist)
+            {
+                SaveInternal(_current);
+                SaveDiagnosticsConsentPreference(_current.DiagnosticsConsent);
+            }
         }
     }
 
@@ -314,7 +329,9 @@ public sealed class UserSettingsService
             HardwareIssuePromptedKeys = hardwareIssueKeys,
             DismissedUpdateVersion = dismissedUpdateVersion,
             CustomModes = customModes,
-            StarterModesSeeded = settings.StarterModesSeeded
+            StarterModesSeeded = settings.StarterModesSeeded,
+            AutomationRules = settings.AutomationRules is null ? null :
+                ThinkControlAutomationRules.Sanitize(settings.AutomationRules)
         };
     }
 

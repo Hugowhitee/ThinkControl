@@ -205,6 +205,7 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse GetCachedStatusAndRequestRefresh()
     {
+        _hardware.RenewFullSpeedClientLease();
         SignalStatusDemand();
         lock (_statusGate) return _lastStatus ?? ProviderDiscoveryResponse("Service online · detecting hardware providers");
     }
@@ -265,7 +266,7 @@ internal sealed class ServiceEngine : IDisposable
         LenovoBatteryChargeProtectionStatus batteryProtection = ReadBatteryChargeProtection();
         bool firmwareOverride = firmwareCooling.OverrideActive;
         FanTelemetrySnapshot[] fans = status.Fans.Select((fan, index) =>
-            new FanTelemetrySnapshot(fan.Id, fan.Label, fan.Rpm, fan.Source, index == 0)).ToArray();
+            new FanTelemetrySnapshot(fan.Id, fan.Label, fan.Rpm, fan.Source, index == 0, fan.Shared)).ToArray();
         HardwareSensorSnapshot[] sensors = status.Sensors.Select(sensor =>
             new HardwareSensorSnapshot(sensor.Id, sensor.HardwareName, sensor.HardwareType, sensor.Name,
                 sensor.SensorType, sensor.Value, sensor.Unit, sensor.ControlTemperature, sensor.Source)).ToArray();
@@ -276,17 +277,20 @@ internal sealed class ServiceEngine : IDisposable
             status.FanRpm,
             status.FanRpmSource,
             status.FanState,
-            status.HardwareAccess,
+            firmwareCooling.UnavailableReason is string coolingUnavailable
+                ? $"{status.HardwareAccess} · Cooling read-only: {coolingUnavailable}"
+                : status.HardwareAccess,
             status.KeyboardBacklight,
             ThermalSolutionVersion: null,
             Fans: fans,
             Sensors: sensors,
             ControlTemperatureC: status.ControlTemperatureC,
             ControlTemperatureSource: status.ControlTemperatureSource,
-            CoolingProfile: firmwareOverride ? firmwareCooling.Profile : cooling.Profile,
+            CoolingProfile: firmwareCooling.FullSpeedOnly || firmwareCooling.UnavailableReason is not null || firmwareOverride
+                ? firmwareCooling.Profile : cooling.Profile,
             CoolingAppliedLevel: firmwareOverride ? null : cooling.AppliedLevel,
             CoolingSmoothedTemperatureC: firmwareOverride ? null : cooling.SmoothedTemperatureC,
-            CoolingStatus: firmwareOverride ? firmwareCooling.Status : cooling.Status,
+            CoolingStatus: firmwareCooling.UnavailableReason ?? (firmwareCooling.FullSpeedOnly || firmwareOverride ? firmwareCooling.Status : cooling.Status),
             CoolingSafetyOverride: firmwareOverride ? false : cooling.SafetyOverride,
             FanCharacterization: cooling.Characterization,
             CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
@@ -300,12 +304,12 @@ internal sealed class ServiceEngine : IDisposable
             BatteryChargeStopPercent: batteryProtection.Available ? batteryProtection.StopPercent : null,
             BatteryChargeProtectionProvider: batteryProtection.Available ? batteryProtection.Provider : null);
 
-        bool firmwareProfileControl = firmwareCooling.Supported;
+        bool firmwareProfileControl = firmwareCooling.ControlAvailable;
         bool productFanControl = status.CanFanControl || firmwareProfileControl;
         string fanControlKind = status.CanFanControl
             ? ToFanControlKind(status.FanControlKind)
             : firmwareProfileControl
-                ? FanControlKinds.FirmwarePolicy
+                ? firmwareCooling.FullSpeedOnly ? FanControlKinds.FullSpeedOnly : FanControlKinds.FirmwarePolicy
                 : FanControlKinds.None;
         bool fanCalibrationSupported = status.CanFanControl &&
                                        status.CanFanTelemetry &&
@@ -332,7 +336,8 @@ internal sealed class ServiceEngine : IDisposable
             FanCalibrationRequired: fanCalibrationRequired,
             KeyboardEffects: keyboardEffects,
             BatteryChargeProtection: batteryProtection.Available && batteryProtection.Writable,
-            BatteryCustomChargeThresholds: batteryProtection.Available && batteryProtection.Writable && batteryProtection.CustomThresholds);
+            BatteryCustomChargeThresholds: batteryProtection.Available && batteryProtection.Writable && batteryProtection.CustomThresholds,
+            FanAutoRecoverySupported: firmwareCooling.Supported ? firmwareCooling.AutoRecoveryAvailable : null);
         return new ServiceResponse(ThinkControlProtocol.Version, true, Telemetry: telemetry, Capabilities: capabilities);
     }
 
@@ -380,7 +385,7 @@ internal sealed class ServiceEngine : IDisposable
     private ServiceResponse ProviderDiscoveryResponse(string detail)
     {
         LenovoCoolingPolicySnapshot firmwareCooling = _coolingPolicy.Snapshot();
-        bool firmwareControl = firmwareCooling.Supported;
+        bool firmwareControl = firmwareCooling.ControlAvailable;
         var telemetry = new TelemetrySnapshot(
             null, "Detecting", null, "Detecting",
             "Lenovo managed · provider discovery in progress",
@@ -404,7 +409,7 @@ internal sealed class ServiceEngine : IDisposable
                 false,
                 false,
                 0,
-                firmwareControl ? FanControlKinds.FirmwarePolicy : FanControlKinds.None));
+                firmwareControl ? firmwareCooling.FullSpeedOnly ? FanControlKinds.FullSpeedOnly : FanControlKinds.FirmwarePolicy : FanControlKinds.None));
     }
 
     private ServiceResponse SetFanLevel(string? raw)
@@ -468,9 +473,9 @@ internal sealed class ServiceEngine : IDisposable
             CoolingSupervisorSnapshot direct = _fanSupervisor.Snapshot();
             if (ThinkControlOwnsFan(direct) && !_fanSupervisor.ReturnToAuto(out string? handoffError))
                 return Error(handoffError ?? "Could not return direct fan ownership to Lenovo Auto before applying the firmware profile.");
-            return _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError)
-                ? RefreshAndReturnStatus()
-                : Error(policyError ?? "Lenovo firmware cooling profile rejected the request.");
+            bool accepted = _coolingPolicy.SetBuiltInProfile(normalized, out string? policyError);
+            _fanSupervisor.WakeForHardwareLease();
+            return accepted ? RefreshAndReturnStatus() : Error(policyError ?? "Lenovo firmware cooling profile rejected the request.");
         }
 
         LenovoHardwareStatus status = _hardware.ReadStatus();
@@ -597,6 +602,12 @@ internal sealed class ServiceEngine : IDisposable
         byte[] bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(response, JsonOptions) + "\n");
         await pipe.WriteAsync(bytes, cancellationToken).ConfigureAwait(false);
         await pipe.FlushAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    internal void PrepareForSuspend()
+    {
+        if (_hardware.OwnsExactFullSpeed && !_coolingPolicy.RequestFirmwareAuto(out string? error))
+            ServiceLog.Write("Suspend Auto recovery pending: " + error);
     }
 
     public void Dispose()

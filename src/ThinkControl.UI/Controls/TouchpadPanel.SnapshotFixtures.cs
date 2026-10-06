@@ -61,8 +61,8 @@ public partial class TouchpadPanel
             Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
             RefreshGestureZoneVisuals(null);
             GestureStatusText.Text = corner == TouchpadCorner.TopLeft
-                ? "Top-left corner selected · Compact · reverse close on"
-                : "Top-right corner selected · Advanced · reverse close on";
+                ? "Top-left corner: Compact, swipe back to close"
+                : "Top-right corner: Advanced, swipe back to close";
             return;
         }
 
@@ -90,8 +90,8 @@ public partial class TouchpadPanel
 
         RefreshGestureZoneVisuals(reverse);
         GestureStatusText.Text = corner == TouchpadCorner.TopLeft
-            ? "Top-left reverse · closing ThinkControl"
-            : "Top-right reverse · closing ThinkControl";
+            ? "Closing ThinkControl from the top-left corner"
+            : "Closing ThinkControl from the top-right corner";
     }
 
     /// <summary>

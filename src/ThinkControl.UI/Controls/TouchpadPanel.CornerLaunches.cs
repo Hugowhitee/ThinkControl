@@ -279,14 +279,14 @@ public partial class TouchpadPanel
         string action = signal.Action == GestureActionKind.OpenAdvanced ? "Advanced" : "Compact";
         GestureStatusText.Text = signal.Phase switch
         {
-            GesturePhase.Candidate when closing => $"{cornerName} reverse · continue diagonally toward the corner to close",
-            GesturePhase.Candidate => $"{cornerName} launch · continue diagonally inward for {action}",
-            GesturePhase.Claimed or GesturePhase.Active when closing => $"{cornerName} reverse · closing ThinkControl",
-            GesturePhase.Claimed or GesturePhase.Active => $"{cornerName} launch · opening {action}",
-            GesturePhase.Cancelled when closing => $"{cornerName} reverse rejected · {signal.Reason}",
-            GesturePhase.Cancelled => $"{cornerName} launch rejected · {signal.Reason}",
-            GesturePhase.Released when closing => $"{cornerName} reverse complete · ThinkControl hidden",
-            GesturePhase.Released => $"{cornerName} launch complete · {action}",
+            GesturePhase.Candidate when closing => $"{cornerName}: swipe diagonally toward the corner to close",
+            GesturePhase.Candidate => $"{cornerName}: swipe diagonally inward to open {action}",
+            GesturePhase.Claimed or GesturePhase.Active when closing => $"Closing ThinkControl from the {cornerName.ToLowerInvariant()} corner",
+            GesturePhase.Claimed or GesturePhase.Active => $"Opening {action} from the {cornerName.ToLowerInvariant()} corner",
+            GesturePhase.Cancelled when closing => $"{cornerName}: close cancelled. {signal.Reason}",
+            GesturePhase.Cancelled => $"{cornerName}: launch cancelled. {signal.Reason}",
+            GesturePhase.Released when closing => $"ThinkControl hidden from the {cornerName.ToLowerInvariant()} corner",
+            GesturePhase.Released => $"{action} opened from the {cornerName.ToLowerInvariant()} corner",
             _ => GestureStatusText.Text
         };
     }

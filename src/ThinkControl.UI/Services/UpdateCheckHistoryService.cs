@@ -61,13 +61,13 @@ internal static class UpdateCheckHistoryService
     internal static string Format(DateTimeOffset? timestamp, DateTimeOffset now)
     {
         if (timestamp is null)
-            return "Last checked · Never";
+            return "Last checked: Never";
 
         DateTimeOffset local = timestamp.Value.ToLocalTime();
         DateTimeOffset localNow = now.ToLocalTime();
         TimeSpan age = localNow - local;
         if (age >= TimeSpan.Zero && age < TimeSpan.FromMinutes(2))
-            return "Last checked · Just now";
+            return "Last checked: Just now";
 
         DateTime today = localNow.Date;
         string day = local.Date == today
@@ -76,6 +76,6 @@ internal static class UpdateCheckHistoryService
                 ? "Yesterday"
                 : local.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
 
-        return $"Last checked · {day}, {local:HH:mm}";
+        return $"Last checked: {day}, {local:HH:mm}";
     }
 }

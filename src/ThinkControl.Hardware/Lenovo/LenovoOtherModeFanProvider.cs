@@ -89,10 +89,10 @@ internal sealed class LenovoOtherModeFanProvider
     private DateTimeOffset _liveProbeRetryAfter = DateTimeOffset.MinValue;
     private string? _lastLiveProbeFailure;
 
-    // Only LenovoHardwareController owns this provider in production. Keeping the
-    // read-side direct-ID probe enabled lets incomplete Lenovo capdata be diagnosed
-    // without authorizing the physically rejected target-RPM writer.
-    internal LenovoOtherModeFanProvider(bool allowExactModelDirectIdFallback = true)
+    // Current X9 firmware returns 1 for unsupported GetFeatureValue IDs. Fan Test
+    // metadata cannot turn that fallback into a real RPM measurement. Production
+    // requires advertised capability; isolated research must opt in explicitly.
+    internal LenovoOtherModeFanProvider(bool allowExactModelDirectIdFallback = false)
     {
         _allowExactModelDirectIdFallback = allowExactModelDirectIdFallback;
     }

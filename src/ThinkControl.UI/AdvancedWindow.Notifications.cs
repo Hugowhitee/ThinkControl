@@ -141,14 +141,14 @@ public partial class AdvancedWindow
         _notificationDot.Visibility = attention ? Visibility.Visible : Visibility.Collapsed;
         string label = calibrationAttention
             ? updateAttention || hardwareAttention
-                ? "Notifications · setup attention"
-                : "Notifications · fan calibration required"
+                ? "Notifications: setup attention"
+                : "Notifications: fan calibration required"
             : updateAttention && hardwareAttention
-                ? "Notifications · update + hardware"
+                ? "Notifications: update and hardware attention"
                 : updateAttention
-                    ? "Notifications · update available"
+                    ? "Notifications: update available"
                     : hardwareAttention
-                        ? "Notifications · hardware attention"
+                        ? "Notifications: hardware attention"
                         : "Notifications";
         TcToolTip.Apply(_notificationIndicator, label);
     }

@@ -18,7 +18,7 @@ internal sealed class WindowsVolumeService
                 AudioSafetyPolicy.BlocksExplicitOutputChanges(AudioSafetyRuntimeState.Mode))
             {
                 return new(false, Math.Clamp(percent, 0, 100), true,
-                    $"Silent · output locked by Audio safety · {device.FriendlyName}");
+                    $"Silent: {device.FriendlyName} is muted and locked by Audio safety");
             }
             return new(true, Math.Clamp(percent, 0, 100), device.AudioEndpointVolume.Mute, device.FriendlyName);
         }

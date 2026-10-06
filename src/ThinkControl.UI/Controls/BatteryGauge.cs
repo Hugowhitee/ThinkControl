@@ -104,8 +104,10 @@ public sealed class BatteryGauge : FrameworkElement
     {
         base.OnRender(dc);
 
-        double width = ActualWidth;
-        double height = ActualHeight;
+        // Every host uses the same silhouette, including wider layout slots.
+        const double aspectRatio = 2.5;
+        double width = Math.Min(ActualWidth, ActualHeight * aspectRatio);
+        double height = width / aspectRatio;
         if (width < 20 || height < 16)
             return;
 

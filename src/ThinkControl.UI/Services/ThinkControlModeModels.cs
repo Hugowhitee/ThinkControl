@@ -342,26 +342,26 @@ internal static class ThinkControlModeCatalog
 
         var parts = new List<string>(6);
         if (mode.PerformanceMode is string performance)
-            parts.Add(performance);
+            parts.Add($"Power: {performance}");
         if (mode.CoolingProfile is string cooling)
-            parts.Add(cooling);
+            parts.Add($"Cooling: {cooling}");
         if (mode.RefreshRate is string refresh)
-            parts.Add(refresh == "Max" ? "max refresh" : refresh);
+            parts.Add($"Display: {(refresh == "Max" ? "max refresh" : refresh)}");
         if (mode.AudioSafety is not null)
         {
             parts.Add(mode.AudioSafety switch
             {
-                "GestureLock" => "gesture lock",
-                "Silent" => "silent",
-                _ => "normal audio"
+                "GestureLock" => "Audio: gesture lock",
+                "Silent" => "Audio: silent",
+                _ => "Audio: normal"
             });
         }
         if (mode.KeyboardLight is string keyboard)
-            parts.Add($"keyboard {keyboard.ToLowerInvariant()}");
+            parts.Add($"Keyboard: {keyboard.ToLowerInvariant()}");
         if (mode.TouchpadGesturesEnabled is bool gestures)
-            parts.Add(gestures ? "gestures on" : "gestures off");
+            parts.Add(gestures ? "Gestures: on" : "Gestures: off");
 
-        return parts.Count == 0 ? "No settings." : string.Join(" · ", parts);
+        return parts.Count == 0 ? "No settings." : string.Join(", ", parts);
     }
 
     internal static string AutomationSummary(ThinkControlModeDefinition mode)
@@ -378,11 +378,11 @@ internal static class ThinkControlModeCatalog
             : "When";
         string priority = mode.AutomationPriority switch
         {
-            1 => " · High priority",
-            -1 => " · Low priority",
+            1 => ". High priority",
+            -1 => ". Low priority",
             _ => string.Empty
         };
-        return match + ": " + string.Join(" · ", triggers.Take(2).Select(TriggerSummary)) +
+        return match + ": " + string.Join(mode.MatchAllTriggers ? " and " : " or ", triggers.Take(2).Select(TriggerSummary)) +
                (triggers.Length > 2 ? $" +{triggers.Length - 2}" : string.Empty) + priority;
     }
 

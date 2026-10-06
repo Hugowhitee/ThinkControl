@@ -12,6 +12,10 @@ public static class FanControlKinds
     public const string DiscreteEc = "ThinkPadEcDiscrete";
     public const string OemTargetRpm = "LenovoOtherModeTargetRpm";
     public const string FirmwarePolicy = "LenovoFirmwarePolicy";
+    public const string FullSpeedOnly = "VerifiedAutoAndFullSpeed";
+
+    public static bool SupportsProfile(string kind, string profile) => kind != FullSpeedOnly ||
+        profile.Trim().ToLowerInvariant() is "auto" or "lenovo auto" or "max cooling" or "maxcooling" or "cool" or "builtin:max";
 }
 
 public sealed record ServiceRequest(
@@ -31,7 +35,8 @@ public sealed record FanTelemetrySnapshot(
     string Label,
     int Rpm,
     string Source,
-    bool Primary = false);
+    bool Primary = false,
+    bool Shared = false);
 
 public sealed record HardwareSensorSnapshot(
     string Id,
@@ -112,4 +117,5 @@ public sealed record HardwareCapabilitySnapshot(
     bool FanCalibrationRequired = false,
     bool KeyboardEffects = false,
     bool BatteryChargeProtection = false,
-    bool BatteryCustomChargeThresholds = false);
+    bool BatteryCustomChargeThresholds = false,
+    bool? FanAutoRecoverySupported = null);

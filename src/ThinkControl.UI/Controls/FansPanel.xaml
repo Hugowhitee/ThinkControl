@@ -22,7 +22,7 @@
                     <StackPanel Margin="0,0,210,0">
                         <TextBlock x:Name="CharacterizationTitleText" Text="Fan calibration required" FontWeight="SemiBold" />
                         <TextBlock x:Name="CalibrationDescriptionText"
-                                   Text="The active fan provider requires a measured output mapping before percentage profiles and manual targets are enabled. Firmware Auto remains the safe default until calibration completes."
+                                   Text="Measure fan speeds to enable curves and percentage targets. Auto stays active until calibration completes."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Top">
@@ -79,7 +79,13 @@
                                 Margin="0,6,0,0"
                                 Visibility="Collapsed"
                                 Click="RecoverAuto_Click"
-                                ToolTip="Explicitly release the verified Lenovo full-speed override." />
+                                ToolTip="Return control to automatic cooling." />
+                        <TextBlock x:Name="AutoRecoveryResultText"
+                                   Visibility="Collapsed"
+                                   Foreground="{DynamicResource Tc.TextMuted}"
+                                   FontSize="{x:Static ui:TypographyScale.Caption}"
+                                   TextWrapping="Wrap"
+                                   Margin="0,4,0,0" />
                     </StackPanel>
                     <ComboBox x:Name="ProfileComboBox"
                               Grid.Column="1"
@@ -117,7 +123,7 @@
                     <StackPanel Margin="0,0,16,0">
                         <TextBlock Text="Control temperature" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                         <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,4,0,0" />
-                        <TextBlock Text="{Binding ControlTemperatureSource}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding ControlTemperatureCaption}" ToolTip="{Binding ControlTemperatureSource}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
 
                     <Border Grid.Column="1" Width="1" Background="{DynamicResource Tc.Border}" />
@@ -170,7 +176,7 @@
                                Foreground="{DynamicResource Tc.TextFaint}"
                                FontSize="{x:Static ui:TypographyScale.Caption}"
                                TextTrimming="CharacterEllipsis">
-                        <Run Text="Provider · " /><Run Text="{Binding HardwareAccess}" />
+                        <Run Text="{Binding CoolingAvailabilityText, Mode=OneWay}" />
                     </TextBlock>
                     <Button x:Name="EditCurvesButton"
                             Grid.Column="1"
@@ -190,7 +196,7 @@
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Temporary fan target" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ManualControlDescriptionText" Text="Run a temporary 30-second target test through the active verified provider. The previous profile is restored automatically when the test ends."
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="Try this target for 30 seconds. Your previous profile is restored afterwards."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">

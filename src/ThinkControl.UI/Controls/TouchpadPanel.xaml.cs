@@ -141,7 +141,7 @@ public partial class TouchpadPanel : UserControl
             UpdateGestureLabels();
             InputStatusText.Text = _host.Geometry is null
                 ? (_host.IsInputRunning ? "Waiting for touchpad input" : "Input inactive")
-                : (_host.Geometry.PhysicalSizeEstimated ? "Precision Touchpad · size estimated" : "Precision Touchpad detected");
+                : (_host.Geometry.PhysicalSizeEstimated ? "Precision Touchpad (estimated size)" : "Precision Touchpad detected");
             GestureStatusText.Text = _configuration.Enabled
                 ? "Touchpad gestures are active. Select an edge or corner to edit its action."
                 : "Touchpad gestures are off. Live touch visualization runs only while this page is open.";
@@ -510,12 +510,12 @@ public partial class TouchpadPanel : UserControl
             GestureStatusText.Text = signal.Phase switch
             {
                 GesturePhase.Candidate when signal.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled =>
-                    "Track control · tap the center segment for Play / Pause, or swipe for Previous / Next",
+                    "Tap the center to play or pause. Swipe to change tracks.",
                 GesturePhase.Candidate => signal.Reason ?? "Gesture candidate",
-                GesturePhase.Claimed => $"{EdgeLabel(signal.Edge)} · {ActionLabel(signal.Action)}",
+                GesturePhase.Claimed => $"{EdgeLabel(signal.Edge)}: {ActionLabel(signal.Action)}",
                 GesturePhase.Active => FormatGestureStatus(signal),
-                GesturePhase.Cancelled => $"Rejected · {signal.Reason}",
-                GesturePhase.Released => $"Gesture complete · {FormatGestureStatus(signal)}",
+                GesturePhase.Cancelled => $"Gesture cancelled: {signal.Reason}",
+                GesturePhase.Released => $"Gesture complete: {FormatGestureStatus(signal)}",
                 _ => "Gesture complete"
             };
         });
@@ -530,7 +530,7 @@ public partial class TouchpadPanel : UserControl
             Visualizer.Geometry = geometry;
             SyncGestureZoneOverlay();
             InputStatusText.Text = geometry.PhysicalSizeEstimated
-                ? "Precision Touchpad · size estimated"
+                ? "Precision Touchpad (estimated size)"
                 : "Precision Touchpad detected";
             SyncHaptics();
         });

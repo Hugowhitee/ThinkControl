@@ -41,7 +41,7 @@ internal sealed class FanCurveEditorWindow : Window
     internal FanCurveEditorWindow(App app)
     {
         _app = app;
-        Title = "ThinkControl · Fan curves";
+        Title = "ThinkControl: Fan curves";
         Width = 900;
         Height = 620;
         MinWidth = 760;
@@ -107,7 +107,7 @@ internal sealed class FanCurveEditorWindow : Window
         ConfigureProfileList(_builtInProfiles, maxHeight: 116);
         profileStack.Children.Add(_builtInProfiles);
 
-        _customHeading.Text = $"Custom · 0/{FanProfileCatalog.MaxCustomProfiles}";
+        _customHeading.Text = $"Custom profiles: 0/{FanProfileCatalog.MaxCustomProfiles}";
         _customHeading.FontWeight = FontWeights.SemiBold;
         _customHeading.Margin = new Thickness(0, 13, 0, 7);
         profileStack.Children.Add(_customHeading);
@@ -339,7 +339,7 @@ internal sealed class FanCurveEditorWindow : Window
         _syncingProfileSelection = true;
         _builtInProfiles.ItemsSource = builtIns;
         _customProfiles.ItemsSource = customs;
-        _customHeading.Text = $"Custom · {customs.Length}/{FanProfileCatalog.MaxCustomProfiles}";
+        _customHeading.Text = $"Custom profiles: {customs.Length}/{FanProfileCatalog.MaxCustomProfiles}";
         _customEmpty.Visibility = customs.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
         _customProfiles.Visibility = customs.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         FanCurveDefinition? selected = profiles.FirstOrDefault(profile => string.Equals(profile.Id, selectId, StringComparison.OrdinalIgnoreCase))
@@ -381,8 +381,8 @@ internal sealed class FanCurveEditorWindow : Window
         _delete.IsEnabled = !builtIn;
         _reset.IsEnabled = builtIn;
         _status.Text = builtIn
-            ? "Built-in profile · edits are stored as an override; Reset restores ThinkControl defaults."
-            : "Custom profile · edit the graph, rename it, or delete it without changing the built-in profiles.";
+            ? "Built-in profile. Save your edits as an override; Reset restores the defaults."
+            : "Custom profile. Edit the graph, rename it or delete it.";
     }
 
     private void Graph_SelectionChanged(object? sender, EventArgs e) => SyncSelectedPoint();
@@ -391,7 +391,7 @@ internal sealed class FanCurveEditorWindow : Window
     {
         SyncSelectedPoint();
         RefreshLiveMarker();
-        _status.Text = "Unsaved curve changes · hardware is not touched until Save and apply.";
+        _status.Text = "Unsaved changes. Choose Save and apply to use this curve.";
     }
 
     private void SyncSelectedPoint()
@@ -404,8 +404,8 @@ internal sealed class FanCurveEditorWindow : Window
             _temperature.Text = point.TemperatureC.ToString("0.0", CultureInfo.CurrentCulture);
             _output.Text = point.Percent.ToString(CultureInfo.CurrentCulture);
             _output.IsEnabled = _graph.SelectedIndex != _graph.PointCount - 1;
-            _pointValue.Text = $"Point {_graph.SelectedIndex + 1}/{_graph.PointCount} · drag it or type an exact value" +
-                               (_graph.SelectedIndex == _graph.PointCount - 1 ? " · final target stays at 100%" : string.Empty);
+            _pointValue.Text = $"Point {_graph.SelectedIndex + 1}/{_graph.PointCount}: drag it or enter a value" +
+                               (_graph.SelectedIndex == _graph.PointCount - 1 ? "; final target stays at 100%" : string.Empty);
             _addPoint.IsEnabled = _graph.PointCount < FanCurveGraphPolicy.MaxPointCount;
             _removePoint.IsEnabled = _graph.PointCount > FanCurveGraphPolicy.MinPointCount;
         }
@@ -487,7 +487,7 @@ internal sealed class FanCurveEditorWindow : Window
     {
         if (SelectedProfile is not FanCurveDefinition selected || _app.FanProfiles.IsBuiltIn(selected.Id))
             return;
-        if (MessageBox.Show(this, $"Delete fan profile ‘{selected.Name}’?", "ThinkControl · Fan curves", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+        if (MessageBox.Show(this, $"Delete fan profile ‘{selected.Name}’?", "ThinkControl: Fan curves", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
             return;
         if (!_app.FanProfiles.Delete(selected.Id, out string? error))
         {
@@ -540,7 +540,7 @@ internal sealed class FanCurveEditorWindow : Window
         if (_editing is null || _app.State.ControlTemperatureC is not double temperature)
         {
             _graph.SetLiveState(null, null, null);
-            _liveValue.Text = "LIVE · waiting for control temperature";
+            _liveValue.Text = "Live: waiting for a temperature reading";
             return;
         }
 
@@ -554,8 +554,8 @@ internal sealed class FanCurveEditorWindow : Window
         }
 
         _graph.SetLiveState(temperature, target, _app.State.FanRpm);
-        string rpm = _app.State.FanRpm is int actual ? $" · current {actual:N0} RPM" : string.Empty;
-        _liveValue.Text = $"LIVE · {temperature:0.0} °C · {target}% target{rpm}";
+        string rpm = _app.State.FanRpm is int actual ? $", current speed: {actual:N0} RPM" : string.Empty;
+        _liveValue.Text = $"Live: {temperature:0.0} °C, target: {target}%{rpm}";
     }
 
     internal void PrepareForSnapshot()
@@ -750,7 +750,7 @@ internal sealed class FanCurveGraph : FrameworkElement
             dc.DrawEllipse(accent, new Pen(surface, 2), live, 5, 5);
             if (ShowLiveLabel)
             {
-                string rpm = _liveRpm is int value ? $" · {value:N0} RPM now" : string.Empty;
+                string rpm = _liveRpm is int value ? $", current speed: {value:N0} RPM" : string.Empty;
                 string label = $"{liveTemperature:0.0} °C → {liveTarget}%{rpm}";
                 var text = CreateText(label, muted, 9);
                 double labelX = Math.Clamp(live.X + 8, plot.Left + 5, plot.Right - text.Width - 5);

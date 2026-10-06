@@ -9,7 +9,8 @@ public sealed record LenovoOtherModeFullSpeedStatus(
     bool Enabled,
     bool CapabilityPresent,
     uint Capability,
-    string Detail);
+    string Detail,
+    bool Unsupported = false);
 
 /// <summary>
 /// Exact-X9 bridge for Lenovo Other Mode's documented global full-speed semantic.
@@ -19,10 +20,11 @@ public sealed record LenovoOtherModeFullSpeedStatus(
 /// it back to firmware. ThinkControl does not infer this from a fan-test RPM ceiling
 /// and does not reuse the rejected fanX_target writer.
 ///
-/// Product writes remain exact-X9 and live-read gated. An explicitly present
-/// capability row must advertise VALID+GET+SET. If Lenovo omits the capability row,
-/// the known feature ID is accepted only when GetFeatureValue itself returns a real
-/// boolean on the exact X9 immediately before the write. Every write is verified by
+/// Product reads require an advertised VALID+GET capability for this exact feature.
+/// The reference X9's WMLA method returns 1 for unhandled IDs; a boolean-shaped
+/// response therefore cannot establish feature support or physical full-speed state.
+/// Writes additionally require SET and a live SetFeatureValue schema with IDs/value
+/// inputs. Every write is verified by
 /// readback. No arbitrary IDs or values are accepted.
 /// </summary>
 public static class LenovoOtherModeFullSpeedService
@@ -48,6 +50,13 @@ public static class LenovoOtherModeFullSpeedService
         try
         {
             (bool capabilityPresent, uint capability) = ReadCapability();
+            if (!capabilityPresent)
+            {
+                return new LenovoOtherModeFullSpeedStatus(
+                    false, false, false, false, 0,
+                    "X9 firmware does not advertise the full-speed feature 0x04020000. Its generic getter can return 1 for unsupported IDs; no fan state or ownership is inferred.",
+                    Unsupported: true);
+            }
             if (capabilityPresent && (capability & (SupportValid | SupportGet)) != (SupportValid | SupportGet))
             {
                 return new LenovoOtherModeFullSpeedStatus(
@@ -70,19 +79,17 @@ public static class LenovoOtherModeFullSpeedService
                     $"X9 full-speed feature 0x{FullSpeedAttributeId:X8} did not return a boolean live value.");
             }
 
-            bool writable = capabilityPresent
-                ? (capability & RequiredWriteSupport) == RequiredWriteSupport
-                : true;
-            string contract = capabilityPresent
-                ? $"cap=0x{capability:X}"
-                : "live direct-ID fallback; capability row omitted";
+            bool hasSetter = HasFeatureSetter(method);
+            bool writable = hasSetter && (capability & RequiredWriteSupport) == RequiredWriteSupport;
+            string contract = $"cap=0x{capability:X}";
             return new LenovoOtherModeFullSpeedStatus(
                 true,
                 writable,
                 raw == 1,
                 capabilityPresent,
                 capability,
-                $"Lenovo Other Mode full-speed 0x{FullSpeedAttributeId:X8} = {raw} · {contract}");
+                $"Lenovo Other Mode full-speed 0x{FullSpeedAttributeId:X8} = {raw} · {contract}" +
+                (hasSetter ? string.Empty : " · read-only: firmware exposes no SetFeatureValue method; ThinkControl cannot change this state."));
         }
         catch (Exception ex)
         {
@@ -124,6 +131,12 @@ public static class LenovoOtherModeFullSpeedService
             if (method is null)
             {
                 detail = "LENOVO_OTHER_METHOD disappeared before the full-speed transition.";
+                return false;
+            }
+
+            if (!HasFeatureSetter(method))
+            {
+                detail = "Lenovo full-speed is read-only: firmware exposes no SetFeatureValue method. ThinkControl cannot return this state to Auto.";
                 return false;
             }
 
@@ -200,6 +213,21 @@ public static class LenovoOtherModeFullSpeedService
         return null;
     }
 
+    private static bool HasFeatureSetter(ManagementObject method)
+    {
+        // Inspect the schema only. Never invoke another OEM method as a substitute
+        // when this documented writer is absent (as on the local X9 firmware).
+        try
+        {
+            using ManagementBaseObject? input = method.GetMethodParameters("SetFeatureValue");
+            return input?.Properties["IDs"] is not null && input.Properties["value"] is not null;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static bool TryGetFeatureValue(ManagementObject method, uint attributeId, out uint value)
     {
         value = 0;
@@ -235,7 +263,7 @@ public static class LenovoOtherModeFullSpeedService
         }
         catch (Exception ex)
         {
-            error = ex.GetType().Name;
+            error = DescribeManagementFailure(ex);
             return false;
         }
     }

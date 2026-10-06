@@ -20,6 +20,7 @@ public partial class AdvancedWindow
 
         AttachPageInteraction(NavHome, PageHome);
         AttachPageInteraction(NavModes, PageModes);
+        AttachPageInteraction(NavAutomation, PageAutomation);
         AttachPageInteraction(NavPerformance, PagePerformance);
         AttachPageInteraction(NavFans, PageFans);
         AttachPageInteraction(NavBattery, PageBattery);

@@ -19,7 +19,9 @@ public sealed class X9DualFanSourceTests
         Assert.Contains("ReadSelectedFanRpmUnlocked(ThinkPadRegisters.AuxiliaryFan)", ec, StringComparison.Ordinal);
         Assert.Contains("WriteAndVerifyFanControlUnlocked(requested, acceptsReadBack, label)", ec, StringComparison.Ordinal);
         Assert.DoesNotContain("WriteAndVerifySelectedFanUnlocked", ec, StringComparison.Ordinal);
-        Assert.Contains("TrySelectMainFanUnlocked()", ec, StringComparison.Ordinal);
+        Assert.Contains("SelectFanUnlocked(originalSelector)", ec, StringComparison.Ordinal);
+        Assert.Contains("ThinkPadFanProtocol.WithFanSelector(current, selector)", ec, StringComparison.Ordinal);
+        Assert.DoesNotContain("WriteByteUnlocked(ThinkPadRegisters.FanSelector, selector)", ec, StringComparison.Ordinal);
     }
 
     [Fact]

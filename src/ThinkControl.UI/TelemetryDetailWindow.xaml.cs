@@ -14,7 +14,7 @@ public sealed record TelemetryDetailModel(
     string Unit,
     string ValueFormat,
     IReadOnlyList<TelemetryDetailMetric> Metrics,
-    string Footer = "Local telemetry · nothing is uploaded",
+    string Footer = "Local telemetry. Nothing is uploaded.",
     IReadOnlyList<TimeSeriesPoint>? SecondaryTimeline = null,
     string? SecondaryChartTitle = null,
     string SecondaryUnit = "%",
@@ -32,7 +32,7 @@ public partial class TelemetryDetailWindow : Window
     {
         _model = model;
         InitializeComponent();
-        Title = $"ThinkControl · {model.Title}";
+        Title = $"ThinkControl: {model.Title}";
         TitleText.Text = model.Title;
         SubtitleText.Text = model.Subtitle;
         FooterText.Text = model.Footer;

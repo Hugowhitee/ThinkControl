@@ -31,7 +31,7 @@ public sealed class CoolingProfilePersistenceSourceTests
             .Split("private void InitializeCoolingCoordinator()", StringSplitOptions.None)[1]
             .Split("private void CoolingStatusObserved", StringSplitOptions.None)[0];
 
-        Assert.Contains("UsesFirmwareCoolingPolicy", initialize, StringComparison.Ordinal);
+        Assert.Contains("State.FanControlKind == FanControlKinds.FirmwarePolicy", initialize, StringComparison.Ordinal);
         Assert.Contains("Volatile.Read(ref _coolingShutdownPrepared)", initialize, StringComparison.Ordinal);
         Assert.Contains("if (!_coolingWriteGate.Wait(0))", initialize, StringComparison.Ordinal);
         Assert.Contains("HardwareClient.ReturnFanToAutoAsync(cts.Token)", initialize, StringComparison.Ordinal);
@@ -64,7 +64,7 @@ public sealed class CoolingProfilePersistenceSourceTests
         Assert.Contains("IsExternalCoolingOwnerConflict(detail)", cooling, StringComparison.Ordinal);
         Assert.Contains("_coolingPreferenceRestoreAttempted = true", cooling, StringComparison.Ordinal);
         Assert.Contains("RecoverAuto_Click", fans, StringComparison.Ordinal);
-        Assert.Contains("ownershipConflict ? Visibility.Visible : Visibility.Collapsed", fans, StringComparison.Ordinal);
+        Assert.Contains("ownershipConflict && state.FanAutoRecoverySupported != false", fans, StringComparison.Ordinal);
         Assert.Contains("SetCoolingProfileAsync(\"Lenovo Auto\")", fans, StringComparison.Ordinal);
         Assert.Contains("fullSpeed.Enabled && !fullSpeedOwned", coordinator, StringComparison.Ordinal);
         Assert.Contains("attemptedFacets", mode, StringComparison.Ordinal);

@@ -88,12 +88,13 @@ public sealed class Alpha47UxSourceTests
         Assert.Contains("Click=\"HomeFanAuto_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Click=\"HomeFanMore_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("new ContextMenu", code, StringComparison.Ordinal);
-        Assert.Contains("HomeFanAutoSwitch.IsChecked == true ? \"Auto\" : \"Balanced\"", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanAutoSwitch.IsChecked == true ? \"Auto\" :", code, StringComparison.Ordinal);
+        Assert.Contains("FanControlKinds.FullSpeedOnly ? \"Max cooling\" : \"Balanced\"", code, StringComparison.Ordinal);
         string autoClick = code.Split("private async void HomeFanAuto_Click", StringSplitOptions.None)[1]
             .Split("private async void HomeFanQuick_Click", StringSplitOptions.None)[0];
         Assert.Contains("if (_homeFanBusy)", autoClick, StringComparison.Ordinal);
         Assert.DoesNotContain("if (_syncing || _homeFanBusy)", autoClick, StringComparison.Ordinal);
-        Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
+        Assert.Contains("HomeFanQuickGrid.IsEnabled = enabled && (fullSpeedOnly || !autoActive)", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanMoreButton.IsEnabled = enabled && !autoActive", code, StringComparison.Ordinal);
         Assert.Contains("HomeFanMoreButton.Opacity = HomeFanMoreButton.IsEnabled ? 1.0 : 0.42", code, StringComparison.Ordinal);
         Assert.DoesNotContain("MoreFanProfilesLabel", code, StringComparison.Ordinal);
@@ -202,7 +203,7 @@ public sealed class Alpha47UxSourceTests
         string app = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.xaml.cs"));
         Assert.Contains("_runtimeBatteryDesignWh", runtime, StringComparison.Ordinal);
         Assert.Contains("battery.DesignCapacityWh is > 0", app, StringComparison.Ordinal);
-        Assert.Contains("A charge cap such as 80–90% does not need to be disabled", xaml, StringComparison.Ordinal);
+        Assert.Contains("Charging limits do not affect this calculation", xaml, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

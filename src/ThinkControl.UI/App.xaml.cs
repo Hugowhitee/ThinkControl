@@ -30,7 +30,7 @@ public partial class App : System.Windows.Application
     public PowerModeService PowerModeService { get; } = new();
     public SystemStatusService SystemStatusService { get; } = new();
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
-    public UserSettingsService UserSettings { get; } = new();
+    public UserSettingsService UserSettings { get; }
     public BatteryHistoryService BatteryHistoryService { get; }
     public HardwareServiceClient HardwareClient { get; } = new();
     public UpdateService UpdateService { get; } = new();
@@ -261,6 +261,7 @@ public partial class App : System.Windows.Application
                 if (service.Capabilities is not null)
                 {
                     State.CanFanControl = service.Capabilities.FanControl;
+                    State.FanAutoRecoverySupported = service.Capabilities.FanAutoRecoverySupported;
                     State.FanControlKind = service.Capabilities.FanControlKind;
                     State.CanFanTelemetry = service.Capabilities.FanTelemetry;
                     State.CanKeyboardBacklight = service.Capabilities.KeyboardBacklight;
@@ -281,16 +282,17 @@ public partial class App : System.Windows.Application
             {
                 State.HardwareAccess = GetCurrentDeviceValidationState() switch
                 {
-                    DeviceValidationState.Experimental => "Beta / Untested · Lenovo provider checks active",
-                    DeviceValidationState.NotValidated => "Not validated · Windows features available",
-                    _ => "Limited · hardware service offline"
+                    DeviceValidationState.Experimental => "Untested device: checking Lenovo support",
+                    DeviceValidationState.NotValidated => "Untested device: Windows features available",
+                    _ => "Limited support: hardware service offline"
                 };
                 State.CpuTemperatureC = null;
                 State.FanRpm = null;
-                State.FanStateText = "Lenovo managed · telemetry unavailable";
+                State.FanStateText = "Lenovo managed: fan readings unavailable";
                 State.KeyboardStatus = "Hardware backend unavailable";
                 State.KeyboardBackend = "Not exposed";
                 State.CanFanControl = false;
+                State.FanAutoRecoverySupported = null;
                 State.FanControlKind = FanControlKinds.None;
                 State.CanFanTelemetry = false;
                 State.CanKeyboardBacklight = false;
@@ -432,7 +434,7 @@ public partial class App : System.Windows.Application
         string normalized = NormalizeStaticKeyboardLevel(level);
         string restingLevel = State.KeyboardBaseLevel;
         DateTimeOffset started = DateTimeOffset.UtcNow;
-        await KeyboardEffects.SetStaticLevelAsync(normalized);
+        if (!await KeyboardEffects.SetStaticLevelAsync(normalized)) return;
         KeyboardEffects.SetBaseLevel(restingLevel);
         UserSettings.Update(settings => settings with
         {
@@ -450,7 +452,13 @@ public partial class App : System.Windows.Application
 
     public async Task SetKeyboardModeAsync(string mode)
     {
-        await KeyboardEffects.SetModeAsync(mode);
+        if (mode == "Static")
+        {
+            string restingLevel = State.KeyboardBaseLevel;
+            if (!await KeyboardEffects.SetStaticLevelAsync(UserSettings.Current.KeyboardStaticLevel)) return;
+            KeyboardEffects.SetBaseLevel(restingLevel);
+        }
+        else if (!await KeyboardEffects.SetModeAsync(mode)) return;
         bool experimentalFallbackActive =
             !State.CanKeyboardEffects &&
             State.ExperimentalKeyboardEffectsEnabled &&
@@ -603,7 +611,7 @@ public partial class App : System.Windows.Application
             "Lenovo hardware controls only activate when a known provider passes its compatibility/readback checks. " +
             "Direct X9 EC fan writes remain limited to the verified 21Q6/21Q7 profile.\n\n" +
             "Help validate this device by allowing redacted compatibility diagnostics? You can change this later in Settings.",
-            $"ThinkControl · {heading}",
+            $"ThinkControl: {heading}",
             MessageBoxButton.YesNo,
             MessageBoxImage.Information);
 

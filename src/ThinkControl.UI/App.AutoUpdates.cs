@@ -72,7 +72,7 @@ public partial class App
             if (_trayIcon is not null)
             {
                 string text = result.Available && !string.IsNullOrWhiteSpace(result.Version)
-                    ? $"ThinkControl · {result.Version} available"
+                    ? $"ThinkControl: {result.Version} available"
                     : "ThinkControl";
                 _trayIcon.Text = text.Length <= 63 ? text : text[..63];
             }

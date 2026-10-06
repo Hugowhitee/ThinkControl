@@ -46,7 +46,7 @@ internal sealed class DolbyDirectControlService
             bool profileControl = profileReadable;
             bool toneControl = subReadable || ieqReadable;
             string detail = profileControl || toneControl
-                ? "Dolby DAX direct control detected · changes stay inside ThinkControl"
+                ? "Dolby controls available in ThinkControl"
                 : "Dolby DAX is registered, but this build does not expose a compatible direct control surface";
 
             return new(true, profileControl, toneControl, profile, tone, detail);
@@ -93,7 +93,7 @@ internal sealed class DolbyDirectControlService
                     string? normalized = NormalizeProfile(readBack);
                     if (!string.Equals(normalized, profile, StringComparison.OrdinalIgnoreCase))
                         continue;
-                    return new(true, $"Dolby Atmos · {profile} · direct DAX readback verified.");
+                    return new(true, $"Dolby profile: {profile}. Applied successfully.");
                 }
 
                 lastError = $"Dolby DAX accepted '{profile}' but did not confirm it through readback.";
@@ -125,7 +125,7 @@ internal sealed class DolbyDirectControlService
                 if (TryGet(dax, "GetActiveSubProfile", out object? readBack) &&
                     string.Equals(NormalizeTone(readBack), tone, StringComparison.OrdinalIgnoreCase))
                 {
-                    return new(true, $"Dolby tone · {tone} · direct DAX readback verified.");
+                    return new(true, $"Dolby tone: {tone}. Applied successfully.");
                 }
             }
 
@@ -134,7 +134,7 @@ internal sealed class DolbyDirectControlService
             {
                 Thread.Sleep(90);
                 if (TryGet(dax, "GetIEQ", out object? resetBack) && NormalizeTone(resetBack) == "Off")
-                    return new(true, "Dolby Intelligent Equalizer · Off · direct reset verified.");
+                    return new(true, "Intelligent Equalizer: Off. Applied successfully.");
             }
 
             if (TrySet(dax, "SetIEQ", tone, out string? error))
@@ -143,7 +143,7 @@ internal sealed class DolbyDirectControlService
                 if (TryGet(dax, "GetIEQ", out object? readBack) &&
                     string.Equals(NormalizeTone(readBack), tone, StringComparison.OrdinalIgnoreCase))
                 {
-                    return new(true, $"Dolby Intelligent Equalizer · {tone} · direct DAX readback verified.");
+                    return new(true, $"Intelligent Equalizer: {tone}. Applied successfully.");
                 }
             }
 

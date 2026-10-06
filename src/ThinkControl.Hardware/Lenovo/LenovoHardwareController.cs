@@ -61,6 +61,68 @@ public sealed class LenovoHardwareController : IDisposable
     private bool _nativeOemFanTelemetryConfirmed;
     private bool _keyboardAvailable;
     private bool _disposed;
+    private X9FullSpeedSession? _fullSpeedSession;
+    private readonly bool _exactFullSpeedFirmware = HasInspectedFullSpeedFirmware();
+
+    private static bool HasInspectedFullSpeedFirmware()
+    {
+        try
+        {
+            using var query = new System.Management.ManagementObjectSearcher("SELECT SMBIOSBIOSVersion FROM Win32_BIOS");
+            using var rows = query.Get();
+            return rows.Cast<System.Management.ManagementObject>().Any(row =>
+                Convert.ToString(row["SMBIOSBIOSVersion"])?.StartsWith("N4CET45W", StringComparison.OrdinalIgnoreCase) == true);
+        }
+        catch { return false; }
+    }
+
+    public bool CanControlExactFullSpeed
+    {
+        get { lock (_gate) return !_disposed && _identity.IsVerifiedX9 && _identity.MachineType == "21Q6" && _exactFullSpeedFirmware && _ec is not null; }
+    }
+
+    public bool OwnsExactFullSpeed { get { lock (_gate) return _fullSpeedSession?.Owned == true; } }
+    public bool ObservedExactFullSpeed { get { lock (_gate) return _fanControl == 0x40; } }
+    public bool ObservedManualFanControl { get { lock (_gate) return IsThinkControlFanState(_fanControl); } }
+
+    public void RenewFullSpeedClientLease()
+    {
+        lock (_gate) _fullSpeedSession?.Renew(DateTimeOffset.UtcNow);
+    }
+
+    public bool SetExactFullSpeed(out string? error)
+    {
+        lock (_gate)
+        {
+            error = null;
+            if (!CanControlExactFullSpeed || _ec is null) { error = "Auto/Max cooling is unavailable on this firmware."; return false; }
+            ThinkPadEc controlledEc = _ec;
+            _fullSpeedSession ??= new X9FullSpeedSession(controlledEc.ReadFanControl, controlledEc.SetVerifiedFirmwareFullSpeed,
+                () => controlledEc.ReturnToBios(releaseFullSpeedLatch: true));
+            try
+            {
+                _fullSpeedSession.Start(DateTimeOffset.UtcNow);
+                _fanControl = 0x40;
+                InvalidateFanRpmAfterStateChange(DateTimeOffset.UtcNow);
+                return true;
+            }
+            catch (Exception ex) { error = ex.Message; return false; }
+        }
+    }
+
+    public void CheckFullSpeedSession()
+    {
+        lock (_gate)
+        {
+            if (_fullSpeedSession?.Owned != true) return;
+            try
+            {
+                _fullSpeedSession.Check(DateTimeOffset.UtcNow);
+                if (!_fullSpeedSession.Owned) _fanControl = 0x80;
+            }
+            catch (Exception ex) { _lastEcError = "Auto recovery pending: " + ex.Message; }
+        }
+    }
 
     public LenovoHardwareController()
     {
@@ -70,6 +132,15 @@ public sealed class LenovoHardwareController : IDisposable
 
     public HardwareDeviceIdentity Identity => _identity;
 
+    public bool CanRecoverFanAuto
+    {
+        get
+        {
+            lock (_gate)
+                return !_disposed && _identity.IsVerifiedX9 && _ec is not null;
+        }
+    }
+
     public void RefreshProviders()
     {
         ThrowIfDisposed();
@@ -78,6 +149,9 @@ public sealed class LenovoHardwareController : IDisposable
         lock (_gate)
         {
             TryReturnAllFanProvidersToAutoUnlocked();
+            if (_fullSpeedSession?.Owned == true)
+                throw new InvalidOperationException("Provider refresh requires confirmed Auto recovery first.");
+            _fullSpeedSession = null;
             try { _ec?.Dispose(); } catch { }
             try { _keyboard.RefreshBackend(); } catch { }
             _otherModeFans.Refresh();
@@ -357,6 +431,17 @@ public sealed class LenovoHardwareController : IDisposable
 
         lock (_gate)
         {
+            if (_fullSpeedSession?.Owned == true)
+            {
+                try
+                {
+                    _fullSpeedSession.Stop();
+                    _fanControl = 0x80;
+                    InvalidateFanRpmAfterStateChange(DateTimeOffset.UtcNow);
+                    return true;
+                }
+                catch (Exception ex) { error = "Lenovo Auto could not release Max cooling: " + ex.Message; return false; }
+            }
             // An explicitly owned EC state must be released through 0x2F/0x80 before
             // any newly-discovered OEM interface is asked to reassert Auto. Otherwise
             // two firmware surfaces can disagree about which owner is active.
@@ -371,7 +456,7 @@ public sealed class LenovoHardwareController : IDisposable
 
                 try
                 {
-                    _ec.ReturnToBios();
+                    _ec.ReturnToBios(releaseFullSpeedLatch: CanControlExactFullSpeed);
                     _fanControl = ThinkPadRegisters.BiosControl;
                     InvalidateFanRpmAfterStateChange(now);
                     _activeFanControlKind = LenovoFanControlKind.None;
@@ -424,7 +509,7 @@ public sealed class LenovoHardwareController : IDisposable
                 _fanControl = control;
                 if (IsThinkControlFanState(control))
                 {
-                    _ec.ReturnToBios();
+                    _ec.ReturnToBios(releaseFullSpeedLatch: CanControlExactFullSpeed);
                     _fanControl = ThinkPadRegisters.BiosControl;
                     InvalidateFanRpmAfterStateChange(fallbackNow);
                 }
@@ -617,11 +702,12 @@ public sealed class LenovoHardwareController : IDisposable
             .Where(sensor => string.Equals(sensor.SensorType, "Fan", StringComparison.OrdinalIgnoreCase))
             .Where(sensor => sensor.Value is >= 0 and <= 20000)
             .GroupBy(sensor => sensor.Id, StringComparer.OrdinalIgnoreCase)
+            .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
             .Select((group, index) =>
             {
                 HardwareSensorReading sensor = group.First();
                 return new LenovoFanReading(
-                    $"lhm-pawnio-{index + 1}",
+                    $"lhm-pawnio:{sensor.Id}",
                     (int)Math.Round(sensor.Value),
                     string.IsNullOrWhiteSpace(sensor.Name) ? $"Fan {index + 1}" : sensor.Name,
                     sensor.Source);
@@ -661,7 +747,7 @@ public sealed class LenovoHardwareController : IDisposable
         {
             return
             [
-                new LenovoFanReading("x9-ec-shared", _x9FanRpm.Value, "System fan tachometer", _x9FanRpmSource)
+                new LenovoFanReading("x9-ec-shared", _x9FanRpm.Value, "Shared tachometer", _x9FanRpmSource, Shared: true)
             ];
         }
 
@@ -779,6 +865,10 @@ public sealed class LenovoHardwareController : IDisposable
 
     private void TryReturnAllFanProvidersToAutoUnlocked()
     {
+        if (_fullSpeedSession?.Owned == true)
+        {
+            try { _fullSpeedSession.Stop(); _fanControl = 0x80; } catch { }
+        }
         if (_activeFanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm)
         {
             try

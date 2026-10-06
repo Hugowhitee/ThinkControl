@@ -108,8 +108,8 @@ public sealed class UpdateService
                 string status = available
                     ? ready
                         ? $"{tag} is ready to install"
-                        : $"{tag} is available · release assets are still publishing"
-                    : $"Up to date · {tag}";
+                        : $"{tag} is available. The download is being prepared."
+                    : $"Up to date: {tag}";
 
                 newestVersion = candidate;
                 newestResult = new(
@@ -209,7 +209,7 @@ public sealed class UpdateService
             start.ArgumentList.Add($"/PAYLOAD={payloadPath}");
             start.ArgumentList.Add($"/LOG={logPath}");
 
-            progress?.Report("Ready to install · Windows Setup will request administrator permission");
+            progress?.Report("Ready to install. Windows will ask for administrator permission.");
             UpdateHandoffService.Record(update.Version ?? "new version", logPath);
             Process? process = Process.Start(start);
             if (process is null)
@@ -248,10 +248,10 @@ public sealed class UpdateService
                 }
             };
 
-            progress?.Report("Installer open · ThinkControl stays open until the verified payload is staged");
+            progress?.Report("Installer open. ThinkControl will close when setup is ready.");
             return new(
                 true,
-                $"Installer open for {update.Version ?? "the update"} · ThinkControl will relaunch normally after installation",
+                $"Installing {update.Version ?? "the update"}. ThinkControl will reopen afterwards.",
                 installerPath,
                 payloadPath);
         }
