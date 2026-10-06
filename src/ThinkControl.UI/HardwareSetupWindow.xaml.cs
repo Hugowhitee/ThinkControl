@@ -45,7 +45,7 @@ public partial class HardwareSetupWindow : Window
 
         bool prerequisite = _currentIssue is HardwarePrerequisiteIssue.Service or HardwarePrerequisiteIssue.PawnIo;
         IssueCategoryText.Text = prerequisite ? "Required component" : "Hardware status";
-        Title = $"ThinkControl · {IssueCategoryText.Text}";
+        Title = $"ThinkControl: {IssueCategoryText.Text}";
 
         if (IsIssueReady(_currentIssue, status))
         {

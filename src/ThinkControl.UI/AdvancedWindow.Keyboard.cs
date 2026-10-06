@@ -20,19 +20,19 @@ public partial class AdvancedWindow
             string current = text.Text ?? string.Empty;
             if (current.StartsWith("Hardware levels and ThinkControl effects are kept separate:", StringComparison.Ordinal))
             {
-                text.Text = "Hardware levels stay separate from effects: Off / Low / High are device states; Auto is the active provider's verified firmware-managed mode when available; Breathing / Reactive / Audio are ThinkControl user-session effects.";
+                text.Text = "Choose a backlight level or let your laptop manage it with Auto. Effects add animation to the light.";
             }
             else if (current.StartsWith("Active: High", StringComparison.Ordinal))
             {
-                text.Text = "Firmware Auto · provider managed";
+                text.Text = "Auto: controlled by firmware";
             }
             else if (current.StartsWith("Auto is a ThinkControl policy", StringComparison.Ordinal))
             {
-                text.Text = "Auto requests the active provider's verified firmware-managed state and requires readback. ThinkControl does not emulate Auto with an idle-dimming effect.";
+                text.Text = "Auto lets your laptop manage the keyboard light.";
             }
             else if (current.StartsWith("Auto uses normal verified Off / Low / High", StringComparison.Ordinal))
             {
-                text.Text = "Breathing, Reactive and Audio require a provider that advertises safe repeated backlight writes; fallbacks without that capability keep effects disabled.";
+                text.Text = "Effects are available when your laptop supports repeated light changes.";
             }
         }
     }

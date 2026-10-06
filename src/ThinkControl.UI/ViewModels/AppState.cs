@@ -33,10 +33,10 @@ public sealed class AppState : INotifyPropertyChanged
     private int? _batteryProtectionStartPercent;
     private int? _batteryProtectionStopPercent;
     private bool _batteryProtectionWritable;
-    private string _batteryChargeCurveLabel = "Charge curve · learning";
+    private string _batteryChargeCurveLabel = "Learning charge pattern";
     private string _batteryCurrentSessionText = "No active charge session";
-    private string _batteryTypicalChargeText = "Typical charge · learning";
-    private string _batteryHealthTrendText = "Health trend · learning";
+    private string _batteryTypicalChargeText = "Learning typical charge power";
+    private string _batteryHealthTrendText = "Waiting for capacity history";
     private string _batterySource = "Windows battery";
     private int _brightness = 50;
     private bool _brightnessAvailable;
@@ -297,10 +297,10 @@ public sealed class AppState : INotifyPropertyChanged
     public string MaxRefreshText => MaxRefreshHz > 0 ? $"{MaxRefreshHz} Hz" : "Max";
     public string KeyboardModeText => KeyboardMode switch
     {
-        "Breathing" => "Breathing · Low ↔ High",
-        "Reactive" => $"Reactive · returns to {KeyboardBaseLevel}",
-        "Audio" => "Audio reactive · experimental",
-        "Auto" => "Auto · firmware managed",
+        "Breathing" => "Breathing: Low to High",
+        "Reactive" => $"Reactive: returns to {KeyboardBaseLevel}",
+        "Audio" => "Audio reactive (experimental)",
+        "Auto" => "Auto: controlled by firmware",
         _ => KeyboardStatus
     };
 

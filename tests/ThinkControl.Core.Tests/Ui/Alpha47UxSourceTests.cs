@@ -203,7 +203,7 @@ public sealed class Alpha47UxSourceTests
         string app = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.xaml.cs"));
         Assert.Contains("_runtimeBatteryDesignWh", runtime, StringComparison.Ordinal);
         Assert.Contains("battery.DesignCapacityWh is > 0", app, StringComparison.Ordinal);
-        Assert.Contains("A charge cap such as 80–90% does not need to be disabled", xaml, StringComparison.Ordinal);
+        Assert.Contains("Charging limits do not affect this calculation", xaml, StringComparison.Ordinal);
     }
 
     private static string FindRepositoryRoot()

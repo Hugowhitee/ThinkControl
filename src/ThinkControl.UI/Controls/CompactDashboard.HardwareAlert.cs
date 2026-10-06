@@ -88,7 +88,7 @@ public partial class CompactDashboard
         _hardwareAlertButton.Visibility = Visibility.Visible;
         _hardwareAlertDot.Visibility = showDot ? Visibility.Visible : Visibility.Collapsed;
         _hardwareAlertButton.ToolTip = showDot
-            ? $"Notifications · hardware attention · {_app.State.DriverStatus}"
+            ? $"Notifications: {_app.State.DriverStatus}"
             : "Notifications";
     }
 }

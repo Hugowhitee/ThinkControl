@@ -64,10 +64,10 @@ public sealed class LenovoBatteryChargeProtectionSourceTests
         string panel = ReadSource("src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.ProtectionAndHistory.cs");
         string mainPanel = ReadSource("src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml.cs");
 
-        Assert.Contains("80% · Strong protection", xaml, StringComparison.Ordinal);
-        Assert.Contains("85% · Recommended", xaml, StringComparison.Ordinal);
-        Assert.Contains("90% · More runtime", xaml, StringComparison.Ordinal);
-        Assert.Contains("95% · Light protection", xaml, StringComparison.Ordinal);
+        Assert.Contains("80% (strong protection)", xaml, StringComparison.Ordinal);
+        Assert.Contains("85% (recommended)", xaml, StringComparison.Ordinal);
+        Assert.Contains("90% (more runtime)", xaml, StringComparison.Ordinal);
+        Assert.Contains("95% (light protection)", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Full charge 100%", xaml, StringComparison.Ordinal);
         Assert.Contains("controls:BatteryProtectionGauge", xaml, StringComparison.Ordinal);

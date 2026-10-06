@@ -97,7 +97,7 @@
                 <Grid>
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <StackPanel>
-                        <TextBlock Text="Music · Intelligent Equalizer" FontWeight="SemiBold" />
+                        <TextBlock Text="Music: Intelligent Equalizer" FontWeight="SemiBold" />
                     </StackPanel>
                     <TextBlock x:Name="SubprofileStatusText" Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                 </Grid>

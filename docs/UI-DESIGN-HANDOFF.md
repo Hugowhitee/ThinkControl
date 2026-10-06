@@ -6,6 +6,8 @@ This file is the durable handoff for future ThinkControl UI/design chats. Read i
 
 Ordinary status is a short sentence stating availability or a failed action and its next step. Never bind raw provider/error dumps into page summaries or ellipsis footers. System's explicit technical disclosure keeps full diagnostic evidence as separate lines. Auto/Max-only providers expose only those choices, hide unavailable advanced controls, and keep Home's Max control usable directly from Auto. The sidebar fades into its surface at the bottom only when content remains below; it does not cover the scrollbar or block input.
 
+Use a colon for a label and value, parentheses for a short qualifier, and normal sentences for an outcome and next action. Avoid middle-dot chains in ordinary controls, statuses, tooltips and notifications. History summaries name the quantity (average power, energy, drain rate); longer captions wrap beneath their heading rather than competing on one row. Raw diagnostic encoding remains unchanged behind the technical disclosure.
+
 ThinkControl should feel like a precise Windows hardware instrument, not a generic SaaS dashboard. The visual language is restrained, compact and technical with Dieter Rams/Braun-style clarity: strong alignment, thin separators, few surfaces, clear hierarchy, deliberate states and little permanent helper copy.
 
 The ThinkControl logo/brand, existing dark/light tokens, shared Advanced page header, current navigation grammar and compact Windows-native interaction style remain product identity. Figma is a design workspace, not a reason to replace those foundations with a new design language.
@@ -24,7 +26,7 @@ Do not redesign these merely to make a Figma file look more complete:
 
 Motion is allowed only when it improves state comprehension. A future Battery motion concept may animate real charging/limit state, but it must not add decorative movement or replace accurate static information.
 
-October 5 owner feedback in Photopea places the charge percentage inside the Battery summary gauge, with status and ETA beneath it. This is implemented and inspected in installed dev.2026100505. Preserve its compact hierarchy and wrapping for longer status text; the separate Battery Preservation threshold gauge is unchanged.
+October 5 owner feedback supersedes the earlier Photopea percentage-inside-gauge experiment: Battery now follows Home with a separate charge value beside the small gauge, and status and ETA beneath it. This composition is implemented and inspected in installed dev.2026100507. Preserve its compact hierarchy and wrapping for longer status text; the separate Battery Preservation threshold gauge is unchanged.
 
 ## Priority redesign surfaces
 

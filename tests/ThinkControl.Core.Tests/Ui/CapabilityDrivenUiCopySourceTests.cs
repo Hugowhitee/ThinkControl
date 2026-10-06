@@ -11,11 +11,11 @@ public sealed class CapabilityDrivenUiCopySourceTests
         string keyboard = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Keyboard.cs"));
         string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
 
-        Assert.Contains("active provider's verified firmware-managed mode", keyboard, StringComparison.Ordinal);
-        Assert.Contains("Firmware Auto · provider managed", keyboard, StringComparison.Ordinal);
-        Assert.Contains("provider that advertises safe repeated backlight writes", keyboard, StringComparison.Ordinal);
+        Assert.Contains("let your laptop manage it with Auto", keyboard, StringComparison.Ordinal);
+        Assert.Contains("Auto: controlled by firmware", keyboard, StringComparison.Ordinal);
+        Assert.Contains("laptop supports repeated light changes", keyboard, StringComparison.Ordinal);
         Assert.DoesNotContain("Auto is Lenovo's native firmware mode", keyboard, StringComparison.Ordinal);
-        Assert.DoesNotContain("Lenovo Auto · firmware managed", keyboard, StringComparison.Ordinal);
+        Assert.DoesNotContain("Lenovo Auto: controlled by firmware", keyboard, StringComparison.Ordinal);
         Assert.Contains("public bool CanKeyboardEffects", state, StringComparison.Ordinal);
     }
 

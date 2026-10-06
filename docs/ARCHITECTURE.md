@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the source architecture at published experimental **v0.1.0-alpha.60**. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Real X9 firmware fan-mode changes remain physically unverified.
+This document describes the source architecture of the **v0.1.0-alpha.61** candidate. `docs/RELEASE_READINESS.md` is the persistent release/commercial handoff; this file explains runtime boundaries and intentional compatibility debt. Auto/Max has bounded physical evidence on 21Q6/N4CET45W. Lower fixed speeds and percentages remain unsupported; source, fixture, installed and physical acceptance are tracked separately.
 
 ## Process boundary
 

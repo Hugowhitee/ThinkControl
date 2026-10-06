@@ -30,7 +30,7 @@ public partial class App
             _attentionToast.ShowPassive(
                 $"battery-preservation-paused:{start}:{stop}",
                 "Battery preservation paused charging",
-                $"Battery is at {percent}% · ThinkControl's {start}–{stop}% preservation window is active. Charging resumes below {start}%.",
+                $"Battery is at {percent}%. Charging pauses at {stop}% and resumes below {start}%.",
                 TimeSpan.FromSeconds(6));
             return;
         }
@@ -40,7 +40,7 @@ public partial class App
             _attentionToast.ShowPassive(
                 $"battery-preservation-resumed:{start}:{stop}",
                 "Battery preservation resumed charging",
-                $"Battery is at {percent}% · charging resumed below the {start}% start threshold and will pause again near {stop}%.",
+                $"Battery is at {percent}%. Charging resumed and will pause near {stop}%.",
                 TimeSpan.FromSeconds(6));
         }
     }

@@ -108,7 +108,7 @@ public partial class App
                 if (!string.IsNullOrWhiteSpace(profile) && !profile.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase))
                 {
                     State.FanStateText = State.FanControlKind == FanControlKinds.DiscreteEc && telemetry.CoolingAppliedLevel is int level
-                        ? $"{profile} · EC level {level}"
+                        ? $"{profile} (EC level {level})"
                         : profile;
                 }
 

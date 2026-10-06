@@ -12,10 +12,10 @@ public sealed class BatteryProtectionAndHistorySourceTests
         string code = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.ProtectionAndHistory.cs"));
         string panel = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml.cs"));
 
-        Assert.Contains("80% · Strong protection", xaml, StringComparison.Ordinal);
-        Assert.Contains("85% · Recommended", xaml, StringComparison.Ordinal);
-        Assert.Contains("90% · More runtime", xaml, StringComparison.Ordinal);
-        Assert.Contains("95% · Light protection", xaml, StringComparison.Ordinal);
+        Assert.Contains("80% (strong protection)", xaml, StringComparison.Ordinal);
+        Assert.Contains("85% (recommended)", xaml, StringComparison.Ordinal);
+        Assert.Contains("90% (more runtime)", xaml, StringComparison.Ordinal);
+        Assert.Contains("95% (light protection)", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionSwitch\"", xaml, StringComparison.Ordinal);
         Assert.Contains("AutomationProperties.Name=\"Battery preservation\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Full charge 100%", xaml, StringComparison.Ordinal);
@@ -72,9 +72,9 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.DoesNotContain("DrawLock", gauge, StringComparison.Ordinal);
 
         Assert.Contains("_batteryProtectionWritable", code, StringComparison.Ordinal);
-        Assert.Contains("Custom · {selectedStop}% limit · resume {selectedStart}%", code, StringComparison.Ordinal);
+        Assert.Contains("Custom: {selectedStart}–{selectedStop}%", code, StringComparison.Ordinal);
         Assert.Contains("{stop}% limit active", code, StringComparison.Ordinal);
-        Assert.Contains("{stop}% limit · read-only", code, StringComparison.Ordinal);
+        Assert.Contains("{stop}% limit (read-only)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("× fewer", xaml, StringComparison.OrdinalIgnoreCase);
     }
 

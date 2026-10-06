@@ -282,13 +282,13 @@ public partial class App : System.Windows.Application
             {
                 State.HardwareAccess = GetCurrentDeviceValidationState() switch
                 {
-                    DeviceValidationState.Experimental => "Beta / Untested · Lenovo provider checks active",
-                    DeviceValidationState.NotValidated => "Not validated · Windows features available",
-                    _ => "Limited · hardware service offline"
+                    DeviceValidationState.Experimental => "Untested device: checking Lenovo support",
+                    DeviceValidationState.NotValidated => "Untested device: Windows features available",
+                    _ => "Limited support: hardware service offline"
                 };
                 State.CpuTemperatureC = null;
                 State.FanRpm = null;
-                State.FanStateText = "Lenovo managed · telemetry unavailable";
+                State.FanStateText = "Lenovo managed: fan readings unavailable";
                 State.KeyboardStatus = "Hardware backend unavailable";
                 State.KeyboardBackend = "Not exposed";
                 State.CanFanControl = false;
@@ -611,7 +611,7 @@ public partial class App : System.Windows.Application
             "Lenovo hardware controls only activate when a known provider passes its compatibility/readback checks. " +
             "Direct X9 EC fan writes remain limited to the verified 21Q6/21Q7 profile.\n\n" +
             "Help validate this device by allowing redacted compatibility diagnostics? You can change this later in Settings.",
-            $"ThinkControl · {heading}",
+            $"ThinkControl: {heading}",
             MessageBoxButton.YesNo,
             MessageBoxImage.Information);
 

@@ -200,7 +200,7 @@ public partial class FansPanel : UserControl
                 AppliedLevelText.Text = $"{percent}% OEM target";
             else
                 AppliedLevelText.Text = telemetry.CoolingAppliedLevel is int step
-                    ? $"{percent}% · State {step}"
+                    ? $"{percent}% (state {step})"
                     : $"{percent}%";
         }
         else if (telemetry?.CoolingAppliedLevel is int legacyLevel)
@@ -309,11 +309,11 @@ public partial class FansPanel : UserControl
             else
             {
                 double average = point.Fans.Average(fan => fan.MedianRpm);
-                string values = string.Join(" · ", point.Fans.Select(fan => $"{fan.Label} {fan.MedianRpm:N0} RPM"));
+                string values = string.Join(", ", point.Fans.Select(fan => $"{fan.Label}: {fan.MedianRpm:N0} RPM"));
                 if (maximumRpm is > 0 && maximum is not null)
                 {
                     int relative = point.Level == maximum.Level ? 100 : (int)Math.Round(Math.Clamp(average / maximumRpm.Value * 100.0, 0, 99));
-                    rpm = $"{values} · ~{relative}% of calibrated maximum state";
+                    rpm = $"{values}, approximately {relative}% of measured maximum speed";
                 }
                 else
                 {
@@ -385,7 +385,7 @@ public partial class FansPanel : UserControl
             : null;
         _activeCurveGraph.SetLiveState(temperatureC, target, rpm);
         LiveCurveStatus.Text = temperatureC is double live && target is int percent
-            ? $"{live:0.0} °C → {percent}% target" + (rpm is int actual ? $" · {actual:N0} RPM now" : string.Empty)
+            ? $"{live:0.0} °C → {percent}% target" + (rpm is int actual ? $", current speed: {actual:N0} RPM" : string.Empty)
             : "Waiting for control temperature";
         ActiveCurvePreview.Visibility = Visibility.Visible;
     }

@@ -233,7 +233,6 @@ public partial class AdvancedWindow : Window
             HomeAcQuiet.IsChecked = acPreference == ThinkControlPowerMode.Quiet;
             HomeAcBalanced.IsChecked = acPreference == ThinkControlPowerMode.Balanced;
             HomeAcPerformance.IsChecked = acPreference == ThinkControlPowerMode.Performance;
-            HomePowerSummary.Text = $"Battery {PowerShortName(batteryPreference)} · AC {PowerShortName(acPreference)}";
 
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);

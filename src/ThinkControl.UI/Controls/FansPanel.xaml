@@ -22,7 +22,7 @@
                     <StackPanel Margin="0,0,210,0">
                         <TextBlock x:Name="CharacterizationTitleText" Text="Fan calibration required" FontWeight="SemiBold" />
                         <TextBlock x:Name="CalibrationDescriptionText"
-                                   Text="The active fan provider requires a measured output mapping before percentage profiles and manual targets are enabled. Firmware Auto remains the safe default until calibration completes."
+                                   Text="Measure fan speeds to enable curves and percentage targets. Auto stays active until calibration completes."
                                    Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,5,0,0" TextWrapping="Wrap" />
                     </StackPanel>
                     <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Top">
@@ -79,7 +79,7 @@
                                 Margin="0,6,0,0"
                                 Visibility="Collapsed"
                                 Click="RecoverAuto_Click"
-                                ToolTip="Return fan control through the available verified Auto recovery provider." />
+                                ToolTip="Return control to automatic cooling." />
                         <TextBlock x:Name="AutoRecoveryResultText"
                                    Visibility="Collapsed"
                                    Foreground="{DynamicResource Tc.TextMuted}"
@@ -196,7 +196,7 @@
                     <Grid>
                         <StackPanel>
                             <TextBlock Text="Temporary fan target" FontWeight="SemiBold" />
-                            <TextBlock x:Name="ManualControlDescriptionText" Text="Run a temporary 30-second target test through the active verified provider. The previous profile is restored automatically when the test ends."
+                            <TextBlock x:Name="ManualControlDescriptionText" Text="Try this target for 30 seconds. Your previous profile is restored afterwards."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">

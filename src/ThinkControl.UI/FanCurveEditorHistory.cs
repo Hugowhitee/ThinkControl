@@ -77,8 +77,8 @@ internal static class FanCurveEditorHistory
             if (addPoint?.Parent is not StackPanel tools)
                 return;
 
-            _undoButton = CreateHistoryButton("Undo", "Undo curve edit · Ctrl+Z");
-            _redoButton = CreateHistoryButton("Redo", "Redo curve edit · Ctrl+Y / Ctrl+Shift+Z");
+            _undoButton = CreateHistoryButton("Undo", "Undo curve edit (Ctrl+Z)");
+            _redoButton = CreateHistoryButton("Redo", "Redo curve edit (Ctrl+Y / Ctrl+Shift+Z)");
             _undoButton.Click += (_, _) => Undo();
             _redoButton.Click += (_, _) => Redo();
             _redoButton.Margin = new Thickness(2, 0, 6, 0);

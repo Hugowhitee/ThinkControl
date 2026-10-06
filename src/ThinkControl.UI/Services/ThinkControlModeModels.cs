@@ -378,11 +378,11 @@ internal static class ThinkControlModeCatalog
             : "When";
         string priority = mode.AutomationPriority switch
         {
-            1 => " · High priority",
-            -1 => " · Low priority",
+            1 => ". High priority",
+            -1 => ". Low priority",
             _ => string.Empty
         };
-        return match + ": " + string.Join(" · ", triggers.Take(2).Select(TriggerSummary)) +
+        return match + ": " + string.Join(mode.MatchAllTriggers ? " and " : " or ", triggers.Take(2).Select(TriggerSummary)) +
                (triggers.Length > 2 ? $" +{triggers.Length - 2}" : string.Empty) + priority;
     }
 

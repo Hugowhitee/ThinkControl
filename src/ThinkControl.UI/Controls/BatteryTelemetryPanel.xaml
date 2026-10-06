@@ -86,8 +86,11 @@
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0">
                 <Grid>
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="125" /></Grid.RowDefinitions>
-                    <Grid><TextBlock Text="Battery health trend" FontWeight="SemiBold" /><TextBlock Text="{Binding BatteryHealthTrendText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" /></Grid>
-                    <TextBlock Grid.Row="1" Text="Uses firmware full-charge versus design capacity. A charge cap such as 80–90% does not need to be disabled for this trend." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <StackPanel>
+                        <TextBlock Text="Battery health trend" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding BatteryHealthTrendText}" TextWrapping="Wrap" Margin="0,4,0,0" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
+                    </StackPanel>
+                    <TextBlock Grid.Row="1" Text="Compares full-charge capacity with the battery's original capacity. Charging limits do not affect this calculation." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     <controls:TimeSeriesChart Grid.Row="2" Margin="0,8,0,0" Values="{Binding BatteryHealthTrendTimeline}" Unit="%" ValueFormat="0.0" IncludeZero="False" />
                 </Grid>
             </Border>
@@ -130,10 +133,10 @@
                               MinHeight="38"
                               IsEnabled="False"
                               SelectionChanged="ChargeProtection_SelectionChanged">
-                        <ComboBoxItem Content="80% · Strong protection" Tag="75,80" />
-                        <ComboBoxItem Content="85% · Recommended" Tag="80,85" />
-                        <ComboBoxItem Content="90% · More runtime" Tag="85,90" />
-                        <ComboBoxItem Content="95% · Light protection" Tag="90,95" />
+                        <ComboBoxItem Content="80% (strong protection)" Tag="75,80" />
+                        <ComboBoxItem Content="85% (recommended)" Tag="80,85" />
+                        <ComboBoxItem Content="90% (more runtime)" Tag="85,90" />
+                        <ComboBoxItem Content="95% (light protection)" Tag="90,95" />
                     </ComboBox>
                     <Button x:Name="CustomChargeLimitsButton"
                             Content="Custom limits"
@@ -217,7 +220,7 @@
                                 <ComboBoxItem Content="30 days" Tag="30" />
                             </ComboBox>
                         </Grid>
-                        <TextBlock x:Name="HistoryStorageSummaryText" Text="Detailed graphs: 7 days · compact summaries: 1 year" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" />
+                        <TextBlock x:Name="HistoryStorageSummaryText" Text="Detailed graphs: 7 days. Daily summaries: 1 year." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,7,0,0" />
                         <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,10,0,9" />
                         <Grid>
                             <StackPanel Margin="0,0,170,0">

@@ -86,7 +86,7 @@ public partial class FansPanel
             state.FanControlKind = FanControlKinds.OemTargetRpm;
             state.HardwareAccess =
                 "Full · verified OEM target-RPM fan provider · Fan 1 1,800–5,300 RPM · Fan 2 1,700–5,200 RPM";
-            state.FanStateText = "ThinkControl managed · OEM target RPM";
+            state.FanStateText = "ThinkControl managed: target RPM";
             state.ApplyHardwareTelemetry(
             [
                 new FanTelemetrySnapshot("oem-target-rpm-1", "Fan 1", 3650, "OEM target-RPM provider", true),
@@ -97,9 +97,9 @@ public partial class FansPanel
             ApplyProviderCopy(true, FanControlKinds.OemTargetRpm);
             ApplyCalibrationUi(FanCalibrationUiState.None, canControl: true);
             CoolingOwnerText.Text = "Direct control";
-            CoolingDetailText.Text = "Balanced · continuous OEM target-RPM control";
+            CoolingDetailText.Text = "Balanced: target RPM control";
             AppliedLevelText.Text = $"{targetPercent}% OEM target";
-            LiveCurveStatus.Text = $"{state.ControlTemperatureText} · temporary {targetPercent}% OEM target · 3,650 / 3,510 RPM";
+            LiveCurveStatus.Text = $"Temperature: {state.ControlTemperatureText}, temporary target: {targetPercent}%, speeds: 3,650 / 3,510 RPM";
         }
 
         ManualPercentSlider.Value = targetPercent;

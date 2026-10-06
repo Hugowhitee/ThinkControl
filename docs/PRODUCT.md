@@ -4,6 +4,8 @@ ThinkControl is a capability-driven Windows laptop-control application for power
 
 Current published immutable experimental prerelease: `v0.1.0-alpha.60`, published October 4, 2026. The source remains capability-gated; Lenovo X9 fan-profile switching and automatic real-world context transitions still need device verification. An acknowledged firmware command does not prove the physical fan profile changed.
 
+The `v0.1.0-alpha.61` candidate adds physically checked Auto/Max cooling on the exact 21Q6/N4CET45W controller, separate Modes/Automation and clearer ordinary status text. Lower speeds and percentages remain an open engineering requirement. Publication and installed acceptance are recorded in `RELEASE_READINESS.md`.
+
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
 The reference device is **not** the product boundary. Windows-safe features should work broadly, while OEM/family/model providers can be added independently for Lenovo, ASUS, Dell, HP, Acer, MSI and other laptop families.

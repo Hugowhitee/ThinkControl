@@ -603,8 +603,8 @@ public sealed class BatteryHistoryService
             .ToArray() ?? [];
 
         string curveLabel = active is not null
-            ? "Current charge · live timeline"
-            : curveSession is not null ? "Last charge · full session timeline" : "Charge curve · learning";
+            ? "Current charge (live)"
+            : curveSession is not null ? "Last charge session" : "Learning charge pattern";
         string currentText = active is null
             ? curveSession is null ? "No charge sessions recorded yet" : FormatChargeSession(curveSession, false)
             : FormatChargeSession(active, true);
@@ -617,8 +617,8 @@ public sealed class BatteryHistoryService
             .ToArray();
         double? typicalPower = usefulChargePowers.Length == 0 ? null : Median(usefulChargePowers);
         string typicalText = typicalPower is double typical
-            ? $"Typical {typical:0.#} W · {usefulChargePowers.Length} sessions"
-            : "Typical charge · learning";
+            ? $"{typical:0.#} W ({usefulChargePowers.Length} sessions)"
+            : "Learning typical charge power";
 
         // Keep legacy session-derived observations for existing installs, then merge
         // them with the new cap-independent daily capacity samples. One point per UTC
@@ -684,9 +684,9 @@ public sealed class BatteryHistoryService
         DateTimeOffset ended = active ? DateTimeOffset.UtcNow : session.EndedAt ?? session.StartedAt;
         TimeSpan duration = ended - session.StartedAt;
         string date = FormatDate(session.StartedAt);
-        string average = session.AveragePowerWatts is double watts ? $" · {watts:0.#} W avg" : string.Empty;
-        string energy = session.EnergyAddedWh is double wh ? $" · +{wh:0.#} Wh" : string.Empty;
-        return $"{date} · {session.StartPercent}% → {session.EndPercent}% · {FormatDuration(duration)}{average}{energy}";
+        string average = session.AveragePowerWatts is double watts ? $", average power: {watts:0.#} W" : string.Empty;
+        string energy = session.EnergyAddedWh is double wh ? $", energy added: {wh:0.#} Wh" : string.Empty;
+        return $"{date}: {session.StartPercent}% to {session.EndPercent}% in {FormatDuration(duration)}{average}{energy}";
     }
 
     private static string FormatDischargeSession(DischargeSession session, bool active)
@@ -694,12 +694,12 @@ public sealed class BatteryHistoryService
         DateTimeOffset ended = active ? DateTimeOffset.UtcNow : session.EndedAt ?? session.StartedAt;
         TimeSpan duration = ended - session.StartedAt;
         string date = FormatDate(session.StartedAt);
-        string average = session.AveragePowerWatts is double watts ? $" · {watts:0.#} W avg" : string.Empty;
-        string energy = session.EnergyUsedWh is double wh ? $" · −{wh:0.#} Wh" : string.Empty;
+        string average = session.AveragePowerWatts is double watts ? $", average power: {watts:0.#} W" : string.Empty;
+        string energy = session.EnergyUsedWh is double wh ? $", energy used: {wh:0.#} Wh" : string.Empty;
         double hours = Math.Max(duration.TotalHours, 1d / 60d);
         double rate = Math.Max(0, session.StartPercent - session.EndPercent) / hours;
-        string rateText = rate > 0 && duration >= TimeSpan.FromMinutes(5) ? $" · {rate:0.#}%/h" : string.Empty;
-        return $"{date} · {session.StartPercent}% → {session.EndPercent}% · {FormatDuration(duration)}{average}{energy}{rateText}";
+        string rateText = rate > 0 && duration >= TimeSpan.FromMinutes(5) ? $", drain rate: {rate:0.#}%/h" : string.Empty;
+        return $"{date}: {session.StartPercent}% to {session.EndPercent}% in {FormatDuration(duration)}{average}{energy}{rateText}";
     }
 
     private static BatterySessionDetail ToDetail(ChargeSession session, bool active)
@@ -768,13 +768,13 @@ public sealed class BatteryHistoryService
 
     private static string FormatHealthTrend(IReadOnlyList<double> health)
     {
-        if (health.Count == 0) return "Health trend · waiting for capacity data";
-        if (health.Count == 1) return $"Health trend · {health[0]:0.#}% · 1 daily sample";
+        if (health.Count == 0) return "Waiting for capacity readings";
+        if (health.Count == 1) return $"Health: {health[0]:0.#}% from 1 daily reading";
         double recent = health[^1];
         int compareIndex = Math.Max(0, health.Count - Math.Min(10, health.Count));
         double delta = recent - health[compareIndex];
         string trend = Math.Abs(delta) < 0.15 ? "stable" : delta > 0 ? $"+{delta:0.#} pp" : $"{delta:0.#} pp";
-        return $"Health trend · {recent:0.#}% · {trend} · {health.Count} daily samples";
+        return $"Health: {recent:0.#}%, {trend}, {health.Count} daily readings";
     }
 
     private static double? AveragePointPower(IReadOnlyList<ChargePoint> points, double? fallback)

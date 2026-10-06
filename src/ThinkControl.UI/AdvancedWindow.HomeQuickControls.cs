@@ -80,21 +80,12 @@ public partial class AdvancedWindow
             HomeAcQuiet.IsChecked = ac == ThinkControlPowerMode.Quiet;
             HomeAcBalanced.IsChecked = ac == ThinkControlPowerMode.Balanced;
             HomeAcPerformance.IsChecked = ac == ThinkControlPowerMode.Performance;
-            if (HomePowerSummary is not null)
-                HomePowerSummary.Text = $"Battery {PowerShortName(battery)} · AC {PowerShortName(ac)}";
         }
         finally
         {
             _syncing = false;
         }
     }
-
-    private static string PowerShortName(ThinkControlPowerMode mode) => mode switch
-    {
-        ThinkControlPowerMode.Quiet => "Efficiency",
-        ThinkControlPowerMode.Performance => "Fast",
-        _ => "Balanced"
-    };
 
     private void RefreshHomeFanProfiles()
     {
@@ -142,8 +133,8 @@ public partial class AdvancedWindow
                 };
             HomeFanMoreButton.ToolTip = currentUsesMore && IsManualHomeFanState(selected)
                 ? selectableExtraCount > 0
-                    ? "Current manual fan output · choose a saved profile from this menu"
-                    : "Current manual fan output · no additional saved profiles are available"
+                    ? "Manual fan output. Choose a saved profile to change it."
+                    : "Manual fan output. No other saved profiles are available."
                 : selectableExtraCount > 0
                     ? "Show additional saved fan profiles without leaving Home"
                     : "No additional saved fan profiles are available for the current fan provider";
@@ -302,7 +293,7 @@ public partial class AdvancedWindow
             HomeModeModifiedText.Text = _app.Modes.IsTransitioning
                 ? "Applying…"
                 : _app.Modes.LastTransitionError is not null
-                    ? "Apply failed · open Modes"
+                    ? "Could not apply. Open Modes for details."
                 : _app.Modes.IsModified
                     ? "Modified"
                     : "Automatic";

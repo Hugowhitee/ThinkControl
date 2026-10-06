@@ -85,7 +85,7 @@ public partial class AdvancedWindow
         var button = new WpfButton
         {
             Content = "Defaults",
-            ToolTip = "Reset this page · " + tooltip,
+            ToolTip = "Reset this page. " + tooltip,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center,
             Cursor = System.Windows.Input.Cursors.Hand,
@@ -161,7 +161,7 @@ public partial class AdvancedWindow
         System.Windows.MessageBoxResult answer = System.Windows.MessageBox.Show(
             "Reset ThinkControl settings?\n\n" +
             "Modes will return to Focus, Battery saver and Performance. Battery history, diagnostics consent and Windows brightness settings are kept.",
-            "ThinkControl · Reset all",
+            "ThinkControl: Reset all",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question);
 

@@ -85,8 +85,8 @@ internal sealed class DolbyAccessProfileBridge
                 return new(false, $"Dolby Access did not confirm the {profile} profile after selection.");
 
             return selected == true
-                ? new(true, $"Dolby Atmos · {profile} · selected through Dolby Access and read back.")
-                : new(true, $"Dolby Atmos · {profile} · selected through the official Dolby Access control.");
+                ? new(true, $"Dolby profile: {profile}. Applied through Dolby Access.")
+                : new(true, $"Dolby profile: {profile}. Selected in Dolby Access.");
         }
         catch (OperationCanceledException)
         {

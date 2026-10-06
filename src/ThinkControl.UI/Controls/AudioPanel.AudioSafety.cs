@@ -12,6 +12,6 @@ public partial class AudioPanel
         VolumeSlider.IsEnabled = false;
         MuteButton.IsEnabled = false;
         VolumeValueText.Text = "Silent";
-        VolumeDeviceText.Text = "Silent · output locked by Audio safety · default Windows output";
+        VolumeDeviceText.Text = "Silent: output muted and locked by Audio safety";
     }
 }

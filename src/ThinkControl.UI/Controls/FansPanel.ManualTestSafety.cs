@@ -222,8 +222,8 @@ public partial class FansPanel
             {
                 _manualFanTestStatus.Visibility = Visibility.Visible;
                 _manualFanTestStatus.Text = restored
-                    ? $"{reason} · restored {restoreName}"
-                    : $"{reason} · restore failed; use the profile selector or Auto";
+                    ? $"{reason}. Restored {restoreName}."
+                    : $"{reason}. Restoration failed. Select Auto or a profile.";
             }
             ProfileComboBox.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
             _ = _app.HardwareClient.GetStatusAsync();
@@ -244,9 +244,9 @@ public partial class FansPanel
 
         int seconds = Math.Max(0, (int)Math.Ceiling((_manualFanTestEndsAt - DateTimeOffset.UtcNow).TotalSeconds));
         string restoreName = FriendlyProfileName(_manualFanRestoreProfile);
-        string prefix = string.IsNullOrWhiteSpace(testLabel) ? "Temporary manual test" : $"Temporary test · {testLabel}";
+        string prefix = string.IsNullOrWhiteSpace(testLabel) ? "Temporary manual test" : $"Temporary test: {testLabel}";
         _manualFanTestStatus.Visibility = Visibility.Visible;
-        _manualFanTestStatus.Text = $"{prefix} · restores {restoreName} in {seconds} s";
+        _manualFanTestStatus.Text = $"{prefix}. Restores {restoreName} in {seconds} s.";
         ProfileComboBox.IsEnabled = false;
     }
 

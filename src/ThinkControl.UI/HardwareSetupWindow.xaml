@@ -3,7 +3,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
-        Title="ThinkControl · Required component"
+        Title="ThinkControl: Required component"
         Width="560" Height="360"
         MinWidth="500" MinHeight="330"
         WindowStartupLocation="CenterOwner"

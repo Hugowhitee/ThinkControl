@@ -68,7 +68,7 @@ public partial class TouchpadPanel
         Visualizer.SetTestFrame([new TouchContact(1, 8500, 7700, true)], signal);
         Visualizer.ShowActiveGestureValue(TouchpadEdge.Bottom, "Next");
         RefreshGestureZoneVisuals(null);
-        GestureStatusText.Text = "Track control · Next";
+        GestureStatusText.Text = "Track control: Next";
     }
 
     internal void PrepareCornerForSnapshot(TouchpadCorner corner, bool live)
@@ -120,8 +120,8 @@ public partial class TouchpadPanel
             Visualizer.SetTestFrame(Array.Empty<TouchContact>(), null);
             RefreshGestureZoneVisuals(null);
             GestureStatusText.Text = corner == TouchpadCorner.TopLeft
-                ? "Top-left corner selected · Compact"
-                : "Top-right corner selected · Advanced";
+                ? "Top-left corner: Compact"
+                : "Top-right corner: Advanced";
             return;
         }
 
@@ -150,8 +150,8 @@ public partial class TouchpadPanel
 
         RefreshGestureZoneVisuals(launch);
         GestureStatusText.Text = corner == TouchpadCorner.TopLeft
-            ? "Top-left launch · opening Compact"
-            : "Top-right launch · opening Advanced";
+            ? "Opening Compact from the top-left corner"
+            : "Opening Advanced from the top-right corner";
     }
 
     private void PrepareSnapshotBinding(TouchpadEdge selectedEdge, GestureActionKind action, bool trackCenter)
@@ -369,7 +369,7 @@ public partial class TouchpadPanel
         if (signal.Phase == GesturePhase.Candidate)
         {
             if (signal.Action == GestureActionKind.PreviousNextTrack && _configuration.TrackCenterPlayPauseEnabled)
-                Visualizer.ShowActiveGestureValue(signal.Edge, "Tap · Play / Pause");
+                Visualizer.ShowActiveGestureValue(signal.Edge, "Tap: Play/Pause");
             return;
         }
 
@@ -405,10 +405,10 @@ public partial class TouchpadPanel
     private string FormatGestureStatus(GestureSignal signal)
     {
         if (signal.Corner is TouchpadCorner corner)
-            return $"{(corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right")} · {FormatGestureValue(signal)}";
+            return $"{(corner == TouchpadCorner.TopLeft ? "Top-left" : "Top-right")}: {FormatGestureValue(signal)}";
         if (signal.Phase is GesturePhase.Claimed or GesturePhase.Active)
-            return $"{ActionLabel(signal.Action)} · {FormatGestureDirection(signal)}";
-        return $"{ActionLabel(signal.Action)} · {FormatGestureValue(signal)}";
+            return $"{ActionLabel(signal.Action)}: {FormatGestureDirection(signal)}";
+        return $"{ActionLabel(signal.Action)}: {FormatGestureValue(signal)}";
     }
 
     private string FormatGestureDirection(GestureSignal signal)

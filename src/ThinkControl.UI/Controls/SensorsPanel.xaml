@@ -6,7 +6,7 @@
              Background="Transparent">
     <StackPanel>
         <TextBlock Text="Sensors" Style="{StaticResource TcText.PageTitle}" />
-        <TextBlock Text="Live read-only hardware telemetry. ThinkControl shows the values reported by the active providers without inventing missing sensors."
+        <TextBlock Text="Live temperature, fan and power readings from your laptop."
                    Foreground="{DynamicResource Tc.TextMuted}" Margin="0,6,0,18" TextWrapping="Wrap" />
 
         <Grid Margin="0,0,0,14">
@@ -29,7 +29,7 @@
                 <StackPanel>
                     <TextBlock Text="TELEMETRY" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
                     <TextBlock Text="{Binding SensorCountText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,10,0,0" />
-                    <TextBlock Text="LibreHardwareMonitor + platform providers" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    <TextBlock Text="Readings update automatically." FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </Grid>

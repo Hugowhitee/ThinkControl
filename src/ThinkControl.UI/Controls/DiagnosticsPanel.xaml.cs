@@ -77,7 +77,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             if (verified)
             {
                 CompatibilityStateText.Text = "Supported device";
-                CompatibilityDetailText.Text = "Verified ThinkControl profile · compatibility learning and compatibility reports are not needed.";
+                CompatibilityDetailText.Text = "Supported device. A compatibility report is not needed.";
                 LearningCard.Visibility = Visibility.Collapsed;
                 SharingRow.Visibility = Visibility.Collapsed;
             }
@@ -95,8 +95,8 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                     case DeviceSupportPhase.Learning:
                         LearningTitleText.Text = "Learning compatibility";
                         SharingStateText.Text = sharingEnabled
-                            ? "Keep using ThinkControl normally · no report is ready yet"
-                            : "Learning stays local · report review is disabled";
+                            ? "No report is ready yet. Keep using ThinkControl normally."
+                            : "Learning stays on this device. Report review is disabled.";
                         ShareDeviceButton.Content = "Review report";
                         ShareDeviceButton.IsEnabled = false;
                         break;
@@ -104,13 +104,13 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                         LearningTitleText.Text = "Compatibility evidence complete";
                         SharingStateText.Text = sharingEnabled
                             ? "New compatibility findings are ready to review"
-                            : "Report is ready locally · enable review to open the GitHub draft";
+                            : "Report ready. Enable review to open a GitHub draft.";
                         ShareDeviceButton.Content = "Review report";
                         ShareDeviceButton.IsEnabled = sharingEnabled;
                         break;
                     case DeviceSupportPhase.Shared:
                         LearningTitleText.Text = "Compatibility learned";
-                        SharingStateText.Text = "Shared · no new compatibility findings";
+                        SharingStateText.Text = "Report shared. No new compatibility findings.";
                         ShareDeviceButton.Content = "No new report";
                         ShareDeviceButton.IsEnabled = false;
                         break;
@@ -132,7 +132,7 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             if (crash is not null)
             {
                 _selectedCrashId = crash.Id;
-                CrashTitleText.Text = crashCount == 1 ? "Previous crash" : $"Crashes preserved · {crashCount}";
+                CrashTitleText.Text = crashCount == 1 ? "Previous crash" : $"Saved crashes: {crashCount}";
                 CrashSummaryText.Text = FormatCrashSummary(crash, crashCount);
                 CrashHistoryCombo.ItemsSource = crashes.Select(item => new CrashHistoryOption(
                     item.Id,
@@ -142,19 +142,19 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                 MarkCrashReportedButton.Visibility = draftOpened ? Visibility.Visible : Visibility.Collapsed;
                 OpenCrashDraftButton.Content = draftOpened ? "Reopen GitHub draft" : "Open GitHub draft";
                 CrashStateText.Text = draftOpened
-                    ? "GitHub draft opened · mark reported after you submit it."
-                    : "Ready to review locally · nothing has been uploaded.";
+                    ? "GitHub draft opened. Mark it as reported after submitting."
+                    : "Ready to review. Nothing has been uploaded.";
             }
             else
             {
                 _selectedCrashId = null;
                 CrashHistoryCombo.ItemsSource = null;
                 OpenCrashDraftButton.Content = "Open GitHub draft";
-                CrashStateText.Text = "Ready to review locally · nothing has been uploaded.";
+                CrashStateText.Text = "Ready to review. Nothing has been uploaded.";
             }
 
             LastEventText.Text = app.DiagnosticsRecorder.LastEventAtUtc is DateTimeOffset last
-                ? $"Last local activity · {last.ToLocalTime():g}"
+                ? $"Last local activity: {last.ToLocalTime():g}"
                 : "No local troubleshooting activity yet";
 
             StatusText.Text = verified
@@ -178,14 +178,14 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             DiagnosticsSwitch.IsChecked = consent == DiagnosticsConsent.Enabled;
             DiagnosticsSwitch.IsEnabled = !verified;
             DiagnosticsSwitch.Visibility = verified ? Visibility.Collapsed : Visibility.Visible;
-            CompatibilityStateText.Text = verified ? "Supported device" : "New device · learning";
-            LastEventText.Text = "Last local activity · just now";
+            CompatibilityStateText.Text = verified ? "Supported device" : "New device: learning";
+            LastEventText.Text = "Last local activity: just now";
             CrashCard.Visibility = Visibility.Collapsed;
             CrashSeparator.Visibility = Visibility.Collapsed;
 
             if (verified)
             {
-                CompatibilityDetailText.Text = "Verified ThinkControl profile · compatibility learning and reports are not needed.";
+                CompatibilityDetailText.Text = "Supported device. A compatibility report is not needed.";
                 LearningCard.Visibility = Visibility.Collapsed;
                 SharingRow.Visibility = Visibility.Collapsed;
                 StatusText.Text = "Routine troubleshooting history stays local on this PC.";
@@ -198,8 +198,8 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
                 LearningProgress.Maximum = 5;
                 LearningProgress.Value = 3;
                 LearningProgressText.Text = "3/5";
-                CompatibilityDetailText.Text = "3/5 checks · learning continues quietly while you use ThinkControl";
-                SharingStateText.Text = "Keep using ThinkControl normally · no report is ready yet";
+                CompatibilityDetailText.Text = "3 of 5 checks completed. Learning continues in the background.";
+                SharingStateText.Text = "No report is ready yet. Keep using ThinkControl normally.";
                 ShareDeviceButton.Visibility = Visibility.Visible;
                 ShareDeviceButton.IsEnabled = false;
                 ShareDeviceButton.Content = "Review report";
@@ -390,8 +390,8 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
         string when = DateTimeOffset.TryParse(crash.LastSeenUtc, out DateTimeOffset timestamp)
             ? timestamp.ToLocalTime().ToString("g")
             : "previous run";
-        string repeats = crash.OccurrenceCount > 1 ? $" · ×{crash.OccurrenceCount}" : string.Empty;
-        return $"{type}{repeats} · {when}";
+        string repeats = crash.OccurrenceCount > 1 ? $", {crash.OccurrenceCount} occurrences" : string.Empty;
+        return $"{type}: {when}{repeats}";
     }
 
     private sealed record CrashHistoryOption(string Id, string Label);
@@ -406,11 +406,11 @@ public partial class DiagnosticsPanel : System.Windows.Controls.UserControl
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         if (message.Length > 150)
             message = message[..147] + "…";
-        string repeats = crash.OccurrenceCount > 1 ? $" · repeated {crash.OccurrenceCount} times" : string.Empty;
-        string previous = unresolvedCount > 1 ? $" · {unresolvedCount - 1} previous unresolved" : string.Empty;
+        string repeats = crash.OccurrenceCount > 1 ? $" Repeated {crash.OccurrenceCount} times." : string.Empty;
+        string previous = unresolvedCount > 1 ? $" {unresolvedCount - 1} previous crashes still unresolved." : string.Empty;
         return (string.IsNullOrWhiteSpace(message)
-            ? $"{type} · {when}"
-            : $"{type} · {message} · {when}") + repeats + previous;
+            ? $"{type} ({when})."
+            : $"{type}: {message} ({when}).") + repeats + previous;
     }
 
     private static void WriteBundle(App app, string path)
