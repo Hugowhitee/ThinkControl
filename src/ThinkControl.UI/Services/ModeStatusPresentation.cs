@@ -13,7 +13,7 @@ internal sealed record ModeStatusPresentation(string Title, string Detail, bool 
             return new(title, $"The last change failed. {modes.LastTransitionError}", true);
         var rule = app.UserSettings.Current.AutomationRules?.FirstOrDefault(rule => rule.Id == app.ModeAutomation.ActiveRuleId);
         string source = app.ModeAutomation.Paused
-            ? "Selected manually. Automation is paused until you resume it or a different rule matches."
+            ? "Selected manually. Automation is paused until you resume it or a different rule wins."
             : modes.ActiveModeAutomatic
                 ? rule is null ? "Activated by automation." : $"Activated by {rule.Name}. {ThinkControlAutomationRules.ConditionsSummary(rule)}"
                 : "Selected manually. Automation can change it when a rule matches.";

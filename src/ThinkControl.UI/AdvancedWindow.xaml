@@ -445,7 +445,7 @@
                         <TextBlock Text="App icon opens" FontWeight="SemiBold" />
                         <TextBlock Text="The tray icon always opens Compact." Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,4,12,0" />
                       </StackPanel>
-                      <Grid Grid.Column="1">
+                      <Grid Grid.Column="1" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                           <ColumnDefinition />
                           <ColumnDefinition />
