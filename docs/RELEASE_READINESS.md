@@ -2,6 +2,26 @@
 
 ## Published alpha.65 — October 7, 2026
 
+## Post-alpha.65 Figma consistency handoff — design only (2026-10-07)
+
+The selected Figma file was reconciled against current `main` / published alpha.65 and the current mode/power state owners. **No WPF implementation or release was started in this pass.**
+
+Design-ready references now cover Overview `6:2`, System General `11:422`, Battery `9:205`, Saved modes `11:85`, Automation `11:256`, shared mode status `253:6354`, editors `29:548` / `29:835`, mode states `130:2940` / `130:3055` / `130:3170`, integrated/expanded Battery states `65:1089` / `66:1133` / `66:1311`, passive mode notification in `198:5007`, and Updates `12:103`.
+
+Implementation / acceptance still required:
+
+- make System General use one shared segmented-control treatment for Theme and App icon opens, and retain compact label/value grouping;
+- make Overview keep Mode low and separate from Keyboard while showing only confirmed mode/source state;
+- make Saved modes and Automation share the compact confirmed/manual/rule/error status grammar; a failed Performance facet must leave the previous confirmed mode active instead of making requested selection look successful;
+- preserve an in-progress Modes editor when switching Saved modes ↔ Automation, but reset it after leaving the Modes primary destination and returning;
+- surface a passive mode-enabled notification only after confirmed automatic activation;
+- implement the revised in-page Battery details / Recorded sessions / History settings hierarchy without adding another disclosure layer;
+- verify the existing BatteryGauge charging/discharging diagonal-flow animation in the installed app. Source binding and ShellSmoke coverage exist, but the owner reported no visible motion in alpha.65, so installed behavior is **UNVERIFIED**;
+- repeat live Figma↔WPF comparison, minimum/reference/wide light/dark visual QA, actual DPI/text scaling, keyboard/focus/error/unavailable acceptance and installed alpha.65/next-candidate lifecycle;
+- repeat the fan-curve hover acceptance that was interrupted with Escape, and reproduce/resolve the intermittent fan behavior under SolidWorks load before claiming that evidence.
+
+This section is the implementation handoff for the approved Figma corrections; it is not release evidence.
+
 Curve inspection shows temperature and interpolated target in read-only previews and the editor without editing. Edit curves is directly in Cooling, preserving capability/calibration gates. Overview's existing mode selector moves above quick controls. Overview, Saved modes and Automation share the actual active mode and its manual/rule source, transition, modification or failure. Rules distinguish the applied rule from matching candidates during dwell/manual pause; active-rule changes notify even when wording stays equal. Resume has one location per surface.
 
 Battery details and Recorded sessions are visible sections; day/session disclosure remains. History settings is a separate secondary action, reveals existing retention/reset and brings it into view. Reopening Battery closes management. The app-icon Compact/Advanced preference sits with Theme in General preferences; the tray shortcut remains Compact.
