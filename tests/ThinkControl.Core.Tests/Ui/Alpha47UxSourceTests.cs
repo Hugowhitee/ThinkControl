@@ -180,7 +180,7 @@ public sealed class Alpha47UxSourceTests
         Assert.True(sampleIndex >= 0 && chargeBranchIndex > sampleIndex);
 
         Assert.Contains("List<BatteryHealthSample> HealthSamples", history, StringComparison.Ordinal);
-        Assert.Contains("SchemaVersion { get; set; } = 5", history, StringComparison.Ordinal);
+        Assert.Contains("SchemaVersion { get; set; } = 6", history, StringComparison.Ordinal);
         string runtime = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.RuntimeRefresh.cs"));
         string app = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "App.xaml.cs"));
         Assert.Contains("_runtimeBatteryDesignWh", runtime, StringComparison.Ordinal);

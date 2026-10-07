@@ -12,23 +12,25 @@ internal sealed class CompactMetricLayoutService
     };
 
     private readonly string _path;
+    private static readonly string[] DefaultControls = ["Performance", "Fans", "Display", "Keyboard"];
+    private sealed record LayoutDocument(int Schema, string[] Metrics, string[] Controls);
+    private bool IsTransient => System.Windows.Application.Current is App { IsVisualQa: true };
 
-    internal CompactMetricLayoutService()
+    internal CompactMetricLayoutService(string? path = null)
     {
         string folder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ThinkControl");
-        _path = Path.Combine(folder, "compact-layout.json");
+        _path = path ?? Path.Combine(folder, "compact-layout.json");
     }
 
     internal string[] Load()
     {
         try
         {
-            if (!File.Exists(_path))
+            if (IsTransient || !File.Exists(_path))
                 return [.. DefaultLayout];
-            string[]? saved = JsonSerializer.Deserialize<string[]>(File.ReadAllText(_path));
-            return Sanitize(saved);
+            return ReadDocument().Metrics;
         }
         catch
         {
@@ -38,6 +40,8 @@ internal sealed class CompactMetricLayoutService
 
     internal void Save(IReadOnlyList<string> values)
     {
+        if (IsTransient) return;
+        var previous = ReadDocument();
         string[] clean = Sanitize(values);
         try
         {
@@ -45,7 +49,7 @@ internal sealed class CompactMetricLayoutService
             if (!string.IsNullOrWhiteSpace(folder))
                 Directory.CreateDirectory(folder);
             string temporary = _path + ".tmp";
-            File.WriteAllText(temporary, JsonSerializer.Serialize(clean));
+            File.WriteAllText(temporary, JsonSerializer.Serialize(previous with { Metrics = clean }));
             File.Move(temporary, _path, overwrite: true);
         }
         catch
@@ -54,6 +58,39 @@ internal sealed class CompactMetricLayoutService
         }
     }
 
+    private LayoutDocument ReadDocument()
+    {
+        var fallback = new LayoutDocument(2, [.. DefaultLayout], [.. DefaultControls]);
+        try
+        {
+            if (IsTransient || !File.Exists(_path)) return fallback;
+            string json = File.ReadAllText(_path);
+            if (json.TrimStart().StartsWith('[')) return fallback with { Metrics = Sanitize(JsonSerializer.Deserialize<string[]>(json)) };
+            var saved = JsonSerializer.Deserialize<LayoutDocument>(json);
+            if (saved is null) return fallback;
+            return fallback with { Metrics = Sanitize(saved.Metrics), Controls = SanitizeControls(saved.Controls) };
+        }
+        catch { return fallback; }
+    }
+
+    internal string[] LoadControls() => ReadDocument().Controls;
+    internal void SaveControls(IReadOnlyList<string> values)
+    {
+        if (IsTransient) return;
+        try
+        {
+            var saved = ReadDocument() with { Controls = SanitizeControls(values) };
+            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            File.WriteAllText(_path + ".tmp", JsonSerializer.Serialize(saved));
+            File.Move(_path + ".tmp", _path, true);
+        }
+        catch { }
+    }
+    private static string[] SanitizeControls(IReadOnlyList<string>? values)
+    {
+        if (values is null || values.Count != 4 || values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 4 || values.Any(v => !DefaultControls.Contains(v, StringComparer.OrdinalIgnoreCase))) return [.. DefaultControls];
+        return values.Select(v => DefaultControls.First(d => d.Equals(v, StringComparison.OrdinalIgnoreCase))).ToArray();
+    }
     private static string[] Sanitize(IReadOnlyList<string>? values)
     {
         if (values is null)

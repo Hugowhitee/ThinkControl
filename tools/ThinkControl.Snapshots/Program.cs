@@ -38,6 +38,20 @@ internal static class Program
         app.InitializeComponent();
         var snapshots = new List<SnapshotEntry>();
 
+        if (args.Contains("--compact-editor", StringComparer.Ordinal))
+        {
+            foreach (var mode in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(mode);
+                SyncAppState(CreateDemoState(true, true), app.State);
+                var preview = new MainWindow(app) { DataContext = app.State, Topmost = false };
+                var editor = preview.CreateLayoutEditorForSnapshot();
+                RenderWindowContent(editor, Path.Combine(output, $"CompactEditor-{mode}.png"));
+                editor.Close(); preview.ForceClose();
+            }
+            return 0;
+        }
+
         if (args.Contains("--inspect-hardware", StringComparer.Ordinal))
         {
             ThemeService.Apply(args.Contains("--light", StringComparer.Ordinal) ? ThemeMode.Light : ThemeMode.Dark);
@@ -57,16 +71,42 @@ internal static class Program
             return 0;
         }
 
+        if (args.Contains("--inspect-compact", StringComparer.Ordinal))
+        {
+            ThemeService.Apply(ThemeMode.Dark);
+            SyncAppState(CreateDemoState(true, true), app.State);
+            var compact = new MainWindow(app) { DataContext = app.State, Topmost = false, ShowInTaskbar = true, Title = "ThinkControl — Compact visual QA" };
+            compact.Closed += (_, _) => System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background);
+            compact.Show();
+            System.Windows.Threading.Dispatcher.Run();
+            return 0;
+        }
+
         if (args.Contains("--inspect", StringComparer.Ordinal))
         {
             ThemeService.Apply(ThemeMode.Dark);
             SyncAppState(CreateDemoState(charging: true, hardwareReady: true), app.State);
             var native = new AdvancedWindow(app) { DataContext = app.State, Title = "ThinkControl — visual QA", Width = 1200, Height = 814 };
             native.PrepareEnhancedUiForSnapshot();
+            if (args.Contains("--battery", StringComparer.Ordinal)) native.Navigate("Battery");
             native.PreviewKeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Escape) native.ForceClose(); };
             native.Closed += (_, _) => System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background);
             native.Show();
             System.Windows.Threading.Dispatcher.Run();
+            return 0;
+        }
+
+        if (args.Contains("--compact", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                RenderCompact(app, CreateDemoState(true, true), output, snapshots, $"Compact-{theme}.png", "Charging");
+                RenderCompact(app, CreateDemoState(false, true), output, snapshots, $"CompactBattery-{theme}.png", "Discharging");
+                RenderCompact(app, CreateDemoState(true, false), output, snapshots, $"CompactUnavailable-{theme}.png", "Unavailable");
+            }
+            WriteManifest(output, snapshots);
+            WriteGallery(output, snapshots);
             return 0;
         }
 
@@ -78,6 +118,24 @@ internal static class Program
                 foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
                     RenderAdvanced(app, CreateDemoState(charging: true, hardwareReady: true), "Home", width, height,
                         output, snapshots, $"overview-{theme}-{width}.png", "Figma migration");
+            }
+            WriteManifest(output, snapshots);
+            WriteGallery(output, snapshots);
+            return 0;
+        }
+
+        if (args.Contains("--battery", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+                {
+                    RenderAdvanced(app, CreateDemoState(true, true), "Battery", width, height,
+                        output, snapshots, $"Battery-{theme}-{width}.png", "Estimated wear");
+                    RenderAdvanced(app, CreateDemoState(true, true), "Battery", width, height,
+                        output, snapshots, $"BatteryCycles-{theme}-{width}.png", "Firmware cycle history", batteryCycles: true);
+                }
             }
             WriteManifest(output, snapshots);
             WriteGallery(output, snapshots);
@@ -508,6 +566,10 @@ internal static class Program
         }
 
         state.RecentChargeSessions.Add("Today · 61% to 78% in 43 min, average power: 17.8 W · +12.1 Wh");
+        state.BatteryCycleCountTimeline.Add(new TimeSeriesPoint(now.AddDays(-7), 10));
+        state.BatteryCycleCountTimeline.Add(new TimeSeriesPoint(now.AddDays(-3), 11));
+        state.BatteryCycleCountTimeline.Add(new TimeSeriesPoint(now, 12));
+        state.BatteryCycleTrendText = "2 cycles added over 7 days (2 per week). Firmware readings.";
         state.RecentChargeSessions.Add("21 Aug · 34% → 91% · 2h 12m · 18.3 W avg · +40.6 Wh");
         state.RecentChargeSessions.Add("20 Aug · 52% → 86% · 1h 18m · 17.9 W avg · +24.0 Wh");
         return state;
@@ -527,6 +589,7 @@ internal static class Program
         ReplaceCollection(target.BatteryChargePowerTimeline, source.BatteryChargePowerTimeline);
         ReplaceCollection(target.BatteryChargePercentTimeline, source.BatteryChargePercentTimeline);
         ReplaceCollection(target.BatteryHealthTrendTimeline, source.BatteryHealthTrendTimeline);
+        ReplaceCollection(target.BatteryCycleCountTimeline, source.BatteryCycleCountTimeline);
         ReplaceCollection(target.RecentChargeSessions, source.RecentChargeSessions);
     }
 
@@ -548,8 +611,8 @@ internal static class Program
         bool editMetrics = false,
         AudioSafetyMode? audioSafetyMode = null)
     {
-        const int width = 390;
-        const int height = 520;
+        const int width = 420;
+        const int height = 565;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
         if (audioSafetyMode is AudioSafetyMode mode)
@@ -588,7 +651,8 @@ internal static class Program
         bool fanRecoveryResult = false,
         bool ruleEditor = false,
         bool fanMeasuredCurve = false,
-        bool systemDetails = false)
+        bool systemDetails = false,
+        bool batteryCycles = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -717,6 +781,16 @@ internal static class Program
             window.ValidateTouchpadCornerSymmetryForSnapshot();
         }
 
+        if (batteryCycles)
+        {
+            window.PrepareBatteryCyclesForSnapshot();
+            if (window.FindName("PageBattery") is System.Windows.Controls.ScrollViewer scroll)
+            {
+                window.UpdateLayout();
+                scroll.ScrollToVerticalOffset(330);
+                scroll.UpdateLayout();
+            }
+        }
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, $"Advanced · {page}", stateName, width, height));
         if (modeFailure)

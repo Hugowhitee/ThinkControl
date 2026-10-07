@@ -4,19 +4,18 @@ public partial class App
 {
     internal void OpenCompactCustomize(System.Windows.Window owner)
     {
-        if (IsVisualQa)
-        {
-            var preview = new MainWindow(this) { Owner = owner, DataContext = State, Topmost = false };
-            preview.Show();
-            preview.OpenCustomization();
-            return;
-        }
-        SwitchAdvancedToCompact();
-        CompactWindow.OpenCustomization();
+        CompactWindow ??= new MainWindow(this) { DataContext = State, Topmost = false };
+        CompactWindow.OpenLayoutEditor(owner);
     }
 }
 
 public partial class MainWindow
 {
     internal void OpenCustomization() => Dashboard.OpenCustomization();
+    internal void OpenLayoutEditor(System.Windows.Window owner) => Dashboard.OpenLayoutEditor(owner);
+    internal System.Windows.Window CreateLayoutEditorForSnapshot()
+    {
+        Dashboard.OpenLayoutEditor(null);
+        return Dashboard.LayoutEditorForSnapshot!;
+    }
 }

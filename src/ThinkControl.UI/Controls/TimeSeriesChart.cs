@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 using Point = System.Windows.Point;
 
 namespace ThinkControl.UI.Controls;
@@ -19,10 +20,12 @@ public sealed class TimeSeriesChart : FrameworkElement
 {
     private const double LeftAxis = 50;
     private const double RightPadding = 12;
-    private const double TopPadding = 12;
+    private const double TopPadding = 18;
     private const double BottomAxis = 30;
 
     private Point? _hover;
+    private bool _keyboardMode;
+    private int _keyboardIndex;
     private INotifyCollectionChanged? _observableValues;
 
     public static readonly DependencyProperty ValuesProperty = DependencyProperty.Register(
@@ -60,12 +63,16 @@ public sealed class TimeSeriesChart : FrameworkElement
         MinHeight = 110;
         Cursor = Cursors.Cross;
         SnapsToDevicePixels = true;
+        Focusable = true;
+        System.Windows.Automation.AutomationProperties.SetName(this, "Telemetry history");
+        System.Windows.Automation.AutomationProperties.SetHelpText(this, "Use Left and Right to inspect recorded points, or Home and End to jump to the first and last point.");
     }
 
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
         _hover = e.GetPosition(this);
+        _keyboardMode = false;
         InvalidateVisual();
     }
 
@@ -73,6 +80,53 @@ public sealed class TimeSeriesChart : FrameworkElement
     {
         base.OnMouseLeave(e);
         _hover = null;
+        InvalidateVisual();
+    }
+
+    protected override void OnMouseLeftButtonDown(System.Windows.Input.MouseButtonEventArgs e)
+    {
+        base.OnMouseLeftButtonDown(e);
+        Focus();
+        _keyboardMode = false;
+        InvalidateVisual();
+    }
+
+    protected override void OnGotKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnGotKeyboardFocus(e);
+        _keyboardMode = true;
+        InvalidateVisual();
+    }
+
+    protected override void OnLostKeyboardFocus(KeyboardFocusChangedEventArgs e)
+    {
+        base.OnLostKeyboardFocus(e);
+        _keyboardMode = false;
+        InvalidateVisual();
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key is not (Key.Left or Key.Right or Key.Home or Key.End)) return;
+        TimeSeriesPoint[] points = (Values ?? []).Where(p => double.IsFinite(p.Value)).OrderBy(p => p.At).ToArray();
+        if (points.Length == 0) return;
+        var range = ResolveTimeRange(points);
+        points = points.Where(p => p.At >= range.Min && p.At <= range.Max).ToArray();
+        if (points.Length == 0) return;
+        _keyboardIndex = e.Key switch
+        {
+            Key.Home => 0,
+            Key.End => points.Length - 1,
+            Key.Left => Math.Max(0, _keyboardIndex - 1),
+            _ => Math.Min(points.Length - 1, _keyboardIndex + 1)
+        };
+        _keyboardMode = true;
+        _hover = null;
+        var point = points[_keyboardIndex];
+        System.Windows.Automation.AutomationProperties.SetHelpText(this,
+            $"{point.At.ToLocalTime():g}: {FormatValue(point.Value)}");
+        e.Handled = true;
         InvalidateVisual();
     }
 
@@ -87,12 +141,11 @@ public sealed class TimeSeriesChart : FrameworkElement
         Brush surface = ResourceBrush("Tc.SurfaceAlt", Brushes.Black);
         Brush foreground = ResourceBrush("Tc.Text", Brushes.White);
         dc.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, ActualWidth, ActualHeight));
-        DrawGrid(dc, plot, gridBrush);
 
         TimeSeriesPoint[] all = (Values ?? Array.Empty<TimeSeriesPoint>()).Where(point => double.IsFinite(point.Value)).OrderBy(point => point.At).ToArray();
         if (all.Length == 0)
         {
-            DrawText(dc, "Waiting for telemetry", new Point(plot.Left + 8, plot.Top + plot.Height / 2), 10.5, axisBrush);
+            DrawText(dc, "Waiting for telemetry", new Point(plot.Left + 8, plot.Top + plot.Height / 2), TypographyScale.Caption, axisBrush);
             return;
         }
 
@@ -100,10 +153,14 @@ public sealed class TimeSeriesChart : FrameworkElement
         TimeSeriesPoint[] visible = all.Where(point => point.At >= xMin && point.At <= xMax).ToArray();
         if (visible.Length == 0) visible = [all[^1]];
         (double yMin, double yMax) = ResolveValueRange(visible);
+        DrawGrid(dc, plot, yMin, yMax, gridBrush);
         DrawAxes(dc, plot, xMin, xMax, yMin, yMax, textBrush);
         DrawSeries(dc, plot, visible, xMin, xMax, yMin, yMax, accent);
 
-        if (_hover is Point hover && plot.Contains(hover))
+        Point? activeHover = _hover;
+        if (_keyboardMode && IsKeyboardFocusWithin)
+            activeHover = Map(visible[Math.Clamp(_keyboardIndex, 0, visible.Length - 1)], plot, xMin, xMax, yMin, yMax);
+        if (activeHover is Point hover && plot.Contains(hover))
             DrawHover(dc, plot, visible, xMin, xMax, yMin, yMax, hover, gridBrush, accent, surface, foreground);
     }
 
@@ -184,12 +241,25 @@ public sealed class TimeSeriesChart : FrameworkElement
         return (min, max);
     }
 
-    private static void DrawGrid(DrawingContext dc, Rect plot, Brush brush)
+    internal static double[] AxisTicks(double min, double max, string valueFormat)
+    {
+        int dot = valueFormat.IndexOf('.');
+        int decimals = dot < 0 ? 0 : valueFormat[(dot + 1)..].Count(c => c is '0' or '#');
+        double quantum = Math.Pow(10, -Math.Clamp(decimals, 0, 6));
+        double lower = Math.Ceiling(min / quantum) * quantum;
+        double upper = Math.Floor(max / quantum) * quantum;
+        if (lower > upper) return [];
+        return Enumerable.Range(0, 3)
+            .Select(i => Math.Clamp(Math.Round((min + (max - min) * i / 2) / quantum) * quantum, lower, upper))
+            .Distinct().ToArray();
+    }
+
+    private void DrawGrid(DrawingContext dc, Rect plot, double yMin, double yMax, Brush brush)
     {
         var pen = new Pen(brush, 0.7);
-        for (int i = 0; i <= 3; i++)
+        foreach (double tick in AxisTicks(yMin, yMax, ValueFormat))
         {
-            double y = plot.Top + plot.Height * i / 3d;
+            double y = plot.Bottom - (tick - yMin) / (yMax - yMin) * plot.Height;
             dc.DrawLine(pen, new Point(plot.Left, y), new Point(plot.Right, y));
         }
         for (int i = 0; i <= 4; i++)
@@ -201,12 +271,10 @@ public sealed class TimeSeriesChart : FrameworkElement
 
     private void DrawAxes(DrawingContext dc, Rect plot, DateTimeOffset xMin, DateTimeOffset xMax, double yMin, double yMax, Brush brush)
     {
-        for (int i = 0; i <= 2; i++)
+        foreach (double value in AxisTicks(yMin, yMax, ValueFormat))
         {
-            double fraction = i / 2d;
-            double value = yMax - (yMax - yMin) * fraction;
-            double y = plot.Top + plot.Height * fraction;
-            DrawText(dc, FormatValue(value), new Point(plot.Left - 7, y), 9, brush, rightAligned: true, verticallyCentered: true);
+            double y = plot.Bottom - (value - yMin) / (yMax - yMin) * plot.Height;
+            DrawText(dc, value.ToString(ValueFormat, CultureInfo.CurrentCulture), new Point(plot.Left - 7, y), TypographyScale.Micro, brush, rightAligned: true, verticallyCentered: true);
         }
         TimeSpan span = xMax - xMin;
         for (int i = 0; i <= 2; i++)
@@ -214,8 +282,10 @@ public sealed class TimeSeriesChart : FrameworkElement
             double fraction = i / 2d;
             DateTimeOffset at = xMin + TimeSpan.FromTicks((long)(span.Ticks * fraction));
             double x = plot.Left + plot.Width * fraction;
-            DrawText(dc, FormatTime(at.ToLocalTime(), span), new Point(x, plot.Bottom + 8), 9, brush, centered: true);
+            DrawText(dc, FormatTime(at.ToLocalTime(), span), new Point(x, plot.Bottom + 8), TypographyScale.Micro, brush, centered: true);
         }
+        if (!string.IsNullOrWhiteSpace(Unit))
+            DrawText(dc, Unit, new Point(plot.Right, 0), TypographyScale.Micro, brush, rightAligned: true);
     }
 
     private void DrawHover(DrawingContext dc, Rect plot, IReadOnlyList<TimeSeriesPoint> points, DateTimeOffset xMin, DateTimeOffset xMax, double yMin, double yMax, Point hover, Brush gridBrush, Brush accent, Brush surface, Brush foreground)
@@ -231,16 +301,22 @@ public sealed class TimeSeriesChart : FrameworkElement
         TimeSpan span = xMax - xMin;
         string time = FormatHoverTime(nearest.At.ToLocalTime(), span);
         string value = FormatValue(nearest.Value);
-        string text = string.IsNullOrWhiteSpace(nearest.Label) ? $"{time}: {value}" : $"{nearest.Label}: {value} ({time})";
-        FormattedText ft = CreateFormattedText(text, 10, foreground);
-        double boxWidth = ft.Width + 16;
-        double boxHeight = ft.Height + 10;
+        string text = string.IsNullOrWhiteSpace(nearest.Label) ? value : $"{value} ({nearest.Label})";
+        FormattedText timestamp = CreateFormattedText(time, TypographyScale.Caption, ResourceBrush("Tc.TextMuted", foreground));
+        FormattedText ft = CreateFormattedText(text, TypographyScale.ControlText, foreground);
+        ft.SetFontWeight(FontWeights.SemiBold);
+        double contentWidth = Math.Max(1, plot.Width - 20);
+        timestamp.MaxTextWidth = ft.MaxTextWidth = contentWidth;
+        timestamp.Trimming = ft.Trimming = TextTrimming.CharacterEllipsis;
+        double boxWidth = Math.Min(plot.Width, Math.Max(timestamp.Width, ft.Width) + 20);
+        double boxHeight = timestamp.Height + ft.Height + 19;
         double left = p.X + 10;
         if (left + boxWidth > plot.Right) left = p.X - boxWidth - 10;
         left = Math.Clamp(left, plot.Left, Math.Max(plot.Left, plot.Right - boxWidth));
         double top = Math.Clamp(p.Y - boxHeight - 10, plot.Top, Math.Max(plot.Top, plot.Bottom - boxHeight));
         dc.DrawRoundedRectangle(surface, new Pen(gridBrush, 1), new Rect(left, top, boxWidth, boxHeight), 4, 4);
-        dc.DrawText(ft, new Point(left + 8, top + 5));
+        dc.DrawText(timestamp, new Point(left + 10, top + 8));
+        dc.DrawText(ft, new Point(left + 10, top + 11 + timestamp.Height));
 
         // The tooltip already owns the exact hovered time/value. Drawing a second
         // red label over both axes made digits collide with the normal tick labels.

@@ -16,13 +16,15 @@ public partial class CompactDashboard
         string ValuePath,
         string DetailPathOrText,
         string Page,
-        bool AccentValue = false);
+        bool AccentValue = false,
+        string? Unit = null,
+        string? ValueFormat = null);
 
     private static readonly CompactMetricDefinition[] CompactMetricDefinitions =
     [
         new("Battery", "BATTERY", "BatteryPercentText", "BatteryEtaText", "Battery"),
-        new("CPU", "CPU", "CpuTemperatureText", "Live temperature", "System"),
-        new("Fans", "FANS", "CoolingProfileDisplay", "FanRpmText", "Fans"),
+        new("CPU", "CPU", "CpuTemperatureC", "CPU sensor", "System", Unit: "°C", ValueFormat: "0"),
+        new("Fans", "FAN SPEED", "FanRpm", "FanCountText", "Fans", Unit: "RPM", ValueFormat: "N0"),
         new("Power", "POWER", "BatteryPowerText", "BatteryAveragePowerText", "Battery"),
         new("Sensors", "SENSORS", "SensorCountText", "Hardware telemetry", "System"),
         new("Display", "DISPLAY", "CurrentRefreshText", "Refresh rate", "Display"),
@@ -33,6 +35,7 @@ public partial class CompactDashboard
     private readonly CompactMetricLayoutService _compactMetricLayout = new();
     private string[] _compactMetricSlots = ["Battery", "CPU", "Fans"];
     private bool _compactMetricsReady;
+    private string[] _compactControlSlots = ["Performance", "Fans", "Display", "Keyboard"];
 
     private void EnsureCompactMetrics()
     {
@@ -40,6 +43,8 @@ public partial class CompactDashboard
             return;
         _compactMetricsReady = true;
         _compactMetricSlots = _compactMetricLayout.Load();
+        _compactControlSlots = _compactMetricLayout.LoadControls();
+        RefreshCompactControls();
         RefreshCompactMetrics();
     }
 
@@ -63,7 +68,7 @@ public partial class CompactDashboard
         TextBlock label = new()
         {
             Text = definition.Label,
-            FontSize = TypographyScale.Caption,
+            FontSize = TypographyScale.Micro,
             FontWeight = FontWeights.SemiBold
         };
         label.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextFaint");
@@ -71,15 +76,43 @@ public partial class CompactDashboard
 
         TextBlock value = new()
         {
-            FontSize = TypographyScale.Value,
+            FontSize = TypographyScale.CompactValue,
             FontWeight = FontWeights.SemiBold,
             Margin = new Thickness(0, 5, 0, 0),
             TextTrimming = TextTrimming.CharacterEllipsis
         };
-        value.SetBinding(TextBlock.TextProperty, new Binding(definition.ValuePath));
+        var valueBinding = new Binding(definition.ValuePath) { TargetNullValue = "—" };
+        if (definition.ValueFormat is string format) valueBinding.StringFormat = "{0:" + format + "}";
+        value.SetBinding(TextBlock.TextProperty, valueBinding);
         if (definition.AccentValue)
             value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
-        stack.Children.Add(value);
+        var valueRow = new Grid { Height = 34, HorizontalAlignment = HorizontalAlignment.Left };
+        valueRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        valueRow.ColumnDefinitions.Add(new ColumnDefinition());
+        valueRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        if (definition.Id == "Battery")
+        {
+            var gauge = new BatteryGauge { Width = 30, Height = 16, Margin = new Thickness(0, 5, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+            gauge.SetBinding(BatteryGauge.PercentProperty, new Binding("BatteryPercent"));
+            gauge.SetBinding(BatteryGauge.IsChargingProperty, new Binding("BatteryCharging"));
+            gauge.SetBinding(BatteryGauge.IsDischargingProperty, new Binding("BatteryDischarging"));
+            valueRow.Children.Add(gauge);
+        }
+        Grid.SetColumn(value, 1);
+        value.VerticalAlignment = VerticalAlignment.Bottom;
+        value.Margin = new Thickness(0, 0, 0, 0);
+        valueRow.Children.Add(value);
+        if (definition.Unit is string unit)
+        {
+            valueRow.ColumnDefinitions[1].Width = GridLength.Auto;
+            value.MaxWidth = 72;
+            var unitText = new TextBlock { Text = unit, FontSize = TypographyScale.Micro,
+                Margin = new Thickness(6, 0, 0, 4), VerticalAlignment = VerticalAlignment.Bottom };
+            unitText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+            Grid.SetColumn(unitText, 2);
+            valueRow.Children.Add(unitText);
+        }
+        stack.Children.Add(valueRow);
 
         TextBlock detail = new()
         {
@@ -126,9 +159,7 @@ public partial class CompactDashboard
     }
     internal void OpenCustomization()
     {
-        EnsureCompactMetrics();
-        BuildCompactMetricEditor();
-        CompactMetricEditorOverlay.Visibility = Visibility.Visible;
+        OpenLayoutEditor(Window.GetWindow(this));
     }
 
     private void BuildCompactMetricEditor()

@@ -43,6 +43,7 @@ public partial class BatteryTelemetryPanel
     {
         if (_batteryProtectionStatusSubscribed || WpfApplication.Current is not App app)
             return;
+        if (app.IsVisualQa) return;
         app.HardwareClient.StatusObserved += BatteryProtection_StatusObserved;
         _batteryProtectionStatusSubscribed = true;
         _ = app.HardwareClient.GetStatusAsync();
@@ -296,14 +297,16 @@ public partial class BatteryTelemetryPanel
         ChargeLimitValue.Text = available && enabled is not null && DataContext is AppState state
             ? $"{state.BatteryChargeTargetPercent}%"
             : "—";
-        ChargeProtectionWearText.Text = DescribeBatteryAging(enabled, available);
+        ChargeProtectionWearText.Text = available && enabled == true
+            ? $"Estimated charging wear: ≈{100 * (1 - BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop)):0}% lower\n0–{_lastChargeProtectionStop}% compared with 0–100%."
+            : DescribeBatteryAging(enabled, available);
         ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
         ChargeProtectionWearText.SetResourceReference(TextBlock.ForegroundProperty,
             available && enabled == true ? "Tc.Success" : "Tc.TextMuted");
     }
 
     private const string BatteryAgingTooltip =
-        "A charge cycle adds up the use of 100% capacity across charge sessions. A lower charge limit can reduce high-charge stress, but cycles saved cannot be calculated from the limit alone. Heat, depth of discharge and age also affect wear.";
+        "Estimated charging wear compares a generic Li-ion charge from 0% to the selected limit with 0–100%. It is not the firmware cycle count or measured capacity loss. Heat, chemistry, charge rate, time near full and age affect actual wear; this percentage does not predict added battery lifespan.";
 
     private static string DescribeBatteryAging(bool? enabled, bool available) =>
         !available

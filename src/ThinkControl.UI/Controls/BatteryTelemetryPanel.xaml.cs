@@ -123,6 +123,12 @@ public partial class BatteryTelemetryPanel : UserControl
         if (WpfApplication.Current is not App app)
             return;
 
+        if (app.IsVisualQa)
+        {
+            PrepareForSnapshot(app.State);
+            return;
+        }
+
         IReadOnlyList<BatteryDaySummary> availableDays = app.BatteryHistoryService.GetRecentDays(14);
         PresentChargeSession(availableDays.SelectMany(day => day.Sessions)
             .Where(session => session.Kind == "Charge").OrderByDescending(session => session.StartedAt).FirstOrDefault());
@@ -273,6 +279,8 @@ public partial class BatteryTelemetryPanel : UserControl
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
             : "Preservation is off; charging is allowed to 100%.";
         _batteryProtectionAvailable = true;
+        _lastChargeProtectionStart = snapshotStart;
+        _lastChargeProtectionStop = snapshotStop;
         UpdateBatteryAgingGuidance(snapshotProtection, available: true);
         CustomChargeLimitsButton.IsEnabled = state.BatteryProtectionWritable && snapshotProtection;
         ChargeProtectionProviderText.Text = "Charging limits verified";

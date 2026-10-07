@@ -35,8 +35,8 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("x:Name=\"CustomChargeStartComboBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CustomChargeStopComboBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Helps reduce battery wear", code, StringComparison.Ordinal);
-        Assert.Contains("cycles saved cannot be calculated from the limit alone", code, StringComparison.Ordinal);
-        Assert.Contains("Heat, depth of discharge and age", code, StringComparison.Ordinal);
+        Assert.Contains("Estimated charging wear:", code, StringComparison.Ordinal);
+        Assert.Contains("not the firmware cycle count or measured capacity loss", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeLimitWear", code, StringComparison.Ordinal);
         Assert.Contains("UpdateBatteryAgingGuidance", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", code, StringComparison.Ordinal);
@@ -55,7 +55,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Charge hold, resumes below {start}%", state, StringComparison.Ordinal);
         Assert.DoesNotContain("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("A charge cycle adds up the use of 100% capacity", code, StringComparison.Ordinal);
+        Assert.Contains("0–100%", code, StringComparison.Ordinal);
 
         string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
         Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);

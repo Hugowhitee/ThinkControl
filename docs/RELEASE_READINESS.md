@@ -10,6 +10,16 @@ Bounded evidence: 312 Core tests passed; real WPF shell lifecycle/navigation smo
 
 This is the **single persistent handoff/checklist** for unfinished release and commercial-readiness work. Keep it current; do not create parallel release checklists. Executable gates live in `.github/workflows/`, `tools/` and tests.
 
+## Battery and Compact verification checkpoint (2026-10-07)
+
+The current candidate compares estimated charging wear for 0→selected limit with 0→100, using a whole percentage and explicit ranges. Top-up wear numbers were removed from the primary cards. Firmware cycle history is a separate fourth chart tab, persisted additively in schema 6; unknown counts and counter resets are preserved truthfully. Details now add energy capacity, temperature and learned charge time rather than repeating charge, health, power and cycles.
+
+Compact now uses the selected 420×565 composition, shared metric content and numeric units beside the value. Its small battery silhouette renders at the correct size. A separate owned layout editor offers status replacement/swap and four quick-control swaps; schema 2 migrates the legacy status array and preserves both families. Visual QA does not read/write the user's compact layout. Charging/discharging flow follows real state, respects Windows reduced motion, fades on pause and releases its rendering callback after pause/unload.
+
+Verification: solution build succeeded with zero warnings/errors; all 312 Core tests passed; real WPF dispatcher smoke passed, including legacy layout migration, family preservation, duplicate rejection and actual composition-clock battery movement/pause/unload. Twelve battery/history renders and six Compact renders passed layout/typography guards; two editor renders passed in dark/light. Static snapshots do not prove animation or native drag input. A final native acceptance attempt was stopped by physical Escape; its isolated process was closed.
+
+**UNVERIFIED and still required before promotion:** native chart mouse/keyboard interaction; editor drag/cancel/lost-capture and live reorder acceptance; final editor preview parity with Figma controls; updated details/preservation rerender after the last move of the threshold gauge; installed alpha.62 UI/service lifecycle; frozen-head hosted package/CI, upgrade/updater and four-asset online publication. Alpha.62 remains `releaseReady=false`; alpha.61 remains the published installed version. Do not mark this checkpoint as released.
+
 ## Current release state
 
 ### Alpha.62 acceptance — X9 21Q6, October 6, 2026

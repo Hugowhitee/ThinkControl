@@ -132,7 +132,7 @@
                       <ColumnDefinition Width="86" />
                       <ColumnDefinition />
                     </Grid.ColumnDefinitions>
-                    <controls:BatteryGauge Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                    <controls:BatteryGauge Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" IsDischarging="{Binding BatteryDischarging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                       <TextBlock Text="{Binding BatteryPercentText}" Style="{StaticResource TcText.ValueLarge}" />
                       <TextBlock Text="{Binding BatteryEtaText}" Style="{StaticResource TcText.Caption}" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Margin="0,4,0,0" />

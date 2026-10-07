@@ -17,6 +17,7 @@ public partial class BatteryTelemetryPanel
         ChargeHistoryView.Visibility = view == "Charge" ? Visibility.Visible : Visibility.Collapsed;
         DischargeHistoryView.Visibility = view == "Discharge" ? Visibility.Visible : Visibility.Collapsed;
         HealthHistoryView.Visibility = view == "Health" ? Visibility.Visible : Visibility.Collapsed;
+        CycleHistoryView.Visibility = view == "Cycles" ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void BatteryDetails_Click(object sender, RoutedEventArgs e)
@@ -37,6 +38,12 @@ public partial class BatteryTelemetryPanel
         BatteryHistoryChargeTab.IsChecked = true;
         BatteryDetails.IsExpanded = BatterySessions.IsExpanded = false;
         CustomChargeEditor.Visibility = Visibility.Collapsed;
+    }
+
+    internal void PrepareCycleHistoryForSnapshot()
+    {
+        SelectHistoryView("Cycles");
+        BatteryHistoryCyclesTab.IsChecked = true;
     }
 
     private void PresentChargeSession(BatterySessionDetail? session)

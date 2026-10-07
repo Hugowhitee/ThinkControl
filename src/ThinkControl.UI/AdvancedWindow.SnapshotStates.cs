@@ -95,6 +95,8 @@ public partial class AdvancedWindow
 
     internal void PrepareBatteryCustomLimitsForSnapshot() =>
         BatteryTelemetryPanelControl.PrepareCustomChargeEditorForSnapshot();
+    internal void PrepareBatteryCyclesForSnapshot() =>
+        BatteryTelemetryPanelControl.PrepareCycleHistoryForSnapshot();
 
     internal void PrepareModesListForSnapshot() =>
         ModesPanelControl.PrepareListForSnapshot();

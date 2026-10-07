@@ -26,6 +26,9 @@ internal static class Program
         {
             ValidateCrashJournal();
             ValidateBatteryHistoryGaps();
+            ValidateCompactLayoutMigration();
+            if (!ThinkControl.UI.Controls.TimeSeriesChart.AxisTicks(9.8, 12.2, "0").SequenceEqual(new[] { 10d, 11d, 12d }))
+                throw new InvalidOperationException("Cycle chart ticks must use exact integer values at their actual positions.");
             ValidateBatteryEtaLabels();
             ValidateModeAutomationPolicy();
             app = App.CreateForVisualQa();
@@ -45,6 +48,7 @@ internal static class Program
                     await ValidateAutomationTransitions(app);
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();
+                    await ValidateBatteryMotion();
                     RunScenario(app);
                     exitCode = 0;
                 }
@@ -77,6 +81,50 @@ internal static class Program
         {
             try { app?.CleanupInteractiveShellSmoke(); } catch { }
         }
+    }
+
+    private static void ValidateCompactLayoutMigration()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "ThinkControl-Layout-Smoke-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "layout.json");
+        try
+        {
+            File.WriteAllText(path, "[\"CPU\",\"Battery\",\"Power\"]");
+            var service = new CompactMetricLayoutService(path);
+            service.SaveControls(["Keyboard", "Display", "Fans", "Performance"]);
+            if (!service.Load().SequenceEqual(new[] { "CPU", "Battery", "Power" })) throw new InvalidOperationException("Quick controls lost the legacy status layout.");
+            service.Save(["Fans", "CPU", "Battery"]);
+            if (!service.LoadControls().SequenceEqual(new[] { "Keyboard", "Display", "Fans", "Performance" })) throw new InvalidOperationException("Status layout lost the saved quick-control order.");
+            service.SaveControls(["Keyboard", "Keyboard", "Fans", "Performance"]);
+            if (!service.LoadControls().SequenceEqual(new[] { "Performance", "Fans", "Display", "Keyboard" })) throw new InvalidOperationException("Duplicate control slots were retained.");
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    private static async Task ValidateBatteryMotion()
+    {
+        var gauge = new ThinkControl.UI.Controls.BatteryGauge { Width = 100, Height = 40, Percent = 78, IsCharging = true };
+        var host = new Window { Content = gauge, Width = 140, Height = 100, ShowInTaskbar = false, ShowActivated = false };
+        try
+        {
+            host.Show();
+            double initial = gauge.MotionPhase;
+            await Task.Delay(350);
+            if (SystemParameters.ClientAreaAnimation && (!gauge.MotionActive || gauge.MotionPhase == initial))
+                throw new InvalidOperationException("Charging gauge did not move in a real WPF rendering loop.");
+            gauge.IsCharging = false;
+            gauge.IsDischarging = true;
+            await Task.Delay(450);
+            if (SystemParameters.ClientAreaAnimation && !gauge.MotionActive)
+                throw new InvalidOperationException("Discharge flow stopped while discharging.");
+            gauge.IsDischarging = false;
+            await Task.Delay(1300);
+            if (gauge.MotionActive)
+                throw new InvalidOperationException("Paused battery kept a permanent animation callback.");
+        }
+        finally { host.Close(); }
+        if (gauge.MotionActive) throw new InvalidOperationException("Battery animation survived window unload.");
     }
 
     private static void ValidateModeAutomationPolicy()
@@ -317,6 +365,20 @@ internal static class Program
         try
         {
             DateTimeOffset start = DateTimeOffset.UtcNow.AddDays(-2);
+            string cyclePath = Path.Combine(directory, "cycles.json");
+            var cycleHistory = new BatteryHistoryService(cyclePath);
+            cycleHistory.Record(false, false, start, 60, null, 45, 75, 80, 100);
+            cycleHistory.Record(false, false, start.AddMinutes(1), 60, null, 45, 75, 80, 100);
+            cycleHistory.Record(false, false, start.AddMinutes(2), 60, null, 45, 75, 80, null);
+            cycleHistory.Record(false, false, start.AddDays(1), 60, null, 45, 75, 80, 102);
+            BatteryHistoryView cycleView = new BatteryHistoryService(cyclePath).GetView();
+            if (cycleView.CycleCountTimeline.Count != 2 || cycleView.CycleCountTimeline[1].Value != 102 ||
+                !cycleView.CycleTrendText.Contains("2 cycles added", StringComparison.Ordinal))
+                throw new InvalidOperationException("Cycle history failed persistence, de-duplication or unknown-reading handling.");
+            cycleHistory.Record(false, false, start.AddDays(1).AddHours(1), 60, null, 45, 75, 80, 3);
+            cycleView = cycleHistory.GetView();
+            if (cycleView.CycleCountTimeline[^1].Value != 3 || !cycleView.CycleTrendText.Contains("counter decreased", StringComparison.Ordinal))
+                throw new InvalidOperationException("A firmware cycle-counter reset was reported as negative battery wear.");
             foreach (bool initialCharging in new[] { true, false })
             {
                 var history = new BatteryHistoryService(Path.Combine(directory, initialCharging + ".json"));
