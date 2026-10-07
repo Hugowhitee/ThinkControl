@@ -877,7 +877,9 @@ internal sealed class FanSupervisor : IDisposable
             {
                 _safetyOverride = true;
                 _recoverySensorSamples = 0;
-                _status = reason + ". Firmware is temporarily controlling cooling.";
+                _status = reason + (restored
+                    ? ". Firmware is temporarily controlling cooling."
+                    : ". Auto handoff is unconfirmed; the curve remains paused.");
             }
             else
             {

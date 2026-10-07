@@ -10,7 +10,7 @@ The existing fan supervisor retains a curve through missing sensors, confirms Au
 
 Battery details groups capacity/sensor measurements and learned charging power with the Windows usage link. Recorded sessions follows it, with shared row columns and two-line time/energy summaries. Existing day aggregation, session detail graphs, retention and destructive reset remain owned by the existing history service.
 
-Validation in progress: native plan proof passed; supervisor runtime simulation passed warm input/output, sensor loss/recovery, hot selection, consecutive-safe samples and rejected-write fallback. Release build/tests, shell smoke, dark/light minimum/normal/wide history renders and hosted package gates must pass before promotion. SolidWorks-load reproduction, new service behavior on actual hot hardware and installed alpha.64 acceptance are **UNVERIFIED**. Do not claim this release fixes every intermittent fan failure.
+Local validation: Release build (zero warnings/errors), 315 Core tests, full WPF shell smoke and native plan proof passed. Supervisor runtime simulation passed warm input/output, sensor loss/exception recovery, failed Auto confirmation, hot selection, consecutive-safe samples, provider changes and rejected-write fallback. Six dark/light minimum/normal/wide expanded history renders were visually inspected. Frozen-head hosted CI/package gates must pass before promotion. SolidWorks-load reproduction, new service behavior on actual hot hardware and installed alpha.64 acceptance are **UNVERIFIED**. Do not claim this release fixes every intermittent fan failure.
 
 
 ## Published alpha.63 — October 7, 2026
