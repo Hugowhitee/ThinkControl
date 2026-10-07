@@ -53,11 +53,13 @@ public sealed class UserSettingsService
     private readonly object _gate = new();
     private readonly string _path;
     private readonly bool _persist;
+    private readonly bool _usesDefaultPath;
     private ThinkControlUserSettings _current;
 
-    public UserSettingsService(bool persist = true)
+    public UserSettingsService(bool persist = true, string? settingsPath = null)
     {
         _persist = persist;
+        _usesDefaultPath = settingsPath is null;
         if (!persist)
         {
             _path = string.Empty;
@@ -67,7 +69,7 @@ public sealed class UserSettingsService
         string folder = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "ThinkControl");
-        _path = Path.Combine(folder, "settings.json");
+        _path = settingsPath ?? Path.Combine(folder, "settings.json");
         ThinkControlUserSettings loaded = LoadInternal();
         bool seedStarterModes = !loaded.StarterModesSeeded;
         if (seedStarterModes)
@@ -82,7 +84,7 @@ public sealed class UserSettingsService
         bool migrateRules = loaded.AutomationRules is null;
         if (migrateRules)
             loaded = loaded with { AutomationRules = ThinkControlAutomationRules.Migrate(loaded.CustomModes ?? []) };
-        _current = ApplyInstallerConsent(loaded);
+        _current = _usesDefaultPath ? ApplyInstallerConsent(loaded) : loaded;
         if (_current.DiagnosticsConsent != loaded.DiagnosticsConsent || seedStarterModes || migrateRules)
             SaveInternal(_current);
     }
@@ -92,16 +94,17 @@ public sealed class UserSettingsService
         get { lock (_gate) return _current; }
     }
 
-    public void Update(Func<ThinkControlUserSettings, ThinkControlUserSettings> update)
+    public void Update(Func<ThinkControlUserSettings, ThinkControlUserSettings> update) => TryUpdate(update);
+
+    public bool TryUpdate(Func<ThinkControlUserSettings, ThinkControlUserSettings> update)
     {
         lock (_gate)
         {
-            _current = Sanitize(update(_current));
-            if (_persist)
-            {
-                SaveInternal(_current);
-                SaveDiagnosticsConsentPreference(_current.DiagnosticsConsent);
-            }
+            var next = Sanitize(update(_current));
+            if (_persist && !SaveInternal(next)) return false;
+            _current = next;
+            if (_persist && _usesDefaultPath) SaveDiagnosticsConsentPreference(next.DiagnosticsConsent);
+            return true;
         }
     }
 
@@ -157,7 +160,7 @@ public sealed class UserSettingsService
         catch { }
     }
 
-    private void SaveInternal(ThinkControlUserSettings settings)
+    private bool SaveInternal(ThinkControlUserSettings settings)
     {
         try
         {
@@ -177,9 +180,13 @@ public sealed class UserSettingsService
                 File.Replace(temporary, _path, _path + ".bak", ignoreMetadataErrors: true);
             else
                 File.Move(temporary, _path);
+            return true;
         }
         catch
         {
+            // A rejected commit must not be recovered as a successful selection at next startup.
+            try { File.Delete(_path + ".tmp"); } catch { }
+            return false;
         }
     }
 

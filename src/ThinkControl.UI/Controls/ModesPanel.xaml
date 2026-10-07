@@ -17,7 +17,10 @@
         <StackPanel x:Name="ListView">
             <Border Style="{StaticResource TcSection}" Margin="0,0,0,14">
                 <StackPanel>
-                    <TextBlock x:Name="CurrentModeTitle" Style="{StaticResource TcText.SectionTitle}" TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="ModeConfirmed" Width="8" Height="8" Fill="{DynamicResource Tc.Success}" Visibility="Collapsed" Margin="0,0,8,0" />
+                        <TextBlock x:Name="CurrentModeTitle" Style="{StaticResource TcText.ControlLabel}" TextWrapping="Wrap" />
+                    </StackPanel>
                     <TextBlock x:Name="CurrentModeDetail" Style="{StaticResource TcText.Secondary}" Margin="0,6,0,0" TextWrapping="Wrap" />
                     <Button x:Name="ManualOverrideResumeButton" Content="Resume automation" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Click="ResumeAutomation_Click" Visibility="Collapsed" Margin="0,8,0,0" />
                 </StackPanel>
@@ -51,6 +54,8 @@
                               MinHeight="38"
                               Margin="14,0,14,10"
                               SelectionChanged="ModeSelector_SelectionChanged" />
+                    <Button x:Name="UseRegularSettingsButton" Content="Use regular settings" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left"
+                            Margin="14,0,14,10" ToolTip="Restore regular settings and pause the current automation rule. Resume or a different winning rule can activate a mode again." Click="UseRegularSettings_Click" />
                     <StackPanel x:Name="ModeRows" />
 
                     <TextBlock x:Name="EmptyModesText"
@@ -67,6 +72,9 @@
                        Margin="2,9,2,0"
                        Visibility="Collapsed" />
 
+            <Expander x:Name="ModeErrorDetails" Header="Details" Style="{StaticResource TcQuietExpander}" Visibility="Collapsed" Margin="2,6,2,0">
+                <TextBlock x:Name="ModeErrorDetailText" Style="{StaticResource TcText.Secondary}" TextWrapping="Wrap" Margin="0,8,0,0" />
+            </Expander>
             <Border x:Name="AutomationListSection" Style="{StaticResource TcSection}" Margin="0,14,0,0">
                 <StackPanel>
                     <Grid>
@@ -74,7 +82,7 @@
                         <Button x:Name="NewRuleButton" Content="New rule" Style="{StaticResource TcInlineButton}"
                                 HorizontalAlignment="Right" Click="NewRule_Click" />
                     </Grid>
-                    <TextBlock Text="Highest priority wins. At the same priority, the first matching rule in this list wins."
+                    <TextBlock Text="Switch rules on or off here. Highest priority wins; ties follow this list’s order."
                                Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}"
                                TextWrapping="Wrap" Margin="0,6,0,0" />
                     <TextBlock x:Name="AutomationStatusText" Foreground="{DynamicResource Tc.TextMuted}"
@@ -87,9 +95,14 @@
         <StackPanel x:Name="EditorView" Visibility="Collapsed">
             <Border Style="{StaticResource TcSection}">
                 <StackPanel>
-                    <TextBlock x:Name="EditorTitleText" Text="Mode details"
+                    <Grid>
+                    <TextBlock x:Name="EditorTitleText" Text="Mode details" VerticalAlignment="Center" Margin="0,0,64,0"
                                FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                FontWeight="SemiBold" />
+                    <CheckBox x:Name="AutomationSwitch" AutomationProperties.Name="Enable rule" ToolTip="Rule enabled · applies after Save"
+                              MinHeight="40" Style="{StaticResource TcSwitch}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                              Visibility="Collapsed" Click="AutomationSwitch_Click" />
+                    </Grid>
                     <TextBlock Text="Name"
                                Foreground="{DynamicResource Tc.TextMuted}"
                                FontSize="{x:Static ui:TypographyScale.Caption}"
@@ -144,18 +157,13 @@
                                        Margin="0,4,70,0"
                                        TextWrapping="Wrap" />
                         </StackPanel>
-                        <CheckBox x:Name="AutomationSwitch"
-                                  AutomationProperties.Name="Enable rule"
-                                  Style="{StaticResource TcSwitch}"
-                                  HorizontalAlignment="Right"
-                                  VerticalAlignment="Center"
-                                  Click="AutomationSwitch_Click" />
+
                     </Grid>
 
                     <StackPanel x:Name="AutomationBody" Margin="0,16,0,0">
                         <Grid Margin="0,0,0,13">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="210" />
                                 <ColumnDefinition Width="155" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">
@@ -173,7 +181,7 @@
                         </Grid>
                         <Grid Margin="0,0,0,13">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="210" />
                                 <ColumnDefinition Width="155" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Margin="0,0,16,0" VerticalAlignment="Center">

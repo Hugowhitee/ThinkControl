@@ -164,6 +164,25 @@ internal static class Program
             return 0;
         }
 
+        if (args.Contains("--mode-consistency", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+                {
+                    RenderAdvanced(app, CreateDemoState(true, true), "Modes", width, height, output, snapshots,
+                        $"Mode-failure-{theme}-{width}.png", "Failed request with previous confirmed mode", modeFailure: true);
+                    RenderAdvanced(app, CreateDemoState(true, true), "Automation", width, height, output, snapshots,
+                        $"Rule-editor-{theme}-{width}.png", "Draft rule and condition switches", ruleEditor: true);
+                    RenderAdvanced(app, CreateDemoState(true, true), "Battery", width, height, output, snapshots,
+                        $"Sessions-{theme}-{width}.png", "Expanded recorded day", expandBatteryDay: true);
+                }
+            }
+            WriteManifest(output, snapshots); WriteGallery(output, snapshots);
+            return 0;
+        }
+
         if (args.Contains("--discoverability", StringComparer.Ordinal))
         {
             foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
@@ -748,7 +767,14 @@ internal static class Program
             typeof(ThinkControlModeCoordinator).GetProperty("LastTransitionError", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .SetValue(app.Modes, "Cooling: no writable cooling controller is available. Open Fans to inspect the current firmware state, or remove Cooling from this mode.");
             typeof(ThinkControlModeCoordinator).GetProperty("IsModified", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .SetValue(app.Modes, true);
+                .SetValue(app.Modes, false);
+            typeof(ThinkControlModeCoordinator).GetProperty("ActiveModeId", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, "custom:battery-saver");
+            typeof(ThinkControlModeCoordinator).GetProperty("ActiveModeName", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, "Battery saver");
+            typeof(ThinkControlModeCoordinator).GetProperty("ActiveModeAutomatic", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, true);
+            typeof(ThinkControlModeCoordinator).GetProperty("FailedModeId", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(app.Modes, "custom:performance");
+            typeof(ThinkControlModeCoordinator).GetProperty("FailedModeName", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(app.Modes, "Performance");
             window.PrepareModesListForSnapshot();
         }
 
@@ -835,6 +861,11 @@ internal static class Program
         {
             typeof(ThinkControlModeCoordinator).GetProperty("LastTransitionError", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, null);
             typeof(ThinkControlModeCoordinator).GetProperty("IsModified", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, false);
+            typeof(ThinkControlModeCoordinator).GetProperty("FailedModeId", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, null);
+            typeof(ThinkControlModeCoordinator).GetProperty("FailedModeName", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, null);
+            typeof(ThinkControlModeCoordinator).GetProperty("ActiveModeId", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, ThinkControlModeCatalog.NormalId);
+            typeof(ThinkControlModeCoordinator).GetProperty("ActiveModeName", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, "No mode");
+            typeof(ThinkControlModeCoordinator).GetProperty("ActiveModeAutomatic", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(app.Modes, false);
         }
         window.ForceClose();
     }

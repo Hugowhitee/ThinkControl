@@ -238,6 +238,12 @@ public partial class AdvancedWindow : Window
             "Diagnostics" => PageDiagnostics,
             _ => PageHome
         };
+        bool modesContext = page is "Modes" or "Automation";
+        if (!modesContext && _selectedPage is "Modes" or "Automation")
+        {
+            ModesPanelControl.ResetNavigationView();
+            AutomationPanelControl.ResetNavigationView();
+        }
         _selectedPage = page;
         SelectNavigationGroup(page);
         bool entering = selected.Visibility != Visibility.Visible;

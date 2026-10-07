@@ -9,18 +9,18 @@ internal sealed record ModeStatusPresentation(string Title, string Detail, bool 
         string title = modes.ActiveModeId == ThinkControlModeCatalog.NormalId ? "Regular settings" : $"Active mode: {modes.ActiveModeName}";
         if (modes.IsTransitioning)
             return new(title, $"Applying {modes.VisibleModeName}…", false);
-        if (!string.IsNullOrWhiteSpace(modes.LastTransitionError))
-            return new(title, $"The last change failed. {modes.LastTransitionError}", true);
+        if (modes.SettingsNeedChecking)
+            return new("Settings need checking", "Recovery was incomplete. Check affected settings before retrying.", true);
         var rule = app.UserSettings.Current.AutomationRules?.FirstOrDefault(rule => rule.Id == app.ModeAutomation.ActiveRuleId);
         string source = app.ModeAutomation.Paused
-            ? "Selected manually. Automation is paused until you resume it or a different rule wins."
+            ? "Automation paused · Resume checks enabled rules."
             : modes.ActiveModeAutomatic
-                ? rule is null ? "Activated by automation." : $"Activated by {rule.Name}. {ThinkControlAutomationRules.ConditionsSummary(rule)}"
-                : "Selected manually. Automation can change it when a rule matches.";
+                ? rule is null ? "Activated by automation." : $"By {rule.Name} · {ThinkControlAutomationRules.ConditionsSummary(rule)}"
+                : "Selected manually · Automation is ready.";
         if (modes.ActiveModeId == ThinkControlModeCatalog.NormalId && !app.ModeAutomation.Paused)
             source = app.UserSettings.Current.AutomationRules?.Any(rule => rule.Enabled) == true
-                ? "No mode selected. " + app.ModeAutomation.Status
-                : "No mode selected. Automation has no enabled rules.";
+                ? "No mode · Automation is ready."
+                : "No mode · No enabled rules.";
         if (modes.IsModified)
             source = "Settings changed since this mode was applied. " + source;
         return new(title, source, false);

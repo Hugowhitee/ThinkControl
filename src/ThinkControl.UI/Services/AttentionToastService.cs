@@ -24,6 +24,7 @@ internal sealed class AttentionToastService : IDisposable
     private bool _passivePresentation;
     private bool _autoHidePresentation = true;
 
+    internal bool HasActionableAttention => _window?.IsVisible == true && !_passivePresentation;
     internal Window? WindowForShellSmoke => _window;
     internal Button? ActionButtonForShellSmoke => _action;
 

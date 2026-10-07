@@ -298,11 +298,12 @@ public partial class BatteryTelemetryPanel
             ? $"{state.BatteryChargeTargetPercent}%"
             : "—";
         ChargeProtectionWearText.Text = available && enabled == true
-            ? $"Estimated charging wear: ≈{100 * (1 - BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop)):0}% lower\n0–{_lastChargeProtectionStop}%: {BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop):0.00} modeled cycles (0–100%: 1.00)."
+            ? "Illustrative wear estimate · Not measured battery cycles"
             : DescribeBatteryAging(enabled, available);
-        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
-        ChargeProtectionWearText.SetResourceReference(TextBlock.ForegroundProperty,
-            available && enabled == true ? "Tc.Success" : "Tc.TextMuted");
+        ChargeProtectionWearText.ToolTip = available && enabled == true
+            ? $"Modeled wear for 0–{_lastChargeProtectionStop}%: {BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop):0.00} (0–100% normalized to 1.00). " + BatteryAgingTooltip
+            : BatteryAgingTooltip;
+        ChargeProtectionWearText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
     }
 
     private const string BatteryAgingTooltip =
