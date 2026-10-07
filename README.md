@@ -28,9 +28,9 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current alpha:** [v0.1.0-alpha.64](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.64) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.64/ThinkControl-Setup-0.1.0-alpha.64.exe).
+**Current alpha:** [v0.1.0-alpha.65](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.65) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.65/ThinkControl-Setup-0.1.0-alpha.65.exe).
 
-The next alpha, **v0.1.0-alpha.65**, makes active modes, curve editing and battery history easier to use. It is undergoing release validation.
+Alpha.65 shows the active mode and what activated it, exposes curve editing and hover inspection, and makes battery details, history settings and opening preferences easier to find.
 
 **Experimental OEM status:** Auto, Max and calibrated custom curves have bounded physical validation on X9 21Q6 firmware N4CET45W. This path uses five measured running speeds, with a large gap before Max and a shared tachometer. Lower speeds can vary slightly; independent readings of both fans remain unavailable. Battery stop/resume has bounded device evidence; reboot/wake and broad hardware acceptance remain open. See [Release readiness](docs/RELEASE_READINESS.md).
 
@@ -42,8 +42,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.64/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.64/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.65/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.65/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>

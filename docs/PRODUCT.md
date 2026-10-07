@@ -1,6 +1,6 @@
 # Product specification
 
-The v0.1.0-alpha.65 candidate makes active modes and their manual/rule source explicit, exposes curve editing and app-icon opening preferences, and integrates battery details/session navigation. Existing mode arbitration and hardware capability boundaries remain authoritative.
+Published v0.1.0-alpha.65 makes active modes and their manual/rule source explicit, exposes curve editing and app-icon opening preferences, and integrates battery details/session navigation. Existing mode arbitration and hardware capability boundaries remain authoritative.
 
 Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.
 
