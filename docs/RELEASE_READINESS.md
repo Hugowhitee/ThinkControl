@@ -1,6 +1,6 @@
 # ThinkControl release-readiness roadmap
 
-## Alpha.64 candidate — Modes, intermittent cooling and battery history
+## Published alpha.64 — October 7, 2026
 
 Owner feedback on installed alpha.63: Modes cannot apply under High performance; profiles sometimes fall back, possibly under SolidWorks load; recorded sessions clip and precede awkward details. Live service observation showed Quiet/EC state 4 at approximately 55°C with no safety override, so heat alone is not established as the cause of the intermittent failure.
 
@@ -10,7 +10,7 @@ The existing fan supervisor retains a curve through missing sensors, confirms Au
 
 Battery details groups capacity/sensor measurements and learned charging power with the Windows usage link. Recorded sessions follows it, with shared row columns and two-line time/energy summaries. Existing day aggregation, session detail graphs, retention and destructive reset remain owned by the existing history service.
 
-Local validation: Release build (zero warnings/errors), 315 Core tests, full WPF shell smoke and native plan proof passed. Supervisor runtime simulation passed warm input/output, sensor loss/exception recovery, failed Auto confirmation, hot selection, consecutive-safe samples, provider changes and rejected-write fallback. Six dark/light minimum/normal/wide expanded history renders were visually inspected. Frozen-head hosted CI/package gates must pass before promotion. SolidWorks-load reproduction, new service behavior on actual hot hardware and installed alpha.64 acceptance are **UNVERIFIED**. Do not claim this release fixes every intermittent fan failure.
+Local validation: Release build (zero warnings/errors), 315 Core tests, full WPF shell smoke and native plan proof passed. Supervisor runtime simulation passed warm input/output, sensor loss/exception recovery, failed Auto confirmation, hot selection, consecutive-safe samples, provider changes and rejected-write fallback. Six dark/light minimum/normal/wide expanded history renders were visually inspected. Final PR head `9b5590d5511d9186df95d471c43e85d8d8151e09` passed CI `37601105793` and Package `37601105796`, including deep installer/IPC lifecycle and the alpha.14.1 upgrade fixture. PR #126 merged at `8f3e0ed76668ca50cbb7085c6cb49f28b6b40483`; immutable tag `v0.1.0-alpha.64` points to that merge. Merged-main CI `37602449802`, complete tagged packaging `37602467540` and public-asset verification `37602449693` passed. The immutable prerelease is public with exactly four managed assets. The verifier downloaded all four assets on GitHub and checked Setup/Payload hashes; the public installer endpoint also returned HTTP 200 locally. Setup SHA256: `c41b68e82b4db5a065006f4ca0c8f0f09afe752ba9810eed9d9a9042ac602c78`; Payload SHA256: `be9094f2374b9c347a482ea6f42d1b12589b48d7589d75cc0ee715cbcedf0132`. [Download alpha.64](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.64). SolidWorks-load reproduction, new service behavior on actual hot hardware and installed alpha.64 acceptance are **UNVERIFIED**. Do not claim this release fixes every intermittent fan failure.
 
 
 ## Published alpha.63 — October 7, 2026

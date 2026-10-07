@@ -1,8 +1,8 @@
 # ThinkControl architecture
 
-v0.1.0-alpha.64 candidate: Modes prepares and restores the Windows Balanced plan when needed; cooling curves survive temporary sensor gaps and can be queued while firmware cools the system. Recorded sessions follows the reorganized Battery details. SolidWorks-load reproduction and installed alpha.64 acceptance remain UNVERIFIED.
+Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.
 
-This document describes the **v0.1.0-alpha.63** published source; alpha.62 is the preceding release and alpha.61 remains the last verified local installation. `docs/RELEASE_READINESS.md` owns release acceptance. On exactly 21Q6/N4CET45W the regulated provider has measured discrete outputs, RPM-based percentage mapping and a custom-curve acceptance through the service IPC. This does not establish continuous PWM or independent fan control. Source, fixture, installed and physical acceptance remain separate. The selected Figma migration is owned by `docs/UI-DESIGN-HANDOFF.md` and is being implemented in the existing WPF shell.
+This document describes the **v0.1.0-alpha.64** source. Alpha.63 was observed running locally on October 7; that version check does not certify every installed interaction. `docs/RELEASE_READINESS.md` owns release acceptance. On exactly 21Q6/N4CET45W the regulated provider has measured discrete outputs, RPM-based percentage mapping and a custom-curve acceptance through the service IPC. This does not establish continuous PWM or independent fan control. Source, fixture, installed and physical acceptance remain separate. The selected Figma migration is owned by `docs/UI-DESIGN-HANDOFF.md` and is being implemented in the existing WPF shell.
 
 ## Process boundary
 
