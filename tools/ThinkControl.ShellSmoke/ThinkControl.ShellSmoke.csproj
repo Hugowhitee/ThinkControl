@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\ThinkControl.UI\ThinkControl.UI.csproj" />
+    <ProjectReference Include="..\..\src\ThinkControl.Service\ThinkControl.Service.csproj" />
   </ItemGroup>
 </Project>

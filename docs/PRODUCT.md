@@ -1,5 +1,7 @@
 # Product specification
 
+v0.1.0-alpha.64 candidate: Modes prepares and restores the Windows Balanced plan when needed; cooling curves survive temporary sensor gaps and can be queued while firmware cools the system. Recorded sessions follows the reorganized Battery details. SolidWorks-load reproduction and installed alpha.64 acceptance remain UNVERIFIED.
+
 Published v0.1.0-alpha.63 corrects Audio thumb/readback stability and tab selection, refines Compact/battery status and restores the adjacent update check. Immutable packaging and checksum verification passed; installed acceptance remains UNVERIFIED in RELEASE_READINESS.md.
 
 Previous experimental release: `v0.1.0-alpha.62`. It adds the selected IBM Plex Sans/Fluent native presentation, calibrated discrete custom cooling curves, separate firmware cycle history and estimated charge-limit wear comparison. Current publication and exact acceptance evidence belong to `RELEASE_READINESS.md`.

@@ -1,5 +1,7 @@
 # ThinkControl alpha testing guide
 
+v0.1.0-alpha.64 candidate: Modes prepares and restores the Windows Balanced plan when needed; cooling curves survive temporary sensor gaps and can be queued while firmware cools the system. Recorded sessions follows the reorganized Battery details. SolidWorks-load reproduction and installed alpha.64 acceptance remain UNVERIFIED.
+
 Published v0.1.0-alpha.63 targets Audio readback stability, navigation-tab revisit selection and Compact/battery/update presentation. Add installed drag/release and page-revisit acceptance to the existing checks; publication and installed evidence are owned by RELEASE_READINESS.md.
 
 Previous test release: **v0.1.0-alpha.62**. The exact 21Q6/N4CET45W production service has measured five-state calibration, manual percentage mapping, a valid custom curve and Auto restoration. Release/installer/upgrade verification passed; local installed redesign acceptance remains UNVERIFIED in RELEASE_READINESS.md. The alpha.61 checklist below is historical baseline coverage.

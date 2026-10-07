@@ -19,6 +19,10 @@ public sealed class PowerModeService
     private readonly Func<Guid, uint> _writeOverlay;
     private readonly Func<(bool Success, Guid Mode)> _readOverlay;
     private readonly Func<Guid?> _readPlan;
+    private readonly Func<Guid, uint> _writePlan;
+    private static readonly Guid BalancedPlan = new("381b4222-f694-41f0-9685-ff5bb260df2e");
+    private Guid? _modeOriginalPlan;
+    private Guid? _modeOriginalOverlay;
 
     public PowerModeService() : this(
         ConfigureGuid,
@@ -32,12 +36,14 @@ public sealed class PowerModeService
         Func<Guid, bool, bool> configure,
         Func<Guid, uint> writeOverlay,
         Func<(bool Success, Guid Mode)> readOverlay,
-        Func<Guid?> readPlan)
+        Func<Guid?> readPlan,
+        Func<Guid, uint>? writePlan = null)
     {
         _configure = configure;
         _writeOverlay = writeOverlay;
         _readOverlay = readOverlay;
         _readPlan = readPlan;
+        _writePlan = writePlan ?? (plan => PowerSetActiveScheme(IntPtr.Zero, ref plan));
     }
 
     public event Action<ThinkControlPowerMode>? ModeApplied;
@@ -67,9 +73,38 @@ public sealed class PowerModeService
         return effective;
     }
 
-    public bool SetEffective(ThinkControlPowerMode mode)
+    public bool SetEffective(ThinkControlPowerMode mode, bool prepareBalancedPlan = false)
     {
+        Guid? original = null;
+        Guid? originalOverlay = null;
+        if (prepareBalancedPlan && GetPowerPlanError() is not null)
+        {
+            original = _readPlan();
+            var observed = _readOverlay();
+            if (observed.Success) originalOverlay = observed.Mode;
+            if (_writePlan(BalancedPlan) != 0 || _readPlan() != BalancedPlan)
+            {
+                if (original.HasValue) _writePlan(original.Value);
+                LastEffectiveError = "Windows could not activate the Balanced power plan required by this mode.";
+                return false;
+            }
+        }
         bool changed = TrySetEffective(ToGuid(mode), out string? detail);
+        if (!changed && original.HasValue)
+        {
+            if (originalOverlay.HasValue) _writeOverlay(originalOverlay.Value);
+            if (_writePlan(original.Value) != 0 || _readPlan() != original)
+            {
+                detail += " The original Windows power plan could not be restored.";
+                _modeOriginalPlan ??= original;
+                _modeOriginalOverlay ??= originalOverlay;
+            }
+        }
+        if (changed && original.HasValue)
+        {
+            _modeOriginalPlan ??= original;
+            _modeOriginalOverlay ??= originalOverlay;
+        }
         LastEffectiveError = changed ? null : detail;
         if (changed)
         {
@@ -77,6 +112,31 @@ public sealed class PowerModeService
             catch { }
         }
         return changed;
+    }
+
+    internal bool RestoreModePlan()
+    {
+        if (_modeOriginalPlan is not Guid original) return true;
+        // A plan selected externally supersedes our temporary Balanced plan.
+        if (_readPlan() != BalancedPlan) { ReleaseModePlan(); return true; }
+        // High performance/Power saver do not support effective overlays. An
+        // overlay readback under temporary Balanced must never block restoration
+        // of the actual original plan. Restore the stored overlay best-effort.
+        if (_modeOriginalOverlay is Guid overlay) _writeOverlay(overlay);
+        if (_writePlan(original) != 0 || _readPlan() != original)
+        {
+            LastEffectiveError = "Windows could not restore the power plan used before this mode.";
+            return false;
+        }
+        ReleaseModePlan();
+        return true;
+    }
+
+    internal bool HasModePlan => _modeOriginalPlan.HasValue;
+    internal void ReleaseModePlan()
+    {
+        _modeOriginalPlan = null;
+        _modeOriginalOverlay = null;
     }
 
     public bool Configure(ThinkControlPowerMode mode, bool onBattery) =>
@@ -265,6 +325,9 @@ public sealed class PowerModeService
 
     [DllImport("powrprof.dll", ExactSpelling = true)]
     private static extern uint PowerGetActiveScheme(IntPtr userRootPowerKey, out IntPtr activePolicyGuid);
+
+    [DllImport("powrprof.dll", ExactSpelling = true)]
+    private static extern uint PowerSetActiveScheme(IntPtr userRootPowerKey, ref Guid scheme);
 
     [DllImport("kernel32.dll", ExactSpelling = true)]
     private static extern IntPtr LocalFree(IntPtr memory);

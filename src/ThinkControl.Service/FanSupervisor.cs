@@ -32,7 +32,8 @@ internal sealed class FanSupervisor : IDisposable
     private const int CalibrationSampleCount = 5;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
-    private readonly LenovoHardwareController _hardware;
+    private readonly IFanHardwareController _hardware;
+    private readonly Action<string> _log;
     private readonly object _gate = new();
     private readonly SemaphoreSlim _writeGate = new(1, 1);
     private readonly SemaphoreSlim _controlWake = new(0, 1);
@@ -53,6 +54,8 @@ internal sealed class FanSupervisor : IDisposable
     private double? _smoothedTemperatureC;
     private LenovoFanControlKind _managedFanControlKind = LenovoFanControlKind.None;
     private bool _safetyOverride;
+    private int _recoverySensorSamples;
+    private bool _autoHandoffConfirmed;
     private string _status = "Lenovo firmware owns fan control";
     private DateTimeOffset _lastOutputChange = DateTimeOffset.MinValue;
     private int? _pendingLevel;
@@ -69,9 +72,10 @@ internal sealed class FanSupervisor : IDisposable
     private int? _audibleFromLevel;
     private bool _disposed;
 
-    internal FanSupervisor(LenovoHardwareController hardware)
+    internal FanSupervisor(IFanHardwareController hardware, Action<string>? log = null)
     {
         _hardware = hardware;
+        _log = log ?? ServiceLog.Write;
         string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "ThinkControl");
         _calibrationPath = Path.Combine(folder, "fan-calibration.json");
         LoadCalibration();
@@ -154,7 +158,7 @@ internal sealed class FanSupervisor : IDisposable
         }
         if (!FanCurveGraphPolicy.TryNormalize(definition.Points, out FanCurvePoint[] points, out error))
             return false;
-        if (!CanEnterManagedCooling(out LenovoHardwareStatus? status, out error) || status is null)
+        if (!CanEnterManagedCooling(out LenovoHardwareStatus? status, out error, allowHotCurve: true) || status is null)
             return false;
         if (status.FanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete && !HasCompleteCalibration())
         {
@@ -180,8 +184,10 @@ internal sealed class FanSupervisor : IDisposable
             _curveTargetPercent = null;
             _smoothedTemperatureC = status.ControlTemperatureC!.Value;
             _managedFanControlKind = status.FanControlKind;
-            _safetyOverride = false;
-            _status = status.FanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm
+            _safetyOverride = FanCurvePolicy.RequiresFirmwareSafetyHandoff(status.ControlTemperatureC.Value);
+            _recoverySensorSamples = 0;
+            _status = _safetyOverride ? $"{name} is saved. Firmware is cooling the system before the curve resumes."
+                : status.FanControlKind == LenovoFanControlKind.LenovoOtherModeTargetRpm
                 ? $"{name} curve active: Lenovo target RPM control"
                 : $"{name} curve active: measured EC states";
             _lastOutputChange = DateTimeOffset.MinValue;
@@ -210,7 +216,7 @@ internal sealed class FanSupervisor : IDisposable
         return SetCurve(new FanCurveDefinition("custom:migrated", "Custom", points), out error);
     }
 
-    private bool CanEnterManagedCooling(out LenovoHardwareStatus? status, out string? error)
+    private bool CanEnterManagedCooling(out LenovoHardwareStatus? status, out string? error, bool allowHotCurve = false)
     {
         error = null;
         status = null;
@@ -231,7 +237,8 @@ internal sealed class FanSupervisor : IDisposable
         }
         if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(status.ControlTemperatureC.Value))
         {
-            ReturnHardwareToAutoSerialized(out _);
+            if (!ReturnHardwareToAutoSerialized(out error)) return false;
+            if (allowHotCurve) return true;
             error = "The system is too hot to enter managed cooling. Lenovo firmware keeps control until temperature falls.";
             return false;
         }
@@ -486,6 +493,7 @@ internal sealed class FanSupervisor : IDisposable
         {
             if (_hardware.CheckFullSpeedSession())
             {
+                _log("Cooling stopped: the fan ownership lease expired or hardware readback was lost. Explicit profile selection is required to resume.");
                 // Clear the curve so its next tick cannot reacquire expired/lost ownership.
                 bool measuring;
                 lock (_gate) measuring = _characterizationRunning;
@@ -542,10 +550,18 @@ internal sealed class FanSupervisor : IDisposable
         if (!manualLevel.HasValue && !manualPercent.HasValue && curve is null)
             return;
 
-        LenovoHardwareStatus status = _hardware.ReadStatus();
+        LenovoHardwareStatus status;
+        try { status = _hardware.ReadStatus(); }
+        catch (Exception ex)
+        {
+            lock (_gate) _recoverySensorSamples = 0;
+            await SafeAutoHandoffAsync($"Control telemetry failed: {ex.GetType().Name}", token, preserveCurve: curve is not null).ConfigureAwait(false);
+            return;
+        }
         if (!status.CanFanControl || status.FanControlKind == LenovoFanControlKind.None || !status.ControlTemperatureC.HasValue)
         {
-            await SafeAutoHandoffAsync("Sensor or verified fan-control provider became unavailable", token).ConfigureAwait(false);
+            lock (_gate) _recoverySensorSamples = 0;
+            await SafeAutoHandoffAsync("Sensor or verified fan-control provider became unavailable", token, preserveCurve: curve is not null).ConfigureAwait(false);
             return;
         }
 
@@ -590,7 +606,17 @@ internal sealed class FanSupervisor : IDisposable
         lock (_gate) waitingForSafetyResume = _safetyOverride;
         if (waitingForSafetyResume)
         {
-            if (!FanCurvePolicy.CanResumeAfterSafetyHandoff(raw))
+            bool confirmed;
+            lock (_gate) confirmed = _autoHandoffConfirmed;
+            if (!confirmed)
+            {
+                await SafeAutoHandoffAsync("Retrying unconfirmed firmware Auto handoff", token, preserveCurve: true).ConfigureAwait(false);
+                return;
+            }
+            int samples;
+            lock (_gate) samples = FanCurvePolicy.CanResumeAfterSafetyHandoff(raw)
+                ? ++_recoverySensorSamples : (_recoverySensorSamples = 0);
+            if (samples < 2)
             {
                 lock (_gate) _status = $"Firmware resumed cooling for safety. Temperature: {raw:0.#} °C";
                 return;
@@ -825,22 +851,32 @@ internal sealed class FanSupervisor : IDisposable
 
     private async Task SafeAutoHandoffAsync(string reason, CancellationToken token, bool preserveCurve = false)
     {
+        // A paused curve is already in firmware Auto. Keep observing without
+        // repeatedly writing Auto or filling the log while a sensor is missing.
+        lock (_gate)
+            if (preserveCurve && _safetyOverride && _autoHandoffConfirmed) return;
         await _writeGate.WaitAsync(token).ConfigureAwait(false);
-        try { _hardware.ReturnFanToAuto(out _); }
+        bool restored;
+        string? restoreError;
+        try { restored = _hardware.ReturnFanToAuto(out restoreError); }
         finally { _writeGate.Release(); }
+
+        _log($"Cooling handoff: {reason}. Auto confirmed: {restored}. {restoreError}");
 
         lock (_gate)
         {
             _manualLevel = null;
             _manualPercent = null;
+            _autoHandoffConfirmed = restored;
             _appliedLevel = null;
             _appliedPercent = null;
             _curveTargetPercent = null;
-            _managedFanControlKind = LenovoFanControlKind.None;
+            if (!preserveCurve) _managedFanControlKind = LenovoFanControlKind.None;
             ClearPendingTransitionLocked();
             if (preserveCurve && _activeCurve is not null)
             {
                 _safetyOverride = true;
+                _recoverySensorSamples = 0;
                 _status = reason + ". Firmware is temporarily controlling cooling.";
             }
             else

@@ -24,7 +24,7 @@ public sealed record LenovoHardwareStatus(
     bool CanCpuTemperature,
     bool CanSensorTelemetry);
 
-public sealed class LenovoHardwareController : IDisposable
+public sealed class LenovoHardwareController : IDisposable, IFanHardwareController
 {
     private static readonly TimeSpan FirmwareFanRpmPollInterval = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan ManagedFanRpmPollInterval = TimeSpan.FromSeconds(6);

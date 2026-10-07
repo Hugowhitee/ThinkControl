@@ -13,7 +13,7 @@ using TcThemeMode = ThinkControl.UI.Services.ThemeMode;
 
 namespace ThinkControl.ShellSmoke;
 
-internal static class Program
+internal static partial class Program
 {
     [STAThread]
     private static int Main()
@@ -45,6 +45,7 @@ internal static class Program
             {
                 try
                 {
+                    await ValidateFanSupervisorRecovery();
                     await ValidateAutomationTransitions(app);
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();

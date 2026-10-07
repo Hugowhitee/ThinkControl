@@ -1,5 +1,7 @@
 # Device support
 
+v0.1.0-alpha.64 candidate: Modes prepares and restores the Windows Balanced plan when needed; cooling curves survive temporary sensor gaps and can be queued while firmware cools the system. Recorded sessions follows the reorganized Battery details. SolidWorks-load reproduction and installed alpha.64 acceptance remain UNVERIFIED.
+
 Published v0.1.0-alpha.63 changes presentation and Audio/navigation state handling only. It preserves the alpha.62 fan-provider contract and does not add hardware support.
 
 Published **v0.1.0-alpha.62** extends only the exact 21Q6/N4CET45W contract with calibrated running states 4/5/6/7/0x40 and custom curves. Manual percentages select those measured states; 0% is the lowest running state, not fan-off. Other firmware remains capability-gated. Shared RPM is not two independent fan readings. The alpha.61 description below is retained as historical evidence.

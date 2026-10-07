@@ -200,12 +200,33 @@
         </Grid>
       </StackPanel>
     </Border>
+    <Expander x:Name="BatteryDetails" Header="Battery details" Style="{StaticResource TcQuietExpander}" Margin="0,16,0,0">
+      <Border Style="{StaticResource TcSection}" Margin="0,12,0,0">
+        <StackPanel>
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
+            <controls:TelemetryMetric Label="ENERGY CAPACITY" Value="{Binding BatteryCapacityText}" Caption="Remaining / full capacity" Margin="0,0,20,0" />
+            <controls:TelemetryMetric Grid.Column="1" Label="{Binding BatteryTemperatureLabel}" Value="{Binding BatteryTemperatureText}" Caption="Battery sensor" />
+          </Grid>
+          <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,18,0,18" />
+          <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,20,0">
+              <TextBlock Text="Typical charging power" Style="{StaticResource TcText.ControlLabel}" />
+              <TextBlock Text="{Binding BatteryTypicalChargeText}" Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+              <TextBlock Text="Learned from recorded charging sessions." Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="Battery usage ↗" Style="{StaticResource TcExternalSettingsLink}" VerticalAlignment="Top" Click="OpenBatteryUsage_Click" ToolTip="Open energy use by app in Windows Settings" />
+          </Grid>
+        </StackPanel>
+      </Border>
+    </Expander>
     <Expander x:Name="BatterySessions" Header="Recorded sessions" Style="{StaticResource TcQuietExpander}" Margin="0,16,0,0">
       <Border Style="{StaticResource TcSection}" Margin="0,12,0,0">
         <StackPanel>
           <StackPanel>
             <TextBlock Text="Battery history" FontWeight="SemiBold" />
-            <TextBlock Text="Days stay compact. Open a day to see charge and usage sessions, then open a session for graphs and essential statistics." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
+            <TextBlock Text="Open a day, then select a session to see its measurements and graphs." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
           </StackPanel>
           <StackPanel x:Name="RecentSessionItems" Margin="0,10,0,0" />
           <Button x:Name="HistoryRangeButton" Content="Show older" Style="{StaticResource TcExternalSettingsLink}" HorizontalAlignment="Left" Margin="-7,4,0,0" Visibility="Collapsed" Click="HistoryRange_Click" />
@@ -239,25 +260,6 @@
           </Expander>
         </StackPanel>
       </Border>
-    </Expander>
-    <Expander x:Name="BatteryDetails" Header="Battery details" Style="{StaticResource TcQuietExpander}" Margin="0,16,0,0">
-      <StackPanel>
-        <Border Style="{StaticResource TcSection}" Margin="0,12,0,0">
-          <Grid>
-            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
-            <controls:TelemetryMetric Label="ENERGY CAPACITY" Value="{Binding BatteryCapacityText}" Caption="Remaining / full capacity" Margin="0,0,16,0" />
-            <controls:TelemetryMetric Grid.Column="1" Label="{Binding BatteryTemperatureLabel}" Value="{Binding BatteryTemperatureText}" Caption="Battery sensor" Margin="0,0,16,0" />
-            <controls:TelemetryMetric Grid.Column="2" Label="LEARNED CHARGE TIME" Value="{Binding BatteryTypicalChargeText}" Caption="Based on local sessions" />
-          </Grid>
-        </Border>
-        <Border Style="{StaticResource TcSection}" Margin="0,16,0,0">
-          <StackPanel>
-            <TextBlock Text="Windows battery usage" Style="{StaticResource TcText.SectionTitle}" />
-            <TextBlock Text="See energy use by app in Windows Settings." Style="{StaticResource TcText.Caption}" Margin="0,7,0,12" />
-            <Button Content="Windows battery usage ↗" Style="{StaticResource TcExternalSettingsLink}" HorizontalAlignment="Left" Click="OpenBatteryUsage_Click" />
-          </StackPanel>
-        </Border>
-      </StackPanel>
     </Expander>
     <Grid Margin="2,10,2,0">
       <Grid.ColumnDefinitions>

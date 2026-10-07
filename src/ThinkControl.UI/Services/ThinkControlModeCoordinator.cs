@@ -81,8 +81,6 @@ internal sealed class ThinkControlModeCoordinator
             return "Cooling supports Auto or Max cooling. Change or remove this setting.";
         if (target.KeyboardLight is not null && !_app.State.CanKeyboardBacklight)
             return "Keyboard control is unavailable.";
-        if (target.PerformanceMode is not null && _app.PowerModeService.GetPowerPlanError() is not null)
-            return "Performance requires the Windows Balanced power plan.";
         return null;
     }
 
@@ -544,6 +542,9 @@ internal sealed class ThinkControlModeCoordinator
     {
         switch (facet)
         {
+            case ThinkControlModeFacet.PerformanceMode:
+                _app.PowerModeService.ReleaseModePlan();
+                break;
             case ThinkControlModeFacet.CoolingProfile:
                 _coolingBaseline = null;
                 break;
