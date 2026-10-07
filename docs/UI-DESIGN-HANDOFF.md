@@ -12,6 +12,7 @@ This is a **design handoff only**. It updates the selected Figma target after ow
 - **Battery motion:** the Figma battery gauge shows the intended subtle diagonal flow for charging; runtime source already defines opposite-direction discharge flow and idle fade. This is a static appearance reference only. Installed charging/discharging motion remains **UNVERIFIED** after the owner reported no visible motion in alpha.65.
 - **System General `11:422`:** App icon opens uses the same shared segmented-choice grammar as Theme, rather than a second button style. Device & support uses compact label-value groups instead of pushing values to the far right.
 - **Updates `12:103`:** the current static reference is alpha.65 and uses the adjacent confirmed-check treatment instead of a distant green status badge.
+- **Light QA:** affected Overview `34:1054` and Battery `67:1707` were rebuilt from the same updated canonical compositions under the Light variable mode rather than maintained as drifting copies.
 
 The selected IBM Plex Sans / Fluent direction, semantic variables, shared page-header rail and existing capability/state owners remain unchanged. These corrections supersede older placement and red-active examples where they conflict.
 
