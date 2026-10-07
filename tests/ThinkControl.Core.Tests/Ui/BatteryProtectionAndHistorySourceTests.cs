@@ -88,7 +88,8 @@ public sealed class BatteryProtectionAndHistorySourceTests
 
         Assert.True(xaml.IndexOf("x:Name=\"BatteryDetails\"", StringComparison.Ordinal) <
                     xaml.IndexOf("x:Name=\"BatterySessions\"", StringComparison.Ordinal));
-        Assert.Contains("<Expander Header=\"Manage history\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"HistorySettings\" Visibility=\"Collapsed\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("Click=\"ManageHistory_Click\"", xaml, StringComparison.Ordinal);
         Assert.Contains("7 days", xaml, StringComparison.Ordinal);
         Assert.Contains("14 days", xaml, StringComparison.Ordinal);
         Assert.Contains("30 days", xaml, StringComparison.Ordinal);

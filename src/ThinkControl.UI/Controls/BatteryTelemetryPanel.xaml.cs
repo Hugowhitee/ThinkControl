@@ -291,8 +291,6 @@ public partial class BatteryTelemetryPanel : UserControl
 
     internal void ExpandSnapshotHistory()
     {
-        BatteryDetails.IsExpanded = true;
-        BatterySessions.IsExpanded = true;
         if (RecentSessionItems.Children.OfType<Expander>().FirstOrDefault() is { } day)
             day.IsExpanded = true;
     }

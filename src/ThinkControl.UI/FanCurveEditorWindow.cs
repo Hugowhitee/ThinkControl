@@ -608,12 +608,15 @@ internal sealed class FanCurveGraph : FrameworkElement
     private readonly List<FanCurvePoint> _points = [];
     private int _selectedIndex = -1;
     private bool _dragging;
+    private double? _hoverTemperature;
     private double? _liveTemperatureC;
     private int? _liveTargetPercent;
     private int? _liveRpm;
 
     internal bool IsReadOnly { get; set; }
     internal bool ShowLiveLabel { get; set; } = true;
+    internal FanCurvePoint? HoveredPoint => _hoverTemperature is double temperature && _points.Count > 0
+        ? new(temperature, FanCurveGraphPolicy.ResolvePercent(_points, temperature)) : null;
 
     internal event EventHandler? SelectionChanged;
     internal event EventHandler? CurveChanged;
@@ -734,6 +737,19 @@ internal sealed class FanCurveGraph : FrameworkElement
         geometry.Freeze();
         dc.DrawGeometry(null, curvePen, geometry);
 
+        if (_hoverTemperature is double temperature)
+        {
+            int target = FanCurveGraphPolicy.ResolvePercent(_points, temperature);
+            Point point = new(X(plot, temperature), Y(plot, target));
+            dc.DrawLine(new Pen(muted, 1), new Point(point.X, plot.Top), new Point(point.X, plot.Bottom));
+            dc.DrawEllipse(accent, new Pen(surface, 2), point, 5, 5);
+            var label = CreateText($"{temperature:0.0} °C: {target}% target", muted, 11);
+            double x = Math.Clamp(point.X - label.Width / 2, plot.Left + 5, Math.Max(plot.Left + 5, plot.Right - label.Width - 5));
+            double y = Math.Clamp(point.Y - label.Height - 12, plot.Top + 4, plot.Bottom - label.Height - 4);
+            dc.DrawRoundedRectangle(surface, grid, new Rect(x - 4, y - 2, label.Width + 8, label.Height + 4), 3, 3);
+            dc.DrawText(label, new Point(x, y));
+        }
+
         for (int i = 0; i < _points.Count; i++)
         {
             Point pt = ToPoint(plot, _points[i]);
@@ -748,7 +764,7 @@ internal sealed class FanCurveGraph : FrameworkElement
             var livePen = new Pen(accent, 1) { DashStyle = DashStyles.Dash };
             dc.DrawLine(livePen, new Point(live.X, plot.Top), new Point(live.X, plot.Bottom));
             dc.DrawEllipse(accent, new Pen(surface, 2), live, 5, 5);
-            if (ShowLiveLabel)
+            if (ShowLiveLabel && _hoverTemperature is null)
             {
                 string rpm = _liveRpm is int value ? $", current speed: {value:N0} RPM" : string.Empty;
                 string label = $"{liveTemperature:0.0} °C → {liveTarget}%{rpm}";
@@ -792,13 +808,29 @@ internal sealed class FanCurveGraph : FrameworkElement
     protected override void OnMouseMove(MouseEventArgs e)
     {
         base.OnMouseMove(e);
-        if (!_dragging || _selectedIndex < 0 || e.LeftButton != MouseButtonState.Pressed) return;
         Rect plot = PlotRect();
         Point p = e.GetPosition(this);
+        InspectAt(p);
+        if (IsReadOnly || !_dragging || _selectedIndex < 0 || e.LeftButton != MouseButtonState.Pressed) return;
         double temperature = FanCurveGraphPolicy.MinTemperatureC + Math.Clamp((p.X - plot.Left) / plot.Width, 0, 1) *
             (FanCurveGraphPolicy.MaxTemperatureC - FanCurveGraphPolicy.MinTemperatureC);
         int percent = (int)Math.Round((1 - Math.Clamp((p.Y - plot.Top) / plot.Height, 0, 1)) * 100);
         MovePoint(_selectedIndex, Math.Round(temperature, 1), percent);
+    }
+
+    protected override void OnMouseLeave(MouseEventArgs e)
+    {
+        base.OnMouseLeave(e);
+        _hoverTemperature = null;
+        InvalidateVisual();
+    }
+
+    internal void InspectAt(Point point)
+    {
+        Rect plot = PlotRect();
+        _hoverTemperature = plot.Contains(point) ? FanCurveGraphPolicy.MinTemperatureC +
+            (point.X - plot.Left) / plot.Width * (FanCurveGraphPolicy.MaxTemperatureC - FanCurveGraphPolicy.MinTemperatureC) : null;
+        InvalidateVisual();
     }
 
     protected override void OnMouseLeftButtonUp(MouseButtonEventArgs e)

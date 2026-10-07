@@ -84,7 +84,7 @@ public partial class AdvancedWindow
 
     private static void ResetTransientPageUi(DependencyObject root)
     {
-        if (root is ThinkControl.UI.Controls.BatteryTelemetryPanel battery)
+        foreach (Controls.BatteryTelemetryPanel battery in FindVisualChildren<Controls.BatteryTelemetryPanel>(root))
             battery.ResetNavigationView();
         foreach (Controls.ModesPanel panel in FindVisualChildren<Controls.ModesPanel>(root))
             panel.ResetNavigationView();

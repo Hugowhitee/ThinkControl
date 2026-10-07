@@ -20,15 +20,16 @@ public partial class BatteryTelemetryPanel
         CycleHistoryView.Visibility = view == "Cycles" ? Visibility.Visible : Visibility.Collapsed;
     }
 
-    private void BatteryDetails_Click(object sender, RoutedEventArgs e)
+    private void ManageHistory_Click(object sender, RoutedEventArgs e)
     {
-        BatteryDetails.IsExpanded = true;
-        BatteryDetails.BringIntoView();
+        bool open = HistorySettings.Visibility != Visibility.Visible;
+        HistorySettings.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
+        ManageHistoryButton.Content = open ? "Close history settings" : "History settings";
+        if (open) { HistorySettings.UpdateLayout(); HistorySettings.BringIntoView(); }
     }
 
     private void BatterySessions_Click(object sender, RoutedEventArgs e)
     {
-        BatterySessions.IsExpanded = true;
         BatterySessions.BringIntoView();
     }
 
@@ -36,7 +37,8 @@ public partial class BatteryTelemetryPanel
     {
         SelectHistoryView("Charge");
         BatteryHistoryChargeTab.IsChecked = true;
-        BatteryDetails.IsExpanded = BatterySessions.IsExpanded = false;
+        HistorySettings.Visibility = Visibility.Collapsed;
+        ManageHistoryButton.Content = "History settings";
         CustomChargeEditor.Visibility = Visibility.Collapsed;
     }
 

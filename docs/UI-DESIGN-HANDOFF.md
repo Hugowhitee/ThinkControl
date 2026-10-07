@@ -1,5 +1,7 @@
 # ThinkControl UI design handoff
 
+Alpha.65 runtime flow: Overview's existing mode selector/status moves above quick controls. One presentation of active settings and manual/rule source is shared with Modes and Automation; applied rules and pending matches differ. Curve editing is directly in Cooling, and read-only hover shows temperature/target. Battery details and sessions are visible; History settings separately reveals retention/reset in view. App-icon opening preference sits with Theme in General preferences. These supersede earlier hidden disclosure placements. Capability gates and arbitration remain unchanged. Evidence and **UNVERIFIED** items live in RELEASE_READINESS.md; equivalent live Figma reconciliation is **UNVERIFIED**. Retain IBM Plex Sans/Fluent.
+
 Alpha.64 runtime correction: Battery details precedes Recorded sessions; capacity and temperature use two columns, learned charging power and Windows usage are grouped below. Session kind columns share size; time/duration and percentage/energy use two wrapped lines. Minimum/normal/wide dark/light runtime evidence is recorded in RELEASE_READINESS.md. Equivalent live Figma reconciliation is **UNVERIFIED**; retain the selected IBM Plex Sans/Fluent foundation.
 
 This is the existing durable design owner. Recover live Git state and read AGENTS.md, CHAT_STARTER.md, DESIGN.md and PRODUCT.md. Figma owns the selected visual target; the repository owns behavior, capabilities and verification. Do not recover requirements by replaying the old chat.

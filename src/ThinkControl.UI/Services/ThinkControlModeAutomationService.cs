@@ -109,6 +109,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     internal event Action? Changed;
     internal string Status { get; private set; } = "Checking conditions…";
     internal bool Paused => _manualOverride;
+    internal string? ActiveRuleId => _app.Modes.ActiveModeAutomatic ? _activeRuleId : null;
     internal string RestoreTarget => _beforeAutomation?.Definition.Name ?? "Regular settings";
     internal IReadOnlyList<AutomationRuleMatch> Matches { get; private set; } = [];
 
@@ -127,7 +128,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         // Use the latest observed context even during the dwell period.
         _manualContextId = _observedWinnerId;
         _beforeAutomation = null;
-        _activeRuleId = null;
+        SetActiveRule(null);
         SetStatus("Paused by your manual selection. Resume, or wait for a different rule to win.");
     }
     internal void Resume()
@@ -233,7 +234,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
             if (alreadyApplied || await _app.Modes.ActivateAsync(winner.Mode!.Id, ThinkControlModeActivationOrigin.Automatic))
             {
                 _beforeAutomation = previous;
-                _activeRuleId = winner.Rule.Id;
+                SetActiveRule(winner.Rule.Id);
                 _appliedDefinition = winner.Mode;
                 _failedRuleId = null;
                 PublishWinner(winner.Rule, context);
@@ -249,7 +250,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         }
         else if (!Status.StartsWith("Restored ", StringComparison.Ordinal)) SetStatus("No rules match.");
         _beforeAutomation = null;
-        _activeRuleId = null;
+        SetActiveRule(null);
         _appliedDefinition = null;
         _failedRuleId = null;
     }
@@ -264,6 +265,12 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         _failedRuleId = id;
         _failedUntil = now + TimeSpan.FromMinutes(1);
         SetStatus("Could not apply or restore the mode. " + _app.Modes.LastTransitionError + " Retrying in one minute.");
+    }
+    private void SetActiveRule(string? id)
+    {
+        if (_activeRuleId == id) return;
+        _activeRuleId = id;
+        Changed?.Invoke();
     }
     private void SetStatus(string value)
     {

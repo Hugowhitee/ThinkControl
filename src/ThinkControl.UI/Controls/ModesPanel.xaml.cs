@@ -141,7 +141,6 @@ public partial class ModesPanel : UserControl
     {
         if (_app is null) return;
         AutomationStatusText.Text = _app.ModeAutomation.Status;
-        ResumeAutomationButton.Visibility = _app.ModeAutomation.Paused ? Visibility.Visible : Visibility.Collapsed;
         RuleRows.Children.Clear();
         var rules = _app.UserSettings.Current.AutomationRules ?? [];
         NewRuleButton.IsEnabled = rules.Length < ThinkControlAutomationRules.Maximum &&
@@ -158,8 +157,18 @@ public partial class ModesPanel : UserControl
             text.Children.Add(new TextBlock { Text = $"{position + 1}. {rule.Name} → " + (target?.Name ?? "Missing mode"), TextWrapping = TextWrapping.Wrap });
             text.Children.Add(MutedText(ThinkControlAutomationRules.ConditionsSummary(rule)));
             string status = _app.ModeAutomation.Matches.FirstOrDefault(match => match.Id == rule.Id)?.State ?? (rule.Enabled ? "Waiting" : "Disabled");
+            if (rule.Id == _app.ModeAutomation.ActiveRuleId)
+                status = "Active now";
+            else if (status == "Winner")
+                status = _app.ModeAutomation.Paused ? "Matches, but automation is paused" : "Next matching rule; waiting to apply";
             string priority = rule.Priority switch { 1 => "High priority", -1 => "Low priority", _ => "Normal priority" };
-            text.Children.Add(MutedText(priority + ". " + status));
+            var ruleStatus = MutedText(status + ". " + priority);
+            if (rule.Id == _app.ModeAutomation.ActiveRuleId)
+            {
+                ruleStatus.FontWeight = FontWeights.SemiBold;
+                ruleStatus.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Success");
+            }
+            text.Children.Add(ruleStatus);
             grid.Children.Add(text);
             var edit = InlineButton("Edit rule", EditRule_Click, rule.Id);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -1174,11 +1183,10 @@ public partial class ModesPanel : UserControl
         if (_app is null || EditorView.Visibility == Visibility.Visible)
             return;
 
-        ModeOwnershipText.Text = _app.ModeAutomation.Paused
-            ? "Automation paused by your selection. Resume it here, or wait for a different rule to win."
-            : _app.Modes.ActiveModeAutomatic
-                ? "Selected by automation. Choosing a mode here pauses automation."
-                : "Manual selection. Matching automation rules can activate a different mode.";
+        var presentation = ModeStatusPresentation.From(_app);
+        CurrentModeTitle.Text = presentation.Title;
+        CurrentModeDetail.Text = presentation.Detail;
+        CurrentModeDetail.SetResourceReference(TextBlock.ForegroundProperty, presentation.Failed ? "Tc.Error" : "Tc.TextMuted");
         ManualOverrideResumeButton.Visibility = _app.ModeAutomation.Paused ? Visibility.Visible : Visibility.Collapsed;
 
         if (_automationSurface)
@@ -1280,9 +1288,9 @@ public partial class ModesPanel : UserControl
             _app.UserSettings.Update(settings => settings with { CustomModes = fixtures.Where(mode => mode.Id != ThinkControlModeCatalog.NormalId).ToArray(),
                 AutomationRules = ThinkControlAutomationRules.Migrate(fixtures) });
             RefreshRules();
+            UpdateHeaderState();
             _app.UserSettings.Update(_ => original);
         }
-        UpdateHeaderState();
     }
 
     internal void PrepareEditorForSnapshot()

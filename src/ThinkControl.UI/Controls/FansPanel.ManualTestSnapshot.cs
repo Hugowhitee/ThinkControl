@@ -1,4 +1,5 @@
 using ThinkControl.Core.Ipc;
+using ThinkControl.Core.Cooling;
 
 namespace ThinkControl.UI.Controls;
 
@@ -82,7 +83,7 @@ public partial class FansPanel
 
     /// <summary>
     /// Visual-QA only: renders a real named curve through the direct-writer presentation
-    /// path and exposes the progressive Advanced controls used to edit that curve.
+    /// path, including its directly accessible editing action.
     /// </summary>
     internal void PrepareActiveFanCurveForSnapshot()
     {
@@ -95,7 +96,9 @@ public partial class FansPanel
             ProfileComboBox.SelectedItem as FanProfileChoice,
             _app.State.ControlTemperatureC,
             _app.State.FanRpm);
-        AdvancedFanControlsExpander.IsExpanded = true;
+        if (_app.State.ControlTemperatureC is double temperature)
+            AppliedLevelText.Text = $"{FanCurveGraphPolicy.ResolvePercent(FanCurveDefaults.Balanced.Points, temperature)}% OEM target";
+        AdvancedFanControlsExpander.IsExpanded = false;
         ManualControlExpander.IsExpanded = false;
         UpdateLayout();
     }
