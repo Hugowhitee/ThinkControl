@@ -68,6 +68,51 @@ public sealed class PowerModeServiceTests
     }
 
     [Fact]
+    public void ModePreparesBalancedAndRestoresOriginalPlanOnce()
+    {
+        Guid original = new("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
+        Guid plan = original;
+        int writes = 0;
+        var service = new PowerModeService((_, _) => true, _ => 0,
+            () => (true, Efficiency), () => plan,
+            value => { plan = value; writes++; return 0; });
+        Assert.True(service.SetEffective(ThinkControlPowerMode.Quiet, prepareBalancedPlan: true));
+        Assert.Equal(BalancedPlan, plan);
+        Assert.True(service.SetEffective(ThinkControlPowerMode.Quiet, prepareBalancedPlan: true));
+        Assert.True(service.RestoreModePlan());
+        Assert.Equal(original, plan);
+        Assert.True(service.RestoreModePlan());
+        Assert.Equal(2, writes);
+    }
+
+    [Fact]
+    public void FailedOverlayRestoresOriginalPlanAndDoesNotAcquireLease()
+    {
+        Guid original = new("a1841308-3541-4fab-bc81-f71556f20b4a");
+        Guid plan = original;
+        var service = new PowerModeService((_, _) => true, _ => 5,
+            () => (true, Guid.Empty), () => plan,
+            value => { plan = value; return 0; });
+        Assert.False(service.SetEffective(ThinkControlPowerMode.Quiet, prepareBalancedPlan: true));
+        Assert.Equal(original, plan);
+        Assert.False(service.HasModePlan);
+    }
+
+    [Fact]
+    public void ModeExitPreservesAnExternallySelectedPlan()
+    {
+        Guid plan = new("8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c");
+        var service = new PowerModeService((_, _) => true, _ => 0,
+            () => (true, Efficiency), () => plan,
+            value => { plan = value; return 0; });
+        Assert.True(service.SetEffective(ThinkControlPowerMode.Quiet, prepareBalancedPlan: true));
+        Guid external = Guid.NewGuid();
+        plan = external;
+        Assert.True(service.RestoreModePlan());
+        Assert.Equal(external, plan);
+    }
+
+    [Fact]
     public void ConfirmedEffectiveWritePublishesExactlyOneApplication()
     {
         var service = new PowerModeService((_, _) => true, _ => 0,

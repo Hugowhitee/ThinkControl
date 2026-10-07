@@ -165,7 +165,7 @@ public partial class BatteryTelemetryPanel : UserControl
     private Expander CreateDayRow(BatteryDaySummary day)
     {
         var header = new Grid { MinHeight = 42 };
-        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(116) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.Children.Add(new TextBlock
         {
@@ -177,10 +177,11 @@ public partial class BatteryTelemetryPanel : UserControl
         string usage = day.DischargedPercent > 0 || day.UsageTime > TimeSpan.Zero ? $"Used {day.DischargedPercent}% in {FormatShortDuration(day.UsageTime)}" : "No battery usage";
         var summary = new TextBlock
         {
-            Text = $"{charge}     {usage}",
+            Text = $"{charge}\n{usage}",
+            Margin = new Thickness(20, 6, 0, 6),
             ToolTip = "Time is divided at local midnight. Percentage changes count on the day they were measured; older sessions without samples count on their end day. Expanded sessions show their full duration.",
             FontSize = TypographyScale.Caption,
-            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center
         };
         summary.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
@@ -188,6 +189,7 @@ public partial class BatteryTelemetryPanel : UserControl
         header.Children.Add(summary);
 
         var sessions = new StackPanel { Margin = new Thickness(20, 0, 0, 7) };
+        Grid.SetIsSharedSizeScope(sessions, true);
         foreach (BatterySessionDetail session in day.Sessions)
             sessions.Children.Add(CreateSessionRow(session));
 
@@ -289,6 +291,8 @@ public partial class BatteryTelemetryPanel : UserControl
 
     internal void ExpandSnapshotHistory()
     {
+        BatteryDetails.IsExpanded = true;
+        BatterySessions.IsExpanded = true;
         if (RecentSessionItems.Children.OfType<Expander>().FirstOrDefault() is { } day)
             day.IsExpanded = true;
     }
@@ -296,7 +300,7 @@ public partial class BatteryTelemetryPanel : UserControl
     private Button CreateSessionRow(BatterySessionDetail session)
     {
         var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(74) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, SharedSizeGroup = "SessionKind" });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
 
@@ -304,6 +308,7 @@ public partial class BatteryTelemetryPanel : UserControl
         {
             CornerRadius = new CornerRadius(4),
             Padding = new Thickness(7, 3, 7, 3),
+            Margin = new Thickness(0, 0, 16, 0),
             HorizontalAlignment = HorizontalAlignment.Left,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -314,15 +319,16 @@ public partial class BatteryTelemetryPanel : UserControl
             FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
-        kindText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Accent" : "Tc.TextMuted");
+        kindText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Success" : "Tc.TextMuted");
         kind.Child = kindText;
         grid.Children.Add(kind);
 
         var summary = new TextBlock
         {
-            Text = session.Summary,
+            Text = $"{session.StartedAt:HH:mm}–{(session.EndedAt is { } ended ? ended.ToString("HH:mm") : "now")}    {FormatShortDuration(session.Duration)}\n{session.StartPercent}% → {session.EndPercent}%" +
+                (session.EnergyWh is { } energy ? $"    {energy:0.#} Wh" : string.Empty),
             FontSize = TypographyScale.Caption,
-            TextTrimming = TextTrimming.CharacterEllipsis,
+            TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center
         };
         summary.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");

@@ -126,6 +126,20 @@ internal static class Program
             return 0;
         }
 
+        if (args.Contains("--battery-history", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+                    RenderAdvanced(app, CreateDemoState(true, true), "Battery", width, height,
+                        output, snapshots, $"BatteryHistory-{theme}-{width}.png", "Details and recorded sessions", expandBatteryDay: true);
+            }
+            WriteManifest(output, snapshots);
+            WriteGallery(output, snapshots);
+            return 0;
+        }
+
         if (args.Contains("--battery", StringComparer.Ordinal))
         {
             foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })

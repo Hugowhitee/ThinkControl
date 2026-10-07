@@ -1,5 +1,18 @@
 # ThinkControl release-readiness roadmap
 
+## Alpha.64 candidate — Modes, intermittent cooling and battery history
+
+Owner feedback on installed alpha.63: Modes cannot apply under High performance; profiles sometimes fall back, possibly under SolidWorks load; recorded sessions clip and precede awkward details. Live service observation showed Quiet/EC state 4 at approximately 55°C with no safety override, so heat alone is not established as the cause of the intermittent failure.
+
+Modes explicitly prepares Balanced for a performance facet, verifies the effective overlay and restores the original plan on mode exit/rollback/app exit; externally selected plans supersede the temporary lease. Background AC/DC preferences do not silently switch plans. Native Windows proof: High performance → confirmed Efficiency under Balanced → original High performance restored. This is effective API readback, not a workload-performance benchmark.
+
+The existing fan supervisor retains a curve through missing sensors, confirms Auto, avoids repeating an already-confirmed handoff, requires two consecutive valid samples below the recovery threshold, and preserves the provider boundary. A curve selected at ≥94°C is queued under firmware cooling and resumes only below 90°C. Manual requests, provider changes, lost ownership and rejected writes retain their explicit Auto fallback. Bounded service logs now record handoff reasons; UI errors expose the underlying detail in a tooltip. No new fan register/state or forced ownership loop is introduced.
+
+Battery details groups capacity/sensor measurements and learned charging power with the Windows usage link. Recorded sessions follows it, with shared row columns and two-line time/energy summaries. Existing day aggregation, session detail graphs, retention and destructive reset remain owned by the existing history service.
+
+Local validation: Release build (zero warnings/errors), 315 Core tests, full WPF shell smoke and native plan proof passed. Supervisor runtime simulation passed warm input/output, sensor loss/exception recovery, failed Auto confirmation, hot selection, consecutive-safe samples, provider changes and rejected-write fallback. Six dark/light minimum/normal/wide expanded history renders were visually inspected. Frozen-head hosted CI/package gates must pass before promotion. SolidWorks-load reproduction, new service behavior on actual hot hardware and installed alpha.64 acceptance are **UNVERIFIED**. Do not claim this release fixes every intermittent fan failure.
+
+
 ## Published alpha.63 — October 7, 2026
 
 Alpha.62 owner feedback identified an Audio readback race/rounding jump, retained navigation-tab selection, excess Compact header chrome and distant update status. The existing Audio probe generation now invalidates pre-interaction/pre-write reads; confirmed rounded readback preserves the continuous thumb coordinate while real external changes still update it. Context tabs isolate their radio group and rebuild destination-owned selection on click/revisit. Compact retains the original SVG geometry, shifts its wrapper left and uses an inline notification action. Updates shows the green check circle beside the version. Preservation uses a slim green current-level track and displays the generic normalized wear-cycle basis (0–100% = 1.00), separately from actual firmware cycle history.

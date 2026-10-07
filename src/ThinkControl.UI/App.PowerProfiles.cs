@@ -28,6 +28,7 @@ public partial class App
         };
         Exit += (_, _) =>
         {
+            if (PowerModeService.HasModePlan) PowerModeService.RestoreModePlan();
             if (!_powerEventsAttached)
                 return;
             SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
@@ -87,7 +88,7 @@ public partial class App
             LastPowerModeError = "Unknown Windows power mode.";
             return false;
         }
-        bool applied = PowerModeService.SetEffective(mode);
+        bool applied = PowerModeService.SetEffective(mode, prepareBalancedPlan: true);
         LastPowerModeError = applied ? null :
             PowerModeService.LastEffectiveError ??
             "Windows did not confirm the selected effective power mode.";
@@ -98,6 +99,8 @@ public partial class App
 
     internal bool RestorePowerModeOverride()
     {
+        if (PowerModeService.HasModePlan)
+            return PowerModeService.RestoreModePlan();
         bool onBattery = IsCurrentlyOnBattery();
         ThinkControlPowerMode baseline = GetPowerPreference(onBattery);
         bool applied = PowerModeService.SetEffective(baseline);

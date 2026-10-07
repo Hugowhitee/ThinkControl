@@ -86,7 +86,8 @@ public sealed class BatteryProtectionAndHistorySourceTests
         string panel = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryTelemetryPanel.xaml.cs"));
         string service = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Services", "BatteryHistoryService.cs"));
 
-        Assert.Contains("Days stay compact", xaml, StringComparison.Ordinal);
+        Assert.True(xaml.IndexOf("x:Name=\"BatteryDetails\"", StringComparison.Ordinal) <
+                    xaml.IndexOf("x:Name=\"BatterySessions\"", StringComparison.Ordinal));
         Assert.Contains("<Expander Header=\"Manage history\"", xaml, StringComparison.Ordinal);
         Assert.Contains("7 days", xaml, StringComparison.Ordinal);
         Assert.Contains("14 days", xaml, StringComparison.Ordinal);

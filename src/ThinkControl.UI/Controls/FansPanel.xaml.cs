@@ -164,14 +164,22 @@ public partial class FansPanel : UserControl
         CoolingDetailText.Text = !canControl && response?.Capabilities?.FanAutoRecoverySupported == false
             ? "Cooling is read-only on this firmware. ThinkControl cannot apply profiles or confirm Auto."
             : _app?.LastCoolingError is string failure
-            ? "Cooling could not be changed. Try Auto or review hardware details in System."
+            ? App.IsExternalCoolingOwnerConflict(failure)
+                ? "Fan control was reclaimed. Select Auto, then retry your profile."
+                : failure.Contains("too hot", StringComparison.OrdinalIgnoreCase)
+                    ? "Firmware is cooling the system. Try again once it cools."
+                : failure.Contains("temperature", StringComparison.OrdinalIgnoreCase) || failure.Contains("sensor", StringComparison.OrdinalIgnoreCase)
+                    ? "The control-temperature sensor is unavailable. Your profile could not be applied."
+                    : failure.Contains("calibrat", StringComparison.OrdinalIgnoreCase) || failure.Contains("Measure", StringComparison.OrdinalIgnoreCase)
+                        ? "Measure the supported fan speeds before applying this profile."
+                        : "The fan provider did not confirm this profile. Select Auto, then retry."
             : _app?.ExternalCoolingOwnerConflictDetail is string conflict
                 ? "Another controller is using the fans. Select Auto before changing cooling."
                 : canControl
                 ? _fanControlKind == FanControlKinds.FullSpeedOnly ? "Auto and Max cooling are available."
                     : UsesFirmwarePolicy ? "Lenovo firmware controls the fan speed." : "Direct fan control is available."
                 : _app?.State.CoolingAvailabilityText ?? DescribeUnavailable(hasTelemetry);
-        CoolingDetailText.ToolTip = !canControl ? telemetry?.HardwareAccess ?? _app?.LastCoolingError : null;
+        CoolingDetailText.ToolTip = _app?.LastCoolingError ?? (!canControl ? telemetry?.HardwareAccess : null);
         CoolingDetailText.SetResourceReference(TextBlock.ForegroundProperty,
             _app?.LastCoolingError is null ? "Tc.TextMuted" : "Tc.Accent");
         CoolingOwnerText.Text = canControl
