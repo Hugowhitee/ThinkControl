@@ -4,9 +4,9 @@
 
 Only the designated canonical Figma instances changed: Mode card 6:124 now uses its existing Fluent icon, simple Mode title and shared Automation switch 325:6497; normal status prose is removed. Manual selection pauses triggering and displays Off; explicit Off stays paused until Resume without changing saved rule enablement. Rule editor switch 318:7032 moves to the title rail; the other fields remain. Start with Windows 11:578 aligns with its label and the bounded preference rail. Automation rows 318:6277 / 318:6286 / 318:6295 replace status labels with variable-bound dots 325:6500 / 325:6502 / 325:6504. Idle is Muted, matching/evaluating is subtly pulsing Accent, confirmed active is Success, failure is Error. Motion is visibility-gated and respects Windows reduced motion. A screenshot was inspected after each Figma correction. No other Figma cards or system controls changed in this follow-up.
 
-## WPF consistency implementation candidate (2026-10-07)
+## WPF consistency implementation — published alpha.66 (2026-10-07)
 
-The owner subsequently authorized implementation. The active local branch now implements the selected direction with the existing IBM Plex/Fluent assets and shared WPF section, segmented, switch, inline-action and disclosure styles. This candidate is not published or installed.
+The owner subsequently authorized implementation. The active local branch now implements the selected direction with the existing IBM Plex/Fluent assets and shared WPF section, segmented, switch, inline-action and disclosure styles. This implementation is published as alpha.66; the local installed build remains alpha.65 and installed acceptance is separate.
 
 - Overview keeps Mode in the lower quick-control row, separate from Keyboard. Its normal content is only the existing mode icon/title, picker and compact Automation switch; errors remain local. Normal-size renders keep the full row visible; minimum-size content scrolls.
 - Saved modes has explicit Apply actions and **Use regular settings**, including repeated No mode. The coordinator restores owned facets before manual pause. Resume still re-evaluates enabled rules with the existing dwell/context-change policy; saved rules are never silently disabled.
