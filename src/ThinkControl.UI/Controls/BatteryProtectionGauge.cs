@@ -13,7 +13,7 @@ namespace ThinkControl.UI.Controls;
 /// <summary>
 /// Compact preservation gauge. Unlike the normal battery gauge, this surface is
 /// about the active charge window: one current-level fill, two quiet threshold
-/// markers, and state-dependent color. It intentionally avoids permanent
+/// markers, and a healthy preservation color. It intentionally avoids permanent
 /// green/amber/red zones and decorative charge/pause icons.
 /// </summary>
 public sealed class BatteryProtectionGauge : FrameworkElement
@@ -91,15 +91,13 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         WpfBrush border = ResourceBrush("Tc.BorderStrong", WpfBrushes.Gray);
         WpfBrush faint = ResourceBrush("Tc.TextFaint", WpfBrushes.Gray);
         WpfBrush muted = ResourceBrush("Tc.TextMuted", WpfBrushes.Gray);
-        WpfBrush accent = ResourceBrush("Tc.Accent", WpfBrushes.DodgerBlue);
         WpfBrush success = ResourceBrush("Tc.Success", WpfBrushes.ForestGreen);
-        WpfBrush warning = ResourceBrush("Tc.Warning", WpfBrushes.Goldenrod);
 
         const double left = 8;
         double right = width - 8;
         double trackWidth = Math.Max(1, right - left);
         const double trackTop = 10;
-        const double trackHeight = 17;
+        const double trackHeight = 10;
         var track = new WpfRect(left, trackTop, trackWidth, trackHeight);
         var clip = new RectangleGeometry(track, 5, 5);
 
@@ -111,7 +109,9 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             ? Math.Clamp(rawStop, start ?? 0, 100)
             : null;
 
-        WpfBrush fill = ResolveFillBrush(current, start, stop, accent, success, warning, muted);
+        // Preservation is a healthy operating state, including when charging is
+        // paused at the limit. Red/amber here misleadingly suggested a fault.
+        WpfBrush fill = ProtectionEnabled == true ? success : muted;
 
         dc.DrawRoundedRectangle(surface, null, track, 5, 5);
 
@@ -132,7 +132,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             double stopX = PercentX(stopValue);
 
             WpfBrush startMarker = IsCharging && current <= startValue ? success : faint;
-            WpfBrush stopMarker = !IsCharging && current >= stopValue ? warning : faint;
+            WpfBrush stopMarker = muted;
 
             DrawThreshold(dc, startX, track, startMarker, 1.15);
             DrawThreshold(dc, stopX, track, stopMarker, 1.35);
@@ -146,7 +146,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
                 $"{stopValue}%",
                 stopX,
                 stopMarker,
-                track.Bottom + 5,
+                track.Bottom + 8,
                 pixelsPerDip);
         }
         else if (ProtectionEnabled == false)
@@ -168,29 +168,6 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             4.1);
 
         double PercentX(int percent) => left + trackWidth * percent / 100d;
-    }
-
-    private WpfBrush ResolveFillBrush(
-        int current,
-        int? start,
-        int? stop,
-        WpfBrush accent,
-        WpfBrush success,
-        WpfBrush warning,
-        WpfBrush muted)
-    {
-        if (ProtectionEnabled != true)
-            return muted;
-
-        if (stop is int stopValue && current >= stopValue && !IsCharging)
-            return warning;
-
-        if (IsCharging)
-            return success;
-
-        // Inside the hold window the same accent remains, just quieter. Color now
-        // communicates state rather than permanently painting three unrelated zones.
-        return WithOpacity(accent, start is int startValue && current < startValue ? 0.88 : 0.68);
     }
 
     private static void DrawThreshold(

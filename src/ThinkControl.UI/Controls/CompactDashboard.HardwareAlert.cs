@@ -42,7 +42,7 @@ public partial class CompactDashboard
 
         _hardwareAlertButton = new WpfButton
         {
-            Style = TryFindResource("CompactCaptionButton") as Style,
+            Style = TryFindResource("CompactNotificationButton") as Style,
             Tag = ShellUtilityOrder.NotificationTag,
             ToolTip = "Notifications",
             Content = icon,

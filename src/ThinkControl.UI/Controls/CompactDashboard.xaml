@@ -6,6 +6,7 @@
       <Setter Property="FontSize" Value="{x:Static ui:TypographyScale.Secondary}" />
     </Style>
     <Style x:Key="CompactCaptionButton" TargetType="Button" BasedOn="{StaticResource TcButton}"><Setter Property="Width" Value="40" /><Setter Property="Height" Value="40" /><Setter Property="MinWidth" Value="40" /><Setter Property="Padding" Value="8,0" /></Style>
+    <Style x:Key="CompactNotificationButton" TargetType="Button" BasedOn="{StaticResource TcInlineButton}"><Setter Property="Width" Value="40" /><Setter Property="Height" Value="40" /><Setter Property="MinWidth" Value="40" /><Setter Property="Padding" Value="8,0" /></Style>
     <Style x:Key="CompactInlineButton" TargetType="Button" BasedOn="{StaticResource TcInlineButton}">
       <Style.Triggers>
         <Trigger Property="IsMouseOver" Value="True">
@@ -68,7 +69,7 @@
           <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel VerticalAlignment="Center" Margin="0,2,0,1">
-          <controls:BrandWordmark Width="190" Height="44" Margin="-7,0,0,0" HorizontalAlignment="Left" />
+          <controls:BrandWordmark Width="190" Height="44" Margin="-30,0,0,0" HorizontalAlignment="Left" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
           <Button x:Name="CompactExpandButton" Style="{StaticResource CompactCaptionButton}" Width="96" Click="Expand_Click" ToolTip="Advanced view" AutomationProperties.AutomationId="CompactExpand" />

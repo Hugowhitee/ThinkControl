@@ -340,7 +340,7 @@ public partial class AudioPanel : UserControl
 
     private void QueueVolumeRefresh(bool applyCacheFirst)
     {
-        if (_snapshotMode || !IsVisible)
+        if (_snapshotMode || !IsVisible || _volumeDragging || _microphoneDragging)
             return;
 
         if (applyCacheFirst && _cachedOutput is not null && _cachedInput is not null)
@@ -375,6 +375,10 @@ public partial class AudioPanel : UserControl
         finally
         {
             Interlocked.Exchange(ref _volumeProbeRunning, 0);
+            // An interaction can invalidate a read already in flight. Coalesce one
+            // fresh read after it finishes rather than showing its pre-write value.
+            if (generation != Volatile.Read(ref _volumeProbeGeneration))
+                QueueVolumeRefresh(applyCacheFirst: false);
         }
     }
 
@@ -398,7 +402,11 @@ public partial class AudioPanel : UserControl
             {
                 if (!_volumeDragging && !_volumeAutomationCommitTimer.IsEnabled)
                 {
-                    VolumeSlider.Value = status.Percent;
+                    // Keep the continuous thumb position when Windows confirms the
+                    // same rounded percentage. Quantizing it here causes a visible
+                    // jump on wide tracks after every release/poll.
+                    if ((int)Math.Round(VolumeSlider.Value) != status.Percent)
+                        VolumeSlider.Value = status.Percent;
                     VolumeValueText.Text = status.Muted ? $"{status.Percent}% (muted)" : $"{status.Percent}%";
                 }
                 MuteButton.Content = status.Muted ? "Unmute" : "Mute";
@@ -412,7 +420,8 @@ public partial class AudioPanel : UserControl
             {
                 if (!_microphoneDragging && !_microphoneAutomationCommitTimer.IsEnabled)
                 {
-                    MicrophoneSlider.Value = microphone.Percent;
+                    if ((int)Math.Round(MicrophoneSlider.Value) != microphone.Percent)
+                        MicrophoneSlider.Value = microphone.Percent;
                     MicrophoneValueText.Text = microphone.Muted ? $"{microphone.Percent}% (muted)" : $"{microphone.Percent}%";
                 }
                 MicrophoneMuteButton.Content = microphone.Muted ? "Unmute" : "Mute";
@@ -441,6 +450,7 @@ public partial class AudioPanel : UserControl
 
     private void VolumeSlider_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        Interlocked.Increment(ref _volumeProbeGeneration);
         _volumeAutomationCommitTimer.Stop();
         _volumeInteractionStartPercent = (int)Math.Round(VolumeSlider.Value);
         _volumeDragging = true;
@@ -463,6 +473,7 @@ public partial class AudioPanel : UserControl
         if (!IsSliderAdjustmentKey(e.Key))
             return;
 
+        Interlocked.Increment(ref _volumeProbeGeneration);
         _volumeAutomationCommitTimer.Stop();
         if (!_volumeDragging)
             _volumeInteractionStartPercent = (int)Math.Round(VolumeSlider.Value);
@@ -507,6 +518,7 @@ public partial class AudioPanel : UserControl
             return;
         }
 
+        Interlocked.Increment(ref _volumeProbeGeneration);
         if (_volume.Set(requested, out int applied))
         {
             VolumeValueText.Text = $"{applied}%";
@@ -572,6 +584,7 @@ public partial class AudioPanel : UserControl
 
     private void MicrophoneSlider_MouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
+        Interlocked.Increment(ref _volumeProbeGeneration);
         _microphoneAutomationCommitTimer.Stop();
         _microphoneInteractionStartPercent = (int)Math.Round(MicrophoneSlider.Value);
         _microphoneDragging = true;
@@ -594,6 +607,7 @@ public partial class AudioPanel : UserControl
         if (!IsSliderAdjustmentKey(e.Key))
             return;
 
+        Interlocked.Increment(ref _volumeProbeGeneration);
         _microphoneAutomationCommitTimer.Stop();
         if (!_microphoneDragging)
             _microphoneInteractionStartPercent = (int)Math.Round(MicrophoneSlider.Value);
@@ -664,6 +678,7 @@ public partial class AudioPanel : UserControl
             return;
         }
 
+        Interlocked.Increment(ref _volumeProbeGeneration);
         if (_volume.Set(requested, out int applied, DataFlow.Capture))
         {
             MicrophoneValueText.Text = $"{applied}%";

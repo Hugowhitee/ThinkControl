@@ -298,7 +298,7 @@ public partial class BatteryTelemetryPanel
             ? $"{state.BatteryChargeTargetPercent}%"
             : "—";
         ChargeProtectionWearText.Text = available && enabled == true
-            ? $"Estimated charging wear: ≈{100 * (1 - BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop)):0}% lower\n0–{_lastChargeProtectionStop}% compared with 0–100%."
+            ? $"Estimated charging wear: ≈{100 * (1 - BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop)):0}% lower\n0–{_lastChargeProtectionStop}%: {BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop):0.00} modeled cycles (0–100%: 1.00)."
             : DescribeBatteryAging(enabled, available);
         ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
         ChargeProtectionWearText.SetResourceReference(TextBlock.ForegroundProperty,
@@ -306,7 +306,7 @@ public partial class BatteryTelemetryPanel
     }
 
     private const string BatteryAgingTooltip =
-        "Estimated charging wear compares a generic Li-ion charge from 0% to the selected limit with 0–100%. It is not the firmware cycle count or measured capacity loss. Heat, chemistry, charge rate, time near full and age affect actual wear; this percentage does not predict added battery lifespan.";
+        "Modeled wear cycles compare one charge from 0% to the selected limit with a 0–100% charge normalized to 1.00. This generic Li-ion estimate is not the firmware cycle count or measured capacity loss. Heat, chemistry, charge rate, time near full and age affect actual wear; the estimate does not predict added battery lifespan.";
 
     private static string DescribeBatteryAging(bool? enabled, bool available) =>
         !available
