@@ -40,6 +40,21 @@ Avoid:
 - enabled-looking controls when the backend/capability is unavailable;
 - release-specific runtime visual-tree patches when a shared XAML/style/layout owner can express the rule.
 
+## Shared control and state consistency
+
+Same-role settings use the same component grammar. A preference such as **Theme** and **App icon opens** may differ in options, but not in control height, selected treatment, spacing rail or button vocabulary without a product reason. Fix the shared owner or reuse the shared component instead of creating a visually similar one-off.
+
+Color carries state deliberately:
+
+- Accent marks navigation, selected controls and deliberate primary actions.
+- Success green means an outcome or effective state was **confirmed by its authoritative owner/readback**. Saved preference, requested selection, pending application and availability are not success.
+- Warning and Error stay local to the uncertain or rejected action. A failed mode facet does not turn the previous confirmed active mode into an error.
+- Healthy ordinary readiness remains neutral unless showing confirmation materially helps the current decision.
+
+Modes has one status grammar across Overview, Saved modes and Automation. The persistent Overview control stays compact in the lower quick-control row; a successful rule-triggered activation may additionally use one brief passive notification, not a large permanent announcement. Manual pause exposes **Resume automation** only where it changes state.
+
+Context tabs are not primary navigation. When Saved modes and Automation are two views of the same Modes task, changing between them preserves an in-progress editor and unsaved transient values. Leaving Modes for another primary destination may reset that transient state on the next entry. Primary-destination re-entry still follows the normal top-scroll/reset rule.
+
 ## Information hierarchy
 
 ThinkControl has two interface densities.
