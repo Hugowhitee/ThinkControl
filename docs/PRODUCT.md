@@ -1,6 +1,6 @@
 # Product specification
 
-Candidate v0.1.0-alpha.66 refines Mode/Automation controls, rule status and editor continuity using the existing UI and state owners. Hardware permissions are unchanged; installed physical acceptance remains UNVERIFIED. Publication evidence is maintained in RELEASE_READINESS.md.
+Published v0.1.0-alpha.66 refines Mode/Automation controls, rule status and editor continuity using the existing UI and state owners. Hardware permissions are unchanged; installed physical acceptance remains UNVERIFIED. CI, installer/upgrade packaging, immutable publication and checksum verification passed; publication evidence is maintained in RELEASE_READINESS.md.
 
 Published v0.1.0-alpha.65 makes active modes and their manual/rule source explicit, exposes curve editing and app-icon opening preferences, and integrates battery details/session navigation. Existing mode arbitration and hardware capability boundaries remain authoritative.
 
