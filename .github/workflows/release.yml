@@ -173,6 +173,7 @@ jobs:
           $overview = Get-Item "artifacts/release-previews/ui-overview.png"
           $overviewUrl = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$env:GITHUB_REF_NAME/ui-overview.png"
           $galleryNotes = "## Interface preview`n`n[![ThinkControl interface overview]($overviewUrl)]($overviewUrl)"
+          $highlights = & ./tools/release/Get-ReleaseHighlights.ps1
           $args = @(
             'release', 'create', $env:GITHUB_REF_NAME,
             $setup.FullName,
@@ -180,7 +181,7 @@ jobs:
             'artifacts/installer/SHA256SUMS.txt',
             $overview.FullName,
             '--title', "ThinkControl v$env:APP_VERSION",
-            '--notes', $galleryNotes,
+            '--notes', ($galleryNotes + $highlights),
             '--generate-notes'
           )
           if ($env:APP_VERSION -match '-') {

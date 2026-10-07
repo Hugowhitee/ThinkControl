@@ -91,37 +91,6 @@
           <Button x:Name="CompactMetricSlot1" Grid.Column="2" Style="{StaticResource CompactMetricSlot}" Tag="1" Click="CompactMetricSlot_Click" />
           <Border Grid.Column="3" Width="1" Background="{DynamicResource Tc.Border}" Margin="0,7" />
           <Button x:Name="CompactMetricSlot2" Grid.Column="4" Style="{StaticResource CompactMetricSlot}" Tag="2" Click="CompactMetricSlot_Click" />
-          <Button x:Name="CompactMetricsEditButton" Grid.Column="4" Content="Edit" Style="{StaticResource CompactInlineButton}" HorizontalAlignment="Right" VerticalAlignment="Top" Padding="6,2" Margin="0,-2,2,0" Click="CompactMetricsEdit_Click" ToolTip="Edit compact metrics" Visibility="Collapsed" />
-        </Grid>
-      </Border>
-      <Border x:Name="CompactMetricEditorOverlay" Grid.Row="0" Grid.RowSpan="9" Panel.ZIndex="20" Visibility="Collapsed" Background="{DynamicResource Tc.Surface}" BorderBrush="{DynamicResource Tc.BorderStrong}" BorderThickness="1" CornerRadius="8" Padding="13" Margin="0" SnapsToDevicePixels="True">
-        <Grid>
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-          </Grid.RowDefinitions>
-          <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition />
-              <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <StackPanel>
-              <TextBlock Text="Edit metrics" FontWeight="SemiBold" FontSize="{x:Static ui:TypographyScale.SectionTitle}" />
-              <TextBlock Text="Drag a metric onto a slot. Changes save immediately." FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,3,0,0" />
-            </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-              <Button Content="Reset" Style="{StaticResource TcInlineButton}" Margin="0,0,8,0" Click="CompactMetricsReset_Click" />
-              <Button Content="Done" Style="{StaticResource TcButton}" Padding="10,5" Click="CompactMetricsDone_Click" />
-            </StackPanel>
-          </Grid>
-          <TextBlock Grid.Row="1" Text="CURRENT" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" FontWeight="SemiBold" Margin="3,15,0,3" />
-          <UniformGrid x:Name="CompactMetricEditSlots" Grid.Row="2" Columns="3" />
-          <StackPanel Grid.Row="3" Margin="0,12,0,0">
-            <TextBlock Text="AVAILABLE" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" FontWeight="SemiBold" Margin="3,0,0,3" />
-            <WrapPanel x:Name="CompactMetricPickerItems" />
-          </StackPanel>
         </Grid>
       </Border>
       <Grid Grid.Row="4" Margin="0" x:Name="CompactControlsGrid">

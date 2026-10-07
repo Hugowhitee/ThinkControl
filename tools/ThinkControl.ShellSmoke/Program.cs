@@ -90,7 +90,7 @@ internal static class Program
         string path = Path.Combine(directory, "layout.json");
         try
         {
-            File.WriteAllText(path, "[\"CPU\",\"Battery\",\"Power\"]");
+            File.WriteAllText(path, "[\"cpu\",\"battery\",\"power\"]");
             var service = new CompactMetricLayoutService(path);
             service.SaveControls(["Keyboard", "Display", "Fans", "Performance"]);
             if (!service.Load().SequenceEqual(new[] { "CPU", "Battery", "Power" })) throw new InvalidOperationException("Quick controls lost the legacy status layout.");

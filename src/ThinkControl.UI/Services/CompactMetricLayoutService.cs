@@ -99,6 +99,7 @@ internal sealed class CompactMetricLayoutService
         string[] clean = values
             .Select(value => value?.Trim() ?? string.Empty)
             .Where(Allowed.Contains)
+            .Select(value => Allowed.First(id => id.Equals(value, StringComparison.OrdinalIgnoreCase)))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(3)
             .ToArray();

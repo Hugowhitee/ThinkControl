@@ -47,6 +47,8 @@ internal static class Program
                 var preview = new MainWindow(app) { DataContext = app.State, Topmost = false };
                 var editor = preview.CreateLayoutEditorForSnapshot();
                 RenderWindowContent(editor, Path.Combine(output, $"CompactEditor-{mode}.png"));
+                editor.Width = 780; editor.Height = 500;
+                RenderWindowContent(editor, Path.Combine(output, $"CompactEditor-Minimum-{mode}.png"));
                 editor.Close(); preview.ForceClose();
             }
             return 0;
@@ -615,10 +617,15 @@ internal static class Program
         const int height = 565;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
+        if (editMetrics)
+        {
+            var editor = window.CreateLayoutEditorForSnapshot();
+            RenderWindowContent(editor, Path.Combine(output, fileName));
+            snapshots.Add(new SnapshotEntry(fileName, "Compact layout", stateName, 920, 590));
+            editor.Close(); window.ForceClose(); return;
+        }
         if (audioSafetyMode is AudioSafetyMode mode)
             window.PrepareAudioSafetyForSnapshot(mode);
-        if (editMetrics)
-            window.PrepareMetricEditorForSnapshot();
         RenderWindowContent(window, Path.Combine(output, fileName));
         snapshots.Add(new SnapshotEntry(fileName, "Compact", stateName, width, height));
         window.ForceClose();

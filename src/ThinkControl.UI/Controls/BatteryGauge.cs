@@ -101,6 +101,12 @@ public sealed class BatteryGauge : FrameworkElement
 
     private void OnRendering(object? sender, EventArgs e)
     {
+        if (!IsLoaded || !IsVisible || !SystemParameters.ClientAreaAnimation)
+        {
+            UpdateRenderingHook();
+            InvalidateVisual();
+            return;
+        }
         if (e is not RenderingEventArgs args)
             return;
 
