@@ -1,6 +1,6 @@
 # Product specification
 
-v0.1.0-alpha.64 candidate: Modes prepares and restores the Windows Balanced plan when needed; cooling curves survive temporary sensor gaps and can be queued while firmware cools the system. Recorded sessions follows the reorganized Battery details. SolidWorks-load reproduction and installed alpha.64 acceptance remain UNVERIFIED.
+Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.
 
 Published v0.1.0-alpha.63 corrects Audio thumb/readback stability and tab selection, refines Compact/battery status and restores the adjacent update check. Immutable packaging and checksum verification passed; installed acceptance remains UNVERIFIED in RELEASE_READINESS.md.
 
@@ -8,7 +8,7 @@ Previous experimental release: `v0.1.0-alpha.62`. It adds the selected IBM Plex 
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Last verified local installation: `v0.1.0-alpha.61`; alpha.62 installation acceptance remains UNVERIFIED. It includes physically checked Auto/Max cooling on the exact 21Q6/N4CET45W controller and separate Modes/Automation. Publication and installed acceptance are recorded in `RELEASE_READINESS.md`.
+Last observed local installation: `v0.1.0-alpha.63` (executable version and running process, October 7). Full installed alpha.64 acceptance remains UNVERIFIED. It includes physically checked Auto/Max cooling on the exact 21Q6/N4CET45W controller and separate Modes/Automation. Publication and installed acceptance are recorded in `RELEASE_READINESS.md`.
 
 The published alpha.62 adds measured regulated states 4/5/6/7/0x40 on that exact controller. A production-service probe verified calibration, manual selections, a custom curve and Auto restoration. This is discrete measured output, not continuous PWM: 0% retains the lowest accepted running state and 99% maps to Max. Lower states can mildly pulse. Independent fan channels and broad resume/device acceptance remain unverified. The selected Figma redesign is a separate presentation migration governed by `DESIGN.md` and `UI-DESIGN-HANDOFF.md`; static examples do not prove capability or installed behavior.
 

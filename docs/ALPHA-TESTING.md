@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-v0.1.0-alpha.64 candidate: Modes prepares and restores the Windows Balanced plan when needed; cooling curves survive temporary sensor gaps and can be queued while firmware cools the system. Recorded sessions follows the reorganized Battery details. SolidWorks-load reproduction and installed alpha.64 acceptance remain UNVERIFIED.
+Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.
 
 Published v0.1.0-alpha.63 targets Audio readback stability, navigation-tab revisit selection and Compact/battery/update presentation. Add installed drag/release and page-revisit acceptance to the existing checks; publication and installed evidence are owned by RELEASE_READINESS.md.
 
