@@ -1,6 +1,6 @@
 # Device support
 
-The v0.1.0-alpha.65 candidate changes control discoverability and status presentation, without adding a hardware provider or widening write permissions. Edit curves retains controller/calibration gates. Physical fan behavior under SolidWorks and installed alpha.65 acceptance remain UNVERIFIED.
+Published v0.1.0-alpha.65 changes control discoverability and status presentation, without adding a hardware provider or widening write permissions. Edit curves retains controller/calibration gates. Physical fan behavior under SolidWorks and installed alpha.65 acceptance remain UNVERIFIED.
 
 Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.
 

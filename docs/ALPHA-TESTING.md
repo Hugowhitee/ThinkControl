@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-The v0.1.0-alpha.65 candidate adds WPF coverage for read-only curve hit-testing/interpolation/no edit, active-rule attribution/manual pause, and history-settings reveal/reset on navigation. Inspect direct curve editing, active/paused/pending/failed modes, visible battery sections and opening preferences. Final manual hover and installed alpha.65 acceptance remain UNVERIFIED after physical Escape stopped the native acceptance attempt.
+Published v0.1.0-alpha.65 adds WPF coverage for read-only curve hit-testing/interpolation/no edit, active-rule attribution/manual pause, and history-settings reveal/reset on navigation. Inspect direct curve editing, active/paused/pending/failed modes, visible battery sections and opening preferences. Final manual hover and installed alpha.65 acceptance remain UNVERIFIED after physical Escape stopped the native acceptance attempt.
 
 Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.
 
