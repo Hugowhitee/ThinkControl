@@ -3,6 +3,11 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Shell;
+using System.Windows.Documents;
+using GiveFeedbackEventArgs = System.Windows.GiveFeedbackEventArgs;
+using IDataObject = System.Windows.IDataObject;
+using DragDropEffects = System.Windows.DragDropEffects;
+using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI.Controls;
 
@@ -14,12 +19,16 @@ public partial class CompactDashboard
 
     private void RefreshCompactControls()
     {
-        ComboBox[] controls = [CompactPerformanceCombo, CompactFanCombo, CompactRefreshCombo, CompactKeyboardCombo];
-        string[] ids = ["Performance", "Fans", "Display", "Keyboard"];
+        FrameworkElement[] controls = [CompactPerformanceCombo, CompactFanCombo, CompactRefreshCombo, CompactKeyboardCombo, CompactModeCombo, CompactAutomationSwitch];
+        string[] ids = CompactMetricLayoutService.AvailableControls;
         for (int i = 0; i < controls.Length; i++)
         {
-            if (controls[i].Parent is not FrameworkElement stack || stack.Parent is not Border card) continue;
+            DependencyObject? parent = controls[i];
+            while (parent is not null && parent is not Border) parent = VisualTreeHelper.GetParent(parent);
+            if (parent is not Border card) continue;
             int slot = Array.IndexOf(_compactControlSlots, ids[i]);
+            card.Visibility = slot < 0 ? Visibility.Collapsed : Visibility.Visible;
+            if (slot < 0) continue;
             Grid.SetRow(card, slot / 2);
             Grid.SetColumn(card, slot % 2);
             card.Margin = new Thickness(slot % 2 == 0 ? 0 : 6, slot < 2 ? 0 : 6, slot % 2 == 0 ? 6 : 0, slot < 2 ? 6 : 0);
@@ -35,7 +44,7 @@ public partial class CompactDashboard
         surface.SetResourceReference(Border.BorderBrushProperty, "Tc.Border");
         var window = new Window { Title = "ThinkControl: Compact layout", Width = 920, Height = 590,
             MinWidth = 780, MinHeight = 500, WindowStyle = WindowStyle.None, ResizeMode = ResizeMode.CanResize,
-            Owner = owner, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = surface,
+            Owner = owner, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = new AdornerDecorator { Child = surface },
             DataContext = DataContext, ShowInTaskbar = false, UseLayoutRounding = true };
         window.SetResourceReference(Window.FontFamilyProperty, "Tc.Font");
         window.SetResourceReference(Window.ForegroundProperty, "Tc.Text");
@@ -52,7 +61,7 @@ public partial class CompactDashboard
             var done = new Button { Content = "Done", Style = TryFindResource("TcButton") as Style };
             done.Click += (_, _) => window.Close(); DockPanel.SetDock(done, Dock.Right); heading.Children.Add(done);
             var reset = new Button { Content = "Reset layout", Style = TryFindResource("TcInlineButton") as Style, Margin = new Thickness(0, 0, 12, 0) };
-            reset.Click += (_, _) => { _compactMetricSlots = ["Battery", "CPU", "Fans"]; _compactControlSlots = ["Performance", "Fans", "Display", "Keyboard"]; Save(); Rebuild(); };
+            reset.Click += (_, _) => { _compactMetricSlots = ["Battery", "CPU", "Fans"]; _compactControlSlots = ["Performance", "Fans", "Display", "Mode"]; Save(); Rebuild(); };
             DockPanel.SetDock(reset, Dock.Right); heading.Children.Add(reset);
             var title = new TextBlock { Text = "Compact layout", FontSize = TypographyScale.PageTitle, FontWeight = FontWeights.SemiBold };
             title.MouseLeftButtonDown += (_, e) => { if (e.LeftButton == MouseButtonState.Pressed) window.DragMove(); };
@@ -73,7 +82,7 @@ public partial class CompactDashboard
                     int target = i;
                     object content = metrics ? BuildCompactMetricContent(DefinitionFor(slots[i])) : BuildControlPreview(slots[i]);
                     preview.Children.Add(Tile(slots[i], content, metrics, id => { int source = Array.IndexOf(slots, id); if (source == target) return;
-                        if (source >= 0) (slots[source], slots[target]) = (slots[target], slots[source]); else if (metrics && CompactMetricDefinitions.Any(d => d.Id == id)) slots[target] = id; else return;
+                        if (source >= 0) (slots[source], slots[target]) = (slots[target], slots[source]); else if (metrics ? CompactMetricDefinitions.Any(d => d.Id == id) : CompactMetricLayoutService.AvailableControls.Contains(id)) slots[target] = id; else return;
                         Save(); Rebuild(); }));
                 }
                 panel.Children.Add(new TextBlock { Text = "Available", FontSize = TypographyScale.Caption, Margin = new Thickness(0, 20, 0, 8) });
@@ -82,7 +91,12 @@ public partial class CompactDashboard
                     var available = new WrapPanel(); panel.Children.Add(available);
                     foreach (var definition in CompactMetricDefinitions.Where(d => !slots.Contains(d.Id))) available.Children.Add(Tile(definition.Id, FriendlyMetricName(definition), true, null));
                 }
-                else panel.Children.Add(new TextBlock { Text = "All controls in use", FontSize = TypographyScale.Caption });
+                else
+                {
+                    var available = new WrapPanel(); panel.Children.Add(available);
+                    foreach (string id in CompactMetricLayoutService.AvailableControls.Where(id => !slots.Contains(id)))
+                        available.Children.Add(Tile(id, ControlName(id), false, null));
+                }
             }
             surface.Child = root;
         }
@@ -95,23 +109,72 @@ public partial class CompactDashboard
         var tile = new Button { Content = content, Style = TryFindResource("TcButton") as Style, Margin = new Thickness(3), Padding = new Thickness(8), Cursor = Cursors.SizeAll,
             HorizontalContentAlignment = HorizontalAlignment.Stretch, AllowDrop = drop is not null };
         System.Windows.Point? origin = null;
+        tile.Tag = id;
         tile.PreviewMouseLeftButtonDown += (_, e) => origin = e.GetPosition(tile);
         tile.PreviewMouseLeftButtonUp += (_, _) => origin = null;
         tile.LostMouseCapture += (_, _) => origin = null;
         tile.PreviewMouseMove += (_, e) => { if (origin is not System.Windows.Point start || e.LeftButton != MouseButtonState.Pressed) return;
             var at = e.GetPosition(tile); if (Math.Abs(at.X - start.X) < SystemParameters.MinimumHorizontalDragDistance && Math.Abs(at.Y - start.Y) < SystemParameters.MinimumVerticalDragDistance) return;
-            origin = null; System.Windows.DragDrop.DoDragDrop(tile, new System.Windows.DataObject(LayoutDragFormat, (metric ? "M:" : "C:") + id), System.Windows.DragDropEffects.Move); };
-        tile.DragOver += (_, e) => { e.Effects = e.Data.GetData(LayoutDragFormat) is string raw && raw.StartsWith(metric ? "M:" : "C:", StringComparison.Ordinal) ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None; e.Handled = true; };
-        tile.Drop += (_, e) => { if (e.Data.GetData(LayoutDragFormat) is string raw && raw.StartsWith(metric ? "M:" : "C:", StringComparison.Ordinal)) drop?.Invoke(raw[2..]); e.Handled = true; };
+            origin = null;
+            var surface = (_layoutEditor?.Content as AdornerDecorator)?.Child as FrameworkElement;
+            var layer = surface is null ? null : AdornerLayer.GetAdornerLayer(tile);
+            var ghost = surface is null ? null : new CompactLayoutDragAdorner(surface, tile);
+            if (ghost is not null) layer?.Add(ghost);
+            void Feedback(object? sender, GiveFeedbackEventArgs args) { ghost?.FollowPointer(); }
+            tile.GiveFeedback += Feedback;
+            tile.Opacity = .4;
+            try { System.Windows.DragDrop.DoDragDrop(tile, new System.Windows.DataObject(LayoutDragFormat, (metric ? "M:" : "C:") + id), System.Windows.DragDropEffects.Move); }
+            finally
+            {
+                tile.GiveFeedback -= Feedback;
+                if (ghost is not null) layer?.Remove(ghost);
+                tile.Opacity = 1;
+                ClearDropTarget(tile);
+            }
+        };
+        bool Accept(IDataObject data) => drop is not null && data.GetData(LayoutDragFormat) is string raw &&
+            raw.StartsWith(metric ? "M:" : "C:", StringComparison.Ordinal) && raw[2..] != id;
+        tile.DragOver += (_, e) =>
+        {
+            bool accepted = Accept(e.Data);
+            e.Effects = accepted ? DragDropEffects.Move : DragDropEffects.None;
+            if (accepted)
+            {
+                tile.SetResourceReference(BorderBrushProperty, "Tc.Accent");
+                tile.BorderThickness = new Thickness(2);
+            }
+            else ClearDropTarget(tile);
+            e.Handled = true;
+        };
+        tile.DragLeave += (_, _) => ClearDropTarget(tile);
+        tile.Drop += (_, e) =>
+        {
+            ClearDropTarget(tile);
+            if (Accept(e.Data) && e.Data.GetData(LayoutDragFormat) is string raw) drop?.Invoke(raw[2..]);
+            e.Handled = true;
+        };
         return tile;
     }
-    private static string ControlName(string id) => id switch { "Performance" => "Power profile", "Fans" => "Cooling", "Display" => "Refresh rate", _ => "Keyboard light" };
+    private static void ClearDropTarget(Button tile)
+    {
+        tile.ClearValue(BorderBrushProperty);
+        tile.ClearValue(BorderThicknessProperty);
+    }
+    private static string ControlName(string id) => id switch { "Performance" => "Power profile", "Fans" => "Cooling", "Display" => "Refresh rate", "Mode" => "Mode", "Automation" => "Automation", _ => "Keyboard light" };
     private FrameworkElement BuildControlPreview(string id)
     {
-        var source = id switch { "Performance" => CompactPerformanceCombo, "Fans" => CompactFanCombo, "Display" => CompactRefreshCombo, _ => CompactKeyboardCombo };
+        if (id == "Automation")
+        {
+            var automation = new StackPanel();
+            automation.Children.Add(new TextBlock { Text = "Automation", FontSize = TypographyScale.ControlLabel, FontWeight = FontWeights.SemiBold });
+            automation.Children.Add(new CheckBox { IsChecked = CompactAutomationSwitch.IsChecked, Style = TryFindResource("TcSwitch") as Style, IsHitTestVisible = false, Focusable = false, Margin = new Thickness(0, 10, 0, 0) });
+            return automation;
+        }
+        var source = id switch { "Performance" => CompactPerformanceCombo, "Fans" => CompactFanCombo, "Display" => CompactRefreshCombo, "Mode" => CompactModeCombo, _ => CompactKeyboardCombo };
         var panel = new StackPanel();
         panel.Children.Add(new TextBlock { Text = ControlName(id), FontSize = TypographyScale.ControlLabel, FontWeight = FontWeights.SemiBold });
         var combo = new ComboBox { Style = TryFindResource("CompactSelect") as Style, Margin = new Thickness(0, 10, 0, 0), IsHitTestVisible = false, Focusable = false };
+        if (id == "Mode") combo.DisplayMemberPath = "Name";
         combo.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding("ItemsSource") { Source = source });
         combo.SetBinding(System.Windows.Controls.Primitives.Selector.SelectedItemProperty, new System.Windows.Data.Binding("SelectedItem") { Source = source, Mode = System.Windows.Data.BindingMode.OneWay });
         combo.SetBinding(IsEnabledProperty, new System.Windows.Data.Binding("IsEnabled") { Source = source });

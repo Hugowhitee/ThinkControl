@@ -170,6 +170,9 @@ public partial class AdvancedWindow : Window
         try
         {
             SyncHomePowerModes();
+            BatteryMotionSystem.IsChecked = _app.State.BatteryMotionPreference == "System";
+            BatteryMotionOn.IsChecked = _app.State.BatteryMotionPreference == "On";
+            BatteryMotionOff.IsChecked = _app.State.BatteryMotionPreference == "Off";
             ThemeSystem.IsChecked = Services.ThemeService.Current == Services.ThemeMode.System;
             ThemeDark.IsChecked = Services.ThemeService.Current == Services.ThemeMode.Dark;
             ThemeLight.IsChecked = Services.ThemeService.Current == Services.ThemeMode.Light;
@@ -337,6 +340,19 @@ public partial class AdvancedWindow : Window
     {
         if (_lastUpdate is not null)
             UpdateService.OpenRelease(_lastUpdate);
+    }
+
+    private void BatteryMotion_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing || sender is not FrameworkElement { Tag: string preference }) return;
+        if (_app.UserSettings.TryUpdate(settings => settings with { BatteryMotionPreference = preference }))
+            _app.State.BatteryMotionPreference = preference;
+        else
+        {
+            BatteryMotionSystem.IsChecked = _app.State.BatteryMotionPreference == "System";
+            BatteryMotionOn.IsChecked = _app.State.BatteryMotionPreference == "On";
+            BatteryMotionOff.IsChecked = _app.State.BatteryMotionPreference == "Off";
+        }
     }
 
     private void Theme_Click(object sender, RoutedEventArgs e)

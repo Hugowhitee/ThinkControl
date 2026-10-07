@@ -108,12 +108,13 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.IsEnabled = HomeAutomationSwitch.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning;
+            HomeModeOffButton.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning && (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.LastTransitionError is not null);
             HomeModeCombo.SelectedItem = active;
             var presentation = ModeStatusPresentation.From(_app);
             HomeModeTitle.Text = "Mode";
             HomeModeTitle.ToolTip = presentation.Title;
             HomeModeModifiedText.Text = _app.Modes.SettingsNeedChecking ? presentation.Detail :
-                $"Couldn’t apply {_app.Modes.FailedModeName ?? "the mode"}.";
+                _app.Modes.FailureSummary;
             HomeModeModifiedText.ToolTip = _app.Modes.LastTransitionError ?? presentation.Detail;
             HomeAutomationSwitch.IsChecked = !_app.ModeAutomation.Paused;
             HomeModeModifiedText.SetResourceReference(TextBlock.ForegroundProperty,
@@ -154,6 +155,15 @@ public partial class AdvancedWindow
         if (HomeAutomationSwitch.IsChecked == true) _app.ModeAutomation.Resume();
         else _app.ModeAutomation.Pause();
         RefreshHomeMode();
+    }
+
+    private async void HomeModeOff_Click(object sender, RoutedEventArgs e)
+    {
+        if (_homeModeBusy || _app.Modes.IsTransitioning) return;
+        _homeModeBusy = true;
+        RefreshHomeMode();
+        try { await _app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId); }
+        finally { _homeModeBusy = false; RefreshHomeMode(); }
     }
 
     private async void HomeMode_SelectionChanged(object sender, SelectionChangedEventArgs e)

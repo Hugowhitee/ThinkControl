@@ -79,6 +79,7 @@ public partial class CompactDashboard : UserControl
                 _app.UpdateAvailabilityChanged -= App_UpdateAvailabilityChanged;
                 _app.AudioSafety.ModeChanged -= AudioSafety_ModeChanged;
                 _app.Modes.Changed -= Modes_Changed;
+                _app.ModeAutomation.Changed -= Modes_Changed;
             }
 
             _app = app;
@@ -86,6 +87,7 @@ public partial class CompactDashboard : UserControl
             app.UpdateAvailabilityChanged += App_UpdateAvailabilityChanged;
             app.AudioSafety.ModeChanged += AudioSafety_ModeChanged;
             app.Modes.Changed += Modes_Changed;
+            app.ModeAutomation.Changed += Modes_Changed;
         }
 
         EnsureQuickControls();

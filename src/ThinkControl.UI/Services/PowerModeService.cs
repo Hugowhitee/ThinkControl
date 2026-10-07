@@ -77,6 +77,12 @@ public sealed class PowerModeService
     {
         Guid? original = null;
         Guid? originalOverlay = null;
+        if (prepareBalancedPlan && !_modeOriginalPlan.HasValue)
+        {
+            original = _readPlan();
+            var baseline = _readOverlay();
+            if (baseline.Success) originalOverlay = baseline.Mode;
+        }
         if (prepareBalancedPlan && GetPowerPlanError() is not null)
         {
             original = _readPlan();
@@ -122,13 +128,23 @@ public sealed class PowerModeService
         // High performance/Power saver do not support effective overlays. An
         // overlay readback under temporary Balanced must never block restoration
         // of the actual original plan. Restore the stored overlay best-effort.
-        if (_modeOriginalOverlay is Guid overlay) _writeOverlay(overlay);
-        if (_writePlan(original) != 0 || _readPlan() != original)
+        if (_modeOriginalOverlay is Guid overlay)
+        {
+            uint result = _writeOverlay(overlay);
+            var readback = _readOverlay();
+            if (original == BalancedPlan && (result != 0 || !readback.Success || readback.Mode != overlay))
+            {
+                LastEffectiveError = "Windows could not restore the power mode used before this mode.";
+                return false;
+            }
+        }
+        if ((_readPlan() != original && _writePlan(original) != 0) || _readPlan() != original)
         {
             LastEffectiveError = "Windows could not restore the power plan used before this mode.";
             return false;
         }
         ReleaseModePlan();
+        LastEffectiveError = null;
         return true;
     }
 

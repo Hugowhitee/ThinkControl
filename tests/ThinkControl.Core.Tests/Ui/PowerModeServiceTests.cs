@@ -113,6 +113,38 @@ public sealed class PowerModeServiceTests
     }
 
     [Fact]
+    public void BalancedModeExitRestoresActualOverlayInsteadOfSavedPreference()
+    {
+        Guid original = new("ded574b5-45a0-4f42-8737-46345c09c238");
+        Guid overlay = original;
+        var service = new PowerModeService((_, _) => true,
+            value => { overlay = value; return 0; }, () => (true, overlay), () => BalancedPlan,
+            _ => throw new InvalidOperationException("Balanced must not be rewritten"));
+        Assert.True(service.SetEffective(ThinkControlPowerMode.Quiet, prepareBalancedPlan: true));
+        Assert.True(service.SetEffective(ThinkControlPowerMode.Balanced, prepareBalancedPlan: true));
+        Assert.True(service.RestoreModePlan());
+        Assert.Equal(original, overlay);
+        Assert.False(service.HasModePlan);
+    }
+
+    [Fact]
+    public void FailedBalancedRestoreKeepsBaselineForRetry()
+    {
+        Guid overlay = Guid.Empty;
+        bool reject = false;
+        var service = new PowerModeService((_, _) => true,
+            value => { if (reject) return 5; overlay = value; return 0; },
+            () => (true, overlay), () => BalancedPlan);
+        Assert.True(service.SetEffective(ThinkControlPowerMode.Quiet, prepareBalancedPlan: true));
+        reject = true;
+        Assert.False(service.RestoreModePlan());
+        Assert.True(service.HasModePlan);
+        reject = false;
+        Assert.True(service.RestoreModePlan());
+        Assert.Equal(Guid.Empty, overlay);
+    }
+
+    [Fact]
     public void ConfirmedEffectiveWritePublishesExactlyOneApplication()
     {
         var service = new PowerModeService((_, _) => true, _ => 0,

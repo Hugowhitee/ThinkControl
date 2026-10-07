@@ -1,5 +1,9 @@
 # ThinkControl UI design handoff
 
+## Runtime follow-up - alpha.67
+
+The subsequent owner request targets WPF: Mode replaces Keyboard in Compact defaults; Keyboard/Automation remain configurable; Compact is 420x501. Direct mode-off, actual-tile drag feedback, editor-local Save/Cancel, 20-unit Fluent remove glyphs and selected Custom preservation use existing resources. Advanced battery flow has On/Off/System because this desktop disables Windows animation; Compact remains static. These runtime compositions have not been synchronized to earlier Figma frames; alpha.66 Figma evidence below is historical, not alpha.67 parity proof.
+
 ## Targeted owner corrections — alpha.66
 
 Only the designated canonical Figma instances changed: Mode card 6:124 now uses its existing Fluent icon, simple Mode title and shared Automation switch 325:6497; normal status prose is removed. Manual selection pauses triggering and displays Off; explicit Off stays paused until Resume without changing saved rule enablement. Rule editor switch 318:7032 moves to the title rail; the other fields remain. Start with Windows 11:578 aligns with its label and the bounded preference rail. Automation rows 318:6277 / 318:6286 / 318:6295 replace status labels with variable-bound dots 325:6500 / 325:6502 / 325:6504. Idle is Muted, matching/evaluating is subtly pulsing Accent, confirmed active is Success, failure is Error. Motion is visibility-gated and respects Windows reduced motion. A screenshot was inspected after each Figma correction. No other Figma cards or system controls changed in this follow-up.

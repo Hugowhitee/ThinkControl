@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
+using System.Reflection;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -53,6 +54,7 @@ internal static partial class Program
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();
                     await ValidateBatteryMotion();
+                    ValidateCompactDragFeedback(app);
                     await ValidateContextTabsAndAudioReadback();
                     RunScenario(app);
                     exitCode = 0;
@@ -151,12 +153,16 @@ internal static partial class Program
         {
             File.WriteAllText(path, "[\"cpu\",\"battery\",\"power\"]");
             var service = new CompactMetricLayoutService(path);
+            File.WriteAllText(path, "{\"Schema\":2,\"Metrics\":[\"CPU\",\"Battery\",\"Power\"],\"Controls\":[\"Keyboard\",\"Display\",\"Fans\",\"Performance\"]}");
+            if (!service.LoadControls().SequenceEqual(new[] { "Mode", "Display", "Fans", "Performance" })) throw new InvalidOperationException("Schema 2 did not replace Keyboard with Mode in place.");
             service.SaveControls(["Keyboard", "Display", "Fans", "Performance"]);
             if (!service.Load().SequenceEqual(new[] { "CPU", "Battery", "Power" })) throw new InvalidOperationException("Quick controls lost the legacy status layout.");
             service.Save(["Fans", "CPU", "Battery"]);
             if (!service.LoadControls().SequenceEqual(new[] { "Keyboard", "Display", "Fans", "Performance" })) throw new InvalidOperationException("Status layout lost the saved quick-control order.");
+            service.SaveControls(["Automation", "Mode", "Fans", "Keyboard"]);
+            if (!service.LoadControls().SequenceEqual(new[] { "Automation", "Mode", "Fans", "Keyboard" })) throw new InvalidOperationException("Available controls did not round-trip.");
             service.SaveControls(["Keyboard", "Keyboard", "Fans", "Performance"]);
-            if (!service.LoadControls().SequenceEqual(new[] { "Performance", "Fans", "Display", "Keyboard" })) throw new InvalidOperationException("Duplicate control slots were retained.");
+            if (!service.LoadControls().SequenceEqual(new[] { "Performance", "Fans", "Display", "Mode" })) throw new InvalidOperationException("Duplicate control slots were retained.");
         }
         finally { Directory.Delete(directory, true); }
     }
@@ -219,22 +225,63 @@ internal static partial class Program
         finally { host.Close(); app.UserSettings.Update(_ => original); }
     }
 
+    private static void ValidateCompactDragFeedback(App app)
+    {
+        var preview = new MainWindow(app) { ShowActivated = false, Topmost = false };
+        var editor = preview.CreateLayoutEditorForSnapshot();
+        try
+        {
+            editor.UpdateLayout();
+            System.Windows.DragEventArgs DragArgs(System.Windows.IDataObject data, DragDropKeyStates keys, System.Windows.DragDropEffects effects, DependencyObject target, System.Windows.Point point, RoutedEvent routedEvent)
+            {
+                var args = (System.Windows.DragEventArgs)Activator.CreateInstance(typeof(System.Windows.DragEventArgs), BindingFlags.Instance | BindingFlags.NonPublic, null, [data, keys, effects, target, point], null)!;
+                args.RoutedEvent = routedEvent;
+                return args;
+            }
+            Button Target(string id) => VisualDescendants<Button>(editor).First(b => b.AllowDrop && Equals(b.Tag, id));
+            var mode = Target("Mode");
+            var payload = new System.Windows.DataObject("ThinkControl.CompactLayout", "C:Fans");
+            var over = DragArgs(payload, DragDropKeyStates.LeftMouseButton, System.Windows.DragDropEffects.Move, mode, new System.Windows.Point(5, 5), System.Windows.DragDrop.DragOverEvent);
+            mode.RaiseEvent(over);
+            if (over.Effects != System.Windows.DragDropEffects.Move || mode.BorderThickness.Left != 2)
+                throw new InvalidOperationException("Compact drag target did not highlight a valid swap.");
+            mode.RaiseEvent(DragArgs(payload, 0, System.Windows.DragDropEffects.Move, mode, new System.Windows.Point(), System.Windows.DragDrop.DragLeaveEvent));
+            if (mode.ReadLocalValue(Control.BorderThicknessProperty) != DependencyProperty.UnsetValue)
+                throw new InvalidOperationException("Compact drag target retained its highlight after leaving.");
+            var invalid = DragArgs(new System.Windows.DataObject("ThinkControl.CompactLayout", "M:CPU"), 0, System.Windows.DragDropEffects.Move, mode, new System.Windows.Point(), System.Windows.DragDrop.DragOverEvent);
+            mode.RaiseEvent(invalid);
+            if (invalid.Effects != System.Windows.DragDropEffects.None) throw new InvalidOperationException("Compact accepted a cross-family drag.");
+            mode.RaiseEvent(DragArgs(payload, 0, System.Windows.DragDropEffects.Move, mode, new System.Windows.Point(), System.Windows.DragDrop.DropEvent));
+            editor.UpdateLayout();
+            var dashboard = (ThinkControl.UI.Controls.CompactDashboard)preview.FindName("Dashboard");
+            var slots = (string[])typeof(ThinkControl.UI.Controls.CompactDashboard).GetField("_compactControlSlots", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(dashboard)!;
+            if (!slots.SequenceEqual(new[] { "Performance", "Mode", "Display", "Fans" })) throw new InvalidOperationException("Compact drop did not swap slots.");
+        }
+        finally { editor.Close(); preview.ForceClose(); }
+    }
+
     private static async Task ValidateBatteryMotion()
     {
-        var gauge = new ThinkControl.UI.Controls.BatteryGauge { Width = 100, Height = 40, Percent = 78, IsCharging = true };
+        var gauge = new ThinkControl.UI.Controls.BatteryGauge { Width = 100, Height = 40, Percent = 78, IsCharging = true, MotionPreference = "On" };
         var host = new Window { Content = gauge, Width = 140, Height = 100, ShowInTaskbar = false, ShowActivated = false };
         try
         {
             host.Show();
             double initial = gauge.MotionPhase;
             await Task.Delay(350);
-            if (SystemParameters.ClientAreaAnimation && (!gauge.MotionActive || gauge.MotionPhase == initial))
+            if ((!gauge.MotionActive || gauge.MotionPhase == initial))
                 throw new InvalidOperationException("Charging gauge did not move in a real WPF rendering loop.");
             gauge.IsCharging = false;
             gauge.IsDischarging = true;
             await Task.Delay(450);
-            if (SystemParameters.ClientAreaAnimation && !gauge.MotionActive)
+            if (!gauge.MotionActive)
                 throw new InvalidOperationException("Discharge flow stopped while discharging.");
+            gauge.MotionEnabled = false;
+            if (gauge.MotionActive) throw new InvalidOperationException("Compact still animates with motion disabled.");
+            gauge.MotionEnabled = true;
+            gauge.MotionPreference = "System";
+            if (!SystemParameters.ClientAreaAnimation && gauge.MotionActive) throw new InvalidOperationException("System motion preference ignored Windows reduced motion.");
+            gauge.MotionPreference = "On";
             gauge.IsDischarging = false;
             await Task.Delay(1300);
             if (gauge.MotionActive)

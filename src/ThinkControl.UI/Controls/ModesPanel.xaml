@@ -54,7 +54,7 @@
                               MinHeight="38"
                               Margin="14,0,14,10"
                               SelectionChanged="ModeSelector_SelectionChanged" />
-                    <Button x:Name="UseRegularSettingsButton" Content="Use regular settings" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left"
+                    <Button x:Name="UseRegularSettingsButton" Content="Turn off mode" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left"
                             Margin="14,0,14,10" ToolTip="Restore regular settings and pause the current automation rule. Resume or a different winning rule can activate a mode again." Click="UseRegularSettings_Click" />
                     <StackPanel x:Name="ModeRows" />
 
@@ -93,6 +93,10 @@
         </StackPanel>
 
         <StackPanel x:Name="EditorView" Visibility="Collapsed">
+            <Grid Margin="0,0,0,16">
+                <TextBlock x:Name="EditorPageTitle" Text="Edit mode" Style="{StaticResource TcText.SectionTitle}" VerticalAlignment="Center" Margin="0,0,180,0" />
+                <StackPanel x:Name="EditorActions" Orientation="Horizontal" HorizontalAlignment="Right" />
+            </Grid>
             <Border Style="{StaticResource TcSection}">
                 <StackPanel>
                     <Grid>

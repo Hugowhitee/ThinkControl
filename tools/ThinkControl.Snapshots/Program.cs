@@ -104,6 +104,47 @@ internal static class Program
             return 0;
         }
 
+        if (args.Contains("--battery-motion", StringComparer.Ordinal))
+        {
+            ThemeService.Apply(ThemeMode.Dark);
+            SyncAppState(CreateDemoState(true, true), app.State);
+            var window = new AdvancedWindow(app) { DataContext = app.State, Width = 1200, Height = 780, ShowActivated = false, Topmost = false };
+            window.PrepareEnhancedUiForSnapshot(); window.Navigate("Battery"); window.Show();
+            void WaitFrame(int milliseconds)
+            {
+                var frame = new System.Windows.Threading.DispatcherFrame();
+                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
+                timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
+                timer.Start(); System.Windows.Threading.Dispatcher.PushFrame(frame);
+            }
+            WaitFrame(500); RenderWindowContent(window, Path.Combine(output, "Charging-1.png"));
+            WaitFrame(240); RenderWindowContent(window, Path.Combine(output, "Charging-2.png"));
+            app.State.BatteryCharging = false; app.State.BatteryStatus = "On battery";
+            WaitFrame(650); RenderWindowContent(window, Path.Combine(output, "Discharging.png"));
+            app.State.BatteryStatus = "Plugged in";
+            WaitFrame(1300); RenderWindowContent(window, Path.Combine(output, "Idle.png"));
+            window.ForceClose(); return 0;
+        }
+
+        if (args.Contains("--compact-polish", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                var full = CreateDemoState(false, true); full.BatteryPercent = 100;
+                RenderCompact(app, full, output, snapshots, $"Compact100-{theme}.png", "100 percent");
+                foreach ((int width, int height) in new[] { (980, 650), (1600, 900) })
+                {
+                    var custom = CreateDemoState(true, true);
+                    custom.BatteryProtectionStartPercent = 50; custom.BatteryProtectionStopPercent = 80;
+                    RenderAdvanced(app, custom, "Battery", width, height, output, snapshots, $"CustomSelected-{theme}-{width}.png", "Custom selected");
+                    RenderAdvanced(app, CreateDemoState(true, true), "Modes", width, height, output, snapshots, $"ModeEditor-{theme}-{width}.png", "Edit mode", modeEditor: true);
+                    RenderAdvanced(app, CreateDemoState(true, true), "Automation", width, height, output, snapshots, $"RuleEditor-{theme}-{width}.png", "Edit rule", ruleEditor: true);
+                }
+            }
+            WriteManifest(output, snapshots); return 0;
+        }
+
         if (args.Contains("--compact", StringComparer.Ordinal))
         {
             foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
@@ -669,7 +710,7 @@ internal static class Program
         AudioSafetyMode? audioSafetyMode = null)
     {
         const int width = 420;
-        const int height = 565;
+        const int height = 501;
         SyncAppState(state, app.State);
         var window = new MainWindow(app) { DataContext = app.State, Width = width, Height = height };
         if (editMetrics)

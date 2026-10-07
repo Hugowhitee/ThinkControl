@@ -5,7 +5,7 @@ namespace ThinkControl.Core.Tests.Ui;
 public sealed class CompactDashboardLayoutSourceTests
 {
     [Fact]
-    public void Mode_LivesWithVolumeAndUsesCompactGeometry()
+    public void Mode_LivesInQuickControlsAndUsesCompactGeometry()
     {
         string root = FindRepositoryRoot();
         string xaml = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "CompactDashboard.xaml"));
@@ -13,9 +13,9 @@ public sealed class CompactDashboardLayoutSourceTests
         string window = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "MainWindow.xaml"));
 
         Assert.Contains("Text=\"Mode\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Grid.Row=\"8\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Height=\"40\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Width=\"420\" Height=\"565\"", window, StringComparison.Ordinal);
+        Assert.DoesNotContain("Grid.Row=\"8\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("CompactModeOffButton", xaml, StringComparison.Ordinal);
+        Assert.Contains("Width=\"420\" Height=\"501\"", window, StringComparison.Ordinal);
         Assert.Contains("CompactSelect", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Power profile\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Cooling\"", xaml, StringComparison.Ordinal);

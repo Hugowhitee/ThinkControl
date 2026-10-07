@@ -102,6 +102,9 @@ public partial class CompactDashboard
                 : null;
 
             IReadOnlyList<ThinkControlModeDefinition> modes = _app.Modes.GetModes();
+            CompactAutomationSwitch.IsChecked = !_app.ModeAutomation.Paused;
+            CompactAutomationSwitch.IsEnabled = !_app.Modes.IsTransitioning;
+            CompactModeOffButton.IsEnabled = !_app.Modes.IsTransitioning && (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.LastTransitionError is not null);
             CompactModeCombo.ItemsSource = modes;
             CompactModeCombo.ToolTip = _app.Modes.LastTransitionError ??
                 "Select a mode to temporarily apply its settings.";
@@ -203,6 +206,20 @@ public partial class CompactDashboard
             if (max <= 0) max = _app.DisplayService.GetSupportedRefreshRates().DefaultIfEmpty(0).Max();
             if (max > 0) _app.SetRefresh(max);
         }
+    }
+
+    private async void CompactModeOff_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || _app.Modes.IsTransitioning) return;
+        await _app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId);
+        SyncQuickControls();
+    }
+    private void CompactAutomation_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || _syncingQuickControls) return;
+        if (CompactAutomationSwitch.IsChecked == true) _app.ModeAutomation.Resume();
+        else _app.ModeAutomation.Pause();
+        SyncQuickControls();
     }
 
     private async void CompactMode_SelectionChanged(object sender, SelectionChangedEventArgs e)

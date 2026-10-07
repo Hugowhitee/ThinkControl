@@ -33,6 +33,15 @@ public sealed class BatteryGauge : FrameworkElement
         nameof(IsDischarging), typeof(bool), typeof(BatteryGauge),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, OnChargingChanged));
 
+    public static readonly DependencyProperty MotionEnabledProperty = DependencyProperty.Register(
+        nameof(MotionEnabled), typeof(bool), typeof(BatteryGauge), new FrameworkPropertyMetadata(true, OnChargingChanged));
+    public bool MotionEnabled { get => (bool)GetValue(MotionEnabledProperty); set => SetValue(MotionEnabledProperty, value); }
+
+    public static readonly DependencyProperty MotionPreferenceProperty = DependencyProperty.Register(
+        nameof(MotionPreference), typeof(string), typeof(BatteryGauge), new FrameworkPropertyMetadata("System", OnChargingChanged));
+    public string MotionPreference { get => (string)GetValue(MotionPreferenceProperty); set => SetValue(MotionPreferenceProperty, value); }
+    private bool MotionAllowed => MotionEnabled && (MotionPreference == "On" || MotionPreference == "System" && SystemParameters.ClientAreaAnimation);
+
     private bool _renderHooked;
     private TimeSpan _lastRenderingTime;
     private double _stripePhase;
@@ -75,7 +84,7 @@ public sealed class BatteryGauge : FrameworkElement
 
     private void UpdateRenderingHook()
     {
-        bool shouldAnimate = IsLoaded && IsVisible && SystemParameters.ClientAreaAnimation &&
+        bool shouldAnimate = MotionAllowed && IsLoaded && IsVisible &&
             (IsCharging || IsDischarging || _flowOpacity > 0.001);
         if (shouldAnimate && !_renderHooked)
         {
@@ -96,12 +105,12 @@ public sealed class BatteryGauge : FrameworkElement
         CompositionTarget.Rendering -= OnRendering;
         _renderHooked = false;
         _lastRenderingTime = TimeSpan.Zero;
-        if (!IsVisible || !SystemParameters.ClientAreaAnimation) _flowOpacity = 0;
+        if (!MotionAllowed || !IsVisible) _flowOpacity = 0;
     }
 
     private void OnRendering(object? sender, EventArgs e)
     {
-        if (!IsLoaded || !IsVisible || !SystemParameters.ClientAreaAnimation)
+        if (!MotionAllowed || !IsLoaded || !IsVisible)
         {
             UpdateRenderingHook();
             InvalidateVisual();
@@ -118,10 +127,10 @@ public sealed class BatteryGauge : FrameworkElement
 
         double seconds = Math.Clamp((args.RenderingTime - _lastRenderingTime).TotalSeconds, 0, 0.1);
         _lastRenderingTime = args.RenderingTime;
-        double targetOpacity = IsCharging ? 1 : IsDischarging ? 0.5 : 0;
+        double targetOpacity = IsCharging ? 1 : IsDischarging ? 0.85 : 0;
         _flowOpacity += (targetOpacity - _flowOpacity) * Math.Min(1, seconds * 7);
         _flowDirection += ((IsDischarging && !IsCharging ? -1 : 1) - _flowDirection) * Math.Min(1, seconds * 5);
-        _stripePhase = (_stripePhase + seconds * 26d * _flowDirection + 24d) % 24d;
+        _stripePhase = (_stripePhase + seconds * 26d * _flowDirection + 16d) % 16d;
         InvalidateVisual();
         if (targetOpacity == 0 && _flowOpacity < 0.001) UpdateRenderingHook();
     }
@@ -181,7 +190,7 @@ public sealed class BatteryGauge : FrameworkElement
         var clip = new RectangleGeometry(fill, radius, radius);
         dc.PushClip(clip);
 
-        var stripeBrush = new SolidColorBrush(WpfColor.FromArgb((byte)Math.Round(50 * _flowOpacity), 255, 255, 255));
+        var stripeBrush = new SolidColorBrush(WpfColor.FromArgb((byte)Math.Round(115 * _flowOpacity), 12, 35, 30));
         stripeBrush.Freeze();
         var stripePen = new WpfPen(stripeBrush, Math.Clamp(fill.Height * 0.17, 1.2, 5.5))
         {
@@ -190,7 +199,7 @@ public sealed class BatteryGauge : FrameworkElement
         };
         stripePen.Freeze();
 
-        const double spacing = 24;
+        const double spacing = 16;
         double travel = fill.Height + 18;
         double startX = fill.Left - travel - spacing + _stripePhase;
         for (double x = startX; x < fill.Right + travel; x += spacing)

@@ -39,7 +39,8 @@ public sealed record ThinkControlUserSettings(
     string HardwareIssuePromptedKeys = "",
     ThinkControlModeDefinition[]? CustomModes = null,
     bool StarterModesSeeded = false,
-    ThinkControlAutomationRule[]? AutomationRules = null);
+    ThinkControlAutomationRule[]? AutomationRules = null,
+    string BatteryMotionPreference = "On");
 
 public sealed class UserSettingsService
 {
@@ -330,6 +331,7 @@ public sealed class UserSettingsService
             DolbySubProfile = dolbyTone,
             BatteryDetailRetentionDays = settings.BatteryDetailRetentionDays switch { <= 7 => 7, <= 14 => 14, _ => 30 },
             DefaultOpeningView = defaultOpeningView,
+            BatteryMotionPreference = settings.BatteryMotionPreference is "On" or "Off" or "System" ? settings.BatteryMotionPreference : "System",
             AttentionAcknowledgedKey = acknowledgedKey,
             AttentionAcknowledgedAtUtc = acknowledgedAt,
             DiagnosticsSharingPrompted = settings.DiagnosticsSharingPrompted,

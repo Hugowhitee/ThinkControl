@@ -24,6 +24,8 @@
   </a>
 </div>
 
+Release candidate **v0.1.0-alpha.67** adds a shorter Compact view with Mode and configurable Automation, visible layout-drag feedback, clearer Custom battery preservation and Advanced charge/discharge animation. The latest published download is linked below until this candidate passes publication checks.
+
 ## ThinkControl
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.

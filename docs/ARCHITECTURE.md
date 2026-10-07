@@ -1,5 +1,7 @@
 # ThinkControl architecture
 
+Candidate v0.1.0-alpha.67 improves Compact interaction, mode restoration, editor actions and battery clarity. Final publication evidence is maintained in RELEASE_READINESS.md.
+
 Published v0.1.0-alpha.66 refines Mode/Automation controls, rule status and editor continuity using the existing UI and state owners. Hardware permissions are unchanged; installed physical acceptance remains UNVERIFIED. CI, installer/upgrade packaging, immutable publication and checksum verification passed; publication evidence is maintained in RELEASE_READINESS.md.
 
 The v0.1.0-alpha.65 source uses ModeStatusPresentation as a stateless projection of the existing mode coordinator and automation service. Active-rule changes notify existing subscribers; no additional polling/state owner is introduced. Battery page reset traverses its nested panel, and read-only curve inspection shares the graph geometry/interpolation policy.

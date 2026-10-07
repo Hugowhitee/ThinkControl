@@ -102,10 +102,10 @@ public partial class BatteryTelemetryPanel
             {
                 selected = new ListBoxItem
                 {
-                    Content = $"Custom: {selectedStart}–{selectedStop}%",
-                    Tag = $"custom:{selectedStart},{selectedStop}", Visibility = Visibility.Collapsed
+                    Content = "Custom", ToolTip = $"Custom: {selectedStart}–{selectedStop}%",
+                    Tag = $"custom:{selectedStart},{selectedStop}"
                 };
-                ChargeProtectionComboBox.Items.Insert(0, selected);
+                ChargeProtectionComboBox.Items.Add(selected);
             }
 
             ChargeProtectionComboBox.SelectedItem = selected ?? ChargeProtectionComboBox.Items.OfType<ListBoxItem>().FirstOrDefault();
