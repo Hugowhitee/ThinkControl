@@ -143,6 +143,19 @@
                 <controls:TelemetryMetric Grid.Column="2" Label="FANS" Value="{Binding FanRpmText}" Caption="{Binding CoolingProfileDisplay}" />
                 <controls:TelemetryMetric Grid.Column="3" Label="POWER" Value="{Binding BatteryPowerText}" Caption="Live draw" />
               </Grid>
+              <Border Style="{StaticResource TcSection}" Margin="0,16,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="230" /></Grid.ColumnDefinitions>
+                  <StackPanel Margin="0,0,20,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="HomeModeTitle" Text="Active mode" Style="{StaticResource TcText.SectionTitle}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="HomeModeModifiedText" TextWrapping="Wrap" Style="{StaticResource TcText.Secondary}" Margin="0,6,0,0" />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1">
+                    <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
+                    <Button Content="Modes &amp; rules" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Right" Click="HomeOpenPage_Click" Tag="Modes" Margin="0,5,0,0" />
+                  </StackPanel>
+                </Grid>
+              </Border>
               <Grid Margin="0,22,0,0">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition />
@@ -252,17 +265,8 @@
                   <ColumnDefinition Width="16" />
                   <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <Border Style="{StaticResource TcSection}">
-                  <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                      <controls:PackIconLucide Kind="Tune" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
-                      <TextBlock Text="Mode" Style="{StaticResource TcText.SectionTitle}" Margin="10,0,0,0" />
-                    </StackPanel>
-                    <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
-                    <TextBlock x:Name="HomeModeModifiedText" Visibility="Collapsed" Style="{StaticResource TcText.ActionError}" Margin="0,5,0,0" />
-                  </StackPanel>
-                </Border>
-                <Border Grid.Column="2" Style="{StaticResource TcSection}">
+
+                <Border Grid.ColumnSpan="3" Style="{StaticResource TcSection}">
                   <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                       <controls:PackIconLucide Kind="Keyboard" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -432,6 +436,24 @@
                       <RadioButton x:Name="ThemeLight" Grid.Column="2" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Light" Tag="Light" Click="Theme_Click" Margin="4,0,0,0" />
                     </Grid>
                   </Grid>
+                  <Grid Margin="0,20,0,0">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="260" />
+                      </Grid.ColumnDefinitions>
+                      <StackPanel>
+                        <TextBlock Text="App icon opens" FontWeight="SemiBold" />
+                        <TextBlock Text="The tray icon always opens Compact." Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,4,12,0" />
+                      </StackPanel>
+                      <Grid Grid.Column="1">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition />
+                          <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+                        <RadioButton x:Name="SettingsOpeningCompact" GroupName="DefaultOpeningView" Content="Compact" Tag="Compact" Click="OpeningView_Click" Style="{StaticResource TcSegment}" Margin="0,0,4,0" />
+                        <RadioButton x:Name="SettingsOpeningAdvanced" Grid.Column="1" GroupName="DefaultOpeningView" Content="Advanced" Tag="Advanced" Click="OpeningView_Click" Style="{StaticResource TcSegment}" Margin="4,0,0,0" />
+                      </Grid>
+                    </Grid>
                   <Grid Margin="0,32,0,0">
                     <TextBlock Text="Start with Windows" VerticalAlignment="Center" />
                     <CheckBox x:Name="StartupSwitch" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" HorizontalAlignment="Right" />
@@ -460,28 +482,10 @@
                   </UniformGrid>
                 </StackPanel>
               </Border>
+
               <Expander Header="More preferences" Style="{StaticResource TcQuietExpander}" Margin="0,16,0,0">
                 <StackPanel Margin="0,10,0,0">
-                  <Border Style="{StaticResource TcSettingsRow}">
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition Width="260" />
-                      </Grid.ColumnDefinitions>
-                      <StackPanel>
-                        <TextBlock Text="App icon opens" FontWeight="SemiBold" />
-                        <TextBlock Text="The tray icon always opens Compact." Style="{StaticResource TcText.Caption}" />
-                      </StackPanel>
-                      <Grid Grid.Column="1">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition />
-                          <ColumnDefinition />
-                        </Grid.ColumnDefinitions>
-                        <RadioButton x:Name="SettingsOpeningCompact" GroupName="DefaultOpeningView" Content="Compact" Tag="Compact" Click="OpeningView_Click" Style="{StaticResource TcSegment}" Margin="0,0,4,0" />
-                        <RadioButton x:Name="SettingsOpeningAdvanced" Grid.Column="1" GroupName="DefaultOpeningView" Content="Advanced" Tag="Advanced" Click="OpeningView_Click" Style="{StaticResource TcSegment}" Margin="4,0,0,0" />
-                      </Grid>
-                    </Grid>
-                  </Border>
+
                   <Border Style="{StaticResource TcSettingsRow}">
                     <Grid>
                       <Grid.ColumnDefinitions>

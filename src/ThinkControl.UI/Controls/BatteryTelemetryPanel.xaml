@@ -1,9 +1,6 @@
 <UserControl x:Class="ThinkControl.UI.Controls.BatteryTelemetryPanel" xmlns:ui="clr-namespace:ThinkControl.UI" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:d="http://schemas.microsoft.com/expression/blend/2008" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:controls="clr-namespace:ThinkControl.UI.Controls" xmlns:viewModels="clr-namespace:ThinkControl.UI.ViewModels" mc:Ignorable="d" d:DataContext="{d:DesignInstance Type=viewModels:AppState, IsDesignTimeCreatable=True}" d:DesignWidth="860" MinWidth="520" Loaded="BatteryTelemetryPanel_Loaded" Unloaded="BatteryTelemetryPanel_Unloaded">
   <StackPanel>
-    <Grid Margin="0,0,0,12">
-      <TextBlock Text="CURRENT BATTERY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" VerticalAlignment="Center" />
-      <Button Content="Details" Style="{StaticResource TcButton}" HorizontalAlignment="Right" Click="BatteryDetails_Click" />
-    </Grid>
+    <TextBlock Text="CURRENT BATTERY" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,0,0,12" />
     <Grid MinHeight="80">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="1.63*" />
@@ -200,7 +197,8 @@
         </Grid>
       </StackPanel>
     </Border>
-    <Expander x:Name="BatteryDetails" Header="Battery details" Style="{StaticResource TcQuietExpander}" Margin="0,16,0,0">
+    <StackPanel x:Name="BatteryDetails" Margin="0,16,0,0">
+      <TextBlock Text="Battery details" Style="{StaticResource TcText.SectionTitle}" />
       <Border Style="{StaticResource TcSection}" Margin="0,12,0,0">
         <StackPanel>
           <Grid>
@@ -220,18 +218,19 @@
           </Grid>
         </StackPanel>
       </Border>
-    </Expander>
-    <Expander x:Name="BatterySessions" Header="Recorded sessions" Style="{StaticResource TcQuietExpander}" Margin="0,16,0,0">
+    </StackPanel>
+    <StackPanel x:Name="BatterySessions" Margin="0,16,0,0">
+      <TextBlock Text="Recorded sessions" Style="{StaticResource TcText.SectionTitle}" />
       <Border Style="{StaticResource TcSection}" Margin="0,12,0,0">
         <StackPanel>
           <StackPanel>
-            <TextBlock Text="Battery history" FontWeight="SemiBold" />
             <TextBlock Text="Open a day, then select a session to see its measurements and graphs." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,3,0,0" TextWrapping="Wrap" />
           </StackPanel>
           <StackPanel x:Name="RecentSessionItems" Margin="0,10,0,0" />
           <Button x:Name="HistoryRangeButton" Content="Show older" Style="{StaticResource TcExternalSettingsLink}" HorizontalAlignment="Left" Margin="-7,4,0,0" Visibility="Collapsed" Click="HistoryRange_Click" />
-          <Expander Header="Manage history" Margin="0,9,0,0">
-            <StackPanel Margin="2,4,2,2">
+          <Button x:Name="ManageHistoryButton" Content="History settings" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Margin="0,9,0,0" Click="ManageHistory_Click" />
+          <Border x:Name="HistorySettings" Visibility="Collapsed" BorderBrush="{DynamicResource Tc.Border}" BorderThickness="0,1,0,0" Margin="0,8,0,0">
+            <StackPanel Margin="0,12,0,0">
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*" />
@@ -257,10 +256,10 @@
                 <Button Content="Reset all history…" Style="{StaticResource TcButton}" HorizontalAlignment="Right" VerticalAlignment="Center" Click="ResetHistory_Click" />
               </Grid>
             </StackPanel>
-          </Expander>
+          </Border>
         </StackPanel>
       </Border>
-    </Expander>
+    </StackPanel>
     <Grid Margin="2,10,2,0">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" />

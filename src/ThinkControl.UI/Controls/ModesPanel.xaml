@@ -15,6 +15,13 @@
         <controls:ContextTabs x:Name="SurfaceTabs" Section="Modes" SelectedPage="Modes" />
 
         <StackPanel x:Name="ListView">
+            <Border Style="{StaticResource TcSection}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock x:Name="CurrentModeTitle" Style="{StaticResource TcText.SectionTitle}" TextWrapping="Wrap" />
+                    <TextBlock x:Name="CurrentModeDetail" Style="{StaticResource TcText.Secondary}" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <Button x:Name="ManualOverrideResumeButton" Content="Resume automation" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Click="ResumeAutomation_Click" Visibility="Collapsed" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
             <Border x:Name="ModeListSection" Style="{StaticResource TcSection}" Padding="0">
                 <StackPanel>
                     <Grid Margin="14,12,12,10">
@@ -44,11 +51,6 @@
                               MinHeight="38"
                               Margin="14,0,14,10"
                               SelectionChanged="ModeSelector_SelectionChanged" />
-                    <Grid Margin="14,0,14,12">
-                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                        <TextBlock x:Name="ModeOwnershipText" Style="{StaticResource TcText.Secondary}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
-                        <Button x:Name="ManualOverrideResumeButton" Grid.Column="1" Content="Resume automation" Style="{StaticResource TcInlineButton}" Click="ResumeAutomation_Click" Visibility="Collapsed" />
-                    </Grid>
                     <StackPanel x:Name="ModeRows" />
 
                     <TextBlock x:Name="EmptyModesText"
@@ -77,8 +79,6 @@
                                TextWrapping="Wrap" Margin="0,6,0,0" />
                     <TextBlock x:Name="AutomationStatusText" Foreground="{DynamicResource Tc.TextMuted}"
                                TextWrapping="Wrap" Margin="0,8,0,10" />
-                    <Button x:Name="ResumeAutomationButton" Content="Resume automation" Style="{StaticResource TcInlineButton}"
-                            HorizontalAlignment="Left" Click="ResumeAutomation_Click" Visibility="Collapsed" />
                     <StackPanel x:Name="RuleRows" />
                 </StackPanel>
             </Border>

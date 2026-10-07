@@ -108,25 +108,13 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = active;
-            HomeModeModifiedText.Text = _app.Modes.IsTransitioning
-                ? "Applying…"
-                : _app.Modes.LastTransitionError is not null
-                    ? "Could not apply. Open Modes for details."
-                : _app.Modes.IsModified
-                    ? "Modified"
-                    : _app.ModeAutomation.Paused
-                        ? "Manual selection: automation paused"
-                        : "Selected by automation";
+            var presentation = ModeStatusPresentation.From(_app);
+            HomeModeTitle.Text = presentation.Title;
+            HomeModeModifiedText.Text = presentation.Detail;
             HomeModeModifiedText.ToolTip = _app.Modes.LastTransitionError;
             HomeModeModifiedText.SetResourceReference(TextBlock.ForegroundProperty,
-                _app.Modes.LastTransitionError is null ? "Tc.TextMuted" : "Tc.Error");
-            HomeModeModifiedText.Visibility =
-                _app.Modes.IsTransitioning ||
-                _app.Modes.LastTransitionError is not null ||
-                _app.Modes.IsModified ||
-                _app.Modes.ActiveModeAutomatic || _app.ModeAutomation.Paused
-                    ? Visibility.Visible
-                    : Visibility.Collapsed;
+                presentation.Failed ? "Tc.Error" : "Tc.TextMuted");
+            HomeModeModifiedText.Visibility = Visibility.Visible;
         }
         finally
         {
@@ -146,7 +134,9 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = mode;
-            HomeModeModifiedText.Visibility = modified ? Visibility.Visible : Visibility.Collapsed;
+            HomeModeTitle.Text = mode.Id == ThinkControlModeCatalog.NormalId ? "Regular settings" : $"Active mode: {mode.Name}";
+            HomeModeModifiedText.Text = modified ? "Settings changed since this mode was applied. Selected manually." : "Selected manually.";
+            HomeModeModifiedText.Visibility = Visibility.Visible;
         }
         finally
         {

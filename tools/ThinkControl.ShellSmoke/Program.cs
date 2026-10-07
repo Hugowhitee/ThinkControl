@@ -46,6 +46,7 @@ internal static partial class Program
                 try
                 {
                     await ValidateFanSupervisorRecovery();
+                    ValidateCurveInspection(app);
                     await ValidateAutomationTransitions(app);
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();
@@ -232,6 +233,7 @@ internal static partial class Program
             await At(6, "School");
             Require(app.Modes.ActiveModeAutomatic && app.GetEffectiveTouchpadGesturesEnabled(), "school entry did not apply");
             Require(engine.Status.Contains("School network") && engine.RestoreTarget == "Manual", "winner/restoration explanation missing");
+            Require(engine.ActiveRuleId == wifi.Id && ModeStatusPresentation.From(app).Detail.Contains("School network"), "active rule was not identified in the shared mode presentation");
             await At(7, null);
             await At(9, "School");
             await At(15, "School");
@@ -244,6 +246,7 @@ internal static partial class Program
             Require(await app.Modes.ActivateAsync(manual.Id), "manual selection during dwell failed");
             await At(36, "School");
             Require(engine.Paused && !app.Modes.ActiveModeAutomatic, "pending context overwrote a manual selection");
+            Require(engine.ActiveRuleId is null && ModeStatusPresentation.From(app).Detail.Contains("paused"), "manual override still appeared as an active automatic rule");
             await At(42, "Home"); await At(48, "Home");
             await At(54, "School"); await At(60, "School");
             app.TouchpadFeature.UpdateConfiguration(app.TouchpadFeature.Configuration with { Enabled = false }, releaseGestureModeOwnership: true);
@@ -773,6 +776,7 @@ internal static partial class Program
 
         AdvancedWindow window = app.AdvancedWindowForShellSmoke
             ?? throw new InvalidOperationException("Page smoke: Advanced window was not available.");
+        ValidateHistoryManagement(app, window);
 
         double oldWidth = window.Width, oldHeight = window.Height;
         window.Width = window.MinWidth;

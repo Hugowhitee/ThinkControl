@@ -99,6 +99,14 @@
                               DropDownOpened="ProfileComboBox_DropDownOpened" />
                 </Grid>
 
+                    <Button x:Name="EditCurvesButton"
+                            HorizontalAlignment="Left"
+                            Content="Edit curves"
+                            Style="{StaticResource TcButton}"
+                            Padding="11,6"
+                            Margin="0,10,0,0"
+                            Click="EditCurves_Click"
+                            Visibility="Collapsed" />
                 <StackPanel x:Name="ActiveCurvePreview" Margin="0,12,0,0" Visibility="Collapsed">
                     <Grid Margin="0,0,0,5">
                         <TextBlock Text="Active curve" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -181,14 +189,7 @@
                                TextTrimming="CharacterEllipsis">
                         <Run Text="{Binding CoolingAvailabilityText, Mode=OneWay}" />
                     </TextBlock>
-                    <Button x:Name="EditCurvesButton"
-                            Grid.Column="1"
-                            Content="Edit curves"
-                            Style="{StaticResource TcButton}"
-                            Padding="11,6"
-                            Margin="12,0,0,0"
-                            Click="EditCurves_Click"
-                            Visibility="Collapsed" />
+
                 </Grid>
             </Border>
         </Expander>

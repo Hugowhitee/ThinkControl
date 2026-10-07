@@ -1,5 +1,13 @@
 # ThinkControl release-readiness roadmap
 
+## Alpha.65 candidate — control discoverability
+
+Curve inspection shows temperature and interpolated target in read-only previews and the editor without editing. Edit curves is directly in Cooling, preserving capability/calibration gates. Overview's existing mode selector moves above quick controls. Overview, Saved modes and Automation share the actual active mode and its manual/rule source, transition, modification or failure. Rules distinguish the applied rule from matching candidates during dwell/manual pause; active-rule changes notify even when wording stays equal. Resume has one location per surface.
+
+Battery details and Recorded sessions are visible sections; day/session disclosure remains. History settings is a separate secondary action, reveals existing retention/reset and brings it into view. Reopening Battery closes management. The app-icon Compact/Advanced preference sits with Theme in General preferences; the tray shortcut remains Compact.
+
+Validation: Release build, 315 Core tests and WPF dispatcher smoke passed before final freeze. New smoke covers read-only curve hit-testing/interpolation/no edit and shared active-rule/manual-pause presentation. Current-run dark/light minimum/normal/wide renders cover Overview, Modes, Automation, Cooling, Battery, Settings and expanded history. Live isolated WPF inspection reached Overview, Modes, Automation, Battery, sessions and history settings; it exposed an off-screen management panel, corrected by bringing it into view. Physical Escape interrupted final native fan-hover acceptance; no further computer input was issued. **UNVERIFIED:** final manual pointer hover, installed alpha.65 acceptance, actual DPI/text scaling and live Figma reconciliation. Fixtures establish layout, not physical fan output or SolidWorks reliability. Final-head CI/package/publication remains pending until observed.
+
 ## Published alpha.64 — October 7, 2026
 
 Owner feedback on installed alpha.63: Modes cannot apply under High performance; profiles sometimes fall back, possibly under SolidWorks load; recorded sessions clip and precede awkward details. Live service observation showed Quiet/EC state 4 at approximately 55°C with no safety override, so heat alone is not established as the cause of the intermittent failure.

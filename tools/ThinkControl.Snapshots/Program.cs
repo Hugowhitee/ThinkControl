@@ -91,6 +91,12 @@ internal static class Program
             var native = new AdvancedWindow(app) { DataContext = app.State, Title = "ThinkControl — visual QA", Width = 1200, Height = 814 };
             native.PrepareEnhancedUiForSnapshot();
             if (args.Contains("--battery", StringComparer.Ordinal)) native.Navigate("Battery");
+            if (args.Contains("--fans", StringComparer.Ordinal))
+            {
+                native.Navigate("Fans");
+                if (native.FindName("FansPanelControl") is FansPanel panel)
+                    panel.PrepareActiveFanCurveForSnapshot();
+            }
             native.PreviewKeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Escape) native.ForceClose(); };
             native.Closed += (_, _) => System.Windows.Threading.Dispatcher.CurrentDispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background);
             native.Show();
@@ -152,6 +158,22 @@ internal static class Program
                     RenderAdvanced(app, CreateDemoState(true, true), "Battery", width, height,
                         output, snapshots, $"BatteryCycles-{theme}-{width}.png", "Firmware cycle history", batteryCycles: true);
                 }
+            }
+            WriteManifest(output, snapshots);
+            WriteGallery(output, snapshots);
+            return 0;
+        }
+
+        if (args.Contains("--discoverability", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+                    foreach (string page in new[] { "Home", "Modes", "Automation", "Fans", "Battery", "Settings" })
+                        RenderAdvanced(app, CreateDemoState(true, true), page, width, height,
+                            output, snapshots, $"{page}-{theme}-{width}.png", "Control discoverability",
+                            fanActiveCurve: page == "Fans", modeList: page is "Modes" or "Automation");
             }
             WriteManifest(output, snapshots);
             WriteGallery(output, snapshots);
@@ -678,7 +700,7 @@ internal static class Program
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
         window.PrepareEnhancedUiForSnapshot();
-        if (fanRecoveryResult && window.FindName("PageFans") is System.Windows.Controls.ScrollViewer { Content: FansPanel recoveryPanel })
+        if (fanRecoveryResult && window.FindName("FansPanelControl") is FansPanel recoveryPanel)
             typeof(FansPanel).GetMethod("ConfirmAutoRecovery", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .Invoke(recoveryPanel, []);
         if (deviceLearning)
@@ -735,23 +757,18 @@ internal static class Program
 
         if (fanActiveCurve &&
             string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&
-            window.FindName("PageFans") is System.Windows.Controls.ScrollViewer
-            {
-                Content: FansPanel activeCurvePanel
-            })
+            window.FindName("FansPanelControl") is FansPanel activeCurvePanel)
         {
             activeCurvePanel.PrepareActiveFanCurveForSnapshot();
         }
 
-        if (fanMeasuredCurve && window.FindName("PageFans") is System.Windows.Controls.ScrollViewer { Content: FansPanel measuredPanel })
+        if (fanMeasuredCurve && window.FindName("FansPanelControl") is FansPanel measuredPanel)
             measuredPanel.PrepareMeasuredCurveForSnapshot();
 
         if (fanManualTest &&
             string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&
-            window.FindName("PageFans") is System.Windows.Controls.ScrollViewer
-            {
-                Content: FansPanel fansPanel
-            } fanScroll)
+            window.FindName("FansPanelControl") is FansPanel fansPanel &&
+            window.FindName("PagePerformance") is System.Windows.Controls.ScrollViewer fanScroll)
         {
             fansPanel.PrepareManualFanTestForSnapshot();
             if (window.Content is FrameworkElement fanRoot)
