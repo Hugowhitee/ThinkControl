@@ -13,7 +13,12 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
 {
     private static readonly TimeSpan WatchWindow = TimeSpan.FromMilliseconds(700);
     private static readonly TimeSpan ProcessCacheLifetime = TimeSpan.FromSeconds(30);
-    private static readonly TimeSpan WatchInterval = TimeSpan.FromMilliseconds(4);
+    private static readonly TimeSpan WatchInterval = TimeSpan.FromMilliseconds(16);
+    private readonly Func<int?> _resolvePid;
+    private readonly Func<int, IReadOnlyList<IntPtr>> _visibleWindows;
+    private readonly Action<IntPtr, bool> _setVisible;
+    private readonly Func<IntPtr, int, bool> _stillOwned;
+    private readonly TimeSpan _watchWindow;
 
     private readonly object _gate = new();
     private CancellationTokenSource? _watchCts;
@@ -26,12 +31,29 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
     private DateTimeOffset _deadline = DateTimeOffset.MinValue;
     private bool _disposed;
 
+    internal LenovoKeyboardOsdSuppressor(Func<int?>? resolvePid = null,
+        Func<int, IReadOnlyList<IntPtr>>? visibleWindows = null,
+        Action<IntPtr, bool>? setVisible = null, Func<IntPtr, int, bool>? stillOwned = null,
+        TimeSpan? watchWindow = null)
+    {
+        _resolvePid = resolvePid ?? ResolveTposdPid;
+        _visibleWindows = visibleWindows ?? EnumerateVisibleWindows;
+        _setVisible = setVisible ?? ((hwnd, visible) => ShowWindow(hwnd, visible ? SwShowNoActivate : SwHide));
+        _stillOwned = stillOwned ?? ((hwnd, pid) =>
+        {
+            if (!IsWindow(hwnd)) return false;
+            _ = GetWindowThreadProcessId(hwnd, out uint actualPid);
+            return actualPid == (uint)pid;
+        });
+        _watchWindow = watchWindow ?? WatchWindow;
+    }
+
     internal void Arm()
     {
         if (_disposed)
             return;
 
-        int? pid = ResolveTposdPid();
+        int? pid = _resolvePid();
         if (pid is null)
             return;
 
@@ -42,9 +64,11 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
 
             bool running = _watchTask is { IsCompleted: false };
             if (!running)
-                _baseline = EnumerateVisibleWindows(pid.Value).ToHashSet();
+                _baseline = _visibleWindows(pid.Value).ToHashSet();
 
-            _deadline = DateTimeOffset.UtcNow + WatchWindow;
+            _tposdPid = pid;
+
+            _deadline = DateTimeOffset.UtcNow + _watchWindow;
             if (running)
                 return;
 
@@ -71,9 +95,18 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
                 }
 
                 if (DateTimeOffset.UtcNow >= deadline)
+                {
+                    // Expiring a burst must release visibility even while Reactive
+                    // remains selected. Previously hidden HWNDs lived until mode exit.
+                    lock (_gate)
+                    {
+                        if (generation == _generation && DateTimeOffset.UtcNow >= _deadline)
+                            Disarm();
+                    }
                     return;
+                }
 
-                foreach (IntPtr hwnd in EnumerateVisibleWindows(pid))
+                foreach (IntPtr hwnd in _visibleWindows(pid))
                 {
                     if (baseline.Contains(hwnd))
                         continue;
@@ -81,7 +114,7 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
                     {
                         if (_disposed || token.IsCancellationRequested || generation != _generation)
                             return;
-                        _ = ShowWindow(hwnd, SwHide);
+                        _setVisible(hwnd, false);
                         _hidden.Add(hwnd);
                     }
                 }
@@ -203,12 +236,7 @@ internal sealed class LenovoKeyboardOsdSuppressor : IDisposable
         {
             foreach (IntPtr hwnd in hidden)
             {
-                if (IsWindow(hwnd))
-                {
-                    _ = GetWindowThreadProcessId(hwnd, out uint actualPid);
-                    if (actualPid == (uint)expectedPid)
-                        _ = ShowWindow(hwnd, SwShowNoActivate);
-                }
+                if (_stillOwned(hwnd, expectedPid)) _setVisible(hwnd, true);
             }
         }
         cts?.Dispose();

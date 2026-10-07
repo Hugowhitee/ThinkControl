@@ -4,6 +4,16 @@ ThinkControl is a compact Windows hardware utility. The interface should feel li
 
 ## Visual language
 
+### Selected redesign and migration boundary
+
+The approved whole-application visual target is [ThinkControl — Full UI Redesign · Concept 01](https://www.figma.com/design/U3tJrxFyixV1ubC7ZTlSGM). `UI-DESIGN-HANDOFF.md` owns its canonical frame/component IDs and interaction requirements. **IBM Plex Sans Regular/SemiBold and Microsoft Fluent System Icons** supersede the following Segoe/Material presentation rules for the redesign. These are intentional choices, not unavailable-font fallbacks.
+
+The installed alpha.61 and pre-migration WPF still use Segoe UI/Material Symbols. Preserve those as the existing runtime baseline until replacing the shared resources and semantic icon adapter coherently. Do not select fonts/icons independently per page or retain a permanent mixed system. Package the used IBM Plex assets and their license; use the exact approved Fluent geometry through one local semantic icon owner. Keep the ThinkControl wordmark and purposeful product-specific glyphs. Product behavior, provider boundaries and session ownership remain authoritative in PRODUCT/ARCHITECTURE/COOLING-DESIGN.
+
+Figma reference is 1200×780 Advanced with a 222 px navigation rail, x29 content inset, an 85 px shared header at y24 and separator at y108. Minimum runtime remains 980×650; narrower layouts reflow without scaling the whole canvas. Shared typography roles: Title27/37, Heading19/26, Section17/24, Body14/19, Body-small and Control-small13/18, Caption12/16, Micro11/15, Metric25/34. These are logical units before Windows DPI/text scaling. Dark/Light semantic tokens, same-role controls, focus and disabled presentation must come from shared resources. Filled actions use the contrast-safe Action token; Accent remains selection/brand emphasis.
+
+### Existing runtime baseline
+
 Use:
 
 - Segoe UI with normal Windows text rendering;
@@ -116,7 +126,7 @@ Use the shared `TypographyScale`/text styles. Large numeric telemetry may use a 
 
 ## Icons
 
-`PackIconLucide` is a historical type name; its production language is the curated local Material Symbols geometry plus a few ThinkControl-specific glyphs such as Compact/Advanced and touchpad/battery shapes.
+`PackIconLucide` is a compatibility type name. The active redesign uses packaged Microsoft Fluent System Icons through one semantic SVG adapter. The installed alpha.61 baseline uses Material Symbols; those resources are superseded in the redesign. Physical touchpad geometry and battery drawings remain native, driven by their existing owners.
 
 Icons support recognition and navigation, not decoration. Text-first segmented choices such as Efficiency / Balanced / Performance or Auto / 60 Hz / Max do not need individual icons.
 

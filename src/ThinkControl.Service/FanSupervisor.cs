@@ -27,9 +27,9 @@ internal sealed class FanSupervisor : IDisposable
     private static readonly TimeSpan MinimumUpshiftDwell = TimeSpan.FromSeconds(6);
     private static readonly TimeSpan MinimumDownshiftDwell = TimeSpan.FromSeconds(14);
     private static readonly TimeSpan SyncWriteTimeout = TimeSpan.FromSeconds(3);
-    private static readonly TimeSpan CalibrationSettleDelay = TimeSpan.FromSeconds(4);
-    private static readonly TimeSpan CalibrationSampleSpacing = TimeSpan.FromMilliseconds(2400);
-    private const int CalibrationSampleCount = 3;
+    private static readonly TimeSpan CalibrationSettleDelay = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan CalibrationSampleSpacing = TimeSpan.FromMilliseconds(6200);
+    private const int CalibrationSampleCount = 5;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     private readonly LenovoHardwareController _hardware;
@@ -115,7 +115,7 @@ internal sealed class FanSupervisor : IDisposable
                     _characterizationRunning,
                     _characterizationLevel,
                     visibleCalibration.Length,
-                    7,
+                    _hardware.FanCalibrationStates.Count,
                     _characterizationStatus,
                     _audibleFromLevel,
                     visibleCalibration));
@@ -156,6 +156,11 @@ internal sealed class FanSupervisor : IDisposable
             return false;
         if (!CanEnterManagedCooling(out LenovoHardwareStatus? status, out error) || status is null)
             return false;
+        if (status.FanControlKind == LenovoFanControlKind.ThinkPadEcDiscrete && !HasCompleteCalibration())
+        {
+            error = "Measure the supported fan speeds before applying a custom curve.";
+            return false;
+        }
 
         string id = definition.Id.Trim();
         string name = definition.Name.Trim();
@@ -236,9 +241,9 @@ internal sealed class FanSupervisor : IDisposable
     internal bool SetManualLevel(int level, out string? error)
     {
         error = null;
-        if (level is < 1 or > 7)
+        if (!_hardware.FanCalibrationStates.Contains(level))
         {
-            error = "Manual EC step must be between 1 and 7.";
+            error = "This fan speed is not supported by the current provider.";
             return false;
         }
         if (!CanEnterManagedCooling(out LenovoHardwareStatus? preflight, out error) || preflight is null)
@@ -295,6 +300,11 @@ internal sealed class FanSupervisor : IDisposable
         }
         else
         {
+            if (!HasCompleteCalibration())
+            {
+                error = "Measure the supported fan speeds before setting a percentage.";
+                return false;
+            }
             FanOutputMapping.State output = ResolveOutputState(percent);
             if (!ApplyOutputStateSerialized(output, out hardwareDetail, out error))
                 return false;
@@ -403,11 +413,11 @@ internal sealed class FanSupervisor : IDisposable
             _safetyOverride = false;
             ClearPendingTransitionLocked();
             _characterizationRunning = true;
-            _characterizationLevel = 7;
+            _characterizationLevel = _hardware.FanCalibrationStates[^1];
             _characterizationCandidate.Clear();
-            _characterizationStatus = _calibration.Count == 7
-                ? "Measuring fan states. Existing calibration stays active until all 7 states are verified."
-                : "Measuring all 7 fan states.";
+            _characterizationStatus = HasCompleteCalibration()
+                ? "Measuring fan speeds. Previous calibration is retained until this measurement succeeds."
+                : "Measuring the supported fan speeds.";
             CancellationToken token = _characterizationCts.Token;
             _characterizationTask = Task.Run(() => CharacterizeAsync(token), token);
         }
@@ -420,14 +430,14 @@ internal sealed class FanSupervisor : IDisposable
         error = null;
         lock (_gate)
         {
-            if (!_characterizationRunning || !_characterizationLevel.HasValue || _characterizationLevel.Value is < 1 or > 7)
+            if (!_characterizationRunning || !_characterizationLevel.HasValue || !_hardware.FanCalibrationStates.Contains(_characterizationLevel.Value))
             {
                 error = "Start fan calibration first, then mark the first state you clearly hear.";
                 return false;
             }
 
             _audibleFromLevel = _characterizationLevel.Value;
-            _characterizationStatus = _characterizationLevel.Value == 7
+            _characterizationStatus = _characterizationLevel.Value == _hardware.FanCalibrationStates[^1]
                 ? "Verified EC maximum marked as clearly audible"
                 : $"EC step {_characterizationLevel.Value} marked as clearly audible";
         }
@@ -441,9 +451,8 @@ internal sealed class FanSupervisor : IDisposable
         lock (_gate)
         {
             cts = _characterizationCts;
-            _characterizationRunning = false;
             _characterizationLevel = null;
-            _characterizationStatus = _calibration.Count == 7
+            _characterizationStatus = HasCompleteCalibration()
                 ? "Calibration stopped. Previous calibration retained; returning to Auto."
                 : "Calibration stopped. No partial results saved; returning to Auto.";
         }
@@ -475,11 +484,18 @@ internal sealed class FanSupervisor : IDisposable
     {
         while (!token.IsCancellationRequested)
         {
-            _hardware.CheckFullSpeedSession();
+            if (_hardware.CheckFullSpeedSession())
+            {
+                // Clear the curve so its next tick cannot reacquire expired/lost ownership.
+                bool measuring;
+                lock (_gate) measuring = _characterizationRunning;
+                if (measuring) StopCharacterization(out _);
+                else ReturnToAuto(out _);
+            }
             bool active;
             lock (_gate)
                 active = _activeCurve is not null || _manualLevel.HasValue || _manualPercent.HasValue || _characterizationRunning;
-            active |= _hardware.OwnsExactFullSpeed;
+            active |= _hardware.OwnsManagedFan;
 
             if (!active)
             {
@@ -529,7 +545,7 @@ internal sealed class FanSupervisor : IDisposable
         LenovoHardwareStatus status = _hardware.ReadStatus();
         if (!status.CanFanControl || status.FanControlKind == LenovoFanControlKind.None || !status.ControlTemperatureC.HasValue)
         {
-            await SafeAutoHandoffAsync("Sensor or verified fan-control provider became unavailable", token, preserveCurve: curve is not null).ConfigureAwait(false);
+            await SafeAutoHandoffAsync("Sensor or verified fan-control provider became unavailable", token).ConfigureAwait(false);
             return;
         }
 
@@ -538,7 +554,7 @@ internal sealed class FanSupervisor : IDisposable
             await SafeAutoHandoffAsync(
                 $"Fan provider changed from {managedKind} to {status.FanControlKind}",
                 token,
-                preserveCurve: curve is not null).ConfigureAwait(false);
+                preserveCurve: false).ConfigureAwait(false);
             return;
         }
 
@@ -659,7 +675,7 @@ internal sealed class FanSupervisor : IDisposable
 
         if (!writeSuccess)
         {
-            await SafeAutoHandoffAsync(writeError ?? "Lenovo OEM fan target write failed", token, preserveCurve: true).ConfigureAwait(false);
+            await SafeAutoHandoffAsync(writeError ?? "Lenovo OEM fan target write failed", token).ConfigureAwait(false);
             return;
         }
 
@@ -717,7 +733,7 @@ internal sealed class FanSupervisor : IDisposable
 
         if (!writeSuccess)
         {
-            await SafeAutoHandoffAsync(writeError ?? "Fan output write failed", token, preserveCurve: true).ConfigureAwait(false);
+            await SafeAutoHandoffAsync(writeError ?? "Fan output write failed", token).ConfigureAwait(false);
             return;
         }
 
@@ -841,12 +857,13 @@ internal sealed class FanSupervisor : IDisposable
     {
         try
         {
-            if (!await SetHardwareLevelSerializedAsync(7, token).ConfigureAwait(false))
-                throw new InvalidOperationException("EC step 7 safety spin-up could not be verified.");
+            int[] states = _hardware.FanCalibrationStates.ToArray();
+            if (!await SetHardwareLevelSerializedAsync(states[^1], token).ConfigureAwait(false))
+                throw new InvalidOperationException("Maximum fan speed could not be verified.");
             await Task.Delay(TimeSpan.FromSeconds(3), token).ConfigureAwait(false);
             _ = ReadCalibrationSampleOrThrow();
 
-            for (int state = 1; state <= 7; state++)
+            foreach (int state in states)
             {
                 token.ThrowIfCancellationRequested();
                 lock (_gate)
@@ -854,7 +871,7 @@ internal sealed class FanSupervisor : IDisposable
                     if (!_characterizationRunning)
                         return;
                     _characterizationLevel = state;
-                    _characterizationStatus = $"Measuring EC state {state} of 7: waiting for a stable speed";
+                    _characterizationStatus = $"Measuring fan speed {_characterizationCandidate.Count + 1} of {states.Length}";
                 }
 
                 _ = ReadCalibrationSampleOrThrow();
@@ -880,10 +897,10 @@ internal sealed class FanSupervisor : IDisposable
                 {
                     _characterizationCandidate.RemoveAll(existing => existing.Level == state);
                     _characterizationCandidate.Add(point);
-                    string label = $"EC step {state}";
+                    string label = state == states[^1] ? "Max" : $"Speed {_characterizationCandidate.Count}";
                     _characterizationStatus = point.Stable
-                        ? $"{label}: stable. {_characterizationCandidate.Count} of 7 states measured."
-                        : $"{label}: speed varies. {_characterizationCandidate.Count} of 7 states measured; checking continues.";
+                        ? $"{label}: measured. {_characterizationCandidate.Count} of {states.Length} speeds checked."
+                        : $"{label}: speed varies. {_characterizationCandidate.Count} of {states.Length} speeds checked.";
                 }
             }
 
@@ -900,7 +917,7 @@ internal sealed class FanSupervisor : IDisposable
                 foreach (FanLevelCalibrationSnapshot level in candidate.Where(level => !level.Stable))
                     _unstableLevels.Add(level.Level);
                 _characterizationStatus = _unstableLevels.Count == 0
-                    ? "Calibration verified. Three speed readings per state; mapping updated."
+                    ? "Measurement complete. Five readings per speed; curve mapping updated."
                     : $"Calibration verified. {_unstableLevels.Count} variable states recorded; higher states are used when needed.";
             }
             SaveCalibration();
@@ -911,7 +928,7 @@ internal sealed class FanSupervisor : IDisposable
             {
                 if (!_characterizationStatus.StartsWith("Calibration stopped", StringComparison.Ordinal))
                 {
-                    _characterizationStatus = _calibration.Count == 7
+                    _characterizationStatus = HasCompleteCalibration()
                         ? "Calibration cancelled. Previous calibration retained."
                         : "Calibration cancelled. No partial results saved.";
                 }
@@ -921,7 +938,7 @@ internal sealed class FanSupervisor : IDisposable
         {
             lock (_gate)
             {
-                string preserved = _calibration.Count == 7
+                string preserved = HasCompleteCalibration()
                     ? ". Previous calibration retained."
                     : ". No partial results saved.";
                 _characterizationStatus = $"Calibration stopped: {ex.Message}{preserved}";
@@ -954,7 +971,7 @@ internal sealed class FanSupervisor : IDisposable
         LenovoHardwareStatus sample = _hardware.ReadStatus();
         if (!sample.CanFanControl || sample.FanControlKind != LenovoFanControlKind.ThinkPadEcDiscrete || !sample.ControlTemperatureC.HasValue)
             throw new InvalidOperationException("Verified X9 discrete EC control or temperature telemetry disappeared during calibration.");
-        if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(sample.ControlTemperatureC.Value))
+        if (sample.ControlTemperatureC.Value >= 85)
             throw new InvalidOperationException($"Temperature reached {sample.ControlTemperatureC.Value:0.#} °C; Lenovo firmware takes cooling ownership.");
         if (!sample.CanFanTelemetry || sample.Fans.Count == 0)
             throw new InvalidOperationException("Fan tachometer telemetry disappeared during calibration.");
@@ -964,12 +981,12 @@ internal sealed class FanSupervisor : IDisposable
     private FanOutputMapping.State ResolveOutputState(int targetPercent)
     {
         Dictionary<int, int> rpm = CalibrationRpmByState();
-        IReadOnlyList<FanOutputMapping.State> states = FanOutputMapping.BuildStates(rpm);
+        IReadOnlyList<FanOutputMapping.State> states = FanOutputMapping.BuildStates(rpm, _hardware.FanCalibrationStates);
         FanOutputMapping.State selected = states.First(state => state.EstimatedPercent >= Math.Clamp(targetPercent, 0, 100));
 
         HashSet<int> unstable;
         lock (_gate) unstable = new HashSet<int>(_unstableLevels);
-        int index = selected.HardwareState - 1;
+        int index = states.ToList().FindIndex(state => state.HardwareState == selected.HardwareState);
         while (index < states.Count - 1 && unstable.Contains(states[index].HardwareState))
             index++;
         return states[index];
@@ -977,7 +994,8 @@ internal sealed class FanSupervisor : IDisposable
 
     private int EstimatePercentForState(int state)
     {
-        IReadOnlyList<FanOutputMapping.State> states = FanOutputMapping.BuildStates(CalibrationRpmByState());
+        if (!HasCompleteCalibration()) return 0;
+        IReadOnlyList<FanOutputMapping.State> states = FanOutputMapping.BuildStates(CalibrationRpmByState(), _hardware.FanCalibrationStates);
         return states.FirstOrDefault(item => item.HardwareState == state)?.EstimatedPercent ?? 0;
     }
 
@@ -1093,7 +1111,9 @@ internal sealed class FanSupervisor : IDisposable
 
             int median = rpms[rpms.Length / 2];
             int spread = rpms[^1] - rpms[0];
-            bool stable = rpms.Length >= CalibrationSampleCount && spread <= Math.Max(220, median * 0.10);
+            // Bounded RPM variation is usable for stepped cooling; it is not an
+            // acoustic claim. Grossly variable states are skipped by the mapper.
+            bool stable = rpms.Length >= CalibrationSampleCount && spread <= Math.Max(250, median * 0.18);
             fans.Add(new FanCalibrationFanSnapshot(id, readings[0].Label, median, spread, stable));
         }
 
@@ -1101,52 +1121,16 @@ internal sealed class FanSupervisor : IDisposable
         return new FanLevelCalibrationSnapshot(level, fans, pointStable);
     }
 
-    private static bool TryValidateCalibration(
+    private bool HasCompleteCalibration()
+    {
+        lock (_gate)
+            return TryValidateCalibration(_calibration, out _) && _calibration[^1].Stable;
+    }
+
+    private bool TryValidateCalibration(
         IReadOnlyList<FanLevelCalibrationSnapshot>? levels,
         out string? error)
-    {
-        error = null;
-        if (levels is null || levels.Count != 7)
-        {
-            error = "A reliable calibration requires all seven EC states; incomplete results were discarded.";
-            return false;
-        }
-
-        FanLevelCalibrationSnapshot[] ordered = levels.OrderBy(level => level.Level).ToArray();
-        for (int index = 0; index < ordered.Length; index++)
-        {
-            if (ordered[index].Level != index + 1 || ordered[index].Fans.Count == 0)
-            {
-                error = "Calibration is missing a verified tachometer response for one or more EC states.";
-                return false;
-            }
-
-            if (ordered[index].Fans.Any(fan => fan.MedianRpm <= 0))
-            {
-                error = $"EC step {ordered[index].Level} did not produce a credible running-fan RPM.";
-                return false;
-            }
-        }
-
-        double maximum = ordered[^1].Fans.Average(fan => fan.MedianRpm);
-        if (maximum <= 0)
-        {
-            error = "EC step 7 did not produce a usable verified maximum RPM.";
-            return false;
-        }
-
-        foreach (FanLevelCalibrationSnapshot level in ordered[..^1])
-        {
-            double average = level.Fans.Average(fan => fan.MedianRpm);
-            if (average > maximum * 1.08)
-            {
-                error = $"EC step {level.Level} measured faster than the verified step-7 maximum; the run was rejected.";
-                return false;
-            }
-        }
-
-        return true;
-    }
+        => FanCalibrationPolicy.TryValidate(levels, _hardware.FanCalibrationStates, out error);
 
     private void LoadCalibration()
     {
@@ -1155,10 +1139,12 @@ internal sealed class FanSupervisor : IDisposable
             if (!File.Exists(_calibrationPath))
                 return;
             PersistedCalibration? stored = JsonSerializer.Deserialize<PersistedCalibration>(File.ReadAllText(_calibrationPath), JsonOptions);
-            if (stored is null || !string.Equals(stored.MachineType, _hardware.Identity.MachineType, StringComparison.OrdinalIgnoreCase))
+            if (stored is null || !string.Equals(stored.MachineType, _hardware.Identity.MachineType, StringComparison.OrdinalIgnoreCase) ||
+                !string.Equals(stored.CalibrationIdentity, _hardware.FanCalibrationIdentity, StringComparison.Ordinal))
                 return;
 
-            _audibleFromLevel = stored.AudibleFromLevel is >= 1 and <= 7 ? stored.AudibleFromLevel : null;
+            _audibleFromLevel = stored.AudibleFromLevel.HasValue && _hardware.FanCalibrationStates.Contains(stored.AudibleFromLevel.Value)
+                ? stored.AudibleFromLevel : null;
             FanLevelCalibrationSnapshot[] levels = stored.Levels ?? [];
             if (!TryValidateCalibration(levels, out string? validationError))
             {
@@ -1171,11 +1157,11 @@ internal sealed class FanSupervisor : IDisposable
             _unstableLevels.Clear();
             foreach (FanLevelCalibrationSnapshot level in _calibration.Where(level => !level.Stable))
                 _unstableLevels.Add(level.Level);
-            _characterizationStatus = $"Loaded {_calibration.Count}/7 verified EC fan states";
+            _characterizationStatus = $"Loaded {_calibration.Count} measured fan speeds";
         }
         catch
         {
-            _characterizationStatus = "Stored fan calibration could not be read; default verified EC mapping remains active";
+            _characterizationStatus = "Stored fan measurement could not be read. Measure the speeds again to use curves.";
         }
     }
 
@@ -1198,7 +1184,7 @@ internal sealed class FanSupervisor : IDisposable
             if (!string.IsNullOrWhiteSpace(folder))
                 Directory.CreateDirectory(folder);
             File.WriteAllText(_calibrationPath, JsonSerializer.Serialize(
-                new PersistedCalibration(_hardware.Identity.MachineType, audible, levels), JsonOptions));
+                new PersistedCalibration(_hardware.Identity.MachineType, audible, levels, _hardware.FanCalibrationIdentity), JsonOptions));
         }
         catch { }
     }
@@ -1236,5 +1222,6 @@ internal sealed class FanSupervisor : IDisposable
     private sealed record PersistedCalibration(
         string MachineType,
         int? AudibleFromLevel,
-        FanLevelCalibrationSnapshot[]? Levels);
+        FanLevelCalibrationSnapshot[]? Levels,
+        string? CalibrationIdentity = null);
 }

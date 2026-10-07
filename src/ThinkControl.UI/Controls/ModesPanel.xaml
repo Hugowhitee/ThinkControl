@@ -5,44 +5,14 @@
              xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
              MinWidth="520">
     <UserControl.Resources>
-        <Style x:Key="ModeTextBox" TargetType="TextBox">
-            <Setter Property="Foreground" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="Background" Value="{DynamicResource Tc.SurfaceAlt}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource Tc.BorderStrong}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="10,7" />
-            <Setter Property="MinHeight" Value="38" />
-            <Setter Property="CaretBrush" Value="{DynamicResource Tc.Text}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="TextBox">
-                        <Border x:Name="Root"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="3">
-                            <ScrollViewer x:Name="PART_ContentHost"
-                                          Margin="{TemplateBinding Padding}"
-                                          VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
-                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource Tc.Accent}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.42" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <Style x:Key="ModeTextBox" TargetType="TextBox" BasedOn="{StaticResource TcTextBox}" />
     </UserControl.Resources>
 
     <StackPanel>
         <controls:AdvancedPageHeader x:Name="Header"
                                      Title="Modes"
                                      Subtitle="Saved settings and the rules that activate them." />
+        <controls:ContextTabs x:Name="SurfaceTabs" Section="Modes" SelectedPage="Modes" />
 
         <StackPanel x:Name="ListView">
             <Border x:Name="ModeListSection" Style="{StaticResource TcSection}" Padding="0">
@@ -74,6 +44,11 @@
                               MinHeight="38"
                               Margin="14,0,14,10"
                               SelectionChanged="ModeSelector_SelectionChanged" />
+                    <Grid Margin="14,0,14,12">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ModeOwnershipText" Style="{StaticResource TcText.Secondary}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="0,0,12,0" />
+                        <Button x:Name="ManualOverrideResumeButton" Grid.Column="1" Content="Resume automation" Style="{StaticResource TcInlineButton}" Click="ResumeAutomation_Click" Visibility="Collapsed" />
+                    </Grid>
                     <StackPanel x:Name="ModeRows" />
 
                     <TextBlock x:Name="EmptyModesText"
@@ -86,9 +61,7 @@
             </Border>
 
             <TextBlock x:Name="ListStatusText"
-                       Foreground="{DynamicResource Tc.Accent}"
-                       FontSize="{x:Static ui:TypographyScale.Secondary}"
-                       TextWrapping="Wrap"
+                       Style="{StaticResource TcText.ActionError}"
                        Margin="2,9,2,0"
                        Visibility="Collapsed" />
 
@@ -249,8 +222,7 @@
                            Grid.Column="1" Margin="12,0,0,0" TextWrapping="Wrap"
                            HorizontalAlignment="Stretch"
                            VerticalAlignment="Center"
-                           Foreground="{DynamicResource Tc.TextMuted}"
-                           FontSize="{x:Static ui:TypographyScale.Caption}"
+                           Style="{StaticResource TcText.ActionError}"
                            Visibility="Collapsed" />
             </Grid>
         </StackPanel>

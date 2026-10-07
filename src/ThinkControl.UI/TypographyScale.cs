@@ -8,9 +8,13 @@ namespace ThinkControl.UI;
 /// </summary>
 public static class TypographyScale
 {
-    public const double PageTitle = 28;
-    public const double Subtitle = 20;
-    public const double SectionTitle = 16;
+    public static System.Windows.Media.FontFamily Family =>
+        (System.Windows.Media.FontFamily)System.Windows.Application.Current.FindResource("Tc.Font");
+    public static System.Windows.Media.Typeface Typeface => new(Family, System.Windows.FontStyles.Normal,
+        System.Windows.FontWeights.Normal, System.Windows.FontStretches.Normal);
+    public const double PageTitle = 27;
+    public const double Subtitle = 19;
+    public const double SectionTitle = 17;
     public const double BodyLarge = 15;
     public const double Body = 14;
     public const double Secondary = 13;
@@ -18,12 +22,16 @@ public static class TypographyScale
     public const double ControlLabel = 14;
     public const double Navigation = 14;
     public const double ControlText = 14;
-    public const double Value = 18;
-    public const double ValueLarge = 24;
-    public const double ValueHero = 32;
+    public const double Value = 20;
+    public const double ValueLarge = 25;
+    public const double ValueHero = 25;
+    public const double Micro = 11;
+    public const double CompactValue = 22;
 
     private static readonly double[] Allowed =
     [
+        Micro,
+        CompactValue,
         Caption,
         Secondary,
         Body,

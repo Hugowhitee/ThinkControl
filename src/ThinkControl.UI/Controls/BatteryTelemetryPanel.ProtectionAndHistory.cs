@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.Core.Battery;
 using ThinkControl.Core.Ipc;
+using ThinkControl.UI.ViewModels;
 using WpfApplication = System.Windows.Application;
 
 namespace ThinkControl.UI.Controls;
@@ -42,6 +43,7 @@ public partial class BatteryTelemetryPanel
     {
         if (_batteryProtectionStatusSubscribed || WpfApplication.Current is not App app)
             return;
+        if (app.IsVisualQa) return;
         app.HardwareClient.StatusObserved += BatteryProtection_StatusObserved;
         _batteryProtectionStatusSubscribed = true;
         _ = app.HardwareClient.GetStatusAsync();
@@ -95,18 +97,18 @@ public partial class BatteryTelemetryPanel
         try
         {
             RemoveDynamicChargeProtectionPreset();
-            ComboBoxItem? selected = FindChargeProtectionPreset(selectedStart, selectedStop);
+            ListBoxItem? selected = FindChargeProtectionPreset(selectedStart, selectedStop);
             if (selected is null && available)
             {
-                selected = new ComboBoxItem
+                selected = new ListBoxItem
                 {
                     Content = $"Custom: {selectedStart}–{selectedStop}%",
-                    Tag = $"custom:{selectedStart},{selectedStop}"
+                    Tag = $"custom:{selectedStart},{selectedStop}", Visibility = Visibility.Collapsed
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
             }
 
-            ChargeProtectionComboBox.SelectedItem = selected ?? ChargeProtectionComboBox.Items.OfType<ComboBoxItem>().FirstOrDefault();
+            ChargeProtectionComboBox.SelectedItem = selected ?? ChargeProtectionComboBox.Items.OfType<ListBoxItem>().FirstOrDefault();
             ChargeProtectionSwitch.IsChecked = enabled;
             ChargeProtectionSwitch.IsEnabled = _batteryProtectionWritable;
             ChargeProtectionComboBox.IsEnabled = _batteryProtectionWritable && enabled;
@@ -121,13 +123,13 @@ public partial class BatteryTelemetryPanel
         {
             ChargeProtectionStateText.Text = "Not exposed";
             ChargeProtectionImpactText.Text = "Charge limits are not available on the active hardware provider.";
-            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: null, available: false);
+            UpdateBatteryAgingGuidance(enabled: null, available: false);
         }
         else if (!enabled)
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable ? "Off" : "Off (read-only)";
             ChargeProtectionImpactText.Text = "Preservation is off; charging is allowed to 100%.";
-            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: false, available: true);
+            UpdateBatteryAgingGuidance(enabled: false, available: true);
         }
         else
         {
@@ -135,10 +137,8 @@ public partial class BatteryTelemetryPanel
                 ? $"{stop}% limit active"
                 : $"{stop}% limit (read-only)";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
-            ChargeProtectionWearText.Text = DescribeBatteryAging(enabled: true, available: true);
+            UpdateBatteryAgingGuidance(enabled: true, available: true);
         }
-
-        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
 
         ChargeProtectionProviderText.Text = available
             ? "This battery controller can read charge limits but cannot change them."
@@ -175,7 +175,7 @@ public partial class BatteryTelemetryPanel
             }
             else
             {
-                string tag = (ChargeProtectionComboBox.SelectedItem as ComboBoxItem)?.Tag?.ToString() ?? "80,85";
+                string tag = (ChargeProtectionComboBox.SelectedItem as ListBoxItem)?.Tag?.ToString() ?? "80,85";
                 if (tag.StartsWith("custom:", StringComparison.OrdinalIgnoreCase))
                     tag = tag["custom:".Length..];
                 if (!TryParseThresholdPair(tag, out appliedStart, out appliedStop))
@@ -216,7 +216,7 @@ public partial class BatteryTelemetryPanel
     {
         if (_syncingChargeProtection || _batteryProtectionWriteInFlight || !_batteryProtectionWritable ||
             ChargeProtectionSwitch.IsChecked != true || WpfApplication.Current is not App app ||
-            ChargeProtectionComboBox.SelectedItem is not ComboBoxItem item)
+            ChargeProtectionComboBox.SelectedItem is not ListBoxItem item)
         {
             return;
         }
@@ -256,9 +256,9 @@ public partial class BatteryTelemetryPanel
         }
     }
 
-    private ComboBoxItem? FindChargeProtectionPreset(int start, int stop)
+    private ListBoxItem? FindChargeProtectionPreset(int start, int stop)
     {
-        return ChargeProtectionComboBox.Items.OfType<ComboBoxItem>().FirstOrDefault(item =>
+        return ChargeProtectionComboBox.Items.OfType<ListBoxItem>().FirstOrDefault(item =>
         {
             string tag = item.Tag?.ToString() ?? string.Empty;
             return TryParseThresholdPair(tag, out int candidateStart, out int candidateStop) &&
@@ -268,7 +268,7 @@ public partial class BatteryTelemetryPanel
 
     private void RemoveDynamicChargeProtectionPreset()
     {
-        ComboBoxItem? dynamic = ChargeProtectionComboBox.Items.OfType<ComboBoxItem>()
+        ListBoxItem? dynamic = ChargeProtectionComboBox.Items.OfType<ListBoxItem>()
             .FirstOrDefault(item => item.Tag?.ToString()?.StartsWith("custom:", StringComparison.OrdinalIgnoreCase) == true);
         if (dynamic is not null)
             ChargeProtectionComboBox.Items.Remove(dynamic);
@@ -292,14 +292,27 @@ public partial class BatteryTelemetryPanel
         stop % 5 == 0 &&
         start < stop;
 
+    private void UpdateBatteryAgingGuidance(bool? enabled, bool available)
+    {
+        ChargeLimitValue.Text = available && enabled is not null && DataContext is AppState state
+            ? $"{state.BatteryChargeTargetPercent}%"
+            : "—";
+        ChargeProtectionWearText.Text = available && enabled == true
+            ? $"Estimated charging wear: ≈{100 * (1 - BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop)):0}% lower\n0–{_lastChargeProtectionStop}% compared with 0–100%."
+            : DescribeBatteryAging(enabled, available);
+        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
+        ChargeProtectionWearText.SetResourceReference(TextBlock.ForegroundProperty,
+            available && enabled == true ? "Tc.Success" : "Tc.TextMuted");
+    }
+
     private const string BatteryAgingTooltip =
-        "Staying plugged in does not itself imply repeated charging. Recharging resumes only below the OEM threshold; actual aging also depends on cycles and calendar time.";
+        "Estimated charging wear compares a generic Li-ion charge from 0% to the selected limit with 0–100%. It is not the firmware cycle count or measured capacity loss. Heat, chemistry, charge rate, time near full and age affect actual wear; this percentage does not predict added battery lifespan.";
 
     private static string DescribeBatteryAging(bool? enabled, bool available) =>
         !available
             ? "Battery aging cannot be estimated from unavailable charge settings."
             : enabled == true
-                ? "A lower charge limit reduces time near full. Heat and battery age also matter."
+                ? "Helps reduce battery wear"
                 : "Staying near 100% for long periods may speed aging, especially when warm.";
 
     private static string DescribeChargeProtectionImpact(int start, int stop) =>

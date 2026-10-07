@@ -38,7 +38,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
 
     public TouchpadVisualizer()
     {
-        MinHeight = 300;
+        MinHeight = 180;
         Cursor = WpfCursors.Arrow;
         TouchpadActionVisualCatalog.ValidateCurrentActionSet();
 
@@ -557,7 +557,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
         WpfPoint centerPoint = TrackLanePoint(pad, edge, 0.50);
         WpfPoint lastPoint = TrackLanePoint(pad, edge, 0.78);
         DrawCue(dc, firstCue, firstPoint, firstActive ? accent : idleIcon, vertical);
-        DrawMaterialIcon(
+        DrawSemanticIcon(
             dc,
             SemanticIconKeys.PlayPause,
             new Rect(centerPoint.X - 8.25, centerPoint.Y - 8.25, 16.5, 16.5),
@@ -821,7 +821,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 return;
             case TouchpadVisualCueKind.ResourceIcon:
                 if (!string.IsNullOrWhiteSpace(cue.Value))
-                    DrawMaterialIcon(dc, cue.Value, new Rect(point.X - 9.25, point.Y - 9.25, 18.5, 18.5), brush);
+                    DrawSemanticIcon(dc, cue.Value, new Rect(point.X - 9.25, point.Y - 9.25, 18.5, 18.5), brush);
                 return;
             case TouchpadVisualCueKind.Text:
                 DrawLabel(dc, cue.Value ?? string.Empty, point, TypographyScale.Body, brush, centered: true);
@@ -864,7 +864,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             value,
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
-            new Typeface("Segoe UI Variable Text, Segoe UI"),
+            ThinkControl.UI.TypographyScale.Typeface,
             live ? TypographyScale.Secondary : TypographyScale.Caption,
             textBrush,
             pixelsPerDip);
@@ -890,18 +890,13 @@ public sealed class TouchpadVisualizer : FrameworkElement
         dc.DrawText(text, new WpfPoint(badge.Left + (live ? 9 : 7), badge.Top + (live ? 5 : 4)));
     }
 
-    private void DrawMaterialIcon(DrawingContext dc, string resourceKey, Rect bounds, Brush brush)
+    private static void DrawSemanticIcon(DrawingContext dc, string resourceKey, Rect bounds, Brush brush)
     {
-        if (TryFindResource(resourceKey) is not Geometry source)
+        if (PackIconLucide.MaskForKind(resourceKey) is not DrawingBrush mask)
             return;
-
-        Geometry geometry = source.CloneCurrentValue();
-        double scale = Math.Min(bounds.Width, bounds.Height) / 960d;
-        geometry.Transform = new MatrixTransform(
-            scale, 0,
-            0, scale,
-            bounds.Left, bounds.Top + 960d * scale);
-        dc.DrawGeometry(brush, null, geometry);
+        dc.PushOpacityMask(mask);
+        dc.DrawRectangle(brush, null, bounds);
+        dc.Pop();
     }
 
     private static string ZoneName(TouchpadZoneSelection zone)
@@ -1209,7 +1204,7 @@ public sealed class TouchpadVisualizer : FrameworkElement
             value,
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
-            new Typeface("Segoe UI Variable Text, Segoe UI"),
+            ThinkControl.UI.TypographyScale.Typeface,
             size,
             brush,
             pixelsPerDip);

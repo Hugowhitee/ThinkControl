@@ -61,8 +61,8 @@ public sealed class BatteryPreservationImpactModelTests
     public void LimitCopy_UsesStableZeroToTargetComparison(int target, string expected)
     {
         Assert.Equal(expected, BatteryPreservationImpactModel.DescribeLimitWear(target));
-        Assert.Contains("starts at 0%", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
-        Assert.Contains("starts above 0%", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
+        Assert.Contains("0–100% charge", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
+        Assert.Contains("Partial top-ups count only the added range", BatteryPreservationImpactModel.LimitationsText, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,0 +1,15 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:sys="clr-namespace:System;assembly=System.Runtime">
+    <!-- Selected Figma direction. Pack URI resolves in both native UI and visual-QA hosts. -->
+    <FontFamily x:Key="Tc.Font">pack://application:,,,/ThinkControl.UI;component/Assets/Fonts/#IBM Plex Sans</FontFamily>
+    <sys:Double x:Key="Tc.ControlHeight">38</sys:Double>
+    <sys:Double x:Key="Tc.NavigationWidth">222</sys:Double>
+    <Thickness x:Key="Tc.PageInset">29,24,29,24</Thickness>
+    <Thickness x:Key="Tc.ControlPadding">12,7</Thickness>
+    <CornerRadius x:Key="Tc.ControlRadius">5</CornerRadius>
+    <Style x:Key="TcFocus" TargetType="Control">
+        <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control">
+            <Border BorderBrush="{DynamicResource Tc.Focus}" BorderThickness="2" CornerRadius="5" Margin="-2" />
+        </ControlTemplate></Setter.Value></Setter>
+    </Style>
+</ResourceDictionary>
+

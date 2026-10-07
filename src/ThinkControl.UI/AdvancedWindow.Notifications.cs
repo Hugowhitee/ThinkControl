@@ -23,62 +23,9 @@ public partial class AdvancedWindow
             return;
         }
 
-        if (NavHome.Parent is not StackPanel navStack)
-            return;
-
-        Grid? utilityRow = navStack.Children.OfType<Grid>().FirstOrDefault(grid =>
-            grid.Tag as string == "ThinkControl.UtilityRow");
-        Button? notificationButton = utilityRow?.Children.OfType<Button>()
-            .FirstOrDefault(child => Equals(child.Tag, ShellUtilityOrder.NotificationTag));
-        Button? compactButton = utilityRow?.Children.OfType<Button>()
-            .FirstOrDefault(child => Equals(child.Tag, ShellUtilityOrder.ViewModeTag));
-        if (utilityRow is null || notificationButton is null || compactButton is null)
-            return;
-
         _notificationButtonConfigured = true;
-
-        notificationButton.Margin = new Thickness(0);
-        notificationButton.BorderThickness = new Thickness(0);
-        notificationButton.BorderBrush = Brushes.Transparent;
-        notificationButton.Background = Brushes.Transparent;
-
-        var bell = new Path
-        {
-            Data = Geometry.Parse("M10,2.1 C6.5,2.1 5,4.7 5,7.7 V10.6 L3.3,13.2 H16.7 L15,10.6 V7.7 C15,4.7 13.5,2.1 10,2.1 Z M7.7,15 C8.1,16.1 8.9,16.6 10,16.6 C11.1,16.6 11.9,16.1 12.3,15"),
-            StrokeThickness = 1.55,
-            StrokeStartLineCap = PenLineCap.Round,
-            StrokeEndLineCap = PenLineCap.Round,
-            StrokeLineJoin = PenLineJoin.Round,
-            Fill = Brushes.Transparent,
-            Width = 19,
-            Height = 19,
-            Stretch = Stretch.Uniform,
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        bell.SetResourceReference(Shape.StrokeProperty, "Tc.TextMuted");
-
-        _notificationDot = new Ellipse
-        {
-            Width = 6,
-            Height = 6,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Top,
-            Margin = new Thickness(0, 1, 1, 0),
-            StrokeThickness = 1,
-            IsHitTestVisible = false
-        };
-        _notificationDot.SetResourceReference(Shape.FillProperty, "Tc.Accent");
-        _notificationDot.SetResourceReference(Shape.StrokeProperty, "Tc.Surface");
-
-        var content = new Grid { Width = 24, Height = 24 };
-        content.Children.Add(bell);
-        content.Children.Add(_notificationDot);
-        notificationButton.Content = content;
-        notificationButton.Tag = ShellUtilityOrder.NotificationTag;
-        notificationButton.Click += (_, _) => ToggleNotificationSheet();
-        _notificationIndicator = notificationButton;
-        ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
+        _notificationIndicator = SidebarNotificationsButton;
+        _notificationDot = SidebarNotificationDot;
 
         if (DataContext is AppState state)
             state.PropertyChanged += NotificationState_PropertyChanged;
@@ -99,7 +46,7 @@ public partial class AdvancedWindow
         Dispatcher.BeginInvoke(SyncNotificationIndicator);
 
     private void App_FanCalibrationStateChanged(object? sender, EventArgs e) =>
-        Dispatcher.BeginInvoke(SyncNotificationIndicator);
+        Dispatcher.BeginInvoke(new Action(() => { SyncNotificationIndicator(); RefreshHomeCoolingSummary(); }));
 
     private void NotificationState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {

@@ -225,7 +225,7 @@ public partial class FansPanel
                     ? $"{reason}. Restored {restoreName}."
                     : $"{reason}. Restoration failed. Select Auto or a profile.";
             }
-            ProfileComboBox.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
+            ProfileComboBox.IsEnabled = _app.State.CanFanControl && !_app.FanCalibrationState.Running;
             _ = _app.HardwareClient.GetStatusAsync();
         }
     }

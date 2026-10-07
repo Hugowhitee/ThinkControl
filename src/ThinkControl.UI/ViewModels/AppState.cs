@@ -80,6 +80,9 @@ public sealed class AppState : INotifyPropertyChanged
     public ObservableCollection<TimeSeriesPoint> BatteryChargePowerTimeline { get; } = new ResettableObservableCollection<TimeSeriesPoint>();
     public ObservableCollection<TimeSeriesPoint> BatteryChargePercentTimeline { get; } = new ResettableObservableCollection<TimeSeriesPoint>();
     public ObservableCollection<TimeSeriesPoint> BatteryHealthTrendTimeline { get; } = new ResettableObservableCollection<TimeSeriesPoint>();
+    public ObservableCollection<TimeSeriesPoint> BatteryCycleCountTimeline { get; } = new ResettableObservableCollection<TimeSeriesPoint>();
+    private string _batteryCycleTrendText = "Waiting for firmware cycle history";
+    public string BatteryCycleTrendText { get => _batteryCycleTrendText; set => Set(ref _batteryCycleTrendText, value); }
     public ObservableCollection<string> RecentChargeSessions { get; } = new ResettableObservableCollection<string>();
     public ObservableCollection<FanTelemetrySnapshot> Fans { get; } = new ResettableObservableCollection<FanTelemetrySnapshot>();
     public ObservableCollection<HardwareSensorSnapshot> Sensors { get; } = new ResettableObservableCollection<HardwareSensorSnapshot>();
@@ -93,6 +96,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string CoolingProfile { get => _coolingProfile; set => Set(ref _coolingProfile, string.IsNullOrWhiteSpace(value) ? "Lenovo Auto" : value); }
     public int BatteryPercent { get => _batteryPercent; set => Set(ref _batteryPercent, Math.Clamp(value, 0, 100)); }
     public bool BatteryCharging { get => _batteryCharging; set => Set(ref _batteryCharging, value); }
+    public bool BatteryDischarging => !BatteryCharging && BatteryStatus == "On battery";
     public string BatteryStatus { get => _batteryStatus; set => Set(ref _batteryStatus, value); }
     public double? BatteryPowerWatts { get => _batteryPowerWatts; set => Set(ref _batteryPowerWatts, value); }
     public double? BatterySmoothedPowerWatts { get => _batterySmoothedPowerWatts; set => Set(ref _batterySmoothedPowerWatts, value); }
@@ -194,6 +198,7 @@ public sealed class AppState : INotifyPropertyChanged
     public string BatteryPowerText => BatteryPowerWatts is double watts ? $"{watts:0.0} W" : "— W";
     public string BatteryAveragePowerText => BatterySmoothedPowerWatts is double watts ? $"{watts:0.0} W avg" : "—";
     public string BatteryHealthText => BatteryHealthPercent is double health ? $"{health:0.#}% health" : "Health —";
+    public string BatteryHealthValueText => BatteryHealthPercent is double health ? $"{health:0.#}%" : "—";
     public string BatteryTemperatureLabel => BatteryTemperatureC.HasValue
         ? "BATTERY TEMP"
         : ControlTemperatureC.HasValue ? "DEVICE TEMP" : "TEMP";
@@ -201,6 +206,7 @@ public sealed class AppState : INotifyPropertyChanged
         ? $"{batteryTemperature:0.#} °C"
         : ControlTemperatureC is double deviceTemperature ? $"{deviceTemperature:0.#} °C" : "Not exposed";
     public string BatteryCycleCountText => BatteryCycleCount is int cycles ? $"{cycles:N0} cycles" : "Cycles —";
+    public string BatteryCycleCountValueText => BatteryCycleCount is int cycles ? $"{cycles:N0}" : "—";
     public string BatteryProtectionSummaryText => BatteryProtectionEnabled switch
     {
         true when BatteryProtectionStartPercent is int start && BatteryProtectionStopPercent is int stop => $"{start}–{stop}% active",
@@ -333,9 +339,11 @@ public sealed class AppState : INotifyPropertyChanged
         BatteryCurrentSessionText = history.CurrentSessionText;
         BatteryTypicalChargeText = history.TypicalChargeText;
         BatteryHealthTrendText = history.HealthTrendText;
+        BatteryCycleTrendText = history.CycleTrendText;
         ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
         ReplaceCollection(BatteryChargePercentTimeline, history.ChargePercentTimeline);
         ReplaceCollection(BatteryHealthTrendTimeline, history.HealthTrendTimeline);
+        ReplaceCollection(BatteryCycleCountTimeline, history.CycleCountTimeline);
         ReplaceCollection(RecentChargeSessions, history.RecentSessions);
     }
 
@@ -394,6 +402,7 @@ public sealed class AppState : INotifyPropertyChanged
         }
         else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToChargeTarget) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))
         {
+            OnPropertyChanged(nameof(BatteryDischarging));
             OnPropertyChanged(nameof(BatteryPowerText));
             OnPropertyChanged(nameof(BatteryEtaText));
             OnPropertyChanged(nameof(BatteryCompactLine));
@@ -401,6 +410,7 @@ public sealed class AppState : INotifyPropertyChanged
         }
         else if (propertyName == nameof(BatteryCharging))
         {
+            OnPropertyChanged(nameof(BatteryDischarging));
             OnPropertyChanged(nameof(BatteryEtaText));
             OnPropertyChanged(nameof(BatteryCompactLine));
             OnPropertyChanged(nameof(BatteryProtectionBehaviorText));
@@ -412,14 +422,20 @@ public sealed class AppState : INotifyPropertyChanged
             OnPropertyChanged(nameof(BatteryCompactLine));
         }
         else if (propertyName == nameof(BatteryHealthPercent))
+        {
             OnPropertyChanged(nameof(BatteryHealthText));
+            OnPropertyChanged(nameof(BatteryHealthValueText));
+        }
         else if (propertyName == nameof(BatteryTemperatureC))
         {
             OnPropertyChanged(nameof(BatteryTemperatureLabel));
             OnPropertyChanged(nameof(BatteryTemperatureText));
         }
         else if (propertyName == nameof(BatteryCycleCount))
+        {
             OnPropertyChanged(nameof(BatteryCycleCountText));
+            OnPropertyChanged(nameof(BatteryCycleCountValueText));
+        }
         else if (propertyName is nameof(BatteryProtectionEnabled) or nameof(BatteryProtectionStartPercent) or nameof(BatteryProtectionStopPercent) or nameof(BatteryProtectionWritable))
         {
             OnPropertyChanged(nameof(BatteryProtectionSummaryText));

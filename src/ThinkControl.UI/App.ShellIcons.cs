@@ -9,6 +9,7 @@ public partial class App
 {
     private void OnShellIconStartup(object? sender, StartupEventArgs e)
     {
+        if (IsVisualQa) return;
         // Application.Startup is raised from base.OnStartup before App.OnStartup
         // continues. Keep this hook intentionally tiny and registry-only: shell,
         // tray and gesture readiness must not wait for the richer WMI inventory.

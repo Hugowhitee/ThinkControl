@@ -8,6 +8,7 @@
     <StackPanel>
         <controls:AdvancedPageHeader Title="Fans"
                                      Subtitle="">
+            <controls:AdvancedPageHeader.Style><Style TargetType="controls:AdvancedPageHeader"><Style.Triggers><DataTrigger Binding="{Binding Embedded, RelativeSource={RelativeSource AncestorType=controls:FansPanel}}" Value="True"><Setter Property="Visibility" Value="Collapsed" /></DataTrigger></Style.Triggers></Style></controls:AdvancedPageHeader.Style>
             <controls:AdvancedPageHeader.Actions>
                 <Button Content="Defaults"
                         controls:AdvancedPageHeader.ActionRole="Defaults"
@@ -122,35 +123,37 @@
 
                     <StackPanel Margin="0,0,16,0">
                         <TextBlock Text="Control temperature" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                        <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,4,0,0" />
+                        <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="SemiBold" Margin="0,4,0,0" />
                         <TextBlock Text="{Binding ControlTemperatureCaption}" ToolTip="{Binding ControlTemperatureSource}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
                     </StackPanel>
 
                     <Border Grid.Column="1" Width="1" Background="{DynamicResource Tc.Border}" />
 
                     <StackPanel Grid.Column="2" Margin="18,0">
-                        <Grid>
-                            <TextBlock Text="Fan speed" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                            <TextBlock Text="{Binding FanCountText}" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                        </Grid>
+                        <TextBlock Text="Fan speed" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
                         <ItemsControl ItemsSource="{Binding Fans}" Margin="0,4,0,0">
                             <ItemsControl.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid Margin="0,1,0,1">
-                                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" HorizontalAlignment="Right" Margin="12,0,0,0" />
-                                    </Grid>
+                                    <StackPanel Margin="0,1,0,1">
+                                        <TextBlock Text="{Binding Rpm, StringFormat={}{0:N0} RPM}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="SemiBold" />
+                                        <TextBlock Text="{Binding Label}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                                    </StackPanel>
                                 </DataTemplate>
                             </ItemsControl.ItemTemplate>
                         </ItemsControl>
+                        <TextBlock Text="—" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="SemiBold" Margin="0,4,0,0">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Fans.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock Text="{Binding FanCountText}" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,4,0,0">
+                            <TextBlock.Style><Style TargetType="TextBlock"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding Fans.Count}" Value="0"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
 
                     <Border Grid.Column="3" Width="1" Background="{DynamicResource Tc.Border}" />
 
                     <StackPanel Grid.Column="4" Margin="18,0,0,0">
                         <TextBlock Text="Fan control" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" />
-                        <TextBlock x:Name="AppliedLevelText" Text="Auto" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,4,0,0" />
+                        <TextBlock x:Name="AppliedLevelText" Text="Auto" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="SemiBold" Margin="0,4,0,0" />
                     </StackPanel>
                 </Grid>
             </StackPanel>
@@ -200,7 +203,7 @@
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
                         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top">
-                            <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" />
+                            <TextBlock x:Name="ManualPercentValue" Text="50%" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="SemiBold" />
                             <TextBlock Text="30 s test" HorizontalAlignment="Right" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,3,0,0" />
                         </StackPanel>
                     </Grid>

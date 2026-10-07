@@ -8,7 +8,8 @@ public sealed class CapabilityDrivenUiCopySourceTests
     public void GenericKeyboardAutoCopy_IsProviderNeutral()
     {
         string root = FindRepositoryRoot();
-        string keyboard = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.Keyboard.cs"));
+        string keyboard = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"))
+            + File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "KeyboardEffectsPanel.xaml"));
         string state = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "ViewModels", "AppState.cs"));
 
         Assert.Contains("let your laptop manage it with Auto", keyboard, StringComparison.Ordinal);

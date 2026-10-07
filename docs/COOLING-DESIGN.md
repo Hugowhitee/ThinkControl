@@ -20,7 +20,9 @@ Cooling is global and does not change merely because AC power is connected or re
 
 The alpha.42 X9 product backend intentionally leaves Lenovo firmware in the closed-loop thermal controller. The full-speed semantic is a narrow OEM override, **not** a generic RPM/PWM/percentage backend. The rejected alpha.38 per-fan target writer remains read-only.
 
-A future direct provider may expose continuous target RPM or calibrated discrete states. Such a provider must advertise the matching capability and pass its physical acceptance gate before custom curves or manual percentages appear.
+The alpha.62 candidate has a narrowly gated calibrated discrete provider for **21Q6/N4CET45W**. It acquires Lenovo SCRM ownership before states **4/5/6/7/0x40**, verifies ownership/readback, avoids same-state rewrites, bridges Max-to-lower through Auto, and returns Auto on ownership loss, client lease expiry, suspend or disposal. Calibration uses settled real RPM and rejects partial or unstable results. Firmware/device identity scopes the persisted calibration.
+
+The production-service acceptance probe measured approximately 3500/3700/4000/4400/9400 RPM. Manual 0%, 45%, 99%, a custom curve and final Auto passed. This does not revive states 1–3, guess selectors, provide continuous PWM, or expose two synthetic fan channels. Shared RPM remains one shared tachometer. Requested percentages and effective measured steps must be distinct in UI; 0% keeps the lowest accepted fan state running. Calibration appears only for a provider advertising calibration support. Firmware-only providers expose their actual semantic choices and never promise that calibration will create a missing writer. See the dated acceptance evidence in `research/x9-local-control-path-recovery.md` and release gates in `RELEASE_READINESS.md`.
 
 ## X9 provider ordering
 

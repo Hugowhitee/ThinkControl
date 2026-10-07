@@ -17,12 +17,16 @@
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="System.Management" Version="10.0.2" />
+    <PackageReference Include="SharpVectors.Wpf" Version="1.8.6" />
   </ItemGroup>
   <ItemGroup>
     <Resource Include="Assets\ThinkControl.ico"
               CopyToOutputDirectory="PreserveNewest"
               CopyToPublishDirectory="PreserveNewest" />
     <Resource Include="Assets\tray.ico" />
+    <Resource Include="Assets\Fonts\*.ttf" />
+    <Resource Include="Assets\Figma\*.svg" />
+    <None Update="Assets\Fonts\LICENSE.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="..\..\THIRD_PARTY_NOTICES.md"
           Link="THIRD_PARTY_NOTICES.md"
           CopyToOutputDirectory="PreserveNewest"

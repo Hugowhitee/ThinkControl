@@ -1,7 +1,3 @@
-using System.Globalization;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Media;
 
@@ -12,146 +8,19 @@ public partial class AdvancedWindow
     private const int DwmwaBorderColor = 34;
     private const int DwmwaCaptionColor = 35;
     private const int DwmwaTextColor = 36;
-    private const double AdvancedContentMaxWidth = 1040;
-    private const double PageRightGutter = 10;
     internal const double PageHeaderActionGap = 10;
-    internal const double PageHeaderMinHeight = 38;
+    internal const double PageHeaderMinHeight = 85;
     private bool _uiConsistencyConfigured;
-
-    private static readonly string[] ConsistentPageNames =
-    [
-        "PageHome",
-        "PageModes",
-        "PageAutomation",
-        "PagePerformance",
-        "PageFans",
-        "PageBattery",
-        "PageDisplay",
-        "PageAudio",
-        "PageKeyboard",
-        "PageTouchpad",
-        "PageSystem",
-        "PageUpdates",
-        "PageSettings"
-    ];
 
     private void ConfigureAdvancedUiConsistency()
     {
-        if (_uiConsistencyConfigured)
+        if (!_uiConsistencyConfigured)
         {
-            ApplyConsistentPageRail();
-            ApplyConsistentCaptionPalette();
-            return;
+            _uiConsistencyConfigured = true;
+            Activated += (_, _) => ApplyConsistentCaptionPalette();
         }
-
-        _uiConsistencyConfigured = true;
-        UseLayoutRounding = true;
-        SnapsToDevicePixels = true;
-
-        Activated += (_, _) => ApplyConsistentCaptionPalette();
-
-        foreach (RadioButton theme in FindVisualChildren<RadioButton>(this)
-                     .Where(button => string.Equals(button.GroupName, "Theme", StringComparison.Ordinal)))
-        {
-            theme.Click += (_, _) => Dispatcher.BeginInvoke(new Action(() =>
-            {
-                ApplySidebarPalette();
-                ApplyConsistentCaptionPalette();
-            }));
-        }
-
-        foreach (Slider slider in FindVisualChildren<Slider>(this))
-        {
-            ApplySliderAvailability(slider);
-            slider.IsEnabledChanged += (_, _) => ApplySliderAvailability(slider);
-        }
-
-        foreach (string pageName in ConsistentPageNames)
-        {
-            if (FindName(pageName) is not ScrollViewer scroll)
-                continue;
-
-            // A page title belongs to one fixed top rail. ScrollViewer retains its
-            // previous offset while hidden, so without this a revisited Battery (or
-            // any other page) can appear to have a different title/header position.
-            // Reset only when the page becomes visible; content scrolling itself is
-            // otherwise untouched.
-            scroll.IsVisibleChanged += (_, args) =>
-            {
-                if (args.NewValue is true)
-                {
-                    scroll.ScrollToTop();
-                    scroll.ScrollToHorizontalOffset(0);
-                }
-            };
-        }
-
-        ApplySidebarPalette();
-        ApplyConsistentPageRail();
+        // Shared XAML owns typography, rails, slider states and repeated controls.
         ApplyConsistentCaptionPalette();
-    }
-
-    private void ApplySidebarPalette()
-    {
-        Border? sidebar = AdvancedBody.Children
-            .OfType<Border>()
-            .FirstOrDefault(border => Grid.GetColumn(border) == 0);
-
-        sidebar?.SetResourceReference(Border.BackgroundProperty, "Tc.Window");
-    }
-
-    private void ApplyConsistentPageRail()
-    {
-        foreach (string pageName in ConsistentPageNames)
-        {
-            if (FindName(pageName) is ScrollViewer scroll)
-                ApplyPageRail(scroll);
-        }
-    }
-
-    private static void ApplyPageRail(ScrollViewer scroll)
-    {
-        scroll.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
-        scroll.HorizontalContentAlignment = HorizontalAlignment.Left;
-
-        if (scroll.Content is not FrameworkElement content)
-            return;
-
-        // One shared Advanced-page rail owns horizontal placement and width for
-        // every page. Content fills the usable viewport on normal/small windows,
-        // stops at one readable maximum on wide windows and remains left-anchored
-        // beside the navigation rail.
-        content.MinWidth = 0;
-        content.MaxWidth = AdvancedContentMaxWidth;
-        content.HorizontalAlignment = HorizontalAlignment.Left;
-        content.Margin = new Thickness(0);
-        content.SetBinding(FrameworkElement.WidthProperty, new Binding(nameof(ScrollViewer.ViewportWidth))
-        {
-            Source = scroll,
-            Mode = BindingMode.OneWay,
-            Converter = PageRailWidthConverter.Instance
-        });
-    }
-
-    private sealed class PageRailWidthConverter : IValueConverter
-    {
-        internal static readonly PageRailWidthConverter Instance = new();
-
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is not double viewportWidth || !double.IsFinite(viewportWidth) || viewportWidth <= 0)
-                return DependencyProperty.UnsetValue;
-
-            return Math.Min(AdvancedContentMaxWidth, Math.Max(0, viewportWidth - PageRightGutter));
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
-            throw new NotSupportedException();
-    }
-
-    private static void ApplySliderAvailability(Slider slider)
-    {
-        slider.Opacity = slider.IsEnabled ? 1.0 : 0.42;
     }
 
     private void ApplyConsistentCaptionPalette()

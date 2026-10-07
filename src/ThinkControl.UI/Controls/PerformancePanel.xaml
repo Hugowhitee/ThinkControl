@@ -1,93 +1,23 @@
-<UserControl x:Class="ThinkControl.UI.Controls.PerformancePanel"
-             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
-             xmlns:ui="clr-namespace:ThinkControl.UI">
+<UserControl x:Class="ThinkControl.UI.Controls.PerformancePanel" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:controls="clr-namespace:ThinkControl.UI.Controls" xmlns:ui="clr-namespace:ThinkControl.UI">
     <StackPanel>
-        <controls:AdvancedPageHeader Title="Performance"
-                                     Subtitle="Separate profiles for battery and plugged-in use.">
-            <controls:AdvancedPageHeader.Actions>
-                <Button Content="Defaults"
-                        controls:AdvancedPageHeader.ActionRole="Defaults"
-                        Style="{StaticResource TcPageHeaderAction}"
-                        Click="Reset_Click"
-                        ToolTip="Restore Balanced for battery and plugged-in power" />
-            </controls:AdvancedPageHeader.Actions>
+        <controls:AdvancedPageHeader Title="Power &amp; cooling" Subtitle="Performance profiles, real cooling and hardware limits">
+            <controls:AdvancedPageHeader.Actions><StackPanel Orientation="Horizontal"><Button Content="Windows power" Tag="ms-settings:powersleep" Click="WindowsPower_Click" Style="{StaticResource TcPageHeaderExternalAction}" /><Button Content="Defaults" controls:AdvancedPageHeader.ActionRole="Defaults" Style="{StaticResource TcPageHeaderAction}" Click="Reset_Click" Margin="10,0,0,0" /></StackPanel></controls:AdvancedPageHeader.Actions>
         </controls:AdvancedPageHeader>
-
-        <Grid Margin="2,0,2,14">
-            <TextBlock Text="Current power source"
-                       Foreground="{DynamicResource Tc.TextMuted}"
-                       VerticalAlignment="Center" />
-            <StackPanel Orientation="Horizontal"
-                        HorizontalAlignment="Right"
-                        VerticalAlignment="Center">
-                <TextBlock x:Name="CurrentSourceText"
-                           Text="Checking…"
-                           FontWeight="SemiBold"
-                           VerticalAlignment="Center" />
-                <controls:PackIconLucide x:Name="CurrentSourceIcon"
-                                         Kind="BatteryHorizontal"
-                                         Width="22"
-                                         Height="17"
-                                         Margin="10,0,0,0"
-                                         Foreground="{DynamicResource Tc.TextMuted}"
-                                         VerticalAlignment="Center" />
-            </StackPanel>
-        </Grid>
-
-        <Border Style="{StaticResource TcSection}">
-            <StackPanel>
-                <TextBlock Text="Battery profile"
-                           FontSize="{x:Static ui:TypographyScale.SectionTitle}"
-                           FontWeight="SemiBold" />
-                <TextBlock Text="Used automatically while the laptop runs on battery."
-                           FontSize="{x:Static ui:TypographyScale.Body}"
-                           Foreground="{DynamicResource Tc.TextMuted}"
-                           Margin="0,5,0,0" />
-                <Grid Margin="0,14,0,0">
+        <Grid Margin="0,0,0,10"><TextBlock Text="POWER MODES" Style="{StaticResource TcText.Caption}" Foreground="{DynamicResource Tc.TextFaint}" /><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><controls:PackIconLucide x:Name="CurrentSourceIcon" Kind="BatteryHorizontal" Width="16" Height="16" Margin="0,0,8,0" /><TextBlock x:Name="CurrentSourceText" Text="Checking…" Style="{StaticResource TcText.Caption}" /></StackPanel></Grid>
+        <Border Style="{StaticResource TcSection}"><StackPanel>
+            <TextBlock Text="Power preferences" Style="{StaticResource TcText.SectionTitle}" /><TextBlock Text="Automatic profile selection based on the power source" Style="{StaticResource TcText.Secondary}" Margin="0,8,0,14" />
+            <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="166" /><ColumnDefinition /></Grid.ColumnDefinitions><TextBlock Text="On battery" Style="{StaticResource TcText.Secondary}" VerticalAlignment="Center" /><ContentControl Grid.Column="1"><Grid Margin="0">
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                     <RadioButton x:Name="BatteryEfficiency" GroupName="BatteryPower" Style="{StaticResource TcSegment}" Content="Efficiency" Tag="Battery:Quiet" Click="PowerPreference_Click" Margin="0,0,5,0" />
                     <RadioButton x:Name="BatteryBalanced" Grid.Column="1" GroupName="BatteryPower" Style="{StaticResource TcSegment}" Content="Balanced" Tag="Battery:Balanced" Click="PowerPreference_Click" Margin="2,0" />
                     <RadioButton x:Name="BatteryPerformance" Grid.Column="2" GroupName="BatteryPower" Style="{StaticResource TcSegment}" Content="Performance" Tag="Battery:Performance" Click="PowerPreference_Click" Margin="5,0,0,0" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <Border Style="{StaticResource TcSection}" Margin="0,14,0,0">
-            <StackPanel>
-                <TextBlock Text="Plugged-in profile"
-                           FontSize="{x:Static ui:TypographyScale.SectionTitle}"
-                           FontWeight="SemiBold" />
-                <TextBlock Text="Used automatically while AC power is connected."
-                           FontSize="{x:Static ui:TypographyScale.Body}"
-                           Foreground="{DynamicResource Tc.TextMuted}"
-                           Margin="0,5,0,0" />
-                <Grid Margin="0,14,0,0">
+                </Grid></ContentControl></Grid>
+            <Grid Margin="0,12,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="166" /><ColumnDefinition /></Grid.ColumnDefinitions><TextBlock Text="Plugged in" Style="{StaticResource TcText.Secondary}" VerticalAlignment="Center" /><ContentControl Grid.Column="1"><Grid Margin="0">
                     <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                     <RadioButton x:Name="AcEfficiency" GroupName="AcPower" Style="{StaticResource TcSegment}" Content="Efficiency" Tag="Ac:Quiet" Click="PowerPreference_Click" Margin="0,0,5,0" />
                     <RadioButton x:Name="AcBalanced" Grid.Column="1" GroupName="AcPower" Style="{StaticResource TcSegment}" Content="Balanced" Tag="Ac:Balanced" Click="PowerPreference_Click" Margin="2,0" />
                     <RadioButton x:Name="AcPerformance" Grid.Column="2" GroupName="AcPower" Style="{StaticResource TcSegment}" Content="Performance" Tag="Ac:Performance" Click="PowerPreference_Click" Margin="5,0,0,0" />
-                </Grid>
-            </StackPanel>
-        </Border>
-
-        <Grid Margin="2,15,2,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition />
-            </Grid.ColumnDefinitions>
-            <controls:PackIconLucide Kind="Fan"
-                                     Width="16"
-                                     Height="16"
-                                     Margin="0,2,8,0"
-                                     Foreground="{DynamicResource Tc.TextMuted}"
-                                     VerticalAlignment="Top" />
-            <TextBlock Grid.Column="1"
-                       Text="Quiet / Balanced / Max cooling remains a separate fan setting and is not changed when the charger is connected or removed."
-                       FontSize="{x:Static ui:TypographyScale.Secondary}"
-                       Foreground="{DynamicResource Tc.TextMuted}"
-                       TextWrapping="Wrap" />
-        </Grid>
+                </Grid></ContentControl></Grid>
+        </StackPanel></Border>
     </StackPanel>
 </UserControl>

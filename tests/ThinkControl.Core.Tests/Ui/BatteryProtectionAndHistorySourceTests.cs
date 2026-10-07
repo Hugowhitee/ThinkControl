@@ -34,9 +34,11 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("CustomChargeApply_Click", code, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CustomChargeStartComboBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CustomChargeStopComboBox\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("A lower charge limit reduces time near full", code, StringComparison.Ordinal);
+        Assert.Contains("Helps reduce battery wear", code, StringComparison.Ordinal);
+        Assert.Contains("Estimated charging wear:", code, StringComparison.Ordinal);
+        Assert.Contains("not the firmware cycle count or measured capacity loss", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeLimitWear", code, StringComparison.Ordinal);
-        Assert.Contains("DescribeBatteryAging", panel, StringComparison.Ordinal);
+        Assert.Contains("UpdateBatteryAgingGuidance", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeLimitWear", panel, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeChargeWear", panel, StringComparison.Ordinal);
@@ -53,7 +55,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Charge hold, resumes below {start}%", state, StringComparison.Ordinal);
         Assert.DoesNotContain("EstimateChargeEtaToTarget", state, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"ChargeProtectionWearText\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("battery age also matter", code, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("0–100%", code, StringComparison.Ordinal);
 
         string gauge = File.ReadAllText(Path.Combine(root, "src", "ThinkControl.UI", "Controls", "BatteryProtectionGauge.cs"));
         Assert.Contains("Tc.Warning", gauge, StringComparison.Ordinal);

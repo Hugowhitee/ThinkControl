@@ -24,73 +24,34 @@ public partial class AdvancedWindow : Window
     private bool _forceClose;
     private bool _syncing;
     private bool _positioned;
+    private bool _panelNavigationSubscribed;
     private UpdateCheckResult? _lastUpdate;
 
     public AdvancedWindow(App app)
     {
         _app = app;
         InitializeComponent();
-        AddShellUtilityRow();
+        AddHandler(ContextTabs.NavigationRequestedEvent, new RoutedEventHandler((_, e) =>
+        {
+            if (e is PageNavigationEventArgs navigation) Navigate(navigation.Page);
+        }));
         Loaded += OnLoaded;
         Closing += OnClosing;
         SourceInitialized += (_, _) => ApplyThemeToChrome();
-    }
-
-    private void AddShellUtilityRow()
-    {
-        if (NavHome.Parent is not WpfStackPanel navStack)
-            return;
-
-        if (navStack.Children.OfType<WpfGrid>()
-            .Any(grid => Equals(grid.Tag, "ThinkControl.UtilityRow")))
-        {
-            return;
-        }
-
-        var utilityRow = new WpfGrid
-        {
-            Tag = "ThinkControl.UtilityRow",
-            Height = 46,
-            Margin = new Thickness(13, 3, 10, 3),
-            HorizontalAlignment = HorizontalAlignment.Left
-        };
-
-        var notificationButton = new WpfButton
-        {
-            Tag = ShellUtilityOrder.NotificationTag,
-            Style = (Style)FindResource("TcIconButton"),
-            Width = 38,
-            Height = 38,
-            Padding = new Thickness(0)
-        };
-
-        var compactButton = new WpfButton
-        {
-            Margin = new Thickness(0, 0, 4, 0),
-            BorderThickness = new Thickness(0),
-            Background = Brushes.Transparent,
-            BorderBrush = Brushes.Transparent
-        };
-        ShellUtilityOrder.ConfigureModeButton(
-            compactButton,
-            "Compact",
-            "CompactView");
-        TcToolTip.Apply(compactButton, "Compact view");
-        compactButton.Click += (_, _) => _app.SwitchAdvancedToCompact();
-
-        ShellUtilityOrder.Apply(utilityRow, notificationButton, compactButton);
-        navStack.Children.Insert(0, utilityRow);
     }
 
     private void InitializeFeaturePanels()
     {
         ModesPanelControl.Initialize(_app);
         AutomationPanelControl.Initialize(_app, automationSurface: true);
-        ModesPanelControl.NavigateRequested += Navigate;
-        AutomationPanelControl.NavigateRequested += Navigate;
+        if (!_panelNavigationSubscribed)
+        {
+            _panelNavigationSubscribed = true;
+        }
         PerformancePanelControl.Initialize(_app);
         FansPanelControl.Initialize(_app);
         AudioPanelControl.Initialize(_app);
+        HomeAudioControl.Initialize(_app);
         TouchpadPanelControl.Initialize(_app);
     }
 
@@ -154,23 +115,6 @@ public partial class AdvancedWindow : Window
 
     public void Navigate(string page)
     {
-        switch (page)
-        {
-            case "Modes": NavModes.IsChecked = true; break;
-            case "Automation": NavAutomation.IsChecked = true; break;
-            case "Performance": NavPerformance.IsChecked = true; break;
-            case "Fans": NavFans.IsChecked = true; break;
-            case "Battery": NavBattery.IsChecked = true; break;
-            case "Display": NavDisplay.IsChecked = true; break;
-            case "Audio": NavAudio.IsChecked = true; break;
-            case "Keyboard": NavKeyboard.IsChecked = true; break;
-            case "Touchpad": NavTouchpad.IsChecked = true; break;
-            case "System": NavSystem.IsChecked = true; break;
-            case "Updates": NavUpdates.IsChecked = true; break;
-            case "Settings": NavSettings.IsChecked = true; break;
-            default: NavHome.IsChecked = true; break;
-        }
-
         ShowPage(page);
         if (IsLoaded)
             BringSelectedNavigationIntoView();
@@ -225,14 +169,10 @@ public partial class AdvancedWindow : Window
         _syncing = true;
         try
         {
-            ThinkControlPowerMode batteryPreference = _app.GetPowerPreference(onBattery: true);
-            ThinkControlPowerMode acPreference = _app.GetPowerPreference(onBattery: false);
-            HomeQuiet.IsChecked = batteryPreference == ThinkControlPowerMode.Quiet;
-            HomeBalanced.IsChecked = batteryPreference == ThinkControlPowerMode.Balanced;
-            HomePerformance.IsChecked = batteryPreference == ThinkControlPowerMode.Performance;
-            HomeAcQuiet.IsChecked = acPreference == ThinkControlPowerMode.Quiet;
-            HomeAcBalanced.IsChecked = acPreference == ThinkControlPowerMode.Balanced;
-            HomeAcPerformance.IsChecked = acPreference == ThinkControlPowerMode.Performance;
+            SyncHomePowerModes();
+            ThemeSystem.IsChecked = Services.ThemeService.Current == Services.ThemeMode.System;
+            ThemeDark.IsChecked = Services.ThemeService.Current == Services.ThemeMode.Dark;
+            ThemeLight.IsChecked = Services.ThemeService.Current == Services.ThemeMode.Light;
 
             HomeRefreshAuto.IsChecked = DisplayRefreshAuto.IsChecked = state.RefreshAutoEnabled;
             bool supports60 = _app.DisplayService.GetSupportedRefreshRates().Contains(60);
@@ -243,7 +183,7 @@ public partial class AdvancedWindow : Window
             string maxLabel = state.MaxRefreshHz > 0 ? $"{state.MaxRefreshHz} Hz" : "Max";
             HomeRefreshMax.Content = DisplayRefreshMax.Content = maxLabel;
 
-            HomeAdaptiveSwitch.IsChecked = DisplayAdaptiveSwitch.IsChecked = state.AdaptiveBrightnessEnabled == true;
+            DisplayAdaptiveSwitch.IsChecked = state.AdaptiveBrightnessEnabled == true;
 
             HomeKeyboardOff.IsEnabled = HomeKeyboardLow.IsEnabled = HomeKeyboardHigh.IsEnabled = HomeKeyboardAuto.IsEnabled =
                 AdvancedKeyboardOff.IsEnabled = AdvancedKeyboardLow.IsEnabled = AdvancedKeyboardHigh.IsEnabled = AdvancedKeyboardAuto.IsEnabled = state.CanKeyboardBacklight;
@@ -253,11 +193,7 @@ public partial class AdvancedWindow : Window
             HomeKeyboardHigh.IsChecked = AdvancedKeyboardHigh.IsChecked = isStatic && state.KeyboardStatus.Contains("High", StringComparison.OrdinalIgnoreCase);
             HomeKeyboardAuto.IsChecked = AdvancedKeyboardAuto.IsChecked = state.KeyboardMode == "Auto";
 
-            if (HomeFanAutoSwitch is not null)
-            {
-                HomeFanAutoSwitch.IsEnabled = state.CanFanControl && !_homeFanBusy;
-                HomeFanMoreButton.IsEnabled = state.CanFanControl && !_homeFanBusy;
-            }
+            RefreshHomeCoolingSummary();
         }
         finally
         {
@@ -267,7 +203,7 @@ public partial class AdvancedWindow : Window
 
     private void Nav_Checked(object sender, RoutedEventArgs e)
     {
-        if (!IsLoaded || sender is not FrameworkElement { Tag: string page })
+        if (_selectingGroup || !IsLoaded || sender is not FrameworkElement { Tag: string page })
             return;
         ShowPage(page);
         BringSelectedNavigationIntoView();
@@ -285,15 +221,6 @@ public partial class AdvancedWindow : Window
         if (PageHome is null)
             return;
 
-        foreach (FrameworkElement element in new FrameworkElement[]
-        {
-            PageHome, PageModes, PageAutomation, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
-            PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageSettings
-        })
-        {
-            element.Visibility = Visibility.Collapsed;
-        }
-
         FrameworkElement selected = page switch
         {
             "Modes" => PageModes,
@@ -307,28 +234,23 @@ public partial class AdvancedWindow : Window
             "Touchpad" => PageTouchpad,
             "System" => PageSystem,
             "Updates" => PageUpdates,
-            "Settings" => PageSettings,
+            "Settings" => PageSystem,
+            "Diagnostics" => PageDiagnostics,
             _ => PageHome
         };
-        selected.Visibility = Visibility.Visible;
+        _selectedPage = page;
+        SelectNavigationGroup(page);
+        bool entering = selected.Visibility != Visibility.Visible;
+        foreach (FrameworkElement element in new FrameworkElement[]
+        {
+            PageHome, PageModes, PageAutomation, PagePerformance, PageFans, PageBattery, PageDisplay, PageAudio,
+            PageKeyboard, PageTouchpad, PageSystem, PageUpdates, PageDiagnostics
+        })
+            element.Visibility = ReferenceEquals(element, selected) ? Visibility.Visible : Visibility.Collapsed;
+        ResetPageForNavigation((System.Windows.Controls.ScrollViewer)selected, animate: entering);
     }
 
-    private string GetSelectedPage()
-    {
-        if (NavModes.IsChecked == true) return "Modes";
-        if (NavAutomation.IsChecked == true) return "Automation";
-        if (NavPerformance.IsChecked == true) return "Performance";
-        if (NavFans.IsChecked == true) return "Fans";
-        if (NavBattery.IsChecked == true) return "Battery";
-        if (NavDisplay.IsChecked == true) return "Display";
-        if (NavAudio.IsChecked == true) return "Audio";
-        if (NavKeyboard.IsChecked == true) return "Keyboard";
-        if (NavTouchpad.IsChecked == true) return "Touchpad";
-        if (NavSystem.IsChecked == true) return "System";
-        if (NavUpdates.IsChecked == true) return "Updates";
-        if (NavSettings.IsChecked == true) return "Settings";
-        return "Home";
-    }
+    private string GetSelectedPage() => _selectedPage;
 
     private void HomeOpenPage_Click(object sender, RoutedEventArgs e)
     {
@@ -417,6 +339,7 @@ public partial class AdvancedWindow : Window
             !Enum.TryParse(raw, out ThinkControl.UI.Services.ThemeMode mode))
             return;
         _app.ApplyTheme(mode);
+        SyncControls();
     }
 
     private void StartupSwitch_Click(object sender, RoutedEventArgs e)

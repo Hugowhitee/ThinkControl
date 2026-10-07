@@ -9,6 +9,9 @@ namespace ThinkControl.UI.Controls;
 
 public partial class AudioPanel : UserControl
 {
+    public static readonly DependencyProperty OverviewOnlyProperty = DependencyProperty.Register(
+        nameof(OverviewOnly), typeof(bool), typeof(AudioPanel), new PropertyMetadata(false));
+    public bool OverviewOnly { get => (bool)GetValue(OverviewOnlyProperty); set => SetValue(OverviewOnlyProperty, value); }
     private readonly WindowsVolumeService _volume = new();
     private readonly DolbyDirectControlService _directDolby = new();
     private readonly DolbyAccessProfileBridge _accessDolby = new();
@@ -95,7 +98,7 @@ public partial class AudioPanel : UserControl
             // refreshes output + input together. Dolby probing is independently
             // backgrounded below for the same reason.
             QueueVolumeRefresh(applyCacheFirst: true);
-            RefreshStatus();
+            if (!OverviewOnly) RefreshStatus();
         }
         if (!_volumeRefreshTimer.IsEnabled)
             _volumeRefreshTimer.Start();

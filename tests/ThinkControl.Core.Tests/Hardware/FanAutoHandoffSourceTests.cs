@@ -86,12 +86,10 @@ public sealed class FanAutoHandoffSourceTests
         Assert.Contains("if (IsManualFanState(raw))", compact, StringComparison.Ordinal);
         Assert.DoesNotContain("StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => \"Auto\"", compact, StringComparison.Ordinal);
 
-        Assert.Contains("if (IsManualHomeFanState(selected) && !firmwarePolicy)", home, StringComparison.Ordinal);
-        Assert.Contains("values.Add(selected);", home, StringComparison.Ordinal);
-        Assert.Contains("IsEnabled = !IsManualHomeFanState(profile)", home, StringComparison.Ordinal);
-        Assert.Contains("selected.Equals(\"Auto\", StringComparison.OrdinalIgnoreCase)", home, StringComparison.Ordinal);
-        Assert.Contains("selected.Equals(\"Lenovo Auto\", StringComparison.OrdinalIgnoreCase)", home, StringComparison.Ordinal);
-        Assert.DoesNotContain("IsManualHomeFanState(selected) => \"Auto\"", home, StringComparison.Ordinal);
+        string homeXaml = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
+        Assert.Contains("Text=\"{Binding CoolingProfileDisplay}\"", homeXaml, StringComparison.Ordinal);
+        Assert.Contains("Tag=\"Fans\"", homeXaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeFanProfileCombo", homeXaml, StringComparison.Ordinal);
     }
 
     [Fact]

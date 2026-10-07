@@ -9,44 +9,16 @@ public partial class AdvancedWindow
 {
     private const string DeviceLearningStatusResourceKey = "ThinkControl.DeviceLearningStatus";
     private Button? _deviceLearningStatusButton;
-    private BrandWordmark? _deviceLearningBaseBrand;
     private bool _deviceLearningStatusSubscribed;
 
     private void ConfigureDeviceLearningIndicator()
     {
         if (_deviceLearningStatusButton is null)
         {
-            if (NavHome.Parent is not StackPanel navStack)
-                return;
-
-            Grid? brandRow = navStack.Children
-                .OfType<Grid>()
-                .FirstOrDefault(grid => Equals(grid.Tag, "ThinkControl.BrandRow"));
-            if (brandRow is null)
-                return;
-
-            _deviceLearningBaseBrand = brandRow.Children
-                .OfType<BrandWordmark>()
-                .FirstOrDefault();
-
-            _deviceLearningStatusButton = new Button
-            {
-                Tag = DeviceLearningStatusResourceKey,
-                Style = TryFindResource("TcInlineButton") as Style,
-                HorizontalAlignment = HorizontalAlignment.Left,
-                VerticalAlignment = VerticalAlignment.Center,
-                Padding = new Thickness(4, 3, 4, 3),
-                Margin = new Thickness(0),
-                FontSize = TypographyScale.Caption,
-                MaxWidth = 158,
-                Visibility = Visibility.Collapsed,
-                ToolTip = "Compatibility learning runs quietly in the background while you use ThinkControl. Nothing is uploaded automatically."
-            };
-            _deviceLearningStatusButton.Click += (_, _) => Navigate("Settings");
-            brandRow.Children.Add(_deviceLearningStatusButton);
+            _deviceLearningStatusButton = DeviceLearningIndicator;
+            _deviceLearningStatusButton.Click += (_, _) => Navigate("Diagnostics");
             Resources[DeviceLearningStatusResourceKey] = _deviceLearningStatusButton;
         }
-
         if (!_deviceLearningStatusSubscribed)
         {
             _app.DeviceSupportStatusChanged += DeviceLearningStatusChanged;
@@ -69,8 +41,6 @@ public partial class AdvancedWindow
             throw new InvalidOperationException("Advanced device-learning indicator was not initialized.");
 
         _deviceLearningStatusButton.Visibility = Visibility.Visible;
-        if (_deviceLearningBaseBrand is not null)
-            _deviceLearningBaseBrand.Visibility = Visibility.Collapsed;
 
         _deviceLearningStatusButton.Content = reportReady ? "Report ready" : "New device: 2/4";
         _deviceLearningStatusButton.SetResourceReference(
@@ -97,8 +67,6 @@ public partial class AdvancedWindow
         DeviceSupportStatus status = _app.DeviceSupportStatus;
         bool visible = status.Phase is DeviceSupportPhase.Learning or DeviceSupportPhase.ReadyToShare;
         _deviceLearningStatusButton.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
-        if (_deviceLearningBaseBrand is not null)
-            _deviceLearningBaseBrand.Visibility = visible ? Visibility.Collapsed : Visibility.Visible;
 
         if (!visible)
             return;

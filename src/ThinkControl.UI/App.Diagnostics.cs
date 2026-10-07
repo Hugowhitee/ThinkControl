@@ -12,6 +12,8 @@ public partial class App
 
     private App(bool enforceSingleInstance)
     {
+        IsVisualQa = !enforceSingleInstance;
+        HardwareClient = new HardwareServiceClient(connectToService: enforceSingleInstance);
         UserSettings = new UserSettingsService(persist: enforceSingleInstance);
         BatteryHistoryService = new BatteryHistoryService(UserSettings.Current.BatteryDetailRetentionDays);
         if (enforceSingleInstance)
@@ -35,12 +37,15 @@ public partial class App
     /// <summary>
     /// Creates the real WPF application resources for deterministic rendering
     /// without treating the renderer as a second desktop launch. Startup is not
-    /// raised by the snapshot host, so tray, polling and hardware work stay idle.
+    /// isolated from real tray, polling and hardware startup even if the WPF
+    /// dispatcher raises Startup while a native inspection window is shown.
     /// </summary>
     public static App CreateForVisualQa() => new(enforceSingleInstance: false);
+    internal bool IsVisualQa { get; }
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
     {
+        if (IsVisualQa) return; // The renderer owns explicit fixtures; offline probes must not erase them.
         void Apply()
         {
             if (response?.Success == true && response.Telemetry is not null)

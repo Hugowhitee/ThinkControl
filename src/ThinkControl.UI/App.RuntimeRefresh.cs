@@ -148,13 +148,15 @@ public partial class App
 
             State.BatterySmoothedPowerWatts = eta.SmoothedPowerWatts;
 
+            await RefreshBatteryCycleCountAsync();
             BatteryHistoryView history = BatteryHistoryService.Record(
                 battery.Charging,
                 State.BatteryPercent,
                 battery.PowerWatts,
                 battery.RemainingWh,
                 battery.FullWh,
-                _runtimeBatteryDesignWh);
+                _runtimeBatteryDesignWh,
+                State.BatteryCycleCount);
             State.ApplyBatteryHistory(history);
             BatteryTelemetryService.SetHistoricalChargePower(history.TypicalChargePowerWatts);
 

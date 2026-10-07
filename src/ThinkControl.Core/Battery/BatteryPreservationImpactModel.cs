@@ -98,7 +98,7 @@ public static class BatteryPreservationImpactModel
     }
 
     public const string LimitationsText =
-        "This fixed comparison starts at 0% so charge limits can be compared directly. A real top-up that starts above 0% has lower modeled session wear because only the added range counts, and the upper end contributes disproportionately. This is a generic Li-ion estimate, not the firmware battery cycle count; actual wear varies with chemistry, real voltage mapping, temperature, charge rate and time at high state of charge.";
+        "Estimated wear uses a generic Li-ion model. One 0–100% charge is the 1.00 wear-cycle reference. Partial top-ups count only the added range, with a larger modeled contribution near full charge. This is not the firmware cycle count or measured capacity loss. Actual wear varies with chemistry, real cell voltage, temperature, charge rate and time at high state of charge.";
 
     public static string DescribeLimitWear(int targetPercent)
     {

@@ -7,7 +7,7 @@
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
         Background="{DynamicResource Tc.Window}"
         Foreground="{DynamicResource Tc.Text}"
-        FontFamily="Segoe UI Variable Text, Segoe UI">
+        FontFamily="{StaticResource Tc.Font}">
     <Grid Margin="20">
         <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
         <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

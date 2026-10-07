@@ -14,7 +14,7 @@ public partial class App
 
     internal void InitializeModeAutomation()
     {
-        Startup += (_, _) => ModeAutomation.Start();
+        Startup += (_, _) => { if (!IsVisualQa) ModeAutomation.Start(); };
         Exit += (_, _) =>
         {
             _modeAutomation?.Dispose();

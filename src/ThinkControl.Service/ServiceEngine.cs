@@ -286,11 +286,11 @@ internal sealed class ServiceEngine : IDisposable
             Sensors: sensors,
             ControlTemperatureC: status.ControlTemperatureC,
             ControlTemperatureSource: status.ControlTemperatureSource,
-            CoolingProfile: firmwareCooling.FullSpeedOnly || firmwareCooling.UnavailableReason is not null || firmwareOverride
+            CoolingProfile: (!status.CanFanControl && (firmwareCooling.FullSpeedOnly || firmwareCooling.UnavailableReason is not null)) || firmwareOverride
                 ? firmwareCooling.Profile : cooling.Profile,
             CoolingAppliedLevel: firmwareOverride ? null : cooling.AppliedLevel,
             CoolingSmoothedTemperatureC: firmwareOverride ? null : cooling.SmoothedTemperatureC,
-            CoolingStatus: firmwareCooling.UnavailableReason ?? (firmwareCooling.FullSpeedOnly || firmwareOverride ? firmwareCooling.Status : cooling.Status),
+            CoolingStatus: firmwareOverride || !status.CanFanControl ? firmwareCooling.UnavailableReason ?? firmwareCooling.Status : cooling.Status,
             CoolingSafetyOverride: firmwareOverride ? false : cooling.SafetyOverride,
             FanCharacterization: cooling.Characterization,
             CoolingProfileId: firmwareOverride ? firmwareCooling.ProfileId : cooling.ProfileId,
@@ -314,9 +314,8 @@ internal sealed class ServiceEngine : IDisposable
         bool fanCalibrationSupported = status.CanFanControl &&
                                        status.CanFanTelemetry &&
                                        string.Equals(fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
-        bool completeCalibration = cooling.Characterization.TotalLevels > 0 &&
-                                   cooling.Characterization.Levels.Count == cooling.Characterization.TotalLevels &&
-                                   cooling.Characterization.Levels.All(static level => level.Stable);
+        bool completeCalibration = FanCalibrationPolicy.TryValidate(cooling.Characterization.Levels,
+            _hardware.FanCalibrationStates, out _);
         bool fanCalibrationRequired = fanCalibrationSupported &&
                                       (cooling.Characterization.Running || !completeCalibration);
 
@@ -426,6 +425,8 @@ internal sealed class ServiceEngine : IDisposable
 
     private ServiceResponse ReturnFanToAuto()
     {
+        if (_fanSupervisor.Snapshot().Characterization.Running && !_fanSupervisor.StopCharacterization(out string? stopError))
+            return Error(stopError ?? "Fan measurement could not return to Auto.");
         LenovoCoolingPolicySnapshot firmware = _coolingPolicy.Snapshot();
 
         // When a firmware override (especially Max/full-speed) is the active owner,
@@ -468,7 +469,12 @@ internal sealed class ServiceEngine : IDisposable
             return ReturnFanToAuto();
         }
 
-        if (_coolingPolicy.Supported && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
+        bool measuredProfile = _hardware.CanControlRegulatedFans &&
+            !normalized.Equals("Max cooling", StringComparison.OrdinalIgnoreCase) &&
+            !normalized.Equals(FanCurveDefaults.MaxCoolingId, StringComparison.OrdinalIgnoreCase);
+        if (_fanSupervisor.Snapshot().Characterization.Running)
+            return Error("Finish or stop the fan measurement before changing profiles.");
+        if (_coolingPolicy.Supported && !measuredProfile && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
         {
             CoolingSupervisorSnapshot direct = _fanSupervisor.Snapshot();
             if (ThinkControlOwnsFan(direct) && !_fanSupervisor.ReturnToAuto(out string? handoffError))
@@ -606,8 +612,15 @@ internal sealed class ServiceEngine : IDisposable
 
     internal void PrepareForSuspend()
     {
-        if (_hardware.OwnsExactFullSpeed && !_coolingPolicy.RequestFirmwareAuto(out string? error))
-            ServiceLog.Write("Suspend Auto recovery pending: " + error);
+        if (_fanSupervisor.Snapshot().Characterization.Running && !_fanSupervisor.StopCharacterization(out string? measurementError))
+            ServiceLog.Write("Suspend measurement recovery pending: " + measurementError);
+        if (_hardware.OwnsExactFullSpeed)
+        {
+            if (!_coolingPolicy.RequestFirmwareAuto(out string? error))
+                ServiceLog.Write("Suspend Auto recovery pending: " + error);
+        }
+        else if (_hardware.OwnsManagedFan && !_fanSupervisor.ReturnToAuto(out string? regulatedError))
+            ServiceLog.Write("Suspend regulated Auto recovery pending: " + regulatedError);
     }
 
     public void Dispose()

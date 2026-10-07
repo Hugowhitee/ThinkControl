@@ -17,6 +17,9 @@ public sealed record HardwareOperationResult(
 
 public sealed class HardwareServiceClient
 {
+    private readonly bool _connectToService;
+    public HardwareServiceClient(bool connectToService = true) => _connectToService = connectToService;
+
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private static readonly TimeSpan LastKnownGoodGrace = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan StatusEventInterval = TimeSpan.FromSeconds(6);
@@ -248,11 +251,12 @@ public sealed class HardwareServiceClient
             capabilities);
     }
 
-    private static async Task<ServiceResponse?> SendAsync(
+    private async Task<ServiceResponse?> SendAsync(
         ServiceRequest request,
         CancellationToken cancellationToken,
         int timeoutMs = 450)
     {
+        if (!_connectToService) return null;
         try
         {
             using var pipe = new NamedPipeClientStream(

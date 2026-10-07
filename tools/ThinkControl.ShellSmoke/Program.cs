@@ -26,6 +26,9 @@ internal static class Program
         {
             ValidateCrashJournal();
             ValidateBatteryHistoryGaps();
+            ValidateCompactLayoutMigration();
+            if (!ThinkControl.UI.Controls.TimeSeriesChart.AxisTicks(9.8, 12.2, "0").SequenceEqual(new[] { 10d, 11d, 12d }))
+                throw new InvalidOperationException("Cycle chart ticks must use exact integer values at their actual positions.");
             ValidateBatteryEtaLabels();
             ValidateModeAutomationPolicy();
             app = App.CreateForVisualQa();
@@ -44,6 +47,8 @@ internal static class Program
                 {
                     await ValidateAutomationTransitions(app);
                     await ValidateKeyboardTransitions();
+                    await ValidateKeyboardOsdVisibilityLease();
+                    await ValidateBatteryMotion();
                     RunScenario(app);
                     exitCode = 0;
                 }
@@ -76,6 +81,50 @@ internal static class Program
         {
             try { app?.CleanupInteractiveShellSmoke(); } catch { }
         }
+    }
+
+    private static void ValidateCompactLayoutMigration()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "ThinkControl-Layout-Smoke-" + Guid.NewGuid());
+        Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "layout.json");
+        try
+        {
+            File.WriteAllText(path, "[\"cpu\",\"battery\",\"power\"]");
+            var service = new CompactMetricLayoutService(path);
+            service.SaveControls(["Keyboard", "Display", "Fans", "Performance"]);
+            if (!service.Load().SequenceEqual(new[] { "CPU", "Battery", "Power" })) throw new InvalidOperationException("Quick controls lost the legacy status layout.");
+            service.Save(["Fans", "CPU", "Battery"]);
+            if (!service.LoadControls().SequenceEqual(new[] { "Keyboard", "Display", "Fans", "Performance" })) throw new InvalidOperationException("Status layout lost the saved quick-control order.");
+            service.SaveControls(["Keyboard", "Keyboard", "Fans", "Performance"]);
+            if (!service.LoadControls().SequenceEqual(new[] { "Performance", "Fans", "Display", "Keyboard" })) throw new InvalidOperationException("Duplicate control slots were retained.");
+        }
+        finally { Directory.Delete(directory, true); }
+    }
+
+    private static async Task ValidateBatteryMotion()
+    {
+        var gauge = new ThinkControl.UI.Controls.BatteryGauge { Width = 100, Height = 40, Percent = 78, IsCharging = true };
+        var host = new Window { Content = gauge, Width = 140, Height = 100, ShowInTaskbar = false, ShowActivated = false };
+        try
+        {
+            host.Show();
+            double initial = gauge.MotionPhase;
+            await Task.Delay(350);
+            if (SystemParameters.ClientAreaAnimation && (!gauge.MotionActive || gauge.MotionPhase == initial))
+                throw new InvalidOperationException("Charging gauge did not move in a real WPF rendering loop.");
+            gauge.IsCharging = false;
+            gauge.IsDischarging = true;
+            await Task.Delay(450);
+            if (SystemParameters.ClientAreaAnimation && !gauge.MotionActive)
+                throw new InvalidOperationException("Discharge flow stopped while discharging.");
+            gauge.IsDischarging = false;
+            await Task.Delay(1300);
+            if (gauge.MotionActive)
+                throw new InvalidOperationException("Paused battery kept a permanent animation callback.");
+        }
+        finally { host.Close(); }
+        if (gauge.MotionActive) throw new InvalidOperationException("Battery animation survived window unload.");
     }
 
     private static void ValidateModeAutomationPolicy()
@@ -257,6 +306,28 @@ internal static class Program
         }
     }
 
+    private static async Task ValidateKeyboardOsdVisibilityLease()
+    {
+        object gate = new();
+        bool popup = false, visible = true;
+        var changed = new List<bool>();
+        using var suppressor = new LenovoKeyboardOsdSuppressor(() => 42,
+            _ => { lock (gate) return popup && visible ? new[] { new IntPtr(1) } : []; },
+            (_, show) => { lock (gate) { visible = show; changed.Add(show); } },
+            (_, pid) => pid == 42, TimeSpan.FromMilliseconds(100));
+        suppressor.Arm();
+        lock (gate) popup = true;
+        await Task.Delay(160);
+        lock (gate)
+            if (!changed.SequenceEqual(new[] { false, true }) || !visible)
+                throw new InvalidOperationException("Keyboard OSD: burst expiry left the reusable Lenovo popup hidden.");
+        // A window visible before an effect must remain untouched (e.g. Fn+Space).
+        suppressor.Arm();
+        await Task.Delay(160);
+        lock (gate)
+            if (changed.Count != 2) throw new InvalidOperationException("Keyboard OSD: an existing popup was hidden.");
+    }
+
     private static void ValidateBatteryEtaLabels()
     {
         var state = new ThinkControl.UI.ViewModels.AppState
@@ -294,6 +365,20 @@ internal static class Program
         try
         {
             DateTimeOffset start = DateTimeOffset.UtcNow.AddDays(-2);
+            string cyclePath = Path.Combine(directory, "cycles.json");
+            var cycleHistory = new BatteryHistoryService(cyclePath);
+            cycleHistory.Record(false, false, start, 60, null, 45, 75, 80, 100);
+            cycleHistory.Record(false, false, start.AddMinutes(1), 60, null, 45, 75, 80, 100);
+            cycleHistory.Record(false, false, start.AddMinutes(2), 60, null, 45, 75, 80, null);
+            cycleHistory.Record(false, false, start.AddDays(1), 60, null, 45, 75, 80, 102);
+            BatteryHistoryView cycleView = new BatteryHistoryService(cyclePath).GetView();
+            if (cycleView.CycleCountTimeline.Count != 2 || cycleView.CycleCountTimeline[1].Value != 102 ||
+                !cycleView.CycleTrendText.Contains("2 cycles added", StringComparison.Ordinal))
+                throw new InvalidOperationException("Cycle history failed persistence, de-duplication or unknown-reading handling.");
+            cycleHistory.Record(false, false, start.AddDays(1).AddHours(1), 60, null, 45, 75, 80, 3);
+            cycleView = cycleHistory.GetView();
+            if (cycleView.CycleCountTimeline[^1].Value != 3 || !cycleView.CycleTrendText.Contains("counter decreased", StringComparison.Ordinal))
+                throw new InvalidOperationException("A firmware cycle-counter reset was reported as negative battery wear.");
             foreach (bool initialCharging in new[] { true, false })
             {
                 var history = new BatteryHistoryService(Path.Combine(directory, initialCharging + ".json"));
@@ -640,7 +725,7 @@ internal static class Program
         window.Navigate("Settings");
         Pump(app.Dispatcher);
         var navigation = (ScrollViewer)window.FindName("SidebarNavigationScroll");
-        var settings = (RadioButton)window.FindName("NavSettings");
+        var settings = (RadioButton)window.FindName("NavSystem");
         Point position = settings.TranslatePoint(new Point(), navigation);
         if (position.Y < -1 || position.Y + settings.ActualHeight > navigation.ActualHeight + 1)
             throw new InvalidOperationException("Settings navigation remained outside the minimum-window scroll viewport after selecting it.");
@@ -659,6 +744,7 @@ internal static class Program
         window.Width = oldWidth;
         window.Height = oldHeight;
         ValidatePrecisionScrolling(app, window);
+        ValidateSharedNavigationReset(app, window);
         window.Navigate("Home");
         Pump(app.Dispatcher);
 
@@ -739,6 +825,47 @@ internal static class Program
             throw new InvalidOperationException("Keyboard PageDown stopped scrolling after precision-scroll normalization.");
         page.ScrollToTop();
         Pump(app.Dispatcher);
+    }
+
+    private static void ValidateSharedNavigationReset(App app, AdvancedWindow window)
+    {
+        foreach (string name in new[] { "Home", "Modes", "Automation", "Performance", "Battery", "Display", "Audio", "Keyboard", "Touchpad", "System", "Updates", "Diagnostics" })
+        {
+            window.Navigate(name);
+            Pump(app.Dispatcher);
+            var page = (ScrollViewer)window.FindName("Page" + name);
+            ThinkControl.UI.Controls.ModesPanel? modes = page.Content as ThinkControl.UI.Controls.ModesPanel;
+            if (modes is not null)
+            {
+                if (name == "Automation") modes.PrepareRuleEditorForSnapshot();
+                else modes.PrepareEditorForSnapshot();
+            }
+            Expander? expander = VisualDescendants<Expander>(page).FirstOrDefault();
+            if (expander is not null) expander.IsExpanded = true;
+            page.ScrollToEnd();
+            Pump(app.Dispatcher);
+            // Grouped destinations are selected through their visible context tab.
+            // Hidden historical navigation fields are not interactive controls.
+            var nav = VisualDescendants<RadioButton>(page).FirstOrDefault(button =>
+                button.IsVisible && button.Tag is string destination && destination == name)
+                ?? (RadioButton)window.FindName("Nav" + name);
+            nav.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent, nav));
+            Pump(app.Dispatcher);
+            if (page.VerticalOffset > 0.1 || VisualDescendants<Expander>(page).Any(item => item.IsExpanded))
+                throw new InvalidOperationException($"Navigation: {name} did not reset its scroll/disclosures on reselect.");
+            if (modes is not null && ((FrameworkElement)modes.FindName("EditorView")).Visibility != Visibility.Collapsed)
+                throw new InvalidOperationException($"Navigation: {name} did not return from its editor to the list.");
+        }
+    }
+
+    private static IEnumerable<T> VisualDescendants<T>(DependencyObject root) where T : DependencyObject
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++)
+        {
+            DependencyObject child = VisualTreeHelper.GetChild(root, i);
+            if (child is T matching) yield return matching;
+            foreach (T nested in VisualDescendants<T>(child)) yield return nested;
+        }
     }
 
     private static void InvokeButton(Button button)

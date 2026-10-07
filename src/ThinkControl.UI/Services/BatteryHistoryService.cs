@@ -16,7 +16,11 @@ public sealed record BatteryHistoryView(
     string CurrentSessionText,
     string TypicalChargeText,
     string HealthTrendText,
-    double? TypicalChargePowerWatts);
+    double? TypicalChargePowerWatts)
+{
+    public IReadOnlyList<TimeSeriesPoint> CycleCountTimeline { get; init; } = [];
+    public string CycleTrendText { get; init; } = "Waiting for firmware cycle history";
+}
 
 public sealed record BatterySessionDetail(
     string Id,
@@ -90,17 +94,18 @@ public sealed class BatteryHistoryService
         double? watts,
         double? remainingWh,
         double? fullChargeWh,
-        double? designWh)
+        double? designWh,
+        int? cycleCount = null)
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;
         bool onBattery = System.Windows.Forms.SystemInformation.PowerStatus.PowerLineStatus !=
                          System.Windows.Forms.PowerLineStatus.Online;
-        return Record(charging, onBattery, now, percent, watts, remainingWh, fullChargeWh, designWh);
+        return Record(charging, onBattery, now, percent, watts, remainingWh, fullChargeWh, designWh, cycleCount);
     }
 
     internal BatteryHistoryView Record(
         bool charging, bool onBattery, DateTimeOffset now, int percent,
-        double? watts, double? remainingWh, double? fullChargeWh, double? designWh)
+        double? watts, double? remainingWh, double? fullChargeWh, double? designWh, int? cycleCount = null)
     {
         // Some laptop firmware exposes battery percentage but no ChargeRate/
         // DischargeRate. Session ownership must follow the actual AC state so
@@ -110,6 +115,7 @@ public sealed class BatteryHistoryService
         // design capacity. Sample that independently of charge-session completion so
         // a deliberate 80–90% charge limit does not prevent the health trend learning.
         bool changed = RecordHealthSample(now, fullChargeWh, designWh);
+        changed |= RecordCycleSample(now, cycleCount);
 
         // A source change after sleep/restart must close the previous session at
         // its last observation, not count the unobserved gap as charging/usage.
@@ -335,6 +341,16 @@ public sealed class BatteryHistoryService
         return BuildView();
     }
 
+    private bool RecordCycleSample(DateTimeOffset now, int? count)
+    {
+        if (count is not >= 0) return false;
+        BatteryCycleSample? latest = _document.CycleSamples.LastOrDefault();
+        if (latest is not null && (now <= latest.At ||
+            latest.Count == count && latest.At.UtcDateTime.Date == now.UtcDateTime.Date)) return false;
+        _document.CycleSamples.Add(new BatteryCycleSample { At = now, Count = count.Value });
+        return true;
+    }
+
     private bool RecordHealthSample(DateTimeOffset now, double? fullChargeWh, double? designWh)
     {
         if (fullChargeWh is not > 0 || designWh is not > 0)
@@ -537,6 +553,10 @@ public sealed class BatteryHistoryService
 
     private void TrimDocument(DateTimeOffset now)
     {
+        _document.CycleSamples = _document.CycleSamples
+            .Where(sample => sample.Count >= 0 && BatteryHistoryRetentionPolicy.KeepSummary(sample.At, now))
+            .OrderByDescending(sample => sample.At).Take(MaximumHealthSamples)
+            .OrderBy(sample => sample.At).ToList();
         _document.Sessions.RemoveAll(session =>
             !BatteryHistoryRetentionPolicy.KeepSummary(session.EndedAt ?? session.StartedAt, now));
         _document.DischargeSessions.RemoveAll(session =>
@@ -650,7 +670,25 @@ public sealed class BatteryHistoryService
             currentText,
             typicalText,
             FormatHealthTrend(health),
-            typicalPower);
+            typicalPower)
+        {
+            CycleCountTimeline = _document.CycleSamples
+                .Select(sample => new TimeSeriesPoint(sample.At, sample.Count)).ToArray(),
+            CycleTrendText = DescribeCycleTrend(_document.CycleSamples)
+        };
+    }
+
+    private static string DescribeCycleTrend(IReadOnlyList<BatteryCycleSample> samples)
+    {
+        if (samples.Count == 0) return "The battery has not exposed a cycle count.";
+        if (samples.Count == 1) return "First firmware reading recorded. Changes will appear here over time.";
+        if (samples.Zip(samples.Skip(1), (a, b) => b.Count < a.Count).Any(reset => reset))
+            return "The counter decreased during this period. A battery replacement or counter reset may explain this.";
+        double days = (samples[^1].At - samples[0].At).TotalDays;
+        int cycles = samples[^1].Count - samples[0].Count;
+        return days >= 1
+            ? $"{cycles} cycles added over {days:0.#} days ({cycles / days * 7:0.#} per week). Firmware readings."
+            : $"{cycles} cycles added since tracking began. A weekly rate needs at least one day of history.";
     }
 
     private void RefreshPriors()
@@ -820,6 +858,8 @@ public sealed class BatteryHistoryService
             document.Sessions ??= [];
             document.DischargeSessions ??= [];
             document.HealthSamples ??= [];
+            document.CycleSamples ??= [];
+            document.SchemaVersion = 6;
             return document;
         }
         catch
@@ -869,12 +909,19 @@ public sealed class BatteryHistoryService
 
     private sealed class HistoryDocument
     {
-        public int SchemaVersion { get; set; } = 5;
+        public int SchemaVersion { get; set; } = 6;
         public ChargeSession? ActiveSession { get; set; }
         public List<ChargeSession> Sessions { get; set; } = [];
         public DischargeSession? ActiveDischargeSession { get; set; }
         public List<DischargeSession> DischargeSessions { get; set; } = [];
         public List<BatteryHealthSample> HealthSamples { get; set; } = [];
+        public List<BatteryCycleSample> CycleSamples { get; set; } = [];
+    }
+
+    private sealed class BatteryCycleSample
+    {
+        public DateTimeOffset At { get; set; }
+        public int Count { get; set; }
     }
 
     private sealed class BatteryHealthSample

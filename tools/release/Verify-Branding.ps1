@@ -67,11 +67,26 @@ try {
     }
 
     $brandWordmark = Get-Content 'src/ThinkControl.UI/Controls/BrandWordmark.xaml' -Raw
-    if ($brandWordmark -notmatch 'Canvas Width="455"' -or
-        $brandWordmark -notmatch 'Canvas.Left="203\.500947"' -or
-        $brandWordmark -notmatch 'Canvas.Top="33\.452652"' -or
-        $brandWordmark -notmatch 'TranslateTransform X="-6" Y="-0\.5"') {
-        throw 'WPF wordmark layout does not match the canonical v3 production alignment.'
+    if ($brandWordmark -notmatch 'controls:SvgAssetImage' -or
+        $brandWordmark -notmatch 'Viewport="0,0,174,56"' -or
+        $brandWordmark -notmatch 'Asset="\{DynamicResource Tc.BrandName\}"') {
+        throw 'WPF wordmark must use the selected Figma SVG with its original viewport.'
+    }
+    # The selected Figma direction preserves outlined brand geometry. Pin both
+    # exports so arbitrary SVG substitutions cannot pass the new renderer check.
+    $selectedWordmarks = @{
+        'imgOriginalThinkControlSvg' = 'C76654D64662E3F80CA278F5C5DE1448D229DA1FD7A27D67B1F7449C0F9825C0'
+        'ThinkControlWordmarkLight' = 'B429C7165D80C88EF086E8423D1751CD807AF3D6BB4CE417EFA086D5397024BA'
+    }
+    foreach ($asset in $selectedWordmarks.Keys) {
+        $svg = [IO.File]::ReadAllText((Join-Path $repoRoot "src/ThinkControl.UI/Assets/Figma/$asset.svg")).Replace("`r`n", "`n")
+        $actual = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($svg)))
+        if ($actual -ne $selectedWordmarks[$asset]) { throw "Selected wordmark geometry drifted: $asset" }
+    }
+    foreach ($theme in @('Dark', 'Light')) {
+        $expected = if ($theme -eq 'Dark') { 'imgOriginalThinkControlSvg' } else { 'ThinkControlWordmarkLight' }
+        $themeXml = Get-Content "src/ThinkControl.UI/Resources/Theme.$theme.xaml" -Raw
+        if ($themeXml -notmatch "x:Key=`"Tc.BrandName`">$expected<") { throw "Incorrect $theme wordmark mapping" }
     }
 }
 finally {

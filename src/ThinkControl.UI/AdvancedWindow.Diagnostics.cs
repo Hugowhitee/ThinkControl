@@ -17,21 +17,17 @@ public partial class AdvancedWindow
     private void ConfigureAdvancedSurface()
     {
         InitializeFeaturePanels();
-        ConfigureAdvancedBranding();
         ConfigureDeviceLearningIndicator();
         ConfigureAdvancedUiConsistency();
         ConfigureInteractionPolish();
         ConfigureResetDefaults();
         ConfigureSliderCommitBehavior();
         ConfigureCopyPolish();
-        ConfigureHardwareSetupEntry();
         ConfigureWindowsSettingsLinks();
-        ConfigureKeyboardAutoUi();
         ConfigureNotificationButton();
         ConfigureNotificationMessagePolish();
         ConfigureSupportCard();
         ConfigureHomeQuickControls();
-        ConfigureHomeDashboardPolish();
         ConfigureUpdateUi();
         ConfigureAppPreferencesUi();
         ConfigureAdvancedUiConsistency();
@@ -43,6 +39,7 @@ public partial class AdvancedWindow
         _snapshotUiPrepared = true;
         ConfigureAdvancedSurface();
         SyncControls();
+        HomeAudioControl.PrepareForSnapshot(providersAvailable: true);
 
         if (DataContext is ViewModels.AppState snapshotState)
         {
@@ -89,24 +86,19 @@ public partial class AdvancedWindow
 
     private void ValidateSharedPageRailForSnapshot()
     {
-        foreach (string pageName in ConsistentPageNames)
+        foreach (string pageName in new[] { "PageHome", "PageModes", "PageAutomation", "PagePerformance", "PageFans", "PageBattery", "PageDisplay", "PageAudio", "PageKeyboard", "PageTouchpad", "PageSystem", "PageUpdates", "PageSettings" })
         {
             if (FindName(pageName) is not ScrollViewer scroll)
                 continue;
 
-            if (scroll.HorizontalContentAlignment != HorizontalAlignment.Left)
-                throw new InvalidOperationException($"{scroll.Tag ?? scroll.Name} is not left-anchored to the shared Advanced page rail.");
-
             if (scroll.Content is not FrameworkElement content)
                 continue;
 
-            if (content.HorizontalAlignment != HorizontalAlignment.Left ||
-                Math.Abs(content.MaxWidth - AdvancedContentMaxWidth) > 0.1 ||
-                Math.Abs(content.Margin.Left) > 0.1)
+            if (Math.Abs(content.Margin.Left) > 0.1 || scroll.HorizontalScrollBarVisibility != ScrollBarVisibility.Disabled)
             {
                 throw new InvalidOperationException(
                     $"{scroll.Tag ?? scroll.Name} overrides the shared Advanced page rail. " +
-                    "All pages must use the same left anchor and common readable MaxWidth.");
+                    "All pages must use the shared declarative inset without horizontal scrolling.");
             }
         }
     }

@@ -13,7 +13,7 @@ namespace ThinkControl.UI.Controls;
 /// <summary>
 /// Minimal battery indicator that uses the real percentage. While charging the fill
 /// becomes green and shows a subtle moving diagonal flow. Rendering is hooked only
-/// while the element is visible and charging so the animation has no idle cost.
+/// while visible and charging/discharging, with a brief fade on pause. No idle callback remains.
 /// </summary>
 public sealed class BatteryGauge : FrameworkElement
 {
@@ -29,9 +29,17 @@ public sealed class BatteryGauge : FrameworkElement
         typeof(BatteryGauge),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, OnChargingChanged));
 
+    public static readonly DependencyProperty IsDischargingProperty = DependencyProperty.Register(
+        nameof(IsDischarging), typeof(bool), typeof(BatteryGauge),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender, OnChargingChanged));
+
     private bool _renderHooked;
     private TimeSpan _lastRenderingTime;
     private double _stripePhase;
+    private double _flowOpacity;
+    private double _flowDirection = 1;
+    internal double MotionPhase => _stripePhase;
+    internal bool MotionActive => _renderHooked;
 
     public BatteryGauge()
     {
@@ -52,6 +60,12 @@ public sealed class BatteryGauge : FrameworkElement
         set => SetValue(IsChargingProperty, value);
     }
 
+    public bool IsDischarging
+    {
+        get => (bool)GetValue(IsDischargingProperty);
+        set => SetValue(IsDischargingProperty, value);
+    }
+
     private static void OnChargingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var gauge = (BatteryGauge)d;
@@ -61,7 +75,8 @@ public sealed class BatteryGauge : FrameworkElement
 
     private void UpdateRenderingHook()
     {
-        bool shouldAnimate = IsLoaded && IsVisible && IsCharging;
+        bool shouldAnimate = IsLoaded && IsVisible && SystemParameters.ClientAreaAnimation &&
+            (IsCharging || IsDischarging || _flowOpacity > 0.001);
         if (shouldAnimate && !_renderHooked)
         {
             _lastRenderingTime = TimeSpan.Zero;
@@ -81,10 +96,17 @@ public sealed class BatteryGauge : FrameworkElement
         CompositionTarget.Rendering -= OnRendering;
         _renderHooked = false;
         _lastRenderingTime = TimeSpan.Zero;
+        if (!IsVisible || !SystemParameters.ClientAreaAnimation) _flowOpacity = 0;
     }
 
     private void OnRendering(object? sender, EventArgs e)
     {
+        if (!IsLoaded || !IsVisible || !SystemParameters.ClientAreaAnimation)
+        {
+            UpdateRenderingHook();
+            InvalidateVisual();
+            return;
+        }
         if (e is not RenderingEventArgs args)
             return;
 
@@ -96,8 +118,12 @@ public sealed class BatteryGauge : FrameworkElement
 
         double seconds = Math.Clamp((args.RenderingTime - _lastRenderingTime).TotalSeconds, 0, 0.1);
         _lastRenderingTime = args.RenderingTime;
-        _stripePhase = (_stripePhase + seconds * 26d) % 24d;
+        double targetOpacity = IsCharging ? 1 : IsDischarging ? 0.5 : 0;
+        _flowOpacity += (targetOpacity - _flowOpacity) * Math.Min(1, seconds * 7);
+        _flowDirection += ((IsDischarging && !IsCharging ? -1 : 1) - _flowDirection) * Math.Min(1, seconds * 5);
+        _stripePhase = (_stripePhase + seconds * 26d * _flowDirection + 24d) % 24d;
         InvalidateVisual();
+        if (targetOpacity == 0 && _flowOpacity < 0.001) UpdateRenderingHook();
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -108,15 +134,15 @@ public sealed class BatteryGauge : FrameworkElement
         const double aspectRatio = 2.5;
         double width = Math.Min(ActualWidth, ActualHeight * aspectRatio);
         double height = width / aspectRatio;
-        if (width < 20 || height < 16)
+        if (width < 20 || height < 8)
             return;
 
         WpfBrush borderBrush = WpfApplication.Current?.TryFindResource("Tc.BorderStrong") as WpfBrush ?? WpfBrushes.Gray;
         WpfBrush surfaceBrush = WpfApplication.Current?.TryFindResource("Tc.Surface") as WpfBrush ?? WpfBrushes.Transparent;
-        var borderPen = new WpfPen(borderBrush, 1.4);
+        var borderPen = new WpfPen(borderBrush, Math.Clamp(height * 0.04, 0.8, 1.4));
         borderPen.Freeze();
 
-        double terminalWidth = Math.Max(4, width * 0.045);
+        double terminalWidth = Math.Max(2, width * 0.045);
         double bodyWidth = width - terminalWidth - 2;
         double radius = Math.Min(7, height * 0.16);
         var body = new WpfRect(0.7, 0.7, Math.Max(1, bodyWidth - 1.4), Math.Max(1, height - 1.4));
@@ -127,16 +153,15 @@ public sealed class BatteryGauge : FrameworkElement
         dc.DrawRoundedRectangle(borderBrush, null, terminal, 2, 2);
 
         int percent = Math.Clamp(Percent, 0, 100);
-        double innerPadding = 4;
+        double innerPadding = Math.Min(4, height * 0.12);
         double innerWidth = Math.Max(0, body.Width - innerPadding * 2);
         double innerHeight = Math.Max(0, body.Height - innerPadding * 2);
         double fillWidth = innerWidth * percent / 100d;
         if (fillWidth <= 0.5 || innerHeight <= 0.5)
             return;
 
-        WpfColor fillColor = IsCharging
-            ? WpfColor.FromRgb(58, 170, 93)
-            : InterpolateBatteryColor(percent);
+        WpfColor fillColor = Lerp(InterpolateBatteryColor(percent),
+            SemanticColor("Tc.Success", WpfColor.FromRgb(62, 212, 134)), IsCharging ? _flowOpacity : 0);
         var fillBrush = new SolidColorBrush(fillColor);
         fillBrush.Freeze();
         var fill = new WpfRect(
@@ -147,7 +172,7 @@ public sealed class BatteryGauge : FrameworkElement
         double fillRadius = Math.Min(4, radius);
         dc.DrawRoundedRectangle(fillBrush, null, fill, fillRadius, fillRadius);
 
-        if (IsCharging)
+        if (_flowOpacity > 0.001)
             DrawChargeFlow(dc, fill, fillRadius);
     }
 
@@ -156,9 +181,9 @@ public sealed class BatteryGauge : FrameworkElement
         var clip = new RectangleGeometry(fill, radius, radius);
         dc.PushClip(clip);
 
-        var stripeBrush = new SolidColorBrush(WpfColor.FromArgb(50, 255, 255, 255));
+        var stripeBrush = new SolidColorBrush(WpfColor.FromArgb((byte)Math.Round(50 * _flowOpacity), 255, 255, 255));
         stripeBrush.Freeze();
-        var stripePen = new WpfPen(stripeBrush, 5.5)
+        var stripePen = new WpfPen(stripeBrush, Math.Clamp(fill.Height * 0.17, 1.2, 5.5))
         {
             StartLineCap = PenLineCap.Flat,
             EndLineCap = PenLineCap.Flat
@@ -181,14 +206,23 @@ public sealed class BatteryGauge : FrameworkElement
 
     private static WpfColor InterpolateBatteryColor(int percent)
     {
-        WpfColor red = WpfColor.FromRgb(210, 66, 66);
-        WpfColor amber = WpfColor.FromRgb(210, 160, 55);
-        WpfColor green = WpfColor.FromRgb(64, 166, 96);
+        WpfColor red = SemanticColor("Tc.Error", WpfColor.FromRgb(255, 100, 92));
+        WpfColor amber = SemanticColor("Tc.Warning", WpfColor.FromRgb(255, 181, 69));
+        WpfColor green = SemanticColor("Tc.Success", WpfColor.FromRgb(62, 212, 134));
 
-        if (percent <= 50)
-            return Lerp(red, amber, percent / 50d);
-        return Lerp(amber, green, (percent - 50) / 50d);
+        // Charge level is a status cue, not an estimate of battery health.
+        // Keep normal levels green instead of blending every reading into olive.
+        if (percent <= 15)
+            return red;
+        if (percent < 30)
+            return Lerp(red, amber, (percent - 15) / 15d);
+        if (percent < 50)
+            return Lerp(amber, green, (percent - 30) / 20d);
+        return green;
     }
+
+    private static WpfColor SemanticColor(string resource, WpfColor fallback) =>
+        (WpfApplication.Current?.TryFindResource(resource) as SolidColorBrush)?.Color ?? fallback;
 
     private static WpfColor Lerp(WpfColor from, WpfColor to, double amount)
     {

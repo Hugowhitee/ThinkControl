@@ -14,21 +14,21 @@
             <Border Style="{StaticResource TcSection}" Margin="0,0,7,0" MinHeight="112">
                 <StackPanel>
                     <TextBlock Text="CONTROL TEMPERATURE" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="Light" Margin="0,7,0,0" />
+                    <TextBlock Text="{Binding ControlTemperatureText}" FontSize="{x:Static ui:TypographyScale.PageTitle}" FontWeight="SemiBold" Margin="0,7,0,0" />
                     <TextBlock Text="{Binding ControlTemperatureSource}" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" />
                 </StackPanel>
             </Border>
             <Border Grid.Column="1" Style="{StaticResource TcSection}" Margin="7,0" MinHeight="112">
                 <StackPanel>
                     <TextBlock Text="FANS" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <TextBlock Text="{Binding FanCountText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,10,0,0" />
+                    <TextBlock Text="{Binding FanCountText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="SemiBold" Margin="0,10,0,0" />
                     <TextBlock Text="Read-only tachometers" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" />
                 </StackPanel>
             </Border>
             <Border Grid.Column="2" Style="{StaticResource TcSection}" Margin="7,0,0,0" MinHeight="112">
                 <StackPanel>
                     <TextBlock Text="TELEMETRY" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextMuted}" />
-                    <TextBlock Text="{Binding SensorCountText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="Light" Margin="0,10,0,0" />
+                    <TextBlock Text="{Binding SensorCountText}" FontSize="{x:Static ui:TypographyScale.Value}" FontWeight="SemiBold" Margin="0,10,0,0" />
                     <TextBlock Text="Readings update automatically." FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextFaint}" Margin="0,4,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>

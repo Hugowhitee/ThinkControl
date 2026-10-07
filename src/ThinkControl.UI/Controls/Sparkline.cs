@@ -123,7 +123,7 @@ public sealed class Sparkline : FrameworkElement
                 "Waiting for telemetry",
                 System.Globalization.CultureInfo.CurrentUICulture,
                 WpfFlowDirection.LeftToRight,
-                new Typeface("Segoe UI"),
+                ThinkControl.UI.TypographyScale.Typeface,
                 11,
                 muted,
                 VisualTreeHelper.GetDpi(this).PixelsPerDip);

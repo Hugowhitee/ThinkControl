@@ -84,7 +84,7 @@ internal sealed class FanCurveEditorWindow : Window
             Text = oemTargetRpm
                 ? "Tune temperature against Lenovo OEM target-RPM control. The graph sends continuous per-fan RPM targets across Lenovo's verified reference range; Auto returns ownership to Lenovo firmware."
                 : x9Ec
-                    ? "Tune temperature against the verified X9 EC fallback. ThinkControl maps the graph to calibrated discrete EC states; this fallback is not treated as Lenovo Auto's absolute fan ceiling."
+                    ? "Set a target speed for each temperature. Targets use the next measured speed, relative to Max. 0% keeps the fan running; gaps between available speeds can be large."
                     : "Tune temperature against the active fan provider's verified 0–100% target range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.",
             FontSize = TypographyScale.Secondary,
             TextWrapping = TextWrapping.Wrap,
@@ -881,5 +881,5 @@ internal sealed class FanCurveGraph : FrameworkElement
 
     private FormattedText CreateText(string text, Brush brush, double size) =>
         new(text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            ThinkControl.UI.TypographyScale.Typeface, size, brush, VisualTreeHelper.GetDpi(this).PixelsPerDip);
 }

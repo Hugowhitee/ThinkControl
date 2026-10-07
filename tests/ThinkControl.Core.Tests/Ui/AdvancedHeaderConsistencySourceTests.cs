@@ -15,7 +15,7 @@ public sealed class AdvancedHeaderConsistencySourceTests
         string resets = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.ResetDefaults.cs");
         string windowsLinks = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.WindowsSettingsLinks.cs");
 
-        Assert.Contains("MinHeight=\"38\"", headerXaml, StringComparison.Ordinal);
+        Assert.Contains("MinHeight=\"85\"", headerXaml, StringComparison.Ordinal);
         Assert.Contains("TcText.PageTitle", headerXaml, StringComparison.Ordinal);
         Assert.Contains("Content=\"{Binding Actions", headerXaml, StringComparison.Ordinal);
         Assert.Contains("Grid.Row=\"1\"", headerXaml, StringComparison.Ordinal);
@@ -29,8 +29,8 @@ public sealed class AdvancedHeaderConsistencySourceTests
 
         foreach (string title in new[]
                  {
-                     "Overview", "Battery", "Display", "Keyboard",
-                     "System", "Updates", "Settings"
+                     "Overview", "Battery", "Display &amp; input",
+                     "System"
                  })
         {
             Assert.Contains($"<controls:AdvancedPageHeader Title=\"{title}\"", shell, StringComparison.Ordinal);
@@ -38,8 +38,8 @@ public sealed class AdvancedHeaderConsistencySourceTests
 
         Assert.Contains("x:Name=\"PageModes\"", shell, StringComparison.Ordinal);
         Assert.Contains("<controls:ModesPanel x:Name=\"ModesPanelControl\"", shell, StringComparison.Ordinal);
-        Assert.Contains("\"PageModes\"", consistency, StringComparison.Ordinal);
-        Assert.Contains("PageHeaderMinHeight = 38", consistency, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PageModes\"", shell, StringComparison.Ordinal);
+        Assert.Contains("PageHeaderMinHeight = 85", consistency, StringComparison.Ordinal);
 
         foreach (string panel in new[]
                  {

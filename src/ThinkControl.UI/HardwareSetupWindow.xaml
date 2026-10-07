@@ -3,7 +3,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:ThinkControl.UI.Controls"
-        Title="ThinkControl: Required component"
+        Title="ThinkControl: Hardware setup"
         Width="560" Height="360"
         MinWidth="500" MinHeight="330"
         WindowStartupLocation="CenterOwner"
@@ -11,7 +11,7 @@
         ShowInTaskbar="False"
         Background="{DynamicResource Tc.Window}"
         Foreground="{DynamicResource Tc.Text}"
-        FontFamily="Segoe UI Variable Text, Segoe UI"
+        FontFamily="{StaticResource Tc.Font}"
         Icon="Assets/ThinkControl.ico">
     <Grid Background="{DynamicResource Tc.Window}">
         <Grid Margin="26,22,22,26">
@@ -26,9 +26,8 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <controls:BrandMark Width="28" Height="28" Margin="0,0,11,0" VerticalAlignment="Center" />
+                <controls:BrandWordmark Width="150" Height="47" Margin="0,0,16,0" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="ThinkControl" FontSize="{x:Static ui:TypographyScale.Caption}" FontWeight="SemiBold" />
                     <TextBlock x:Name="IssueCategoryText" Text="Required component" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,2,0,0" />
                 </StackPanel>
                 <Button Grid.Column="2" Style="{StaticResource TcIconButton}" Width="34" Height="34" Margin="12,-2,-2,0" ToolTip="Close" Click="Close_Click">
@@ -48,11 +47,11 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Border Width="30" Height="30" CornerRadius="15" Background="{DynamicResource Tc.SurfaceAlt}" HorizontalAlignment="Left" VerticalAlignment="Top">
-                            <controls:PackIconLucide x:Name="StatusIcon" Kind="Sensors" Width="17" Height="17" Foreground="{DynamicResource Tc.Warning}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <controls:PackIconLucide x:Name="StatusIcon" Kind="Error" Width="20" Height="20" Foreground="{DynamicResource Tc.Warning}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <StackPanel Grid.Column="1" Margin="2,0,0,0">
                             <TextBlock x:Name="PrimaryTitleText" Text="Checking required component" FontSize="{x:Static ui:TypographyScale.SectionTitle}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock x:Name="PrimaryStatusText" Text="ThinkControl is checking what this PC needs." Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Secondary}" LineHeight="17" TextWrapping="Wrap" Margin="0,7,0,0" />
+                            <TextBlock x:Name="PrimaryStatusText" Text="Checking hardware support…" Style="{StaticResource TcText.Secondary}" TextWrapping="Wrap" Margin="0,7,0,0" />
                             <TextBlock x:Name="ResultText" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,9,0,0" />
                         </StackPanel>
                     </Grid>

@@ -15,7 +15,7 @@ public partial class BatteryTelemetryPanel : UserControl
 {
     private AppState? _subscribedState;
     private bool _historyRefreshQueued;
-    private bool _batteryUsageCardAdded;
+
 
     public BatteryTelemetryPanel()
     {
@@ -23,7 +23,7 @@ public partial class BatteryTelemetryPanel : UserControl
         Loaded += (_, _) =>
         {
             ApplyBatteryGaugePolish();
-            EnsureBatteryUsageCard();
+
             AttachState();
             RefreshHistoryUi();
         };
@@ -75,9 +75,8 @@ public partial class BatteryTelemetryPanel : UserControl
         if (_subscribedState is not AppState state)
             return;
 
-        ChargeProtectionWearText.Text = DescribeBatteryAging(
+        UpdateBatteryAgingGuidance(
             state.BatteryProtectionEnabled, _batteryProtectionAvailable);
-        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
     }
 
     private void QueueHistoryRefresh()
@@ -106,49 +105,6 @@ public partial class BatteryTelemetryPanel : UserControl
         DischargeChart.GapThresholdMinutes = 0;
     }
 
-    private void EnsureBatteryUsageCard()
-    {
-        if (_batteryUsageCardAdded || Content is not StackPanel root)
-            return;
-
-        var copy = new StackPanel();
-        copy.Children.Add(new TextBlock { Text = "Windows app battery usage", FontWeight = FontWeights.SemiBold });
-        var detail = new TextBlock
-        {
-            Text = "Per-app energy accounting belongs to Windows. This opens the dedicated Battery usage page in Settings; ThinkControl keeps its own recent charge and discharge history above.",
-            FontSize = TypographyScale.Caption,
-            Margin = new Thickness(0, 5, 190, 0),
-            TextWrapping = TextWrapping.Wrap
-        };
-        detail.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        copy.Children.Add(detail);
-
-        var button = new Button
-        {
-            Content = "Windows battery usage ↗",
-            Style = TryFindResource("TcExternalSettingsLink") as Style,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        button.Click += OpenBatteryUsage_Click;
-
-        var grid = new Grid();
-        grid.Children.Add(copy);
-        grid.Children.Add(button);
-        var card = new Border
-        {
-            Style = TryFindResource("TcSection") as Style,
-            Margin = new Thickness(0, 14, 0, 0),
-            Child = grid
-        };
-
-        // Keep battery history as the final full-width history section, with the
-        // local-history footer underneath it.
-        int insert = Math.Max(0, root.Children.Count - 2);
-        root.Children.Insert(insert, card);
-        _batteryUsageCardAdded = true;
-    }
-
     private void OpenBatteryUsage_Click(object sender, RoutedEventArgs e)
     {
         try
@@ -167,7 +123,15 @@ public partial class BatteryTelemetryPanel : UserControl
         if (WpfApplication.Current is not App app)
             return;
 
+        if (app.IsVisualQa)
+        {
+            PrepareForSnapshot(app.State);
+            return;
+        }
+
         IReadOnlyList<BatteryDaySummary> availableDays = app.BatteryHistoryService.GetRecentDays(14);
+        PresentChargeSession(availableDays.SelectMany(day => day.Sessions)
+            .Where(session => session.Kind == "Charge").OrderByDescending(session => session.StartedAt).FirstOrDefault());
         IReadOnlyList<BatteryDaySummary> days = availableDays.Take(_historyVisibleDays).ToArray();
         IReadOnlyList<TimeSeriesPoint> chargePercent = app.State.BatteryChargePercentTimeline;
         IReadOnlyList<TimeSeriesPoint> dischargePower = app.BatteryHistoryService.GetLatestDischargeTimeline();
@@ -241,7 +205,7 @@ public partial class BatteryTelemetryPanel : UserControl
     internal void PrepareForSnapshot(AppState state)
     {
         ApplyBatteryGaugePolish();
-        EnsureBatteryUsageCard();
+
 
         TimeSeriesPoint[] chargePower = state.BatteryChargePowerTimeline.ToArray();
         ChargePercentChart.Values = state.BatteryChargePercentTimeline.Count > 0
@@ -272,6 +236,7 @@ public partial class BatteryTelemetryPanel : UserControl
             88, 63, 6.9, 8.2, 25.0, 6.7,
             dischargePower, DischargePercentChart.Values.ToArray(),
             "88% to 63% in 3h 45m, average power: 6.9 W");
+        PresentChargeSession(charge);
         var today = new BatteryDaySummary(
             DateOnly.FromDateTime(DateTime.Today), "Today", 17, 25,
             charge.Duration, discharge.Duration, [charge, discharge], false);
@@ -286,19 +251,19 @@ public partial class BatteryTelemetryPanel : UserControl
         try
         {
             RemoveDynamicChargeProtectionPreset();
-            ComboBoxItem? selected = snapshotProtection
+            ListBoxItem? selected = snapshotProtection
                 ? FindChargeProtectionPreset(snapshotStart, snapshotStop)
                 : FindChargeProtectionPreset(75, 85);
             if (snapshotProtection && selected is null)
             {
-                selected = new ComboBoxItem
+                selected = new ListBoxItem
                 {
                     Content = $"Custom: {snapshotStart}–{snapshotStop}%",
-                    Tag = $"custom:{snapshotStart},{snapshotStop}"
+                    Tag = $"custom:{snapshotStart},{snapshotStop}", Visibility = Visibility.Collapsed
                 };
                 ChargeProtectionComboBox.Items.Insert(0, selected);
             }
-            ChargeProtectionComboBox.SelectedItem = selected ?? ChargeProtectionComboBox.Items.OfType<ComboBoxItem>().FirstOrDefault();
+            ChargeProtectionComboBox.SelectedItem = selected ?? ChargeProtectionComboBox.Items.OfType<ListBoxItem>().FirstOrDefault();
             ChargeProtectionSwitch.IsChecked = snapshotProtection;
             ChargeProtectionSwitch.IsEnabled = state.BatteryProtectionWritable;
             ChargeProtectionComboBox.IsEnabled = state.BatteryProtectionWritable && snapshotProtection;
@@ -314,8 +279,9 @@ public partial class BatteryTelemetryPanel : UserControl
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)
             : "Preservation is off; charging is allowed to 100%.";
         _batteryProtectionAvailable = true;
-        ChargeProtectionWearText.Text = DescribeBatteryAging(snapshotProtection, available: true);
-        ChargeProtectionWearText.ToolTip = BatteryAgingTooltip;
+        _lastChargeProtectionStart = snapshotStart;
+        _lastChargeProtectionStop = snapshotStop;
+        UpdateBatteryAgingGuidance(snapshotProtection, available: true);
         CustomChargeLimitsButton.IsEnabled = state.BatteryProtectionWritable && snapshotProtection;
         ChargeProtectionProviderText.Text = "Charging limits verified";
         ChargeProtectionFallbackButton.Visibility = Visibility.Collapsed;

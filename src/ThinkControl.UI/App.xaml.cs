@@ -19,7 +19,14 @@ public partial class App : System.Windows.Application
     private DispatcherTimer? _statusTimer;
     private bool _refreshBusy;
     private bool _keyboardPreferenceRestored;
-    private bool _batteryCycleRead;
+    private DateTimeOffset _lastBatteryCycleRead;
+
+    private async Task RefreshBatteryCycleCountAsync()
+    {
+        if (IsVisualQa || DateTimeOffset.UtcNow - _lastBatteryCycleRead < TimeSpan.FromMinutes(30)) return;
+        _lastBatteryCycleRead = DateTimeOffset.UtcNow;
+        State.BatteryCycleCount = await Task.Run(BatteryCycleCountService.Read);
+    }
     private bool? _lastServiceOnline;
     private string _manufacturer = string.Empty;
     private AdvancedWindow? _advancedWindow;
@@ -32,7 +39,7 @@ public partial class App : System.Windows.Application
     public BatteryTelemetryService BatteryTelemetryService { get; } = new();
     public UserSettingsService UserSettings { get; }
     public BatteryHistoryService BatteryHistoryService { get; }
-    public HardwareServiceClient HardwareClient { get; } = new();
+    public HardwareServiceClient HardwareClient { get; }
     public UpdateService UpdateService { get; } = new();
     public DiagnosticsRecorder DiagnosticsRecorder { get; } = new();
     public KeyboardEffectService KeyboardEffects { get; private set; } = null!;
@@ -42,6 +49,17 @@ public partial class App : System.Windows.Application
     {
         var synchronousStartup = Stopwatch.StartNew();
         base.OnStartup(e);
+
+        // Application schedules Startup on its dispatcher even when the render
+        // host never calls Run. QA must keep its explicit fixture and cannot
+        // launch the real tray, hardware refresh or first-run repair workflow.
+        if (IsVisualQa)
+        {
+            KeyboardEffects = new KeyboardEffectService(HardwareClient, State);
+            CompactWindow = new MainWindow(this) { DataContext = State };
+            MainWindow = CompactWindow;
+            return;
+        }
 
         ThinkControlUserSettings preferences = UserSettings.Current;
         BatteryHistoryService.ConfigureDetailedRetentionDays(preferences.BatteryDetailRetentionDays);
@@ -183,11 +201,7 @@ public partial class App : System.Windows.Application
             State.BatterySource = battery.Source;
             ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);
 
-            if (!_batteryCycleRead)
-            {
-                State.BatteryCycleCount = await Task.Run(BatteryCycleCountService.Read);
-                _batteryCycleRead = true;
-            }
+            await RefreshBatteryCycleCountAsync();
 
             BatteryHistoryView batteryHistory = BatteryHistoryService.Record(
                 battery.Charging,
@@ -195,7 +209,8 @@ public partial class App : System.Windows.Application
                 battery.PowerWatts,
                 battery.RemainingCapacityWh,
                 battery.FullChargeCapacityWh,
-                battery.DesignCapacityWh);
+                battery.DesignCapacityWh,
+                State.BatteryCycleCount);
             State.ApplyBatteryHistory(batteryHistory);
             BatteryTelemetryService.SetHistoricalChargePower(batteryHistory.TypicalChargePowerWatts);
 
