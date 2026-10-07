@@ -1,5 +1,11 @@
 # ThinkControl release-readiness roadmap
 
+## Alpha.63 interaction correction candidate — October 7, 2026
+
+Alpha.62 owner feedback identified an Audio readback race/rounding jump, retained navigation-tab selection, excess Compact header chrome and distant update status. The existing Audio probe generation now invalidates pre-interaction/pre-write reads; confirmed rounded readback preserves the continuous thumb coordinate while real external changes still update it. Context tabs isolate their radio group and rebuild destination-owned selection on click/revisit. Compact retains the original SVG geometry, shifts its wrapper left and uses an inline notification action. Updates shows the green check circle beside the version. Preservation uses a slim green current-level track and displays the generic normalized wear-cycle basis (0–100% = 1.00), separately from actual firmware cycle history.
+
+Local validation: Release build, WPF regression for navigation/revisit and audio readback/active-drag behavior, 72 canonical and six Compact dark/light renders. Changed surfaces were visually inspected at minimum/reference sizes. All 312 Core tests pass. Exact-head hosted CI/package/publication are pending. Installed pointer drag/release and an artificially delayed real endpoint read remain UNVERIFIED; no hardware or user-volume writes were used for these isolated tests. Existing fan calibration and alpha limitations are unchanged. Source-only candidate until the immutable alpha.63 release is verified; alpha.62 remains the published baseline below.
+
 ## Published alpha.62 — October 7, 2026
 
 [Download v0.1.0-alpha.62](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.62). PR #122 is merged at immutable tag/source `65b1686777b190d5cad48080db318f0037ef2157`. This is the versioned alpha release, with no dev suffix. The source checkout is on current main; original local recovery material is preserved and QA artifacts remain ignored.

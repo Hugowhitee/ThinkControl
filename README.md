@@ -27,7 +27,7 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current alpha source:** `v0.1.0-alpha.62` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) is the authoritative list of published installers (the current source version can temporarily be ahead during verification).
+**Current alpha source:** `v0.1.0-alpha.63` — [Releases](https://github.com/Hugowhitee/ThinkControl/releases) is the authoritative list of published installers (the current source version can temporarily be ahead during verification).
 
 **Experimental OEM status:** Auto, Max and calibrated custom curves have bounded physical validation on X9 21Q6 firmware N4CET45W. This path uses five measured running speeds, with a large gap before Max and a shared tachometer. Lower speeds can vary slightly; independent readings of both fans remain unavailable. Battery stop/resume has bounded device evidence; reboot/wake and broad hardware acceptance remain open. See [Release readiness](docs/RELEASE_READINESS.md).
 

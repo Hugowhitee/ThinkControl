@@ -49,6 +49,7 @@ internal static class Program
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();
                     await ValidateBatteryMotion();
+                    await ValidateContextTabsAndAudioReadback();
                     RunScenario(app);
                     exitCode = 0;
                 }
@@ -81,6 +82,60 @@ internal static class Program
         {
             try { app?.CleanupInteractiveShellSmoke(); } catch { }
         }
+    }
+
+    private static async Task ValidateContextTabsAndAudioReadback()
+    {
+        var tabs = new ThinkControl.UI.Controls.ContextTabs { Section = "System", SelectedPage = "System" };
+        var audio = new ThinkControl.UI.Controls.AudioPanel();
+        audio.PrepareForSnapshot(true); // Isolate this regression from the actual Windows endpoint.
+        var content = new StackPanel();
+        content.Children.Add(tabs);
+        content.Children.Add(audio);
+        var host = new Window { Content = content, Width = 700, Height = 600, ShowInTaskbar = false, ShowActivated = false };
+        const System.Reflection.BindingFlags flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+        try
+        {
+            host.Show();
+            host.UpdateLayout();
+            int navigations = 0;
+            tabs.AddHandler(ThinkControl.UI.Controls.ContextTabs.NavigationRequestedEvent,
+                new RoutedEventHandler((_, _) => navigations++));
+            foreach (string destination in new[] { "Updates", "Diagnostics", "Updates" })
+            {
+                var button = FindVisualChild<RadioButton>(tabs, b => (string?)b.Tag == destination)!;
+                button.IsChecked = true;
+                button.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+                tabs.Visibility = Visibility.Collapsed;
+                tabs.Visibility = Visibility.Visible;
+                await Dispatcher.Yield(DispatcherPriority.ApplicationIdle);
+                host.UpdateLayout();
+                foreach (string page in new[] { "System", "Updates", "Diagnostics" })
+                    if (FindVisualChild<RadioButton>(tabs, b => (string?)b.Tag == page)!.IsChecked != (page == "System"))
+                        throw new InvalidOperationException("Context tabs retained a second selection after navigation/revisit.");
+            }
+            if (navigations != 3) throw new InvalidOperationException("Context tab navigation was lost.");
+
+            var output = (Slider)audio.FindName("VolumeSlider");
+            var input = (Slider)audio.FindName("MicrophoneSlider");
+            output.Value = 49.42;
+            input.Value = 63.37;
+            typeof(ThinkControl.UI.Controls.AudioPanel).GetField("_snapshotMode", flags)!.SetValue(audio, false);
+            var apply = typeof(ThinkControl.UI.Controls.AudioPanel).GetMethod("ApplyVolumeStatus", flags)!;
+            apply.Invoke(audio, [new WindowsVolumeStatus(true, 49, false, "QA output"), new WindowsVolumeStatus(true, 63, false, "QA input")]);
+            if (output.Value != 49.42 || input.Value != 63.37)
+                throw new InvalidOperationException("Confirmed audio readback quantized the continuous thumb position.");
+            apply.Invoke(audio, [new WindowsVolumeStatus(true, 70, false, "QA output"), new WindowsVolumeStatus(true, 25, false, "QA input")]);
+            if (output.Value != 70 || input.Value != 25)
+                throw new InvalidOperationException("Real external audio changes did not update sliders.");
+            var generation = typeof(ThinkControl.UI.Controls.AudioPanel).GetField("_volumeProbeGeneration", flags)!;
+            int previous = (int)generation.GetValue(audio)!;
+            typeof(ThinkControl.UI.Controls.AudioPanel).GetMethod("VolumeSlider_MouseDown", flags)!.Invoke(audio, [output, null]);
+            apply.Invoke(audio, [new WindowsVolumeStatus(true, 5, false, "QA output"), new WindowsVolumeStatus(true, 25, false, "QA input")]);
+            if ((int)generation.GetValue(audio)! <= previous || output.Value != 70)
+                throw new InvalidOperationException("Audio interaction did not invalidate older reads/protect the active thumb.");
+        }
+        finally { host.Close(); }
     }
 
     private static void ValidateCompactLayoutMigration()

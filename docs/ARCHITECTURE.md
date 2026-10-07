@@ -1,6 +1,6 @@
 # ThinkControl architecture
 
-This document describes the **v0.1.0-alpha.62** source candidate; alpha.61 remains the published and installed baseline. `docs/RELEASE_READINESS.md` owns release acceptance. On exactly 21Q6/N4CET45W the regulated provider has measured discrete outputs, RPM-based percentage mapping and a custom-curve acceptance through the service IPC. This does not establish continuous PWM or independent fan control. Source, fixture, installed and physical acceptance remain separate. The selected Figma migration is owned by `docs/UI-DESIGN-HANDOFF.md` and is being implemented in the existing WPF shell.
+This document describes the **v0.1.0-alpha.63** source candidate; alpha.62 is the published baseline and alpha.61 remains the last verified local installation. `docs/RELEASE_READINESS.md` owns release acceptance. On exactly 21Q6/N4CET45W the regulated provider has measured discrete outputs, RPM-based percentage mapping and a custom-curve acceptance through the service IPC. This does not establish continuous PWM or independent fan control. Source, fixture, installed and physical acceptance remain separate. The selected Figma migration is owned by `docs/UI-DESIGN-HANDOFF.md` and is being implemented in the existing WPF shell.
 
 ## Process boundary
 

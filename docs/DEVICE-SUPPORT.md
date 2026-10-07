@@ -1,5 +1,7 @@
 # Device support
 
+Candidate v0.1.0-alpha.63 changes presentation and Audio/navigation state handling only. It preserves the alpha.62 fan-provider contract and does not add hardware support.
+
 Published **v0.1.0-alpha.62** extends only the exact 21Q6/N4CET45W contract with calibrated running states 4/5/6/7/0x40 and custom curves. Manual percentages select those measured states; 0% is the lowest running state, not fan-off. Other firmware remains capability-gated. Shared RPM is not two independent fan readings. The alpha.61 description below is retained as historical evidence.
 
 This document describes the support model for experimental **v0.1.0-alpha.61**. ThinkControl remains capability-driven: a laptop model name alone does not grant write access. The narrow 21Q6/N4CET45W Auto/Max contract has bounded physical evidence; lower EC steps and per-fan target-RPM output remain disabled.

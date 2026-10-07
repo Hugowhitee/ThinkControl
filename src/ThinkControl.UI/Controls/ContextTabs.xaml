@@ -2,7 +2,7 @@
     <ItemsControl x:Name="Tabs">
         <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
         <ItemsControl.ItemTemplate><DataTemplate>
-            <RadioButton Content="{Binding Label}" Tag="{Binding Page}" IsChecked="{Binding Selected, Mode=OneWay}" Style="{StaticResource TcContextTab}" Click="Tab_Click" />
+            <RadioButton Content="{Binding Label}" Tag="{Binding Page}" GroupName="{Binding TabGroup, RelativeSource={RelativeSource AncestorType=UserControl}}" IsChecked="{Binding Selected, Mode=OneWay}" Style="{StaticResource TcContextTab}" Click="Tab_Click" />
         </DataTemplate></ItemsControl.ItemTemplate>
     </ItemsControl>
 </UserControl>

@@ -15,7 +15,13 @@ public partial class ContextTabs : UserControl
     public static readonly RoutedEvent NavigationRequestedEvent = EventManager.RegisterRoutedEvent("NavigationRequested", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(ContextTabs));
     public string Section { get => (string)GetValue(SectionProperty); set => SetValue(SectionProperty, value); }
     public string SelectedPage { get => (string)GetValue(SelectedPageProperty); set => SetValue(SelectedPageProperty, value); }
-    public ContextTabs() { InitializeComponent(); UpdateTabs(); }
+    public string TabGroup { get; } = "ContextTabs_" + Guid.NewGuid().ToString("N");
+    public ContextTabs()
+    {
+        InitializeComponent();
+        IsVisibleChanged += (_, e) => { if (e.NewValue is true) UpdateTabs(); };
+        UpdateTabs();
+    }
     private static void Refresh(DependencyObject d, DependencyPropertyChangedEventArgs e) => ((ContextTabs)d).UpdateTabs();
     private void UpdateTabs()
     {
@@ -31,6 +37,13 @@ public partial class ContextTabs : UserControl
     }
     private void Tab_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is RadioButton { Tag: string page }) RaiseEvent(new PageNavigationEventArgs(page));
+        if (sender is RadioButton { Tag: string page } button)
+        {
+            // These are navigation links: the destination page owns selection.
+            // Don't retain RadioButton's local click state on the hidden page.
+            button.SetCurrentValue(RadioButton.IsCheckedProperty, page == SelectedPage);
+            UpdateTabs();
+            RaiseEvent(new PageNavigationEventArgs(page));
+        }
     }
 }
