@@ -66,12 +66,12 @@ public partial class CompactDashboard
                 bool metrics = family == 0; string[] slots = metrics ? _compactMetricSlots : _compactControlSlots;
                 var panel = new StackPanel(); Grid.SetColumn(panel, family * 2); columns.Children.Add(panel);
                 panel.Children.Add(new TextBlock { Text = metrics ? "Status" : "Quick controls", FontSize = TypographyScale.SectionTitle, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 0, 0, 12) });
-                var preview = new System.Windows.Controls.Primitives.UniformGrid { Columns = metrics ? 3 : 2, Height = 204 };
+                var preview = new System.Windows.Controls.Primitives.UniformGrid { Columns = metrics ? 3 : 2, Height = metrics ? 90 : 192 };
                 panel.Children.Add(preview);
                 for (int i = 0; i < slots.Length; i++)
                 {
                     int target = i;
-                    object content = metrics ? BuildCompactMetricContent(DefinitionFor(slots[i])) : new TextBlock { Text = ControlName(slots[i]), TextWrapping = TextWrapping.Wrap, FontWeight = FontWeights.SemiBold };
+                    object content = metrics ? BuildCompactMetricContent(DefinitionFor(slots[i])) : BuildControlPreview(slots[i]);
                     preview.Children.Add(Tile(slots[i], content, metrics, id => { int source = Array.IndexOf(slots, id); if (source == target) return;
                         if (source >= 0) (slots[source], slots[target]) = (slots[target], slots[source]); else if (metrics && CompactMetricDefinitions.Any(d => d.Id == id)) slots[target] = id; else return;
                         Save(); Rebuild(); }));
@@ -106,4 +106,16 @@ public partial class CompactDashboard
         return tile;
     }
     private static string ControlName(string id) => id switch { "Performance" => "Power profile", "Fans" => "Cooling", "Display" => "Refresh rate", _ => "Keyboard light" };
+    private FrameworkElement BuildControlPreview(string id)
+    {
+        var source = id switch { "Performance" => CompactPerformanceCombo, "Fans" => CompactFanCombo, "Display" => CompactRefreshCombo, _ => CompactKeyboardCombo };
+        var panel = new StackPanel();
+        panel.Children.Add(new TextBlock { Text = ControlName(id), FontSize = TypographyScale.ControlLabel, FontWeight = FontWeights.SemiBold });
+        var combo = new ComboBox { Style = TryFindResource("CompactSelect") as Style, Margin = new Thickness(0, 10, 0, 0), IsHitTestVisible = false, Focusable = false };
+        combo.SetBinding(ItemsControl.ItemsSourceProperty, new System.Windows.Data.Binding("ItemsSource") { Source = source });
+        combo.SetBinding(System.Windows.Controls.Primitives.Selector.SelectedItemProperty, new System.Windows.Data.Binding("SelectedItem") { Source = source, Mode = System.Windows.Data.BindingMode.OneWay });
+        combo.SetBinding(IsEnabledProperty, new System.Windows.Data.Binding("IsEnabled") { Source = source });
+        panel.Children.Add(combo);
+        return panel;
+    }
 }

@@ -1,5 +1,7 @@
 # ThinkControl alpha testing guide
 
+Current source candidate: **v0.1.0-alpha.62**. The exact 21Q6/N4CET45W production service has measured five-state calibration, manual percentage mapping, a valid custom curve and Auto restoration. Native redesign/installed and release verification remain distinct gates in RELEASE_READINESS.md. The alpha.61 checklist below is historical baseline coverage.
+
 Use this checklist for the **v0.1.0-alpha.61** candidate and retain prior immutable **v0.1.0-alpha.60** and **v0.1.0-alpha.59** cases as historical coverage. The exact 21Q6/N4CET45W Auto/Max controller has bounded physical evidence; lower fixed speeds, percentages and independent tachometers remain unaccepted. Separate Modes and Automation, concise status text and conditional sidebar fade have local WPF coverage. Check current publication and installed acceptance in `RELEASE_READINESS.md`; candidate source is not an installed or published release. ThinkControl is a public repository, so its GitHub-hosted CI and Package workflows remain available even while private-repository included minutes are constrained. Use one exact-head run per meaningful checkpoint and avoid redundant reruns. Physical X9 behavior, real Windows audio behavior and real battery charging behavior remain separate evidence classes and must never be inferred from hosted runners.
 
 ## Install/update sanity

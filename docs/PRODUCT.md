@@ -1,5 +1,7 @@
 # Product specification
 
+Active source candidate: `v0.1.0-alpha.62`. It adds the selected IBM Plex Sans/Fluent native presentation, calibrated discrete custom cooling curves, separate firmware cycle history and estimated charge-limit wear comparison. Current publication and exact acceptance evidence belong to `RELEASE_READINESS.md`.
+
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
 Current published and locally installed experimental prerelease: `v0.1.0-alpha.61`. It includes physically checked Auto/Max cooling on the exact 21Q6/N4CET45W controller and separate Modes/Automation. Publication and installed acceptance are recorded in `RELEASE_READINESS.md`.
