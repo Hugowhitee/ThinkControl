@@ -1,8 +1,8 @@
 # Product specification
 
-Source candidate v0.1.0-alpha.63 corrects Audio thumb/readback stability and tab selection, refines Compact/battery status and restores the adjacent update check. Alpha.62 remains the published baseline until the release gate in RELEASE_READINESS.md is verified.
+Published v0.1.0-alpha.63 corrects Audio thumb/readback stability and tab selection, refines Compact/battery status and restores the adjacent update check. Immutable packaging and checksum verification passed; installed acceptance remains UNVERIFIED in RELEASE_READINESS.md.
 
-Current published experimental release: `v0.1.0-alpha.62`. It adds the selected IBM Plex Sans/Fluent native presentation, calibrated discrete custom cooling curves, separate firmware cycle history and estimated charge-limit wear comparison. Current publication and exact acceptance evidence belong to `RELEASE_READINESS.md`.
+Previous experimental release: `v0.1.0-alpha.62`. It adds the selected IBM Plex Sans/Fluent native presentation, calibrated discrete custom cooling curves, separate firmware cycle history and estimated charge-limit wear comparison. Current publication and exact acceptance evidence belong to `RELEASE_READINESS.md`.
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
