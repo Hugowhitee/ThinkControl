@@ -1,6 +1,16 @@
 # ThinkControl release-readiness roadmap
 
-## Alpha.62 experimental release freeze (2026-10-07)
+## Published alpha.62 — October 7, 2026
+
+[Download v0.1.0-alpha.62](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.62). PR #122 is merged at immutable tag/source `65b1686777b190d5cad48080db318f0037ef2157`. This is the versioned alpha release, with no dev suffix. The source checkout is on current main; original local recovery material is preserved and QA artifacts remain ignored.
+
+Frozen PR head `c40a848816d1188b620b67b7429c319fa1f8b48f` passed CI `37573675715` and Package `37573675714`. Merged main CI `37573866354`, complete immutable packaging `37573877284` and full-asset promotion verification `37573866355` all passed. The latter downloaded the release assets, verified Setup/Payload checksums and exactly four managed public assets. Local Release build had zero warnings/errors; 312 tests and WPF lifecycle/motion/migration smoke passed. The visual checks include 72 canonical renders, 179 secondary-state fixtures, battery history and minimum/reference Compact editor renders. Independent review found no remaining blocker in the reviewed editor surfaces.
+
+Setup: `ThinkControl-Setup-0.1.0-alpha.62.exe`, SHA-256 `01a8238c9393b0d5c952aa0496a2e54b5dab33bdfc09c0b819c64e11a972bb99` (2,412,226 bytes). Payload: `ThinkControl-Payload-0.1.0-alpha.62.zip`, SHA-256 `3b2f2f85216b0593a5a47ee91146fdd1672e16230337d478919e2cdab2961cf3` (17,527,844 bytes). The other assets are `SHA256SUMS.txt` and `ui-overview.png`. The public checksum text and tag SHA were independently read after publication; large payloads were not redundantly downloaded over tethering.
+
+**Installed state:** alpha.61 remains the last verified local UI/service installation. The service is Running and the Windows power plan is High performance. This UI/release pass did not issue hardware writes or replace the installed service. Installing alpha.62 and accepting its native pointer/keyboard/drag, DPI and lifecycle behavior remain UNVERIFIED. Physical calibration/custom-curve/Auto evidence below applies to the production controller tested earlier; it does not certify every installed UI scenario. Keep the disclosed alpha limitations and follow-up gates below.
+
+## Alpha.62 experimental release freeze (2026-10-07, historical checkpoint)
 
 PR #122, branch `fix/calibrated-curves-and-navigation`, contains the native IBM Plex Sans/Fluent redesign and the exact-device calibrated custom-curve controller. Publication is authorized as an experimental alpha after frozen-head CI/package pass; `releaseReady=true` is a publication flag, not a claim that every hardware or manual-input scenario is verified. Alpha.61 is still the installed baseline until the owner installs the release. Do not install a dev build or silently change the original battery thresholds/power plan.
 

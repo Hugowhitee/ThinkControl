@@ -113,6 +113,8 @@ Corners support inward launch and outward close when enabled, with reverse start
 
 ## Evidence and remaining gates
 
+The native redesign is published in v0.1.0-alpha.62 at source `65b1686777b190d5cad48080db318f0037ef2157`; installation on the owner's device remains UNVERIFIED. Canonical design/interaction requirements above remain authoritative, including static versus dynamic state boundaries. Exact release/checksum evidence belongs to RELEASE_READINESS.md.
+
 Independent assessment A visually reviewed all twelve canonical screens, Compact, editors and selected QA; isolated assessment B audited the whole hierarchy and compared exact Touchpad paths with Core. Both used current Figma/Drive/Impeccable guidance. The Impeccable CLI detector is unavailable, and Figma has no HTML DOM to validate; no detector/browser-overlay claim is made.
 
 The native alpha.62 implementation has bounded visual evidence documented in RELEASE_READINESS.md; this does not certify every Figma prototype link or secondary state. **UNVERIFIED:** native redesign parity; all minimum/reference/wide layouts; actual DPI/text scaling and font fallback; mouse/keyboard/focus/popup/drag behavior; installed candidate lifecycle and publication; broad device sleep/resume/AC/DC and independent fan sensors.

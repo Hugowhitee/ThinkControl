@@ -1,12 +1,12 @@
 # Product specification
 
-Active source candidate: `v0.1.0-alpha.62`. It adds the selected IBM Plex Sans/Fluent native presentation, calibrated discrete custom cooling curves, separate firmware cycle history and estimated charge-limit wear comparison. Current publication and exact acceptance evidence belong to `RELEASE_READINESS.md`.
+Current published experimental release: `v0.1.0-alpha.62`. It adds the selected IBM Plex Sans/Fluent native presentation, calibrated discrete custom cooling curves, separate firmware cycle history and estimated charge-limit wear comparison. Current publication and exact acceptance evidence belong to `RELEASE_READINESS.md`.
 
 ThinkControl is a capability-driven Windows laptop-control application for power, cooling, sensors, display, audio, keyboard, touchpad and battery telemetry. It provides a Compact tray surface for common controls and a resizable Advanced window for deeper controls, history, setup and diagnostics.
 
-Current published and locally installed experimental prerelease: `v0.1.0-alpha.61`. It includes physically checked Auto/Max cooling on the exact 21Q6/N4CET45W controller and separate Modes/Automation. Publication and installed acceptance are recorded in `RELEASE_READINESS.md`.
+Last verified local installation: `v0.1.0-alpha.61`; alpha.62 installation acceptance remains UNVERIFIED. It includes physically checked Auto/Max cooling on the exact 21Q6/N4CET45W controller and separate Modes/Automation. Publication and installed acceptance are recorded in `RELEASE_READINESS.md`.
 
-The alpha.62 source candidate adds measured regulated states 4/5/6/7/0x40 on that exact controller. A production-service probe verified calibration, manual selections, a custom curve and Auto restoration. This is discrete measured output, not continuous PWM: 0% retains the lowest accepted running state and 99% maps to Max. Lower states can mildly pulse. Independent fan channels and broad resume/device acceptance remain unverified. The selected Figma redesign is a separate presentation migration governed by `DESIGN.md` and `UI-DESIGN-HANDOFF.md`; static examples do not prove capability or installed behavior.
+The published alpha.62 adds measured regulated states 4/5/6/7/0x40 on that exact controller. A production-service probe verified calibration, manual selections, a custom curve and Auto restoration. This is discrete measured output, not continuous PWM: 0% retains the lowest accepted running state and 99% maps to Max. Lower states can mildly pulse. Independent fan channels and broad resume/device acceptance remain unverified. The selected Figma redesign is a separate presentation migration governed by `DESIGN.md` and `UI-DESIGN-HANDOFF.md`; static examples do not prove capability or installed behavior.
 
 Current physically reviewed low-level reference: Lenovo ThinkPad X9-15 Gen 1, machine type `21Q6` or `21Q7`.
 
