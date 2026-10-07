@@ -30,6 +30,8 @@ ThinkControl is a lightweight Windows 10/11 companion that starts with verified 
 
 **Current alpha:** [v0.1.0-alpha.64](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.64) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.64/ThinkControl-Setup-0.1.0-alpha.64.exe).
 
+The next alpha, **v0.1.0-alpha.65**, makes active modes, curve editing and battery history easier to use. It is undergoing release validation.
+
 **Experimental OEM status:** Auto, Max and calibrated custom curves have bounded physical validation on X9 21Q6 firmware N4CET45W. This path uses five measured running speeds, with a large gap before Max and a shared tachometer. Lower speeds can vary slightly; independent readings of both fans remain unavailable. Battery stop/resume has bounded device evidence; reboot/wake and broad hardware acceptance remain open. See [Release readiness](docs/RELEASE_READINESS.md).
 
 **Verified low-level reference:** ThinkPad X9-15 Gen 1 (`21Q6` / `21Q7`)  

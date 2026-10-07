@@ -1,5 +1,7 @@
 # ThinkControl architecture
 
+The v0.1.0-alpha.65 source uses ModeStatusPresentation as a stateless projection of the existing mode coordinator and automation service. Active-rule changes notify existing subscribers; no additional polling/state owner is introduced. Battery page reset traverses its nested panel, and read-only curve inspection shares the graph geometry/interpolation policy.
+
 Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.
 
 This document describes the **v0.1.0-alpha.64** source. Alpha.63 was observed running locally on October 7; that version check does not certify every installed interaction. `docs/RELEASE_READINESS.md` owns release acceptance. On exactly 21Q6/N4CET45W the regulated provider has measured discrete outputs, RPM-based percentage mapping and a custom-curve acceptance through the service IPC. This does not establish continuous PWM or independent fan control. Source, fixture, installed and physical acceptance remain separate. The selected Figma migration is owned by `docs/UI-DESIGN-HANDOFF.md` and is being implemented in the existing WPF shell.
