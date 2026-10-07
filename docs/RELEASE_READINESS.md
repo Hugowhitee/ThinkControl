@@ -6,7 +6,7 @@
 
 The selected Figma file was reconciled against current `main` / published alpha.65 and the current mode/power state owners. **No WPF implementation or release was started in this pass.**
 
-Design-ready references now cover Overview `6:2`, System General `11:422`, Battery `9:205`, Saved modes `11:85`, Automation `11:256`, shared mode status `253:6354`, editors `29:548` / `29:835`, mode states `130:2940` / `130:3055` / `130:3170`, integrated/expanded Battery states `65:1089` / `66:1133` / `66:1311`, passive mode notification in `198:5007`, and Updates `12:103`.
+Design-ready references now cover Overview `6:2`, System General `11:422`, Battery `9:205`, Saved modes `11:85`, Automation `11:256`, shared mode status `253:6354`, editors `29:548` / `29:835`, mode states `130:2940` / `130:3055` / `130:3170`, integrated/expanded Battery states `65:1089` / `66:1133` / `66:1311`, passive mode notification in `198:5007`, Updates `12:103`, and the reconciled Light QA frames Overview `34:1054` / Battery `67:1707`.
 
 Implementation / acceptance still required:
 
