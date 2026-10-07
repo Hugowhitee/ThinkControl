@@ -143,33 +143,20 @@
                 <controls:TelemetryMetric Grid.Column="2" Label="FANS" Value="{Binding FanRpmText}" Caption="{Binding CoolingProfileDisplay}" />
                 <controls:TelemetryMetric Grid.Column="3" Label="POWER" Value="{Binding BatteryPowerText}" Caption="Live draw" />
               </Grid>
-              <Border Style="{StaticResource TcSection}" Margin="0,16,0,0">
-                <Grid>
-                  <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="230" /></Grid.ColumnDefinitions>
-                  <StackPanel Margin="0,0,20,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="HomeModeTitle" Text="Active mode" Style="{StaticResource TcText.SectionTitle}" TextWrapping="Wrap" />
-                    <TextBlock x:Name="HomeModeModifiedText" TextWrapping="Wrap" Style="{StaticResource TcText.Secondary}" Margin="0,6,0,0" />
-                  </StackPanel>
-                  <StackPanel Grid.Column="1">
-                    <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
-                    <Button Content="Modes &amp; rules" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Right" Click="HomeOpenPage_Click" Tag="Modes" Margin="0,5,0,0" />
-                  </StackPanel>
-                </Grid>
-              </Border>
-              <Grid Margin="0,22,0,0">
+              <Grid Margin="0,16,0,0">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition />
                   <ColumnDefinition Width="16" />
                   <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <Border Style="{StaticResource TcSection}" MinHeight="181">
+                <Border Style="{StaticResource TcSection}" MinHeight="164">
                   <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                       <controls:PackIconLucide Kind="Gauge" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
                       <TextBlock Text="Power profile" FontSize="{x:Static ui:TypographyScale.SectionTitle}" FontWeight="SemiBold" Margin="10,0,0,0" />
                     </StackPanel>
                     <TextBlock x:Name="HomePowerSourceText" Text="Current power source" Style="{StaticResource TcText.Secondary}" />
-                    <Grid Margin="0,20,0,18">
+                    <Grid Margin="0,12,0,10">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition />
                         <ColumnDefinition />
@@ -182,7 +169,7 @@
                     <TextBlock x:Name="HomePowerOtherText" Text="Separate battery and plugged-in preferences" Style="{StaticResource TcText.Caption}" />
                   </StackPanel>
                 </Border>
-                <Border Grid.Column="2" Style="{StaticResource TcSection}" MinHeight="181">
+                <Border Grid.Column="2" Style="{StaticResource TcSection}" MinHeight="164">
                   <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                       <controls:PackIconLucide Kind="Fan" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -221,7 +208,7 @@
                   <ColumnDefinition Width="16" />
                   <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <Border Style="{StaticResource TcSection}" MinHeight="167">
+                <Border Style="{StaticResource TcSection}" MinHeight="151">
                   <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                       <controls:PackIconLucide Kind="Monitor" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -239,7 +226,7 @@
                       <RadioButton x:Name="HomeRefresh60" Grid.Column="2" GroupName="HomeRefresh" Style="{StaticResource TcSegment}" Content="60 Hz" Click="Refresh60_Click" Margin="4,0,4,0" FontSize="13" Padding="4,7" />
                       <RadioButton x:Name="HomeRefreshMax" Grid.Column="3" GroupName="HomeRefresh" Style="{StaticResource TcSegment}" Content="Max" Click="RefreshMax_Click" Margin="4,0,4,0" FontSize="13" Padding="4,7" />
                     </Grid>
-                    <Grid Margin="0,20,0,0">
+                    <Grid Margin="0,16,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="90" />
                         <ColumnDefinition />
@@ -249,7 +236,7 @@
                     </Grid>
                   </StackPanel>
                 </Border>
-                <Border Grid.Column="2" Style="{StaticResource TcSection}" MinHeight="167">
+                <Border Grid.Column="2" Style="{StaticResource TcSection}" MinHeight="151">
                   <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                       <controls:PackIconLucide Kind="Audio" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -266,7 +253,26 @@
                   <ColumnDefinition />
                 </Grid.ColumnDefinitions>
 
-                <Border Grid.ColumnSpan="3" Style="{StaticResource TcSection}">
+                <Border Style="{StaticResource TcSection}">
+                  <StackPanel>
+                    <Grid>
+                      <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                      <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <controls:PackIconLucide Kind="Tune" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,0,10,0" />
+                        <TextBlock x:Name="HomeModeTitle" Text="Mode" Style="{StaticResource TcText.SectionTitle}" />
+                      </StackPanel>
+                      <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Automation" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="8,0,8,0" />
+                        <CheckBox x:Name="HomeAutomationSwitch" Style="{StaticResource TcSwitch}" MinHeight="40" AutomationProperties.Name="Enable automation triggers" Click="HomeAutomationSwitch_Click" />
+                      </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="HomeModeModifiedText" TextWrapping="Wrap" Style="{StaticResource TcText.Caption}" Visibility="Collapsed" Margin="0,4,0,10" />
+                    <Grid Margin="0,8,0,0">
+                      <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
+                    </Grid>
+                  </StackPanel>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource TcSection}">
                   <StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
                       <controls:PackIconLucide Kind="Keyboard" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
@@ -396,9 +402,9 @@
                   <TextBlock Text="Device &amp; support" Style="{StaticResource TcText.SectionTitle}" Margin="0,0,0,18" />
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="140" />
-                      <ColumnDefinition />
-                      <ColumnDefinition Width="140" />
+                      <ColumnDefinition Width="112" />
+                      <ColumnDefinition Width="220" />
+                      <ColumnDefinition Width="112" />
                       <ColumnDefinition />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -422,7 +428,7 @@
                   <Grid>
                     <Grid.ColumnDefinitions>
                       <ColumnDefinition Width="160" />
-                      <ColumnDefinition Width="416" />
+                      <ColumnDefinition Width="416" MaxWidth="416" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Theme" VerticalAlignment="Center" Style="{StaticResource TcText.Secondary}" />
                     <Grid Grid.Column="1">
@@ -436,13 +442,13 @@
                       <RadioButton x:Name="ThemeLight" Grid.Column="2" GroupName="Theme" Style="{StaticResource TcSegment}" Content="Light" Tag="Light" Click="Theme_Click" Margin="4,0,0,0" />
                     </Grid>
                   </Grid>
-                  <Grid Margin="0,20,0,0">
+                  <Grid Margin="0,16,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="160" />
-                        <ColumnDefinition Width="260" />
+                        <ColumnDefinition Width="416" MaxWidth="416" />
                       </Grid.ColumnDefinitions>
                       <StackPanel>
-                        <TextBlock Text="App icon opens" FontWeight="SemiBold" />
+                        <TextBlock Text="App icon opens" Style="{StaticResource TcText.Secondary}" />
                         <TextBlock Text="The tray icon always opens Compact." Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,4,12,0" />
                       </StackPanel>
                       <Grid Grid.Column="1" VerticalAlignment="Center">
@@ -454,7 +460,7 @@
                         <RadioButton x:Name="SettingsOpeningAdvanced" Grid.Column="1" GroupName="DefaultOpeningView" Content="Advanced" Tag="Advanced" Click="OpeningView_Click" Style="{StaticResource TcSegment}" Margin="4,0,0,0" />
                       </Grid>
                     </Grid>
-                  <Grid Margin="0,32,0,0">
+                  <Grid Margin="0,32,0,0" MaxWidth="576" HorizontalAlignment="Left" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=StackPanel}}">
                     <TextBlock Text="Start with Windows" VerticalAlignment="Center" />
                     <CheckBox x:Name="StartupSwitch" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" HorizontalAlignment="Right" />
                   </Grid>

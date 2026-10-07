@@ -1,5 +1,7 @@
 # ThinkControl architecture
 
+Candidate v0.1.0-alpha.66 refines Mode/Automation controls, rule status and editor continuity using the existing UI and state owners. Hardware permissions are unchanged; installed physical acceptance remains UNVERIFIED. Publication evidence is maintained in RELEASE_READINESS.md.
+
 The v0.1.0-alpha.65 source uses ModeStatusPresentation as a stateless projection of the existing mode coordinator and automation service. Active-rule changes notify existing subscribers; no additional polling/state owner is introduced. Battery page reset traverses its nested panel, and read-only curve inspection shares the graph geometry/interpolation policy.
 
 Published v0.1.0-alpha.64 fixes mode activation under incompatible Windows power plans, retains cooling curves through temporary sensor gaps, and improves Battery details and Recorded sessions. Installed alpha.64 acceptance and reproduction of the intermittent SolidWorks-load fan failure remain UNVERIFIED.

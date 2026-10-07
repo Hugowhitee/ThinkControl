@@ -164,7 +164,7 @@ public partial class BatteryTelemetryPanel : UserControl
 
     private Expander CreateDayRow(BatteryDaySummary day)
     {
-        var header = new Grid { MinHeight = 42 };
+        var header = new Grid { MinHeight = 48 };
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.Children.Add(new TextBlock
@@ -196,7 +196,10 @@ public partial class BatteryTelemetryPanel : UserControl
         return new Expander
         {
             Header = header,
+            ToolTip = day.Day.ToString("dddd d MMMM yyyy", CultureInfo.CurrentCulture),
             Content = sessions,
+            HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            Style = TryFindResource("TcQuietExpander") as Style,
             BorderBrush = (Brush)FindResource("Tc.Border"),
             BorderThickness = new Thickness(0, 1, 0, 0),
             Padding = new Thickness(2, 0, 2, 0),
@@ -297,10 +300,11 @@ public partial class BatteryTelemetryPanel : UserControl
 
     private Button CreateSessionRow(BatterySessionDetail session)
     {
-        var grid = new Grid();
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, SharedSizeGroup = "SessionKind" });
+        var grid = new Grid { MinHeight = 48 };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(20) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(84) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
 
         var kind = new Border
         {
@@ -317,14 +321,14 @@ public partial class BatteryTelemetryPanel : UserControl
             FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
-        kindText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Success" : "Tc.TextMuted");
+        kindText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         kind.Child = kindText;
         grid.Children.Add(kind);
 
         var summary = new TextBlock
         {
-            Text = $"{session.StartedAt:HH:mm}–{(session.EndedAt is { } ended ? ended.ToString("HH:mm") : "now")}    {FormatShortDuration(session.Duration)}\n{session.StartPercent}% → {session.EndPercent}%" +
-                (session.EnergyWh is { } energy ? $"    {energy:0.#} Wh" : string.Empty),
+            Text = $"{session.StartedAt.LocalDateTime:HH:mm}–{(session.EndedAt is { } ended ? ended.ToLocalTime().ToString("HH:mm") : "now")}    {FormatShortDuration(session.Duration)}\n{session.StartPercent}% → {session.EndPercent}%" +
+                string.Empty,
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
             VerticalAlignment = VerticalAlignment.Center
@@ -333,15 +337,19 @@ public partial class BatteryTelemetryPanel : UserControl
         Grid.SetColumn(summary, 1);
         grid.Children.Add(summary);
 
-        var arrow = new TextBlock
+        var energyText = new TextBlock
         {
-            Text = "›",
-            FontSize = TypographyScale.Value,
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center
+            Text = session.EnergyWh is { } energy ? $"{(session.Kind == "Charge" ? "+" : "−")}{Math.Abs(energy):0.#} Wh" : "—",
+            FontSize = TypographyScale.Caption, TextAlignment = TextAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0)
         };
-        arrow.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
-        Grid.SetColumn(arrow, 2);
+        energyText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        Grid.SetColumn(energyText, 2);
+        grid.Children.Add(energyText);
+        var arrow = new PackIconLucide { Kind = "ChevronRight", Width = 20, Height = 20,
+            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        arrow.SetResourceReference(Control.ForegroundProperty, "Tc.TextMuted");
+        Grid.SetColumn(arrow, 3);
         grid.Children.Add(arrow);
 
         var row = new Button
@@ -353,7 +361,7 @@ public partial class BatteryTelemetryPanel : UserControl
             HorizontalContentAlignment = HorizontalAlignment.Stretch,
             Cursor = System.Windows.Input.Cursors.Hand,
             Content = grid,
-            ToolTip = "Open session statistics and graphs"
+            ToolTip = $"Open session statistics and graphs\n{session.StartedAt.ToLocalTime():dddd d MMMM yyyy HH:mm zzz} – {(session.EndedAt is { } end ? end.ToLocalTime().ToString("dddd d MMMM yyyy HH:mm zzz", CultureInfo.CurrentCulture) : "now")}"
         };
         row.SetResourceReference(Button.BorderBrushProperty, "Tc.Border");
         row.Click += (_, _) => ShowSession(session);

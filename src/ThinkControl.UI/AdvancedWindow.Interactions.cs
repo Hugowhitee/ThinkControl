@@ -86,8 +86,6 @@ public partial class AdvancedWindow
     {
         foreach (Controls.BatteryTelemetryPanel battery in FindVisualChildren<Controls.BatteryTelemetryPanel>(root))
             battery.ResetNavigationView();
-        foreach (Controls.ModesPanel panel in FindVisualChildren<Controls.ModesPanel>(root))
-            panel.ResetNavigationView();
         foreach (ComboBox combo in FindVisualChildren<ComboBox>(root))
             combo.IsDropDownOpen = false;
         foreach (Expander expander in FindVisualChildren<Expander>(root))

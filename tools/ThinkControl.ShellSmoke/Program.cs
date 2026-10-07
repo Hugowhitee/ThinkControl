@@ -27,6 +27,7 @@ internal static partial class Program
             ValidateCrashJournal();
             ValidateBatteryHistoryGaps();
             ValidateCompactLayoutMigration();
+            ValidateSettingsWriteFailure();
             if (!ThinkControl.UI.Controls.TimeSeriesChart.AxisTicks(9.8, 12.2, "0").SequenceEqual(new[] { 10d, 11d, 12d }))
                 throw new InvalidOperationException("Cycle chart ticks must use exact integer values at their actual positions.");
             ValidateBatteryEtaLabels();
@@ -48,6 +49,7 @@ internal static partial class Program
                     await ValidateFanSupervisorRecovery();
                     ValidateCurveInspection(app);
                     await ValidateAutomationTransitions(app);
+                    ValidateModeSwitchControls(app);
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();
                     await ValidateBatteryMotion();
@@ -159,6 +161,64 @@ internal static partial class Program
         finally { Directory.Delete(directory, true); }
     }
 
+    private static void ValidateSettingsWriteFailure()
+    {
+        string folder = Path.Combine(Path.GetTempPath(), "ThinkControl-settings-qa-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            string path = Path.Combine(folder, "settings.json");
+            var store = new UserSettingsService(settingsPath: path);
+            if (!store.TryUpdate(settings => settings with { DefaultOpeningView = "Advanced" }))
+                throw new InvalidOperationException("Settings atomic commit failed at a writable destination.");
+            // Block atomic replacement after the temp file has been flushed.
+            using var locked = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (store.TryUpdate(settings => settings with { DefaultOpeningView = "Compact" }) || store.Current.DefaultOpeningView != "Advanced")
+                throw new InvalidOperationException("Failed settings persistence was reported as a committed selection.");
+            if (new UserSettingsService(settingsPath: path).Current.DefaultOpeningView != "Advanced")
+                throw new InvalidOperationException("Rejected settings were recovered as a successful selection at startup.");
+        }
+        finally { Directory.Delete(folder, recursive: true); }
+    }
+
+    private static void ValidateModeSwitchControls(App app)
+    {
+        var original = app.UserSettings.Current;
+        var mode = new ThinkControlModeDefinition("custom:switch-qa", "Switch QA", TouchpadGesturesEnabled: false);
+        var rule = new ThinkControlAutomationRule("rule:switch-qa", "Campus rule", mode.Id, [new("Wifi", "Campus")]);
+        var panel = new ThinkControl.UI.Controls.ModesPanel();
+        var host = new Window { Content = panel, Width = 800, Height = 700, ShowActivated = false, ShowInTaskbar = false };
+        try
+        {
+            app.UserSettings.Update(settings => settings with { CustomModes = [mode], AutomationRules = [rule] });
+            panel.Initialize(app, automationSurface: true);
+            host.Show(); Pump(app.Dispatcher);
+            var rows = (StackPanel)panel.FindName("RuleRows");
+            var toggle = VisualDescendants<CheckBox>(rows).Single();
+            if (toggle.ActualHeight < 40 || toggle.ActualWidth < 48 ||
+                VisualTreeHelper.HitTest(toggle, new Point(toggle.ActualWidth / 2, 2)) is null)
+                throw new InvalidOperationException("Shared switch does not expose its full 40-unit hit area.");
+            toggle.IsChecked = false;
+            toggle.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if (app.UserSettings.Current.AutomationRules!.Single().Enabled || app.UserSettings.Current.AutomationRules!.Single().Conditions.Single().Value != "Campus")
+                throw new InvalidOperationException("Rule switch failed to persist independently of its condition values.");
+            var edit = VisualDescendants<Button>(rows).Single(button => Equals(button.Content, "Edit rule"));
+            edit.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            var triggerRows = (StackPanel)panel.FindName("EditorTriggers");
+            var condition = VisualDescendants<CheckBox>(triggerRows).Single();
+            condition.IsChecked = false;
+            condition.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if (!app.UserSettings.Current.AutomationRules!.Single().Conditions.Single().Enabled)
+                throw new InvalidOperationException("Condition switch committed before Save.");
+            VisualDescendants<Button>(panel).Single(button => Equals(button.Content, "Save"))
+                .RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            var saved = app.UserSettings.Current.AutomationRules!.Single();
+            if (saved.Conditions.Single().Enabled || saved.Conditions.Single().Value != "Campus" || saved.Enabled)
+                throw new InvalidOperationException("Saving a disabled condition lost its value or changed rule enablement.");
+        }
+        finally { host.Close(); app.UserSettings.Update(_ => original); }
+    }
+
     private static async Task ValidateBatteryMotion()
     {
         var gauge = new ThinkControl.UI.Controls.BatteryGauge { Width = 100, Height = 40, Percent = 78, IsCharging = true };
@@ -202,6 +262,10 @@ internal static partial class Program
         if (ThinkControlModeAutomationPolicy.MatchScore(all, context) != 0 ||
             ThinkControlModeAutomationPolicy.MatchScore(all with { MatchAllTriggers = false }, context) == 0)
             throw new InvalidOperationException("Any/all rule semantics are inconsistent.");
+        var disabled = school with { MatchAllTriggers = true, Triggers = [new("Wifi", "School", Enabled: false)] };
+        if (ThinkControlModeAutomationPolicy.MatchScore(disabled, context) != 0 ||
+            ThinkControlModeAutomationPolicy.MatchScore(all with { Triggers = [new("Wifi", "School"), new("Power", "AC", Enabled: false)] }, context) == 0)
+            throw new InvalidOperationException("Disabled conditions must be excluded; zero enabled conditions must never match.");
         var overnight = new ThinkControlModeTrigger("Schedule", StartTime: "22:00", EndTime: "06:00", DaysMask: 1 << (int)DayOfWeek.Monday);
         DateTimeOffset tuesday = new(new DateTime(2026, 10, 6, 1, 0, 0), TimeZoneInfo.Local.GetUtcOffset(new DateTime(2026, 10, 6, 1, 0, 0)));
         if (!ThinkControlModeAutomationPolicy.Matches(overnight, context with { Now = tuesday }) ||
@@ -234,6 +298,20 @@ internal static partial class Program
             Require(app.Modes.ActiveModeAutomatic && app.GetEffectiveTouchpadGesturesEnabled(), "school entry did not apply");
             Require(engine.Status.Contains("School network") && engine.RestoreTarget == "Manual", "winner/restoration explanation missing");
             Require(engine.ActiveRuleId == wifi.Id && ModeStatusPresentation.From(app).Detail.Contains("School network"), "active rule was not identified in the shared mode presentation");
+            Require(await app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId), "No mode did not restore regular settings");
+            await At(7, "School");
+            Require(engine.Paused && app.Modes.ActiveModeId == ThinkControlModeCatalog.NormalId, "No mode was immediately replaced by the current trigger");
+            Require(await app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId) && engine.Paused, "reselecting No mode failed");
+            Require(await app.Modes.ActivateAsync(manual.Id), "manual baseline could not be restored for Resume");
+            engine.Resume();
+            await At(7, "School"); await At(13, "School");
+            Require(app.Modes.ActiveModeAutomatic, "Resume did not re-evaluate the enabled rule");
+            engine.Pause();
+            await At(14, "Home", editor: true); await At(20, "Home", editor: true);
+            Require(engine.Paused && engine.ActiveRuleId == wifi.Id, "explicit Off did not hold across a different winning context");
+            Require(app.UserSettings.Current.AutomationRules!.All(rule => rule.Enabled), "pausing disabled saved rules");
+            engine.Resume();
+            await At(7, "School"); await At(13, "School");
             await At(7, null);
             await At(9, "School");
             await At(15, "School");
@@ -913,8 +991,20 @@ internal static partial class Program
             Pump(app.Dispatcher);
             if (page.VerticalOffset > 0.1 || VisualDescendants<Expander>(page).Any(item => item.IsExpanded))
                 throw new InvalidOperationException($"Navigation: {name} did not reset its scroll/disclosures on reselect.");
-            if (modes is not null && ((FrameworkElement)modes.FindName("EditorView")).Visibility != Visibility.Collapsed)
-                throw new InvalidOperationException($"Navigation: {name} did not return from its editor to the list.");
+            if (modes is not null)
+            {
+                string sibling = name == "Modes" ? "Automation" : "Modes";
+                var draft = (TextBox)modes.FindName("ModeNameTextBox");
+                draft.Text = "Keep this draft";
+                window.Navigate(sibling); Pump(app.Dispatcher);
+                window.Navigate(name); Pump(app.Dispatcher);
+                if (((FrameworkElement)modes.FindName("EditorView")).Visibility != Visibility.Visible || draft.Text != "Keep this draft")
+                    throw new InvalidOperationException($"Navigation: {name} lost its draft across context tabs.");
+                window.Navigate("Home"); Pump(app.Dispatcher);
+                window.Navigate(name); Pump(app.Dispatcher);
+                if (((FrameworkElement)modes.FindName("EditorView")).Visibility != Visibility.Collapsed)
+                    throw new InvalidOperationException($"Navigation: {name} did not reset after leaving Modes.");
+            }
         }
     }
 

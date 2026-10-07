@@ -104,12 +104,14 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     private string? _failedRuleId;
     private DateTimeOffset _failedUntil;
     private bool _manualOverride;
+    private bool _explicitPause;
     private string? _manualContextId;
     private string? _observedWinnerId;
     internal event Action? Changed;
     internal string Status { get; private set; } = "Checking conditions…";
-    internal bool Paused => _manualOverride;
+    internal bool Paused => _manualOverride || _explicitPause;
     internal string? ActiveRuleId => _app.Modes.ActiveModeAutomatic ? _activeRuleId : null;
+    internal string? FailedRuleId => _failedRuleId;
     internal string RestoreTarget => _beforeAutomation?.Definition.Name ?? "Regular settings";
     internal IReadOnlyList<AutomationRuleMatch> Matches { get; private set; } = [];
 
@@ -133,10 +135,18 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     }
     internal void Resume()
     {
+        _explicitPause = false;
         _manualOverride = false;
         _failedRuleId = null;
         _pendingSet = false;
         RequestEvaluation();
+    }
+    internal void Pause()
+    {
+        _explicitPause = true;
+        _pendingSet = false;
+        SetStatus("Automation paused.");
+        Changed?.Invoke();
     }
     internal void ReleaseRestoreFacet(ThinkControlModeFacet facet)
     {
@@ -180,6 +190,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
     // The installed runtime and dispatcher tests use the same transition path.
     internal async Task EvaluateSnapshotAsync(ModeAutomationSnapshot context)
     {
+        if (_explicitPause) return;
         var modes = _app.UserSettings.Current.CustomModes ?? [];
         var rules = _app.UserSettings.Current.AutomationRules ?? [];
         var ranked = rules.Select(rule => new
@@ -238,6 +249,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
                 _appliedDefinition = winner.Mode;
                 _failedRuleId = null;
                 PublishWinner(winner.Rule, context);
+                if (!alreadyApplied) _app.ShowAutomaticModeActivation(winner.Rule.Name);
             }
             else RecordFailure(transitionKey, context.Now);
             return;

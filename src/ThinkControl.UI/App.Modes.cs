@@ -28,6 +28,18 @@ public partial class App
     internal void NotifyManualModeSelection() =>
         _modeAutomation?.SuppressUntilContextChanges();
 
+    internal void ShowAutomaticModeActivation(string ruleName)
+    {
+        if (!CanShowAttentionNow() || _attentionToast.HasActionableAttention ||
+            !Modes.ActiveModeAutomatic || Modes.IsTransitioning || Modes.IsModified || Modes.SettingsNeedChecking)
+            return;
+        _attentionToast.ShowPassive(
+            $"mode-active:{Modes.ActiveModeId}:{ModeAutomation.ActiveRuleId}",
+            $"{Modes.ActiveModeName} enabled",
+            $"By {ruleName}",
+            TimeSpan.FromSeconds(5));
+    }
+
     private async Task RestoreModeForExitAsync()
     {
         if (_modes is null || _modes.ActiveModeId == ThinkControlModeCatalog.NormalId)

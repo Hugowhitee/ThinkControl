@@ -107,14 +107,19 @@ public partial class AdvancedWindow
         try
         {
             HomeModeCombo.ItemsSource = modes;
+            HomeModeCombo.IsEnabled = HomeAutomationSwitch.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning;
             HomeModeCombo.SelectedItem = active;
             var presentation = ModeStatusPresentation.From(_app);
-            HomeModeTitle.Text = presentation.Title;
-            HomeModeModifiedText.Text = presentation.Detail;
-            HomeModeModifiedText.ToolTip = _app.Modes.LastTransitionError;
+            HomeModeTitle.Text = "Mode";
+            HomeModeTitle.ToolTip = presentation.Title;
+            HomeModeModifiedText.Text = _app.Modes.SettingsNeedChecking ? presentation.Detail :
+                $"Couldn’t apply {_app.Modes.FailedModeName ?? "the mode"}.";
+            HomeModeModifiedText.ToolTip = _app.Modes.LastTransitionError ?? presentation.Detail;
+            HomeAutomationSwitch.IsChecked = !_app.ModeAutomation.Paused;
             HomeModeModifiedText.SetResourceReference(TextBlock.ForegroundProperty,
                 presentation.Failed ? "Tc.Error" : "Tc.TextMuted");
-            HomeModeModifiedText.Visibility = Visibility.Visible;
+            HomeModeModifiedText.Visibility = _app.Modes.SettingsNeedChecking || !string.IsNullOrEmpty(_app.Modes.LastTransitionError)
+                ? Visibility.Visible : Visibility.Collapsed;
         }
         finally
         {
@@ -134,14 +139,21 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.SelectedItem = mode;
-            HomeModeTitle.Text = mode.Id == ThinkControlModeCatalog.NormalId ? "Regular settings" : $"Active mode: {mode.Name}";
-            HomeModeModifiedText.Text = modified ? "Settings changed since this mode was applied. Selected manually." : "Selected manually.";
-            HomeModeModifiedText.Visibility = Visibility.Visible;
+            HomeModeTitle.Text = "Mode";
+            HomeModeModifiedText.Visibility = Visibility.Collapsed;
         }
         finally
         {
             _syncing = false;
         }
+    }
+
+    private void HomeAutomationSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        if (_syncing) return;
+        if (HomeAutomationSwitch.IsChecked == true) _app.ModeAutomation.Resume();
+        else _app.ModeAutomation.Pause();
+        RefreshHomeMode();
     }
 
     private async void HomeMode_SelectionChanged(object sender, SelectionChangedEventArgs e)

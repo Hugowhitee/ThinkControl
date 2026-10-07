@@ -55,6 +55,12 @@ Modes has one status grammar across Overview, Saved modes and Automation. The pe
 
 Context tabs are not primary navigation. When Saved modes and Automation are two views of the same Modes task, changing between them preserves an in-progress editor and unsaved transient values. Leaving Modes for another primary destination may reset that transient state on the next entry. Primary-destination re-entry still follows the normal top-scroll/reset rule.
 
+Rule enabled state, condition enabled state, pending activation and confirmed active ownership are separate roles. Reuse `Control / Switch` for the first two, the shared runtime-status family for ownership, and local action feedback for failures. A rule-list switch writes immediately; an editor switch remains draft until Save. Use an accessible name identifying the rule/condition and at least a 40-unit hit area. Never use a dropdown's selected item as confirmation or a retained coordinator ID as proof of recovered hardware state.
+
+Recorded sessions use fixed semantic columns for local date/time, direction/percentage, duration and signed energy, with a separate disclosure target. A session/day disclosure inspects history; History settings changes retention/storage. At narrower widths, wrap within those roles or stack metadata beneath its session, preserving reading and focus order. Do not push values to the far end of an unbounded container. Battery wear models use quiet illustrative language; measured firmware cycles retain their separate role.
+
+The post-alpha.65 WPF candidate reuses `TcSection`, `TcSegment`, `TcSwitch`, `TcInlineButton`, `TcQuietExpander`, the packaged IBM Plex font and the existing Fluent adapter. Confirmed indicators come from the coordinator/automation owners; failed-target identity and uncertain rollback are explicit state rather than parsed message text. General preference rails align, device label/value groups stay adjacent, and rule Match/Priority/condition rails remain bounded at wide widths.
+
 ## Information hierarchy
 
 ThinkControl has two interface densities.

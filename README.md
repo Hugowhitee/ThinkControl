@@ -26,6 +26,8 @@
 
 ## ThinkControl
 
+**Release candidate:** v0.1.0-alpha.66 refines mode controls and automation feedback. See [release readiness](docs/RELEASE_READINESS.md) for validation and publication status.
+
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
 **Current alpha:** [v0.1.0-alpha.65](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.65) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.65/ThinkControl-Setup-0.1.0-alpha.65.exe).

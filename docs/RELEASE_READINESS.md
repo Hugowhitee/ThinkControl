@@ -1,10 +1,30 @@
 # ThinkControl release-readiness roadmap
 
+## Alpha.66 candidate — October 7, 2026
+
+PR #130 now carries the existing WPF consistency candidate plus the four targeted owner corrections. Simple Mode icon/title and Automation switch, editor rule switch on the title rail, bounded Windows-startup row and semantic rule dots are implemented. Explicit Automation Off survives context changes until Resume; manual selection uses the existing pause-until-context-change policy. Rule enablement is preserved. No hardware provider or write permission changed.
+
+Local Release build passed with zero warnings/errors; 315 Core tests and real WPF shell lifecycle smoke passed, including explicit pause/resume, manual override, rule/condition draft/persistence, editor continuity and shared switch hit area. Native renders: 72 canonical dark/light minimum/normal/wide and 18 mode/editor/session state cases. Visually inspected Home dark normal/light minimum, Automation dark minimum, System dark normal, rule editor dark minimum/light wide, mode failure dark normal and expanded sessions light normal. Figma screenshots were inspected after each targeted edit; shared component and semantic variable bindings were read back. Exact final GitHub CI and installer/oldest-supported upgrade packaging remain required before merge. Installed pointer/DPI/animation acceptance and SolidWorks fan reproduction remain UNVERIFIED. Previous design-only implementation-pending statements below describe the preceding pass and are superseded by this candidate.
+
 ## Published alpha.65 — October 7, 2026
 
 ## Post-alpha.65 Figma consistency handoff — design only (2026-10-07)
 
 The selected Figma file was reconciled against current `main` / published alpha.65 and the current mode/power state owners. **No WPF implementation or release was started in this pass.**
+
+Follow-up context recovery on October 7 verified public `main` at `d8e115ffa69dbdab8674c80633d6997c647284a8`, latest release `v0.1.0-alpha.65`, and open PRs #130 (this design handoff) and #120 (brand exports). The running installed UI executable reports `0.1.0-alpha.65+2ee3737efae8ab6f4972e0501c6158d32ea99baa`. This is build identity, not installed acceptance. GitHub CLI authentication is unavailable in this session; public API and Git fetch provided the read-only repository evidence.
+
+Additional Figma corrections: canonical Automation rule grouping/switches, condition/rule editor switches, explicit No mode command and paused result `318:7077`, local failed-Performance feedback `318:6310`, honest incomplete-recovery component semantics, session disclosure targets, Light wear-estimate copy, Dolby status overlap and adjacent version check. Exact node IDs, commit timing and interaction contracts belong in UI-DESIGN-HANDOFF.md / PRODUCT.md.
+
+Source findings relevant to implementation:
+
+- `ModesPanel.CreateModeRow` renders display rows without activation handlers; only `ModeSelector_SelectionChanged` activates, and it returns early for an already-active unmodified mode. A repeat No mode command needs an explicit action path.
+- `ThinkControlModeCoordinator.ActivateAsync` must restore owned facets before No mode can succeed; restoration can fail. Manual pause is notified only after success. `ActiveModeId`, `VisibleModeId`, saved power preference and actual OS/provider readback are different contracts.
+- `ThinkControlModeAutomationService` evaluates only enabled conditions, treats zero enabled conditions as no match and releases manual pause when the observed winner changes. The serialized Enabled fields already exist; visible condition switches and direct list rule switches are still missing.
+- `AdvancedWindow.ResetTransientPageUi` calls `ModesPanel.ResetNavigationView` on page entry. Saved modes and Automation currently use separate panel surfaces; preserve their drafts deliberately without adding another coordinator or a duplicate settings owner.
+- `BatteryGauge` already binds charging/discharging, gates motion on visibility and Windows ClientAreaAnimation, reverses diagonal flow and fades when idle. Installed missing motion is not yet diagnosed; do not claim a new animation implementation or a proven repair.
+
+Current-run validation: the existing native WPF snapshot harness generated the discoverability matrix for Home, Modes, Automation, Fans, Battery and Settings in dark/light at 980/1200/1600 widths. Home-Dark-1200, Modes-Dark-980, Battery-Light-980 and Settings-Dark-1200 were visually inspected as runtime-fixture evidence; they demonstrate remaining design/runtime drift. Figma representative Automation and failed activation were inspected before expansion, then affected states/editors and sibling surfaces were inspected; changed mode compositions were also inspected in Light. Shared switch/component/style/variable bindings and prototype reactions were read back. No native installed UI input was automated: the required Computer Use node session is not exposed here. Actual installed chart hover, trigger behavior, editor continuity, animation, DPI/text scaling, Touchpad hit geometry and SolidWorks fan acceptance remain **UNVERIFIED**. No build/tests/installer result from an earlier run is promoted to user acceptance.
 
 Design-ready references now cover Overview `6:2`, System General `11:422`, Battery `9:205`, Saved modes `11:85`, Automation `11:256`, shared mode status `253:6354`, editors `29:548` / `29:835`, mode states `130:2940` / `130:3055` / `130:3170`, integrated/expanded Battery states `65:1089` / `66:1133` / `66:1311`, passive mode notification in `198:5007`, Updates `12:103`, and the reconciled Light QA frames Overview `34:1054` / Battery `67:1707`.
 

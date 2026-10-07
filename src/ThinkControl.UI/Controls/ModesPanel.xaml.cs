@@ -1,6 +1,8 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using ThinkControl.Core.Ipc;
 using ThinkControl.UI.Services;
 
@@ -13,6 +15,8 @@ public partial class ModesPanel : UserControl
     private App? _app;
     private bool _automationSurface;
     private bool _busy;
+    private string? _ruleSaveErrorId;
+    private readonly List<Ellipse> _ruleStatusDots = [];
     private bool _syncingModeSelection;
     private string? _editingId;
     private string? _editingRuleId;
@@ -38,6 +42,10 @@ public partial class ModesPanel : UserControl
         BuildHeaderActions();
         IsVisibleChanged += (_, _) =>
         {
+            if (!IsVisible)
+            {
+                foreach (var dot in _ruleStatusDots) dot.BeginAnimation(OpacityProperty, null);
+            }
             if (IsVisible && EditorView.Visibility != Visibility.Visible) RefreshList();
         };
     }
@@ -141,6 +149,10 @@ public partial class ModesPanel : UserControl
     {
         if (_app is null) return;
         AutomationStatusText.Text = _app.ModeAutomation.Status;
+        AutomationStatusText.Visibility = _app.ModeAutomation.Status.Contains("could not", StringComparison.OrdinalIgnoreCase)
+            ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var oldDot in _ruleStatusDots) oldDot.BeginAnimation(OpacityProperty, null);
+        _ruleStatusDots.Clear();
         RuleRows.Children.Clear();
         var rules = _app.UserSettings.Current.AutomationRules ?? [];
         NewRuleButton.IsEnabled = rules.Length < ThinkControlAutomationRules.Maximum &&
@@ -150,25 +162,37 @@ public partial class ModesPanel : UserControl
         {
             var rule = ordered[position];
             var target = _app.Modes.GetModes().FirstOrDefault(mode => mode.Id == rule.ModeId);
-            var grid = new Grid { Margin = new Thickness(0, 8, 0, 0) };
+            var grid = new Grid { MinHeight = 64, Margin = new Thickness(0, 8, 0, 0) };
             grid.ColumnDefinitions.Add(new ColumnDefinition());
+            grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(24) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var text = new StackPanel { Margin = new Thickness(0, 0, 12, 0) };
-            text.Children.Add(new TextBlock { Text = $"{position + 1}. {rule.Name} → " + (target?.Name ?? "Missing mode"), TextWrapping = TextWrapping.Wrap });
-            text.Children.Add(MutedText(ThinkControlAutomationRules.ConditionsSummary(rule)));
-            string status = _app.ModeAutomation.Matches.FirstOrDefault(match => match.Id == rule.Id)?.State ?? (rule.Enabled ? "Waiting" : "Disabled");
-            if (rule.Id == _app.ModeAutomation.ActiveRuleId)
-                status = "Active now";
+            text.Children.Add(new TextBlock { Text = $"{rule.Name} → " + (target?.Name ?? "Missing mode"), TextWrapping = TextWrapping.Wrap });
+            text.Children.Add(MutedText(ThinkControlAutomationRules.ConditionsSummary(rule) + " · " + (rule.Priority switch { 1 => "High priority", -1 => "Low priority", _ => "Normal priority" })));
+            string status = !rule.Enabled ? "Off" : _app.ModeAutomation.Matches.FirstOrDefault(match => match.Id == rule.Id)?.State ?? "Waiting";
+            if (rule.Enabled && rule.Id == _app.ModeAutomation.ActiveRuleId)
+                status = _app.Modes.SettingsNeedChecking ? "Check settings" : _app.Modes.IsTransitioning ? "Applying…" : _app.Modes.IsModified ? "Active · modified" : "Active";
             else if (status == "Winner")
                 status = _app.ModeAutomation.Paused ? "Matches, but automation is paused" : "Next matching rule; waiting to apply";
-            string priority = rule.Priority switch { 1 => "High priority", -1 => "Low priority", _ => "Normal priority" };
-            var ruleStatus = MutedText(status + ". " + priority);
-            if (rule.Id == _app.ModeAutomation.ActiveRuleId)
+            bool failed = rule.Id == _app.ModeAutomation.FailedRuleId || _ruleSaveErrorId == rule.Id;
+            bool confirmed = rule.Enabled && rule.Id == _app.ModeAutomation.ActiveRuleId && !_app.Modes.SettingsNeedChecking && !_app.Modes.IsModified && !_app.Modes.IsTransitioning;
+            bool matching = rule.Enabled && !_app.ModeAutomation.Paused && !confirmed && !failed &&
+                _app.ModeAutomation.Matches.Any(match => match.Id == rule.Id && match.Matches);
+            var ruleStatus = new Ellipse { Width = 8, Height = 8, VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 8, 0) };
+            ruleStatus.SetResourceReference(Shape.FillProperty, failed ? "Tc.Error" : confirmed ? "Tc.Success" : matching ? "Tc.Accent" : "Tc.TextMuted");
+            TcToolTip.Apply(ruleStatus, failed ? "Rule failed" : status);
+            System.Windows.Automation.AutomationProperties.SetName(ruleStatus, failed ? "Rule failed" : status);
+            _ruleStatusDots.Add(ruleStatus);
+            ruleStatus.IsVisibleChanged += (_, _) =>
             {
-                ruleStatus.FontWeight = FontWeights.SemiBold;
-                ruleStatus.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Success");
-            }
-            text.Children.Add(ruleStatus);
+                ruleStatus.BeginAnimation(OpacityProperty, null);
+                if (matching && ruleStatus.IsVisible && SystemParameters.ClientAreaAnimation)
+                    ruleStatus.BeginAnimation(OpacityProperty, new DoubleAnimation(0.4, 1, TimeSpan.FromSeconds(0.9))
+                        { AutoReverse = true, RepeatBehavior = RepeatBehavior.Forever });
+            };
+            Grid.SetColumn(ruleStatus, 1);
+            grid.Children.Add(ruleStatus);
             grid.Children.Add(text);
             var edit = InlineButton("Edit rule", EditRule_Click, rule.Id);
             var actions = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
@@ -189,10 +213,39 @@ public partial class ModesPanel : UserControl
                 System.Windows.Automation.AutomationProperties.SetName(move, label);
                 actions.Children.Add(move);
             }
+            var enabled = RuleSwitch(rule.Enabled, $"Enable {rule.Name}");
+            enabled.Click += (_, _) =>
+            {
+                bool saved = _app.UserSettings.TryUpdate(settings => settings with { AutomationRules =
+                    (settings.AutomationRules ?? []).Select(item => item.Id == rule.Id
+                        ? item with { Enabled = enabled.IsChecked == true } : item).ToArray() });
+                _ruleSaveErrorId = saved ? null : rule.Id;
+                if (saved) _app.RequestModeAutomationEvaluation();
+                RefreshRules();
+            };
+            actions.Children.Add(enabled);
             actions.Children.Add(edit);
-            Grid.SetColumn(actions, 1);
+            Grid.SetColumn(actions, 2);
             grid.Children.Add(actions);
-            RuleRows.Children.Add(SeparatorRow(grid));
+            var content = new StackPanel();
+            content.Children.Add(grid);
+            if (_ruleSaveErrorId == rule.Id)
+            {
+                var saveError = new TextBlock { Text = "Couldn’t save this rule. Try the switch again.", TextWrapping = TextWrapping.Wrap };
+                saveError.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Error");
+                content.Children.Add(saveError);
+            }
+            if (rule.Id == _app.ModeAutomation.FailedRuleId && _app.Modes.LastTransitionError is { } failure)
+            {
+                var error = new TextBlock { Text = $"Couldn’t apply {target?.Name ?? "the mode"}.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 4, 0, 0) };
+                error.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Error");
+                content.Children.Add(error);
+                content.Children.Add(new Expander { Header = "Details", Style = TryFindResource("TcQuietExpander") as Style, Content = MutedText(failure) });
+                var retry = InlineButton("Retry rule", ResumeAutomation_Click);
+                retry.HorizontalAlignment = HorizontalAlignment.Left;
+                content.Children.Add(retry);
+            }
+            RuleRows.Children.Add(SeparatorRow(content));
         }
         if (rules.Length == 0) RuleRows.Children.Add(MutedText("No rules. Modes change only when you select them."));
     }
@@ -226,6 +279,7 @@ public partial class ModesPanel : UserControl
         BeginEdit(new ThinkControlModeDefinition(rule.ModeId, rule.Name));
         _editingRuleId = rule.Id;
         EditorTitleText.Text = "Automation rule";
+        AutomationSwitch.Visibility = Visibility.Visible;
         ModeNameTextBox.MaxLength = 48;
         ModeControlsSection.Visibility = Visibility.Collapsed;
         RuleTargetPanel.Visibility = Visibility.Visible;
@@ -263,7 +317,8 @@ public partial class ModesPanel : UserControl
         var rules = (_app.UserSettings.Current.AutomationRules ?? []).ToList();
         int index = rules.FindIndex(item => item.Id == rule.Id);
         if (index < 0) rules.Add(rule); else rules[index] = rule;
-        _app.UserSettings.Update(settings => settings with { AutomationRules = rules.ToArray() });
+        if (!_app.UserSettings.TryUpdate(settings => settings with { AutomationRules = rules.ToArray() }))
+        { ShowEditorStatus("Couldn’t save this rule. Your draft is still open; try again."); return; }
         _app.RequestModeAutomationEvaluation();
         EndEdit();
     }
@@ -286,7 +341,7 @@ public partial class ModesPanel : UserControl
             ModeSelector.ItemsSource = modes;
             ModeSelector.SelectedItem = modes.FirstOrDefault(mode =>
                 mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase));
-            ModeSelector.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
+            ModeSelector.IsEnabled = UseRegularSettingsButton.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
         }
         finally
         {
@@ -306,7 +361,7 @@ public partial class ModesPanel : UserControl
         bool editable = mode.Id.StartsWith("custom:", StringComparison.OrdinalIgnoreCase);
         bool active = _app is not null &&
                       _app.Modes.ActiveModeId.Equals(mode.Id, StringComparison.OrdinalIgnoreCase);
-        var row = new Grid { MinHeight = 50 };
+        var row = new Grid { MinHeight = 60 };
         row.ColumnDefinitions.Add(new ColumnDefinition());
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -339,7 +394,10 @@ public partial class ModesPanel : UserControl
             HorizontalAlignment = HorizontalAlignment.Right
         };
         if (active)
-            actions.Children.Add(StateText(_app?.Modes.IsModified == true ? "Modified" : "Active"));
+            actions.Children.Add(StateText(_app?.Modes.SettingsNeedChecking == true ? "Check settings" : _app?.Modes.IsModified == true ? "Modified" : "Active"));
+        var apply = InlineButton("Apply", ApplyMode_Click, mode.Id);
+        apply.IsEnabled = !_busy && _app?.Modes.IsTransitioning != true && unavailable is null;
+        actions.Children.Add(apply);
         if (editable)
         {
             Button edit = InlineButton("Edit", Edit_Click, mode.Id);
@@ -350,7 +408,27 @@ public partial class ModesPanel : UserControl
         Grid.SetColumn(actions, 1);
         row.Children.Add(actions);
 
-        var shell = new Border { BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(14, 8, 14, 8), Child = row };
+        var content = new StackPanel();
+        content.Children.Add(row);
+        if (_app?.Modes.FailedModeId == mode.Id && _app.Modes.LastTransitionError is { } failure)
+        {
+            var error = new TextBlock { Text = $"Couldn’t apply {mode.Name}.", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0) };
+            error.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Error");
+            content.Children.Add(error);
+            var details = new Expander { Header = "Details", Style = TryFindResource("TcQuietExpander") as Style,
+                Content = MutedText(failure), Margin = new Thickness(0, 4, 0, 0) };
+            var errorActions = new Grid();
+            errorActions.ColumnDefinitions.Add(new ColumnDefinition());
+            errorActions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            errorActions.Children.Add(details);
+            var retry = InlineButton("Retry", ApplyMode_Click, mode.Id);
+            retry.VerticalAlignment = VerticalAlignment.Top;
+            retry.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
+            Grid.SetColumn(retry, 1);
+            errorActions.Children.Add(retry);
+            content.Children.Add(errorActions);
+        }
+        var shell = new Border { BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(14, 8, 14, 8), Child = content };
         shell.SetResourceReference(Border.BorderBrushProperty, "Tc.Border");
         if (active)
             shell.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
@@ -367,7 +445,7 @@ public partial class ModesPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             Margin = new Thickness(6, 0, 4, 0)
         };
-        block.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Accent");
+        block.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
         return block;
     }
 
@@ -398,25 +476,38 @@ public partial class ModesPanel : UserControl
 
     private async void ModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncingModeSelection || _busy || _app is null ||
-            ModeSelector.SelectedItem is not ThinkControlModeDefinition mode ||
-            (mode.Id.Equals(_app.Modes.ActiveModeId, StringComparison.OrdinalIgnoreCase) &&
-             !_app.Modes.IsModified))
-            return;
+        if (_syncingModeSelection || ModeSelector.SelectedItem is not ThinkControlModeDefinition mode) return;
+        await ApplyModeAsync(mode.Id);
+    }
 
+    private async void ApplyMode_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: string id }) await ApplyModeAsync(id);
+    }
+
+    private async void UseRegularSettings_Click(object sender, RoutedEventArgs e) =>
+        await ApplyModeAsync(ThinkControlModeCatalog.NormalId);
+
+    private async Task ApplyModeAsync(string id)
+    {
+        if (_busy || _app is null || _app.Modes.IsTransitioning) return;
         _busy = true;
-        ListStatusText.Visibility = Visibility.Collapsed;
         ModeSelector.IsEnabled = false;
-        try
+        try { await _app.Modes.ActivateAsync(id); }
+        finally { _busy = false; RefreshList(); }
+    }
+
+    private CheckBox RuleSwitch(bool enabled, string name)
+    {
+        var control = new CheckBox
         {
-            if (!await _app.Modes.ActivateAsync(mode.Id))
-                ShowListStatus(_app.Modes.LastTransitionError ?? "The mode could not be applied.");
-        }
-        finally
-        {
-            _busy = false;
-            RefreshList();
-        }
+            IsChecked = enabled, Style = TryFindResource("TcSwitch") as Style,
+            MinWidth = 48, MinHeight = 40, Margin = new Thickness(8, 0, 12, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        System.Windows.Automation.AutomationProperties.SetName(control, name);
+        TcToolTip.Apply(control, name);
+        return control;
     }
 
     private void NewMode_Click(object sender, RoutedEventArgs e)
@@ -446,6 +537,7 @@ public partial class ModesPanel : UserControl
     {
         _editingRuleId = null;
         EditorTitleText.Text = "Mode details";
+        AutomationSwitch.Visibility = Visibility.Collapsed;
         ModeNameTextBox.MaxLength = 32;
         ModeControlsSection.Visibility = Visibility.Visible;
         RuleTargetPanel.Visibility = Visibility.Collapsed;
@@ -587,7 +679,7 @@ public partial class ModesPanel : UserControl
         IReadOnlyList<string> values,
         string selected)
     {
-        var grid = new Grid { MinHeight = 48 };
+        var grid = new Grid { MinHeight = 48, MaxWidth = 740, HorizontalAlignment = HorizontalAlignment.Stretch };
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
@@ -841,7 +933,7 @@ public partial class ModesPanel : UserControl
     private Border CreateTriggerRow(ThinkControlModeTrigger trigger, int index)
     {
         var grid = new Grid { MinHeight = 48 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(150) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(130) });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -868,15 +960,30 @@ public partial class ModesPanel : UserControl
         Grid.SetColumn(editor, 1);
         grid.Children.Add(editor);
 
+        var enabled = RuleSwitch(trigger.Enabled, $"Enable {TriggerLabel(trigger.Type)} condition");
+        enabled.Click += (_, _) =>
+        {
+            if (index < _editingTriggers.Count)
+                _editingTriggers[index] = _editingTriggers[index] with { Enabled = enabled.IsChecked == true };
+            editor.IsEnabled = enabled.IsChecked == true;
+        };
+        editor.IsEnabled = trigger.Enabled;
+        var actions = new StackPanel { Orientation = Orientation.Horizontal };
+        actions.Children.Add(enabled);
         var remove = InlineButton("×", RemoveTrigger_Click, index);
         remove.ToolTip = "Remove trigger";
         remove.Margin = new Thickness(6, 0, 0, 0);
         remove.HorizontalAlignment = HorizontalAlignment.Right;
         remove.VerticalAlignment = VerticalAlignment.Center;
-        Grid.SetColumn(remove, 2);
-        grid.Children.Add(remove);
+        actions.Children.Add(remove);
+        Grid.SetColumn(actions, 2);
+        grid.Children.Add(actions);
 
-        return SeparatorRow(grid);
+        var rail = new Grid();
+        rail.ColumnDefinitions.Add(new ColumnDefinition { MaxWidth = 740 });
+        rail.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        rail.Children.Add(grid);
+        return SeparatorRow(rail);
     }
 
     private static string TriggerLabel(string type) => type switch
@@ -1185,6 +1292,9 @@ public partial class ModesPanel : UserControl
 
         var presentation = ModeStatusPresentation.From(_app);
         CurrentModeTitle.Text = presentation.Title;
+        ModeConfirmed.Visibility = _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId &&
+            !_app.Modes.IsModified && !_app.Modes.SettingsNeedChecking && !_app.Modes.IsTransitioning
+            ? Visibility.Visible : Visibility.Collapsed;
         CurrentModeDetail.Text = presentation.Detail;
         CurrentModeDetail.SetResourceReference(TextBlock.ForegroundProperty, presentation.Failed ? "Tc.Error" : "Tc.TextMuted");
         ManualOverrideResumeButton.Visibility = _app.ModeAutomation.Paused ? Visibility.Visible : Visibility.Collapsed;
@@ -1194,6 +1304,7 @@ public partial class ModesPanel : UserControl
             _modifiedLabel.Visibility = Visibility.Collapsed;
             _reapplyButton.Visibility = Visibility.Collapsed;
             ListStatusText.Visibility = Visibility.Collapsed;
+            ModeErrorDetails.Visibility = Visibility.Collapsed;
             return;
         }
 
@@ -1212,14 +1323,17 @@ public partial class ModesPanel : UserControl
             : modified
                 ? "Modified"
                 : "Automatic";
-        _modifiedLabel.Visibility = transitioning || failed || modified || automatic
+        _modifiedLabel.Visibility = transitioning || modified
             ? Visibility.Visible
             : Visibility.Collapsed;
         _reapplyButton.Visibility = modified && !failed ? Visibility.Visible : Visibility.Collapsed;
-        if (failed)
-            ShowListStatus(_app.Modes.LastTransitionError!);
+        if (failed && (_app.Modes.FailedModeId == ThinkControlModeCatalog.NormalId || !_app.Modes.GetModes().Any(mode => mode.Id == _app.Modes.FailedModeId)))
+            ShowListStatus($"Couldn’t apply {_app.Modes.FailedModeName ?? "the mode"}.");
         else
+        {
             ListStatusText.Visibility = Visibility.Collapsed;
+            ModeErrorDetails.Visibility = Visibility.Collapsed;
+        }
         _saveButton.Visibility = Visibility.Collapsed;
         _cancelButton.Visibility = Visibility.Collapsed;
     }
@@ -1227,7 +1341,10 @@ public partial class ModesPanel : UserControl
     private void ShowListStatus(string message)
     {
         ListStatusText.Text = message;
+        ListStatusText.ToolTip = _app?.Modes.LastTransitionError;
         ListStatusText.Visibility = Visibility.Visible;
+        ModeErrorDetails.Visibility = Visibility.Visible;
+        ModeErrorDetailText.Text = _app?.Modes.LastTransitionError ?? message;
     }
 
     private void ShowEditorStatus(string message)
@@ -1270,7 +1387,7 @@ public partial class ModesPanel : UserControl
         try
         {
             ModeSelector.ItemsSource = fixtures;
-            ModeSelector.SelectedItem = fixtures[0];
+            ModeSelector.SelectedItem = fixtures.FirstOrDefault(mode => mode.Id == _app?.Modes.ActiveModeId) ?? fixtures[0];
         }
         finally
         {

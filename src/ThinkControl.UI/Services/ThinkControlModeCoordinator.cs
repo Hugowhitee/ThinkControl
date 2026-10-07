@@ -8,6 +8,8 @@ internal sealed class ThinkControlModeCoordinator
     private readonly App _app;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly HashSet<ThinkControlModeFacet> _owned = [];
+    // A later sparse/no-op mode must not certify settings left uncertain by rollback.
+    private readonly HashSet<ThinkControlModeFacet> _uncertainFacets = [];
 
     private string? _coolingBaseline;
     private RefreshModeSnapshot? _refreshBaseline;
@@ -62,6 +64,9 @@ internal sealed class ThinkControlModeCoordinator
     internal bool ActiveModeAutomatic { get; private set; }
     internal bool IsModified { get; private set; }
     internal string? LastTransitionError { get; private set; }
+    internal string? FailedModeId { get; private set; }
+    internal string? FailedModeName { get; private set; }
+    internal bool SettingsNeedChecking { get; private set; }
     internal string? TransitionModeId { get; private set; }
     internal string? TransitionModeName { get; private set; }
     internal bool IsTransitioning => TransitionModeId is not null;
@@ -95,6 +100,8 @@ internal sealed class ThinkControlModeCoordinator
             ThinkControlModeDefinition? target = sessionDefinition ?? ThinkControlModeCatalog.Find(
                 id,
                 _app.UserSettings.Current.CustomModes);
+            FailedModeId = id;
+            FailedModeName = target?.Name;
             if (target is null)
             {
                 LastTransitionError = "This mode is no longer available.";
@@ -103,6 +110,8 @@ internal sealed class ThinkControlModeCoordinator
             }
 
             LastTransitionError = null;
+            FailedModeId = target.Id;
+            FailedModeName = target.Name;
             if (AvailabilityError(target) is string availabilityError)
             {
                 LastTransitionError = availabilityError;
@@ -113,6 +122,7 @@ internal sealed class ThinkControlModeCoordinator
             string previousName = ActiveModeName;
             bool previousAutomatic = ActiveModeAutomatic;
             bool previousModified = IsModified;
+            bool previouslyUncertain = SettingsNeedChecking;
             HashSet<ThinkControlModeFacet> previousOwned = [.. _owned];
             string? previousCoolingBaseline = _coolingBaseline;
             RefreshModeSnapshot? previousRefreshBaseline = _refreshBaseline;
@@ -154,6 +164,8 @@ internal sealed class ThinkControlModeCoordinator
                             App.IsExternalCoolingOwnerConflict(_app.LastCoolingError))
                             attemptedFacets.Remove(facet);
                         bool recovered = await RollBackAsync(previousDefinition, previousOwned, attemptedFacets);
+                        if (!recovered) _uncertainFacets.UnionWith(attemptedFacets);
+                        SettingsNeedChecking = previouslyUncertain || !recovered;
                         LastTransitionError = failure + (recovered
                             ? " Previous settings were requested again."
                             : " Recovery was incomplete; check the affected settings.");
@@ -179,6 +191,8 @@ internal sealed class ThinkControlModeCoordinator
                     {
                         string failure = DescribeFacetFailure(facet);
                         bool recovered = await RollBackAsync(previousDefinition, previousOwned, attemptedFacets);
+                        if (!recovered) _uncertainFacets.UnionWith(attemptedFacets);
+                        SettingsNeedChecking = previouslyUncertain || !recovered;
                         LastTransitionError = failure + (recovered
                             ? " Previous settings were requested again."
                             : " Recovery was incomplete; check the affected settings.");
@@ -210,6 +224,10 @@ internal sealed class ThinkControlModeCoordinator
                     origin == ThinkControlModeActivationOrigin.Automatic &&
                     target.Id != ThinkControlModeCatalog.NormalId;
                 IsModified = false;
+                _uncertainFacets.ExceptWith(attemptedFacets);
+                SettingsNeedChecking = _uncertainFacets.Count > 0;
+                FailedModeId = null;
+                FailedModeName = null;
                 TransitionModeId = null;
                 TransitionModeName = null;
                 Publish();
