@@ -1,6 +1,6 @@
 # ThinkControl UI design handoff
 
-## Runtime follow-up - alpha.67
+## Published runtime follow-up - alpha.67 (2026-10-08)
 
 The subsequent owner request targets WPF: Mode replaces Keyboard in Compact defaults; Keyboard/Automation remain configurable; Compact is 420x501. Direct mode-off, actual-tile drag feedback, editor-local Save/Cancel, 20-unit Fluent remove glyphs and selected Custom preservation use existing resources. Advanced battery flow has On/Off/System because this desktop disables Windows animation; Compact remains static. These runtime compositions have not been synchronized to earlier Figma frames; alpha.66 Figma evidence below is historical, not alpha.67 parity proof.
 
