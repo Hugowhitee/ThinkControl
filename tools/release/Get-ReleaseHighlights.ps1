@@ -2,6 +2,8 @@
 
 ## What's changed
 
+- Fan curves check sustained RPM against measured output and return to Auto on excessive output or a failed control tick. Physical reproduction of the reported full-speed issue remains unverified.
+- Compact CPU/Sensors open Diagnostics. Mode selection is separate from Saved modes; System links/history preferences are visible directly and the redundant Advanced fan controls disclosure is removed.
 - Compact is 64 pixels shorter. Mode replaces Keyboard light by default; the layout editor also offers Keyboard light and Automation.
 - Layout dragging dims the source, shows the actual tile under the pointer and outlines valid swap targets.
 - Turn off mode is directly accessible; restoration preserves the actual pre-mode Windows power overlay, with retryable readback failures.

@@ -55,6 +55,7 @@ internal sealed class FanSupervisor : IDisposable
     private LenovoFanControlKind _managedFanControlKind = LenovoFanControlKind.None;
     private bool _safetyOverride;
     private int _recoverySensorSamples;
+    private int _unexpectedOutputSamples;
     private bool _autoHandoffConfirmed;
     private string _status = "Lenovo firmware owns fan control";
     private DateTimeOffset _lastOutputChange = DateTimeOffset.MinValue;
@@ -521,8 +522,11 @@ internal sealed class FanSupervisor : IDisposable
             {
                 break;
             }
-            catch
+            catch (Exception ex)
             {
+                // Do not silently keep the previous manual output after a failed tick.
+                try { await SafeAutoHandoffAsync($"Fan control failed: {ex.GetType().Name}", token).ConfigureAwait(false); }
+                catch { /* Ownership remains retained by the hardware recovery path. */ }
                 try { await Task.Delay(TickInterval, token).ConfigureAwait(false); }
                 catch (OperationCanceledException) { break; }
             }
@@ -575,6 +579,21 @@ internal sealed class FanSupervisor : IDisposable
         }
 
         double raw = status.ControlTemperatureC.Value;
+        int? appliedState;
+        DateTimeOffset outputChanged;
+        lock (_gate) { appliedState = _appliedLevel; outputChanged = _lastOutputChange; }
+        int expectedRpm = appliedState.HasValue
+            ? CalibrationRpmByState().GetValueOrDefault(appliedState.Value) : 0;
+        bool excessiveOutput = managedKind == LenovoFanControlKind.ThinkPadEcDiscrete &&
+            DateTimeOffset.UtcNow - outputChanged >= TimeSpan.FromSeconds(30) &&
+            FanCurvePolicy.ExceedsMeasuredOutput(expectedRpm, status.FanRpm);
+        int unexpectedSamples;
+        lock (_gate) unexpectedSamples = _unexpectedOutputSamples = excessiveOutput ? _unexpectedOutputSamples + 1 : 0;
+        if (unexpectedSamples >= 3)
+        {
+            await SafeAutoHandoffAsync($"Fan speed did not follow the measured target ({status.FanRpm} RPM observed, approximately {expectedRpm} RPM expected)", token).ConfigureAwait(false);
+            return;
+        }
         if (FanCurvePolicy.RequiresFirmwareSafetyHandoff(raw))
         {
             await SafeAutoHandoffAsync($"Safety handoff at {raw:0.#} °C", token, preserveCurve: curve is not null).ConfigureAwait(false);
@@ -871,6 +890,7 @@ internal sealed class FanSupervisor : IDisposable
             _appliedLevel = null;
             _appliedPercent = null;
             _curveTargetPercent = null;
+            _unexpectedOutputSamples = 0;
             if (!preserveCurve) _managedFanControlKind = LenovoFanControlKind.None;
             ClearPendingTransitionLocked();
             if (preserveCurve && _activeCurve is not null)
@@ -886,7 +906,7 @@ internal sealed class FanSupervisor : IDisposable
                 _activeCurve = null;
                 _safetyOverride = false;
                 _smoothedTemperatureC = null;
-                _status = reason + ". Returned to Auto.";
+                _status = reason + (restored ? ". Returned to Auto." : ". Auto handoff is unconfirmed; select Auto to retry.");
             }
         }
     }

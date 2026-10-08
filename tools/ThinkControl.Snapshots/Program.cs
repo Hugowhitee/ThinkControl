@@ -240,6 +240,22 @@ internal static class Program
             return 0;
         }
 
+        if (args.Contains("--navigation-polish", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1600, 900) })
+                {
+                    RenderAdvanced(app, CreateDemoState(true, true), "System", width, height, output, snapshots,
+                        $"SystemActions-{theme}-{width}.png", "Visible preferences/actions", systemActions: true);
+                    RenderAdvanced(app, CreateDemoState(true, true), "Fans", width, height, output, snapshots,
+                        $"Cooling-{theme}-{width}.png", "Direct cooling without redundant disclosure", fanActiveCurve: true);
+                }
+            }
+            WriteManifest(output, snapshots);
+            return 0;
+        }
         if (args.Contains("--canonical", StringComparer.Ordinal))
         {
             foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
@@ -755,7 +771,8 @@ internal static class Program
         bool ruleEditor = false,
         bool fanMeasuredCurve = false,
         bool systemDetails = false,
-        bool batteryCycles = false)
+        bool batteryCycles = false,
+        bool systemActions = false)
     {
         SyncAppState(state, app.State);
         var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height };
@@ -801,6 +818,17 @@ internal static class Program
             window.PrepareModesEditorForSnapshot();
         if (ruleEditor) window.PrepareRuleEditorForSnapshot();
         if (systemDetails) window.PrepareSystemDetailsForSnapshot();
+        if (systemActions && window.FindName("PageSystem") is System.Windows.Controls.ScrollViewer systemScroll)
+        {
+            if (window.Content is FrameworkElement root)
+            {
+                root.Measure(new Size(width, height));
+                root.Arrange(new Rect(0, 0, width, height));
+                root.UpdateLayout();
+            }
+            systemScroll.UpdateLayout();
+            systemScroll.ScrollToEnd();
+        }
         if (modeFailure)
         {
             // Inject only the coordinator error state; no provider or saved mode is

@@ -30,7 +30,6 @@ public partial class FansPanel
         AppliedLevelText.Text = "Approx. 47%";
         CoolingOwnerText.Text = "Direct control";
         ActiveCurvePreview.Visibility = System.Windows.Visibility.Visible;
-        AdvancedFanControlsExpander.IsExpanded = true;
         UpdateLayout();
     }
 
@@ -98,7 +97,6 @@ public partial class FansPanel
             _app.State.FanRpm);
         if (_app.State.ControlTemperatureC is double temperature)
             AppliedLevelText.Text = $"{FanCurveGraphPolicy.ResolvePercent(FanCurveDefaults.Balanced.Points, temperature)}% OEM target";
-        AdvancedFanControlsExpander.IsExpanded = false;
         ManualControlExpander.IsExpanded = false;
         UpdateLayout();
     }

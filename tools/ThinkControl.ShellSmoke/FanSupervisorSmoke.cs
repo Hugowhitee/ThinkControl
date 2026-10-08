@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.IO;
 using ThinkControl.Core.Cooling;
+using ThinkControl.Core.Ipc;
 using ThinkControl.Hardware.Lenovo;
 using ThinkControl.Hardware.X9;
 using ThinkControl.Service;
@@ -84,6 +85,29 @@ internal static partial class Program
         hardware.Kind = LenovoFanControlKind.ThinkPadEcDiscrete;
         await Tick();
         Require(supervisor.Snapshot().ProfileId is null, "A paused curve silently migrated to another provider.");
+        // Use the production supervisor with a measured low state and a simulated
+        // stuck-full-speed tachometer. No real EC/driver write is made here.
+        var calibration = (List<FanLevelCalibrationSnapshot>)typeof(FanSupervisor)
+            .GetField("_calibration", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(supervisor)!;
+        calibration.Clear();
+        for (int level = 1; level <= 7; level++)
+            calibration.Add(new(level, [new("QA", "QA", level == 7 ? 9400 : 3000 + level * 500, 0, true)], true));
+        hardware.Rpm = 9400;
+        Require(supervisor.SetCurve(new("custom:low", "Low", [new(35, 8), new(70, 8), new(92, 100)]), out _), "Low curve selection failed.");
+        await Tick();
+        int beforeHandoff = hardware.AutoWrites;
+        await Tick(); await Tick(); await Tick();
+        Require(hardware.AutoWrites == beforeHandoff, "Settling output was rejected too early.");
+        typeof(FanSupervisor).GetField("_lastOutputChange", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(supervisor, DateTimeOffset.UtcNow.AddSeconds(-40));
+        await Tick(); await Tick();
+        Require(hardware.AutoWrites == beforeHandoff, "A transient high RPM sample rejected the curve.");
+        hardware.FailAuto = true;
+        await Tick();
+        Require(hardware.AutoWrites == beforeHandoff + 1 && supervisor.Snapshot().ProfileId is null,
+            "Sustained full speed did not stop the low curve and request Auto.");
+        Require(supervisor.Snapshot().Status.Contains("unconfirmed", StringComparison.OrdinalIgnoreCase),
+            "A failed Auto handoff was labelled confirmed.");
         Console.WriteLine("Fan supervisor: warm input/output, missing-sensor retention, bounded Auto writes, consecutive-sample recovery, hot selection queue and rejected-write handoff passed (simulated provider).");
     }
 
@@ -95,6 +119,7 @@ internal static partial class Program
         public bool FailWrites;
         public bool FailAuto;
         public bool ThrowStatus;
+        public int? Rpm;
         public LenovoFanControlKind Kind = LenovoFanControlKind.LenovoOtherModeTargetRpm;
         public HardwareDeviceIdentity Identity { get; } = new("QA", "Simulated provider", "QA", false);
         public IReadOnlyList<int> FanCalibrationStates => [1, 2, 3, 4, 5, 6, 7];
@@ -102,9 +127,13 @@ internal static partial class Program
         public bool OwnsManagedFan { get; private set; }
         public bool CheckFullSpeedSession() => false;
         public LenovoHardwareStatus ReadStatus() => ThrowStatus ? throw new IOException("Simulated telemetry failure") : new(Identity, Temperature, "QA", Temperature, "QA", [],
-            null, "QA", [], "QA", "QA", "QA", "QA", false, true,
+            Rpm, "QA", [], "QA", "QA", "QA", "QA", false, true,
             Kind, false, true, true);
-        public bool SetFanLevel(int level, out string? error) => throw new InvalidOperationException("Wrong provider route.");
+        public bool SetFanLevel(int level, out string? error)
+        {
+            if (Kind != LenovoFanControlKind.ThinkPadEcDiscrete) throw new InvalidOperationException("Wrong provider route.");
+            Writes++; OwnsManagedFan = true; error = null; return true;
+        }
         public bool SetFanPercent(int percent, out string? detail, out string? error)
         {
             Writes++;

@@ -231,7 +231,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("_app.LastCoolingError", ui, StringComparison.Ordinal);
         Assert.Contains("Text=\"Cooling\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Text=\"Live state\"", xaml, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Advanced fan controls\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"FanMappingDetailText\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("Text=\"Advanced fan controls\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"Thermal control\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("Text=\"Fan telemetry\"", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("alpha.38", ui, StringComparison.OrdinalIgnoreCase);
