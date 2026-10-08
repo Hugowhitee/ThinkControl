@@ -22,6 +22,14 @@ internal static partial class Program
             if (!condition) throw new InvalidOperationException(message);
         }
 
+        hardware.Temperature = 60;
+        Require(supervisor.SetProfile(FanCurveDefaults.MaxCoolingId, out _), "Max profile id was rejected.");
+        await Tick();
+        Require(supervisor.Snapshot().AppliedPercent == 40 && hardware.LastPercent == 40,
+            "Max cooling must apply its 40% curve target at 60 C, not a fixed full-speed command.");
+        Require(supervisor.ReturnToAuto(out _), "Max curve could not return to Auto.");
+        hardware.Temperature = 53;
+        hardware.Writes = 0;
         Require(supervisor.SetCurve(FanCurveDefaults.Balanced, out _), "A warm system rejected a curve.");
         await Tick();
         Require(hardware.Writes == 1, "The supervisor did not apply its curve to the provider.");
@@ -115,6 +123,7 @@ internal static partial class Program
     {
         public double? Temperature = 53;
         public int Writes;
+        public int? LastPercent;
         public int AutoWrites;
         public bool FailWrites;
         public bool FailAuto;
@@ -132,11 +141,13 @@ internal static partial class Program
         public bool SetFanLevel(int level, out string? error)
         {
             if (Kind != LenovoFanControlKind.ThinkPadEcDiscrete) throw new InvalidOperationException("Wrong provider route.");
-            Writes++; OwnsManagedFan = true; error = null; return true;
+            Writes++;
+            OwnsManagedFan = true; error = null; return true;
         }
         public bool SetFanPercent(int percent, out string? detail, out string? error)
         {
             Writes++;
+            LastPercent = percent;
             detail = null;
             error = FailWrites ? "Fan control was reclaimed." : null;
             OwnsManagedFan = !FailWrites;

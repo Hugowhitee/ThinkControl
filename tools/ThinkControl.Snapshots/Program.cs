@@ -51,12 +51,25 @@ internal static class Program
                         $"SystemDetails-{theme}-{width}.png", "Expanded hardware details", systemDetails: true);
                     RenderAdvanced(app, CreateDemoState(true, true), "System", width, height, output, snapshots,
                         $"Preferences-{theme}-{width}.png", "Preference control rail");
+                    RenderAdvanced(app, CreateDemoState(true, true), "System", width, height, output, snapshots,
+                        $"PreferencesLower-{theme}-{width}.png", "History and Compact preference rows", systemActions: true);
                     var fullBattery = CreateDemoState(true, true);
                     fullBattery.BatteryPercent = 100;
                     RenderAdvanced(app, fullBattery, "Battery", width, height, output, snapshots,
                         $"Battery-{theme}-{width}.png", "Preservation controls and 100% fit");
                     RenderAdvanced(app, fullBattery, "Home", width, height, output, snapshots,
                         $"Overview-{theme}-{width}.png", "Overview 100% fit");
+                    var maxCurve = CreateDemoState(true, true);
+                    maxCurve.FanControlKind = FanControlKinds.OemTargetRpm;
+                    maxCurve.CoolingProfile = "Max cooling";
+                    maxCurve.ControlTemperatureC = 60;
+                    maxCurve.FanStateText = "40% target";
+                    RenderAdvanced(app, maxCurve, "Fans", width, height, output, snapshots,
+                        $"MaxCurve-{theme}-{width}.png", "Simulated Max curve at 60 C");
+                    maxCurve.FanControlKind = FanControlKinds.FullSpeedOnly;
+                    maxCurve.FanStateText = "Verified full speed";
+                    RenderAdvanced(app, maxCurve, "Fans", width, height, output, snapshots,
+                        $"FullSpeed-{theme}-{width}.png", "Verified full-speed presentation, no curve");
                 }
                 RenderGestureOsd(app, output, snapshots, $"GestureOsd-{theme}.png", "Brightness", 100);
             }

@@ -379,7 +379,7 @@ public partial class FansPanel : UserControl
 
     private void UpdateActiveCurvePreview(FanProfileChoice? choice, double? temperatureC, int? rpm)
     {
-        if (UsesFirmwarePolicy)
+        if (UsesFirmwarePolicy || _app?.FanCalibrationState.Required == true)
         {
             ActiveCurvePreview.Visibility = Visibility.Collapsed;
             _activeCurveGraph.SetLiveState(null, null, null);

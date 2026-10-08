@@ -1,5 +1,16 @@
 # ThinkControl release-readiness roadmap
 
+## Candidate v0.1.0-alpha.71 — October 8, 2026
+
+The reported screenshot exposes an actual route mismatch: SetCoolingCurve treated builtin:max specially and discarded its points in favor of exact full speed, while capability reporting still described the direct provider and the UI showed an unused 40% curve plus Auto. Calibrated direct Max now reaches FanSupervisor like the other curves. Fixed full-speed ownership reports its active capability/state and hides percentage curves. Without calibration, explicit Max may still use verified fixed full speed; it is not presented as a percentage curve. Hardware allowlists/readback and safe Auto fallback are unchanged.
+
+A simulated production-supervisor regression checks that Max at 60 C writes its 40% curve target, then returns to Auto. Source contracts cover the service routing and full-speed telemetry. Warning-free local Release build, 323 Core tests and focused fan recovery smoke passed. Native dark/light fixtures at 980/1200/1600 were inspected for direct Max curve versus fixed full speed, Overview dropdown, moved preference rows and slider/text rails. Physical RPM acceptance on the updated installed version remains UNVERIFIED.
+
+Overview Cooling uses the existing profile catalog, shared dropdown style and apply coordinator directly, with calibration/capability/busy gates, failed-selection restoration and a Fan settings link. Its state/calibration subscriptions are removed when the window closes.
+
+Battery history detail moves into General preferences with the shared 160 px label rail. Compact Customize uses the same control rail, with descriptive text following it. Gesture popup text/value align with the shared slider's 13 px track inset.
+
+
 ## Published v0.1.0-alpha.70 — October 8, 2026
 
 Charging keeps subtle moving diagonal lines inside the level-colored battery, with a smaller pulsing green Fluent lightning next to the percentage. Discharge stays static; reduced motion and Compact stay static. Startup uses the shared preference control-start rail. Preservation puts its switch on the header rail and Edit beside the limit value. Expanded hardware details stretch to the System content width. Touchpad corner arrows and edge controls have separate rails; its popup has more room for icon, label, value and slider.

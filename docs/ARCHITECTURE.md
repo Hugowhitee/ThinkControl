@@ -1,5 +1,7 @@
 # ThinkControl architecture
 
+Candidate v0.1.0-alpha.71 makes calibrated Max cooling follow its curve, distinguishes fixed full speed and aligns General preferences and gesture popup text. Current published download remains alpha.70 pending promotion.
+
 
 Published v0.1.0-alpha.70 keeps charging flow inside the battery with a smaller green lightning beside the percentage, aligns preference/preservation controls and hardware details, and improves touchpad guides/popups. Verified exact Max cooling no longer requires reapplying the Windows power preference. Public installer/assets and checksums are verified; updated installed hardware acceptance remains unverified.
 

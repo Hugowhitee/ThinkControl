@@ -279,7 +279,8 @@ internal sealed class GestureOsdService : IDisposable
         };
         _value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
 
-        var header = new Grid { Margin = new Thickness(0, 0, 0, 4) };
+        // Match the shared slider track inset (half its 26 px thumb).
+        var header = new Grid { Margin = new Thickness(13, 0, 13, 4) };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(_label);

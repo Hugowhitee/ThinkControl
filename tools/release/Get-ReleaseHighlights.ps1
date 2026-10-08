@@ -2,6 +2,10 @@
 
 ## What's changed
 
+- Calibrated Max cooling now follows its temperature/percentage curve instead of silently commanding fixed full speed. Actual fixed full speed is identified correctly and does not show an unused curve or Auto.
+- Overview now selects cooling profiles directly with the shared dropdown style, capability/calibration gates and the existing apply/recovery path.
+- Battery history detail joins General preferences. Compact Customize follows the shared control rail; gesture popup text aligns with the slider track.
+
 - Charging keeps subtle moving lines inside the battery and a smaller pulsing green lightning next to the percentage. Level colors stay visible; discharge and reduced motion remain static.
 - Verified exact Max cooling works without first reapplying a Windows power preference; firmware readback and safe Auto recovery remain required.
 - Startup and preservation controls follow their relevant rows. Hardware details use the full System content width; touchpad guides and popups have cleaner spacing.

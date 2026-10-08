@@ -136,9 +136,9 @@ internal sealed class FanSupervisor : IDisposable
 
         FanCurveDefinition? curve = normalized switch
         {
-            "quiet" or "silent" => FanCurveDefaults.Quiet,
-            "balanced" or "normal" => FanCurveDefaults.Balanced,
-            "max cooling" or "maxcooling" or "cool" => FanCurveDefaults.MaxCooling,
+            "quiet" or "silent" or FanCurveDefaults.QuietId => FanCurveDefaults.Quiet,
+            "balanced" or "normal" or FanCurveDefaults.BalancedId => FanCurveDefaults.Balanced,
+            "max cooling" or "maxcooling" or "cool" or FanCurveDefaults.MaxCoolingId => FanCurveDefaults.MaxCooling,
             _ => null
         };
         if (curve is null)

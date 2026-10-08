@@ -381,8 +381,10 @@ public partial class App
             return false;
         }
 
-        if (UsesFirmwareCoolingPolicy)
+        if (UsesFirmwareCoolingPolicy || FanCalibrationState.Required && id == FanCurveDefaults.MaxCoolingId)
         {
+            // Without measured states, Max is explicitly the verified full-speed
+            // command. Calibrated direct providers receive the curve below.
             if (!FanProfiles.IsBuiltIn(definition.Id))
             {
                 State.HardwareAccess = "Custom fan curves require a physically accepted direct fan writer. Quiet, Balanced and Max cooling remain available through Lenovo firmware.";

@@ -48,6 +48,11 @@ internal static partial class Program
                 try
                 {
                     await ValidateFanSupervisorRecovery();
+                    if (args.Contains("--fan-supervisor", StringComparer.Ordinal))
+                    {
+                        exitCode = 0;
+                        return;
+                    }
                     if (args.Contains("--cooling-battery", StringComparer.Ordinal))
                     {
                         ValidateReadOnlyCoolingState(app);
