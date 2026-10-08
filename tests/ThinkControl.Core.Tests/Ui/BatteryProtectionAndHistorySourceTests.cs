@@ -63,7 +63,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("Tc.Success", gauge, StringComparison.Ordinal);
         Assert.Contains("DrawThreshold", gauge, StringComparison.Ordinal);
         Assert.Contains("DrawThresholdLabels", gauge, StringComparison.Ordinal);
-        Assert.Contains("one left-aligned legend", gauge, StringComparison.Ordinal);
+        Assert.Contains("directly under their own marks", gauge, StringComparison.Ordinal);
         Assert.Contains("Measured charge fills the track", gauge, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("dc.DrawEllipse", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawLightning", gauge, StringComparison.Ordinal);

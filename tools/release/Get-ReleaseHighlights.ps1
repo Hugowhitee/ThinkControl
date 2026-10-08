@@ -3,7 +3,7 @@
 ## What's changed
 
 - Shared dropdown arrows stay centered when opened. Modes has a compact selector and one labeled Automatic triggers switch; choose No mode to restore regular settings.
-- Battery preservation has a solid measured fill, a compact Resume/Limit legend and a soft charging sweep, without a floating dot or angled leaders. Its integrated status identifies the stop boundary while charging and the resume boundary during plugged-in hold; battery-only views remain still.
+- Battery preservation has a solid measured fill, percentage labels beneath their own threshold marks and a soft charging sweep, without a floating dot or angled leaders. battery-only views remain still.
 - Battery sessions stop counting unobserved sleep time. Charging estimates handle adapter startup and use bounded learned history; a separate typical endurance estimate explains its observed basis. Signed session accents and tighter System device/support rows improve readability.
 
 - Calibrated fan curves use the closest stable measured speed, hysteresis and bounded transitions rather than rounding a moderate target across a large gap to full speed. Hot-input safeguards and firmware Auto recovery remain intact.

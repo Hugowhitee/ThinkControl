@@ -182,7 +182,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             double startX = PercentX(startValue);
             double stopX = PercentX(stopValue);
 
-            WpfBrush startMarker = muted;
+            WpfBrush startMarker = success;
             WpfBrush stopMarker = muted;
 
             DrawThreshold(dc, startX, track, startMarker, 2);
@@ -191,11 +191,13 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             double pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             DrawThresholdLabels(
                 dc,
-                $"Resume {startValue}%",
+                $"{startValue}%",
+                startX,
                 startMarker,
-                $"Limit {stopValue}%",
+                $"{stopValue}%",
+                stopX,
                 stopMarker,
-                track.Bottom + 13,
+                track.Bottom + 5,
                 pixelsPerDip);
         }
         else if (ProtectionEnabled == false)
@@ -204,11 +206,6 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             DrawThresholdLabel(dc, "100%", right, track.Bottom + 5, faint, pixelsPerDip);
         }
 
-        if (ActiveBoundaryPercent is int targetBoundary)
-        {
-            string status = IsCharging ? $"Charging to {targetBoundary}%" : $"Charge hold · resumes below {targetBoundary}%";
-            dc.DrawText(CreateThresholdLabel(status, muted, VisualTreeHelper.GetDpi(this).PixelsPerDip), new WpfPoint(0, 0));
-        }
         dc.DrawRoundedRectangle(null, new WpfPen(border, 1), track, 5, 5);
 
         double PercentX(int percent) => left + trackWidth * percent / 100d;
@@ -236,8 +233,10 @@ public sealed class BatteryProtectionGauge : FrameworkElement
     private void DrawThresholdLabels(
         DrawingContext dc,
         string startLabel,
+        double startCenterX,
         WpfBrush startBrush,
         string stopLabel,
+        double stopCenterX,
         WpfBrush stopBrush,
         double y,
         double pixelsPerDip)
@@ -245,10 +244,13 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         FormattedText startText = CreateThresholdLabel(startLabel, startBrush, pixelsPerDip);
         FormattedText stopText = CreateThresholdLabel(stopLabel, stopBrush, pixelsPerDip);
 
-        // Both boundary roles share one left-aligned legend. Their small marks
-        // remain inside the track; no angled leaders or floating arrows are needed.
-        dc.DrawText(startText, new WpfPoint(0, y));
-        dc.DrawText(stopText, new WpfPoint(startText.Width + 12, y));
+        double startX = Math.Clamp(startCenterX - startText.Width / 2, 0, Math.Max(0, ActualWidth - startText.Width));
+        double stopX = Math.Clamp(stopCenterX - stopText.Width / 2, 0, Math.Max(0, ActualWidth - stopText.Width));
+        // Percentages stay directly under their own marks. At narrow widths a
+        // second baseline prevents overlap without moving either label sideways.
+        double stopY = startX + startText.Width + 4 > stopX ? y + 12 : y;
+        dc.DrawText(startText, new WpfPoint(startX, y));
+        dc.DrawText(stopText, new WpfPoint(stopX, stopY));
     }
 
     private void DrawThresholdLabel(

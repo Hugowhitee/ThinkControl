@@ -25,6 +25,11 @@ internal static partial class Program
 
         try
         {
+            if (args.Contains("--keyboard-fixture", StringComparer.Ordinal))
+            {
+                Task.Run(ValidateKeyboardTransitions).WaitAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult();
+                return 0;
+            }
             ValidateCrashJournal();
             ValidateBatteryHistoryGaps();
             ValidateCompactLayoutMigration();
@@ -585,7 +590,9 @@ internal static partial class Program
             var closingWrite = effects.SetStaticLevelAsync("High");
             await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
             effects.Dispose();
+            Console.WriteLine("Keyboard fixture: disposed delayed writer.");
             releaseWrite.TrySetResult();
+            Console.WriteLine("Keyboard fixture: releasing final delayed write.");
             if (await closingWrite || state.KeyboardStatus != "Low")
                 throw new InvalidOperationException("Keyboard lifecycle: a late request updated a disposed owner.");
         }
@@ -593,6 +600,7 @@ internal static partial class Program
         {
             releaseWrite.TrySetResult();
             await effects.SetStaticLevelAsync("Low");
+            Console.WriteLine("Keyboard fixture: cleanup complete.");
         }
     }
 
