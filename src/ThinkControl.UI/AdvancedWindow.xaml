@@ -250,14 +250,14 @@
                         <TextBlock x:Name="HomeModeTitle" Text="Mode" Style="{StaticResource TcText.SectionTitle}" />
                       </StackPanel>
                       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Automation" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="8,0,8,0" />
+                        <TextBlock Text="Triggers" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="8,0,8,0" />
                         <CheckBox x:Name="HomeAutomationSwitch" Style="{StaticResource TcSwitch}" MinHeight="40" AutomationProperties.Name="Enable automation triggers" Click="HomeAutomationSwitch_Click" />
                       </StackPanel>
                     </Grid>
                     <TextBlock x:Name="HomeModeModifiedText" TextWrapping="Wrap" Style="{StaticResource TcText.Caption}" Visibility="Collapsed" Margin="0,4,0,10" />
                     <Grid Margin="0,8,0,0">
                       <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <Button x:Name="HomeModeOffButton" Grid.Column="1" Style="{StaticResource TcInlineButton}" Content="Turn off" Margin="8,0,0,0" Click="HomeModeOff_Click" ToolTip="Turn off mode and restore previous settings" />
+                    <CheckBox x:Name="HomeModeEnabledSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Margin="12,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Enable selected mode" Click="HomeModeEnabled_Click" ToolTip="Turn mode on or restore regular settings" />
                     <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
                     </Grid>
                   </StackPanel>

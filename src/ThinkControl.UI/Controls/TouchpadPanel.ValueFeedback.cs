@@ -208,10 +208,12 @@ public partial class TouchpadPanel
 
         var button = new Button
         {
-            Content = new PackIconLucide { Kind = "Reset", Width = 14, Height = 14 },
-            Style = TryFindResource("TcIconButton") as Style,
-            Width = 24,
-            Height = 24,
+            Content = new PackIconLucide { Kind = "Reset", Width = 18, Height = 18 },
+            Style = TryFindResource("TcInlineIconButton") as Style,
+            Width = 30,
+            Height = 30,
+            MinHeight = 30,
+            BorderThickness = new Thickness(0),
             Padding = new Thickness(0),
             Margin = new Thickness(5, 0, 0, 0),
             HorizontalAlignment = HorizontalAlignment.Right,

@@ -129,16 +129,22 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
         _manualOverride = true;
         // Use the latest observed context even during the dwell period.
         _manualContextId = _observedWinnerId;
+        _pendingSet = false;
         _beforeAutomation = null;
         SetActiveRule(null);
-        SetStatus("Paused by your manual selection. Resume, or wait for a different rule to win.");
+        SetStatus("Manual choice kept until the trigger changes. Turn triggers on to resume now.");
     }
     internal void Resume()
     {
         _explicitPause = false;
         _manualOverride = false;
+        _manualContextId = null;
         _failedRuleId = null;
         _pendingSet = false;
+        SetStatus("Checking enabled rules…");
+        // Publish effective On immediately, including when evaluation is already
+        // running or Status has not changed. No second click is needed.
+        Changed?.Invoke();
         RequestEvaluation();
     }
     internal void Pause()
@@ -212,7 +218,7 @@ internal sealed class ThinkControlModeAutomationService : IDisposable
 
         if (_manualOverride && _observedWinnerId == _manualContextId)
         {
-            SetStatus("Paused by your manual selection. Resume, or wait for a different rule to win.");
+            SetStatus("Manual choice kept until the trigger changes. Turn triggers on to resume now.");
             return;
         }
         if (_manualOverride) { _manualOverride = false; _manualContextId = null; }

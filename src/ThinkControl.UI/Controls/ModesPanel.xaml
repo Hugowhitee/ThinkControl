@@ -17,20 +17,23 @@
         <StackPanel x:Name="ListView">
             <Border Style="{StaticResource TcSection}" Margin="0,0,0,14">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse x:Name="ModeConfirmed" Width="8" Height="8" Fill="{DynamicResource Tc.Success}" Visibility="Collapsed" Margin="0,0,8,0" />
-                        <TextBlock x:Name="CurrentModeTitle" Style="{StaticResource TcText.ControlLabel}" TextWrapping="Wrap" />
-                    </StackPanel>
-                    <TextBlock x:Name="CurrentModeDetail" Style="{StaticResource TcText.Secondary}" Margin="0,6,0,0" TextWrapping="Wrap" />
-                    <Button x:Name="ManualOverrideResumeButton" Content="Resume automation" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Click="ResumeAutomation_Click" Visibility="Collapsed" Margin="0,8,0,0" />
-                </StackPanel>
-            </Border>
-            <Border x:Name="ModeSelectionSection" Style="{StaticResource TcSection}" Margin="0,0,0,14">
-                <StackPanel>
-                    <TextBlock Text="Apply mode" Style="{StaticResource TcText.ControlLabel}" Margin="0,0,0,8" />
-                    <ComboBox x:Name="ModeSelector" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" MinHeight="38" SelectionChanged="ModeSelector_SelectionChanged" />
-                    <Button x:Name="UseRegularSettingsButton" Content="Turn off mode" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left"
-                            Margin="0,8,0,0" ToolTip="Restore regular settings and pause the current automation rule. Resume or a different winning rule can activate a mode again." Click="UseRegularSettings_Click" />
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Ellipse x:Name="ModeConfirmed" Width="8" Height="8" Fill="{DynamicResource Tc.Success}" Visibility="Collapsed" Margin="0,0,8,0" />
+                            <TextBlock x:Name="CurrentModeTitle" Style="{StaticResource TcText.ControlLabel}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Triggers" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="12,0,8,0" />
+                            <CheckBox x:Name="ModeAutomationSwitch" Style="{StaticResource TcSwitch}" AutomationProperties.Name="Enable automation triggers" Click="ModeAutomationSwitch_Click" />
+                        </StackPanel>
+                    </Grid>
+                    <Grid x:Name="ModeSelectionSection" Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <ComboBox x:Name="ModeSelector" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="ModeSelector_SelectionChanged" AutomationProperties.Name="Mode" />
+                        <CheckBox x:Name="ModeEnabledSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Margin="12,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Enable selected mode" ToolTip="Turn mode on or restore regular settings" Click="ModeEnabledSwitch_Click" />
+                    </Grid>
+                    <TextBlock x:Name="CurrentModeDetail" Style="{StaticResource TcText.Caption}" Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
             <Border x:Name="ModeListSection" Style="{StaticResource TcSection}" Padding="0">
@@ -214,7 +217,7 @@
                         </Grid>
                         <StackPanel x:Name="EditorTriggers" Margin="0,8,0,0" />
                         <TextBlock Margin="0,12,0,0"
-                                   Text="At the same priority, list order decides. A manual selection pauses automation until a different rule wins, or you choose Resume."
+                                   Text="At the same priority, list order decides. A manual choice is kept until the trigger changes. Turn triggers on to resume now."
                                    Foreground="{DynamicResource Tc.TextMuted}"
                                    FontSize="{x:Static ui:TypographyScale.Caption}"
                                    TextWrapping="Wrap" />

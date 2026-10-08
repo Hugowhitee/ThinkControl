@@ -243,3 +243,6 @@ Targeted Figma/redesign work follows `docs/UI-DESIGN-HANDOFF.md`. That file defi
 
 
 Cooling/preservation cohesion (v0.1.0-alpha.72): Overview quick-action cards share the icon/title, supporting line, control row and caption rhythm. Cooling adds no one-off dividers or uppercase mini-columns. Full-width preference/cooling rows share `TcSettingLabelColumn` (160 DIP); the choice and associated action sit together with a 12 DIP gap. Preservation keeps title/switch on the header rail and limit/state/Edit together on the value rail. Its 18 DIP track contains threshold marks, a patterned resume/stop window and a neutral region above the stop limit. The actual charge marker is retained above the limit; zones are described on hover rather than relying solely on color. Charging phase reuses BatteryGauge and respects the same motion preference. Paused/discharging views remain still.
+
+
+Mode and Triggers use the existing shared switch; mode selection and enablement share one row, with Triggers on the header rail. Touchpad default-reset actions use TcInlineIconButton with an 18 DIP symbol, 30 DIP target and no resting border/backdrop; retain hover/focus feedback and contextual default-only availability.

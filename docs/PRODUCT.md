@@ -262,3 +262,6 @@ Editor Save/Cancel belongs below destination tabs alongside Edit mode/Edit rule;
 
 
 v0.1.0-alpha.72: Overview Cooling follows the neighboring power card rails and selects profiles through the shared state owner. Preservation places its active state beside the limit, shows a textured resume/stop window and a neutral region above the limit, retains the actual charge marker, and reuses charging motion only while charging. Hover reveals the percentage and zone; motion preferences remain shared.
+
+
+Confirmed saved modes replace Apply with semantic success Active; modified or uncertain modes retain Reapply/check-settings rather than claiming success. Overview and Modes share separate Mode and Triggers switches. Mode Off restores regular settings; On restores the last available selected mode. Manual mode changes suppress the current trigger until its context changes; Triggers On resumes checks with one click, and explicit Off persists across trigger changes without disabling saved rules.

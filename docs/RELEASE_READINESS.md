@@ -1114,3 +1114,9 @@ v0.1.0-alpha.72 candidate: addresses fan escalation across sparse measured state
 
 
 Alpha.72 local evidence: Release solution build has zero warnings/errors; 330 Core tests pass. Focused native smoke passes sparse 48%→47% state mapping, full-speed transition dwell, sustained high output, critical Auto handoff and existing missing-sensor/write-failure recovery. WPF navigation smoke passes immediate entry/re-entry, visible state updates, stale telemetry and subscription cleanup. Native dark/light 980/1200/1600 renders inspected for Overview, preservation, measured curve and fixed-full-speed surfaces. Current installed-service read-only baseline: ThinkPadEcDiscrete, Quiet, 42 C, 3500 RPM, target 0%, measured output 37%; this confirms the affected provider route, not physical validation of the candidate.
+
+
+Alpha.72 scope checkpoint (user follow-up before merge): retain validated fan mapping/dwell, shared cooling selection, card rails, preservation zones/charging clock and Drive source update. Add confirmed-active saved-mode presentation, cohesive Mode/Triggers switches, one-action automation resume with manual override retained until trigger context leaves/re-enters, and shared inline Touchpad resets. Remove implementation-only Overview fan copy. Earlier requested behaviors and their existing regression gates remain required.
+
+
+Alpha.72 follow-up evidence: native dispatcher tests pass manual override/entry-exit dwell/restoration, independent rule/condition switches, single-click trigger resume, confirmed-active Apply removal, Mode Off/On and deleted-mode fallback. Full build remains clean and all 330 Core tests pass. Native dark/light minimum/normal/wide Overview/Modes/Cooling/preservation renders were checked; Touchpad uses the shared inline reset action. Final hosted CI/package and immutable publication checks remain required.
