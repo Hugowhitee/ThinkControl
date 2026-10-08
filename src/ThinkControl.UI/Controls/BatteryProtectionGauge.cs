@@ -125,7 +125,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         const double left = 0;
         double right = width;
         double trackWidth = Math.Max(1, right - left);
-        const double trackTop = 18;
+        const double trackTop = 4;
         const double trackHeight = 18;
         var track = new WpfRect(left, trackTop, trackWidth, trackHeight);
         var clip = new RectangleGeometry(track, 5, 5);
