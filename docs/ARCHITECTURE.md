@@ -1,7 +1,7 @@
 # ThinkControl architecture
 
 
-Candidate v0.1.0-alpha.70 refines charging motion, touchpad guides and shared control rails, and removes the unrelated power-baseline prerequisite from verified exact Max cooling. Published alpha.69 remains the download until promotion completes.
+Published v0.1.0-alpha.70 keeps charging flow inside the battery with a smaller green lightning beside the percentage, aligns preference/preservation controls and hardware details, and improves touchpad guides/popups. Verified exact Max cooling no longer requires reapplying the Windows power preference. Public installer/assets and checksums are verified; updated installed hardware acceptance remains unverified.
 
 Published v0.1.0-alpha.69 preserves battery level colors with a pulsing Fluent charging symbol and static discharge. Direct fan failures expose Auto recovery; edited built-in curves retain their points on measured controllers. 0% is the minimum measured running speed; Auto permits firmware-managed fan stop. Exact-head Windows/installer checks and public asset checksums passed; sustained physical fan behavior and installed acceptance remain unverified. See RELEASE_READINESS.md.
 

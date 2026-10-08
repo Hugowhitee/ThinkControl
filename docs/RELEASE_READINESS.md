@@ -1,10 +1,15 @@
 # ThinkControl release-readiness roadmap
 
-## Candidate v0.1.0-alpha.70 — October 8, 2026
+## Published v0.1.0-alpha.70 — October 8, 2026
 
 Charging keeps subtle moving diagonal lines inside the level-colored battery, with a smaller pulsing green Fluent lightning next to the percentage. Discharge stays static; reduced motion and Compact stay static. Startup uses the shared preference control-start rail. Preservation puts its switch on the header rail and Edit beside the limit value. Expanded hardware details stretch to the System content width. Touchpad corner arrows and edge controls have separate rails; its popup has more room for icon, label, value and slider.
 
 A bounded production-service request reproduced Max cooling rejection because no Windows power baseline was stored. Auto recovery was confirmed afterwards. Verified exact full-speed ownership does not depend on this baseline; its readback-gated path now runs before the guard. Thermal-policy profiles retain the baseline guard and hardware allowlists are unchanged. Updated installed hardware acceptance, sustained fan reproduction, pointer/DPI acceptance remain UNVERIFIED. Local Release build passed with no warnings, all 323 Core tests passed and repository hygiene passed. Native renders were inspected in dark/light at minimum, normal and wide widths; actual charging frames show the diagonal flow and adjacent lightning.
+
+
+Frozen source head 79a44c526e2b26735aad0fb55b215e86f9b50f2e passed CI 37810650179 (323 Core tests, native WPF lifecycle/motion smoke) and Package 37810650166 (installer/service/IPC and oldest-supported immutable upgrade). Visual artifact 11564208918 was downloaded, digest ef55a967a5d00bc34fc80d08a6640e0d9e57a0ddba663fbe880a5fc9a4147b38 verified and target screenshots inspected. PR #139 merged to main 339b502d9be4b2322b411a5bcaf766ed5e6be5a8; immutable v0.1.0-alpha.70 points there. Post-merge CI 37811128192, tagged complete package 37811151103 and promotion verifier 37811128045 passed.
+
+All four public assets were independently downloaded and API digests verified: Setup, Payload, SHA256SUMS.txt and ui-overview.png. Installer/Payload also matched SHA256SUMS.txt. Setup: 2,412,226 bytes, SHA256 6b5281936c4d9bb6f89e10ce9d37cca0317819bf6473e0667080279632a0bdfb. Payload: 17,539,731 bytes, SHA256 3a419a506e6907bb489424253e8225a2e338fd9b36de60e9fad1716208adc18c. [Download alpha.70](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.70). No local installer was executed; updated installed hardware behavior, sustained fan reproduction and pointer/DPI acceptance remain UNVERIFIED.
 
 
 ## Published v0.1.0-alpha.69 - October 8, 2026
