@@ -504,7 +504,11 @@ internal sealed class ServiceEngine : IDisposable
         if (definition is null)
             return Error("Fan curve is missing.");
 
-        if (_coolingPolicy.Supported && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(definition.Id))
+        // A measured direct controller must receive the edited points, even when
+        // the curve retains a built-in id. Firmware-only providers still use policy.
+        bool measuredCurve = _hardware.CanControlRegulatedFans &&
+                             !string.Equals(definition.Id, FanCurveDefaults.MaxCoolingId, StringComparison.OrdinalIgnoreCase);
+        if (_coolingPolicy.Supported && !measuredCurve && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(definition.Id))
             return SetCoolingProfile(definition.Name);
 
         LenovoHardwareStatus status = _hardware.ReadStatus();

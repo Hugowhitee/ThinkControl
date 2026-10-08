@@ -24,6 +24,9 @@
   </a>
 </div>
 
+v0.1.0-alpha.69 stabilization candidate: clearer battery discharge and recovery after a rejected cooling profile, with edited curve points preserved on measured direct controllers. Direct 0% means the minimum measured running speed; use Auto for firmware-managed fan stop.
+
+
 **v0.1.0-alpha.68** adds measured fan-output verification, corrected sensor shortcuts and simpler Modes/System controls.
 
 **v0.1.0-alpha.67** adds a shorter Compact view with Mode and configurable Automation, visible layout-drag feedback, clearer Custom battery preservation and Advanced charge/discharge animation.

@@ -84,7 +84,7 @@ internal sealed class FanCurveEditorWindow : Window
             Text = oemTargetRpm
                 ? "Tune temperature against Lenovo OEM target-RPM control. The graph sends continuous per-fan RPM targets across Lenovo's verified reference range; Auto returns ownership to Lenovo firmware."
                 : x9Ec
-                    ? "Set a target speed for each temperature. Targets use the next measured speed, relative to Max. 0% keeps the fan running; gaps between available speeds can be large."
+                    ? "Set a target speed for each temperature. Targets use the next measured speed, relative to Max. 0% means the minimum measured running speed, not fan off. Use Auto to let firmware stop the fans."
                     : "Tune temperature against the active fan provider's verified 0–100% target range. ThinkControl does not assume EC steps or PWM when the provider does not expose them.",
             FontSize = TypographyScale.Secondary,
             TextWrapping = TextWrapping.Wrap,

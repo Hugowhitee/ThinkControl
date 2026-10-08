@@ -2,6 +2,10 @@
 
 ## What's changed
 
+- Advanced discharge uses neutral fill and outgoing diagonal flow; green indicates charging and low-charge warnings remain semantic.
+- Fan profile failures expose an explicit Auto recovery action even when Auto is already selected. Edited built-in curves keep their points on measured direct controllers.
+- Fan curves clarify that 0% is the minimum measured running speed; use Auto for firmware-managed fan stop.
+
 - Fan curves check sustained RPM against measured output and return to Auto on excessive output or a failed control tick. Physical reproduction of the reported full-speed issue remains unverified.
 - Compact CPU/Sensors open Diagnostics. Mode selection is separate from Saved modes; System links/history preferences are visible directly and the redundant Advanced fan controls disclosure is removed.
 - Compact is 64 pixels shorter. Mode replaces Keyboard light by default; the layout editor also offers Keyboard light and Automation.

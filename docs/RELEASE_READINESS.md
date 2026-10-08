@@ -1,5 +1,11 @@
 # ThinkControl release-readiness roadmap
 
+## v0.1.0-alpha.69 stabilization candidate
+
+Advanced battery discharge uses neutral fill and outgoing diagonal flow; charging stays green, low-charge warnings remain semantic, and Compact stays static. Direct fan profile errors expose the explicit Auto recovery action even when Auto is already selected. Edited built-in curves retain their points on measured direct controllers; firmware-only routing and Max cooling are preserved. 0% means the lowest measured running state, not fan off; firmware Auto can stop the fans.
+
+A bounded alpha.68 production-service probe accepted Quiet and then confirmed Auto. This does not reproduce the sustained RPM complaint or verify the alpha.69 installed fix. New physical fan-off writes are not introduced. Build passed without warnings; all 322 Core tests and repository hygiene passed. Inspected charging/discharging/low-charge WPF screenshots in dark/light and the failed-profile Auto recovery layout at minimum/wide widths. The focused provider/recovery fixture passed locally; the standalone motion test receives no composition frames in this desktop host despite a loaded/visible gauge. Hosted WPF smoke remains a required gate; no failed check is waived. Exact-head CI/package and published-asset verification remain pending.
+
 ## Published alpha.68 - October 8, 2026
 
 Reported full-speed output on a low curve is not physically reproduced. The production loop previously confirmed EC state/ownership but did not compare sustained RPM against calibration. It now allows 30 seconds to settle, then hands back to Auto after three ticks above the measured state by more than 1000 RPM or 30%. A failed tick no longer silently retains its last output, and unconfirmed Auto recovery is labelled honestly. No new hardware write contract or unsupported lower state is enabled. Stored reference calibration starts at about 3500 RPM against 9400 RPM maximum: an 8% graph target resolves to that minimum, not literal 8% PWM. Physical reproduction and post-install fan acceptance remain UNVERIFIED.

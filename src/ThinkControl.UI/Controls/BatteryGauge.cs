@@ -47,6 +47,9 @@ public sealed class BatteryGauge : FrameworkElement
     private double _stripePhase;
     private double _flowOpacity;
     private double _flowDirection = 1;
+    private double _chargingBlend;
+    internal WpfColor FillColor => ResolveFillColor(Math.Clamp(Percent, 0, 100));
+    internal double EnergyFlowDirection => _flowDirection;
     internal double MotionPhase => _stripePhase;
     internal bool MotionActive => _renderHooked;
 
@@ -129,6 +132,7 @@ public sealed class BatteryGauge : FrameworkElement
         _lastRenderingTime = args.RenderingTime;
         double targetOpacity = IsCharging ? 1 : IsDischarging ? 0.85 : 0;
         _flowOpacity += (targetOpacity - _flowOpacity) * Math.Min(1, seconds * 7);
+        _chargingBlend += ((IsCharging ? 1 : 0) - _chargingBlend) * Math.Min(1, seconds * 7);
         _flowDirection += ((IsDischarging && !IsCharging ? -1 : 1) - _flowDirection) * Math.Min(1, seconds * 5);
         _stripePhase = (_stripePhase + seconds * 26d * _flowDirection + 16d) % 16d;
         InvalidateVisual();
@@ -169,8 +173,7 @@ public sealed class BatteryGauge : FrameworkElement
         if (fillWidth <= 0.5 || innerHeight <= 0.5)
             return;
 
-        WpfColor fillColor = Lerp(InterpolateBatteryColor(percent),
-            SemanticColor("Tc.Success", WpfColor.FromRgb(62, 212, 134)), IsCharging ? _flowOpacity : 0);
+        WpfColor fillColor = ResolveFillColor(percent);
         var fillBrush = new SolidColorBrush(fillColor);
         fillBrush.Freeze();
         var fill = new WpfRect(
@@ -182,15 +185,17 @@ public sealed class BatteryGauge : FrameworkElement
         dc.DrawRoundedRectangle(fillBrush, null, fill, fillRadius, fillRadius);
 
         if (_flowOpacity > 0.001)
-            DrawChargeFlow(dc, fill, fillRadius);
+            DrawEnergyFlow(dc, fill, fillRadius);
     }
 
-    private void DrawChargeFlow(DrawingContext dc, WpfRect fill, double radius)
+    private void DrawEnergyFlow(DrawingContext dc, WpfRect fill, double radius)
     {
         var clip = new RectangleGeometry(fill, radius, radius);
         dc.PushClip(clip);
 
-        var stripeBrush = new SolidColorBrush(WpfColor.FromArgb((byte)Math.Round(115 * _flowOpacity), 12, 35, 30));
+        WpfColor stripeColor = SemanticColor("Tc.Surface", WpfColor.FromRgb(28, 36, 39));
+        stripeColor.A = (byte)Math.Round(140 * _flowOpacity);
+        var stripeBrush = new SolidColorBrush(stripeColor);
         stripeBrush.Freeze();
         var stripePen = new WpfPen(stripeBrush, Math.Clamp(fill.Height * 0.17, 1.2, 5.5))
         {
@@ -206,11 +211,22 @@ public sealed class BatteryGauge : FrameworkElement
         {
             dc.DrawLine(
                 stripePen,
-                new WpfPoint(x, fill.Bottom + 5),
-                new WpfPoint(x + travel, fill.Top - 5));
+                new WpfPoint(x, fill.Top + fill.Height / 2 + (fill.Height / 2 + 5) * _flowDirection),
+                new WpfPoint(x + travel, fill.Top + fill.Height / 2 - (fill.Height / 2 + 5) * _flowDirection));
         }
 
         dc.Pop();
+    }
+
+    private WpfColor ResolveFillColor(int percent)
+    {
+        // Compact keeps its static charge-level cue. In Advanced, neutral energy
+        // flows out; green energy flows in. Red/amber remain low-charge warnings.
+        if (!MotionEnabled || percent < 30)
+            return InterpolateBatteryColor(percent);
+        WpfColor neutral = SemanticColor("Tc.TextMuted", WpfColor.FromRgb(156, 173, 180));
+        WpfColor charging = SemanticColor("Tc.Success", WpfColor.FromRgb(62, 212, 134));
+        return Lerp(neutral, charging, MotionAllowed ? _chargingBlend : IsCharging ? 1 : 0);
     }
 
     private static WpfColor InterpolateBatteryColor(int percent)

@@ -184,6 +184,8 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("status.CanFanControl || firmwareProfileControl", service, StringComparison.Ordinal);
         Assert.Contains("_coolingPolicy.Supported && !measuredProfile && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized)", service, StringComparison.Ordinal);
         Assert.Contains("bool measuredProfile = _hardware.CanControlRegulatedFans", service, StringComparison.Ordinal);
+        Assert.Contains("bool measuredCurve = _hardware.CanControlRegulatedFans", service, StringComparison.Ordinal);
+        Assert.Contains("_coolingPolicy.Supported && !measuredCurve && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(definition.Id)", service, StringComparison.Ordinal);
         Assert.Contains("ThinkControlOwnsFan(direct) && !_fanSupervisor.ReturnToAuto", service, StringComparison.Ordinal);
         Assert.Contains("firmwareCooling.ControlAvailable", service, StringComparison.Ordinal);
         Assert.Contains("firmwareCooling.FullSpeedOnly ? FanControlKinds.FullSpeedOnly : FanControlKinds.FirmwarePolicy", service, StringComparison.Ordinal);
