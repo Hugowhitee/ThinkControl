@@ -17,7 +17,7 @@ namespace ThinkControl.ShellSmoke;
 internal static partial class Program
 {
     [STAThread]
-    private static int Main()
+    private static int Main(string[] args)
     {
         App? app = null;
         Exception? scenarioFailure = null;
@@ -48,6 +48,14 @@ internal static partial class Program
                 try
                 {
                     await ValidateFanSupervisorRecovery();
+                    if (args.Contains("--cooling-battery", StringComparer.Ordinal))
+                    {
+                        ValidateReadOnlyCoolingState(app);
+                        await ValidateBatteryMotion();
+                        Console.WriteLine("Targeted cooling recovery and battery motion passed.");
+                        exitCode = 0;
+                        return;
+                    }
                     ValidateCurveInspection(app);
                     Console.WriteLine("Curve inspection passed.");
                     await ValidateAutomationTransitions(app);
@@ -267,26 +275,34 @@ internal static partial class Program
     private static async Task ValidateBatteryMotion()
     {
         var gauge = new ThinkControl.UI.Controls.BatteryGauge { Width = 100, Height = 40, Percent = 78, IsCharging = true, MotionPreference = "On" };
-        var host = new Window { Content = gauge, Width = 140, Height = 100, ShowInTaskbar = false, ShowActivated = false };
+        var host = new Window { Content = gauge, Width = 140, Height = 100, ShowInTaskbar = false, ShowActivated = false, Topmost = true };
         try
         {
             host.Show();
             double initial = gauge.MotionPhase;
-            await Task.Delay(350);
+            var firstFrameDeadline = Stopwatch.StartNew();
+            while (gauge.MotionPhase == initial && firstFrameDeadline.Elapsed < TimeSpan.FromSeconds(3))
+                await Task.Delay(50);
             if ((!gauge.MotionActive || gauge.MotionPhase == initial))
-                throw new InvalidOperationException("Charging gauge did not move in a real WPF rendering loop.");
+                throw new InvalidOperationException($"Charging gauge did not move: hooked={gauge.MotionActive}, loaded={gauge.IsLoaded}, visible={gauge.IsVisible}, size={gauge.ActualWidth}x{gauge.ActualHeight}, phase={gauge.MotionPhase}, initial={initial}.");
+            var chargedLevelColor = gauge.FillColor;
             gauge.IsCharging = false;
             gauge.IsDischarging = true;
-            await Task.Delay(450);
-            if (!gauge.MotionActive)
-                throw new InvalidOperationException("Discharge flow stopped while discharging.");
+            await Task.Delay(1300);
+            if (gauge.MotionActive || gauge.FillColor != chargedLevelColor)
+                throw new InvalidOperationException("Discharge must stop motion and preserve the battery level color.");
+            gauge.Percent = 10;
+            if (gauge.FillColor == chargedLevelColor) throw new InvalidOperationException("Low-charge warning was erased.");
+            gauge.Percent = 78;
+            gauge.IsDischarging = false;
+            gauge.IsCharging = true;
             gauge.MotionEnabled = false;
             if (gauge.MotionActive) throw new InvalidOperationException("Compact still animates with motion disabled.");
             gauge.MotionEnabled = true;
             gauge.MotionPreference = "System";
             if (!SystemParameters.ClientAreaAnimation && gauge.MotionActive) throw new InvalidOperationException("System motion preference ignored Windows reduced motion.");
             gauge.MotionPreference = "On";
-            gauge.IsDischarging = false;
+            gauge.IsCharging = false;
             await Task.Delay(1300);
             if (gauge.MotionActive)
                 throw new InvalidOperationException("Paused battery kept a permanent animation callback.");
@@ -876,6 +892,27 @@ internal static partial class Program
                 .Invoke(panel, [recoverable with { Telemetry = telemetry with { FanState = "Full speed" } }]);
             if (recovery.Visibility != Visibility.Visible || applied.Text != "Not confirmed")
                 throw new InvalidOperationException("A later non-Auto observation failed to restore the recovery action.");
+            var errorProperty = typeof(App).GetProperty("LastCoolingError", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var previousError = errorProperty.GetValue(app);
+            try
+            {
+                errorProperty.SetValue(app, "Provider rejected the profile.");
+                var directAuto = recoverable with
+                {
+                    Capabilities = capabilities with { FanControl = true, FanAutoRecoverySupported = true, FanControlKind = ThinkControl.Core.Ipc.FanControlKinds.DiscreteEc },
+                    Telemetry = telemetry with { FanState = "Lenovo Auto", CoolingProfile = "Lenovo Auto" }
+                };
+                typeof(ThinkControl.UI.Controls.FansPanel)
+                    .GetMethod("ApplyStatus", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [directAuto]);
+                if (recovery.Visibility != Visibility.Visible || !profile.IsEnabled)
+                    throw new InvalidOperationException("A failed direct profile with Auto already selected has no recovery action.");
+                errorProperty.SetValue(app, null);
+                typeof(ThinkControl.UI.Controls.FansPanel)
+                    .GetMethod("ApplyStatus", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(panel, [directAuto]);
+                if (recovery.Visibility != Visibility.Collapsed)
+                    throw new InvalidOperationException("Successful Auto recovery retained the failed-profile action.");
+            }
+            finally { errorProperty.SetValue(app, previousError); }
         }
         finally
         {

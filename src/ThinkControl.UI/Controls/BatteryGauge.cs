@@ -5,15 +5,14 @@ using WpfBrush = System.Windows.Media.Brush;
 using WpfBrushes = System.Windows.Media.Brushes;
 using WpfColor = System.Windows.Media.Color;
 using WpfPen = System.Windows.Media.Pen;
-using WpfPoint = System.Windows.Point;
 using WpfRect = System.Windows.Rect;
 
 namespace ThinkControl.UI.Controls;
 
 /// <summary>
-/// Minimal battery indicator that uses the real percentage. While charging the fill
-/// becomes green and shows a subtle moving diagonal flow. Rendering is hooked only
-/// while visible and charging/discharging, with a brief fade on pause. No idle callback remains.
+/// Battery level keeps its semantic colors. Advanced charging adds a Fluent
+/// lightning symbol with a gentle brightness pulse; discharge stays still.
+/// Rendering is hooked only while visible and charging or briefly fading out.
 /// </summary>
 public sealed class BatteryGauge : FrameworkElement
 {
@@ -44,10 +43,10 @@ public sealed class BatteryGauge : FrameworkElement
 
     private bool _renderHooked;
     private TimeSpan _lastRenderingTime;
-    private double _stripePhase;
-    private double _flowOpacity;
-    private double _flowDirection = 1;
-    internal double MotionPhase => _stripePhase;
+    private double _pulsePhase;
+    private double _chargeOpacity;
+    internal WpfColor FillColor => InterpolateBatteryColor(Math.Clamp(Percent, 0, 100));
+    internal double MotionPhase => _pulsePhase;
     internal bool MotionActive => _renderHooked;
 
     public BatteryGauge()
@@ -85,7 +84,7 @@ public sealed class BatteryGauge : FrameworkElement
     private void UpdateRenderingHook()
     {
         bool shouldAnimate = MotionAllowed && IsLoaded && IsVisible &&
-            (IsCharging || IsDischarging || _flowOpacity > 0.001);
+            (IsCharging || _chargeOpacity > 0.001);
         if (shouldAnimate && !_renderHooked)
         {
             _lastRenderingTime = TimeSpan.Zero;
@@ -105,7 +104,7 @@ public sealed class BatteryGauge : FrameworkElement
         CompositionTarget.Rendering -= OnRendering;
         _renderHooked = false;
         _lastRenderingTime = TimeSpan.Zero;
-        if (!MotionAllowed || !IsVisible) _flowOpacity = 0;
+        if (!MotionAllowed || !IsVisible) _chargeOpacity = 0;
     }
 
     private void OnRendering(object? sender, EventArgs e)
@@ -127,12 +126,11 @@ public sealed class BatteryGauge : FrameworkElement
 
         double seconds = Math.Clamp((args.RenderingTime - _lastRenderingTime).TotalSeconds, 0, 0.1);
         _lastRenderingTime = args.RenderingTime;
-        double targetOpacity = IsCharging ? 1 : IsDischarging ? 0.85 : 0;
-        _flowOpacity += (targetOpacity - _flowOpacity) * Math.Min(1, seconds * 7);
-        _flowDirection += ((IsDischarging && !IsCharging ? -1 : 1) - _flowDirection) * Math.Min(1, seconds * 5);
-        _stripePhase = (_stripePhase + seconds * 26d * _flowDirection + 16d) % 16d;
+        double targetOpacity = IsCharging ? 1 : 0;
+        _chargeOpacity += (targetOpacity - _chargeOpacity) * Math.Min(1, seconds * 7);
+        _pulsePhase = (_pulsePhase + seconds * Math.PI) % (Math.PI * 2);
         InvalidateVisual();
-        if (targetOpacity == 0 && _flowOpacity < 0.001) UpdateRenderingHook();
+        if (targetOpacity == 0 && _chargeOpacity < 0.001) UpdateRenderingHook();
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -166,11 +164,7 @@ public sealed class BatteryGauge : FrameworkElement
         double innerWidth = Math.Max(0, body.Width - innerPadding * 2);
         double innerHeight = Math.Max(0, body.Height - innerPadding * 2);
         double fillWidth = innerWidth * percent / 100d;
-        if (fillWidth <= 0.5 || innerHeight <= 0.5)
-            return;
-
-        WpfColor fillColor = Lerp(InterpolateBatteryColor(percent),
-            SemanticColor("Tc.Success", WpfColor.FromRgb(62, 212, 134)), IsCharging ? _flowOpacity : 0);
+        WpfColor fillColor = InterpolateBatteryColor(percent);
         var fillBrush = new SolidColorBrush(fillColor);
         fillBrush.Freeze();
         var fill = new WpfRect(
@@ -179,37 +173,29 @@ public sealed class BatteryGauge : FrameworkElement
             fillWidth,
             innerHeight);
         double fillRadius = Math.Min(4, radius);
-        dc.DrawRoundedRectangle(fillBrush, null, fill, fillRadius, fillRadius);
+        if (fillWidth > 0.5 && innerHeight > 0.5)
+            dc.DrawRoundedRectangle(fillBrush, null, fill, fillRadius, fillRadius);
 
-        if (_flowOpacity > 0.001)
-            DrawChargeFlow(dc, fill, fillRadius);
+        // Compact stays static. Reduced motion keeps a steady charging symbol.
+        if (MotionEnabled && (IsCharging || _chargeOpacity > 0.001))
+            DrawChargingSymbol(dc, body, fillWidth > body.Width / 2);
     }
 
-    private void DrawChargeFlow(DrawingContext dc, WpfRect fill, double radius)
+    private void DrawChargingSymbol(DrawingContext dc, WpfRect body, bool overFill)
     {
-        var clip = new RectangleGeometry(fill, radius, radius);
-        dc.PushClip(clip);
-
-        var stripeBrush = new SolidColorBrush(WpfColor.FromArgb((byte)Math.Round(115 * _flowOpacity), 12, 35, 30));
-        stripeBrush.Freeze();
-        var stripePen = new WpfPen(stripeBrush, Math.Clamp(fill.Height * 0.17, 1.2, 5.5))
-        {
-            StartLineCap = PenLineCap.Flat,
-            EndLineCap = PenLineCap.Flat
-        };
-        stripePen.Freeze();
-
-        const double spacing = 16;
-        double travel = fill.Height + 18;
-        double startX = fill.Left - travel - spacing + _stripePhase;
-        for (double x = startX; x < fill.Right + travel; x += spacing)
-        {
-            dc.DrawLine(
-                stripePen,
-                new WpfPoint(x, fill.Bottom + 5),
-                new WpfPoint(x + travel, fill.Top - 5));
-        }
-
+        double size = body.Height * 0.94;
+        var slot = new WpfRect(body.X + (body.Width - size) / 2, body.Y + (body.Height - size) / 2, size, size);
+        WpfColor color = overFill
+            ? WpfColor.FromRgb(12, 35, 30)
+            : SemanticColor("Tc.Text", WpfColor.FromRgb(236, 242, 243));
+        var ink = new SolidColorBrush(color);
+        ink.Freeze();
+        double brightness = MotionAllowed ? 0.68 + 0.32 * (Math.Sin(_pulsePhase) + 1) / 2 : 1;
+        double presence = MotionAllowed ? _chargeOpacity : IsCharging ? 1 : 0;
+        dc.PushOpacity(brightness * presence);
+        dc.PushOpacityMask(SvgAssetDrawing.Mask("flash"));
+        dc.DrawRectangle(ink, null, slot);
+        dc.Pop();
         dc.Pop();
     }
 

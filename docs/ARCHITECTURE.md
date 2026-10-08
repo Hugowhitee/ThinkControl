@@ -1,5 +1,11 @@
 # ThinkControl architecture
 
+## v0.1.0-alpha.69 stabilization candidate
+
+Advanced charging uses a clear Fluent lightning symbol with a gentle brightness pulse. Battery level colors remain visible; discharge is static, low-charge warnings remain semantic, and Compact stays static. Direct fan profile errors expose the explicit Auto recovery action even when Auto is already selected. Edited built-in curves retain their points on measured direct controllers; firmware-only routing and Max cooling are preserved. 0% means the lowest measured running state, not fan off; firmware Auto can stop the fans.
+
+A bounded alpha.68 production-service probe accepted Quiet and then confirmed Auto. This does not reproduce the sustained RPM complaint or verify the alpha.69 installed fix. New physical fan-off writes are not introduced. Targeted WPF and provider-fixture checks plus exact-head hosted packaging gates are required before publication.
+
 Published v0.1.0-alpha.68 verifies sustained fan output against calibration, corrects Compact sensor navigation and simplifies Modes/System disclosures. Physical fan reproduction remains unverified; evidence is maintained in RELEASE_READINESS.md.
 
 Candidate v0.1.0-alpha.67 improves Compact interaction, mode restoration, editor actions and battery clarity. Final publication evidence is maintained in RELEASE_READINESS.md.

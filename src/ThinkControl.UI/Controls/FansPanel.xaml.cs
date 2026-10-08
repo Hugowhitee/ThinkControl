@@ -165,14 +165,14 @@ public partial class FansPanel : UserControl
             ? "Cooling is read-only on this firmware. ThinkControl cannot apply profiles or confirm Auto."
             : _app?.LastCoolingError is string failure
             ? App.IsExternalCoolingOwnerConflict(failure)
-                ? "Fan control was reclaimed. Select Auto, then retry your profile."
+                ? "Fan control was reclaimed. Return to Auto, then retry your profile."
                 : failure.Contains("too hot", StringComparison.OrdinalIgnoreCase)
                     ? "Firmware is cooling the system. Try again once it cools."
                 : failure.Contains("temperature", StringComparison.OrdinalIgnoreCase) || failure.Contains("sensor", StringComparison.OrdinalIgnoreCase)
                     ? "The control-temperature sensor is unavailable. Your profile could not be applied."
                     : failure.Contains("calibrat", StringComparison.OrdinalIgnoreCase) || failure.Contains("Measure", StringComparison.OrdinalIgnoreCase)
                         ? "Measure the supported fan speeds before applying this profile."
-                        : "The fan provider did not confirm this profile. Select Auto, then retry."
+                        : "The fan provider did not confirm this profile. Return to Auto, then retry."
             : _app?.ExternalCoolingOwnerConflictDetail is string conflict
                 ? "Another controller is using the fans. Select Auto before changing cooling."
                 : canControl
@@ -189,12 +189,16 @@ public partial class FansPanel : UserControl
             _autoRecoveryConfirmed = telemetry.FanState.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ||
                                      telemetry.FanState.Equals("Auto", StringComparison.OrdinalIgnoreCase) ||
                                      telemetry.FanState.Equals("Firmware Auto", StringComparison.OrdinalIgnoreCase);
-        RecoverAutoButton.Visibility = !_autoRecoveryConfirmed && (
+        // A rejected profile can leave Auto selected already: selecting the same
+        // ComboBox item cannot issue a recovery request. Keep the explicit action.
+        bool failedProfileCanRecover = _app?.LastCoolingError is not null &&
+                                       response?.Capabilities?.FanAutoRecoverySupported == true;
+        RecoverAutoButton.Visibility = failedProfileCanRecover || (!_autoRecoveryConfirmed && (
             (!canControl && response?.Capabilities?.FanAutoRecoverySupported == true) ||
             (response?.Capabilities?.FanAutoRecoverySupported != false &&
             UsesFirmwarePolicy && App.IsExternalCoolingOwnerConflict(
                 _app?.ExternalCoolingOwnerConflictDetail ??
-                _app?.LastCoolingError ?? _app?.State.HardwareAccess)))
+                _app?.LastCoolingError ?? _app?.State.HardwareAccess))))
                 ? Visibility.Visible : Visibility.Collapsed;
 
         if (!canControl)
@@ -611,7 +615,7 @@ public partial class FansPanel : UserControl
                     : "Advanced controls depend on the active fan controller.";
         FanProviderDetailText.ToolTip = null;
         if (discreteEcWriter)
-            FanMappingDetailText.Text = "Targets use the next measured speed. 0% keeps the fan running; gaps between available speeds can be large.";
+            FanMappingDetailText.Text = "Targets use the next measured speed. 0% means the minimum measured running speed, not fan off. Use Auto to let firmware stop the fans.";
 
         // Raw EC diagnostics exist only for a provider that explicitly advertises
         // the discrete-EC semantic contract. They are never a generic laptop option.

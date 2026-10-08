@@ -106,24 +106,52 @@ internal static class Program
 
         if (args.Contains("--battery-motion", StringComparer.Ordinal))
         {
-            ThemeService.Apply(ThemeMode.Dark);
-            SyncAppState(CreateDemoState(true, true), app.State);
-            var window = new AdvancedWindow(app) { DataContext = app.State, Width = 1200, Height = 780, ShowActivated = false, Topmost = false };
-            window.PrepareEnhancedUiForSnapshot(); window.Navigate("Battery"); window.Show();
-            void WaitFrame(int milliseconds)
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
             {
-                var frame = new System.Windows.Threading.DispatcherFrame();
-                var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
-                timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
-                timer.Start(); System.Windows.Threading.Dispatcher.PushFrame(frame);
+                ThemeService.Apply(theme);
+                SyncAppState(CreateDemoState(true, true), app.State);
+                var window = new AdvancedWindow(app) { DataContext = app.State, Width = 1200, Height = 780, ShowActivated = false, Topmost = false };
+                window.PrepareEnhancedUiForSnapshot(); window.Navigate("Battery"); window.Show();
+                void WaitFrame(int milliseconds)
+                {
+                    var frame = new System.Windows.Threading.DispatcherFrame();
+                    var timer = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
+                    timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; };
+                    timer.Start(); System.Windows.Threading.Dispatcher.PushFrame(frame);
+                }
+                WaitFrame(500); RenderWindowContent(window, Path.Combine(output, $"Charging-1-{theme}.png"));
+                WaitFrame(240); RenderWindowContent(window, Path.Combine(output, $"Charging-2-{theme}.png"));
+                app.State.BatteryCharging = false; app.State.BatteryStatus = "On battery";
+                WaitFrame(650); RenderWindowContent(window, Path.Combine(output, $"Discharging-{theme}.png"));
+                app.State.BatteryPercent = 10;
+                WaitFrame(100); RenderWindowContent(window, Path.Combine(output, $"Discharging-low-{theme}.png"));
+                app.State.BatteryPercent = 78; app.State.BatteryStatus = "Plugged in";
+                WaitFrame(1300); RenderWindowContent(window, Path.Combine(output, $"Idle-{theme}.png"));
+                window.ForceClose();
             }
-            WaitFrame(500); RenderWindowContent(window, Path.Combine(output, "Charging-1.png"));
-            WaitFrame(240); RenderWindowContent(window, Path.Combine(output, "Charging-2.png"));
-            app.State.BatteryCharging = false; app.State.BatteryStatus = "On battery";
-            WaitFrame(650); RenderWindowContent(window, Path.Combine(output, "Discharging.png"));
-            app.State.BatteryStatus = "Plugged in";
-            WaitFrame(1300); RenderWindowContent(window, Path.Combine(output, "Idle.png"));
-            window.ForceClose(); return 0;
+            return 0;
+        }
+        if (args.Contains("--cooling-recovery", StringComparer.Ordinal))
+        {
+            var error = typeof(App).GetProperty("LastCoolingError", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+            {
+                ThemeService.Apply(theme);
+                SyncAppState(CreateDemoState(true, true), app.State);
+                error.SetValue(app, "Provider rejected the profile.");
+                var window = new AdvancedWindow(app) { DataContext = app.State, Width = width, Height = height, ShowActivated = false, Topmost = false };
+                window.PrepareEnhancedUiForSnapshot(); window.Navigate("Fans");
+                var panel = (FansPanel)window.FindName("FansPanelControl");
+                var response = new ThinkControl.Core.Ipc.ServiceResponse(1, true,
+                    Telemetry: new ThinkControl.Core.Ipc.TelemetrySnapshot(48, "QA fixture", 0, "Shared tachometer", "Lenovo Auto", "QA", "Off", CoolingProfile: "Lenovo Auto"),
+                    Capabilities: new ThinkControl.Core.Ipc.HardwareCapabilitySnapshot(true, true, true, true, FanAutoRecoverySupported: true, FanControlKind: ThinkControl.Core.Ipc.FanControlKinds.DiscreteEc));
+                typeof(FansPanel).GetMethod("ApplyStatus", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(panel, [response]);
+                RenderWindowContent(window, Path.Combine(output, $"CoolingRecovery-{theme}-{width}.png"));
+                window.ForceClose();
+            }
+            error.SetValue(app, null);
+            return 0;
         }
 
         if (args.Contains("--compact-polish", StringComparer.Ordinal))
