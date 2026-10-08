@@ -285,25 +285,24 @@ internal static partial class Program
                 await Task.Delay(50);
             if ((!gauge.MotionActive || gauge.MotionPhase == initial))
                 throw new InvalidOperationException($"Charging gauge did not move: hooked={gauge.MotionActive}, loaded={gauge.IsLoaded}, visible={gauge.IsVisible}, size={gauge.ActualWidth}x{gauge.ActualHeight}, phase={gauge.MotionPhase}, initial={initial}.");
-            var chargingColor = gauge.FillColor;
+            var chargedLevelColor = gauge.FillColor;
             gauge.IsCharging = false;
             gauge.IsDischarging = true;
-            await Task.Delay(450);
-            if (!gauge.MotionActive || gauge.EnergyFlowDirection >= 0 || gauge.FillColor == chargingColor)
-                throw new InvalidOperationException("Discharge did not change color and reverse its flow.");
-            gauge.MotionPreference = "Off";
-            var neutral = gauge.FillColor;
+            await Task.Delay(1300);
+            if (gauge.MotionActive || gauge.FillColor != chargedLevelColor)
+                throw new InvalidOperationException("Discharge must stop motion and preserve the battery level color.");
             gauge.Percent = 10;
-            if (gauge.FillColor == neutral) throw new InvalidOperationException("Neutral discharge erased the low-charge warning.");
+            if (gauge.FillColor == chargedLevelColor) throw new InvalidOperationException("Low-charge warning was erased.");
             gauge.Percent = 78;
-            gauge.MotionPreference = "On";
+            gauge.IsDischarging = false;
+            gauge.IsCharging = true;
             gauge.MotionEnabled = false;
             if (gauge.MotionActive) throw new InvalidOperationException("Compact still animates with motion disabled.");
             gauge.MotionEnabled = true;
             gauge.MotionPreference = "System";
             if (!SystemParameters.ClientAreaAnimation && gauge.MotionActive) throw new InvalidOperationException("System motion preference ignored Windows reduced motion.");
             gauge.MotionPreference = "On";
-            gauge.IsDischarging = false;
+            gauge.IsCharging = false;
             await Task.Delay(1300);
             if (gauge.MotionActive)
                 throw new InvalidOperationException("Paused battery kept a permanent animation callback.");
