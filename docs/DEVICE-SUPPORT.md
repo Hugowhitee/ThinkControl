@@ -1,5 +1,7 @@
 # Device support
 
+Published v0.1.0-alpha.72 stabilizes sparse measured fan-curve mapping and transition dwell, synchronizes Overview/Cooling immediately, and unifies cooling/preservation rails and Mode/Triggers controls. One-click automation resume, confirmed-active mode presentation and inline Touchpad resets pass native regression tests. Public installer/assets and checksums are verified; sustained updated installed fan behavior remains UNVERIFIED.
+
 Published v0.1.0-alpha.71 makes calibrated Max cooling follow its curve and identifies fixed full speed correctly. Overview selects profiles directly; history/Compact preferences and gesture popup text use consistent rails. Public installer/assets and checksums are verified; updated installed RPM acceptance remains unverified.
 
 
