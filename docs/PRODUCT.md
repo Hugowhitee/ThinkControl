@@ -1,5 +1,7 @@
 # Product specification
 
+Candidate v0.1.0-alpha.73 stabilizes observed battery statistics, learned ETA and preservation presentation, with compact mode selection and centered shared dropdown arrows. Exact-head release validation is pending; hardware support and physical fan claims are unchanged.
+
 Published v0.1.0-alpha.72 stabilizes sparse measured fan-curve mapping and transition dwell, synchronizes Overview/Cooling immediately, and unifies cooling/preservation rails and Mode/Triggers controls. One-click automation resume, confirmed-active mode presentation and inline Touchpad resets pass native regression tests. Public installer/assets and checksums are verified; sustained updated installed fan behavior remains UNVERIFIED.
 
 Published v0.1.0-alpha.71 makes calibrated Max cooling follow its curve and identifies fixed full speed correctly. Overview selects profiles directly; history/Compact preferences and gesture popup text use consistent rails. Public installer/assets and checksums are verified; updated installed RPM acceptance remains unverified.
@@ -267,3 +269,8 @@ v0.1.0-alpha.72: Overview Cooling follows the neighboring power card rails and s
 
 
 Confirmed saved modes replace Apply with semantic success Active; modified or uncertain modes retain Reapply/check-settings rather than claiming success. Overview and Modes share separate Mode and Triggers switches. Mode Off restores regular settings; On restores the last available selected mode. Manual mode changes suppress the current trigger until its context changes; Triggers On resumes checks with one click, and explicit Off persists across trigger changes without disabling saved rules.
+
+
+Alpha.73: choose a mode or No mode in the selector; Automatic triggers independently controls rule evaluation. There is no second mode-enable switch or duplicate remembered-mode owner. Preservation shows measured charge separately from its resume/stop zones. A compact charging/hold caption identifies the upper limit or lower resume threshold; no floating arrow, dot or angled leaders are used. Unplugged operation has no charging target. No synthetic charge/discharge movement is shown.
+
+Alpha.73 battery-statistics stabilization: active session duration ends at the last observation, not wall-clock now. New sessions split after two-minute measurement interruptions or >10-point gauge jumps; detailed legacy session/day duration excludes unobserved gaps. Time-weighted power avoids oversampling bias; bounded point reduction preserves both endpoints. Runtime ETA uses bounded learned charge/discharge priors only alongside valid current readings, suppresses low-power charger negotiation for up to 90 seconds, and reacts faster to settled power. Typical endurance is separately labeled as a normalized 100–0% estimate from eligible observed discharge sessions (at least one hour and 20% aggregate use), not a measured full drain or a guarantee. Summary-only legacy records cannot reconstruct missing observations and are excluded from learning. Physical full-charge/drain validation remains pending.

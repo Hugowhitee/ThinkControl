@@ -24,14 +24,12 @@
                             <TextBlock x:Name="CurrentModeTitle" Style="{StaticResource TcText.ControlLabel}" TextWrapping="Wrap" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Triggers" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="12,0,8,0" />
+                            <TextBlock Text="Automatic triggers" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="12,0,8,0" />
                             <CheckBox x:Name="ModeAutomationSwitch" Style="{StaticResource TcSwitch}" AutomationProperties.Name="Enable automation triggers" Click="ModeAutomationSwitch_Click" />
                         </StackPanel>
                     </Grid>
                     <Grid x:Name="ModeSelectionSection" Margin="0,12,0,0">
-                        <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                        <ComboBox x:Name="ModeSelector" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="ModeSelector_SelectionChanged" AutomationProperties.Name="Mode" />
-                        <CheckBox x:Name="ModeEnabledSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Margin="12,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Enable selected mode" ToolTip="Turn mode on or restore regular settings" Click="ModeEnabledSwitch_Click" />
+                        <ComboBox x:Name="ModeSelector" Width="320" HorizontalAlignment="Left" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="ModeSelector_SelectionChanged" AutomationProperties.Name="Mode" ToolTip="Choose No mode to restore regular settings." />
                     </Grid>
                     <TextBlock x:Name="CurrentModeDetail" Style="{StaticResource TcText.Caption}" Margin="0,8,0,0" TextWrapping="Wrap" />
                 </StackPanel>
@@ -206,7 +204,7 @@
                             </ComboBox>
                         </Grid>
                         <Grid>
-                            <TextBlock Text="Triggers"
+                            <TextBlock Text="Automatic triggers"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
                             <Button x:Name="AddTriggerButton"

@@ -257,8 +257,7 @@
                     <TextBlock x:Name="HomeModeModifiedText" TextWrapping="Wrap" Style="{StaticResource TcText.Caption}" Visibility="Collapsed" Margin="0,4,0,10" />
                     <Grid Margin="0,8,0,0">
                       <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <CheckBox x:Name="HomeModeEnabledSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Margin="12,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Enable selected mode" Click="HomeModeEnabled_Click" ToolTip="Turn mode on or restore regular settings" />
-                    <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
+                    <ComboBox x:Name="HomeModeCombo" ToolTip="Choose No mode to restore regular settings." Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
                     </Grid>
                   </StackPanel>
                 </Border>
@@ -392,9 +391,9 @@
                   <TextBlock Text="Device &amp; support" Style="{StaticResource TcText.SectionTitle}" Margin="0,0,0,18" />
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="112" />
-                      <ColumnDefinition Width="220" />
-                      <ColumnDefinition Width="112" />
+                      <ColumnDefinition Width="Auto" MinWidth="72" />
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="Auto" MinWidth="72" />
                       <ColumnDefinition />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
@@ -402,13 +401,19 @@
                       <RowDefinition />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Device" Style="{StaticResource TcText.Caption}" />
-                    <TextBlock Grid.Column="1" Text="{Binding DeviceName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="1" Margin="12,0,24,0" Text="{Binding DeviceName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <TextBlock Grid.Column="2" Text="Processor" Style="{StaticResource TcText.Caption}" />
-                    <TextBlock Grid.Column="3" Text="{Binding CpuName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Grid.Column="3" Margin="12,0,0,0" Text="{Binding CpuName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                     <TextBlock Grid.Row="1" Text="Memory" Style="{StaticResource TcText.Caption}" Margin="0,18,0,0" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RamText}" FontWeight="SemiBold" Margin="0,18,0,0" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding RamText}" FontWeight="SemiBold" Margin="12,18,24,0" />
                     <TextBlock Grid.Row="1" Grid.Column="2" Text="Hardware" Style="{StaticResource TcText.Caption}" Margin="0,18,0,0" />
-                    <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding HardwareAccessSummary}" TextWrapping="Wrap" Margin="0,18,0,0" />
+                    <Grid Grid.Row="1" Grid.Column="3" Margin="12,18,0,0">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="12" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                      <Ellipse Width="6" Height="6" VerticalAlignment="Top" Margin="0,6,0,0" HorizontalAlignment="Left">
+                        <Ellipse.Style><Style TargetType="Ellipse"><Setter Property="Fill" Value="{DynamicResource Tc.TextFaint}" /><Style.Triggers><DataTrigger Binding="{Binding CanFanControl}" Value="True"><Setter Property="Fill" Value="{DynamicResource Tc.Success}" /></DataTrigger></Style.Triggers></Style></Ellipse.Style>
+                      </Ellipse>
+                      <TextBlock Grid.Column="1" Text="{Binding HardwareAccessSummary}" Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" />
+                    </Grid>
                   </Grid>
                 </StackPanel>
               </Border>

@@ -89,7 +89,7 @@
               <Button x:Name="CustomChargeApplyButton" Content="Apply limits" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="CustomChargeApply_Click" />
             </StackPanel>
           </StackPanel>
-          <controls:BatteryProtectionGauge Height="58" Margin="0,8,0,0" FlowPhase="{Binding ChargingFlowPhase, ElementName=CurrentBatteryGauge}" ProtectionEnabled="{Binding BatteryProtectionEnabled}" StartPercent="{Binding BatteryProtectionStartPercent}" StopPercent="{Binding BatteryProtectionStopPercent}" CurrentPercent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" ToolTip="Current charge, resume threshold and charge limit." />
+          <controls:BatteryProtectionGauge IsPluggedIn="{Binding BatteryPluggedIn}" Height="64" Margin="0,8,0,0" FlowPhase="{Binding ChargingFlowPhase, ElementName=CurrentBatteryGauge}" ProtectionEnabled="{Binding BatteryProtectionEnabled}" StartPercent="{Binding BatteryProtectionStartPercent}" StopPercent="{Binding BatteryProtectionStopPercent}" CurrentPercent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" ToolTip="Current charge, resume threshold and charge limit." />
           <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active charge limit…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
           <TextBlock x:Name="ChargeProtectionWearText" Text="Checking charging guidance…" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,3,0,0" ToolTip="Battery aging depends on time at high charge, temperature, depth of discharge, use and chemistry; a charge cap does not measure this battery's actual wear." />
           <TextBlock x:Name="ChargeProtectionProviderText" Text="Verified OEM charge-threshold provider." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="Collapsed" />
@@ -217,6 +217,9 @@
           <Grid>
             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
             <StackPanel Margin="0,0,20,0">
+              <TextBlock Text="Typical battery endurance" Style="{StaticResource TcText.ControlLabel}" />
+              <TextBlock Text="{Binding BatteryTypicalRuntimeText}" Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
+              <TextBlock Text="Estimate from partial recorded use; actual runtime varies with workload." Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,4,0,16" />
               <TextBlock Text="Typical charging power" Style="{StaticResource TcText.ControlLabel}" />
               <TextBlock Text="{Binding BatteryTypicalChargeText}" Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,6,0,0" />
               <TextBlock Text="Learned from recorded charging sessions." Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />

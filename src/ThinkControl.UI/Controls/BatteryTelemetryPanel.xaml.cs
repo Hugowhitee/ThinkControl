@@ -317,11 +317,11 @@ public partial class BatteryTelemetryPanel : UserControl
         kind.SetResourceReference(Border.BackgroundProperty, "Tc.SurfaceAlt");
         var kindText = new TextBlock
         {
-            Text = session.IsActive ? $"{session.Kind} (live)" : session.Kind,
+            Text = (session.Kind == "Charge" ? "+ " : "− ") + (session.IsActive ? $"{session.Kind} (live)" : session.Kind),
             FontSize = TypographyScale.Caption,
             FontWeight = FontWeights.SemiBold
         };
-        kindText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        kindText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Success" : "Tc.Text");
         kind.Child = kindText;
         grid.Children.Add(kind);
 
@@ -343,7 +343,7 @@ public partial class BatteryTelemetryPanel : UserControl
             FontSize = TypographyScale.Caption, TextAlignment = TextAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0, 0, 0)
         };
-        energyText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        energyText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Success" : "Tc.Text");
         Grid.SetColumn(energyText, 2);
         grid.Children.Add(energyText);
         var arrow = new PackIconLucide { Kind = "ChevronRight", Width = 20, Height = 20,

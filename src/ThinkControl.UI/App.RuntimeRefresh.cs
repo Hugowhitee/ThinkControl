@@ -140,7 +140,9 @@ public partial class App
                 battery.RemainingWh,
                 State.BatteryFullWh,
                 battery.EstimatedRemaining,
-                ResolveBatteryChargeTargetPercent()));
+                ResolveBatteryChargeTargetPercent(),
+                battery.Charging ? BatteryPowerHistoryPriors.TypicalChargePowerWatts
+                    : BatteryPowerHistoryPriors.TypicalDischargePowerWatts));
             State.BatteryEtaToChargeTarget = eta.ToChargeTarget;
             State.BatteryEtaRemaining = eta.Remaining;
             State.BatterySource = battery.Source;

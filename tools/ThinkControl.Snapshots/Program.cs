@@ -38,6 +38,13 @@ internal static class Program
         app.InitializeComponent();
         var snapshots = new List<SnapshotEntry>();
 
+        if (args.Contains("--preservation-states", StringComparer.Ordinal))
+        {
+            RenderPreservationStates(output, snapshots);
+            WriteManifest(output, snapshots); WriteGallery(output, snapshots);
+            return 0;
+        }
+
         if (args.Contains("--surface-polish", StringComparer.Ordinal))
         {
             foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
@@ -635,6 +642,7 @@ internal static class Program
         RenderDiagnostics(app, unknownOffline, 1160, 760, output, snapshots,
             "diagnostics-discovering-light.png", "provider data not ready · light");
 
+        RenderPreservationStates(output, snapshots);
         WriteManifest(output, snapshots);
         WriteGallery(output, snapshots);
         WriteMarkdownGallery(output, snapshots);
@@ -1212,6 +1220,41 @@ internal static class Program
         RenderWindowContent(window, Path.Combine(output, "fan-curve-editor.png"));
         snapshots.Add(new SnapshotEntry("fan-curve-editor.png", "Fan curve editor", "custom profile · live marker", width, height));
         window.Close();
+    }
+
+    private static void RenderPreservationStates(string output, List<SnapshotEntry> snapshots)
+    {
+        foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+        foreach (int width in new[] { 320, 620 })
+        {
+            ThemeService.Apply(theme);
+            var rows = new System.Windows.Controls.StackPanel();
+            foreach (var state in new[] {
+                ("Charging below resume", 60, true, true, (bool?)true, (int?)80, (int?)85),
+                ("Charging toward limit", 82, true, true, (bool?)true, (int?)80, (int?)85),
+                ("At limit · plugged in hold", 85, false, true, (bool?)true, (int?)80, (int?)85),
+                ("Holding toward resume", 82, false, true, (bool?)true, (int?)80, (int?)85),
+                ("On battery · no charge target", 82, false, false, (bool?)true, (int?)80, (int?)85),
+                ("100% above limit · on battery", 100, false, false, (bool?)true, (int?)80, (int?)85),
+                ("Custom window · empty", 0, true, true, (bool?)true, (int?)61, (int?)66),
+                ("Preservation off", 78, true, true, (bool?)false, (int?)80, (int?)85),
+                ("Thresholds unknown", 78, false, false, (bool?)null, (int?)null, (int?)null) })
+            {
+                var title = new System.Windows.Controls.TextBlock { Text = state.Item1,
+                    Margin = new Thickness(0, 0, 0, 3), FontSize = TypographyScale.Caption };
+                rows.Children.Add(title);
+                rows.Children.Add(new BatteryProtectionGauge { Height = 64, CurrentPercent = state.Item2,
+                    IsCharging = state.Item3, IsPluggedIn = state.Item4, ProtectionEnabled = state.Item5,
+                    StartPercent = state.Item6, StopPercent = state.Item7, FlowPhase = 4 });
+            }
+            var border = new System.Windows.Controls.Border { Padding = new Thickness(14), Child = rows };
+            border.SetResourceReference(System.Windows.Controls.Border.BackgroundProperty, "Tc.Surface");
+            var window = new Window { Content = border, Width = width, Height = 820 };
+            string name = $"preservation-states-{theme}-{width}.png";
+            RenderWindowContent(window, Path.Combine(output, name));
+            snapshots.Add(new(name, "Preservation state matrix", "Charging, hold, unplugged, custom and unknown", width, 820));
+            window.Close();
+        }
     }
 
     private static void RenderWindowContent(Window window, string path)

@@ -60,9 +60,6 @@ internal sealed class ThinkControlModeCoordinator
     internal event Action? Changed;
 
     internal string ActiveModeId { get; private set; } = ThinkControlModeCatalog.NormalId;
-    private string? LastSelectedModeId { get; set; }
-    internal string ModeToEnableId => GetModes().FirstOrDefault(mode => mode.Id == LastSelectedModeId)?.Id
-        ?? GetModes().FirstOrDefault(mode => mode.Id != ThinkControlModeCatalog.NormalId)?.Id ?? ThinkControlModeCatalog.NormalId;
     internal string ActiveModeName { get; private set; } = "No mode";
     internal bool ActiveModeAutomatic { get; private set; }
     internal bool IsModified { get; private set; }
@@ -228,7 +225,6 @@ internal sealed class ThinkControlModeCoordinator
                 ActiveModeAutomatic =
                     origin == ThinkControlModeActivationOrigin.Automatic &&
                     target.Id != ThinkControlModeCatalog.NormalId;
-                if (target.Id != ThinkControlModeCatalog.NormalId) LastSelectedModeId = target.Id;
                 IsModified = false;
                 _uncertainFacets.ExceptWith(attemptedFacets);
                 SettingsNeedChecking = _uncertainFacets.Count > 0;

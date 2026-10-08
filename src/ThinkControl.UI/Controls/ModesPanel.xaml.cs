@@ -344,8 +344,7 @@ public partial class ModesPanel : UserControl
             ModeSelector.ItemsSource = modes;
             ModeSelector.SelectedItem = modes.FirstOrDefault(mode =>
                 mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase));
-            ModeSelector.IsEnabled = ModeEnabledSwitch.IsEnabled = !_busy && !_app.Modes.IsTransitioning &&
-            (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.ModeToEnableId != ThinkControlModeCatalog.NormalId);
+            ModeSelector.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
         }
         finally
         {
@@ -498,15 +497,6 @@ public partial class ModesPanel : UserControl
     private async void ApplyMode_Click(object sender, RoutedEventArgs e)
     {
         if (sender is FrameworkElement { Tag: string id }) await ApplyModeAsync(id);
-    }
-
-    private async void ModeEnabledSwitch_Click(object sender, RoutedEventArgs e)
-    {
-        if (_app is null) return;
-        string id = ModeEnabledSwitch.IsChecked == true
-            ? _app.Modes.ModeToEnableId
-            : ThinkControlModeCatalog.NormalId;
-        await ApplyModeAsync(id);
     }
 
     private void ModeAutomationSwitch_Click(object sender, RoutedEventArgs e)
@@ -1337,9 +1327,6 @@ public partial class ModesPanel : UserControl
         ModeAutomationSwitch.IsChecked = !_app.ModeAutomation.Paused;
         ModeAutomationSwitch.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
         ModeAutomationSwitch.ToolTip = _app.ModeAutomation.Status;
-        ModeEnabledSwitch.IsChecked = _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId;
-        ModeEnabledSwitch.IsEnabled = !_busy && !_app.Modes.IsTransitioning &&
-            (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.ModeToEnableId != ThinkControlModeCatalog.NormalId);
 
         if (_automationSurface)
         {
@@ -1351,7 +1338,6 @@ public partial class ModesPanel : UserControl
         }
 
         bool transitioning = _app.Modes.IsTransitioning;
-        ModeEnabledSwitch.IsEnabled = !_busy && !transitioning;
         bool failed = !transitioning && !string.IsNullOrWhiteSpace(_app.Modes.LastTransitionError);
         bool modified = _app.Modes.IsModified && !transitioning;
         bool automatic = _app.Modes.ActiveModeAutomatic &&

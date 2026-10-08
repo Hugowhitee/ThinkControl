@@ -195,9 +195,11 @@ public partial class App : System.Windows.Application
                 battery.RemainingCapacityWh,
                 battery.FullChargeCapacityWh,
                 battery.EstimatedTimeRemaining,
-                ResolveBatteryChargeTargetPercent()));
+                ResolveBatteryChargeTargetPercent(),
+                battery.Charging ? BatteryPowerHistoryPriors.TypicalChargePowerWatts
+                    : BatteryPowerHistoryPriors.TypicalDischargePowerWatts));
             State.BatteryEtaToChargeTarget =
-                initialEta.ToChargeTarget ?? battery.EstimatedTimeToChargeTarget;
+                initialEta.ToChargeTarget;
             State.BatteryEtaRemaining = initialEta.Remaining ?? battery.EstimatedTimeRemaining;
             State.BatterySource = battery.Source;
             ObserveBatteryProtectionTransition(battery.Charging, battery.OnAc, State.BatteryPercent);

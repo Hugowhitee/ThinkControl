@@ -145,3 +145,5 @@ See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUC
 
 
 v0.1.0-alpha.72 stabilizes calibrated fan curves with nearest-speed mapping and hysteresis across large hardware gaps, synchronizes Overview/Cooling selection immediately, and aligns the Cooling and preservation cards. Hardware output remains discrete and capability-gated.
+
+The v0.1.0-alpha.73 candidate improves battery statistics and control clarity; the published downloads above remain the verified alpha.72 release until promotion completes.

@@ -12,7 +12,7 @@ public sealed class BatteryEtaTargetSourceTests
 
         Assert.Contains("ResolveBatteryChargeTargetPercent()", runtime, StringComparison.Ordinal);
         Assert.Contains("State.BatteryProtectionStopPercent is int stop", runtime, StringComparison.Ordinal);
-        Assert.Contains("ResolveBatteryChargeTargetPercent()));", runtime, StringComparison.Ordinal);
+        Assert.Contains("BatteryPowerHistoryPriors.TypicalChargePowerWatts", runtime, StringComparison.Ordinal);
         Assert.Contains("State.BatteryEtaToChargeTarget = eta.ToChargeTarget", runtime, StringComparison.Ordinal);
 
         Assert.Contains("previousChargeTarget = ResolveBatteryChargeTargetPercent()", diagnostics, StringComparison.Ordinal);
@@ -53,7 +53,8 @@ public sealed class BatteryEtaTargetSourceTests
         Assert.DoesNotContain("EstimatedTimeToFull", service, StringComparison.Ordinal);
 
         Assert.Contains("BatteryTelemetryService.Read(ResolveBatteryChargeTargetPercent())", app, StringComparison.Ordinal);
-        Assert.Contains("battery.EstimatedTimeToChargeTarget", app, StringComparison.Ordinal);
+        Assert.Contains("initialEta.ToChargeTarget;", app, StringComparison.Ordinal);
+        Assert.DoesNotContain("initialEta.ToChargeTarget ??", app, StringComparison.Ordinal);
     }
 
     [Fact]

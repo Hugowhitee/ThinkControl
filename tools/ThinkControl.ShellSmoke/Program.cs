@@ -49,6 +49,7 @@ internal static partial class Program
                 {
                     await ValidateFanSupervisorRecovery();
                     ValidateCoolingSelectionSync(app);
+                    ValidateSelectionAndMeter(app);
                     if (args.Contains("--fan-supervisor", StringComparer.Ordinal))
                     {
                         exitCode = 0;
@@ -78,8 +79,13 @@ internal static partial class Program
                     await ValidateAutomationTransitions(app);
                     Console.WriteLine("Automation transitions passed.");
                     ValidateModeSwitchControls(app);
+                    Console.WriteLine("Mode controls passed; checking trigger resume.");
                     await ValidateModeResumeSwitch(app);
-                    await ValidateKeyboardTransitions();
+                    Console.WriteLine("Trigger resume passed; checking keyboard transitions.");
+                    // This fixture owns no WPF controls; keep its delayed provider
+                    // writes independent of the desktop rendering dispatcher.
+                    await Task.Run(ValidateKeyboardTransitions).WaitAsync(TimeSpan.FromSeconds(15));
+                    Console.WriteLine("Keyboard transitions passed; checking OSD lease.");
                     await ValidateKeyboardOsdVisibilityLease();
                     await ValidateBatteryMotion();
                     Console.WriteLine("Keyboard and battery motion passed.");
@@ -283,20 +289,18 @@ internal static partial class Program
             if (!VisualDescendants<TextBlock>(activeRow).Any(text => text.Text == "Active") ||
                 VisualDescendants<Button>(activeRow).Any(button => Equals(button.Content, "Apply")))
                 throw new InvalidOperationException("Confirmed active mode still offered Apply.");
-            var enabled = (CheckBox)panel.FindName("ModeEnabledSwitch");
-            enabled.IsChecked = false;
-            enabled.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if (panel.FindName("ModeEnabledSwitch") is not null)
+                throw new InvalidOperationException("Mode selection retained a second ambiguous switch.");
+            var selector = (ComboBox)panel.FindName("ModeSelector");
+            if (selector.ActualWidth > 321) throw new InvalidOperationException("Mode selection escaped its bounded width.");
+            selector.SelectedItem = app.Modes.GetModes().Single(item => item.Id == ThinkControlModeCatalog.NormalId);
             host.UpdateLayout();
-            if (app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || enabled.IsChecked != false)
-                throw new InvalidOperationException("Mode Off did not restore regular settings.");
-            enabled.IsChecked = true;
-            enabled.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if (app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId)
+                throw new InvalidOperationException("No mode did not restore regular settings.");
+            selector.SelectedItem = app.Modes.GetModes().Single(item => item.Id == mode.Id);
             host.UpdateLayout();
-            if (app.Modes.ActiveModeId != mode.Id || enabled.IsChecked != true)
-                throw new InvalidOperationException("Mode On did not restore the last selected mode.");
-            app.UserSettings.Update(settings => settings with { CustomModes = [] });
-            if (app.Modes.ModeToEnableId == mode.Id)
-                throw new InvalidOperationException("Mode On retained a deleted mode.");
+            if (app.Modes.ActiveModeId != mode.Id)
+                throw new InvalidOperationException("Selecting a mode did not apply it.");
         }
         finally
         {
@@ -546,14 +550,16 @@ internal static partial class Program
         using var effects = new KeyboardEffectService(Write, state);
         try
         {
-            await effects.SetModeAsync("Breathing");
+            Console.WriteLine("Keyboard fixture: starting effect.");
+            var initialChoice = effects.SetModeAsync("Breathing");
             await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            Console.WriteLine("Keyboard fixture: delayed effect write observed.");
             var olderChoice = effects.SetModeAsync("Breathing");
             await Task.Delay(15);
             var latestChoice = effects.SetStaticLevelAsync("Low");
             await Task.Delay(600);
             releaseWrite.TrySetResult();
-            await Task.WhenAll(olderChoice, latestChoice).WaitAsync(TimeSpan.FromSeconds(3));
+            await Task.WhenAll(initialChoice, olderChoice, latestChoice).WaitAsync(TimeSpan.FromSeconds(3));
             await Task.Delay(550);
             if (state.KeyboardMode != "Static" || state.KeyboardStatus != "Low" || writes[^1] != "Low")
                 throw new InvalidOperationException("Keyboard lifecycle: an older effect selection replaced the latest static choice after a delayed write.");
@@ -562,6 +568,7 @@ internal static partial class Program
             writeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
             releaseWrite = new(TaskCreationOptions.RunContinuationsAsynchronously);
             lock (writes) writes.Clear();
+            Console.WriteLine("Keyboard fixture: latest effect/static precedence passed.");
             var oldStatic = effects.SetStaticLevelAsync("Off");
             await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
             var supersededStatic = effects.SetStaticLevelAsync("High");
@@ -574,6 +581,7 @@ internal static partial class Program
             heldLevel = "High";
             writeStarted = new(TaskCreationOptions.RunContinuationsAsynchronously);
             releaseWrite = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Console.WriteLine("Keyboard fixture: static supersession passed.");
             var closingWrite = effects.SetStaticLevelAsync("High");
             await writeStarted.Task.WaitAsync(TimeSpan.FromSeconds(3));
             effects.Dispose();
@@ -647,6 +655,21 @@ internal static partial class Program
         try
         {
             DateTimeOffset start = DateTimeOffset.UtcNow.AddDays(-2);
+            var observed = new BatteryHistoryService(Path.Combine(directory, "observed.json"));
+            for (int minute = 0; minute <= 6; minute++)
+                observed.Record(false, true, start.AddMinutes(minute), 90 - minute, 10, 67.5 - minute * 0.75, 75, 80);
+            BatterySessionDetail live = observed.GetRecentSessionDetails().Single();
+            if (live.Duration != TimeSpan.FromMinutes(6))
+                throw new InvalidOperationException("An active battery session counted unobserved wall-clock time.");
+            observed.Record(false, true, start.AddMinutes(12), 80, 10, 60, 75, 80);
+            if (observed.GetRecentSessionDetails().Single(session => !session.IsActive).Duration != TimeSpan.FromMinutes(6))
+                throw new InvalidOperationException("A short sleep gap inflated battery usage.");
+            var endurance = new BatteryHistoryService(Path.Combine(directory, "endurance.json"));
+            for (int minute = 0; minute <= 120; minute++)
+                endurance.Record(false, true, start.AddMinutes(minute), 90 - minute / 3, 15, 67.5 - minute * 0.25, 75, 80);
+            endurance.Record(false, false, start.AddMinutes(120), 50, null, 37.5, 75, 80);
+            if (!endurance.GetView().TypicalRuntimeText.Contains("5h 00m", StringComparison.Ordinal))
+                throw new InvalidOperationException("Observed battery endurance did not normalize two hours at 40% use.");
             string cyclePath = Path.Combine(directory, "cycles.json");
             var cycleHistory = new BatteryHistoryService(cyclePath);
             cycleHistory.Record(false, false, start, 60, null, 45, 75, 80, 100);
@@ -665,7 +688,8 @@ internal static partial class Program
             {
                 var history = new BatteryHistoryService(Path.Combine(directory, initialCharging + ".json"));
                 history.Record(initialCharging, !initialCharging, start, 60, 20, 45, 75, 80);
-                history.Record(initialCharging, !initialCharging, start.AddMinutes(10), initialCharging ? 65 : 55, 20, initialCharging ? 49 : 41, 75, 80);
+                for (int minute = 1; minute <= 10; minute++)
+                    history.Record(initialCharging, !initialCharging, start.AddMinutes(minute), initialCharging ? 60 + minute / 2 : 60 - minute / 2, 20, initialCharging ? 45 + minute * 0.4 : 45 - minute * 0.4, 75, 80);
                 history.Record(!initialCharging, initialCharging, start.AddDays(1), 50, 20, 38, 75, 80);
                 BatterySessionDetail finished = history.GetRecentSessionDetails().Single(session => !session.IsActive);
                 if (finished.Duration != TimeSpan.FromMinutes(10) || finished.EndPercent != (initialCharging ? 65 : 55))
@@ -685,8 +709,11 @@ internal static partial class Program
             {
                 var overnight = new BatteryHistoryService(Path.Combine(directory, "midnight-" + charge + ".json"));
                 overnight.Record(charge, !charge, midnight.AddMinutes(-10), 60, 10, 45, 75, 80);
-                overnight.Record(charge, !charge, midnight.AddMinutes(-5), charge ? 62 : 58, 10, 45, 75, 80);
-                overnight.Record(charge, !charge, midnight.AddMinutes(5), charge ? 65 : 55, 10, 45, 75, 80);
+                for (int minute = -9; minute <= 10; minute++)
+                {
+                    int delta = minute < 0 ? 2 : 5;
+                    overnight.Record(charge, !charge, midnight.AddMinutes(minute), charge ? 60 + delta : 60 - delta, 10, 45, 75, 80);
+                }
                 overnight.Record(false, false, midnight.AddMinutes(10), charge ? 65 : 55, null, 45, 75, 80);
                 BatteryDaySummary[] days = overnight.GetRecentDays().OrderBy(day => day.Day).ToArray();
                 if (days.Length != 2 ||
@@ -702,7 +729,8 @@ internal static partial class Program
             {
                 DateTimeOffset at = busyStart.AddMinutes(index * 15);
                 busy.Record(true, false, at, 60, 10, 45, 75, 80);
-                busy.Record(true, false, at.AddMinutes(5), 61, 10, 46, 75, 80);
+                for (int minute = 1; minute <= 5; minute++)
+                    busy.Record(true, false, at.AddMinutes(minute), minute == 5 ? 61 : 60, 10, 45 + minute * 0.2, 75, 80);
                 busy.Record(false, false, at.AddMinutes(5), 61, null, 46, 75, 80);
             }
             BatteryDaySummary busyDay = busy.GetRecentDays().Single();
