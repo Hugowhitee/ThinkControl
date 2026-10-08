@@ -175,12 +175,6 @@ internal sealed class LenovoCoolingPolicyCoordinator
             previousProfile = _overrideProfile;
             fullSpeedOwned = _fullSpeedOwned;
         }
-        if (baseMode is null)
-        {
-            detail = "The current power-mode baseline is not known yet. Reapply the current Windows power preference before selecting a firmware cooling profile.";
-            return false;
-        }
-
         bool wantsFullSpeed = profileId == FanCurveDefaults.MaxCoolingId;
         if (_hardware.CanControlExactFullSpeed)
         {
@@ -190,6 +184,14 @@ internal sealed class LenovoCoolingPolicyCoordinator
             detail = "Max cooling confirmed through the verified firmware full-speed state.";
             return true;
         }
+        // Only thermal-policy profiles need a Windows restore baseline. The
+        // verified exact Auto/Max controller above has independent ownership.
+        if (baseMode is null)
+        {
+            detail = "The current power-mode baseline is not known yet. Reapply the current Windows power preference before selecting a firmware cooling profile.";
+            return false;
+        }
+
         LenovoOtherModeFullSpeedStatus fullSpeed = LenovoOtherModeFullSpeedService.Read(_hardware.Identity);
 
         if (!fullSpeed.Available)

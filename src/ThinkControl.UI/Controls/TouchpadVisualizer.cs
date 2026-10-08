@@ -697,8 +697,10 @@ public sealed class TouchpadVisualizer : FrameworkElement
         double length = Math.Max(1, Math.Sqrt(direction.X * direction.X + direction.Y * direction.Y));
         double ux = direction.X / length;
         double uy = direction.Y / length;
-        WpfPoint arrowA = new(end.X - ux * 8 - uy * 5, end.Y - uy * 8 + ux * 5);
-        WpfPoint arrowB = new(end.X - ux * 8 + uy * 5, end.Y - uy * 8 - ux * 5);
+        double headLength = Math.Min(6, length * 0.32);
+        double headWidth = Math.Min(3.5, length * 0.18);
+        WpfPoint arrowA = new(end.X - ux * headLength - uy * headWidth, end.Y - uy * headLength + ux * headWidth);
+        WpfPoint arrowB = new(end.X - ux * headLength + uy * headWidth, end.Y - uy * headLength - ux * headWidth);
         dc.DrawLine(pen, arrowA, end);
         dc.DrawLine(pen, arrowB, end);
     }
@@ -724,8 +726,8 @@ public sealed class TouchpadVisualizer : FrameworkElement
                 {
                     TouchpadEdge.Top => new(pad.Left + pad.Width / 2, band.Bottom + 13),
                     TouchpadEdge.Bottom => new(pad.Left + pad.Width / 2, band.Top - 13),
-                    TouchpadEdge.Left => new(band.Right + 25, pad.Top + pad.Height / 2),
-                    _ => new(band.Left - 25, pad.Top + pad.Height / 2)
+                    TouchpadEdge.Left => new(band.Right + 18, pad.Top + pad.Height * 0.60),
+                    _ => new(band.Left - 18, pad.Top + pad.Height * 0.60)
                 };
 
             if (!integratedTrack && TouchpadActionVisualCatalog.Get(binding.Action).Motion == TouchpadGestureMotionKind.Inward)
@@ -783,11 +785,12 @@ public sealed class TouchpadVisualizer : FrameworkElement
             bool firstActive = active && (vertical ? physicalDelta > 0.01 : physicalDelta < -0.01);
             bool lastActive = active && (vertical ? physicalDelta < -0.01 : physicalDelta > 0.01);
 
+            double spread = vertical ? Math.Min(spec.Spread, PadRect().Height * 0.12) : spec.Spread;
             WpfPoint firstPoint = vertical
-                ? new(point.X, point.Y - spec.Spread)
+                ? new(point.X, point.Y - spread)
                 : new(point.X - spec.Spread, point.Y);
             WpfPoint lastPoint = vertical
-                ? new(point.X, point.Y + spec.Spread)
+                ? new(point.X, point.Y + spread)
                 : new(point.X + spec.Spread, point.Y);
 
             DrawCue(dc, firstCue, firstPoint, firstActive ? accent : brush, vertical);

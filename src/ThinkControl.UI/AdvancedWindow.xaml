@@ -132,9 +132,14 @@
                       <ColumnDefinition Width="86" />
                       <ColumnDefinition />
                     </Grid.ColumnDefinitions>
-                    <controls:BatteryGauge MotionPreference="{Binding BatteryMotionPreference}" Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" IsDischarging="{Binding BatteryDischarging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                    <controls:BatteryGauge x:Name="OverviewBatteryGauge" MotionPreference="{Binding BatteryMotionPreference}" Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" IsDischarging="{Binding BatteryDischarging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding BatteryPercentText}" Style="{StaticResource TcText.ValueLarge}" />
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding BatteryPercentText}" Style="{StaticResource TcText.ValueLarge}" />
+                        <controls:PackIconLucide Kind="Lightning" Width="18" Height="18" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Tc.Success}" Opacity="{Binding ChargingSymbolOpacity, ElementName=OverviewBatteryGauge}" ToolTip="Charging" AutomationProperties.Name="Charging">
+                          <controls:PackIconLucide.Style><Style TargetType="controls:PackIconLucide"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding BatteryCharging}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></controls:PackIconLucide.Style>
+                        </controls:PackIconLucide>
+                      </StackPanel>
                       <TextBlock Text="{Binding BatteryEtaText}" Style="{StaticResource TcText.Caption}" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Margin="0,4,0,0" />
                     </StackPanel>
                   </Grid>
@@ -467,13 +472,14 @@
                     <StackPanel VerticalAlignment="Center"><TextBlock Text="Battery animation" Style="{StaticResource TcText.Secondary}" /><TextBlock Text="Advanced view only." Style="{StaticResource TcText.Caption}" Margin="0,4,0,0" /></StackPanel>
                     <Grid Grid.Column="1"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                       <RadioButton x:Name="BatteryMotionSystem" GroupName="BatteryMotion" Content="System" Tag="System" Style="{StaticResource TcSegment}" Click="BatteryMotion_Click" Margin="0,0,4,0" />
-                      <RadioButton x:Name="BatteryMotionOn" Grid.Column="1" GroupName="BatteryMotion" Content="On" Tag="On" Style="{StaticResource TcSegment}" Click="BatteryMotion_Click" Margin="4,0" ToolTip="Show charge/discharge motion even when Windows animations are off" />
+                      <RadioButton x:Name="BatteryMotionOn" Grid.Column="1" GroupName="BatteryMotion" Content="On" Tag="On" Style="{StaticResource TcSegment}" Click="BatteryMotion_Click" Margin="4,0" ToolTip="Show charging motion even when Windows animations are off" />
                       <RadioButton x:Name="BatteryMotionOff" Grid.Column="2" GroupName="BatteryMotion" Content="Off" Tag="Off" Style="{StaticResource TcSegment}" Click="BatteryMotion_Click" Margin="4,0,0,0" />
                     </Grid>
                   </Grid>
-                  <Grid Margin="0,32,0,0" MaxWidth="576" HorizontalAlignment="Left" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=StackPanel}}">
+                  <Grid Margin="0,20,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="416" /></Grid.ColumnDefinitions>
                     <TextBlock Text="Start with Windows" VerticalAlignment="Center" />
-                    <CheckBox x:Name="StartupSwitch" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" HorizontalAlignment="Right" />
+                    <CheckBox x:Name="StartupSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" HorizontalAlignment="Left" />
                   </Grid>
                   <Border Height="1" Background="{DynamicResource Tc.Divider}" Margin="0,14,0,8" />
                   <Grid>
@@ -530,7 +536,7 @@
                     </StackPanel>
                   </Border>
               </StackPanel>
-              <Expander x:Name="SystemHardwareDetails" Header="Hardware details" Style="{StaticResource TcQuietExpander}" Margin="2,14,2,0" HorizontalAlignment="Right" MaxWidth="560">
+              <Expander x:Name="SystemHardwareDetails" Header="Hardware details" Style="{StaticResource TcQuietExpander}" Margin="0,14,0,0" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                 <Border Style="{StaticResource TcSection}" Margin="0,8,0,0">
                   <StackPanel>
                     <Grid>

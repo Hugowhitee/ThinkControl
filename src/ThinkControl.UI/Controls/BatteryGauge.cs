@@ -10,8 +10,8 @@ using WpfRect = System.Windows.Rect;
 namespace ThinkControl.UI.Controls;
 
 /// <summary>
-/// Battery level keeps its semantic colors. Advanced charging adds a Fluent
-/// lightning symbol with a gentle brightness pulse; discharge stays still.
+/// Battery level keeps its semantic colors. Advanced charging adds diagonal flow
+/// and drives the adjacent lightning symbol's pulse; discharge stays still.
 /// Rendering is hooked only while visible and charging or briefly fading out.
 /// </summary>
 public sealed class BatteryGauge : FrameworkElement
@@ -44,7 +44,12 @@ public sealed class BatteryGauge : FrameworkElement
     private bool _renderHooked;
     private TimeSpan _lastRenderingTime;
     private double _pulsePhase;
+    private double _stripePhase;
     private double _chargeOpacity;
+    private static readonly DependencyPropertyKey ChargingSymbolOpacityPropertyKey = DependencyProperty.RegisterReadOnly(
+        nameof(ChargingSymbolOpacity), typeof(double), typeof(BatteryGauge), new PropertyMetadata(0.84));
+    public static readonly DependencyProperty ChargingSymbolOpacityProperty = ChargingSymbolOpacityPropertyKey.DependencyProperty;
+    public double ChargingSymbolOpacity => (double)GetValue(ChargingSymbolOpacityProperty);
     internal WpfColor FillColor => InterpolateBatteryColor(Math.Clamp(Percent, 0, 100));
     internal double MotionPhase => _pulsePhase;
     internal bool MotionActive => _renderHooked;
@@ -78,6 +83,7 @@ public sealed class BatteryGauge : FrameworkElement
     {
         var gauge = (BatteryGauge)d;
         gauge.UpdateRenderingHook();
+        if (!gauge.MotionAllowed) gauge.SetValue(ChargingSymbolOpacityPropertyKey, 1d);
         gauge.InvalidateVisual();
     }
 
@@ -129,6 +135,8 @@ public sealed class BatteryGauge : FrameworkElement
         double targetOpacity = IsCharging ? 1 : 0;
         _chargeOpacity += (targetOpacity - _chargeOpacity) * Math.Min(1, seconds * 7);
         _pulsePhase = (_pulsePhase + seconds * Math.PI) % (Math.PI * 2);
+        _stripePhase = (_stripePhase + seconds * 20) % 16;
+        SetValue(ChargingSymbolOpacityPropertyKey, 0.68 + 0.32 * (Math.Sin(_pulsePhase) + 1) / 2);
         InvalidateVisual();
         if (targetOpacity == 0 && _chargeOpacity < 0.001) UpdateRenderingHook();
     }
@@ -176,26 +184,20 @@ public sealed class BatteryGauge : FrameworkElement
         if (fillWidth > 0.5 && innerHeight > 0.5)
             dc.DrawRoundedRectangle(fillBrush, null, fill, fillRadius, fillRadius);
 
-        // Compact stays static. Reduced motion keeps a steady charging symbol.
-        if (MotionEnabled && (IsCharging || _chargeOpacity > 0.001))
-            DrawChargingSymbol(dc, body, fillWidth > body.Width / 2);
+        if (MotionEnabled && _chargeOpacity > 0.001)
+            DrawChargingFlow(dc, fill, fillRadius);
     }
 
-    private void DrawChargingSymbol(DrawingContext dc, WpfRect body, bool overFill)
+    private void DrawChargingFlow(DrawingContext dc, WpfRect fill, double radius)
     {
-        double size = body.Height * 0.94;
-        var slot = new WpfRect(body.X + (body.Width - size) / 2, body.Y + (body.Height - size) / 2, size, size);
-        WpfColor color = overFill
-            ? WpfColor.FromRgb(12, 35, 30)
-            : SemanticColor("Tc.Text", WpfColor.FromRgb(236, 242, 243));
-        var ink = new SolidColorBrush(color);
-        ink.Freeze();
-        double brightness = MotionAllowed ? 0.68 + 0.32 * (Math.Sin(_pulsePhase) + 1) / 2 : 1;
-        double presence = MotionAllowed ? _chargeOpacity : IsCharging ? 1 : 0;
-        dc.PushOpacity(brightness * presence);
-        dc.PushOpacityMask(SvgAssetDrawing.Mask("flash"));
-        dc.DrawRectangle(ink, null, slot);
-        dc.Pop();
+        dc.PushClip(new RectangleGeometry(fill, radius, radius));
+        var stripe = new SolidColorBrush(WpfColor.FromArgb((byte)Math.Round(90 * _chargeOpacity), 12, 35, 30));
+        stripe.Freeze();
+        var pen = new WpfPen(stripe, Math.Clamp(fill.Height * 0.13, 1.2, 4)) { StartLineCap = PenLineCap.Flat, EndLineCap = PenLineCap.Flat };
+        pen.Freeze();
+        double travel = fill.Height + 10;
+        for (double x = fill.Left - travel - 16 + _stripePhase; x < fill.Right + travel; x += 16)
+            dc.DrawLine(pen, new System.Windows.Point(x, fill.Bottom + 3), new System.Windows.Point(x + travel, fill.Top - 3));
         dc.Pop();
     }
 

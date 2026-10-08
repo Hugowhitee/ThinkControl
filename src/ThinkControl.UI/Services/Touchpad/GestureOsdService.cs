@@ -21,7 +21,7 @@ internal sealed class GestureOsdService : IDisposable
     private const double HorizontalScreenInset = 22;
     private const double TaskbarInset = 8;
     private const double RestingOffset = 0;
-    private const double HiddenOffset = 76;
+    private const double HiddenOffset = 96;
 
     // Deliberately simple media-action glyphs. The label reports the resulting state,
     // while the glyph follows familiar players such as Spotify and shows the action
@@ -243,8 +243,8 @@ internal sealed class GestureOsdService : IDisposable
 
         _iconButton = new Button
         {
-            Width = 34,
-            Height = 34,
+            Width = 40,
+            Height = 40,
             Padding = new Thickness(0),
             BorderThickness = new Thickness(0),
             Content = _iconPath,
@@ -262,7 +262,7 @@ internal sealed class GestureOsdService : IDisposable
         _label = new TextBlock
         {
             FontFamily = ThinkControl.UI.TypographyScale.Family,
-            FontSize = TypographyScale.Caption,
+            FontSize = TypographyScale.Body,
             FontWeight = FontWeights.SemiBold,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -271,13 +271,15 @@ internal sealed class GestureOsdService : IDisposable
         _value = new TextBlock
         {
             FontFamily = ThinkControl.UI.TypographyScale.Family,
-            FontSize = TypographyScale.Caption,
+            FontSize = TypographyScale.Body,
+            MinWidth = 44,
+            FontWeight = FontWeights.SemiBold,
             HorizontalAlignment = HorizontalAlignment.Right,
             VerticalAlignment = VerticalAlignment.Center
         };
         _value.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
 
-        var header = new Grid { Margin = new Thickness(0, 0, 0, 1) };
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 4) };
         header.ColumnDefinitions.Add(new ColumnDefinition());
         header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         header.Children.Add(_label);
@@ -306,15 +308,15 @@ internal sealed class GestureOsdService : IDisposable
         _slider.PreviewMouseDown += (_, _) => _hideTimer.Stop();
         _slider.PreviewMouseUp += (_, _) => RestartHideTimer();
 
-        var right = new Grid { Margin = new Thickness(9, 0, 0, 0) };
+        var right = new Grid { Margin = new Thickness(12, 0, 0, 0) };
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         right.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         right.Children.Add(header);
         Grid.SetRow(_slider, 1);
         right.Children.Add(_slider);
 
-        var content = new Grid();
-        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(36) });
+        var content = new Grid { VerticalAlignment = VerticalAlignment.Center };
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
         content.ColumnDefinitions.Add(new ColumnDefinition());
         content.Children.Add(_iconButton);
         Grid.SetColumn(right, 1);
@@ -325,7 +327,7 @@ internal sealed class GestureOsdService : IDisposable
         {
             BorderThickness = new Thickness(1),
             CornerRadius = new CornerRadius(9),
-            Padding = new Thickness(10, 7, 12, 7),
+            Padding = new Thickness(12),
             RenderTransform = _shellTransform,
             Child = content
         };
@@ -343,8 +345,8 @@ internal sealed class GestureOsdService : IDisposable
 
         _window = new Window
         {
-            Width = 286,
-            Height = 68,
+            Width = 304,
+            Height = 80,
             WindowStyle = WindowStyle.None,
             ResizeMode = ResizeMode.NoResize,
             ShowInTaskbar = false,

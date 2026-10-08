@@ -200,6 +200,21 @@ public sealed class LenovoOtherModeFanProviderSourceTests
     }
 
     [Fact]
+    public void ExactMaxCooling_DoesNotRequireAnUnrelatedWindowsPowerBaseline()
+    {
+        string source = ReadSource("src", "ThinkControl.Service", "LenovoCoolingPolicyCoordinator.cs");
+        string profile = source[source.IndexOf("internal bool SetBuiltInProfile", StringComparison.Ordinal)..];
+        int exactWriter = profile.IndexOf("if (_hardware.CanControlExactFullSpeed)", StringComparison.Ordinal);
+        int baselineGuard = profile.IndexOf("if (baseMode is null)", StringComparison.Ordinal);
+        Assert.True(exactWriter >= 0 && baselineGuard > exactWriter,
+            "Verified Auto/Max ownership must work on cold startup before a Windows baseline is stored.");
+        string exactPath = profile[exactWriter..baselineGuard];
+        Assert.Contains("if (!_hardware.SetExactFullSpeed(out detail)) return false;", exactPath, StringComparison.Ordinal);
+        Assert.Contains("return true;", exactPath, StringComparison.Ordinal);
+        Assert.Contains("LenovoThermalPolicyService.TrySetX9Policy", profile[baselineGuard..], StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ServiceAndFansUi_ExposeProviderKindWithoutPretendingFirmwarePolicyIsDirectFanOutput()
     {
         string service = ReadSource("src", "ThinkControl.Service", "ServiceEngine.cs");
