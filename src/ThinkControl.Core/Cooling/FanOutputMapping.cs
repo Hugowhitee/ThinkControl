@@ -33,6 +33,27 @@ public static class FanOutputMapping
         return states[^1];
     }
 
+    /// <summary>Curves choose the closest measured speed rather than rounding a
+    /// small target increase across a large hardware gap to full speed. A three
+    /// percentage-point improvement is required before leaving the current state.
+    /// Hot input and explicit 100% retain the conservative ceiling behavior.</summary>
+    public static State ResolveCurve(int targetPercent, IReadOnlyList<State> states,
+        int? currentState = null, bool hot = false)
+    {
+        if (states.Count == 0)
+            throw new InvalidOperationException("No stable measured fan speeds are available.");
+        int target = Math.Clamp(targetPercent, 0, 100);
+        if (hot || target == 100)
+            return states.FirstOrDefault(state => state.EstimatedPercent >= target) ?? states[^1];
+        State selected = states.OrderBy(state => Math.Abs(state.EstimatedPercent - target))
+            .ThenByDescending(state => state.EstimatedPercent).First();
+        State? current = states.FirstOrDefault(state => state.HardwareState == currentState);
+        if (current is not null && Math.Abs(current.EstimatedPercent - target) <=
+            Math.Abs(selected.EstimatedPercent - target) + 3)
+            return current;
+        return selected;
+    }
+
     public static IReadOnlyList<State> BuildStates(
         IReadOnlyDictionary<int, int>? medianRpmByState = null,
         IReadOnlyList<int>? requiredStates = null)

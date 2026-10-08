@@ -134,8 +134,8 @@ public partial class BatteryTelemetryPanel
         else
         {
             ChargeProtectionStateText.Text = _batteryProtectionWritable
-                ? $"{stop}% limit active"
-                : $"{stop}% limit (read-only)";
+                ? "Limit active"
+                : "Limit active (read-only)";
             ChargeProtectionImpactText.Text = DescribeChargeProtectionImpact(start, stop);
             UpdateBatteryAgingGuidance(enabled: true, available: true);
         }

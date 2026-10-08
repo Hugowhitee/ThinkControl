@@ -65,15 +65,15 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("DrawThresholdLabels", gauge, StringComparison.Ordinal);
         Assert.Contains("minimumGap = 4", gauge, StringComparison.Ordinal);
         Assert.Contains("collision symmetrically", gauge, StringComparison.Ordinal);
-        Assert.Contains("current marker sits exactly on the end of the fill", gauge, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("marker keeps the actual charge position", gauge, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("DrawLightning", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawPause", gauge, StringComparison.Ordinal);
         Assert.DoesNotContain("DrawLock", gauge, StringComparison.Ordinal);
 
         Assert.Contains("_batteryProtectionWritable", code, StringComparison.Ordinal);
         Assert.Contains("Custom: {selectedStart}–{selectedStop}%", code, StringComparison.Ordinal);
-        Assert.Contains("{stop}% limit active", code, StringComparison.Ordinal);
-        Assert.Contains("{stop}% limit (read-only)", code, StringComparison.Ordinal);
+        Assert.Contains("Limit active", code, StringComparison.Ordinal);
+        Assert.Contains("Limit active (read-only)", code, StringComparison.Ordinal);
         Assert.DoesNotContain("× fewer", xaml, StringComparison.OrdinalIgnoreCase);
     }
 

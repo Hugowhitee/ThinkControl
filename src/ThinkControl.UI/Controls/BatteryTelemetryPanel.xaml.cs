@@ -278,7 +278,7 @@ public partial class BatteryTelemetryPanel : UserControl
             _syncingChargeProtection = false;
         }
         ChargeProtectionStateText.Text = snapshotProtection
-            ? $"{snapshotStop}% limit active"
+            ? "Limit active"
             : "Off";
         ChargeProtectionImpactText.Text = snapshotProtection
             ? DescribeChargeProtectionImpact(snapshotStart, snapshotStop)

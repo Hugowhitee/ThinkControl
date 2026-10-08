@@ -412,3 +412,6 @@ Before calling alpha.43 releasable, require:
 - checksum verification of published Setup/Payload.
 
 Physical Touchpad, Audio Safety, battery charging and X9 cooling checks remain separate evidence classes and must be recorded honestly rather than converted into hosted-CI claims.
+
+
+v0.1.0-alpha.72 acceptance: select Quiet/Balanced/Max in Overview and immediately open Cooling; the selection must agree without waiting for telemetry. Check sustained versus transient curve demand, hot/sensor-loss Auto fallback, dark/light card alignment, and preservation windows at 80/85/90/95/custom limits. Physical fan oscillation reproduction on this candidate remains UNVERIFIED.

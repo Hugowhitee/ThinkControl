@@ -48,6 +48,7 @@ internal static partial class Program
                 try
                 {
                     await ValidateFanSupervisorRecovery();
+                    ValidateCoolingSelectionSync(app);
                     if (args.Contains("--fan-supervisor", StringComparer.Ordinal))
                     {
                         exitCode = 0;

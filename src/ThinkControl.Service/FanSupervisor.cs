@@ -276,7 +276,7 @@ internal sealed class FanSupervisor : IDisposable
             _smoothedTemperatureC = preflight.ControlTemperatureC!.Value;
             _managedFanControlKind = LenovoFanControlKind.ThinkPadEcDiscrete;
             _safetyOverride = false;
-            _status = $"Manual EC state: {level}, approximately {estimated}% of measured normal range, temperature: {preflight.ControlTemperatureC.Value:0.#} °C";
+            _status = $"Manual EC state: {level}, approximately {estimated}% of measured maximum speed, temperature: {preflight.ControlTemperatureC.Value:0.#} °C";
             _lastOutputChange = DateTimeOffset.UtcNow;
             ClearPendingTransitionLocked();
         }
@@ -615,7 +615,7 @@ internal sealed class FanSupervisor : IDisposable
                 }
                 else
                 {
-                    _status = $"Manual EC state: {manualLevel!.Value}, approximately {_appliedPercent ?? 0}% of measured normal range, temperature: {raw:0.#} °C";
+                    _status = $"Manual EC state: {manualLevel!.Value}, approximately {_appliedPercent ?? 0}% of measured maximum speed, temperature: {raw:0.#} °C";
                 }
             }
             return;
@@ -743,9 +743,18 @@ internal sealed class FanSupervisor : IDisposable
         double raw,
         CancellationToken token)
     {
-        FanOutputMapping.State desired = ResolveOutputState(requestedPercent);
         int? currentState;
-        lock (_gate) currentState = _appliedLevel;
+        HashSet<int> unstable;
+        lock (_gate)
+        {
+            currentState = _appliedLevel;
+            unstable = new HashSet<int>(_unstableLevels);
+        }
+        IReadOnlyList<FanOutputMapping.State> stableStates = FanOutputMapping.BuildStates(
+            CalibrationRpmByState(), _hardware.FanCalibrationStates)
+            .Where(state => !unstable.Contains(state.HardwareState)).ToArray();
+        FanOutputMapping.State desired = FanOutputMapping.ResolveCurve(
+            requestedPercent, stableStates, currentState, hot: raw >= 82);
         if (currentState == desired.HardwareState)
         {
             lock (_gate)
@@ -762,7 +771,7 @@ internal sealed class FanSupervisor : IDisposable
         bool shouldWrite;
         lock (_gate)
         {
-            shouldWrite = ShouldCommitDiscreteTransitionLocked(currentState, desired.HardwareState, raw, now);
+            shouldWrite = ShouldCommitDiscreteTransitionLocked(currentState, desired, raw, now);
             if (!shouldWrite)
                 _status = $"{DescribeDiscreteCurveOutput(curve.Name, requestedPercent, desired, smooth)}. Settling.";
         }
@@ -782,6 +791,7 @@ internal sealed class FanSupervisor : IDisposable
             return;
         }
 
+        _log($"Cooling curve output: {DescribeDiscreteCurveOutput(curve.Name, requestedPercent, desired, smooth)}");
         lock (_gate)
         {
             _appliedLevel = desired.HardwareState;
@@ -794,13 +804,15 @@ internal sealed class FanSupervisor : IDisposable
         }
     }
 
-    private bool ShouldCommitDiscreteTransitionLocked(int? currentState, int desiredState, double rawTemperatureC, DateTimeOffset now)
+    private bool ShouldCommitDiscreteTransitionLocked(int? currentState, FanOutputMapping.State desired, double rawTemperatureC, DateTimeOffset now)
     {
         if (!currentState.HasValue)
             return true;
 
-        int delta = desiredState - currentState.Value;
-        if (delta > 0 && (delta >= 2 || rawTemperatureC >= 82))
+        // Hardware state ids are commands, not a speed scale (for example 7 → 0x40).
+        int desiredState = desired.HardwareState;
+        int delta = desired.EstimatedPercent - (_appliedPercent ?? EstimatePercentForState(currentState.Value));
+        if (delta > 0 && rawTemperatureC >= 82)
             return true;
 
         if (_pendingLevel != desiredState)
@@ -810,7 +822,9 @@ internal sealed class FanSupervisor : IDisposable
             return false;
         }
 
-        TimeSpan dwell = delta > 0 ? MinimumUpshiftDwell : MinimumDownshiftDwell;
+        TimeSpan dwell = delta > 0
+            ? desired.EstimatedPercent == 100 ? TimeSpan.FromSeconds(12) : MinimumUpshiftDwell
+            : MinimumDownshiftDwell;
         if (now - _pendingLevelSince < dwell)
             return false;
 
@@ -856,7 +870,7 @@ internal sealed class FanSupervisor : IDisposable
     }
 
     private static string DescribeDiscreteCurveOutput(string name, int target, FanOutputMapping.State state, double temperature) =>
-        $"{name}: target {target}%, approximately {state.EstimatedPercent}% of measured normal range, EC state {state.HardwareState}, temperature: {temperature:0.#} °C";
+        $"{name}: target {target}%, approximately {state.EstimatedPercent}% of measured maximum speed, EC state {state.HardwareState}, temperature: {temperature:0.#} °C";
 
     private static string DescribeOemCurveOutput(string name, int target, double temperature) =>
         $"{name}: target {target}%, Lenovo target RPM control, temperature: {temperature:0.#} °C";
@@ -1091,7 +1105,7 @@ internal sealed class FanSupervisor : IDisposable
     {
         bool levelSuccess = _hardware.SetFanLevel(state.HardwareState, out error);
         detail = levelSuccess
-            ? $"approximately {state.EstimatedPercent}% of measured normal range (EC state {state.HardwareState})"
+            ? $"approximately {state.EstimatedPercent}% of measured maximum speed (EC state {state.HardwareState})"
             : null;
         return levelSuccess;
     }

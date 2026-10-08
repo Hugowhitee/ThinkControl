@@ -240,3 +240,6 @@ UI-affecting work is not complete because XAML compiles. Inspect deterministic s
 ## Figma and redesign work
 
 Targeted Figma/redesign work follows `docs/UI-DESIGN-HANDOFF.md`. That file defines which surfaces are currently weak enough to redesign, which validated visual mechanisms must be preserved, and how selected Figma changes return to the actual WPF source and screenshot gates.
+
+
+Cooling/preservation cohesion (v0.1.0-alpha.72): Overview quick-action cards share the icon/title, supporting line, control row and caption rhythm. Cooling adds no one-off dividers or uppercase mini-columns. Full-width preference/cooling rows share `TcSettingLabelColumn` (160 DIP); the choice and associated action sit together with a 12 DIP gap. Preservation keeps title/switch on the header rail and limit/state/Edit together on the value rail. Its 18 DIP track contains threshold marks, a patterned resume/stop window and a neutral region above the stop limit. The actual charge marker is retained above the limit; zones are described on hover rather than relying solely on color. Charging phase reuses BatteryGauge and respects the same motion preference. Paused/discharging views remain still.

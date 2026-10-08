@@ -2,6 +2,10 @@
 
 ## What's changed
 
+- Calibrated fan curves use the closest stable measured speed, hysteresis and bounded transitions rather than rounding a moderate target across a large gap to full speed. Hot-input safeguards and firmware Auto recovery remain intact.
+- Overview and Cooling share immediate profile selection, including after navigation and while older telemetry is arriving.
+- Overview Cooling follows the Power profile rails. Preservation status sits beside the limit; its thicker gauge shows the resume/stop window, neutral area above the limit, actual charge position and shared charging flow.
+
 - Calibrated Max cooling now follows its temperature/percentage curve instead of silently commanding fixed full speed. Actual fixed full speed is identified correctly and does not show an unused curve or Auto.
 - Overview now selects cooling profiles directly with the shared dropdown style, capability/calibration gates and the existing apply/recovery path.
 - Battery history detail joins General preferences. Compact Customize follows the shared control rail; gesture popup text aligns with the slider track.

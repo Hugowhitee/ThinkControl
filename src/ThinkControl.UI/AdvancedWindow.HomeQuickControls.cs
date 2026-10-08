@@ -94,7 +94,7 @@ public partial class AdvancedWindow
         if (HomeCurveAvailabilityText is null) return;
         HomeCurveAvailabilityText.Text = !_app.State.CanFanControl ||
             _app.State.FanControlKind is FanControlKinds.FullSpeedOnly or FanControlKinds.FirmwarePolicy
-            ? "Unavailable" : _app.FanCalibrationState.Required ? "Calibration required" : "Available";
+            ? "Firmware cooling" : _app.FanCalibrationState.Required ? "Calibration required" : "Measured fan curves";
         if (HomeCoolingCombo is null) return;
         _homeCoolingSync = true;
         try
