@@ -1,5 +1,7 @@
 # ThinkControl architecture
 
+Candidate v0.1.0-alpha.68 verifies sustained fan output against calibration, corrects Compact sensor navigation and simplifies Modes/System disclosures. Physical fan reproduction remains unverified; evidence is maintained in RELEASE_READINESS.md.
+
 Candidate v0.1.0-alpha.67 improves Compact interaction, mode restoration, editor actions and battery clarity. Final publication evidence is maintained in RELEASE_READINESS.md.
 
 Published v0.1.0-alpha.66 refines Mode/Automation controls, rule status and editor continuity using the existing UI and state owners. Hardware permissions are unchanged; installed physical acceptance remains UNVERIFIED. CI, installer/upgrade packaging, immutable publication and checksum verification passed; publication evidence is maintained in RELEASE_READINESS.md.

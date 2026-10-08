@@ -103,6 +103,7 @@ public partial class ModesPanel : UserControl
         Header.Subtitle = automationSurface ? "Link conditions to a saved mode. One rule wins at a time."
             : "Save settings together, then select a mode or link it to an automation rule.";
         ModeListSection.Visibility = automationSurface ? Visibility.Collapsed : Visibility.Visible;
+        ModeSelectionSection.Visibility = ModeListSection.Visibility;
         AutomationListSection.Visibility = automationSurface ? Visibility.Visible : Visibility.Collapsed;
         AutomationListSection.Margin = new Thickness(0);
         if (ReferenceEquals(_app, app))

@@ -24,6 +24,8 @@
   </a>
 </div>
 
+Candidate **v0.1.0-alpha.68** adds measured fan-output verification, corrected sensor shortcuts and simpler Modes/System controls.
+
 **v0.1.0-alpha.67** adds a shorter Compact view with Mode and configurable Automation, visible layout-drag feedback, clearer Custom battery preservation and Advanced charge/discharge animation.
 
 ## ThinkControl

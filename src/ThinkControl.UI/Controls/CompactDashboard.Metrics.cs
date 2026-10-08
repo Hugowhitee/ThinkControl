@@ -22,10 +22,10 @@ public partial class CompactDashboard
     private static readonly CompactMetricDefinition[] CompactMetricDefinitions =
     [
         new("Battery", "BATTERY", "BatteryPercentText", "BatteryEtaText", "Battery"),
-        new("CPU", "CPU", "CpuTemperatureC", "CPU sensor", "System", Unit: "°C", ValueFormat: "0"),
+        new("CPU", "CPU", "CpuTemperatureC", "CPU sensor", "Diagnostics", Unit: "°C", ValueFormat: "0"),
         new("Fans", "FAN SPEED", "FanRpm", "FanCountText", "Fans", Unit: "RPM", ValueFormat: "N0"),
         new("Power", "POWER", "BatteryPowerText", "BatteryAveragePowerText", "Battery"),
-        new("Sensors", "SENSORS", "SensorCountText", "Hardware telemetry", "System"),
+        new("Sensors", "SENSORS", "SensorCountText", "Hardware telemetry", "Diagnostics"),
         new("Display", "DISPLAY", "CurrentRefreshText", "Refresh rate", "Display"),
         new("Keyboard", "KEYBOARD", "KeyboardStatus", "Keyboard light", "Keyboard"),
         new("Performance", "PERFORMANCE", "SelectedPowerModeDisplay", "Power mode", "Performance")

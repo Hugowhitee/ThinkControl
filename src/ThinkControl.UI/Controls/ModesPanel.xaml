@@ -25,6 +25,14 @@
                     <Button x:Name="ManualOverrideResumeButton" Content="Resume automation" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left" Click="ResumeAutomation_Click" Visibility="Collapsed" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
+            <Border x:Name="ModeSelectionSection" Style="{StaticResource TcSection}" Margin="0,0,0,14">
+                <StackPanel>
+                    <TextBlock Text="Apply mode" Style="{StaticResource TcText.ControlLabel}" Margin="0,0,0,8" />
+                    <ComboBox x:Name="ModeSelector" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" MinHeight="38" SelectionChanged="ModeSelector_SelectionChanged" />
+                    <Button x:Name="UseRegularSettingsButton" Content="Turn off mode" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left"
+                            Margin="0,8,0,0" ToolTip="Restore regular settings and pause the current automation rule. Resume or a different winning rule can activate a mode again." Click="UseRegularSettings_Click" />
+                </StackPanel>
+            </Border>
             <Border x:Name="ModeListSection" Style="{StaticResource TcSection}" Padding="0">
                 <StackPanel>
                     <Grid Margin="14,12,12,10">
@@ -32,7 +40,7 @@
                             <TextBlock Text="Saved modes"
                                        FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                        FontWeight="SemiBold" />
-                            <TextBlock Text="Select a mode to apply it. The rows below show its settings."
+                            <TextBlock Text="Manage the settings saved in each mode."
                                        Foreground="{DynamicResource Tc.TextMuted}"
                                        FontSize="{x:Static ui:TypographyScale.Caption}"
                                        Margin="0,4,140,0"
@@ -48,14 +56,6 @@
                                 Click="NewMode_Click" />
                     </Grid>
 
-                    <ComboBox x:Name="ModeSelector"
-                              Style="{StaticResource TcComboBox}"
-                              DisplayMemberPath="Name"
-                              MinHeight="38"
-                              Margin="14,0,14,10"
-                              SelectionChanged="ModeSelector_SelectionChanged" />
-                    <Button x:Name="UseRegularSettingsButton" Content="Turn off mode" Style="{StaticResource TcInlineButton}" HorizontalAlignment="Left"
-                            Margin="14,0,14,10" ToolTip="Restore regular settings and pause the current automation rule. Resume or a different winning rule can activate a mode again." Click="UseRegularSettings_Click" />
                     <StackPanel x:Name="ModeRows" />
 
                     <TextBlock x:Name="EmptyModesText"

@@ -15,6 +15,12 @@ public static class FanCurvePolicy
     public const double SafetyHandoffC = 94.0;
     public const double SafetyResumeC = 90.0;
 
+    // A latched full-speed output must not be presented as a confirmed low curve.
+    // Allow normal tachometer noise; the supervisor separately allows settling time.
+    public static bool ExceedsMeasuredOutput(int expectedRpm, int? observedRpm) =>
+        expectedRpm > 0 && observedRpm is int actual &&
+        actual > expectedRpm + Math.Max(1000, expectedRpm * 0.30);
+
     private static readonly double[] SilentThresholds = [double.NegativeInfinity, 62, 70, 77, 83, 88, 92];
     private static readonly double[] NormalThresholds = [double.NegativeInfinity, 55, 63, 70, 77, 84, 90];
     private static readonly double[] CoolThresholds = [double.NegativeInfinity, 48, 56, 64, 72, 80, 87];

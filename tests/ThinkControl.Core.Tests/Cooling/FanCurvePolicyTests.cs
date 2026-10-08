@@ -6,6 +6,15 @@ namespace ThinkControl.Core.Tests.Cooling;
 public sealed class FanCurvePolicyTests
 {
     [Theory]
+    [InlineData(3500, 9400, true)]
+    [InlineData(3500, 4400, false)]
+    [InlineData(9400, 9656, false)]
+    [InlineData(0, 9400, false)]
+    [InlineData(3500, null, false)]
+    public void OutputReadbackDetectsFullSpeedAgainstALowMeasuredState(int expected, int? actual, bool excessive) =>
+        Assert.Equal(excessive, FanCurvePolicy.ExceedsMeasuredOutput(expected, actual));
+
+    [Theory]
     [InlineData(CoolingProfile.Silent, 61, 1)]
     [InlineData(CoolingProfile.Silent, 62, 2)]
     [InlineData(CoolingProfile.Normal, 63, 3)]

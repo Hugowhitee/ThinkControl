@@ -49,13 +49,17 @@ internal static partial class Program
                 {
                     await ValidateFanSupervisorRecovery();
                     ValidateCurveInspection(app);
+                    Console.WriteLine("Curve inspection passed.");
                     await ValidateAutomationTransitions(app);
+                    Console.WriteLine("Automation transitions passed.");
                     ValidateModeSwitchControls(app);
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();
                     await ValidateBatteryMotion();
+                    Console.WriteLine("Keyboard and battery motion passed.");
                     ValidateCompactDragFeedback(app);
                     await ValidateContextTabsAndAudioReadback();
+                    Console.WriteLine("Drag feedback, context tabs and audio readback passed.");
                     RunScenario(app);
                     exitCode = 0;
                 }
@@ -896,11 +900,26 @@ internal static partial class Program
         string[] limitedNames = limitedSelector.Items.Cast<object>()
             .Select(item => (string)item.GetType().GetProperty("Name")!.GetValue(item)!).ToArray();
         if (!limitedNames.SequenceEqual(new[] { "Auto", "Max cooling" }) || !limitedSelector.IsEnabled ||
-            ((Expander)limitedFans.FindName("AdvancedFanControlsExpander")).Visibility != Visibility.Collapsed)
+            ((FrameworkElement)limitedFans.FindName("AdvancedFanControlsExpander")).Visibility != Visibility.Collapsed)
             throw new InvalidOperationException("Limited fan capability exposed unsupported choices or hid its working selector.");
 
         AdvancedWindow window = app.AdvancedWindowForShellSmoke
             ?? throw new InvalidOperationException("Page smoke: Advanced window was not available.");
+        foreach (var (metric, destination) in new[] { ("CPU", "Diagnostics"), ("Sensors", "Diagnostics"), ("Fans", "Fans"), ("Battery", "Battery"), ("Power", "Battery"), ("Display", "Display"), ("Keyboard", "Keyboard"), ("Performance", "Performance") })
+        {
+            app.SwitchAdvancedToCompact();
+            Pump(app.Dispatcher);
+            var dashboard = (ThinkControl.UI.Controls.CompactDashboard)app.CompactWindow.FindName("Dashboard");
+            var slots = typeof(ThinkControl.UI.Controls.CompactDashboard).GetField("_compactMetricSlots", BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var original = (string[])slots.GetValue(dashboard)!;
+            slots.SetValue(dashboard, new[] { metric, "Battery", "Fans" });
+            try { ((Button)dashboard.FindName("CompactMetricSlot0")).RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent)); }
+            finally { slots.SetValue(dashboard, original); }
+            Pump(app.Dispatcher);
+            string? actual = (string?)typeof(AdvancedWindow).GetField("_selectedPage", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(window);
+            if (actual != destination || !window.IsVisible)
+                throw new InvalidOperationException($"Compact {metric} opened {actual} instead of {destination}.");
+        }
         ValidateHistoryManagement(app, window);
 
         double oldWidth = window.Width, oldHeight = window.Height;

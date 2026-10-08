@@ -1,5 +1,11 @@
 # ThinkControl release-readiness roadmap
 
+## Alpha.68 candidate - fan output verification and navigation
+
+Reported full-speed output on a low curve is not physically reproduced. The production loop previously confirmed EC state/ownership but did not compare sustained RPM against calibration. It now allows 30 seconds to settle, then hands back to Auto after three ticks above the measured state by more than 1000 RPM or 30%. A failed tick no longer silently retains its last output, and unconfirmed Auto recovery is labelled honestly. No new hardware write contract or unsupported lower state is enabled. Stored reference calibration starts at about 3500 RPM against 9400 RPM maximum: an 8% graph target resolves to that minimum, not literal 8% PWM. Physical reproduction and post-install fan acceptance remain UNVERIFIED.
+
+Compact CPU/Sensors go to Diagnostics; all eight status-tile destinations have routed WPF checks. Mode selection is separate from the Saved modes management list. System battery history retention (already functional), device links and lid actions are visible without More preferences. Cooling replaces its provider-only Advanced fan controls expander with an inline measured-output hint; temporary tests remain capability-gated. Required build/tests, native light/dark minimum/wide review and exact-head packaging gates precede release.
+
 ## Published alpha.67 - October 8, 2026
 
 Owner requested a downloadable follow-up: direct mode-off, shorter Compact with Mode among configurable controls, actual-tile drag feedback, editor-local actions, larger remove icons, clearer Custom preservation and visible Advanced charge/discharge flow. Windows ClientAreaAnimation is disabled on the reference desktop, explaining absent alpha.66 flow. Alpha.67 adds On/Off/System without changing Windows; On is the requested app default, Compact stays static.
