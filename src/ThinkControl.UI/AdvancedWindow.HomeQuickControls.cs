@@ -4,6 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using ThinkControl.Core.Ipc;
+using ThinkControl.Core.Cooling;
 using ThinkControl.UI.Services;
 
 namespace ThinkControl.UI;
@@ -12,6 +13,8 @@ public partial class AdvancedWindow
 {
     private bool _homeQuickControlsConfigured;
     private bool _homeModeBusy;
+    private bool _homeCoolingSync;
+    private bool _homeCoolingBusy;
 
     private void ConfigureHomeQuickControls()
     {
@@ -19,11 +22,13 @@ public partial class AdvancedWindow
         {
             _homeQuickControlsConfigured = true;
             _app.State.PropertyChanged += HomeQuickState_PropertyChanged;
+            _app.FanCalibrationStateChanged += HomeFanCalibrationChanged;
             _app.Modes.Changed += HomeModes_Changed;
             _app.ModeAutomation.Changed += HomeModes_Changed;
             Closed += (_, _) =>
             {
                 _app.State.PropertyChanged -= HomeQuickState_PropertyChanged;
+                _app.FanCalibrationStateChanged -= HomeFanCalibrationChanged;
                 _app.Modes.Changed -= HomeModes_Changed;
                 _app.ModeAutomation.Changed -= HomeModes_Changed;
             };
@@ -38,7 +43,8 @@ public partial class AdvancedWindow
     {
         if (e.PropertyName is nameof(ViewModels.AppState.CoolingProfile) or
             nameof(ViewModels.AppState.CanFanControl) or
-            nameof(ViewModels.AppState.FanControlKind))
+            nameof(ViewModels.AppState.FanControlKind) or
+            nameof(ViewModels.AppState.CoolingAvailabilityText))
         {
             Dispatcher.BeginInvoke(new Action(RefreshHomeCoolingSummary));
             return;
@@ -89,6 +95,57 @@ public partial class AdvancedWindow
         HomeCurveAvailabilityText.Text = !_app.State.CanFanControl ||
             _app.State.FanControlKind is FanControlKinds.FullSpeedOnly or FanControlKinds.FirmwarePolicy
             ? "Unavailable" : _app.FanCalibrationState.Required ? "Calibration required" : "Available";
+        if (HomeCoolingCombo is null) return;
+        _homeCoolingSync = true;
+        try
+        {
+            var profiles = _app.FanProfiles.GetProfiles().Where(profile =>
+                FanControlKinds.SupportsProfile(_app.State.FanControlKind, profile.Id));
+            if (_app.State.FanControlKind == FanControlKinds.FirmwarePolicy)
+                profiles = profiles.Where(profile => _app.FanProfiles.IsBuiltIn(profile.Id));
+            if (_app.FanCalibrationState.Required)
+                profiles = profiles.Where(profile => profile.Id == FanCurveDefaults.MaxCoolingId);
+            var choices = new List<FanCurveDefinition> { new("Lenovo Auto", "Auto", []) };
+            choices.AddRange(profiles);
+            string current = _app.State.CoolingProfile;
+            FanCurveDefinition? selected = choices.FirstOrDefault(profile =>
+                profile.Id.Equals(current, StringComparison.OrdinalIgnoreCase) ||
+                profile.Name.Equals(current, StringComparison.OrdinalIgnoreCase));
+            if (selected is null && !string.IsNullOrWhiteSpace(current))
+            {
+                selected = new(current, _app.State.CoolingProfileDisplay, []);
+                choices.Add(selected);
+            }
+            HomeCoolingCombo.ItemsSource = choices;
+            HomeCoolingCombo.SelectedItem = selected;
+            HomeCoolingCombo.IsEnabled = _app.State.CanFanControl && !_homeCoolingBusy && !_app.FanCalibrationState.Running;
+            HomeCoolingDetailText.Text = _app.LastCoolingError ?? _app.State.CoolingAvailabilityText;
+            HomeCoolingDetailText.ToolTip = HomeCoolingDetailText.Text;
+            HomeCoolingDetailText.SetResourceReference(TextBlock.ForegroundProperty,
+                _app.LastCoolingError is null ? "Tc.TextMuted" : "Tc.Error");
+        }
+        finally { _homeCoolingSync = false; }
+    }
+
+    private void HomeFanCalibrationChanged(object? sender, EventArgs e) =>
+        Dispatcher.BeginInvoke(new Action(RefreshHomeCoolingSummary));
+
+    private void HomeCooling_DropDownOpened(object sender, EventArgs e)
+    {
+        RefreshHomeCoolingSummary();
+        HomeCoolingCombo.IsDropDownOpen = true;
+    }
+
+    private async void HomeCooling_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_homeCoolingSync || _homeCoolingBusy || HomeCoolingCombo.SelectedItem is not FanCurveDefinition choice)
+            return;
+        if (choice.Id.Equals(_app.State.CoolingProfile, StringComparison.OrdinalIgnoreCase) ||
+            choice.Name.Equals(_app.State.CoolingProfile, StringComparison.OrdinalIgnoreCase)) return;
+        _homeCoolingBusy = true;
+        HomeCoolingCombo.IsEnabled = false;
+        try { await _app.SetCoolingProfileAsync(choice.Id); }
+        finally { _homeCoolingBusy = false; RefreshHomeCoolingSummary(); }
     }
 
     private void HomeModes_Changed() =>

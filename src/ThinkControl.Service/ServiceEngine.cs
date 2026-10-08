@@ -276,7 +276,7 @@ internal sealed class ServiceEngine : IDisposable
             status.CpuTemperatureSource,
             status.FanRpm,
             status.FanRpmSource,
-            status.FanState,
+            firmwareOverride && firmwareCooling.FullSpeedOnly ? "Verified full speed" : status.FanState,
             firmwareCooling.UnavailableReason is string coolingUnavailable
                 ? $"{status.HardwareAccess} · Cooling read-only: {coolingUnavailable}"
                 : status.HardwareAccess,
@@ -306,7 +306,9 @@ internal sealed class ServiceEngine : IDisposable
 
         bool firmwareProfileControl = firmwareCooling.ControlAvailable;
         bool productFanControl = status.CanFanControl || firmwareProfileControl;
-        string fanControlKind = status.CanFanControl
+        string fanControlKind = firmwareOverride && firmwareCooling.FullSpeedOnly
+            ? FanControlKinds.FullSpeedOnly
+            : status.CanFanControl
             ? ToFanControlKind(status.FanControlKind)
             : firmwareProfileControl
                 ? firmwareCooling.FullSpeedOnly ? FanControlKinds.FullSpeedOnly : FanControlKinds.FirmwarePolicy
@@ -469,9 +471,11 @@ internal sealed class ServiceEngine : IDisposable
             return ReturnFanToAuto();
         }
 
-        bool measuredProfile = _hardware.CanControlRegulatedFans &&
-            !normalized.Equals("Max cooling", StringComparison.OrdinalIgnoreCase) &&
-            !normalized.Equals(FanCurveDefaults.MaxCoolingId, StringComparison.OrdinalIgnoreCase);
+        bool maxProfile = normalized.Equals("Max cooling", StringComparison.OrdinalIgnoreCase) ||
+                          normalized.Equals(FanCurveDefaults.MaxCoolingId, StringComparison.OrdinalIgnoreCase);
+        bool calibrated = FanCalibrationPolicy.TryValidate(_fanSupervisor.Snapshot().Characterization.Levels,
+            _hardware.FanCalibrationStates, out _);
+        bool measuredProfile = _hardware.CanControlRegulatedFans && (!maxProfile || calibrated);
         if (_fanSupervisor.Snapshot().Characterization.Running)
             return Error("Finish or stop the fan measurement before changing profiles.");
         if (_coolingPolicy.Supported && !measuredProfile && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(normalized))
@@ -506,8 +510,7 @@ internal sealed class ServiceEngine : IDisposable
 
         // A measured direct controller must receive the edited points, even when
         // the curve retains a built-in id. Firmware-only providers still use policy.
-        bool measuredCurve = _hardware.CanControlRegulatedFans &&
-                             !string.Equals(definition.Id, FanCurveDefaults.MaxCoolingId, StringComparison.OrdinalIgnoreCase);
+        bool measuredCurve = _hardware.CanControlRegulatedFans;
         if (_coolingPolicy.Supported && !measuredCurve && LenovoCoolingPolicyCoordinator.IsBuiltInProfile(definition.Id))
             return SetCoolingProfile(definition.Name);
 

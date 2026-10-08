@@ -187,8 +187,8 @@
                         <ColumnDefinition />
                       </Grid.ColumnDefinitions>
                       <StackPanel>
-                        <TextBlock Text="CONTROLLER" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
-                        <TextBlock Text="{Binding CoolingProfileDisplay}" Style="{StaticResource TcText.SectionTitle}" Margin="0,8,0,0" />
+                        <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
+                        <ComboBox x:Name="HomeCoolingCombo" DisplayMemberPath="Name" Style="{StaticResource TcComboBox}" Margin="0,8,12,0" SelectionChanged="HomeCooling_SelectionChanged" DropDownOpened="HomeCooling_DropDownOpened" AutomationProperties.Name="Cooling profile" />
                       </StackPanel>
                       <StackPanel Grid.Column="1">
                         <TextBlock Text="DIRECT CURVES" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
@@ -201,7 +201,7 @@
                         <ColumnDefinition />
                         <ColumnDefinition Width="142" />
                       </Grid.ColumnDefinitions>
-                      <TextBlock Text="{Binding CoolingAvailabilityText}" Style="{StaticResource TcText.Caption}" TextTrimming="CharacterEllipsis" ToolTip="{Binding CoolingAvailabilityText}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                      <TextBlock x:Name="HomeCoolingDetailText" Text="{Binding CoolingAvailabilityText}" Style="{StaticResource TcText.Caption}" TextTrimming="CharacterEllipsis" ToolTip="{Binding CoolingAvailabilityText}" VerticalAlignment="Center" Margin="0,0,8,0" />
                       <Button Grid.Column="1" Content="Fan settings" Style="{StaticResource TcButton}" Click="HomeOpenPage_Click" Tag="Fans" />
                     </Grid>
                   </StackPanel>
@@ -481,16 +481,24 @@
                     <TextBlock Text="Start with Windows" VerticalAlignment="Center" />
                     <CheckBox x:Name="StartupSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" HorizontalAlignment="Left" />
                   </Grid>
+                  <Grid Margin="0,20,0,0">
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="132" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                    <TextBlock Text="Battery history detail" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
+                    <ComboBox x:Name="SettingsBatteryRetention" Grid.Column="1" Style="{StaticResource TcComboBox}" SelectionChanged="BatteryRetention_SelectionChanged">
+                      <ComboBoxItem Content="7 days" /><ComboBoxItem Content="14 days" /><ComboBoxItem Content="30 days" />
+                    </ComboBox>
+                    <TextBlock Grid.Column="2" Text="Older samples become daily summaries; health trends remain." Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="12,0,0,0" />
+                  </Grid>
                   <Border Height="1" Background="{DynamicResource Tc.Divider}" Margin="0,14,0,8" />
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="190" />
+                      <ColumnDefinition Width="160" />
+                      <ColumnDefinition Width="132" />
                       <ColumnDefinition />
-                      <ColumnDefinition Width="144" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Compact layout" FontWeight="SemiBold" VerticalAlignment="Center" />
-                    <TextBlock Grid.Column="1" Text="Choose tiles and status metrics" Style="{StaticResource TcText.Secondary}" VerticalAlignment="Center" />
-                    <Button Grid.Column="2" Content="Customize" Style="{StaticResource TcButton}" Click="CompactCustomize_Click" />
+                    <Button Grid.Column="1" Content="Customize" Style="{StaticResource TcButton}" Click="CompactCustomize_Click" />
+                    <TextBlock Grid.Column="2" Text="Choose tiles and status metrics" Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" VerticalAlignment="Center" Margin="12,0,0,0" />
                   </Grid>
                 </StackPanel>
               </Border>
@@ -508,23 +516,7 @@
 
               <StackPanel Margin="0,16,0,0">
 
-                  <Border Style="{StaticResource TcSettingsRow}">
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition Width="132" />
-                      </Grid.ColumnDefinitions>
-                      <StackPanel>
-                        <TextBlock Text="Battery history detail" FontWeight="SemiBold" />
-                        <TextBlock Text="Older samples become daily summaries; health trends remain." Style="{StaticResource TcText.Caption}" />
-                      </StackPanel>
-                      <ComboBox x:Name="SettingsBatteryRetention" Grid.Column="1" Style="{StaticResource TcComboBox}" SelectionChanged="BatteryRetention_SelectionChanged">
-                        <ComboBoxItem Content="7 days" />
-                        <ComboBoxItem Content="14 days" />
-                        <ComboBoxItem Content="30 days" />
-                      </ComboBox>
-                    </Grid>
-                  </Border>
+
                   <Border Style="{StaticResource TcSection}">
                     <StackPanel>
                       <TextBlock x:Name="SystemVendorCardTitle" Text="Device &amp; drivers" FontWeight="SemiBold" />

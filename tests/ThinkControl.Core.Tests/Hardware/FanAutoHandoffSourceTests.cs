@@ -87,7 +87,10 @@ public sealed class FanAutoHandoffSourceTests
         Assert.DoesNotContain("StartsWith(\"Manual \", StringComparison.OrdinalIgnoreCase) => \"Auto\"", compact, StringComparison.Ordinal);
 
         string homeXaml = ReadNormalized(Path.Combine(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml"));
-        Assert.Contains("Text=\"{Binding CoolingProfileDisplay}\"", homeXaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"HomeCoolingCombo\"", homeXaml, StringComparison.Ordinal);
+        Assert.Contains("selected = new(current, _app.State.CoolingProfileDisplay, []);", home, StringComparison.Ordinal);
+        Assert.Contains("HomeCoolingCombo.SelectedItem = selected;", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeCoolingCombo.SelectedItem = selected ??", home, StringComparison.Ordinal);
         Assert.Contains("Tag=\"Fans\"", homeXaml, StringComparison.Ordinal);
         Assert.DoesNotContain("HomeFanProfileCombo", homeXaml, StringComparison.Ordinal);
     }
