@@ -1,10 +1,6 @@
 # ThinkControl alpha testing guide
 
-## v0.1.0-alpha.69 stabilization candidate
-
-Advanced charging uses a clear Fluent lightning symbol with a gentle brightness pulse. Battery level colors remain visible; discharge is static, low-charge warnings remain semantic, and Compact stays static. Direct fan profile errors expose the explicit Auto recovery action even when Auto is already selected. Edited built-in curves retain their points on measured direct controllers; firmware-only routing and Max cooling are preserved. 0% means the lowest measured running state, not fan off; firmware Auto can stop the fans.
-
-A bounded alpha.68 production-service probe accepted Quiet and then confirmed Auto. This does not reproduce the sustained RPM complaint or verify the alpha.69 installed fix. New physical fan-off writes are not introduced. Targeted WPF and provider-fixture checks plus exact-head hosted packaging gates are required before publication.
+Published v0.1.0-alpha.69 preserves battery level colors with a pulsing Fluent charging symbol and static discharge. Direct fan failures expose Auto recovery; edited built-in curves retain their points on measured controllers. 0% is the minimum measured running speed; Auto permits firmware-managed fan stop. Exact-head Windows/installer checks and public asset checksums passed; sustained physical fan behavior and installed acceptance remain unverified. See RELEASE_READINESS.md.
 
 Published v0.1.0-alpha.68 verifies sustained fan output against calibration, corrects Compact sensor navigation and simplifies Modes/System disclosures. Physical fan reproduction remains unverified; evidence is maintained in RELEASE_READINESS.md.
 
