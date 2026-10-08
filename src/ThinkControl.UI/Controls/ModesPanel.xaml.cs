@@ -77,8 +77,9 @@ public partial class ModesPanel : UserControl
         StackPanel rail = Header.EnsureActionStack();
         rail.Children.Add(_modifiedLabel);
         Header.AddAction(_reapplyButton, PageHeaderActionRole.Context);
-        Header.AddAction(_cancelButton, PageHeaderActionRole.Context);
-        Header.AddAction(_saveButton, PageHeaderActionRole.Context);
+        EditorActions.Children.Add(_cancelButton);
+        _saveButton.Margin = new Thickness(8, 0, 0, 0);
+        EditorActions.Children.Add(_saveButton);
         _saveButton.Style = TryFindResource("TcButton") as Style;
     }
 
@@ -279,6 +280,7 @@ public partial class ModesPanel : UserControl
         BeginEdit(new ThinkControlModeDefinition(rule.ModeId, rule.Name));
         _editingRuleId = rule.Id;
         EditorTitleText.Text = "Automation rule";
+        EditorPageTitle.Text = "Edit rule";
         AutomationSwitch.Visibility = Visibility.Visible;
         ModeNameTextBox.MaxLength = 48;
         ModeControlsSection.Visibility = Visibility.Collapsed;
@@ -537,6 +539,7 @@ public partial class ModesPanel : UserControl
     {
         _editingRuleId = null;
         EditorTitleText.Text = "Mode details";
+        EditorPageTitle.Text = "Edit mode";
         AutomationSwitch.Visibility = Visibility.Collapsed;
         ModeNameTextBox.MaxLength = 32;
         ModeControlsSection.Visibility = Visibility.Visible;
@@ -682,7 +685,7 @@ public partial class ModesPanel : UserControl
         var grid = new Grid { MinHeight = 48, MaxWidth = 740, HorizontalAlignment = HorizontalAlignment.Stretch };
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(220) });
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(34) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(46) });
 
         grid.Children.Add(new TextBlock
         {
@@ -704,6 +707,9 @@ public partial class ModesPanel : UserControl
         grid.Children.Add(combo);
 
         var remove = InlineButton("×", RemoveSetting_Click, facet);
+        remove.Width = remove.MinHeight = 40;
+        remove.Padding = new Thickness(4);
+        remove.Content = new PackIconLucide { Kind = "Close", Width = 20, Height = 20 };
         remove.ToolTip = $"Remove {label}";
         remove.Margin = new Thickness(6, 0, 0, 0);
         remove.HorizontalAlignment = HorizontalAlignment.Right;
@@ -971,6 +977,9 @@ public partial class ModesPanel : UserControl
         var actions = new StackPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(enabled);
         var remove = InlineButton("×", RemoveTrigger_Click, index);
+        remove.Width = remove.MinHeight = 40;
+        remove.Padding = new Thickness(4);
+        remove.Content = new PackIconLucide { Kind = "Close", Width = 20, Height = 20 };
         remove.ToolTip = "Remove trigger";
         remove.Margin = new Thickness(6, 0, 0, 0);
         remove.HorizontalAlignment = HorizontalAlignment.Right;
@@ -1309,6 +1318,7 @@ public partial class ModesPanel : UserControl
         }
 
         bool transitioning = _app.Modes.IsTransitioning;
+        UseRegularSettingsButton.IsEnabled = !transitioning && (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.LastTransitionError is not null);
         bool failed = !transitioning && !string.IsNullOrWhiteSpace(_app.Modes.LastTransitionError);
         bool modified = _app.Modes.IsModified && !transitioning;
         bool automatic = _app.Modes.ActiveModeAutomatic &&
@@ -1328,7 +1338,7 @@ public partial class ModesPanel : UserControl
             : Visibility.Collapsed;
         _reapplyButton.Visibility = modified && !failed ? Visibility.Visible : Visibility.Collapsed;
         if (failed && (_app.Modes.FailedModeId == ThinkControlModeCatalog.NormalId || !_app.Modes.GetModes().Any(mode => mode.Id == _app.Modes.FailedModeId)))
-            ShowListStatus($"Couldn’t apply {_app.Modes.FailedModeName ?? "the mode"}.");
+            ShowListStatus(_app.Modes.FailureSummary);
         else
         {
             ListStatusText.Visibility = Visibility.Collapsed;

@@ -66,6 +66,7 @@ internal sealed class ThinkControlModeCoordinator
     internal string? LastTransitionError { get; private set; }
     internal string? FailedModeId { get; private set; }
     internal string? FailedModeName { get; private set; }
+    internal string FailureSummary => FailedModeId == ThinkControlModeCatalog.NormalId ? "Could not turn off mode." : $"Could not apply {FailedModeName ?? "the mode"}.";
     internal bool SettingsNeedChecking { get; private set; }
     internal string? TransitionModeId { get; private set; }
     internal string? TransitionModeName { get; private set; }
@@ -210,9 +211,10 @@ internal sealed class ThinkControlModeCoordinator
                         return false;
                     }
 
-                    ClearBaseline(facet);
                 }
 
+                foreach (ThinkControlModeFacet facet in previousOwned.Except(targetFacets))
+                    ClearBaseline(facet);
                 _owned.Clear();
                 foreach (ThinkControlModeFacet facet in targetFacets)
                     _owned.Add(facet);

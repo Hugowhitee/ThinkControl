@@ -64,6 +64,7 @@ public partial class App : System.Windows.Application
         ThinkControlUserSettings preferences = UserSettings.Current;
         BatteryHistoryService.ConfigureDetailedRetentionDays(preferences.BatteryDetailRetentionDays);
         ThemeService.Apply(preferences.Theme);
+        State.BatteryMotionPreference = preferences.BatteryMotionPreference;
         State.RefreshAutoEnabled = preferences.RefreshAuto;
         State.KeyboardMode = preferences.KeyboardMode;
         State.KeyboardBaseLevel = preferences.KeyboardBaseLevel;

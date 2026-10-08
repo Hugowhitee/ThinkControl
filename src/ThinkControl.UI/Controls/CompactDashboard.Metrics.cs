@@ -34,7 +34,7 @@ public partial class CompactDashboard
     private readonly CompactMetricLayoutService _compactMetricLayout = new();
     private string[] _compactMetricSlots = ["Battery", "CPU", "Fans"];
     private bool _compactMetricsReady;
-    private string[] _compactControlSlots = ["Performance", "Fans", "Display", "Keyboard"];
+    private string[] _compactControlSlots = ["Performance", "Fans", "Display", "Mode"];
 
     private void EnsureCompactMetrics()
     {
@@ -91,7 +91,7 @@ public partial class CompactDashboard
         valueRow.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         if (definition.Id == "Battery")
         {
-            var gauge = new BatteryGauge { Width = 30, Height = 16, Margin = new Thickness(0, 5, 6, 0), VerticalAlignment = VerticalAlignment.Center };
+            var gauge = new BatteryGauge { Width = 34, Height = 18, MotionEnabled = false, Margin = new Thickness(0, 5, 6, 0), VerticalAlignment = VerticalAlignment.Center };
             gauge.SetBinding(BatteryGauge.PercentProperty, new Binding("BatteryPercent"));
             gauge.SetBinding(BatteryGauge.IsChargingProperty, new Binding("BatteryCharging"));
             gauge.SetBinding(BatteryGauge.IsDischargingProperty, new Binding("BatteryDischarging"));

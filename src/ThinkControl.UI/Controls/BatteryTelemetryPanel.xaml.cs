@@ -263,10 +263,10 @@ public partial class BatteryTelemetryPanel : UserControl
             {
                 selected = new ListBoxItem
                 {
-                    Content = $"Custom: {snapshotStart}–{snapshotStop}%",
-                    Tag = $"custom:{snapshotStart},{snapshotStop}", Visibility = Visibility.Collapsed
+                    Content = "Custom", ToolTip = $"Custom: {snapshotStart}–{snapshotStop}%",
+                    Tag = $"custom:{snapshotStart},{snapshotStop}"
                 };
-                ChargeProtectionComboBox.Items.Insert(0, selected);
+                ChargeProtectionComboBox.Items.Add(selected);
             }
             ChargeProtectionComboBox.SelectedItem = selected ?? ChargeProtectionComboBox.Items.OfType<ListBoxItem>().FirstOrDefault();
             ChargeProtectionSwitch.IsChecked = snapshotProtection;

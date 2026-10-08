@@ -12,7 +12,8 @@ internal sealed class CompactMetricLayoutService
     };
 
     private readonly string _path;
-    private static readonly string[] DefaultControls = ["Performance", "Fans", "Display", "Keyboard"];
+    private static readonly string[] DefaultControls = ["Performance", "Fans", "Display", "Mode"];
+    internal static readonly string[] AvailableControls = ["Performance", "Fans", "Display", "Keyboard", "Mode", "Automation"];
     private sealed record LayoutDocument(int Schema, string[] Metrics, string[] Controls);
     private bool IsTransient => System.Windows.Application.Current is App { IsVisualQa: true };
 
@@ -60,7 +61,7 @@ internal sealed class CompactMetricLayoutService
 
     private LayoutDocument ReadDocument()
     {
-        var fallback = new LayoutDocument(2, [.. DefaultLayout], [.. DefaultControls]);
+        var fallback = new LayoutDocument(3, [.. DefaultLayout], [.. DefaultControls]);
         try
         {
             if (IsTransient || !File.Exists(_path)) return fallback;
@@ -68,7 +69,7 @@ internal sealed class CompactMetricLayoutService
             if (json.TrimStart().StartsWith('[')) return fallback with { Metrics = Sanitize(JsonSerializer.Deserialize<string[]>(json)) };
             var saved = JsonSerializer.Deserialize<LayoutDocument>(json);
             if (saved is null) return fallback;
-            return fallback with { Metrics = Sanitize(saved.Metrics), Controls = SanitizeControls(saved.Controls) };
+            return fallback with { Metrics = Sanitize(saved.Metrics), Controls = SanitizeControls(saved.Schema < 3 ? saved.Controls?.Select(id => id == "Keyboard" ? "Mode" : id).ToArray() : saved.Controls) };
         }
         catch { return fallback; }
     }
@@ -88,8 +89,8 @@ internal sealed class CompactMetricLayoutService
     }
     private static string[] SanitizeControls(IReadOnlyList<string>? values)
     {
-        if (values is null || values.Count != 4 || values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 4 || values.Any(v => !DefaultControls.Contains(v, StringComparer.OrdinalIgnoreCase))) return [.. DefaultControls];
-        return values.Select(v => DefaultControls.First(d => d.Equals(v, StringComparison.OrdinalIgnoreCase))).ToArray();
+        if (values is null || values.Count != 4 || values.Distinct(StringComparer.OrdinalIgnoreCase).Count() != 4 || values.Any(v => !AvailableControls.Contains(v, StringComparer.OrdinalIgnoreCase))) return [.. DefaultControls];
+        return values.Select(v => AvailableControls.First(d => d.Equals(v, StringComparison.OrdinalIgnoreCase))).ToArray();
     }
     private static string[] Sanitize(IReadOnlyList<string>? values)
     {

@@ -1,5 +1,7 @@
 # Product specification
 
+Candidate v0.1.0-alpha.67 improves Compact interaction, mode restoration, editor actions and battery clarity. Final publication evidence is maintained in RELEASE_READINESS.md.
+
 Published v0.1.0-alpha.66 refines Mode/Automation controls, rule status and editor continuity using the existing UI and state owners. Hardware permissions are unchanged; installed physical acceptance remains UNVERIFIED. CI, installer/upgrade packaging, immutable publication and checksum verification passed; publication evidence is maintained in RELEASE_READINESS.md.
 
 Published v0.1.0-alpha.65 makes active modes and their manual/rule source explicit, exposes curve editing and app-icon opening preferences, and integrates battery details/session navigation. Existing mode arbitration and hardware capability boundaries remain authoritative.
@@ -240,3 +242,11 @@ Packaging/installer CI validates payload construction, custom-location install/u
 ThinkControl does not provide arbitrary EC register editing, arbitrary port I/O, arbitrary IOCTL passthrough, unverified fan-off/override states, private CPU tuning calls or automatic low-level write support for unknown machines.
 
 New low-level features require a documented provider contract, a defined safety/recovery model, narrow identity/capability gating and test/physical evidence appropriate to the risk. Alpha.41's full-speed path uses one already-documented semantic ID and exact boolean values only; it is not permission to broaden Lenovo Other Mode writes. Audio Safety is a Windows user-session policy and does not weaken these hardware boundaries.
+
+### Compact and mode interaction contract (alpha.67)
+
+Compact is 420 by 501 logical units. Defaults: Power profile, Cooling, Refresh rate and Mode. Schema 3 replaces legacy Keyboard with Mode in place, preserves metrics/order and allows Keyboard or Automation as replacements. Dropping a current tile swaps; an available same-family tile replaces. Cross-family/self targets reject. A drag dims the source, follows the pointer with the actual tile and highlights the valid target; drop/leave/cancel clears feedback. Nothing persists before a valid drop.
+
+Turn off mode restores owned facets through the coordinator, preserves manual overrides and pauses the winning automation context after success. A failed restore remains an error with details and retry. Windows power restoration captures the actual effective overlay under Balanced as well as temporary plan changes; failed Balanced restoration retains its baseline for retry.
+
+Editor Save/Cancel belongs below destination tabs alongside Edit mode/Edit rule; draft retention is unchanged. Remove uses the existing Fluent close glyph at 20 units in a 40-unit target. Custom charge thresholds have a selected Custom segment and an Edit action. Advanced battery flow reverses for discharge and fades at idle. General preferences offers Battery animation On/Off/System; On permits this indicator when Windows animations are disabled, System follows Windows. The requested app default is On. Compact never animates and reserves room for 100%.

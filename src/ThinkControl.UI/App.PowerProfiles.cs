@@ -100,10 +100,17 @@ public partial class App
     internal bool RestorePowerModeOverride()
     {
         if (PowerModeService.HasModePlan)
-            return PowerModeService.RestoreModePlan();
+        {
+            bool restored = PowerModeService.RestoreModePlan();
+            LastPowerModeError = restored ? null : PowerModeService.LastEffectiveError;
+            if (restored && PowerModeService.GetCurrent(IsCurrentlyOnBattery()) is ThinkControlPowerMode observed)
+                State.SelectedPowerMode = observed.ToString();
+            return restored;
+        }
         bool onBattery = IsCurrentlyOnBattery();
         ThinkControlPowerMode baseline = GetPowerPreference(onBattery);
         bool applied = PowerModeService.SetEffective(baseline);
+        LastPowerModeError = applied ? null : PowerModeService.LastEffectiveError;
         if (applied)
             State.SelectedPowerMode = baseline.ToString();
         return applied;

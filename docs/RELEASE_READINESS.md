@@ -1,5 +1,11 @@
 # ThinkControl release-readiness roadmap
 
+## Alpha.67 candidate - compact interaction and battery clarity
+
+Owner requested a downloadable follow-up: direct mode-off, shorter Compact with Mode among configurable controls, actual-tile drag feedback, editor-local actions, larger remove icons, clearer Custom preservation and visible Advanced charge/discharge flow. Windows ClientAreaAnimation is disabled on the reference desktop, explaining absent alpha.66 flow. Alpha.67 adds On/Off/System without changing Windows; On is the requested app default, Compact stays static.
+
+Bounded local evidence: 317 Core tests; 72 canonical plus compact/editor/custom/100% renders. Review caught clipped close glyphs and Custom text; corrected 40-unit targets and compact Custom segment were re-rendered and inspected. Final exact-head CI/package/install/upgrade and public asset verification are required before publication. No physical mode/battery-threshold writes were issued in this UI pass. Supplied No mode failure lacks expanded provider detail: effective-power baseline and transaction restoration are corrected, not every possible provider failure. Native pointer drag and installed-device acceptance remain separate from routed WPF fixtures.
+
 ## Published alpha.66 — October 7, 2026
 
 Merged PR #130 carries the existing WPF consistency candidate plus the four targeted owner corrections. Simple Mode icon/title and Automation switch, editor rule switch on the title rail, bounded Windows-startup row and semantic rule dots are implemented. Explicit Automation Off survives context changes until Resume; manual selection uses the existing pause-until-context-change policy. Rule enablement is preserved. No hardware provider or write permission changed.

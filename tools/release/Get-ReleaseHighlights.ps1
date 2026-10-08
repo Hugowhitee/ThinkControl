@@ -2,6 +2,12 @@
 
 ## What's changed
 
+- Compact is 64 pixels shorter. Mode replaces Keyboard light by default; the layout editor also offers Keyboard light and Automation.
+- Layout dragging dims the source, shows the actual tile under the pointer and outlines valid swap targets.
+- Turn off mode is directly accessible; restoration preserves the actual pre-mode Windows power overlay, with retryable readback failures.
+- Mode and rule editors keep Save/Cancel below their tabs, with larger Fluent remove icons.
+- Advanced battery indicators have clearer reversible diagonal charge/discharge flow. Battery animation can be On, Off or follow System in General preferences; Compact remains static.
+- Custom battery preservation limits have a visible selected Custom segment and a separate Edit action.
 - Saved Modes can prepare the required Windows Balanced plan and restore the previous plan when leaving the mode.
 - Cooling curves pause in firmware Auto during temporary sensor gaps and resume after stable recovery. Hot-system curve selections are retained while firmware cools the system; real write/ownership failures still return to Auto.
 - Cooling failures give more specific guidance and service diagnostics record the actual handoff reason.

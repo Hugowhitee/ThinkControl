@@ -95,6 +95,8 @@ public sealed class AppState : INotifyPropertyChanged
     public string FanStateText { get => _fanStateText; set => Set(ref _fanStateText, value); }
     public string CoolingProfile { get => _coolingProfile; set => Set(ref _coolingProfile, string.IsNullOrWhiteSpace(value) ? "Lenovo Auto" : value); }
     public int BatteryPercent { get => _batteryPercent; set => Set(ref _batteryPercent, Math.Clamp(value, 0, 100)); }
+    private string _batteryMotionPreference = "On";
+    public string BatteryMotionPreference { get => _batteryMotionPreference; set => Set(ref _batteryMotionPreference, value); }
     public bool BatteryCharging { get => _batteryCharging; set => Set(ref _batteryCharging, value); }
     public bool BatteryDischarging => !BatteryCharging && BatteryStatus == "On battery";
     public string BatteryStatus { get => _batteryStatus; set => Set(ref _batteryStatus, value); }
