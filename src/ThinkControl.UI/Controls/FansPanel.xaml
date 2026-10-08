@@ -60,11 +60,15 @@
                                FontSize="{x:Static ui:TypographyScale.Caption}" />
                 </Grid>
 
-                <Border Height="1" Background="{DynamicResource Tc.Border}" Margin="0,12,0,12" />
-
-                <Grid>
-                    <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <StackPanel Margin="0,0,18,0" VerticalAlignment="Center">
+                <Grid Margin="0,16,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Style="{StaticResource TcSettingLabelColumn}" />
+                        <ColumnDefinition Width="190" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Margin="0,0,12,0" VerticalAlignment="Center">
                         <TextBlock Text="Cooling profile" FontWeight="SemiBold" />
                         <TextBlock x:Name="CoolingDetailText"
                                    Text="Lenovo firmware"
@@ -97,16 +101,14 @@
                               DisplayMemberPath="Name"
                               SelectionChanged="ProfileComboBox_SelectionChanged"
                               DropDownOpened="ProfileComboBox_DropDownOpened" />
-                </Grid>
-
                     <Button x:Name="EditCurvesButton"
-                            HorizontalAlignment="Left"
+                            Grid.Column="3"
                             Content="Edit curves"
                             Style="{StaticResource TcButton}"
-                            Padding="11,6"
-                            Margin="0,10,0,0"
+                            VerticalAlignment="Center"
                             Click="EditCurves_Click"
                             Visibility="Collapsed" />
+                </Grid>
                 <StackPanel x:Name="ActiveCurvePreview" Margin="0,12,0,0" Visibility="Collapsed">
                     <Grid Margin="0,0,0,5">
                         <TextBlock Text="Active curve" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" />

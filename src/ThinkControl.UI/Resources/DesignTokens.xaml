@@ -6,6 +6,10 @@
     <Thickness x:Key="Tc.PageInset">29,24,29,24</Thickness>
     <Thickness x:Key="Tc.ControlPadding">12,7</Thickness>
     <CornerRadius x:Key="Tc.ControlRadius">5</CornerRadius>
+    <!-- Label rail shared by full-width preference and cooling rows. -->
+    <Style x:Key="TcSettingLabelColumn" TargetType="ColumnDefinition">
+        <Setter Property="Width" Value="160" />
+    </Style>
     <Style x:Key="TcFocus" TargetType="Control">
         <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="Control">
             <Border BorderBrush="{DynamicResource Tc.Focus}" BorderThickness="2" CornerRadius="5" Margin="-2" />

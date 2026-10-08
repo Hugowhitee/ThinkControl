@@ -180,30 +180,13 @@
                       <controls:PackIconLucide Kind="Fan" Width="20" Height="20" Foreground="{DynamicResource Tc.TextMuted}" />
                       <TextBlock Text="Cooling" FontSize="{x:Static ui:TypographyScale.SectionTitle}" FontWeight="SemiBold" Margin="10,0,0,0" />
                     </StackPanel>
-                    <Border Height="1" Background="{DynamicResource Tc.Divider}" Margin="0,-2,0,14" />
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition />
-                      </Grid.ColumnDefinitions>
-                      <StackPanel>
-                        <TextBlock Text="PROFILE" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
-                        <ComboBox x:Name="HomeCoolingCombo" DisplayMemberPath="Name" Style="{StaticResource TcComboBox}" Margin="0,8,12,0" SelectionChanged="HomeCooling_SelectionChanged" DropDownOpened="HomeCooling_DropDownOpened" AutomationProperties.Name="Cooling profile" />
-                      </StackPanel>
-                      <StackPanel Grid.Column="1">
-                        <TextBlock Text="DIRECT CURVES" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Tc.TextFaint}" />
-                        <TextBlock x:Name="HomeCurveAvailabilityText" Text="Checking…" Style="{StaticResource TcText.Secondary}" Margin="0,8,0,0" />
-                      </StackPanel>
+                    <TextBlock x:Name="HomeCurveAvailabilityText" Text="Checking…" Style="{StaticResource TcText.Secondary}" />
+                    <Grid Margin="0,12,0,10">
+                      <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="12" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                      <ComboBox x:Name="HomeCoolingCombo" DisplayMemberPath="Name" Style="{StaticResource TcComboBox}" SelectionChanged="HomeCooling_SelectionChanged" DropDownOpened="HomeCooling_DropDownOpened" AutomationProperties.Name="Cooling profile" />
+                      <Button Grid.Column="2" Content="Fan settings" Style="{StaticResource TcButton}" Click="HomeOpenPage_Click" Tag="Fans" />
                     </Grid>
-                    <Border Height="1" Background="{DynamicResource Tc.Divider}" Margin="0,8,0,8" />
-                    <Grid>
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition />
-                        <ColumnDefinition Width="142" />
-                      </Grid.ColumnDefinitions>
-                      <TextBlock x:Name="HomeCoolingDetailText" Text="{Binding CoolingAvailabilityText}" Style="{StaticResource TcText.Caption}" TextTrimming="CharacterEllipsis" ToolTip="{Binding CoolingAvailabilityText}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                      <Button Grid.Column="1" Content="Fan settings" Style="{StaticResource TcButton}" Click="HomeOpenPage_Click" Tag="Fans" />
-                    </Grid>
+                    <TextBlock x:Name="HomeCoolingDetailText" Text="{Binding CoolingAvailabilityText}" Style="{StaticResource TcText.Caption}" TextTrimming="CharacterEllipsis" ToolTip="{Binding CoolingAvailabilityText}" />
                   </StackPanel>
                 </Border>
               </Grid>
@@ -267,14 +250,14 @@
                         <TextBlock x:Name="HomeModeTitle" Text="Mode" Style="{StaticResource TcText.SectionTitle}" />
                       </StackPanel>
                       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Automation" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="8,0,8,0" />
+                        <TextBlock Text="Triggers" Style="{StaticResource TcText.Caption}" VerticalAlignment="Center" Margin="8,0,8,0" />
                         <CheckBox x:Name="HomeAutomationSwitch" Style="{StaticResource TcSwitch}" MinHeight="40" AutomationProperties.Name="Enable automation triggers" Click="HomeAutomationSwitch_Click" />
                       </StackPanel>
                     </Grid>
                     <TextBlock x:Name="HomeModeModifiedText" TextWrapping="Wrap" Style="{StaticResource TcText.Caption}" Visibility="Collapsed" Margin="0,4,0,10" />
                     <Grid Margin="0,8,0,0">
                       <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <Button x:Name="HomeModeOffButton" Grid.Column="1" Style="{StaticResource TcInlineButton}" Content="Turn off" Margin="8,0,0,0" Click="HomeModeOff_Click" ToolTip="Turn off mode and restore previous settings" />
+                    <CheckBox x:Name="HomeModeEnabledSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Margin="12,0,0,0" VerticalAlignment="Center" AutomationProperties.Name="Enable selected mode" Click="HomeModeEnabled_Click" ToolTip="Turn mode on or restore regular settings" />
                     <ComboBox x:Name="HomeModeCombo" Style="{StaticResource TcComboBox}" DisplayMemberPath="Name" SelectionChanged="HomeMode_SelectionChanged" />
                     </Grid>
                   </StackPanel>
@@ -434,7 +417,7 @@
                   <TextBlock Text="General preferences" Style="{StaticResource TcText.SectionTitle}" Margin="0,0,0,16" />
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="160" />
+                      <ColumnDefinition Style="{StaticResource TcSettingLabelColumn}" />
                       <ColumnDefinition Width="416" MaxWidth="416" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Text="Theme" VerticalAlignment="Center" Style="{StaticResource TcText.Secondary}" />
@@ -451,7 +434,7 @@
                   </Grid>
                   <Grid Margin="0,16,0,0">
                       <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Style="{StaticResource TcSettingLabelColumn}" />
                         <ColumnDefinition Width="416" MaxWidth="416" />
                       </Grid.ColumnDefinitions>
                       <StackPanel>
@@ -468,7 +451,7 @@
                       </Grid>
                     </Grid>
                   <Grid Margin="0,16,0,0">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="416" /></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Style="{StaticResource TcSettingLabelColumn}" /><ColumnDefinition Width="416" /></Grid.ColumnDefinitions>
                     <StackPanel VerticalAlignment="Center"><TextBlock Text="Battery animation" Style="{StaticResource TcText.Secondary}" /><TextBlock Text="Advanced view only." Style="{StaticResource TcText.Caption}" Margin="0,4,0,0" /></StackPanel>
                     <Grid Grid.Column="1"><Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition /><ColumnDefinition /></Grid.ColumnDefinitions>
                       <RadioButton x:Name="BatteryMotionSystem" GroupName="BatteryMotion" Content="System" Tag="System" Style="{StaticResource TcSegment}" Click="BatteryMotion_Click" Margin="0,0,4,0" />
@@ -477,12 +460,12 @@
                     </Grid>
                   </Grid>
                   <Grid Margin="0,20,0,0">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="416" /></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Style="{StaticResource TcSettingLabelColumn}" /><ColumnDefinition Width="416" /></Grid.ColumnDefinitions>
                     <TextBlock Text="Start with Windows" VerticalAlignment="Center" />
                     <CheckBox x:Name="StartupSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" Click="StartupSwitch_Click" HorizontalAlignment="Left" />
                   </Grid>
                   <Grid Margin="0,20,0,0">
-                    <Grid.ColumnDefinitions><ColumnDefinition Width="160" /><ColumnDefinition Width="132" /><ColumnDefinition /></Grid.ColumnDefinitions>
+                    <Grid.ColumnDefinitions><ColumnDefinition Style="{StaticResource TcSettingLabelColumn}" /><ColumnDefinition Width="132" /><ColumnDefinition /></Grid.ColumnDefinitions>
                     <TextBlock Text="Battery history detail" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,12,0" />
                     <ComboBox x:Name="SettingsBatteryRetention" Grid.Column="1" Style="{StaticResource TcComboBox}" SelectionChanged="BatteryRetention_SelectionChanged">
                       <ComboBoxItem Content="7 days" /><ComboBoxItem Content="14 days" /><ComboBoxItem Content="30 days" />
@@ -492,7 +475,7 @@
                   <Border Height="1" Background="{DynamicResource Tc.Divider}" Margin="0,14,0,8" />
                   <Grid>
                     <Grid.ColumnDefinitions>
-                      <ColumnDefinition Width="160" />
+                      <ColumnDefinition Style="{StaticResource TcSettingLabelColumn}" />
                       <ColumnDefinition Width="132" />
                       <ColumnDefinition />
                     </Grid.ColumnDefinitions>

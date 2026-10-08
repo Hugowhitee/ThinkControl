@@ -44,12 +44,14 @@
             <CheckBox x:Name="ChargeProtectionSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Battery preservation" IsEnabled="False" Click="ChargeProtectionSwitch_Click" ToolTip="Turn the verified OEM battery charge window on or off" />
           </Grid>
           <TextBlock Text="Charge limit" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,12,0,0" />
-          <Grid Margin="0,4,0,0">
+          <Grid Margin="0,4,0,12">
             <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock x:Name="ChargeLimitValue" Text="—" Style="{StaticResource TcText.ValueLarge}" VerticalAlignment="Center" />
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+              <TextBlock x:Name="ChargeLimitValue" Text="—" Style="{StaticResource TcText.ValueLarge}" />
+              <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" VerticalAlignment="Center" Margin="12,0,8,0" />
+            </StackPanel>
             <Button x:Name="CustomChargeLimitsButton" Grid.Column="1" Content="Edit" ToolTip="Edit custom charge limits" Style="{StaticResource TcButton}" HorizontalAlignment="Right" IsEnabled="False" Click="CustomChargeLimits_Click" />
           </Grid>
-          <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,3,0,12" />
           <ListBox x:Name="ChargeProtectionComboBox" BorderThickness="0" Background="Transparent" Padding="0" Margin="-3,0" IsEnabled="False" SelectionChanged="ChargeProtection_SelectionChanged">
             <ListBox.Template><ControlTemplate TargetType="ListBox"><ItemsPresenter /></ControlTemplate></ListBox.Template>
             <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ListBox.ItemsPanel>
@@ -87,7 +89,7 @@
               <Button x:Name="CustomChargeApplyButton" Content="Apply limits" Style="{StaticResource TcButton}" Margin="8,0,0,0" Click="CustomChargeApply_Click" />
             </StackPanel>
           </StackPanel>
-          <controls:BatteryProtectionGauge Height="48" Margin="0,8,0,0" ProtectionEnabled="{Binding BatteryProtectionEnabled}" StartPercent="{Binding BatteryProtectionStartPercent}" StopPercent="{Binding BatteryProtectionStopPercent}" CurrentPercent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" ToolTip="Current charge, resume threshold and charge limit." />
+          <controls:BatteryProtectionGauge Height="58" Margin="0,8,0,0" FlowPhase="{Binding ChargingFlowPhase, ElementName=CurrentBatteryGauge}" ProtectionEnabled="{Binding BatteryProtectionEnabled}" StartPercent="{Binding BatteryProtectionStartPercent}" StopPercent="{Binding BatteryProtectionStopPercent}" CurrentPercent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" ToolTip="Current charge, resume threshold and charge limit." />
           <TextBlock x:Name="ChargeProtectionImpactText" Text="Checking the active charge limit…" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,7,0,0" />
           <TextBlock x:Name="ChargeProtectionWearText" Text="Checking charging guidance…" Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,3,0,0" ToolTip="Battery aging depends on time at high charge, temperature, depth of discharge, use and chemistry; a charge cap does not measure this battery's actual wear." />
           <TextBlock x:Name="ChargeProtectionProviderText" Text="Verified OEM charge-threshold provider." Foreground="{DynamicResource Tc.TextFaint}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,0,0" Visibility="Collapsed" />

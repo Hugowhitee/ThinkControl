@@ -259,3 +259,9 @@ Compact is 420 by 501 logical units. Defaults: Power profile, Cooling, Refresh r
 Turn off mode restores owned facets through the coordinator, preserves manual overrides and pauses the winning automation context after success. A failed restore remains an error with details and retry. Windows power restoration captures the actual effective overlay under Balanced as well as temporary plan changes; failed Balanced restoration retains its baseline for retry.
 
 Editor Save/Cancel belongs below destination tabs alongside Edit mode/Edit rule; draft retention is unchanged. Remove uses the existing Fluent close glyph at 20 units in a 40-unit target. Custom charge thresholds have a selected Custom segment and an Edit action. Advanced battery flow reverses for discharge and fades at idle. General preferences offers Battery animation On/Off/System; On permits this indicator when Windows animations are disabled, System follows Windows. The requested app default is On. Compact never animates and reserves room for 100%.
+
+
+v0.1.0-alpha.72: Overview Cooling follows the neighboring power card rails and selects profiles through the shared state owner. Preservation places its active state beside the limit, shows a textured resume/stop window and a neutral region above the limit, retains the actual charge marker, and reuses charging motion only while charging. Hover reveals the percentage and zone; motion preferences remain shared.
+
+
+Confirmed saved modes replace Apply with semantic success Active; modified or uncertain modes retain Reapply/check-settings rather than claiming success. Overview and Modes share separate Mode and Triggers switches. Mode Off restores regular settings; On restores the last available selected mode. Manual mode changes suppress the current trigger until its context changes; Triggers On resumes checks with one click, and explicit Off persists across trigger changes without disabling saved rules.

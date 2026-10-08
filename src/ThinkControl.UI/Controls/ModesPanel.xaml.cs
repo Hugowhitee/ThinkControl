@@ -344,7 +344,8 @@ public partial class ModesPanel : UserControl
             ModeSelector.ItemsSource = modes;
             ModeSelector.SelectedItem = modes.FirstOrDefault(mode =>
                 mode.Id.Equals(_app.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase));
-            ModeSelector.IsEnabled = UseRegularSettingsButton.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
+            ModeSelector.IsEnabled = ModeEnabledSwitch.IsEnabled = !_busy && !_app.Modes.IsTransitioning &&
+            (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.ModeToEnableId != ThinkControlModeCatalog.NormalId);
         }
         finally
         {
@@ -396,11 +397,21 @@ public partial class ModesPanel : UserControl
             VerticalAlignment = VerticalAlignment.Center,
             HorizontalAlignment = HorizontalAlignment.Right
         };
-        if (active)
-            actions.Children.Add(StateText(_app?.Modes.SettingsNeedChecking == true ? "Check settings" : _app?.Modes.IsModified == true ? "Modified" : "Active"));
-        var apply = InlineButton("Apply", ApplyMode_Click, mode.Id);
-        apply.IsEnabled = !_busy && _app?.Modes.IsTransitioning != true && unavailable is null;
-        actions.Children.Add(apply);
+        bool confirmed = active && _app?.Modes.SettingsNeedChecking != true &&
+            _app?.Modes.IsModified != true && _app?.Modes.IsTransitioning != true;
+        if (confirmed)
+        {
+            var state = StateText("Active");
+            state.SetResourceReference(TextBlock.ForegroundProperty, "Tc.Success");
+            actions.Children.Add(state);
+        }
+        else
+        {
+            if (active) actions.Children.Add(StateText(_app?.Modes.SettingsNeedChecking == true ? "Check settings" : "Modified"));
+            var apply = InlineButton(active ? "Reapply" : "Apply", ApplyMode_Click, mode.Id);
+            apply.IsEnabled = !_busy && _app?.Modes.IsTransitioning != true && unavailable is null;
+            actions.Children.Add(apply);
+        }
         if (editable)
         {
             Button edit = InlineButton("Edit", Edit_Click, mode.Id);
@@ -479,7 +490,8 @@ public partial class ModesPanel : UserControl
 
     private async void ModeSelector_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_syncingModeSelection || ModeSelector.SelectedItem is not ThinkControlModeDefinition mode) return;
+        if (_syncingModeSelection || ModeSelector.SelectedItem is not ThinkControlModeDefinition mode ||
+            mode.Id.Equals(_app?.Modes.VisibleModeId, StringComparison.OrdinalIgnoreCase)) return;
         await ApplyModeAsync(mode.Id);
     }
 
@@ -488,8 +500,22 @@ public partial class ModesPanel : UserControl
         if (sender is FrameworkElement { Tag: string id }) await ApplyModeAsync(id);
     }
 
-    private async void UseRegularSettings_Click(object sender, RoutedEventArgs e) =>
-        await ApplyModeAsync(ThinkControlModeCatalog.NormalId);
+    private async void ModeEnabledSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null) return;
+        string id = ModeEnabledSwitch.IsChecked == true
+            ? _app.Modes.ModeToEnableId
+            : ThinkControlModeCatalog.NormalId;
+        await ApplyModeAsync(id);
+    }
+
+    private void ModeAutomationSwitch_Click(object sender, RoutedEventArgs e)
+    {
+        if (_app is null || _busy || _app.Modes.IsTransitioning) return;
+        if (ModeAutomationSwitch.IsChecked == true) _app.ModeAutomation.Resume();
+        else _app.ModeAutomation.Pause();
+        UpdateHeaderState();
+    }
 
     private async Task ApplyModeAsync(string id)
     {
@@ -1301,13 +1327,19 @@ public partial class ModesPanel : UserControl
             return;
 
         var presentation = ModeStatusPresentation.From(_app);
-        CurrentModeTitle.Text = presentation.Title;
+        CurrentModeTitle.Text = "Mode";
+        CurrentModeTitle.ToolTip = presentation.Title;
         ModeConfirmed.Visibility = _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId &&
             !_app.Modes.IsModified && !_app.Modes.SettingsNeedChecking && !_app.Modes.IsTransitioning
             ? Visibility.Visible : Visibility.Collapsed;
         CurrentModeDetail.Text = presentation.Detail;
         CurrentModeDetail.SetResourceReference(TextBlock.ForegroundProperty, presentation.Failed ? "Tc.Error" : "Tc.TextMuted");
-        ManualOverrideResumeButton.Visibility = _app.ModeAutomation.Paused ? Visibility.Visible : Visibility.Collapsed;
+        ModeAutomationSwitch.IsChecked = !_app.ModeAutomation.Paused;
+        ModeAutomationSwitch.IsEnabled = !_busy && !_app.Modes.IsTransitioning;
+        ModeAutomationSwitch.ToolTip = _app.ModeAutomation.Status;
+        ModeEnabledSwitch.IsChecked = _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId;
+        ModeEnabledSwitch.IsEnabled = !_busy && !_app.Modes.IsTransitioning &&
+            (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.ModeToEnableId != ThinkControlModeCatalog.NormalId);
 
         if (_automationSurface)
         {
@@ -1319,7 +1351,7 @@ public partial class ModesPanel : UserControl
         }
 
         bool transitioning = _app.Modes.IsTransitioning;
-        UseRegularSettingsButton.IsEnabled = !transitioning && (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.LastTransitionError is not null);
+        ModeEnabledSwitch.IsEnabled = !_busy && !transitioning;
         bool failed = !transitioning && !string.IsNullOrWhiteSpace(_app.Modes.LastTransitionError);
         bool modified = _app.Modes.IsModified && !transitioning;
         bool automatic = _app.Modes.ActiveModeAutomatic &&

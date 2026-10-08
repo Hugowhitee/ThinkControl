@@ -94,7 +94,7 @@ public partial class AdvancedWindow
         if (HomeCurveAvailabilityText is null) return;
         HomeCurveAvailabilityText.Text = !_app.State.CanFanControl ||
             _app.State.FanControlKind is FanControlKinds.FullSpeedOnly or FanControlKinds.FirmwarePolicy
-            ? "Unavailable" : _app.FanCalibrationState.Required ? "Calibration required" : "Available";
+            ? "Firmware cooling" : _app.FanCalibrationState.Required ? "Calibration required" : "Fan profile";
         if (HomeCoolingCombo is null) return;
         _homeCoolingSync = true;
         try
@@ -165,7 +165,9 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.IsEnabled = HomeAutomationSwitch.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning;
-            HomeModeOffButton.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning && (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.LastTransitionError is not null);
+            HomeModeEnabledSwitch.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning &&
+                (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.ModeToEnableId != ThinkControlModeCatalog.NormalId);
+            HomeModeEnabledSwitch.IsChecked = _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId;
             HomeModeCombo.SelectedItem = active;
             var presentation = ModeStatusPresentation.From(_app);
             HomeModeTitle.Text = "Mode";
@@ -214,12 +216,19 @@ public partial class AdvancedWindow
         RefreshHomeMode();
     }
 
-    private async void HomeModeOff_Click(object sender, RoutedEventArgs e)
+    private async void HomeModeEnabled_Click(object sender, RoutedEventArgs e)
     {
         if (_homeModeBusy || _app.Modes.IsTransitioning) return;
+        bool enabled = HomeModeEnabledSwitch.IsChecked == true;
         _homeModeBusy = true;
         RefreshHomeMode();
-        try { await _app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId); }
+        try
+        {
+            string id = enabled
+                ? _app.Modes.ModeToEnableId
+                : ThinkControlModeCatalog.NormalId;
+            await _app.Modes.ActivateAsync(id);
+        }
         finally { _homeModeBusy = false; RefreshHomeMode(); }
     }
 

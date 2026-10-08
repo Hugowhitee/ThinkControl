@@ -50,6 +50,10 @@ public sealed class BatteryGauge : FrameworkElement
         nameof(ChargingSymbolOpacity), typeof(double), typeof(BatteryGauge), new PropertyMetadata(0.84));
     public static readonly DependencyProperty ChargingSymbolOpacityProperty = ChargingSymbolOpacityPropertyKey.DependencyProperty;
     public double ChargingSymbolOpacity => (double)GetValue(ChargingSymbolOpacityProperty);
+    private static readonly DependencyPropertyKey ChargingFlowPhasePropertyKey = DependencyProperty.RegisterReadOnly(
+        nameof(ChargingFlowPhase), typeof(double), typeof(BatteryGauge), new PropertyMetadata(0d));
+    public static readonly DependencyProperty ChargingFlowPhaseProperty = ChargingFlowPhasePropertyKey.DependencyProperty;
+    public double ChargingFlowPhase => (double)GetValue(ChargingFlowPhaseProperty);
     internal WpfColor FillColor => InterpolateBatteryColor(Math.Clamp(Percent, 0, 100));
     internal double MotionPhase => _pulsePhase;
     internal bool MotionActive => _renderHooked;
@@ -137,6 +141,7 @@ public sealed class BatteryGauge : FrameworkElement
         _pulsePhase = (_pulsePhase + seconds * Math.PI) % (Math.PI * 2);
         _stripePhase = (_stripePhase + seconds * 20) % 16;
         SetValue(ChargingSymbolOpacityPropertyKey, 0.68 + 0.32 * (Math.Sin(_pulsePhase) + 1) / 2);
+        SetValue(ChargingFlowPhasePropertyKey, _stripePhase);
         InvalidateVisual();
         if (targetOpacity == 0 && _chargeOpacity < 0.001) UpdateRenderingHook();
     }

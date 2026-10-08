@@ -218,3 +218,6 @@ Confirmed negative X9 evidence remains:
 Battery threshold behavior still needs physical confirmation on the reference X9: verify a selected window such as the recommended 80–85% pair actually stops/holds near the stop boundary, does not immediately top up again while above the start boundary, and returns to ordinary charging after Battery Preservation is switched off. A successful driver call/registry readback is not by itself proof of the physical charge boundary.
 
 Touchpad, fan persistence and Audio Safety real-device checks remain listed in `docs/ALPHA-TESTING.md`. These physical checks must not be marked complete from screenshots/CI alone.
+
+
+v0.1.0-alpha.72 keeps the existing verified provider allowlist and measured calibration requirements. Sparse measured states are approximated by nearest stable speed for curves, with hysteresis and hot-input ceiling mapping. This does not add continuous PWM, independent tachometers or support for unknown firmware.

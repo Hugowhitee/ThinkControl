@@ -142,3 +142,6 @@ dotnet build ThinkControl.slnx -c Release
 Packaging and installer workflows additionally validate payload construction, custom-location clean install, service start/IPC, updater compatibility and uninstall cleanup before a prerelease is promoted. Release candidates are merged only after **CI and Package ThinkControl both pass on the exact final PR head**; UI-changing candidates also require manual inspection of that head's generated WPF artifact. Current release-gate status and remaining real-device checks are tracked in **[Release readiness](docs/RELEASE_READINESS.md)**.
 
 See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUCT.md)** · **[Release readiness](docs/RELEASE_READINESS.md)** · **[X9-15 research](docs/research/x9-15-gen1.md)** · **[alpha.43 battery preservation research](docs/research/x9-alpha43-battery-care.md)**.
+
+
+v0.1.0-alpha.72 stabilizes calibrated fan curves with nearest-speed mapping and hysteresis across large hardware gaps, synchronizes Overview/Cooling selection immediately, and aligns the Cooling and preservation cards. Hardware output remains discrete and capability-gated.

@@ -48,8 +48,20 @@ internal static partial class Program
                 try
                 {
                     await ValidateFanSupervisorRecovery();
+                    ValidateCoolingSelectionSync(app);
                     if (args.Contains("--fan-supervisor", StringComparer.Ordinal))
                     {
+                        exitCode = 0;
+                        return;
+                    }
+                    if (args.Contains("--mode-automation", StringComparer.Ordinal))
+                    {
+                        await ValidateAutomationTransitions(app);
+                        Console.WriteLine("Automation lifecycle passed; checking rule switches.");
+                        ValidateModeSwitchControls(app);
+                        Console.WriteLine("Rule switches passed; checking mode resume.");
+                        await ValidateModeResumeSwitch(app);
+                        Console.WriteLine("Targeted mode switches, trigger resume and automation transitions passed.");
                         exitCode = 0;
                         return;
                     }
@@ -66,6 +78,7 @@ internal static partial class Program
                     await ValidateAutomationTransitions(app);
                     Console.WriteLine("Automation transitions passed.");
                     ValidateModeSwitchControls(app);
+                    await ValidateModeResumeSwitch(app);
                     await ValidateKeyboardTransitions();
                     await ValidateKeyboardOsdVisibilityLease();
                     await ValidateBatteryMotion();
@@ -93,6 +106,7 @@ internal static partial class Program
                 return 1;
             }
 
+            if (args.Contains("--fan-supervisor", StringComparer.Ordinal) || args.Contains("--mode-automation", StringComparer.Ordinal) || args.Contains("--cooling-battery", StringComparer.Ordinal)) return exitCode;
             Console.WriteLine("Interactive shell lifecycle smoke passed: deterministic rule precedence/restoration, keyboard latest-selection/delayed-write/disposal, durable multi-crash journal, rapid tray-open debouncing, preferred app-icon Advanced/Compact routing, passive-update dismissal on Full transition, diagnostics Ready/Shared/Verified lifecycle, repeated real Compact/Full routing, notification activation/action/dismiss, minimized Touchpad recovery, bounded page-navigation latency, sole-primary-surface and dispatcher-alive assertions.");
             return exitCode;
         }
@@ -215,7 +229,8 @@ internal static partial class Program
         {
             app.UserSettings.Update(settings => settings with { CustomModes = [mode], AutomationRules = [rule] });
             panel.Initialize(app, automationSurface: true);
-            host.Show(); Pump(app.Dispatcher);
+            host.Show();
+            host.UpdateLayout();
             var rows = (StackPanel)panel.FindName("RuleRows");
             var toggle = VisualDescendants<CheckBox>(rows).Single();
             if (toggle.ActualHeight < 40 || toggle.ActualWidth < 48 ||
@@ -240,6 +255,56 @@ internal static partial class Program
                 throw new InvalidOperationException("Saving a disabled condition lost its value or changed rule enablement.");
         }
         finally { host.Close(); app.UserSettings.Update(_ => original); }
+    }
+
+    private static async Task ValidateModeResumeSwitch(App app)
+    {
+        var original = app.UserSettings.Current;
+        var mode = new ThinkControlModeDefinition("custom:resume-qa", "Resume QA", TouchpadGesturesEnabled: false);
+        var panel = new ThinkControl.UI.Controls.ModesPanel();
+        var host = new Window { Content = panel, Width = 800, Height = 700, ShowActivated = false, ShowInTaskbar = false };
+        try
+        {
+            app.UserSettings.Update(settings => settings with { CustomModes = [mode], AutomationRules = [] });
+            await app.Modes.ActivateAsync(mode.Id);
+            panel.Initialize(app);
+            host.Show(); host.UpdateLayout();
+            var triggers = (CheckBox)panel.FindName("ModeAutomationSwitch");
+            if (triggers.IsChecked != false) throw new InvalidOperationException("Manual selection did not pause the displayed trigger switch.");
+            triggers.IsChecked = true;
+            triggers.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            if (app.ModeAutomation.Paused || triggers.IsChecked != true)
+                throw new InvalidOperationException("One trigger-switch click failed to resume automation immediately.");
+            host.UpdateLayout();
+            if (app.ModeAutomation.Paused || triggers.IsChecked != true)
+                throw new InvalidOperationException("Mode selection refresh re-paused resumed automation.");
+            var rows = (StackPanel)panel.FindName("ModeRows");
+            var activeRow = rows.Children.Cast<Border>().Single(row => VisualDescendants<TextBlock>(row).Any(text => text.Text == "Resume QA"));
+            if (!VisualDescendants<TextBlock>(activeRow).Any(text => text.Text == "Active") ||
+                VisualDescendants<Button>(activeRow).Any(button => Equals(button.Content, "Apply")))
+                throw new InvalidOperationException("Confirmed active mode still offered Apply.");
+            var enabled = (CheckBox)panel.FindName("ModeEnabledSwitch");
+            enabled.IsChecked = false;
+            enabled.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            host.UpdateLayout();
+            if (app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || enabled.IsChecked != false)
+                throw new InvalidOperationException("Mode Off did not restore regular settings.");
+            enabled.IsChecked = true;
+            enabled.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            host.UpdateLayout();
+            if (app.Modes.ActiveModeId != mode.Id || enabled.IsChecked != true)
+                throw new InvalidOperationException("Mode On did not restore the last selected mode.");
+            app.UserSettings.Update(settings => settings with { CustomModes = [] });
+            if (app.Modes.ModeToEnableId == mode.Id)
+                throw new InvalidOperationException("Mode On retained a deleted mode.");
+        }
+        finally
+        {
+            host.Close();
+            await app.Modes.ActivateAsync(ThinkControlModeCatalog.NormalId);
+            app.UserSettings.Update(_ => original);
+            app.ModeAutomation.Resume();
+        }
     }
 
     private static void ValidateCompactDragFeedback(App app)
@@ -362,9 +427,12 @@ internal static partial class Program
         var engine = app.ModeAutomation;
         void Require(bool condition, string message)
         { if (!condition) throw new InvalidOperationException("Automation lifecycle: " + message); }
-        async Task At(int seconds, string? ssid, bool editor = false) => await engine.EvaluateSnapshotAsync(
+        async Task At(int seconds, string? ssid, bool editor = false)
+        {
+            await engine.EvaluateSnapshotAsync(
             environment with { Now = environment.Now.AddSeconds(seconds), WifiSsid = ssid,
                 RunningProcesses = editor ? new HashSet<string> { "editor" } : new HashSet<string>() });
+        }
         try
         {
             app.UserSettings.Update(settings => settings with { CustomModes = [manual, school, blocked], AutomationRules = [wifi, process] });

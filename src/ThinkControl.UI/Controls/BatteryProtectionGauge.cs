@@ -10,12 +10,9 @@ using WpfRect = System.Windows.Rect;
 
 namespace ThinkControl.UI.Controls;
 
-/// <summary>
-/// Compact preservation gauge. Unlike the normal battery gauge, this surface is
-/// about the active charge window: one current-level fill, two quiet threshold
-/// markers, and a healthy preservation color. It intentionally avoids permanent
-/// green/amber/red zones and decorative charge/pause icons.
-/// </summary>
+/// <summary>Measured battery level over the charge/resume window. The band
+/// distinguishes the preservation window by texture, with a neutral excluded
+/// zone above the limit. Charging phase comes from the existing battery gauge.</summary>
 public sealed class BatteryProtectionGauge : FrameworkElement
 {
     public static readonly DependencyProperty ProtectionEnabledProperty = DependencyProperty.Register(
@@ -47,6 +44,23 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         typeof(bool),
         typeof(BatteryProtectionGauge),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    public static readonly DependencyProperty FlowPhaseProperty = DependencyProperty.Register(
+        nameof(FlowPhase), typeof(double), typeof(BatteryProtectionGauge),
+        new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
+    public double FlowPhase { get => (double)GetValue(FlowPhaseProperty); set => SetValue(FlowPhaseProperty, value); }
+
+    public BatteryProtectionGauge()
+    {
+        MouseMove += (_, e) =>
+        {
+            int percent = (int)Math.Round(Math.Clamp(e.GetPosition(this).X / Math.Max(1, ActualWidth), 0, 1) * 100);
+            string zone = ProtectionEnabled != true ? "Preservation off"
+                : percent >= StopPercent ? "Above charge limit"
+                : percent >= StartPercent ? "Preservation window" : "Below resume threshold";
+            ToolTip = $"{percent}% · {zone}. Current charge: {CurrentPercent}%. Resume below {StartPercent}%; stop at {StopPercent}%.";
+        };
+    }
 
     public bool? ProtectionEnabled
     {
@@ -93,11 +107,11 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         WpfBrush muted = ResourceBrush("Tc.TextMuted", WpfBrushes.Gray);
         WpfBrush success = ResourceBrush("Tc.Success", WpfBrushes.ForestGreen);
 
-        const double left = 8;
-        double right = width - 8;
+        const double left = 0;
+        double right = width;
         double trackWidth = Math.Max(1, right - left);
         const double trackTop = 10;
-        const double trackHeight = 10;
+        const double trackHeight = 18;
         var track = new WpfRect(left, trackTop, trackWidth, trackHeight);
         var clip = new RectangleGeometry(track, 5, 5);
 
@@ -109,33 +123,53 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             ? Math.Clamp(rawStop, start ?? 0, 100)
             : null;
 
-        // Preservation is a healthy operating state, including when charging is
-        // paused at the limit. Red/amber here misleadingly suggested a fault.
         WpfBrush fill = ProtectionEnabled == true ? success : muted;
-
         dc.DrawRoundedRectangle(surface, null, track, 5, 5);
-
         double currentX = PercentX(current);
-        if (current > 0)
+        dc.PushClip(clip);
+        if (start is int resume && stop is int limit)
         {
-            dc.PushClip(clip);
-            dc.DrawRectangle(
-                WithOpacity(fill, ProtectionEnabled == true ? 0.76 : 0.42),
-                null,
-                new WpfRect(left, trackTop, Math.Max(0, currentX - left), trackHeight));
+            double resumeX = PercentX(resume);
+            double limitX = PercentX(limit);
+            dc.DrawRectangle(WithOpacity(success, 0.18), null,
+                new WpfRect(left, trackTop, limitX - left, trackHeight));
+            dc.DrawRectangle(WithOpacity(muted, 0.20), null,
+                new WpfRect(limitX, trackTop, right - limitX, trackHeight));
+        }
+        double fillEnd = PercentX(stop is int cap ? Math.Min(current, cap) : current);
+        dc.DrawRectangle(WithOpacity(fill, 0.70), null,
+            new WpfRect(left, trackTop, fillEnd - left, trackHeight));
+        if (start is int resumeAt && stop is int stopAtWindow)
+        {
+            double resumeX = PercentX(resumeAt);
+            double limitX = PercentX(stopAtWindow);
+            // Texture distinguishes the resume/stop window without implying a fault.
+            dc.PushClip(new RectangleGeometry(new WpfRect(resumeX, trackTop, limitX - resumeX, trackHeight)));
+            for (double x = resumeX - trackHeight; x < limitX; x += 7)
+                dc.DrawLine(new WpfPen(WithOpacity(success, 0.45), 2),
+                    new WpfPoint(x, track.Bottom), new WpfPoint(x + trackHeight, trackTop));
             dc.Pop();
         }
+        if (IsCharging && fillEnd > left)
+        {
+            dc.PushClip(new RectangleGeometry(new WpfRect(left, trackTop, fillEnd - left, trackHeight)));
+            for (double x = left - trackHeight + FlowPhase; x < fillEnd; x += 16)
+                dc.DrawLine(new WpfPen(WithOpacity(surface, 0.35), 3),
+                    new WpfPoint(x, track.Bottom), new WpfPoint(x + trackHeight, trackTop));
+            dc.Pop();
+        }
+        dc.Pop();
 
         if (start is int startValue && stop is int stopValue)
         {
             double startX = PercentX(startValue);
             double stopX = PercentX(stopValue);
 
-            WpfBrush startMarker = IsCharging && current <= startValue ? success : faint;
+            WpfBrush startMarker = success;
             WpfBrush stopMarker = muted;
 
-            DrawThreshold(dc, startX, track, startMarker, 1.15);
-            DrawThreshold(dc, stopX, track, stopMarker, 1.35);
+            DrawThreshold(dc, startX, track, startMarker, 2);
+            DrawThreshold(dc, stopX, track, stopMarker, 2);
 
             double pixelsPerDip = VisualTreeHelper.GetDpi(this).PixelsPerDip;
             DrawThresholdLabels(
@@ -157,15 +191,15 @@ public sealed class BatteryProtectionGauge : FrameworkElement
 
         dc.DrawRoundedRectangle(null, new WpfPen(border, 1), track, 5, 5);
 
-        // The current marker sits exactly on the end of the fill. A small surface
-        // ring keeps it readable without adding another full-height ruler line.
+        // The marker keeps the actual charge position, including above the limit.
+        // Its inset prevents clipping at 0% and 100%.
         double currentY = trackTop + trackHeight / 2d;
         dc.DrawEllipse(
-            fill,
+            stop is int stopAt && current > stopAt ? muted : fill,
             new WpfPen(surface, 2),
-            new WpfPoint(currentX, currentY),
-            4.1,
-            4.1);
+            new WpfPoint(Math.Clamp(currentX, 6, right - 6), currentY),
+            5,
+            5);
 
         double PercentX(int percent) => left + trackWidth * percent / 100d;
     }
@@ -185,8 +219,8 @@ public sealed class BatteryProtectionGauge : FrameworkElement
 
         dc.DrawLine(
             pen,
-            new WpfPoint(x, track.Top - 2),
-            new WpfPoint(x, track.Bottom + 2));
+            new WpfPoint(x, track.Top + 2),
+            new WpfPoint(x, track.Bottom - 2));
     }
 
     private void DrawThresholdLabels(
@@ -262,7 +296,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             CultureInfo.CurrentUICulture,
             FlowDirection.LeftToRight,
             ThinkControl.UI.TypographyScale.Typeface,
-            10.2,
+            11.5,
             brush,
             pixelsPerDip);
 

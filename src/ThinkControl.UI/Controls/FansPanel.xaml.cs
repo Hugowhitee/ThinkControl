@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using ThinkControl.Core.Cooling;
@@ -117,8 +118,10 @@ public partial class FansPanel : UserControl
         if (shouldSubscribe)
         {
             _app!.HardwareClient.StatusObserved += HardwareClient_StatusObserved;
+            _app.State.PropertyChanged += CoolingState_PropertyChanged;
             _statusSubscribed = true;
-            _ = _app.HardwareClient.GetStatusAsync();
+            SyncProfileFromState();
+            _ = RefreshVisibleStatusAsync();
         }
         else
         {
@@ -131,7 +134,33 @@ public partial class FansPanel : UserControl
         if (!_statusSubscribed || _app is null)
             return;
         _app.HardwareClient.StatusObserved -= HardwareClient_StatusObserved;
+        _app.State.PropertyChanged -= CoolingState_PropertyChanged;
         _statusSubscribed = false;
+    }
+
+    private void SyncProfileFromState()
+    {
+        if (_app is null) return;
+        SyncProfileSelector(_app.State.CoolingProfile, RuntimeProfileIdForDisplay(_app.State.CoolingProfile));
+    }
+
+    private void CoolingState_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(AppState.CoolingProfile)) return;
+        if (!Dispatcher.CheckAccess())
+        {
+            Dispatcher.BeginInvoke(SyncProfileFromState);
+            return;
+        }
+        SyncProfileFromState();
+    }
+
+    private async Task RefreshVisibleStatusAsync()
+    {
+        ServiceResponse? response = await _app!.HardwareClient.GetStatusAsync();
+        // StatusObserved is deliberately throttled. Navigation must still consume
+        // the returned status, even when the global notification was suppressed.
+        if (_statusSubscribed && IsVisible) ApplyStatus(response);
     }
 
     private void HardwareClient_StatusObserved(object? sender, ServiceResponse? response)
@@ -154,10 +183,11 @@ public partial class FansPanel : UserControl
         string? explicitKind = response?.Capabilities?.FanControlKind;
         _fanControlKind = ResolveFanControlKind(explicitKind, canControl);
 
-        string profileName = telemetry?.CoolingProfile ??
-                             _app?.State.CoolingProfile ??
-                             "Lenovo Auto";
-        string profileId = telemetry?.CoolingProfileId ?? (profileName.Equals("Lenovo Auto", StringComparison.OrdinalIgnoreCase) ? "Lenovo Auto" : profileName);
+        // The app owns pending/confirmed profile selection for every surface.
+        // Raw telemetry may predate an Overview selection that is still applying.
+        string profileName = _app?.State.CoolingProfile ?? telemetry?.CoolingProfile ?? "Lenovo Auto";
+        string profileId = _app is not null ? RuntimeProfileIdForDisplay(profileName)
+            : telemetry?.CoolingProfileId ?? profileName;
         SyncProfileSelector(profileName, profileId);
         ApplyProviderCopy(canControl, _fanControlKind);
 
@@ -615,7 +645,7 @@ public partial class FansPanel : UserControl
                     : "Advanced controls depend on the active fan controller.";
         FanProviderDetailText.ToolTip = null;
         if (discreteEcWriter)
-            FanMappingDetailText.Text = "Targets use the next measured speed. 0% means the minimum measured running speed, not fan off. Use Auto to let firmware stop the fans.";
+            FanMappingDetailText.Text = "Curves use the closest measured speed. 0% means the minimum measured running speed, not fan off. Use Auto to let firmware stop the fans.";
 
         // Raw EC diagnostics exist only for a provider that explicitly advertises
         // the discrete-EC semantic contract. They are never a generic laptop option.

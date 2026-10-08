@@ -13,14 +13,14 @@ internal sealed record ModeStatusPresentation(string Title, string Detail, bool 
             return new("Settings need checking", "Recovery was incomplete. Check affected settings before retrying.", true);
         var rule = app.UserSettings.Current.AutomationRules?.FirstOrDefault(rule => rule.Id == app.ModeAutomation.ActiveRuleId);
         string source = app.ModeAutomation.Paused
-            ? "Automation paused · Resume checks enabled rules."
+            ? "Triggers paused. Turn on to resume enabled rules."
             : modes.ActiveModeAutomatic
                 ? rule is null ? "Activated by automation." : $"By {rule.Name} · {ThinkControlAutomationRules.ConditionsSummary(rule)}"
-                : "Selected manually · Automation is ready.";
+                : "Selected manually. Triggers are ready.";
         if (modes.ActiveModeId == ThinkControlModeCatalog.NormalId && !app.ModeAutomation.Paused)
             source = app.UserSettings.Current.AutomationRules?.Any(rule => rule.Enabled) == true
-                ? "No mode · Automation is ready."
-                : "No mode · No enabled rules.";
+                ? "Triggers are ready."
+                : "No enabled rules.";
         if (modes.IsModified)
             source = "Settings changed since this mode was applied. " + source;
         return new(title, source, false);

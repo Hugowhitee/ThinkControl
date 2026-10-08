@@ -116,6 +116,38 @@ internal static partial class Program
             "Sustained full speed did not stop the low curve and request Auto.");
         Require(supervisor.Snapshot().Status.Contains("unconfirmed", StringComparison.OrdinalIgnoreCase),
             "A failed Auto handoff was labelled confirmed.");
+        hardware.FailAuto = false;
+        Require(supervisor.ReturnToAuto(out _), "Could not reset sparse-state test.");
+        hardware.CalibrationStates = [4, 5, 6, 7, 0x40];
+        calibration.Clear();
+        int[] measuredRpm = [3500, 3700, 4000, 4400, 9400];
+        for (int i = 0; i < measuredRpm.Length; i++)
+            calibration.Add(new(hardware.CalibrationStates[i], [new("QA", "QA", measuredRpm[i], 0, true)], true));
+        hardware.Rpm = 4400;
+        hardware.Temperature = 60;
+        var flatCurve = new FanCurveDefinition("custom:sparse", "Sparse", [new(35, 48), new(70, 48), new(92, 100)]);
+        Require(supervisor.SetCurve(flatCurve, out _), "Sparse curve rejected.");
+        await Tick();
+        Require(hardware.LastLevel == 7 && supervisor.Snapshot().AppliedPercent == 47,
+            "A 48% target across a sparse hardware gap incorrectly commanded full speed.");
+        // Change the curve directly to retain current output and exercise dwell;
+        // selecting a new profile intentionally resets the controller state.
+        typeof(FanSupervisor).GetField("_activeCurve", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(supervisor, new FanCurveDefinition("custom:sparse", "Sparse", [new(35, 80), new(70, 80), new(92, 100)]));
+        typeof(FanSupervisor).GetField("_curveTargetPercent", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(supervisor, null);
+        writes = hardware.Writes;
+        await Tick();
+        Require(hardware.Writes == writes && hardware.LastLevel == 7,
+            "The full-speed hardware command id bypassed transition dwell.");
+        typeof(FanSupervisor).GetField("_pendingLevelSince", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(supervisor, DateTimeOffset.UtcNow.AddSeconds(-13));
+        await Tick();
+        Require(hardware.LastLevel == 0x40 && supervisor.Snapshot().AppliedPercent == 100,
+            "A sustained high curve target failed to reach full speed.");
+        hardware.Temperature = 95;
+        await Tick();
+        Require(supervisor.Snapshot().SafetyOverride, "Sparse-state mapping bypassed thermal safety.");
         Console.WriteLine("Fan supervisor: warm input/output, missing-sensor retention, bounded Auto writes, consecutive-sample recovery, hot selection queue and rejected-write handoff passed (simulated provider).");
     }
 
@@ -124,6 +156,8 @@ internal static partial class Program
         public double? Temperature = 53;
         public int Writes;
         public int? LastPercent;
+        public int? LastLevel;
+        public IReadOnlyList<int> CalibrationStates = [1, 2, 3, 4, 5, 6, 7];
         public int AutoWrites;
         public bool FailWrites;
         public bool FailAuto;
@@ -131,7 +165,7 @@ internal static partial class Program
         public int? Rpm;
         public LenovoFanControlKind Kind = LenovoFanControlKind.LenovoOtherModeTargetRpm;
         public HardwareDeviceIdentity Identity { get; } = new("QA", "Simulated provider", "QA", false);
-        public IReadOnlyList<int> FanCalibrationStates => [1, 2, 3, 4, 5, 6, 7];
+        public IReadOnlyList<int> FanCalibrationStates => CalibrationStates;
         public string FanCalibrationIdentity => "qa";
         public bool OwnsManagedFan { get; private set; }
         public bool CheckFullSpeedSession() => false;
@@ -142,6 +176,7 @@ internal static partial class Program
         {
             if (Kind != LenovoFanControlKind.ThinkPadEcDiscrete) throw new InvalidOperationException("Wrong provider route.");
             Writes++;
+            LastLevel = level;
             OwnsManagedFan = true; error = null; return true;
         }
         public bool SetFanPercent(int percent, out string? detail, out string? error)
