@@ -132,9 +132,14 @@
                       <ColumnDefinition Width="86" />
                       <ColumnDefinition />
                     </Grid.ColumnDefinitions>
-                    <controls:BatteryGauge MotionPreference="{Binding BatteryMotionPreference}" Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" IsDischarging="{Binding BatteryDischarging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                    <controls:BatteryGauge x:Name="OverviewBatteryGauge" MotionPreference="{Binding BatteryMotionPreference}" Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" IsDischarging="{Binding BatteryDischarging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                      <TextBlock Text="{Binding BatteryPercentText}" Style="{StaticResource TcText.ValueLarge}" />
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="{Binding BatteryPercentText}" Style="{StaticResource TcText.ValueLarge}" />
+                        <controls:PackIconLucide Kind="Lightning" Width="18" Height="18" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Tc.Success}" Opacity="{Binding ChargingSymbolOpacity, ElementName=OverviewBatteryGauge}" ToolTip="Charging" AutomationProperties.Name="Charging">
+                          <controls:PackIconLucide.Style><Style TargetType="controls:PackIconLucide"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding BatteryCharging}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></controls:PackIconLucide.Style>
+                        </controls:PackIconLucide>
+                      </StackPanel>
                       <TextBlock Text="{Binding BatteryEtaText}" Style="{StaticResource TcText.Caption}" Foreground="{DynamicResource Tc.TextMuted}" TextWrapping="Wrap" Margin="0,4,0,0" />
                     </StackPanel>
                   </Grid>

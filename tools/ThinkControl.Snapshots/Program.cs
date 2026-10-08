@@ -55,6 +55,8 @@ internal static class Program
                     fullBattery.BatteryPercent = 100;
                     RenderAdvanced(app, fullBattery, "Battery", width, height, output, snapshots,
                         $"Battery-{theme}-{width}.png", "Preservation controls and 100% fit");
+                    RenderAdvanced(app, fullBattery, "Home", width, height, output, snapshots,
+                        $"Overview-{theme}-{width}.png", "Overview 100% fit");
                 }
                 RenderGestureOsd(app, output, snapshots, $"GestureOsd-{theme}.png", "Brightness", 100);
             }
