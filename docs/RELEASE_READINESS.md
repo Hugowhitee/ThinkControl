@@ -1,6 +1,6 @@
 # ThinkControl release-readiness roadmap
 
-## Candidate v0.1.0-alpha.71 — October 8, 2026
+## Published v0.1.0-alpha.71 — October 8, 2026
 
 The reported screenshot exposes an actual route mismatch: SetCoolingCurve treated builtin:max specially and discarded its points in favor of exact full speed, while capability reporting still described the direct provider and the UI showed an unused 40% curve plus Auto. Calibrated direct Max now reaches FanSupervisor like the other curves. Fixed full-speed ownership reports its active capability/state and hides percentage curves. Without calibration, explicit Max may still use verified fixed full speed; it is not presented as a percentage curve. Hardware allowlists/readback and safe Auto fallback are unchanged.
 
@@ -9,6 +9,11 @@ A simulated production-supervisor regression checks that Max at 60 C writes its 
 Overview Cooling uses the existing profile catalog, shared dropdown style and apply coordinator directly, with calibration/capability/busy gates, failed-selection restoration and a Fan settings link. Its state/calibration subscriptions are removed when the window closes.
 
 Battery history detail moves into General preferences with the shared 160 px label rail. Compact Customize uses the same control rail, with descriptive text following it. Gesture popup text/value align with the shared slider's 13 px track inset.
+
+
+Frozen source head 903ab62c1ba197fd908a1e191527cc28d8aba6a7 passed CI 37813498250 (323 Core tests, full native WPF lifecycle/motion smoke) and Package 37813498329 (installer/service/IPC and oldest-supported immutable upgrade). Visual artifact 11566017422 was downloaded, digest f4926483ec93f82db9a97cdc223d1f6dd402aaceaa43ccbbf107eba0fe89dc25 verified and target screenshots inspected. PR #141 merged to main ab803b4dce9b1f62649ee7aa269f08a3f8cda7ed; immutable v0.1.0-alpha.71 points there. Post-merge CI 37813891649, tagged complete package 37813915099 and promotion verifier 37813891653 passed.
+
+All four public assets were independently downloaded and API digests verified: Setup, Payload, SHA256SUMS.txt and ui-overview.png. Setup/Payload also matched SHA256SUMS.txt. Setup: 2,412,230 bytes, SHA256 6dccd80b76c4d0e1f414eff729447f2d30aa07b8720fd8a87ef49580a26a61f7. Payload: 17,540,683 bytes, SHA256 8276876bcb7e4b250a8d3d1fc1f1d7598022a226be416e0fd78aa284e154c763. [Download alpha.71](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.71). No local installer was executed; updated installed RPM behavior and pointer/DPI/accessibility acceptance remain UNVERIFIED.
 
 
 ## Published v0.1.0-alpha.70 — October 8, 2026
