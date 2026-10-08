@@ -1,5 +1,12 @@
 # ThinkControl release-readiness roadmap
 
+## Candidate v0.1.0-alpha.70 — October 8, 2026
+
+Charging keeps subtle moving diagonal lines inside the level-colored battery, with a smaller pulsing green Fluent lightning next to the percentage. Discharge stays static; reduced motion and Compact stay static. Startup uses the shared preference control-start rail. Preservation puts its switch on the header rail and Edit beside the limit value. Expanded hardware details stretch to the System content width. Touchpad corner arrows and edge controls have separate rails; its popup has more room for icon, label, value and slider.
+
+A bounded production-service request reproduced Max cooling rejection because no Windows power baseline was stored. Auto recovery was confirmed afterwards. Verified exact full-speed ownership does not depend on this baseline; its readback-gated path now runs before the guard. Thermal-policy profiles retain the baseline guard and hardware allowlists are unchanged. Updated installed hardware acceptance, sustained fan reproduction, pointer/DPI acceptance remain UNVERIFIED. Local Release build passed with no warnings, all 323 Core tests passed and repository hygiene passed. Native renders were inspected in dark/light at minimum, normal and wide widths; actual charging frames show the diagonal flow and adjacent lightning.
+
+
 ## Published v0.1.0-alpha.69 - October 8, 2026
 
 Advanced charging uses a clear Fluent lightning symbol with a gentle brightness pulse. Battery level colors remain visible; discharge is static, low-charge warnings remain semantic, and Compact stays static. Direct fan profile errors expose the explicit Auto recovery action even when Auto is already selected. Edited built-in curves retain their points on measured direct controllers; firmware-only routing and Max cooling are preserved. 0% means the lowest measured running state, not fan off; firmware Auto can stop the fans.

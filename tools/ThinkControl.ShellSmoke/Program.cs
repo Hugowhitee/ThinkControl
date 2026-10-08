@@ -285,6 +285,10 @@ internal static partial class Program
                 await Task.Delay(50);
             if ((!gauge.MotionActive || gauge.MotionPhase == initial))
                 throw new InvalidOperationException($"Charging gauge did not move: hooked={gauge.MotionActive}, loaded={gauge.IsLoaded}, visible={gauge.IsVisible}, size={gauge.ActualWidth}x{gauge.ActualHeight}, phase={gauge.MotionPhase}, initial={initial}.");
+            double symbolOpacity = gauge.ChargingSymbolOpacity;
+            await Task.Delay(250);
+            if (Math.Abs(symbolOpacity - gauge.ChargingSymbolOpacity) < 0.001)
+                throw new InvalidOperationException("Adjacent charging symbol did not share the rendering pulse.");
             var chargedLevelColor = gauge.FillColor;
             gauge.IsCharging = false;
             gauge.IsDischarging = true;
@@ -297,7 +301,8 @@ internal static partial class Program
             gauge.IsDischarging = false;
             gauge.IsCharging = true;
             gauge.MotionEnabled = false;
-            if (gauge.MotionActive) throw new InvalidOperationException("Compact still animates with motion disabled.");
+            if (gauge.MotionActive || gauge.ChargingSymbolOpacity != 1d)
+                throw new InvalidOperationException("Reduced motion must stop rendering and keep the charging symbol steady.");
             gauge.MotionEnabled = true;
             gauge.MotionPreference = "System";
             if (!SystemParameters.ClientAreaAnimation && gauge.MotionActive) throw new InvalidOperationException("System motion preference ignored Windows reduced motion.");

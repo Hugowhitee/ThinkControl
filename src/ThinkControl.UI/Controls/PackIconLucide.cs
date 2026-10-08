@@ -21,7 +21,7 @@ public sealed class PackIconLucide : System.Windows.Controls.Control
         ["Fan"]="imgMicrosoftFluentTemperature", ["Monitor"]="imgOfficialFluent20Display",
         ["Audio"]="imgOfficialFluent20Audio", ["Tune"]="imgOfficialFluent20Modes",
         ["Battery"]="imgOfficialFluent20Battery", ["BatteryHorizontal"]="imgOfficialFluent20Battery",
-        ["BatteryChargingHorizontal"]="imgOfficialFluent20Battery",
+        ["BatteryChargingHorizontal"]="imgOfficialFluent20Battery", ["Lightning"]="flash",
         ["Laptop"]="imgOfficialFluent20System", ["Settings"]="imgOfficialFluent20Settings",
         ["Notifications"]="imgOfficialFluent20Notify", ["Close"]="imgOfficialFluent20Close",
         ["OpenInFull"]="imgOfficialFluent20Expand", ["CompactView"]="imgOfficialFluentWindow",

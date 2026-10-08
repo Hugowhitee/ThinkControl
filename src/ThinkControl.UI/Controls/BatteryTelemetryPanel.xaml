@@ -14,9 +14,14 @@
             <ColumnDefinition Width="86" />
             <ColumnDefinition />
           </Grid.ColumnDefinitions>
-          <controls:BatteryGauge MotionPreference="{Binding BatteryMotionPreference}" Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" IsDischarging="{Binding BatteryDischarging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
+          <controls:BatteryGauge x:Name="CurrentBatteryGauge" MotionPreference="{Binding BatteryMotionPreference}" Width="78" Height="31" Percent="{Binding BatteryPercent}" IsCharging="{Binding BatteryCharging}" IsDischarging="{Binding BatteryDischarging}" VerticalAlignment="Center" HorizontalAlignment="Left" />
           <StackPanel Grid.Column="1" VerticalAlignment="Center">
-            <TextBlock Text="{Binding BatteryPercentText}" Style="{StaticResource TcText.ValueLarge}" />
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding BatteryPercentText}" Style="{StaticResource TcText.ValueLarge}" />
+              <controls:PackIconLucide Kind="Lightning" Width="18" Height="18" Margin="6,0,0,0" VerticalAlignment="Center" Foreground="{DynamicResource Tc.Success}" Opacity="{Binding ChargingSymbolOpacity, ElementName=CurrentBatteryGauge}" ToolTip="Charging" AutomationProperties.Name="Charging">
+                <controls:PackIconLucide.Style><Style TargetType="controls:PackIconLucide"><Setter Property="Visibility" Value="Collapsed" /><Style.Triggers><DataTrigger Binding="{Binding BatteryCharging}" Value="True"><Setter Property="Visibility" Value="Visible" /></DataTrigger></Style.Triggers></Style></controls:PackIconLucide.Style>
+              </controls:PackIconLucide>
+            </StackPanel>
             <TextBlock Text="{Binding BatteryEtaText}" Style="{StaticResource TcText.Caption}" TextWrapping="Wrap" Margin="0,4,0,0" />
           </StackPanel>
         </Grid>
@@ -34,17 +39,17 @@
       <Border Grid.Column="0" Style="{StaticResource TcSection}" Margin="0">
         <StackPanel>
           <Grid>
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition />
-              <ColumnDefinition Width="Auto" />
-            <ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-            <TextBlock Text="Battery preservation" FontWeight="SemiBold" VerticalAlignment="Center" Style="{StaticResource TcText.SectionTitle}" TextWrapping="Wrap" />
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock Text="Battery preservation" FontWeight="SemiBold" VerticalAlignment="Center" Style="{StaticResource TcText.SectionTitle}" TextWrapping="Wrap" Margin="0,0,12,0" />
             <CheckBox x:Name="ChargeProtectionSwitch" Grid.Column="1" Style="{StaticResource TcSwitch}" HorizontalAlignment="Right" VerticalAlignment="Center" AutomationProperties.Name="Battery preservation" IsEnabled="False" Click="ChargeProtectionSwitch_Click" ToolTip="Turn the verified OEM battery charge window on or off" />
-          <Button x:Name="CustomChargeLimitsButton" Content="Edit" ToolTip="Edit custom charge limits" Style="{StaticResource TcButton}" HorizontalAlignment="Left" Margin="12,0,0,0" IsEnabled="False" Click="CustomChargeLimits_Click" Grid.Column="2" /></Grid>
-          <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,3,0,0" />
-
-          <TextBlock Text="Charge limit" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,8,0,0" />
-          <TextBlock x:Name="ChargeLimitValue" Text="—" Style="{StaticResource TcText.ValueLarge}" Margin="0,5,0,12" />
+          </Grid>
+          <TextBlock Text="Charge limit" Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" Margin="0,12,0,0" />
+          <Grid Margin="0,4,0,0">
+            <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock x:Name="ChargeLimitValue" Text="—" Style="{StaticResource TcText.ValueLarge}" VerticalAlignment="Center" />
+            <Button x:Name="CustomChargeLimitsButton" Grid.Column="1" Content="Edit" ToolTip="Edit custom charge limits" Style="{StaticResource TcButton}" HorizontalAlignment="Right" IsEnabled="False" Click="CustomChargeLimits_Click" />
+          </Grid>
+          <TextBlock x:Name="ChargeProtectionStateText" Text="Checking…" HorizontalAlignment="Right" FontSize="{x:Static ui:TypographyScale.Caption}" Foreground="{DynamicResource Tc.TextMuted}" Margin="0,3,0,12" />
           <ListBox x:Name="ChargeProtectionComboBox" BorderThickness="0" Background="Transparent" Padding="0" Margin="-3,0" IsEnabled="False" SelectionChanged="ChargeProtection_SelectionChanged">
             <ListBox.Template><ControlTemplate TargetType="ListBox"><ItemsPresenter /></ControlTemplate></ListBox.Template>
             <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate></ListBox.ItemsPanel>

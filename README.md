@@ -1,5 +1,8 @@
 <div align="center">
 
+
+Candidate v0.1.0-alpha.70 refines charging motion, touchpad guides and shared control rails, and removes the unrelated power-baseline prerequisite from verified exact Max cooling. Published alpha.69 remains the download until promotion completes.
+
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="assets/brand/v3/wordmark/ThinkControl_wordmark_light.svg">

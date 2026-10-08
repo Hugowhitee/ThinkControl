@@ -2,7 +2,9 @@
 
 ## What's changed
 
-- Advanced charging shows a gently pulsing Fluent lightning symbol. Battery level colors stay visible; discharge is static and low-charge warnings remain semantic.
+- Charging keeps subtle moving lines inside the battery and a smaller pulsing green lightning next to the percentage. Level colors stay visible; discharge and reduced motion remain static.
+- Verified exact Max cooling works without first reapplying a Windows power preference; firmware readback and safe Auto recovery remain required.
+- Startup and preservation controls follow their relevant rows. Hardware details use the full System content width; touchpad guides and popups have cleaner spacing.
 - Fan profile failures expose an explicit Auto recovery action even when Auto is already selected. Edited built-in curves keep their points on measured direct controllers.
 - Fan curves clarify that 0% is the minimum measured running speed; use Auto for firmware-managed fan stop.
 

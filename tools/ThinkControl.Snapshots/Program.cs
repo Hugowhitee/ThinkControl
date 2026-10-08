@@ -38,6 +38,31 @@ internal static class Program
         app.InitializeComponent();
         var snapshots = new List<SnapshotEntry>();
 
+        if (args.Contains("--surface-polish", StringComparer.Ordinal))
+        {
+            foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
+            {
+                ThemeService.Apply(theme);
+                foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
+                {
+                    RenderAdvanced(app, CreateDemoState(true, true), "Touchpad", width, height, output, snapshots,
+                        $"Touchpad-{theme}-{width}.png", "Touchpad guides", touchpadCorner: TouchpadCorner.TopRight);
+                    RenderAdvanced(app, CreateDemoState(true, true), "System", width, height, output, snapshots,
+                        $"SystemDetails-{theme}-{width}.png", "Expanded hardware details", systemDetails: true);
+                    RenderAdvanced(app, CreateDemoState(true, true), "System", width, height, output, snapshots,
+                        $"Preferences-{theme}-{width}.png", "Preference control rail");
+                    var fullBattery = CreateDemoState(true, true);
+                    fullBattery.BatteryPercent = 100;
+                    RenderAdvanced(app, fullBattery, "Battery", width, height, output, snapshots,
+                        $"Battery-{theme}-{width}.png", "Preservation controls and 100% fit");
+                }
+                RenderGestureOsd(app, output, snapshots, $"GestureOsd-{theme}.png", "Brightness", 100);
+            }
+            WriteManifest(output, snapshots);
+            WriteGallery(output, snapshots);
+            return 0;
+        }
+
         if (args.Contains("--compact-editor", StringComparer.Ordinal))
         {
             foreach (var mode in new[] { ThemeMode.Dark, ThemeMode.Light })
@@ -846,7 +871,7 @@ internal static class Program
             window.PrepareModesEditorForSnapshot();
         if (ruleEditor) window.PrepareRuleEditorForSnapshot();
         if (systemDetails) window.PrepareSystemDetailsForSnapshot();
-        if (systemActions && window.FindName("PageSystem") is System.Windows.Controls.ScrollViewer systemScroll)
+        if ((systemActions || systemDetails) && window.FindName("PageSystem") is System.Windows.Controls.ScrollViewer systemScroll)
         {
             if (window.Content is FrameworkElement root)
             {

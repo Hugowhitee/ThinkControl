@@ -1,5 +1,8 @@
 # Device support
 
+
+Candidate v0.1.0-alpha.70 refines charging motion, touchpad guides and shared control rails, and removes the unrelated power-baseline prerequisite from verified exact Max cooling. Published alpha.69 remains the download until promotion completes.
+
 Published v0.1.0-alpha.69 preserves battery level colors with a pulsing Fluent charging symbol and static discharge. Direct fan failures expose Auto recovery; edited built-in curves retain their points on measured controllers. 0% is the minimum measured running speed; Auto permits firmware-managed fan stop. Exact-head Windows/installer checks and public asset checksums passed; sustained physical fan behavior and installed acceptance remain unverified. See RELEASE_READINESS.md.
 
 Published v0.1.0-alpha.68 verifies sustained fan output against calibration, corrects Compact sensor navigation and simplifies Modes/System disclosures. Physical fan reproduction remains unverified; evidence is maintained in RELEASE_READINESS.md.
