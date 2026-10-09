@@ -1,8 +1,6 @@
 # ThinkControl architecture
 
-Candidate v0.1.0-alpha.74 restores the explicitly labeled modeled battery wear comparison, removes dot-separated status metadata, streams verified updates, gives setup update-specific progress and shared typography, and excludes the unused WinRT projection from the hardware service. Windows, native UI and installer validation are pending. The published fallback remains v0.1.0-alpha.73; physical fan and full battery-cycle acceptance remain UNVERIFIED.
-
-Published v0.1.0-alpha.72 stabilizes sparse measured fan-curve mapping and transition dwell, synchronizes Overview/Cooling immediately, and unifies cooling/preservation rails and Mode/Triggers controls. One-click automation resume, confirmed-active mode presentation and inline Touchpad resets pass native regression tests. Public installer/assets and checksums are verified; sustained updated installed fan behavior remains UNVERIFIED.
+Published v0.1.0-alpha.74 restores the labeled model-based battery wear comparison, readable live session labels and a compact, consistent installer/update flow. Exact-head Windows, native UI, installer/service/IPC and oldest-supported upgrade gates passed. All four immutable public assets and checksums were independently downloaded and verified. Hardware support is unchanged; physical fan stability and full battery-cycle acceptance remain UNVERIFIED.
 
 Published v0.1.0-alpha.71 makes calibrated Max cooling follow its curve and identifies fixed full speed correctly. Overview selects profiles directly; history/Compact preferences and gesture popup text use consistent rails. Public installer/assets and checksums are verified; updated installed RPM acceptance remains unverified.
 

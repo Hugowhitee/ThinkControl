@@ -1,10 +1,16 @@
 # Release readiness
 
-## Current candidate: v0.1.0-alpha.74
+## Published v0.1.0-alpha.74
 
-The active candidate restores the existing generic wear model as a clearly labeled reference-cycle/percentage comparison, removes dot-separated visible metadata, streams checksum-verified updates with cancellation cleanup, uses update-specific native setup progress and private IBM Plex Sans typography, and excludes the unused Windows WinRT projection from Hardware/Service while retaining it for UI media control.
+[Release and downloads](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.74) are public and immutable with exactly four assets. Tag commit `21dc93b86c0be186137feed4dd4b02ad110f7dd2` has source tree `3f7a1f4f4c9e02f17f8f48d942656057d7f93c70`, identical to validated PR #147 head `6dedfffc34af18275a279cd76c82e7a7292e671c`.
 
-Local build passed with no warnings; 332 core tests passed. The first published-payload comparison measured 35.31 MiB installed and 10.42 MiB compressed, versus alpha.73's 59.53 MiB and 16.73 MiB. Exact-head hosted UI, installation, service/IPC and oldest-supported upgrade gates are still pending. Alpha.73 remains the published fallback. Fences could not expose an inspectable reference window; no visual parity with it is claimed. Physical fan stability and full charge/discharge acceptance remain UNVERIFIED and are not changed by this release.
+The existing generic wear model is visible as a labeled reference-cycle/percentage comparison, separate from firmware cycles. Live discharge badges grow within a shared column. Visible dot-separated metadata is removed. Updates stream through checksum verification with partial-file cleanup on cancellation. The native installer retains DPI-scaled header metrics, uses private IBM Plex typography, compact proportions, one document/list surface owner and update-specific phase text; plain-text license content uses theme-appropriate text colors.
+
+Exact-head CI `37917714650` and Package `37917714590` passed: 332 core tests, native shell/motion/mode smoke, WPF screenshots, installer/service/IPC and oldest-supported upgrade. The transfer smoke rejects corrupted data, preserves previously verified files and removes staging during cancellation. Main CI `37918144900` and immutable packaging `37918159594` passed. Artifact ZIP digests were verified (`878377691a2c3ebcb243910d24eb4d5c4bc9ae0171e5c35b1c8b0a83847ed472` visual; `919ef01bc54720260659fa4d77195337cf11341ef77e48aa8f9e5c2b36a13b3f` development package), including inner Setup/Payload checksums. Native battery and live-session layouts were visually inspected in dark/light at minimum, normal and wide widths. Dark installer previews were inspected and user feedback incorporated; a complete final interactive installer tour in both themes remains UNVERIFIED. Fences did not expose a reference window, so visual parity is not claimed.
+
+All public asset API byte counts/digests and the inner SHA256SUMS entries were independently verified. Setup: 2,532,084 bytes, SHA-256 `6044133cd23f40500056e6bc46952eaecbd82653d3fa7c3a603f5418f5efca95`. Payload: 10,925,786 bytes, SHA-256 `a6a7089f9c19457b353b2f021e28503a6ba81d113bbbe95e6cb1f5e47ce91781`. This is about 38% less download than alpha.73. Hardware/Service omit the unused WinRT projection; UI retains it for media control. Physical fan stability and full charge/discharge acceptance remain UNVERIFIED, with no hardware-support expansion.
+
+## Previous publication evidence
 
 # ThinkControl release-readiness roadmap
 
