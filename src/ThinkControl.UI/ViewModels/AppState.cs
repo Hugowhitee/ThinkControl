@@ -35,6 +35,7 @@ public sealed class AppState : INotifyPropertyChanged
     private bool _batteryProtectionWritable;
     private string _batteryChargeCurveLabel = "Learning charge pattern";
     private string _batteryCurrentSessionText = "No active charge session";
+    private string _batteryTypicalRuntimeText = "Learning battery endurance from observed use";
     private string _batteryTypicalChargeText = "Learning typical charge power";
     private string _batteryHealthTrendText = "Waiting for capacity history";
     private string _batterySource = "Windows battery";
@@ -98,6 +99,8 @@ public sealed class AppState : INotifyPropertyChanged
     private string _batteryMotionPreference = "On";
     public string BatteryMotionPreference { get => _batteryMotionPreference; set => Set(ref _batteryMotionPreference, value); }
     public bool BatteryCharging { get => _batteryCharging; set => Set(ref _batteryCharging, value); }
+    public bool BatteryPluggedIn => BatteryCharging || BatteryStatus.Contains("Plugged in", StringComparison.OrdinalIgnoreCase) ||
+        BatteryStatus.Contains("Fully charged", StringComparison.OrdinalIgnoreCase);
     public bool BatteryDischarging => !BatteryCharging && BatteryStatus == "On battery";
     public string BatteryStatus { get => _batteryStatus; set => Set(ref _batteryStatus, value); }
     public double? BatteryPowerWatts { get => _batteryPowerWatts; set => Set(ref _batteryPowerWatts, value); }
@@ -115,6 +118,7 @@ public sealed class AppState : INotifyPropertyChanged
     public bool BatteryProtectionWritable { get => _batteryProtectionWritable; set => Set(ref _batteryProtectionWritable, value); }
     public string BatteryChargeCurveLabel { get => _batteryChargeCurveLabel; set => Set(ref _batteryChargeCurveLabel, value); }
     public string BatteryCurrentSessionText { get => _batteryCurrentSessionText; set => Set(ref _batteryCurrentSessionText, value); }
+    public string BatteryTypicalRuntimeText { get => _batteryTypicalRuntimeText; set => Set(ref _batteryTypicalRuntimeText, value); }
     public string BatteryTypicalChargeText { get => _batteryTypicalChargeText; set => Set(ref _batteryTypicalChargeText, value); }
     public string BatteryHealthTrendText { get => _batteryHealthTrendText; set => Set(ref _batteryHealthTrendText, value); }
     public string BatterySource { get => _batterySource; set => Set(ref _batterySource, value); }
@@ -340,6 +344,7 @@ public sealed class AppState : INotifyPropertyChanged
         BatteryChargeCurveLabel = history.ChargeCurveLabel;
         BatteryCurrentSessionText = history.CurrentSessionText;
         BatteryTypicalChargeText = history.TypicalChargeText;
+        BatteryTypicalRuntimeText = history.TypicalRuntimeText;
         BatteryHealthTrendText = history.HealthTrendText;
         BatteryCycleTrendText = history.CycleTrendText;
         ReplaceCollection(BatteryChargePowerTimeline, history.ChargePowerTimeline);
@@ -405,6 +410,7 @@ public sealed class AppState : INotifyPropertyChanged
         else if (propertyName is nameof(BatteryPowerWatts) or nameof(BatteryEtaToChargeTarget) or nameof(BatteryEtaRemaining) or nameof(BatteryStatus))
         {
             OnPropertyChanged(nameof(BatteryDischarging));
+            OnPropertyChanged(nameof(BatteryPluggedIn));
             OnPropertyChanged(nameof(BatteryPowerText));
             OnPropertyChanged(nameof(BatteryEtaText));
             OnPropertyChanged(nameof(BatteryCompactLine));
@@ -413,6 +419,7 @@ public sealed class AppState : INotifyPropertyChanged
         else if (propertyName == nameof(BatteryCharging))
         {
             OnPropertyChanged(nameof(BatteryDischarging));
+            OnPropertyChanged(nameof(BatteryPluggedIn));
             OnPropertyChanged(nameof(BatteryEtaText));
             OnPropertyChanged(nameof(BatteryCompactLine));
             OnPropertyChanged(nameof(BatteryProtectionBehaviorText));

@@ -141,7 +141,7 @@ public sealed class BatteryGauge : FrameworkElement
         _pulsePhase = (_pulsePhase + seconds * Math.PI) % (Math.PI * 2);
         _stripePhase = (_stripePhase + seconds * 20) % 16;
         SetValue(ChargingSymbolOpacityPropertyKey, 0.68 + 0.32 * (Math.Sin(_pulsePhase) + 1) / 2);
-        SetValue(ChargingFlowPhasePropertyKey, _stripePhase);
+        SetValue(ChargingFlowPhasePropertyKey, _pulsePhase / (Math.PI * 2) * 16);
         InvalidateVisual();
         if (targetOpacity == 0 && _chargeOpacity < 0.001) UpdateRenderingHook();
     }

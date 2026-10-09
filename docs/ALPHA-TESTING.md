@@ -1,5 +1,7 @@
 # ThinkControl alpha testing guide
 
+Candidate v0.1.0-alpha.73 stabilizes observed battery statistics, learned ETA and preservation presentation, with compact mode selection and centered shared dropdown arrows. Exact-head release validation is pending; hardware support and physical fan claims are unchanged.
+
 Published v0.1.0-alpha.72 stabilizes sparse measured fan-curve mapping and transition dwell, synchronizes Overview/Cooling immediately, and unifies cooling/preservation rails and Mode/Triggers controls. One-click automation resume, confirmed-active mode presentation and inline Touchpad resets pass native regression tests. Public installer/assets and checksums are verified; sustained updated installed fan behavior remains UNVERIFIED.
 
 Published v0.1.0-alpha.71 makes calibrated Max cooling follow its curve and identifies fixed full speed correctly. Overview selects profiles directly; history/Compact preferences and gesture popup text use consistent rails. Public installer/assets and checksums are verified; updated installed RPM acceptance remains unverified.
@@ -417,3 +419,8 @@ Physical Touchpad, Audio Safety, battery charging and X9 cooling checks remain s
 
 
 v0.1.0-alpha.72 acceptance: select Quiet/Balanced/Max in Overview and immediately open Cooling; the selection must agree without waiting for telemetry. Check sustained versus transient curve demand, hot/sensor-loss Auto fallback, dark/light card alignment, and preservation windows at 80/85/90/95/custom limits. Physical fan oscillation reproduction on this candidate remains UNVERIFIED.
+
+
+Alpha.73 acceptance: opening normal/editable/Compact dropdowns must rotate the chevron without moving it. Select No mode to restore regular settings; resume Automatic triggers once and confirm it remains on. Check preservation charging toward stop, plugged-in hold toward resume, unplugged static/no-target, disabled/unknown thresholds, custom windows and 0/100 positions. Shared reduced-motion behavior must remain intact.
+
+Alpha.73 battery-statistics stabilization: active session duration ends at the last observation, not wall-clock now. New sessions split after two-minute measurement interruptions or >10-point gauge jumps; detailed legacy session/day duration excludes unobserved gaps. Time-weighted power avoids oversampling bias; bounded point reduction preserves both endpoints. Runtime ETA uses bounded learned charge/discharge priors only alongside valid current readings, suppresses low-power charger negotiation for up to 90 seconds, and reacts faster to settled power. Typical endurance is separately labeled as a normalized 100–0% estimate from eligible observed discharge sessions (at least one hour and 20% aggregate use), not a measured full drain or a guarantee. Summary-only legacy records cannot reconstruct missing observations and are excluded from learning. Physical full-charge/drain validation remains pending.

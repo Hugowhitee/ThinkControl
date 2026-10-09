@@ -165,9 +165,6 @@ public partial class AdvancedWindow
         {
             HomeModeCombo.ItemsSource = modes;
             HomeModeCombo.IsEnabled = HomeAutomationSwitch.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning;
-            HomeModeEnabledSwitch.IsEnabled = !_homeModeBusy && !_app.Modes.IsTransitioning &&
-                (_app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId || _app.Modes.ModeToEnableId != ThinkControlModeCatalog.NormalId);
-            HomeModeEnabledSwitch.IsChecked = _app.Modes.ActiveModeId != ThinkControlModeCatalog.NormalId;
             HomeModeCombo.SelectedItem = active;
             var presentation = ModeStatusPresentation.From(_app);
             HomeModeTitle.Text = "Mode";
@@ -214,22 +211,6 @@ public partial class AdvancedWindow
         if (HomeAutomationSwitch.IsChecked == true) _app.ModeAutomation.Resume();
         else _app.ModeAutomation.Pause();
         RefreshHomeMode();
-    }
-
-    private async void HomeModeEnabled_Click(object sender, RoutedEventArgs e)
-    {
-        if (_homeModeBusy || _app.Modes.IsTransitioning) return;
-        bool enabled = HomeModeEnabledSwitch.IsChecked == true;
-        _homeModeBusy = true;
-        RefreshHomeMode();
-        try
-        {
-            string id = enabled
-                ? _app.Modes.ModeToEnableId
-                : ThinkControlModeCatalog.NormalId;
-            await _app.Modes.ActivateAsync(id);
-        }
-        finally { _homeModeBusy = false; RefreshHomeMode(); }
     }
 
     private async void HomeMode_SelectionChanged(object sender, SelectionChangedEventArgs e)

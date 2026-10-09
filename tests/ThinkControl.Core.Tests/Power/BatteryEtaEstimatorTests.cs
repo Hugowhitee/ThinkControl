@@ -229,6 +229,34 @@ public sealed class BatteryEtaEstimatorTests
         Assert.Equal(5, restored.SmoothedPowerWatts);
     }
 
+    [Fact]
+    public void NegotiatingCharger_DoesNotPublishLowPowerStartupEta()
+    {
+        var estimator = new BatteryEtaEstimator();
+        var at = DateTimeOffset.UtcNow;
+        for (int seconds = 0; seconds <= 60; seconds += 10)
+            Assert.Null(estimator.Update(new(at.AddSeconds(seconds), 50, true, false, 2, 36, 72,
+                HistoricalPowerWatts: 25)).ToChargeTarget);
+        BatteryEtaEstimate stable = null!;
+        for (int seconds = 70; seconds <= 200; seconds += 10)
+            stable = estimator.Update(new(at.AddSeconds(seconds), 50, true, false, 24, 36, 72));
+        Assert.InRange(stable.ToChargeTarget!.Value.TotalMinutes, 80, 110);
+    }
+
+    [Fact]
+    public void HistorySteadiesButCannotReplaceCurrentPower()
+    {
+        var at = DateTimeOffset.UtcNow;
+        var learned = new BatteryEtaEstimator();
+        BatteryEtaEstimate estimate = null!;
+        for (int seconds = 0; seconds <= 20; seconds += 10)
+            estimate = learned.Update(new(at.AddSeconds(seconds), 50, false, true, 10, 36, 72,
+                HistoricalPowerWatts: 20));
+        Assert.InRange(estimate.Remaining!.Value.TotalHours, 3.1, 3.3);
+        Assert.Null(learned.Update(new(at.AddSeconds(30), 50, false, true, null, 36, 72,
+            HistoricalPowerWatts: 20)).Remaining);
+    }
+
     private static BatteryEtaSample Sample(
         DateTimeOffset at,
         bool charging,

@@ -11,7 +11,7 @@ using WpfRect = System.Windows.Rect;
 namespace ThinkControl.UI.Controls;
 
 /// <summary>Measured battery level over the charge/resume window. The band
-/// distinguishes the preservation window by texture, with a neutral excluded
+/// distinguishes the preservation window by a quiet tint, with a neutral excluded
 /// zone above the limit. Charging phase comes from the existing battery gauge.</summary>
 public sealed class BatteryProtectionGauge : FrameworkElement
 {
@@ -45,6 +45,16 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         typeof(BatteryProtectionGauge),
         new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty IsPluggedInProperty = DependencyProperty.Register(
+        nameof(IsPluggedIn), typeof(bool), typeof(BatteryProtectionGauge),
+        new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsRender));
+    public bool IsPluggedIn { get => (bool)GetValue(IsPluggedInProperty); set => SetValue(IsPluggedInProperty, value); }
+
+    internal int? ActiveBoundaryPercent => ProtectionEnabled == true && IsPluggedIn &&
+        StartPercent is int start && StopPercent is int stop
+            ? IsCharging ? stop : CurrentPercent >= start ? start : null
+            : null;
+
     public static readonly DependencyProperty FlowPhaseProperty = DependencyProperty.Register(
         nameof(FlowPhase), typeof(double), typeof(BatteryProtectionGauge),
         new FrameworkPropertyMetadata(0d, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -58,7 +68,12 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             string zone = ProtectionEnabled != true ? "Preservation off"
                 : percent >= StopPercent ? "Above charge limit"
                 : percent >= StartPercent ? "Preservation window" : "Below resume threshold";
-            ToolTip = $"{percent}% · {zone}. Current charge: {CurrentPercent}%. Resume below {StartPercent}%; stop at {StopPercent}%.";
+            string thresholds = ProtectionEnabled == true && StartPercent is int resume && StopPercent is int stop
+                ? $" Resume below {resume}%; stop at {stop}%." : string.Empty;
+            string target = ActiveBoundaryPercent is int boundary
+                ? IsCharging ? $" Charging toward {boundary}%." : $" Holding; resumes below {boundary}%."
+                : string.Empty;
+            ToolTip = $"{percent}% · {zone}. Current charge: {CurrentPercent}%.{thresholds}{target}";
         };
     }
 
@@ -110,7 +125,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         const double left = 0;
         double right = width;
         double trackWidth = Math.Max(1, right - left);
-        const double trackTop = 10;
+        const double trackTop = 4;
         const double trackHeight = 18;
         var track = new WpfRect(left, trackTop, trackWidth, trackHeight);
         var clip = new RectangleGeometry(track, 5, 5);
@@ -131,31 +146,33 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         {
             double resumeX = PercentX(resume);
             double limitX = PercentX(limit);
-            dc.DrawRectangle(WithOpacity(success, 0.18), null,
-                new WpfRect(left, trackTop, limitX - left, trackHeight));
-            dc.DrawRectangle(WithOpacity(muted, 0.20), null,
+            dc.DrawRectangle(WithOpacity(faint, 0.10), null,
+                new WpfRect(left, trackTop, resumeX, trackHeight));
+            dc.DrawRectangle(WithOpacity(success, 0.24), null,
+                new WpfRect(resumeX, trackTop, limitX - resumeX, trackHeight));
+            dc.DrawRectangle(WithOpacity(muted, 0.28), null,
                 new WpfRect(limitX, trackTop, right - limitX, trackHeight));
         }
-        double fillEnd = PercentX(stop is int cap ? Math.Min(current, cap) : current);
-        dc.DrawRectangle(WithOpacity(fill, 0.70), null,
-            new WpfRect(left, trackTop, fillEnd - left, trackHeight));
-        if (start is int resumeAt && stop is int stopAtWindow)
+        // Measured charge fills the track. Capacity beyond the configured limit
+        // remains neutral, even when the battery was previously charged higher.
+        double railEnd = PercentX(stop is int cap ? Math.Min(current, cap) : current);
+        dc.DrawRectangle(fill, null,
+            new WpfRect(left, trackTop, railEnd, trackHeight));
+        if (currentX > railEnd)
+            dc.DrawRectangle(WithOpacity(muted, 0.55), null,
+                new WpfRect(railEnd, trackTop, currentX - railEnd, trackHeight));
+        if (IsCharging && IsPluggedIn && railEnd > 0)
         {
-            double resumeX = PercentX(resumeAt);
-            double limitX = PercentX(stopAtWindow);
-            // Texture distinguishes the resume/stop window without implying a fault.
-            dc.PushClip(new RectangleGeometry(new WpfRect(resumeX, trackTop, limitX - resumeX, trackHeight)));
-            for (double x = resumeX - trackHeight; x < limitX; x += 7)
-                dc.DrawLine(new WpfPen(WithOpacity(success, 0.45), 2),
-                    new WpfPoint(x, track.Bottom), new WpfPoint(x + trackHeight, trackTop));
-            dc.Pop();
-        }
-        if (IsCharging && fillEnd > left)
-        {
-            dc.PushClip(new RectangleGeometry(new WpfRect(left, trackTop, fillEnd - left, trackHeight)));
-            for (double x = left - trackHeight + FlowPhase; x < fillEnd; x += 16)
-                dc.DrawLine(new WpfPen(WithOpacity(surface, 0.35), 3),
-                    new WpfPoint(x, track.Bottom), new WpfPoint(x + trackHeight, trackTop));
+            // One soft sweep uses the battery's existing motion owner. It is
+            // clipped to real charge and never simulates a rising percentage.
+            var glow = new LinearGradientBrush();
+            glow.GradientStops.Add(new GradientStop(Colors.Transparent, 0));
+            glow.GradientStops.Add(new GradientStop(Colors.White, 0.5));
+            glow.GradientStops.Add(new GradientStop(Colors.Transparent, 1));
+            glow.Opacity = 0.25;
+            dc.PushClip(new RectangleGeometry(new WpfRect(left, trackTop, railEnd, trackHeight)));
+            double sweepX = (FlowPhase % 16) / 16d * (railEnd + 80) - 80;
+            dc.DrawRectangle(glow, null, new WpfRect(sweepX, trackTop, 80, trackHeight));
             dc.Pop();
         }
         dc.Pop();
@@ -180,7 +197,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
                 $"{stopValue}%",
                 stopX,
                 stopMarker,
-                track.Bottom + 8,
+                track.Bottom + 5,
                 pixelsPerDip);
         }
         else if (ProtectionEnabled == false)
@@ -190,16 +207,6 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         }
 
         dc.DrawRoundedRectangle(null, new WpfPen(border, 1), track, 5, 5);
-
-        // The marker keeps the actual charge position, including above the limit.
-        // Its inset prevents clipping at 0% and 100%.
-        double currentY = trackTop + trackHeight / 2d;
-        dc.DrawEllipse(
-            stop is int stopAt && current > stopAt ? muted : fill,
-            new WpfPen(surface, 2),
-            new WpfPoint(Math.Clamp(currentX, 6, right - 6), currentY),
-            5,
-            5);
 
         double PercentX(int percent) => left + trackWidth * percent / 100d;
     }
@@ -217,6 +224,8 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             EndLineCap = PenLineCap.Round
         };
 
+        dc.DrawLine(new WpfPen(ResourceBrush("Tc.SurfaceAlt", WpfBrushes.Gray), thickness + 2),
+            new WpfPoint(x, track.Top + 2), new WpfPoint(x, track.Bottom - 2));
         dc.DrawLine(
             pen,
             new WpfPoint(x, track.Top + 2),
@@ -237,37 +246,13 @@ public sealed class BatteryProtectionGauge : FrameworkElement
         FormattedText startText = CreateThresholdLabel(startLabel, startBrush, pixelsPerDip);
         FormattedText stopText = CreateThresholdLabel(stopLabel, stopBrush, pixelsPerDip);
 
-        const double edge = 2;
-        const double minimumGap = 4;
-        double startMaxX = Math.Max(edge, ActualWidth - startText.Width - edge);
-        double stopMaxX = Math.Max(edge, ActualWidth - stopText.Width - edge);
-        double startX = Math.Clamp(startCenterX - startText.Width / 2d, edge, startMaxX);
-        double stopX = Math.Clamp(stopCenterX - stopText.Width / 2d, edge, stopMaxX);
-
-        // Five-percent preservation windows put the markers only a few pixels
-        // farther apart than the label widths on the compact card. Resolve that
-        // collision symmetrically while keeping both labels beside their markers.
-        double overlap = startX + startText.Width + minimumGap - stopX;
-        if (overlap > 0)
-        {
-            double shift = overlap / 2d;
-            startX = Math.Max(edge, startX - shift);
-            stopX = Math.Min(stopMaxX, stopX + shift);
-
-            // If either edge absorbed part of the symmetric shift, move the other
-            // label just enough to preserve a readable gap.
-            if (startX + startText.Width + minimumGap > stopX)
-            {
-                double preferredStart = stopX - minimumGap - startText.Width;
-                if (preferredStart >= edge)
-                    startX = preferredStart;
-                else
-                    stopX = Math.Min(stopMaxX, edge + startText.Width + minimumGap);
-            }
-        }
-
+        double startX = Math.Clamp(startCenterX - startText.Width / 2, 0, Math.Max(0, ActualWidth - startText.Width));
+        double stopX = Math.Clamp(stopCenterX - stopText.Width / 2, 0, Math.Max(0, ActualWidth - stopText.Width));
+        // Percentages stay directly under their own marks. At narrow widths a
+        // second baseline prevents overlap without moving either label sideways.
+        double stopY = startX + startText.Width + 4 > stopX ? y + 12 : y;
         dc.DrawText(startText, new WpfPoint(startX, y));
-        dc.DrawText(stopText, new WpfPoint(stopX, y));
+        dc.DrawText(stopText, new WpfPoint(stopX, stopY));
     }
 
     private void DrawThresholdLabel(
