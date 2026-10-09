@@ -27,7 +27,7 @@
   </a>
 </div>
 
-**v0.1.0-alpha.72** stabilizes measured fan-curve transitions and immediately synchronizes Overview/Cooling selection. Cooling and preservation follow shared layout rails; Modes use cohesive Mode/Triggers switches with one-click automation resume and confirmed Active state. Direct 0% remains the minimum measured running speed; use Auto for firmware-managed fan stop.
+**v0.1.0-alpha.73** improves battery session accuracy and learned time estimates, simplifies Modes with one labeled Automatic triggers switch, and centers dropdown arrows. Battery preservation uses a solid fill and a distinct soft charging sweep, with percentages beneath their threshold marks. Calibrated fan stability and immediate Overview/Cooling synchronization remain included.
 
 
 **v0.1.0-alpha.68** adds measured fan-output verification, corrected sensor shortcuts and simpler Modes/System controls.
@@ -38,7 +38,7 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current alpha:** [v0.1.0-alpha.72](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.72) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.72/ThinkControl-Setup-0.1.0-alpha.72.exe).
+**Current alpha:** [v0.1.0-alpha.73](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.73) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.73/ThinkControl-Setup-0.1.0-alpha.73.exe).
 
 Alpha.66 simplifies the Overview Mode card, adds a compact Automation switch, aligns rule/startup controls and uses subtle rule-status dots. Manual mode selection pauses triggers; editor drafts survive Saved modes ↔ Automation navigation.
 
@@ -54,8 +54,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.72/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.72/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.73/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.73/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -146,4 +146,4 @@ See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUC
 
 v0.1.0-alpha.72 stabilizes calibrated fan curves with nearest-speed mapping and hysteresis across large hardware gaps, synchronizes Overview/Cooling selection immediately, and aligns the Cooling and preservation cards. Hardware output remains discrete and capability-gated.
 
-The v0.1.0-alpha.73 candidate improves battery statistics and control clarity; the published downloads above remain the verified alpha.72 release until promotion completes.
+v0.1.0-alpha.73 is published with verified public downloads. Battery endurance remains an estimate from observed use; incomplete older sessions are identified rather than presented as a complete measured drain.
