@@ -30,6 +30,8 @@ internal static partial class Program
                 Task.Run(ValidateKeyboardTransitions).WaitAsync(TimeSpan.FromSeconds(15)).GetAwaiter().GetResult();
                 return 0;
             }
+            Task.Run(ValidateUpdateTransfer).GetAwaiter().GetResult();
+            if (args.Contains("--update-transfer", StringComparer.Ordinal)) return 0;
             ValidateCrashJournal();
             ValidateBatteryHistoryGaps();
             ValidateCompactLayoutMigration();

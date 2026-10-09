@@ -35,7 +35,7 @@ public sealed class BatteryProtectionAndHistorySourceTests
         Assert.Contains("x:Name=\"CustomChargeStartComboBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"CustomChargeStopComboBox\"", xaml, StringComparison.Ordinal);
         Assert.Contains("Helps reduce battery wear", code, StringComparison.Ordinal);
-        Assert.Contains("Illustrative wear estimate · Not measured battery cycles", code, StringComparison.Ordinal);
+        Assert.Contains("reference cycles ({wear:P0})", code, StringComparison.Ordinal);
         Assert.Contains("not the firmware cycle count or measured capacity loss", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BatteryPreservationImpactModel.DescribeLimitWear", code, StringComparison.Ordinal);
         Assert.Contains("UpdateBatteryAgingGuidance", panel, StringComparison.Ordinal);

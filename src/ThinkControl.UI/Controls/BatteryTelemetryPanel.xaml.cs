@@ -240,7 +240,7 @@ public partial class BatteryTelemetryPanel : UserControl
             "snapshot-discharge", "Discharge", end - TimeSpan.FromHours(4), end - TimeSpan.FromMinutes(15),
             88, 63, 4.8, 5.3, 18.0, 6.7,
             dischargePower, DischargePercentChart.Values.ToArray(),
-            "88% to 63% in 3h 45m, average power: 4.8 W");
+            "88% to 63% in 3h 45m, average power: 4.8 W", IsActive: !state.BatteryPluggedIn);
         PresentChargeSession(charge);
         var today = new BatteryDaySummary(
             DateOnly.FromDateTime(DateTime.Today), "Today", 17, 25,
@@ -301,7 +301,7 @@ public partial class BatteryTelemetryPanel : UserControl
     private Button CreateSessionRow(BatterySessionDetail session)
     {
         var grid = new Grid { MinHeight = 48 };
-        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(110) });
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto, SharedSizeGroup = "SessionKind" });
         grid.ColumnDefinitions.Add(new ColumnDefinition());
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(84) });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
@@ -319,7 +319,9 @@ public partial class BatteryTelemetryPanel : UserControl
         {
             Text = (session.Kind == "Charge" ? "+ " : "− ") + (session.IsActive ? $"{session.Kind} (live)" : session.Kind),
             FontSize = TypographyScale.Caption,
-            FontWeight = FontWeights.SemiBold
+            FontWeight = FontWeights.SemiBold,
+            TextWrapping = TextWrapping.Wrap,
+            MaxWidth = 110
         };
         kindText.SetResourceReference(TextBlock.ForegroundProperty, session.Kind == "Charge" ? "Tc.Success" : "Tc.Text");
         kind.Child = kindText;
@@ -327,7 +329,7 @@ public partial class BatteryTelemetryPanel : UserControl
 
         var summary = new TextBlock
         {
-            Text = $"{session.StartedAt.LocalDateTime:HH:mm}–{(session.EndedAt is { } ended ? ended.ToLocalTime().ToString("HH:mm") : "now")}    {(session.HasUnobservedGaps ? "Partial tracking" : FormatShortDuration(session.Duration))}\n{session.StartPercent}% → {session.EndPercent}%" +
+            Text = $"{session.StartedAt.LocalDateTime:HH:mm}–{(session.EndedAt is { } ended ? ended.ToLocalTime().ToString("HH:mm") : "now")}, {(session.HasUnobservedGaps ? "Partial tracking" : FormatShortDuration(session.Duration))}\n{session.StartPercent}% → {session.EndPercent}%" +
                 string.Empty,
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,

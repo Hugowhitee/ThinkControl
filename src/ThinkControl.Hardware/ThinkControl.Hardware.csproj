@@ -2,6 +2,8 @@
   <PropertyGroup>
     <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
     <Nullable>enable</Nullable>
+    <!-- This process uses Win32/WMI, not the WinRT API projection. -->
+    <IncludeWindowsSDKRefFrameworkReferences>false</IncludeWindowsSDKRefFrameworkReferences>
     <PlatformTarget>x64</PlatformTarget>
   </PropertyGroup>
   <ItemGroup>

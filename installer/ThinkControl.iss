@@ -55,6 +55,7 @@ OutputBaseFilename=ThinkControl-Setup-{#AppVersion}
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern dynamic windows11
+WizardSizePercent=110,100
 PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -77,6 +78,8 @@ Name: "startwithwindows"; Description: "Start ThinkControl quietly with Windows 
 Name: "compatibilitydiagnostics"; Description: "Help ThinkControl support more devices by preparing redacted compatibility reports locally"; GroupDescription: "Compatibility:"
 
 [Files]
+Source: "..\src\ThinkControl.UI\Assets\Fonts\IBMPlexSans-Regular.ttf"; Flags: dontcopy
+Source: "..\src\ThinkControl.UI\Assets\Fonts\IBMPlexSans-SemiBold.ttf"; Flags: dontcopy
 Source: "..\assets\brand\v3\windows\ThinkControl.ico"; DestDir: "{app}"; DestName: "ThinkControl.ico"; Flags: ignoreversion
 
 [Icons]
@@ -118,6 +121,7 @@ var
   PayloadPath: String;
   StagedPayloadDir: String;
   ExistingInstall: Boolean;
+  DownloadPage: TDownloadWizardPage;
 
 function IsUpdateParameter(): Boolean;
 begin
@@ -139,16 +143,99 @@ begin
     ((PageID = wpSelectTasks) or (PageID = wpSelectDir));
 end;
 
+function AddFontResourceEx(FileName: String; Flags: Cardinal; Reserved: Integer): Integer;
+  external 'AddFontResourceExW@gdi32.dll stdcall';
+
+procedure UsePrimaryText(LabelControl: TNewStaticText);
+begin
+  LabelControl.StyleElements := [seClient, seBorder];
+  if IsDarkInstallMode then
+    LabelControl.Font.Color := $00F4F6F6
+  else
+    LabelControl.Font.Color := clWindowText;
+end;
+
+procedure UseDocumentSurface(MemoControl: TMemo);
+begin
+  MemoControl.StyleElements := [seBorder];
+  MemoControl.BorderStyle := bsSingle;
+  MemoControl.WordWrap := True;
+  MemoControl.ScrollBars := ssVertical;
+  if IsDarkInstallMode then
+  begin
+    MemoControl.Color := $00202020;
+    MemoControl.Font.Color := $00F4F6F6;
+  end
+  else
+  begin
+    MemoControl.Color := clWindow;
+    MemoControl.Font.Color := clWindowText;
+  end;
+end;
+
 procedure InitializeWizard();
 begin
   { InitializeWizard runs before the app constant may be expanded. WizardDirValue
     safely exposes Inno's current directory value here, including a remembered
     custom location from the same AppId when UsePreviousAppDir is enabled. }
   ExistingInstall := FileExists(AddBackslash(WizardDirValue()) + 'ui\{#UiExeName}');
+  ExtractTemporaryFile('IBMPlexSans-Regular.ttf');
+  ExtractTemporaryFile('IBMPlexSans-SemiBold.ttf');
+  AddFontResourceEx(ExpandConstant('{tmp}\IBMPlexSans-Regular.ttf'), 16, 0);
+  AddFontResourceEx(ExpandConstant('{tmp}\IBMPlexSans-SemiBold.ttf'), 16, 0);
+  WizardForm.Font.Name := 'IBM Plex Sans';
+  WizardForm.WizardSmallBitmapImage.Visible := False;
+  WizardForm.PageNameLabel.Font.Name := 'IBM Plex Sans SemiBold';
+  { Preserve Inno's DPI-scaled text metrics and header bounds. }
+  WizardForm.PageNameLabel.Font.Style := [fsBold];
+  UsePrimaryText(WizardForm.PageNameLabel);
+  UsePrimaryText(WizardForm.PageDescriptionLabel);
+  UsePrimaryText(WizardForm.WelcomeLabel1);
+  UseDocumentSurface(WizardForm.ReadyMemo);
+  UseDocumentSurface(WizardForm.PreparingMemo);
+  DownloadPage := CreateDownloadPage('Installing ThinkControl', 'Preparing verified application files.', nil);
+  DownloadPage.ShowBaseNameInsteadOfUrl := True;
   if ExistingInstall or IsUpdateParameter() then
   begin
+    DownloadPage.Caption := 'Updating ThinkControl';
+    DownloadPage.Description := 'Preparing the verified update. Your settings are preserved.';
     WizardForm.Caption := 'Update ThinkControl';
     WizardForm.NextButton.Caption := 'Update';
+  end;
+end;
+
+procedure DownloadRequiredFile(Url, FileName, Sha256: String);
+begin
+  DownloadPage.Clear;
+  DownloadPage.Add(Url, FileName, Sha256);
+  DownloadPage.Show;
+  try
+    DownloadPage.Download;
+  finally
+    DownloadPage.Hide;
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = wpLicense then
+  begin
+    { LICENSE is plain text. Use a native memo so dark/light theme colors are
+      applied to the entire document instead of retaining RichEdit's black text. }
+    WizardForm.LicenseMemo.UseRichEdit := False;
+    UseDocumentSurface(WizardForm.LicenseMemo);
+  end;
+  if (CurPageID = wpReady) and (ExistingInstall or IsUpdateParameter()) then
+  begin
+    WizardForm.PageNameLabel.Caption := 'Ready to update';
+    WizardForm.PageDescriptionLabel.Caption := 'Update ThinkControl while keeping your settings.';
+    WizardForm.ReadyLabel.Caption := 'Choose Update to continue, or Back to review the agreement.';
+    WizardForm.NextButton.Caption := 'Update';
+  end;
+  if (CurPageID = wpInstalling) and (ExistingInstall or IsUpdateParameter()) then
+  begin
+    WizardForm.PageNameLabel.Caption := 'Updating ThinkControl';
+    WizardForm.PageDescriptionLabel.Caption := 'Applying the verified update and restarting the hardware service.';
   end;
 end;
 
@@ -190,11 +277,10 @@ begin
 
   try
     Log('Downloading verified Microsoft .NET Desktop Runtime {#DotNetDesktopVersion} x64.');
-    DownloadTemporaryFile(
+    DownloadRequiredFile(
       '{#DotNetDesktopUrl}',
       '{#DotNetDesktopFile}',
-      '{#DotNetDesktopSha256}',
-      nil);
+      '{#DotNetDesktopSha256}');
   except
     Result := 'ThinkControl could not download the required Microsoft .NET 10 Desktop Runtime: ' + GetExceptionMessage;
     Exit;
@@ -278,11 +364,10 @@ begin
 
   try
     Log('Downloading SHA-256 pinned ThinkControl payload from GitHub Releases.');
-    DownloadTemporaryFile(
+    DownloadRequiredFile(
       '{#PayloadUrl}',
       '{#PayloadFile}',
-      '{#PayloadSha256}',
-      nil);
+      '{#PayloadSha256}');
     PayloadPath := ExpandConstant('{tmp}\{#PayloadFile}');
   except
     Result := 'ThinkControl could not download its application payload from GitHub Releases: ' + GetExceptionMessage;

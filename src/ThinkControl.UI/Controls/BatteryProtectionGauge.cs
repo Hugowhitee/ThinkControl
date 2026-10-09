@@ -73,7 +73,7 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             string target = ActiveBoundaryPercent is int boundary
                 ? IsCharging ? $" Charging toward {boundary}%." : $" Holding; resumes below {boundary}%."
                 : string.Empty;
-            ToolTip = $"{percent}% · {zone}. Current charge: {CurrentPercent}%.{thresholds}{target}";
+            ToolTip = $"{percent}%. {zone}. Current charge: {CurrentPercent}%.{thresholds}{target}";
         };
     }
 
