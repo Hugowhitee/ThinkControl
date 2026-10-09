@@ -155,32 +155,17 @@ public sealed class UpdateService
             string payloadName = GetTrustedAssetName(update.PayloadUrl!, "ThinkControl-Payload-", ".zip");
 
             progress?.Report($"Downloading {update.Version ?? "update"}…");
-            Task<byte[]> installerTask = _httpClient.GetByteArrayAsync(update.InstallerUrl!, cancellationToken);
-            Task<byte[]> payloadTask = _httpClient.GetByteArrayAsync(update.PayloadUrl!, cancellationToken);
-            Task<string> sumsTask = _httpClient.GetStringAsync(update.ChecksumUrl!, cancellationToken);
-            await Task.WhenAll(installerTask, payloadTask, sumsTask).ConfigureAwait(false);
-
-            byte[] installerBytes = await installerTask.ConfigureAwait(false);
-            byte[] payloadBytes = await payloadTask.ConfigureAwait(false);
-            string sums = await sumsTask.ConfigureAwait(false);
-
-            progress?.Report("Verifying downloaded update files…");
-            if (!MatchesPublishedHash(installerBytes, installerName, sums))
-                return new(false, "The downloaded installer failed SHA-256 verification and was not started.");
-            if (!MatchesPublishedHash(payloadBytes, payloadName, sums))
-                return new(false, "The downloaded application payload failed SHA-256 verification and was not started.");
-
+            string sums = await _httpClient.GetStringAsync(update.ChecksumUrl!, cancellationToken).ConfigureAwait(false);
             string folder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "ThinkControl",
-                "updates");
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ThinkControl", "updates");
             Directory.CreateDirectory(folder);
             CleanupOldUpdateFiles(folder, installerName, payloadName);
-
             string installerPath = Path.Combine(folder, installerName);
             string payloadPath = Path.Combine(folder, payloadName);
-            await File.WriteAllBytesAsync(installerPath, installerBytes, cancellationToken).ConfigureAwait(false);
-            await File.WriteAllBytesAsync(payloadPath, payloadBytes, cancellationToken).ConfigureAwait(false);
+            await Task.WhenAll(
+                DownloadVerifiedFileAsync(_httpClient, update.InstallerUrl!, installerPath, sums, cancellationToken),
+                DownloadVerifiedFileAsync(_httpClient, update.PayloadUrl!, payloadPath, sums, cancellationToken)).ConfigureAwait(false);
+            progress?.Report("Verifying downloaded update files…");
 
             string logPath = Path.Combine(folder, "last-update.log");
             var start = new ProcessStartInfo
@@ -264,7 +249,12 @@ public sealed class UpdateService
             UpdateHandoffService.Clear();
             return new(false, "Update installation was cancelled. ThinkControl will not ask again unless you choose Install update.");
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or UnauthorizedAccessException or CryptographicException)
+        catch (OperationCanceledException)
+        {
+            UpdateHandoffService.Clear();
+            return new(false, "Update download was cancelled. Choose Install update to try again.");
+        }
+        catch (Exception ex) when (ex is HttpRequestException or IOException or UnauthorizedAccessException or CryptographicException)
         {
             UpdateHandoffService.Clear();
             return new(false, $"Update could not be installed automatically: {ex.Message}");
@@ -315,13 +305,41 @@ public sealed class UpdateService
         return name;
     }
 
-    private static bool MatchesPublishedHash(byte[] bytes, string fileName, string sums)
+    internal static async Task DownloadVerifiedFileAsync(
+        HttpClient client, string url, string destination, string sums, CancellationToken cancellationToken)
     {
-        string? expectedHash = FindExpectedHash(sums, fileName);
-        if (expectedHash is null)
-            return false;
-        string actualHash = Convert.ToHexString(SHA256.HashData(bytes));
-        return actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase);
+        string fileName = Path.GetFileName(destination);
+        string expected = FindExpectedHash(sums, fileName)
+            ?? throw new InvalidDataException($"The release is missing a SHA-256 checksum for {fileName}.");
+        string partial = destination + ".partial";
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromMinutes(3));
+        cancellationToken = timeout.Token;
+        try
+        {
+            using HttpResponseMessage response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+            await using Stream input = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            await using (var output = new FileStream(partial, FileMode.Create, FileAccess.Write, FileShare.None, 65536, useAsync: true))
+            {
+                byte[] buffer = new byte[65536];
+                int count;
+                while ((count = await input.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+                {
+                    hash.AppendData(buffer, 0, count);
+                    await output.WriteAsync(buffer.AsMemory(0, count), cancellationToken).ConfigureAwait(false);
+                }
+            }
+            if (!Convert.ToHexString(hash.GetHashAndReset()).Equals(expected, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException($"The downloaded {fileName} failed SHA-256 verification and was not started.");
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(partial, destination, overwrite: true);
+        }
+        finally
+        {
+            if (File.Exists(partial)) File.Delete(partial);
+        }
     }
 
     private static string? FindExpectedHash(string sums, string fileName)
@@ -329,7 +347,7 @@ public sealed class UpdateService
         foreach (string raw in sums.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             string line = raw.Trim();
-            if (!line.EndsWith(fileName, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries).LastOrDefault()?.TrimStart('*'), fileName, StringComparison.OrdinalIgnoreCase))
                 continue;
             string hash = line.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? string.Empty;
             if (hash.Length == 64 && hash.All(Uri.IsHexDigit))

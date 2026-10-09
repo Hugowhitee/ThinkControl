@@ -1,3 +1,11 @@
+# Release readiness
+
+## Current candidate: v0.1.0-alpha.74
+
+The active candidate restores the existing generic wear model as a clearly labeled reference-cycle/percentage comparison, removes dot-separated visible metadata, streams checksum-verified updates with cancellation cleanup, uses update-specific native setup progress and private IBM Plex Sans typography, and excludes the unused Windows WinRT projection from Hardware/Service while retaining it for UI media control.
+
+Local build passed with no warnings; 332 core tests passed. The first published-payload comparison measured 35.31 MiB installed and 10.42 MiB compressed, versus alpha.73's 59.53 MiB and 16.73 MiB. Exact-head hosted UI, installation, service/IPC and oldest-supported upgrade gates are still pending. Alpha.73 remains the published fallback. Fences could not expose an inspectable reference window; no visual parity with it is claimed. Physical fan stability and full charge/discharge acceptance remain UNVERIFIED and are not changed by this release.
+
 # ThinkControl release-readiness roadmap
 
 ## Published v0.1.0-alpha.73 — October 9, 2026

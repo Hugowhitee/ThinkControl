@@ -297,13 +297,18 @@ public partial class BatteryTelemetryPanel
         ChargeLimitValue.Text = available && enabled is not null && DataContext is AppState state
             ? $"{state.BatteryChargeTargetPercent}%"
             : "—";
-        ChargeProtectionWearText.Text = available && enabled == true
-            ? "Illustrative wear estimate · Not measured battery cycles"
+        bool showEstimate = available && enabled == true;
+        ChargeProtectionWearHeading.Visibility = showEstimate ? Visibility.Visible : Visibility.Collapsed;
+        ChargeProtectionWearReference.Visibility = showEstimate ? Visibility.Visible : Visibility.Collapsed;
+        double wear = BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop);
+        ChargeProtectionWearText.Text = showEstimate
+            ? $"{wear:0.00} reference cycles ({wear:P0})"
             : DescribeBatteryAging(enabled, available);
+        ChargeProtectionWearReference.Text = $"For one 0–{_lastChargeProtectionStop}% charge. A 0–100% charge is 1.00 (100%).\nModel comparison, not measured battery cycles.";
         ChargeProtectionWearText.ToolTip = available && enabled == true
             ? $"Modeled wear for 0–{_lastChargeProtectionStop}%: {BatteryPreservationImpactModel.EstimateCumulativeWearTo(_lastChargeProtectionStop):0.00} (0–100% normalized to 1.00). " + BatteryAgingTooltip
             : BatteryAgingTooltip;
-        ChargeProtectionWearText.SetResourceReference(TextBlock.ForegroundProperty, "Tc.TextMuted");
+        ChargeProtectionWearText.SetResourceReference(TextBlock.ForegroundProperty, showEstimate ? "Tc.Text" : "Tc.TextMuted");
     }
 
     private const string BatteryAgingTooltip =

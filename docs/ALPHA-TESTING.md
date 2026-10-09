@@ -1,6 +1,6 @@
 # ThinkControl alpha testing guide
 
-Published v0.1.0-alpha.73 stabilizes observed battery statistics and learned ETA, simplifies mode selection to one labeled triggers switch, centers shared dropdown arrows and gives preservation a solid fill with percentages beneath their own threshold marks. Exact-head Windows, native UI, installer/service/IPC and upgrade checks passed; all four immutable public assets were downloaded and verified. Full-charge/drain and sustained installed fan acceptance remain UNVERIFIED; hardware support is unchanged.
+Candidate v0.1.0-alpha.74 restores the explicitly labeled modeled battery wear comparison, removes dot-separated status metadata, streams verified updates, gives setup update-specific progress and shared typography, and excludes the unused WinRT projection from the hardware service. Windows, native UI and installer validation are pending. The published fallback remains v0.1.0-alpha.73; physical fan and full battery-cycle acceptance remain UNVERIFIED.
 
 Published v0.1.0-alpha.72 stabilizes sparse measured fan-curve mapping and transition dwell, synchronizes Overview/Cooling immediately, and unifies cooling/preservation rails and Mode/Triggers controls. One-click automation resume, confirmed-active mode presentation and inline Touchpad resets pass native regression tests. Public installer/assets and checksums are verified; sustained updated installed fan behavior remains UNVERIFIED.
 

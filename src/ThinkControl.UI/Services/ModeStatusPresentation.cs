@@ -15,7 +15,7 @@ internal sealed record ModeStatusPresentation(string Title, string Detail, bool 
         string source = app.ModeAutomation.Paused
             ? "Triggers paused. Turn on to resume enabled rules."
             : modes.ActiveModeAutomatic
-                ? rule is null ? "Activated by automation." : $"By {rule.Name} · {ThinkControlAutomationRules.ConditionsSummary(rule)}"
+                ? rule is null ? "Activated by automation." : $"By {rule.Name}. {ThinkControlAutomationRules.ConditionsSummary(rule)}"
                 : "Selected manually. Triggers are ready.";
         if (modes.ActiveModeId == ThinkControlModeCatalog.NormalId && !app.ModeAutomation.Paused)
             source = app.UserSettings.Current.AutomationRules?.Any(rule => rule.Enabled) == true

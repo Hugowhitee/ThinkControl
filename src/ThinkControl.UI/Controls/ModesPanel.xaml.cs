@@ -170,10 +170,10 @@ public partial class ModesPanel : UserControl
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
             var text = new StackPanel { Margin = new Thickness(0, 0, 12, 0) };
             text.Children.Add(new TextBlock { Text = $"{rule.Name} → " + (target?.Name ?? "Missing mode"), TextWrapping = TextWrapping.Wrap });
-            text.Children.Add(MutedText(ThinkControlAutomationRules.ConditionsSummary(rule) + " · " + (rule.Priority switch { 1 => "High priority", -1 => "Low priority", _ => "Normal priority" })));
+            text.Children.Add(MutedText(ThinkControlAutomationRules.ConditionsSummary(rule) + ". " + (rule.Priority switch { 1 => "High priority", -1 => "Low priority", _ => "Normal priority" })));
             string status = !rule.Enabled ? "Off" : _app.ModeAutomation.Matches.FirstOrDefault(match => match.Id == rule.Id)?.State ?? "Waiting";
             if (rule.Enabled && rule.Id == _app.ModeAutomation.ActiveRuleId)
-                status = _app.Modes.SettingsNeedChecking ? "Check settings" : _app.Modes.IsTransitioning ? "Applying…" : _app.Modes.IsModified ? "Active · modified" : "Active";
+                status = _app.Modes.SettingsNeedChecking ? "Check settings" : _app.Modes.IsTransitioning ? "Applying…" : _app.Modes.IsModified ? "Active. modified" : "Active";
             else if (status == "Winner")
                 status = _app.ModeAutomation.Paused ? "Matches, but automation is paused" : "Next matching rule; waiting to apply";
             bool failed = rule.Id == _app.ModeAutomation.FailedRuleId || _ruleSaveErrorId == rule.Id;

@@ -104,7 +104,7 @@
                     <TextBlock x:Name="EditorTitleText" Text="Mode details" VerticalAlignment="Center" Margin="0,0,64,0"
                                FontSize="{x:Static ui:TypographyScale.SectionTitle}"
                                FontWeight="SemiBold" />
-                    <CheckBox x:Name="AutomationSwitch" AutomationProperties.Name="Enable rule" ToolTip="Rule enabled · applies after Save"
+                    <CheckBox x:Name="AutomationSwitch" AutomationProperties.Name="Enable rule" ToolTip="Rule enabled. applies after Save"
                               MinHeight="40" Style="{StaticResource TcSwitch}" HorizontalAlignment="Right" VerticalAlignment="Center"
                               Visibility="Collapsed" Click="AutomationSwitch_Click" />
                     </Grid>

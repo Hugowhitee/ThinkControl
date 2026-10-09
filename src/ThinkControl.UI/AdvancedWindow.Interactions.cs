@@ -185,7 +185,9 @@ public partial class AdvancedWindow
                     ? "Verifying…"
                     : status.StartsWith("Ready to install", StringComparison.OrdinalIgnoreCase)
                         ? "Approve in Windows…"
-                        : "Downloading…";
+                        : status.StartsWith("Downloading", StringComparison.OrdinalIgnoreCase)
+                            ? "Downloading…"
+                            : "Updating…";
             });
 
             _app.State.UpdateStatus = $"Downloading {_lastUpdate.Version ?? "update"}…";

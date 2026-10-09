@@ -759,11 +759,11 @@ public sealed class BatteryHistoryService
         double hours = useful.Sum(session => (session.EndedAt!.Value - session.StartedAt).TotalHours);
         int usedPercent = useful.Sum(session => session.StartPercent - session.EndPercent);
         if (hours < 1 || usedPercent < 20)
-            return "Learning battery endurance · needs at least 1 hour and 20% observed use";
+            return "Learning battery endurance. needs at least 1 hour and 20% observed use";
         double fullHours = hours * 100 / usedPercent;
         return fullHours is >= 1 and <= 24
-            ? $"About {FormatDuration(TimeSpan.FromHours(fullHours))} for 100–0% · {useful.Length} observed sessions"
-            : "Learning battery endurance · not enough consistent observations";
+            ? $"About {FormatDuration(TimeSpan.FromHours(fullHours))} for 100–0%. {useful.Length} observed sessions"
+            : "Learning battery endurance. not enough consistent observations";
     }
 
     private static bool HasContinuousSamples(IReadOnlyList<ChargePoint> points) =>
@@ -800,7 +800,7 @@ public sealed class BatteryHistoryService
         string average = session.AveragePowerWatts is double watts ? $", average power: {watts:0.#} W" : string.Empty;
         string energy = session.EnergyAddedWh is double wh ? $", energy added: {wh:0.#} Wh" : string.Empty;
         string timing = ended - session.StartedAt - duration > ResumeGap
-            ? $" · partial tracking ({FormatDuration(duration)} observed)" : $" in {FormatDuration(duration)}";
+            ? $". partial tracking ({FormatDuration(duration)} observed)" : $" in {FormatDuration(duration)}";
         return $"{date}: {session.StartPercent}% to {session.EndPercent}%{timing}{average}{energy}";
     }
 
@@ -815,7 +815,7 @@ public sealed class BatteryHistoryService
         double rate = Math.Max(0, session.StartPercent - session.EndPercent) / hours;
         string rateText = rate > 0 && duration >= TimeSpan.FromMinutes(5) && HasContinuousSamples(session.Points) ? $", drain rate: {rate:0.#}%/h" : string.Empty;
         string timing = ended - session.StartedAt - duration > ResumeGap
-            ? $" · partial tracking ({FormatDuration(duration)} observed)" : $" in {FormatDuration(duration)}";
+            ? $". partial tracking ({FormatDuration(duration)} observed)" : $" in {FormatDuration(duration)}";
         return $"{date}: {session.StartPercent}% to {session.EndPercent}%{timing}{average}{energy}{rateText}";
     }
 

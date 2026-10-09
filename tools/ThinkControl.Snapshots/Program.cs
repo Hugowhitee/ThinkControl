@@ -253,8 +253,11 @@ internal static class Program
             foreach (var theme in new[] { ThemeMode.Dark, ThemeMode.Light })
             {
                 ThemeService.Apply(theme);
+                var liveHistory = CreateDemoState(true, true);
+                liveHistory.BatteryStatus = "On battery";
+                liveHistory.BatteryCharging = false;
                 foreach ((int width, int height) in new[] { (980, 650), (1200, 780), (1600, 900) })
-                    RenderAdvanced(app, CreateDemoState(true, true), "Battery", width, height,
+                    RenderAdvanced(app, liveHistory, "Battery", width, height,
                         output, snapshots, $"BatteryHistory-{theme}-{width}.png", "Details and recorded sessions", expandBatteryDay: true);
             }
             WriteManifest(output, snapshots);

@@ -1,6 +1,6 @@
 <div align="center">
 
-
+Candidate v0.1.0-alpha.74 restores the explicitly labeled modeled battery wear comparison, removes dot-separated status metadata, streams verified updates, gives setup update-specific progress and shared typography, and excludes the unused WinRT projection from the hardware service. Windows, native UI and installer validation are pending. The published fallback remains v0.1.0-alpha.73; physical fan and full battery-cycle acceptance remain UNVERIFIED.
 
 
   <picture>
