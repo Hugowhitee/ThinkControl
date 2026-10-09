@@ -224,6 +224,8 @@ public sealed class BatteryProtectionGauge : FrameworkElement
             EndLineCap = PenLineCap.Round
         };
 
+        dc.DrawLine(new WpfPen(ResourceBrush("Tc.SurfaceAlt", WpfBrushes.Gray), thickness + 2),
+            new WpfPoint(x, track.Top + 2), new WpfPoint(x, track.Bottom - 2));
         dc.DrawLine(
             pen,
             new WpfPoint(x, track.Top + 2),

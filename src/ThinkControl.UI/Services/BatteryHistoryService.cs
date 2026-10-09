@@ -40,6 +40,8 @@ public sealed record BatterySessionDetail(
     bool IsActive = false)
 {
     public TimeSpan Duration => ObservedIntervals.Aggregate(TimeSpan.Zero, (total, interval) => total + (interval.End - interval.Start));
+    public bool HasUnobservedGaps => PercentTimeline.Count > 0 &&
+        (EndedAt ?? PercentTimeline.LastOrDefault()?.At ?? StartedAt) - StartedAt - Duration > TimeSpan.FromMinutes(2);
     internal IEnumerable<(DateTimeOffset Start, DateTimeOffset End)> ObservedIntervals
     {
         get
@@ -51,7 +53,7 @@ public sealed record BatterySessionDetail(
                 yield break;
             }
             DateTimeOffset previous = StartedAt;
-            foreach (DateTimeOffset at in PercentTimeline.Select(point => point.At).Append(end))
+            foreach (DateTimeOffset at in PercentTimeline.Where(point => point.At >= StartedAt && point.At <= end).Select(point => point.At).Append(end))
             {
                 if (at > previous && at - previous <= TimeSpan.FromMinutes(2)) yield return (previous, at);
                 previous = at;
@@ -245,16 +247,26 @@ public sealed class BatteryHistoryService
                 ? Math.Max(0, session.EndPercent - session.StartPercent)
                 : Math.Max(0, session.StartPercent - session.EndPercent);
             double observed = session.StartPercent;
+            DateTimeOffset observedAt = session.StartedAt;
             foreach (TimeSeriesPoint point in session.PercentTimeline.OrderBy(point => point.At))
             {
                 if (point.At < session.StartedAt || point.At > end) continue;
                 double next = session.Kind == "Charge" ? Math.Max(observed, point.Value) : Math.Min(observed, point.Value);
-                int delta = Math.Min(remaining, (int)Math.Abs(next - observed));
+                bool contiguous = point.At >= observedAt && point.At - observedAt <= ResumeGap;
+                int delta = contiguous ? Math.Min(remaining, (int)Math.Abs(next - observed)) : 0;
                 if (delta > 0) AddPercent(GetDay(LocalDay(point.At)), session, delta);
-                observed = next;
+                observed = point.Value;
+                observedAt = point.At;
                 remaining -= delta;
             }
-            if (remaining > 0) AddPercent(GetDay(LocalDay(end)), session, remaining);
+            if (session.PercentTimeline.Count == 0 && remaining > 0)
+                AddPercent(GetDay(LocalDay(end)), session, remaining);
+            else if (end >= observedAt && end - observedAt <= ResumeGap)
+            {
+                int tail = session.Kind == "Charge" ? Math.Max(0, session.EndPercent - (int)observed)
+                    : Math.Max(0, (int)observed - session.EndPercent);
+                AddPercent(GetDay(LocalDay(end)), session, Math.Min(remaining, tail));
+            }
         }
         return days.OrderByDescending(pair => pair.Key)
             .Take(maximum)
@@ -787,7 +799,9 @@ public sealed class BatteryHistoryService
         string date = FormatDate(session.StartedAt);
         string average = session.AveragePowerWatts is double watts ? $", average power: {watts:0.#} W" : string.Empty;
         string energy = session.EnergyAddedWh is double wh ? $", energy added: {wh:0.#} Wh" : string.Empty;
-        return $"{date}: {session.StartPercent}% to {session.EndPercent}% in {FormatDuration(duration)}{average}{energy}";
+        string timing = ended - session.StartedAt - duration > ResumeGap
+            ? $" · partial tracking ({FormatDuration(duration)} observed)" : $" in {FormatDuration(duration)}";
+        return $"{date}: {session.StartPercent}% to {session.EndPercent}%{timing}{average}{energy}";
     }
 
     private static string FormatDischargeSession(DischargeSession session, bool active)
@@ -800,7 +814,9 @@ public sealed class BatteryHistoryService
         double hours = Math.Max(duration.TotalHours, 1d / 60d);
         double rate = Math.Max(0, session.StartPercent - session.EndPercent) / hours;
         string rateText = rate > 0 && duration >= TimeSpan.FromMinutes(5) && HasContinuousSamples(session.Points) ? $", drain rate: {rate:0.#}%/h" : string.Empty;
-        return $"{date}: {session.StartPercent}% to {session.EndPercent}% in {FormatDuration(duration)}{average}{energy}{rateText}";
+        string timing = ended - session.StartedAt - duration > ResumeGap
+            ? $" · partial tracking ({FormatDuration(duration)} observed)" : $" in {FormatDuration(duration)}";
+        return $"{date}: {session.StartPercent}% to {session.EndPercent}%{timing}{average}{energy}{rateText}";
     }
 
     private static BatterySessionDetail ToDetail(ChargeSession session, bool active)

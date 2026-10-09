@@ -672,6 +672,18 @@ internal static partial class Program
             observed.Record(false, true, start.AddMinutes(12), 80, 10, 60, 75, 80);
             if (observed.GetRecentSessionDetails().Single(session => !session.IsActive).Duration != TimeSpan.FromMinutes(6))
                 throw new InvalidOperationException("A short sleep gap inflated battery usage.");
+            string legacyPath = Path.Combine(directory, "legacy-gap.json");
+            File.WriteAllText(legacyPath, System.Text.Json.JsonSerializer.Serialize(new {
+                DischargeSessions = new[] { new { Id = "legacy-gap", StartedAt = start, EndedAt = start.AddHours(4),
+                    StartPercent = 90, EndPercent = 60, Points = new[] {
+                        new { At = start, Percent = 90, Watts = 10 },
+                        new { At = start.AddMinutes(1), Percent = 89, Watts = 10 },
+                        new { At = start.AddHours(4), Percent = 60, Watts = 10 } } } } }));
+            var legacy = new BatteryHistoryService(legacyPath);
+            var partial = legacy.GetRecentSessionDetails().Single();
+            if (!partial.HasUnobservedGaps || partial.Duration != TimeSpan.FromMinutes(1) ||
+                legacy.GetRecentDays().Single().DischargedPercent != 1)
+                throw new InvalidOperationException("A legacy measurement gap paired an unobserved percentage drop with a short measured duration.");
             var endurance = new BatteryHistoryService(Path.Combine(directory, "endurance.json"));
             for (int minute = 0; minute <= 120; minute++)
                 endurance.Record(false, true, start.AddMinutes(minute), 90 - minute / 3, 15, 67.5 - minute * 0.25, 75, 80);

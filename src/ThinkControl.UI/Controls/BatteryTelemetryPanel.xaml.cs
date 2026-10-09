@@ -218,18 +218,18 @@ public partial class BatteryTelemetryPanel : UserControl
             : BuildPercentTimeline(chargePower);
 
         DateTimeOffset end = chargePower.Length > 0 ? chargePower[^1].At : DateTimeOffset.UtcNow;
-        TimeSeriesPoint[] dischargePower = Enumerable.Range(0, 46)
+        TimeSeriesPoint[] dischargePower = Enumerable.Range(0, 226)
             .Select(index =>
             {
-                double watts = 6.5 + Math.Sin(index / 4.2) * 0.7 + index * 0.018;
-                int percent = (int)Math.Round(88d - 25d * index / 45d);
-                return new TimeSeriesPoint(end - TimeSpan.FromMinutes((45 - index) * 5), watts, $"{percent}%");
+                double watts = 4.8 + Math.Sin(index / 4.2) * 0.5;
+                int percent = (int)Math.Round(88d - 25d * index / 225d);
+                return new TimeSeriesPoint(end - TimeSpan.FromMinutes(15 + 225 - index), watts, $"{percent}%");
             })
             .ToArray();
 
         DischargeChart.Values = dischargePower;
         DischargePercentChart.Values = BuildPercentTimeline(dischargePower);
-        DischargeSummaryText.Text = "Latest discharge: 88% to 63% in 3h 45m, average power: 6.9 W";
+        DischargeSummaryText.Text = "Latest discharge: 88% to 63% in 3h 45m, average power: 4.8 W";
 
         BatterySessionDetail charge = new(
             "snapshot-charge", "Charge", end - TimeSpan.FromMinutes(43), end,
@@ -238,9 +238,9 @@ public partial class BatteryTelemetryPanel : UserControl
             "61% to 78% in 43 min, average power: 17.8 W");
         BatterySessionDetail discharge = new(
             "snapshot-discharge", "Discharge", end - TimeSpan.FromHours(4), end - TimeSpan.FromMinutes(15),
-            88, 63, 6.9, 8.2, 25.0, 6.7,
+            88, 63, 4.8, 5.3, 18.0, 6.7,
             dischargePower, DischargePercentChart.Values.ToArray(),
-            "88% to 63% in 3h 45m, average power: 6.9 W");
+            "88% to 63% in 3h 45m, average power: 4.8 W");
         PresentChargeSession(charge);
         var today = new BatteryDaySummary(
             DateOnly.FromDateTime(DateTime.Today), "Today", 17, 25,
@@ -327,7 +327,7 @@ public partial class BatteryTelemetryPanel : UserControl
 
         var summary = new TextBlock
         {
-            Text = $"{session.StartedAt.LocalDateTime:HH:mm}–{(session.EndedAt is { } ended ? ended.ToLocalTime().ToString("HH:mm") : "now")}    {FormatShortDuration(session.Duration)}\n{session.StartPercent}% → {session.EndPercent}%" +
+            Text = $"{session.StartedAt.LocalDateTime:HH:mm}–{(session.EndedAt is { } ended ? ended.ToLocalTime().ToString("HH:mm") : "now")}    {(session.HasUnobservedGaps ? "Partial tracking" : FormatShortDuration(session.Duration))}\n{session.StartPercent}% → {session.EndPercent}%" +
                 string.Empty,
             FontSize = TypographyScale.Caption,
             TextWrapping = TextWrapping.Wrap,
@@ -391,7 +391,7 @@ public partial class BatteryTelemetryPanel : UserControl
         string subtitle = $"{session.Kind}: {session.StartPercent}% to {session.EndPercent}% ({local.ToString("g", CultureInfo.CurrentCulture)})";
         TelemetryDetailMetric[] metrics =
         [
-            new("Duration", durationText),
+            new(session.HasUnobservedGaps ? "Observed time (gaps)" : "Duration", durationText),
             new("Battery", $"{percentageChange:+0;-0;0}%", $"{session.StartPercent}% → {session.EndPercent}%"),
             new("Energy", energy),
             new("Average power", average),
