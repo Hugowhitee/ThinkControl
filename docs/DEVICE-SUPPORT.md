@@ -1,6 +1,6 @@
 # Device support
 
-Candidate v0.1.0-alpha.73 stabilizes observed battery statistics, learned ETA and preservation presentation, with compact mode selection and centered shared dropdown arrows. Exact-head release validation is pending; hardware support and physical fan claims are unchanged.
+Published v0.1.0-alpha.73 stabilizes observed battery statistics and learned ETA, simplifies mode selection to one labeled triggers switch, centers shared dropdown arrows and gives preservation a solid fill with percentages beneath their own threshold marks. Exact-head Windows, native UI, installer/service/IPC and upgrade checks passed; all four immutable public assets were downloaded and verified. Full-charge/drain and sustained installed fan acceptance remain UNVERIFIED; hardware support is unchanged.
 
 Published v0.1.0-alpha.72 stabilizes sparse measured fan-curve mapping and transition dwell, synchronizes Overview/Cooling immediately, and unifies cooling/preservation rails and Mode/Triggers controls. One-click automation resume, confirmed-active mode presentation and inline Touchpad resets pass native regression tests. Public installer/assets and checksums are verified; sustained updated installed fan behavior remains UNVERIFIED.
 
