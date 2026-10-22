@@ -31,14 +31,17 @@ public partial class App
                 State.MachineType = identity.MachineType;
             if (!string.IsNullOrWhiteSpace(identity.Manufacturer))
                 _manufacturer = identity.Manufacturer;
-            StartConfiguredTouchpadInputForStartup();
         }
         catch
         {
-            // Gesture startup has its own activation recovery path. A malformed or
-            // unavailable firmware identity must never prevent ThinkControl itself
-            // from reaching the tray/UI.
+            // A malformed/unavailable firmware identity must not block gesture
+            // registration, the tray or the rest of Windows startup.
         }
+
+        // Gesture startup is independent of optional firmware identity probing.
+        // Even when the latter throws, Raw Input still gets a direct start attempt
+        // and its own bounded retry path for transient login failures.
+        StartConfiguredTouchpadInputForStartup();
 
         // Cosmetic shell work stays deferred. The important difference is that edge
         // gestures no longer sit behind Compact-window construction, diagnostics or
