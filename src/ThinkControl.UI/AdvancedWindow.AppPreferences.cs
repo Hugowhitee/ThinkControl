@@ -9,6 +9,7 @@ public partial class AdvancedWindow
     private void ConfigureAppPreferencesUi()
     {
         RefreshOpeningViewSelection();
+        RefreshStartupSwitch();
         _preferencesSyncing = true;
         try
         {
@@ -18,6 +19,14 @@ public partial class AdvancedWindow
         }
         finally { _preferencesSyncing = false; }
     }
+    private void RefreshStartupSwitch()
+    {
+        StartupSwitch.IsChecked = Services.StartupService.IsEnabled();
+        StartupSwitch.ToolTip = Services.StartupService.IsDisabledByWindows()
+            ? "Windows disabled ThinkControl in Startup apps. Enable it there to run gestures after sign-in."
+            : "Run ThinkControl quietly in the tray when you sign in to Windows.";
+    }
+
     private void BatteryRetention_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_preferencesSyncing || SettingsBatteryRetention?.SelectedItem is not ComboBoxItem { Content: string text } ||
