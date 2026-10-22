@@ -45,7 +45,8 @@ public static class StartupService
             return string.Equals(
                 value.Trim(),
                 $"\"{executable}\" --tray",
-                StringComparison.OrdinalIgnoreCase);
+                StringComparison.OrdinalIgnoreCase) &&
+                !IsDisabledByWindows();
         }
         catch
         {
@@ -72,7 +73,9 @@ public static class StartupService
                 return false;
 
             key.SetValue(ValueName, $"\"{executable}\" --tray", RegistryValueKind.String);
-            return true;
+            // Respect a disable in Windows Startup Apps; never silently bypass
+            // the OS-managed approval state or display this as enabled.
+            return !IsDisabledByWindows();
         }
         catch
         {
