@@ -90,8 +90,8 @@ Name: "{autodesktop}\ThinkControl"; Filename: "{app}\ui\{#UiExeName}"; IconFilen
 Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "1"; Tasks: compatibilitydiagnostics; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\ThinkControl"; ValueType: dword; ValueName: "DiagnosticsConsent"; ValueData: "0"; Tasks: not compatibilitydiagnostics; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\ThinkControl"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ThinkControl"; ValueData: """{app}\ui\{#UiExeName}"" --tray"; Tasks: startwithwindows; Flags: uninsdeletevalue
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "ThinkControl"; Tasks: not startwithwindows; Flags: deletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ThinkControl"; ValueData: """{app}\ui\{#UiExeName}"" --tray"; Tasks: startwithwindows; Flags: uninsdeletevalue; Check: ShouldApplyStartupInstallChoice
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "ThinkControl"; Tasks: not startwithwindows; Flags: deletevalue; Check: ShouldApplyStartupInstallChoice
 
 [Run]
 Filename: "{sys}\sc.exe"; Parameters: "create {#ServiceName} binPath= ""{app}\service\{#ServiceExeName}"" start= auto DisplayName= ""ThinkControl Hardware Service"""; Flags: runhidden waituntilterminated
@@ -126,6 +126,14 @@ var
 function IsUpdateParameter(): Boolean;
 begin
   Result := CompareText(ExpandConstant('{param:UPDATE|0}'), '1') = 0;
+end;
+
+function ShouldApplyStartupInstallChoice(): Boolean;
+begin
+  { On a clean install, the setup task provides the initial startup preference.
+    During any upgrade, preserve the live per-user preference changed in the UI,
+    rather than replaying an old remembered Setup task that may now be stale. }
+  Result := not (ExistingInstall or IsUpdateParameter());
 end;
 
 function ShouldRelaunchAfterSilentUpdate(): Boolean;
