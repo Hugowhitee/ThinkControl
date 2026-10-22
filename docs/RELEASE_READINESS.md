@@ -1,5 +1,14 @@
 # Release readiness
 
+## v0.1.0-alpha.75 — Windows startup & touchpad recovery
+
+This prerelease preserves the per-user Start with Windows choice across upgrades, validates the Run command, respects Windows Startup Apps' separate disabled state, and adds bounded touchpad Raw Input startup retries (1/3/7/15 seconds) independently of optional firmware identity probing. The Windows-disabled state is never bypassed silently. No fan/EC write permissions or device-support scope changed.
+
+Pre-release exact-head stabilization evidence: PR #149 commit `07bb2eb97bb4b249fd6ab80e9f34d93abed88b16`, CI run `39832802415` (332/332 tests, native shell/mode/tray smoke, WPF snapshot output) and Package run `39832802390` (Inno compile, clean opt-in, preserved opt-out across in-place update, service IPC, uninstall, oldest-supported upgrade compatibility). The final version/documentation commit, merged main and public release require their own verification; do not claim a published artifact until the assets exist and checksums match.
+
+UNVERIFIED: physical X9 reboot/sign-in with enabled gestures before opening the UI, Windows-disabled startup recovery with live Settings, and different-admin-account elevation semantics. These are alpha tester acceptance items, not a claim that Windows hardware behavior has been reproduced by hosted CI. Previously documented fan and battery acceptance gaps remain.
+
+
 ## Published v0.1.0-alpha.74
 
 [Release and downloads](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.74) are public and immutable with exactly four assets. Tag commit `21dc93b86c0be186137feed4dd4b02ad110f7dd2` has source tree `3f7a1f4f4c9e02f17f8f48d942656057d7f93c70`, identical to validated PR #147 head `6dedfffc34af18275a279cd76c82e7a7292e671c`.

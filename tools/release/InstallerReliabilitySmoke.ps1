@@ -109,6 +109,14 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer persists an explicit Start with Windows opt-out by removing the Run entry.'
     }
 
+    # A remembered Setup task must not overwrite the user's live UI switch
+    # on in-place upgrades or automatic updates.
+    if ($installerText -notmatch 'function ShouldApplyStartupInstallChoice\(\): Boolean;' -or
+        $installerText -notmatch 'Result := not \(ExistingInstall or IsUpdateParameter\(\)\);' -or
+        ([regex]::Matches($installerText, 'Check:\s*ShouldApplyStartupInstallChoice')).Count -ne 2) {
+        throw 'Installer updates may overwrite the current per-user Start with Windows preference.'
+    }
+
     foreach ($required in @(
         'Type: filesandordirs; Name: "{localappdata}\ThinkControl"',
         'Type: filesandordirs; Name: "{commonappdata}\ThinkControl"',
@@ -224,6 +232,10 @@ function Install-SmokeCopy(
     if ($legacyUpdateMode) {
         $arguments += @('/CLOSEAPPLICATIONS', '/UPDATE=1', '/RELAUNCH=0')
     }
+    else {
+        # Make the clean-install preference deterministic even on reused runners.
+        $arguments += '/TASKS=startwithwindows'
+    }
 
     if ($passExplicitDir) {
         $arguments += "/DIR=`"$smokeDir`""
@@ -277,7 +289,22 @@ try {
     # The clean install deliberately omits /PAYLOAD so this deeper smoke also
     # owns the package workflow's former sibling-payload discovery coverage.
     Install-SmokeCopy 'clean install' $false $true $false
+
+    $startupEntry = (Get-Item -Path $runRegistry -ErrorAction Stop).GetValue('ThinkControl', $null)
+    $expectedStartupCommand = '"' + (Join-Path $smokeDir 'ui\ThinkControl.UI.exe') + '" --tray'
+    if ($startupEntry -cne $expectedStartupCommand) {
+        throw "Clean install did not register the expected tray launch. Expected '$expectedStartupCommand', got '$startupEntry'."
+    }
+
+    # The user disables startup in the UI after installation. A subsequently
+    # remembered Inno task must not silently switch it back on during an update.
+    Remove-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction Stop
     Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false $true
+
+    $afterUpdate = (Get-Item -Path $runRegistry -ErrorAction Stop).GetValue('ThinkControl', $null)
+    if ($null -ne $afterUpdate) {
+        throw 'In-place update unexpectedly re-enabled the explicitly disabled per-user startup entry.'
+    }
 
     $defaultProgramFilesInstall = Join-Path $env:ProgramFiles 'ThinkControl\ui\ThinkControl.UI.exe'
     if ((Resolve-Path $smokeDir).Path -ne (Join-Path $env:ProgramFiles 'ThinkControl') -and (Test-Path $defaultProgramFilesInstall)) {

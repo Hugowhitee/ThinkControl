@@ -126,7 +126,9 @@ public partial class AdvancedWindow : Window
             state.PropertyChanged += State_PropertyChanged;
 
         InitializeFeaturePanels();
-        StartupSwitch.IsChecked = StartupService.IsEnabled();
+        RefreshStartupSwitch();
+        Activated -= RefreshStartupSwitchOnActivation;
+        Activated += RefreshStartupSwitchOnActivation;
         ConfigureHomeQuickControls();
         SyncControls();
         ShowPage(GetSelectedPage());
@@ -367,8 +369,10 @@ public partial class AdvancedWindow : Window
     private void StartupSwitch_Click(object sender, RoutedEventArgs e)
     {
         bool requested = StartupSwitch.IsChecked == true;
-        if (!StartupService.SetEnabled(requested))
-            StartupSwitch.IsChecked = !requested;
+        bool applied = StartupService.SetEnabled(requested);
+        RefreshStartupSwitch();
+        if (requested && !applied && StartupService.IsDisabledByWindows())
+            OpenWindowsSettings("ms-settings:startupapps");
     }
 
     private void OpenUrl_Click(object sender, RoutedEventArgs e)

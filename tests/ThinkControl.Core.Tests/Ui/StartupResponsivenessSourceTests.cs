@@ -36,6 +36,19 @@ public sealed class StartupResponsivenessSourceTests
         string host = Read(root, "src", "ThinkControl.UI", "Services", "Touchpad", "TouchpadFeatureHost.cs");
 
         Assert.Contains("CurrentVersion\\Run", startup, StringComparison.Ordinal);
+        // A stale Run value must not make the Settings switch appear enabled.
+        Assert.Contains("File.Exists(executable)", startup, StringComparison.Ordinal);
+        Assert.Contains("value.Trim()", startup, StringComparison.Ordinal);
+        Assert.Contains("StringComparison.OrdinalIgnoreCase", startup, StringComparison.Ordinal);
+        Assert.Contains("StartupApproved", startup, StringComparison.Ordinal);
+        Assert.Contains("bytes[0] == 0x03", startup, StringComparison.Ordinal);
+        Assert.Contains("!IsDisabledByWindows()", startup, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetValue(ValueName, new byte", startup, StringComparison.Ordinal);
+
+        string settings = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml.cs");
+        Assert.Contains("ms-settings:startupapps", settings, StringComparison.Ordinal);
+        Assert.Contains("RefreshStartupSwitch();", settings, StringComparison.Ordinal);
+
         Assert.Contains("--tray", startup, StringComparison.Ordinal);
         Assert.Contains("StartupSystemIdentity identity = SystemStatusService.ReadStartupIdentity();", shell, StringComparison.Ordinal);
         Assert.Contains("StartConfiguredTouchpadInputForStartup();", shell, StringComparison.Ordinal);
@@ -44,7 +57,7 @@ public sealed class StartupResponsivenessSourceTests
         string startupMethod = touchpad.Split("internal void StartConfiguredTouchpadInputForStartup()", StringSplitOptions.None)[1]
             .Split("private void OnTouchpadApplicationActivated", StringSplitOptions.None)[0];
         Assert.Contains("UserSettings.Current.TouchpadGestures?.Enabled != true", startupMethod, StringComparison.Ordinal);
-        Assert.Contains("TouchpadFeature.EnsureInputStarted(startupCritical: IsTrayOnlyLaunch())", startupMethod, StringComparison.Ordinal);
+        Assert.Contains("TryStartTouchpadInputWithRecovery(startupCritical: IsTrayOnlyLaunch())", startupMethod, StringComparison.Ordinal);
         Assert.DoesNotContain("OnTouchpadApplicationActivated(", startupMethod, StringComparison.Ordinal);
 
         // The tray path starts Raw Input synchronously after cheap registry identity,
@@ -56,6 +69,15 @@ public sealed class StartupResponsivenessSourceTests
 
         // Activation remains a recovery path for device/session transitions.
         Assert.Contains("private void OnTouchpadApplicationActivated", touchpad, StringComparison.Ordinal);
+        Assert.Contains("TouchpadStartupRetryDelays", touchpad, StringComparison.Ordinal);
+        Assert.Contains("TimeSpan.FromSeconds(15)", touchpad, StringComparison.Ordinal);
+        Assert.Contains("if (_touchpadStartupRetryCount >= TouchpadStartupRetryDelays.Length)", touchpad, StringComparison.Ordinal);
+        Assert.Contains("TryStartTouchpadInputWithRecovery(startupCritical: true)", touchpad, StringComparison.Ordinal);
+
+        // Optional firmware identity cannot own the gesture activation path.
+        int identityCatch = shell.IndexOf("catch", shell.IndexOf("ReadStartupIdentity()", StringComparison.Ordinal), StringComparison.Ordinal);
+        int touchpadStart = shell.IndexOf("StartConfiguredTouchpadInputForStartup();", StringComparison.Ordinal);
+        Assert.True(identityCatch >= 0 && touchpadStart > identityCatch);
     }
 
     [Fact]
