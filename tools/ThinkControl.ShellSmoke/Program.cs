@@ -664,7 +664,10 @@ internal static partial class Program
         Directory.CreateDirectory(directory);
         try
         {
-            DateTimeOffset start = DateTimeOffset.UtcNow.AddDays(-2);
+            // Keep the historical fixture within one local calendar day.
+            // UtcNow.AddDays(-2) crosses midnight for runs near UTC midnight,
+            // causing GetRecentDays().Single() to fail despite correct history.
+            DateTimeOffset start = new(DateTime.Today.AddDays(-2).AddHours(12));
             var observed = new BatteryHistoryService(Path.Combine(directory, "observed.json"));
             for (int minute = 0; minute <= 6; minute++)
                 observed.Record(false, true, start.AddMinutes(minute), 90 - minute, 10, 67.5 - minute * 0.75, 75, 80);
