@@ -290,7 +290,7 @@ try {
     # owns the package workflow's former sibling-payload discovery coverage.
     Install-SmokeCopy 'clean install' $false $true $false
 
-    $startupEntry = (Get-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue).ThinkControl
+    $startupEntry = (Get-ItemPropertyValue -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue)
     $expectedStartupCommand = '"' + (Join-Path $smokeDir 'ui\ThinkControl.UI.exe') + '" --tray'
     if ($startupEntry -cne $expectedStartupCommand) {
         throw "Clean install did not register the expected tray launch. Expected '$expectedStartupCommand', got '$startupEntry'."
@@ -301,7 +301,7 @@ try {
     Remove-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction Stop
     Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false $true
 
-    $afterUpdate = (Get-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue).ThinkControl
+    $afterUpdate = (Get-ItemPropertyValue -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue)
     if ($null -ne $afterUpdate) {
         throw 'In-place update unexpectedly re-enabled the explicitly disabled per-user startup entry.'
     }
