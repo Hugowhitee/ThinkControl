@@ -36,6 +36,11 @@ public sealed class StartupResponsivenessSourceTests
         string host = Read(root, "src", "ThinkControl.UI", "Services", "Touchpad", "TouchpadFeatureHost.cs");
 
         Assert.Contains("CurrentVersion\\Run", startup, StringComparison.Ordinal);
+        // A stale Run value must not make the Settings switch appear enabled.
+        Assert.Contains("File.Exists(executable)", startup, StringComparison.Ordinal);
+        Assert.Contains("value.Trim()", startup, StringComparison.Ordinal);
+        Assert.Contains("StringComparison.OrdinalIgnoreCase", startup, StringComparison.Ordinal);
+
         Assert.Contains("--tray", startup, StringComparison.Ordinal);
         Assert.Contains("StartupSystemIdentity identity = SystemStatusService.ReadStartupIdentity();", shell, StringComparison.Ordinal);
         Assert.Contains("StartConfiguredTouchpadInputForStartup();", shell, StringComparison.Ordinal);
