@@ -232,6 +232,10 @@ function Install-SmokeCopy(
     if ($legacyUpdateMode) {
         $arguments += @('/CLOSEAPPLICATIONS', '/UPDATE=1', '/RELAUNCH=0')
     }
+    else {
+        # Make the clean-install preference deterministic even on reused runners.
+        $arguments += '/TASKS=startwithwindows'
+    }
 
     if ($passExplicitDir) {
         $arguments += "/DIR=`"$smokeDir`""
@@ -285,7 +289,22 @@ try {
     # The clean install deliberately omits /PAYLOAD so this deeper smoke also
     # owns the package workflow's former sibling-payload discovery coverage.
     Install-SmokeCopy 'clean install' $false $true $false
+
+    $startupEntry = (Get-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue).ThinkControl
+    $expectedStartupCommand = '"' + (Join-Path $smokeDir 'ui\ThinkControl.UI.exe') + '" --tray'
+    if ($startupEntry -cne $expectedStartupCommand) {
+        throw "Clean install did not register the expected tray launch. Expected '$expectedStartupCommand', got '$startupEntry'."
+    }
+
+    # The user disables startup in the UI after installation. A subsequently
+    # remembered Inno task must not silently switch it back on during an update.
+    Remove-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction Stop
     Install-SmokeCopy 'alpha.14-compatible in-place update path' $true $false $true
+
+    $afterUpdate = (Get-ItemProperty -Path $runRegistry -Name 'ThinkControl' -ErrorAction SilentlyContinue).ThinkControl
+    if ($null -ne $afterUpdate) {
+        throw 'In-place update unexpectedly re-enabled the explicitly disabled per-user startup entry.'
+    }
 
     $defaultProgramFilesInstall = Join-Path $env:ProgramFiles 'ThinkControl\ui\ThinkControl.UI.exe'
     if ((Resolve-Path $smokeDir).Path -ne (Join-Path $env:ProgramFiles 'ThinkControl') -and (Test-Path $defaultProgramFilesInstall)) {
