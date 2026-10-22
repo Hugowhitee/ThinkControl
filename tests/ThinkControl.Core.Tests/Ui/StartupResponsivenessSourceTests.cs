@@ -40,6 +40,14 @@ public sealed class StartupResponsivenessSourceTests
         Assert.Contains("File.Exists(executable)", startup, StringComparison.Ordinal);
         Assert.Contains("value.Trim()", startup, StringComparison.Ordinal);
         Assert.Contains("StringComparison.OrdinalIgnoreCase", startup, StringComparison.Ordinal);
+        Assert.Contains("StartupApproved", startup, StringComparison.Ordinal);
+        Assert.Contains("bytes[0] == 0x03", startup, StringComparison.Ordinal);
+        Assert.Contains("!IsDisabledByWindows()", startup, StringComparison.Ordinal);
+        Assert.DoesNotContain("SetValue(ValueName, new byte", startup, StringComparison.Ordinal);
+
+        string settings = Read(root, "src", "ThinkControl.UI", "AdvancedWindow.xaml.cs");
+        Assert.Contains("ms-settings:startupapps", settings, StringComparison.Ordinal);
+        Assert.Contains("RefreshStartupSwitch();", settings, StringComparison.Ordinal);
 
         Assert.Contains("--tray", startup, StringComparison.Ordinal);
         Assert.Contains("StartupSystemIdentity identity = SystemStatusService.ReadStartupIdentity();", shell, StringComparison.Ordinal);
