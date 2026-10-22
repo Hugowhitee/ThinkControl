@@ -13,7 +13,20 @@ public static class StartupService
         try
         {
             using RegistryKey? key = Registry.CurrentUser.OpenSubKey(RunKey, writable: false);
-            return key?.GetValue(ValueName) is string value && !string.IsNullOrWhiteSpace(value);
+            if (key?.GetValue(ValueName) is not string value)
+                return false;
+
+            // A stale Run value can survive a move, repair or installer handoff.
+            // Settings must not display "on" merely because any string exists.
+            string executable = Environment.ProcessPath ??
+                Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
+                return false;
+
+            return string.Equals(
+                value.Trim(),
+                $"\"{executable}\" --tray",
+                StringComparison.OrdinalIgnoreCase);
         }
         catch
         {
@@ -36,7 +49,7 @@ public static class StartupService
             }
 
             string executable = Environment.ProcessPath ?? Process.GetCurrentProcess().MainModule?.FileName ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(executable))
+            if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
                 return false;
 
             key.SetValue(ValueName, $"\"{executable}\" --tray", RegistryValueKind.String);
