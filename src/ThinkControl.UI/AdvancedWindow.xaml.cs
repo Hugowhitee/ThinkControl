@@ -127,7 +127,8 @@ public partial class AdvancedWindow : Window
 
         InitializeFeaturePanels();
         RefreshStartupSwitch();
-        Activated += (_, _) => RefreshStartupSwitch();
+        Activated -= RefreshStartupSwitchOnActivation;
+        Activated += RefreshStartupSwitchOnActivation;
         ConfigureHomeQuickControls();
         SyncControls();
         ShowPage(GetSelectedPage());
