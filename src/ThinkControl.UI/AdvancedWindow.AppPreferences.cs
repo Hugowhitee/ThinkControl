@@ -27,6 +27,8 @@ public partial class AdvancedWindow
             : "Run ThinkControl quietly in the tray when you sign in to Windows.";
     }
 
+    private void RefreshStartupSwitchOnActivation(object? sender, EventArgs e) => RefreshStartupSwitch();
+
     private void BatteryRetention_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_preferencesSyncing || SettingsBatteryRetention?.SelectedItem is not ComboBoxItem { Content: string text } ||
