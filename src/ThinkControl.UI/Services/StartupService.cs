@@ -8,6 +8,24 @@ public static class StartupService
 {
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string ValueName = "ThinkControl";
+    private const string StartupApprovedKey =
+        @"Software\Microsoft\Windows\CurrentVersion\Explorer\StartupApproved\Run";
+
+    // Windows Settings / Task Manager can disable a Run entry without deleting
+    // it. This OS-owned binary value must only be read, never overwritten by us.
+    public static bool IsDisabledByWindows()
+    {
+        try
+        {
+            using RegistryKey? key = Registry.CurrentUser.OpenSubKey(StartupApprovedKey, writable: false);
+            return key?.GetValue(ValueName) is byte[] bytes &&
+                   bytes.Length >= 4 && bytes[0] == 0x03;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     public static bool IsEnabled()
     {
