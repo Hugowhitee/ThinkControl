@@ -109,6 +109,14 @@ function Assert-UpdaterElevationContract {
         throw 'Installer no longer persists an explicit Start with Windows opt-out by removing the Run entry.'
     }
 
+    # A remembered Setup task must not overwrite the user's live UI switch
+    # on in-place upgrades or automatic updates.
+    if ($installerText -notmatch 'function ShouldApplyStartupInstallChoice\(\): Boolean;' -or
+        $installerText -notmatch 'Result := not \(ExistingInstall or IsUpdateParameter\(\)\);' -or
+        ([regex]::Matches($installerText, 'Check:\s*ShouldApplyStartupInstallChoice')).Count -ne 2) {
+        throw 'Installer updates may overwrite the current per-user Start with Windows preference.'
+    }
+
     foreach ($required in @(
         'Type: filesandordirs; Name: "{localappdata}\ThinkControl"',
         'Type: filesandordirs; Name: "{commonappdata}\ThinkControl"',
