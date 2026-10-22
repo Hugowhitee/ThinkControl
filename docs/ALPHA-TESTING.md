@@ -1,5 +1,9 @@
 # ThinkControl alpha testing guide
 
+Alpha v0.1.0-alpha.75 updates Windows user-session startup and touchpad input recovery. Installer upgrades preserve the live Start with Windows choice; the UI recognizes stale launch paths and Windows Startup Apps disabled state. The tray startup registers enabled gestures independently of firmware identity and retries transient Raw Input failures at bounded intervals. Windows CI (332 tests) and native installer/service/upgrade gates passed on the stabilization candidate; physical cold-boot/swipe-after-sign-in acceptance remains UNVERIFIED. This alpha makes no new hardware-control or OEM support claims.
+
+For alpha.75, explicitly test: enable Start with Windows and a visible touchpad edge gesture; sign out/reboot; verify the ThinkControl tray process and gesture before opening its window; suspend/resume; disable Start with Windows and upgrade again to confirm it remains off; check Windows Settings → Apps → Startup for blocked entries. Report device/OS build and whether Windows began the app without manual intervention. Do not infer physical gesture reliability from hosted Windows runner tests.
+
 Published v0.1.0-alpha.74 restores the labeled model-based battery wear comparison, readable live session labels and a compact, consistent installer/update flow. Exact-head Windows, native UI, installer/service/IPC and oldest-supported upgrade gates passed. All four immutable public assets and checksums were independently downloaded and verified. Hardware support is unchanged; physical fan stability and full battery-cycle acceptance remain UNVERIFIED.
 
 Published v0.1.0-alpha.71 makes calibrated Max cooling follow its curve and identifies fixed full speed correctly. Overview selects profiles directly; history/Compact preferences and gesture popup text use consistent rails. Public installer/assets and checksums are verified; updated installed RPM acceptance remains unverified.

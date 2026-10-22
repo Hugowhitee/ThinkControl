@@ -2,6 +2,10 @@
 
 ## What's changed
 
+- Windows startup now respects your Start with Windows preference through app updates, detects disabled/stale startup entries and links to Windows Startup Apps when Windows has blocked launching.
+- Enabled touchpad edge gestures start from the tray sign-in path, with bounded retries when Raw Input is temporarily unavailable; optional firmware identity detection can no longer prevent that startup attempt.
+- The native Windows installer regression checks clean opt-in and explicitly disabled startup across an in-place upgrade.
+
 - Shared dropdown arrows stay centered when opened. Modes has a compact selector and one labeled Automatic triggers switch; choose No mode to restore regular settings.
 - Battery preservation has a solid measured fill, percentage labels beneath their own threshold marks and a soft charging sweep, without a floating dot or angled leaders. battery-only views remain still.
 - Battery sessions stop counting unobserved sleep time. Charging estimates handle adapter startup and use bounded learned history; a separate typical endurance estimate explains its observed basis. Signed session accents and tighter System device/support rows improve readability.
@@ -39,6 +43,8 @@
 - Compact status and quick-control layout customization with preserved settings.
 
 ## Alpha limitations
+
+Real cold-sign-in touchpad gesture behavior on the reference laptop remains unverified in this alpha and should be reported by testers. Windows Startup Apps can disable a user launch independently; ThinkControl respects that Windows choice. Installing with a different administrator account may affect the per-user startup entry.
 
 Fan percentages select discrete calibrated states, not continuous PWM; 0% retains the lowest accepted running state. Lower states may mildly pulse. Unknown firmware stays capability-gated. Shared RPM does not represent two independent fan sensors. The charging-wear percentage is a generic illustrative model, not measured battery damage, firmware cycles saved or a lifespan prediction. Broad reboot/wake/AC/DC coverage, manual chart/drag acceptance and installed redesign acceptance remain UNVERIFIED; see RELEASE_READINESS.md and issue #113. This prerelease is not a bug-free certification.
 '@

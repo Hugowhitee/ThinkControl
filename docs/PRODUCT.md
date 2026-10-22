@@ -1,5 +1,7 @@
 # Product specification
 
+Alpha v0.1.0-alpha.75 updates Windows user-session startup and touchpad input recovery. Installer upgrades preserve the live Start with Windows choice; the UI recognizes stale launch paths and Windows Startup Apps disabled state. The tray startup registers enabled gestures independently of firmware identity and retries transient Raw Input failures at bounded intervals. Windows CI (332 tests) and native installer/service/upgrade gates passed on the stabilization candidate; physical cold-boot/swipe-after-sign-in acceptance remains UNVERIFIED. This alpha makes no new hardware-control or OEM support claims.
+
 Published v0.1.0-alpha.74 restores the labeled model-based battery wear comparison, readable live session labels and a compact, consistent installer/update flow. Exact-head Windows, native UI, installer/service/IPC and oldest-supported upgrade gates passed. All four immutable public assets and checksums were independently downloaded and verified. Hardware support is unchanged; physical fan stability and full battery-cycle acceptance remain UNVERIFIED.
 
 Published v0.1.0-alpha.71 makes calibrated Max cooling follow its curve and identifies fixed full speed correctly. Overview selects profiles directly; history/Compact preferences and gesture popup text use consistent rails. Public installer/assets and checksums are verified; updated installed RPM acceptance remains unverified.

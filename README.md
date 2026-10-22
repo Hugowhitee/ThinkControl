@@ -26,7 +26,7 @@
   </a>
 </div>
 
-**v0.1.0-alpha.74** restores a clearly labeled battery wear comparison, keeps live session labels readable, and makes setup more compact and consistent. Verified updates use less memory, and the download package is about 38% smaller while UI media support and hardware capabilities are retained.
+**v0.1.0-alpha.75** improves sign-in reliability: Start with Windows survives upgrades without overriding your choice, Windows-disabled startup is identified, and touchpad gestures retry when Raw Input is not yet ready at sign-in. Physical cold-login acceptance remains part of alpha testing.
 
 
 **v0.1.0-alpha.68** adds measured fan-output verification, corrected sensor shortcuts and simpler Modes/System controls.
@@ -37,7 +37,7 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current alpha:** [v0.1.0-alpha.74](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.74) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.74/ThinkControl-Setup-0.1.0-alpha.74.exe).
+**Current alpha:** [v0.1.0-alpha.75](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.75) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.75/ThinkControl-Setup-0.1.0-alpha.74.exe).
 
 Alpha.66 simplifies the Overview Mode card, adds a compact Automation switch, aligns rule/startup controls and uses subtle rule-status dots. Manual mode selection pauses triggers; editor drafts survive Saved modes ↔ Automation navigation.
 
@@ -53,8 +53,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.74/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.74/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.75/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.75/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
@@ -145,4 +145,4 @@ See **[Documentation](docs/README.md)** · **[Product specification](docs/PRODUC
 
 v0.1.0-alpha.72 stabilizes calibrated fan curves with nearest-speed mapping and hysteresis across large hardware gaps, synchronizes Overview/Cooling selection immediately, and aligns the Cooling and preservation cards. Hardware output remains discrete and capability-gated.
 
-v0.1.0-alpha.74 is published with verified public downloads. Battery endurance remains an estimate from observed use; incomplete older sessions are identified rather than presented as a complete measured drain.
+Alpha.75 targets Windows startup and touchpad gesture recovery. Battery endurance remains an estimate from observed use; incomplete older sessions are identified rather than presented as a complete measured drain. Real cold-login touchpad acceptance is still required from alpha testers.
