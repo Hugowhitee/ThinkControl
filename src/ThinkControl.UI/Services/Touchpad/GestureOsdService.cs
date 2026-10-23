@@ -101,6 +101,11 @@ internal sealed class GestureOsdService : IDisposable
     internal void ShowStatus(string label) =>
         ShowMediaCommand(label, SemanticIconKeys.Volume);
 
+    internal void ShowLaunchFeedback(bool advanced) =>
+        ShowMediaCommand(
+            advanced ? "Opening full view" : "Opening Compact",
+            advanced ? SemanticIconKeys.AdvancedView : SemanticIconKeys.CompactView);
+
     internal void ShowTrack(bool next)
     {
         ShowMediaCommand(
