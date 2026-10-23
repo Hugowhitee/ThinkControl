@@ -180,7 +180,7 @@
                 <StackPanel>
                     <Grid>
                         <StackPanel>
-                            <TextBlock Text="Temporary fan target" FontWeight="SemiBold" />
+                            <TextBlock x:Name="ManualTargetTitle" Text="Temporary fan target" FontWeight="SemiBold" />
                             <TextBlock x:Name="ManualControlDescriptionText" Text="Try this target for 30 seconds. Your previous profile is restored afterwards."
                                        Foreground="{DynamicResource Tc.TextMuted}" FontSize="{x:Static ui:TypographyScale.Caption}" TextWrapping="Wrap" Margin="0,5,170,0" />
                         </StackPanel>
@@ -192,8 +192,21 @@
                     <Grid Margin="0,12,0,0">
                         <Grid.ColumnDefinitions><ColumnDefinition /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                         <Slider x:Name="ManualPercentSlider" Style="{StaticResource TcSlider}" Minimum="0" Maximum="100" Value="50" TickFrequency="1" ValueChanged="ManualPercentSlider_ValueChanged" />
+                        <ComboBox x:Name="ManualSpeedComboBox"
+                                  Style="{StaticResource TcComboBox}"
+                                  DisplayMemberPath="Label"
+                                  MinWidth="235" MaxWidth="410"
+                                  VerticalAlignment="Center" HorizontalAlignment="Stretch"
+                                  Visibility="Collapsed" SelectionChanged="ManualSpeedComboBox_SelectionChanged"
+                                  ToolTip="Only stable speeds confirmed by complete fan calibration are selectable." />
                         <Button x:Name="ManualPercentApplyButton" Grid.Column="1" Content="Start test" Style="{StaticResource TcButton}" Padding="12,5" Margin="12,0,0,0" Click="ManualPercentApply_Click" />
                     </Grid>
+
+                    <TextBlock x:Name="ManualSpeedHintText"
+                               Text="Calibrated fan speeds will appear when the hardware service has finished reading them."
+                               Foreground="{DynamicResource Tc.TextMuted}"
+                               FontSize="{x:Static ui:TypographyScale.Caption}"
+                               TextWrapping="Wrap" Visibility="Collapsed" Margin="0,7,0,0" />
 
                     <Expander x:Name="RawEcStepsExpander" Header="Raw EC diagnostics" Style="{StaticResource TcQuietExpander}" Margin="0,13,0,0">
                         <StackPanel Margin="0,8,0,0">
