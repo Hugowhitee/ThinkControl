@@ -2,6 +2,10 @@
 
 ## What's changed
 
+- Update and hardware attention notices now recreate themselves safely if WPF closes their owner window, preventing an update-check crash.
+- Temporary manual fan percentage targets choose the closest stable measured non-maximum RPM step. Unsupported requests show an error rather than silently activating full-speed mode; 100% remains explicit.
+- Continuous touchpad Volume and Brightness slides respond immediately when reversing direction or reaching 0/100%: uncommitted OS write backlog no longer causes a jump.
+
 - Windows startup now respects your Start with Windows preference through app updates, detects disabled/stale startup entries and links to Windows Startup Apps when Windows has blocked launching.
 - Enabled touchpad edge gestures start from the tray sign-in path, with bounded retries when Raw Input is temporarily unavailable; optional firmware identity detection can no longer prevent that startup attempt.
 - The native Windows installer regression checks clean opt-in and explicitly disabled startup across an in-place upgrade.
@@ -43,6 +47,8 @@
 - Compact status and quick-control layout customization with preserved settings.
 
 ## Alpha limitations
+
+Smart App Control may still block unknown unsigned ThinkControl binaries or components; this prerelease is not code signed by a trusted publisher. Follow issue #152 rather than disabling Windows security. Real X9 tachometer and touchpad reversal acceptance remain unverified, and only physically measured EC states are supported; no new direct PWM path is claimed.
 
 Real cold-sign-in touchpad gesture behavior on the reference laptop remains unverified in this alpha and should be reported by testers. Windows Startup Apps can disable a user launch independently; ThinkControl respects that Windows choice. Installing with a different administrator account may affect the per-user startup entry.
 
