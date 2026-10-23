@@ -1,5 +1,14 @@
 # Release readiness
 
+## v0.1.0-alpha.77 — fan-step accuracy and responsive page loading
+
+Completed candidate: discrete EC manual testing no longer pretends to support arbitrary 0–100% targets; the existing service-supplied complete stable tachometer calibration yields available measured RPM choices, and full speed is a separate explicit choice. Real OEM target-RPM providers retain continuous percentage semantics. The 30-second test and previous-profile/fallback restoration remain with the existing service/IPC writer. The active percent target is not misrepresented as confirmed tachometer RPM. Gesture launch now acknowledges immediately with the existing touchpad OSD and coalesces duplicate requests; unrelated Advanced feature panels initialize on first visit. No changes to low-level EC register permissions, thermal cutoffs or startup ownership.
+
+Validation before version bump: PR #155 head `4fca349d85239921d2af434a3ed2fd32c75ddbc2` passed CI (345 tests including discrete-step and real WPF choice/recovery smoke) and native Windows installer/service/upgrade tests. Generated visual QA for 980×650 and 1160×760 discrete choices inspected manually. **This release metadata commit, merged main, immutable tag and public assets require their own passing validations.**
+
+**UNVERIFIED:** Physical X9 EC/tachometer readback and temperature safety in a live 30-second test; measured gesture-to-OSD and gesture-to-window latency on user's laptop; actual OEM target-RPM hardware response and Windows Smart App Control's blocked unsigned component (#152). Do not call this a signed build or promise continuous PWM. Startup/runtime benchmarking tracked by #153. Hardware-capability display follow-up #154.
+
+
 ## v0.1.0-alpha.76 — notification, manual cooling and touchpad stabilization
 
 - Issue #150: WPF-owned notification windows can close when their owner closes. The attention service now discards a closed window and creates a fresh one for subsequent update/hardware notifications; a real WPF shell smoke replays close → show again.

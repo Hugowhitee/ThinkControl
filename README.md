@@ -26,7 +26,7 @@
   </a>
 </div>
 
-**v0.1.0-alpha.76** fixes a WPF notification crash during update checks, prevents manual 50% fan tests from silently selecting full-speed EC control, and makes reversed touchpad volume/brightness gestures discard uncommitted jumps. The app is still an unsigned alpha; Smart App Control may block an untrusted component. Physical X9 fan and touchpad acceptance remains a field-test item.
+**v0.1.0-alpha.77** replaces nonfunctional percent choices with measured, stable fan steps on discrete EC hardware; real OEM target-RPM providers retain their continuous control. Corner gestures now acknowledge window opening, and Advanced initializes features when their pages are visited. This unsigned alpha still requires physical X9 fan/gesture acceptance; Windows Smart App Control may block untrusted binaries.
 
 
 **v0.1.0-alpha.68** adds measured fan-output verification, corrected sensor shortcuts and simpler Modes/System controls.
@@ -37,7 +37,7 @@
 
 ThinkControl is a lightweight Windows 10/11 companion that starts with verified Lenovo/ThinkPad hardware support while keeping Windows-generic capabilities and provider contracts usable across other laptops. It combines controls normally spread across Windows Settings, OEM utilities and monitoring tools into a fast Compact view and a resizable Advanced view.
 
-**Current alpha:** [v0.1.0-alpha.76](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.76) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.76/ThinkControl-Setup-0.1.0-alpha.74.exe).
+**Current alpha:** [v0.1.0-alpha.77](https://github.com/Hugowhitee/ThinkControl/releases/tag/v0.1.0-alpha.77) — [Download the Windows installer](https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.77/ThinkControl-Setup-0.1.0-alpha.77.exe).
 
 Alpha.66 simplifies the Overview Mode card, adds a compact Automation switch, aligns rule/startup controls and uses subtle rule-status dots. Manual mode selection pauses triggers; editor drafts survive Saved modes ↔ Automation navigation.
 
@@ -53,8 +53,8 @@ Windows-safe controls can work on more systems, while direct EC/fan and OEM cont
 ## Interface
 
 <p align="center">
-  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.76/ui-overview.png">
-    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.76/ui-overview.png" alt="ThinkControl interface overview" width="920">
+  <a href="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.77/ui-overview.png">
+    <img src="https://github.com/Hugowhitee/ThinkControl/releases/download/v0.1.0-alpha.77/ui-overview.png" alt="ThinkControl interface overview" width="920">
   </a>
 </p>
 <p align="center"><sub>Latest published interface overview. The complete dark/light, minimum/normal/wide matrix is generated again for every candidate.</sub></p>
