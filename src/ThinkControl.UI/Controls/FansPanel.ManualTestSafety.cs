@@ -278,7 +278,7 @@ public partial class FansPanel
     private void UpdateManualFanTestUi(string? testLabel = null)
     {
         UpdateManualFanTestControls();
-        if (_manualFanTestStatus is null)
+        if (_app is null || _manualFanTestStatus is null)
             return;
 
         if (!_manualFanTestActive)

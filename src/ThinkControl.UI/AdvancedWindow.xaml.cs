@@ -24,7 +24,6 @@ public partial class AdvancedWindow : Window
     private bool _forceClose;
     private bool _syncing;
     private bool _positioned;
-    private bool _panelNavigationSubscribed;
     private readonly HashSet<string> _initializedFeatureGroups = new(StringComparer.Ordinal);
     private UpdateCheckResult? _lastUpdate;
 
@@ -63,7 +62,6 @@ public partial class AdvancedWindow : Window
             case "Modes":
                 ModesPanelControl.Initialize(_app);
                 AutomationPanelControl.Initialize(_app, automationSurface: true);
-                _panelNavigationSubscribed = true;
                 break;
             case "Cooling":
                 PerformancePanelControl.Initialize(_app);

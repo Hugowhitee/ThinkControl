@@ -16,7 +16,7 @@ public partial class AdvancedWindow
 
     private void ConfigureAdvancedSurface()
     {
-        InitializeFeaturePanels();
+        EnsureFeaturePanelsForPage(GetSelectedPage());
         ConfigureDeviceLearningIndicator();
         ConfigureAdvancedUiConsistency();
         ConfigureInteractionPolish();
@@ -38,6 +38,11 @@ public partial class AdvancedWindow
     {
         _snapshotUiPrepared = true;
         ConfigureAdvancedSurface();
+
+        // Snapshot QA exercises all real pages in one host; normal first paint
+        // initializes only the active feature group to remain responsive.
+        foreach (string page in new[] { "Modes", "Performance", "Audio", "Touchpad" })
+            EnsureFeaturePanelsForPage(page);
         SyncControls();
         HomeAudioControl.PrepareForSnapshot(providersAvailable: true);
 
