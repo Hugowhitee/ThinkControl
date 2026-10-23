@@ -61,6 +61,35 @@ public partial class FansPanel
     }
 
     /// <summary>
+    /// Visual-QA only: a complete X9-like discrete calibration rendered through the
+    /// same production speed chooser, with no live tachometer reading available.
+    /// Never sends an EC write or represents calibration as live telemetry.
+    /// </summary>
+    internal void PrepareDiscreteFanTestForSnapshot()
+    {
+        if (_app is null)
+            return;
+
+        _fanControlKind = FanControlKinds.DiscreteEc;
+        _manualServiceCanControl = true;
+        _app.State.FanControlKind = FanControlKinds.DiscreteEc;
+        _app.State.CanFanControl = true;
+        ApplyProviderCopy(true, _fanControlKind);
+        ApplyCalibrationUi(new FanCalibrationUiState(true, false, true, 5, 5, "Calibration complete"), true);
+        int[] levels = [4, 5, 6, 7, 0x40];
+        int[] rpms = [3500, 3700, 4000, 4400, 9400];
+        var points = levels.Select((level, index) => new FanLevelCalibrationSnapshot(
+            level,
+            [new FanCalibrationFanSnapshot("shared", "Shared tachometer", rpms[index], 30, true)],
+            true)).ToArray();
+        SyncManualSpeedChoices(new FanCharacterizationSnapshot(false, null, 5, 5, "Measured", null, points));
+        ManualSpeedComboBox.SelectedItem = _manualSpeedChoices.FirstOrDefault(x => x.Level == 7);
+        ManualControlExpander.IsExpanded = true;
+        UpdateManualFanTestControls();
+        UpdateLayout();
+    }
+
+    /// <summary>
     /// Visual-QA only: shows the production temporary-test controls without sending
     /// a fan command or starting the real timeout timer. The deterministic fixture
     /// deliberately uses the richer OEM target-RPM path so screenshots exercise the

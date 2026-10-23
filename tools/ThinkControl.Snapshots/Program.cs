@@ -534,6 +534,11 @@ internal static class Program
                 $"advanced-fans-measured-{size.Item3}.png", "custom curve, shared reading, measured steps", fanMeasuredCurve: true);
         RenderAdvanced(app, activeFanCurve, "Fans", 1160, 760, output, snapshots,
             "advanced-fans-manual-test.png", "temporary 72% target · auto restore", fanManualTest: true);
+        foreach (var size in new[] { (980, 650, "min"), (1160, 760, "normal") })
+            RenderAdvanced(app, activeFanCurve, "Fans", size.Item1, size.Item2, output, snapshots,
+                $"advanced-fans-discrete-choices-{size.Item3}.png",
+                "discrete EC · five calibrated RPM choices, explicit full speed, no live readback",
+                fanDiscreteTest: true);
         RenderAdvanced(app, charging, "Audio", 1160, 760, output, snapshots, "advanced-audio-unavailable.png", "audio/DAX providers unavailable", audioProvidersAvailable: false);
 
         RenderNotificationSheet(app, pawnIoRepair, 1160, 760, output, snapshots,
@@ -838,6 +843,7 @@ internal static class Program
         bool touchpadCornerLive = false,
         bool fanActiveCurve = false,
         bool fanManualTest = false,
+        bool fanDiscreteTest = false,
         bool deviceLearning = false,
         bool deviceReportReady = false,
         string? openingView = null,
@@ -938,6 +944,22 @@ internal static class Program
 
         if (fanMeasuredCurve && window.FindName("FansPanelControl") is FansPanel measuredPanel)
             measuredPanel.PrepareMeasuredCurveForSnapshot();
+
+        if (fanDiscreteTest &&
+            string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&
+            window.FindName("FansPanelControl") is FansPanel discretePanel &&
+            window.FindName("PagePerformance") is System.Windows.Controls.ScrollViewer discreteScroll)
+        {
+            discretePanel.PrepareDiscreteFanTestForSnapshot();
+            if (window.Content is FrameworkElement root)
+            {
+                root.Measure(new Size(width, height));
+                root.Arrange(new Rect(0, 0, width, height));
+                root.UpdateLayout();
+            }
+            discreteScroll.ScrollToEnd();
+            discreteScroll.UpdateLayout();
+        }
 
         if (fanManualTest &&
             string.Equals(page, "Fans", StringComparison.OrdinalIgnoreCase) &&

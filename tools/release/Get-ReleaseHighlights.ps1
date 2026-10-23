@@ -2,6 +2,10 @@
 
 ## What's changed
 
+- Discrete EC fan testing now shows only real, stable measured speeds, with Max separately labeled. No more apparently usable percentages that cannot be applied; true OEM target-RPM providers retain their continuous controls.
+- Fan targets now distinguish stored calibration from live tachometer confirmation. Unsupported/unavailable states are visibly disabled or rejected, and 30-second tests still restore the previous profile.
+- Touchpad corner launch gestures now acknowledge activation with the existing overlay before heavier window work; the full window initializes feature panels when first opened, not all at once.
+
 - Update and hardware attention notices now recreate themselves safely if WPF closes their owner window, preventing an update-check crash.
 - Temporary manual fan percentage targets choose the closest stable measured non-maximum RPM step. Unsupported requests show an error rather than silently activating full-speed mode; 100% remains explicit.
 - Continuous touchpad Volume and Brightness slides respond immediately when reversing direction or reaching 0/100%: uncommitted OS write backlog no longer causes a jump.
@@ -47,6 +51,8 @@
 - Compact status and quick-control layout customization with preserved settings.
 
 ## Alpha limitations
+
+Physical X9 fan/RPM response and measured gesture launch latency remain unverified. Windows Smart App Control may still block unsigned components; alpha.77 does not bypass it or provide a trusted code-signing certificate.
 
 Smart App Control may still block unknown unsigned ThinkControl binaries or components; this prerelease is not code signed by a trusted publisher. Follow issue #152 rather than disabling Windows security. Real X9 tachometer and touchpad reversal acceptance remain unverified, and only physically measured EC states are supported; no new direct PWM path is claimed.
 

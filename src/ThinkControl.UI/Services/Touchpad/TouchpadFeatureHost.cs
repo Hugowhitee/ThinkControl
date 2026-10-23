@@ -30,6 +30,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
     private int _brightnessGestureGeneration;
     private int _pendingBrightnessGeneration = -1;
     private int _inputStartScheduled;
+    private int _launchGestureScheduled;
     private bool? _transientGestureEnabled;
     private bool _disposed;
 
@@ -72,9 +73,9 @@ internal sealed class TouchpadFeatureHost : IDisposable
             SetGestureActive,
             next => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrack(next))),
             result => app.Dispatcher.BeginInvoke(new Action(() => _osd.ShowTrackCenter(result))),
-            () => app.Dispatcher.BeginInvoke(new Action(app.ShowThinkControlFromTray)),
-            () => app.Dispatcher.BeginInvoke(new Action(() => app.OpenAdvancedSafely("Home"))),
-            () => app.Dispatcher.BeginInvoke(new Action(app.HideThinkControlToTray)));
+            () => RequestLaunchFromGesture(advanced: false),
+            () => RequestLaunchFromGesture(advanced: true),
+            () => app.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(app.HideThinkControlToTray)));
 
         bool x9 = string.Equals(app.State.MachineType, "21Q6", StringComparison.OrdinalIgnoreCase) ||
                   string.Equals(app.State.MachineType, "21Q7", StringComparison.OrdinalIgnoreCase);
@@ -87,6 +88,51 @@ internal sealed class TouchpadFeatureHost : IDisposable
         _gestures.GestureChanged += signal => GestureChanged?.Invoke(signal);
         _gestures.TouchpadDetected += geometry => TouchpadDetected?.Invoke(geometry);
         _gestures.ContactFrameReceived += (contacts, geometry) => ContactFrameReceived?.Invoke(contacts, geometry);
+    }
+
+    private void RequestLaunchFromGesture(bool advanced)
+    {
+        // Touchpad HID frames arrive on the same UI dispatcher that hosts WPF.
+        // Present a short, shared acknowledgement before expensive first-time
+        // Advanced initialization, then let Render paint it before the page load.
+        // A repeated corner claim cannot enqueue duplicate window transitions.
+        if (_disposed || Interlocked.CompareExchange(ref _launchGestureScheduled, 1, 0) != 0)
+            return;
+
+        _app.Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            if (_disposed)
+            {
+                Interlocked.Exchange(ref _launchGestureScheduled, 0);
+                return;
+            }
+
+            try
+            {
+                if (advanced || _app.CompactWindow?.IsVisible != true)
+                    _osd.ShowLaunchFeedback(advanced);
+            }
+            catch
+            {
+                // Feedback is optional; it must never prevent the requested launch.
+            }
+
+            _app.Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() =>
+            {
+                try
+                {
+                    if (_disposed) return;
+                    if (advanced)
+                        _app.OpenAdvancedSafely("Home");
+                    else
+                        _app.ShowThinkControlFromTray();
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _launchGestureScheduled, 0);
+                }
+            }));
+        }));
     }
 
     internal event Action<GestureSignal>? GestureChanged;

@@ -62,10 +62,12 @@ public sealed class StartupResponsivenessSourceTests
 
         // The tray path starts Raw Input synchronously after cheap registry identity,
         // mirroring the essential-input-first discipline of lightweight helper apps.
-        Assert.Contains("if (startupCritical)", host, StringComparison.Ordinal);
-        Assert.Contains("return !_disposed && _gestures.Start();", host, StringComparison.Ordinal);
-        Assert.Contains("DispatcherPriority.ContextIdle", host, StringComparison.Ordinal);
-        Assert.DoesNotContain("DispatcherPriority.Background", host, StringComparison.Ordinal);
+        string inputStart = host.Split("internal bool EnsureInputStarted", StringSplitOptions.None)[1]
+            .Split("internal void StopInputIfGesturesDisabled", StringSplitOptions.None)[0];
+        Assert.Contains("if (startupCritical)", inputStart, StringComparison.Ordinal);
+        Assert.Contains("return !_disposed && _gestures.Start();", inputStart, StringComparison.Ordinal);
+        Assert.Contains("DispatcherPriority.ContextIdle", inputStart, StringComparison.Ordinal);
+        Assert.DoesNotContain("DispatcherPriority.Background", inputStart, StringComparison.Ordinal);
 
         // Activation remains a recovery path for device/session transitions.
         Assert.Contains("private void OnTouchpadApplicationActivated", touchpad, StringComparison.Ordinal);

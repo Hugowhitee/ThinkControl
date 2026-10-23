@@ -1,3 +1,4 @@
+using ThinkControl.Core.Cooling;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -17,6 +18,7 @@ public partial class FansPanel
     private Button? _manualFanApplyButton;
     private TextBlock? _manualFanTestStatus;
     private string? _manualFanRestoreProfile;
+    private string _manualFanTestLabel = string.Empty;
     private DateTimeOffset _manualFanTestEndsAt;
     private bool _manualFanTestActive;
     private bool _manualFanTestEnding;
@@ -95,14 +97,42 @@ public partial class FansPanel
             return;
         }
 
-        int percent = (int)Math.Round(ManualPercentSlider.Value);
         if (_manualFanApplyButton is not null)
             _manualFanApplyButton.IsEnabled = false;
         try
         {
-            await BeginOrRefreshManualFanTestAsync(
-                () => _app.SetManualFanPercentAsync(percent),
-                $"{percent}% target");
+            if (string.Equals(_fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal))
+            {
+                // No arbitrary percent mapping for discrete EC. Call the existing
+                // verified level writer only for a complete, stable calibration.
+                if (ManualSpeedComboBox.SelectedItem is not ManualFanSpeedChoices.Choice selected ||
+                    !_manualSpeedChoices.Contains(selected))
+                {
+                    ShowManualTestError("Select a calibrated fan speed before starting a test.");
+                    return;
+                }
+
+                await BeginOrRefreshManualFanTestAsync(async () =>
+                {
+                    ServiceResponse? response = await _app.HardwareClient.SetFanLevelAsync(selected.Level);
+                    if (response?.Success == true)
+                        return true;
+                    _app.State.HardwareAccess = response?.Error ?? "Fan speed was not accepted by the service.";
+                    return false;
+                }, selected.FullSpeed ? "Full speed" : $"{selected.MedianRpm:N0} calibrated RPM");
+            }
+            else
+            {
+                int percent = (int)Math.Round(ManualPercentSlider.Value);
+                await BeginOrRefreshManualFanTestAsync(
+                    () => _app.SetManualFanPercentAsync(percent),
+                    $"{percent}% OEM target");
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowManualTestError($"The fan test could not start: {ex.Message}");
+            try { await _app.HardwareClient.ReturnFanToAutoAsync(); } catch { }
         }
         finally
         {
@@ -152,6 +182,7 @@ public partial class FansPanel
         if (!applied)
         {
             UpdateManualFanTestUi();
+            ShowManualTestError(_app.State.HardwareAccess);
             return;
         }
 
@@ -159,6 +190,7 @@ public partial class FansPanel
             _manualFanRestoreProfile = restoreProfile;
 
         _manualFanTestActive = true;
+        _manualFanTestLabel = testLabel;
         _manualFanTestEndsAt = DateTimeOffset.UtcNow.AddSeconds(ManualFanTestDurationSeconds);
         _manualFanTestTimer.Start();
         UpdateManualFanTestUi(testLabel);
@@ -212,11 +244,24 @@ public partial class FansPanel
                 }
             }
         }
+        catch
+        {
+            // A timeout or service restart must not let an async-void timer
+            // exception bring down the UI. Best-effort handoff to firmware Auto.
+            try
+            {
+                ServiceResponse? fallback = await _app.HardwareClient.ReturnFanToAutoAsync();
+                restored = fallback?.Success == true;
+                if (restored) restoreName = "Auto";
+            }
+            catch { }
+        }
         finally
         {
             _manualFanTestActive = false;
             _manualFanTestEnding = false;
             _manualFanRestoreProfile = null;
+            _manualFanTestLabel = string.Empty;
             UpdateManualFanTestControls();
             if (_manualFanTestStatus is not null)
             {
@@ -233,7 +278,7 @@ public partial class FansPanel
     private void UpdateManualFanTestUi(string? testLabel = null)
     {
         UpdateManualFanTestControls();
-        if (_manualFanTestStatus is null)
+        if (_app is null || _manualFanTestStatus is null)
             return;
 
         if (!_manualFanTestActive)
@@ -244,10 +289,22 @@ public partial class FansPanel
 
         int seconds = Math.Max(0, (int)Math.Ceiling((_manualFanTestEndsAt - DateTimeOffset.UtcNow).TotalSeconds));
         string restoreName = FriendlyProfileName(_manualFanRestoreProfile);
-        string prefix = string.IsNullOrWhiteSpace(testLabel) ? "Temporary manual test" : $"Temporary test: {testLabel}";
+        string label = string.IsNullOrWhiteSpace(testLabel) ? _manualFanTestLabel : testLabel;
+        string measured = _app.State.FanRpm is int rpm
+            ? $"Last reported: {rpm:N0} RPM." : "Live fan RPM unavailable.";
         _manualFanTestStatus.Visibility = Visibility.Visible;
-        _manualFanTestStatus.Text = $"{prefix}. Restores {restoreName} in {seconds} s.";
+        _manualFanTestStatus.Text = $"{label}. {measured} Restores {restoreName} in {seconds} s.";
         ProfileComboBox.IsEnabled = false;
+    }
+
+    private void ShowManualTestError(string? detail)
+    {
+        if (_manualFanTestStatus is null)
+            return;
+        _manualFanTestStatus.Visibility = Visibility.Visible;
+        _manualFanTestStatus.Text = string.IsNullOrWhiteSpace(detail)
+            ? "The fan test could not be applied. Your cooling profile remains unchanged."
+            : detail;
     }
 
     private void UpdateManualFanTestControls()
@@ -255,15 +312,19 @@ public partial class FansPanel
         if (_app is null)
             return;
 
-        bool canControl = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
+        bool canControl = _manualServiceCanControl && !_app.FanCalibrationState.Required;
+        bool discrete = string.Equals(_fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
+        bool hasChoice = !discrete || ManualSpeedComboBox.SelectedItem is ManualFanSpeedChoices.Choice;
         if (_manualFanApplyButton is not null)
         {
             _manualFanApplyButton.Content = _manualFanTestActive ? "End test" : "Start test";
-            _manualFanApplyButton.IsEnabled = !_manualFanTestEnding && (_manualFanTestActive || canControl);
+            _manualFanApplyButton.IsEnabled = !_manualFanTestEnding &&
+                (_manualFanTestActive || canControl && hasChoice);
         }
 
         bool canEditTarget = canControl && !_manualFanTestActive && !_manualFanTestEnding;
-        ManualPercentSlider.IsEnabled = canEditTarget;
+        ManualPercentSlider.IsEnabled = canEditTarget && !discrete;
+        ManualSpeedComboBox.IsEnabled = canEditTarget && discrete && hasChoice;
         RawEcStepsExpander.IsEnabled = canEditTarget;
     }
 
