@@ -307,6 +307,30 @@ internal sealed class AttentionToastService : IDisposable
             Background = Brushes.Transparent,
             Content = shell
         };
+
+        // WPF closes owned windows when their owner closes. A service-owned toast
+        // must not retain that terminal Window instance: Show() on it throws
+        // InvalidOperationException and used to crash the dispatcher while
+        // publishing an update check (issue #150).
+        Window created = _window;
+        created.Closed += (_, _) =>
+        {
+            if (!ReferenceEquals(_window, created))
+                return;
+            _hideTimer.Stop();
+            _window = null;
+            _title = null;
+            _message = null;
+            _action = null;
+            _dismiss = null;
+            _actions = null;
+            _actionCallback = null;
+            _dismissCallback = null;
+            _lastKey = string.Empty;
+            _lastShown = DateTimeOffset.MinValue;
+            _passivePresentation = false;
+            _autoHidePresentation = true;
+        };
     }
 
     private void InvokeAndRestoreOwner(Action? callback)

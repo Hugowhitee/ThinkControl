@@ -17,9 +17,9 @@ internal sealed class GestureActionRouter
     private readonly Func<AudioSafetyMode> _getAudioSafetyMode;
     private readonly Action<AudioSafetyMode> _showAudioSafetyBlocked;
     private readonly Func<int?> _getVolume;
-    private readonly Action<int> _queueVolume;
+    private readonly Func<int, int?> _queueVolume;
     private readonly Func<int?> _getBrightness;
-    private readonly Action<int> _queueBrightness;
+    private readonly Func<int, int?> _queueBrightness;
     private readonly Action<GestureActionKind, bool> _setGestureActive;
     private readonly Action<bool> _showTrackOsd;
     private readonly Action<MediaToggleResult> _showTrackCenterOsd;
@@ -50,9 +50,9 @@ internal sealed class GestureActionRouter
         Func<AudioSafetyMode> getAudioSafetyMode,
         Action<AudioSafetyMode> showAudioSafetyBlocked,
         Func<int?> getVolume,
-        Action<int> queueVolume,
+        Func<int, int?> queueVolume,
         Func<int?> getBrightness,
-        Action<int> queueBrightness,
+        Func<int, int?> queueBrightness,
         Action<GestureActionKind, bool> setGestureActive,
         Action<bool> showTrackOsd,
         Action<MediaToggleResult> showTrackCenterOsd,
@@ -384,10 +384,16 @@ internal sealed class GestureActionRouter
         return Math.CopySign(magnitude - deadzone, value);
     }
 
-    private void QueueContinuousTarget(int startValue, Action<int> queueTarget)
+    private void QueueContinuousTarget(int startValue, Func<int, int?> queueTarget)
     {
         int target = Math.Clamp(startValue + (int)Math.Round(_continuousDeltaPercent), 0, 100);
-        queueTarget(target);
+        int? accepted = queueTarget(target);
+
+        // The service accepts only a limited lead ahead of confirmed OS output.
+        // Without feeding that decision back, reversing a fast slide first has
+        // to drain a large invisible accumulated target and then appears to jump.
+        _continuousDeltaPercent = ContinuousGestureTargetPolicy.Reconcile(
+            _continuousDeltaPercent, startValue, target, accepted);
     }
 
     private void QueueMediaSeek(GestureSignal signal)

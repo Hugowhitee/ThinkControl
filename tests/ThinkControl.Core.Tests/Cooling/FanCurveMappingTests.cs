@@ -18,6 +18,24 @@ public sealed class FanCurveMappingTests
     public void SparseMeasuredStates_DoNotRoundModerateTargetsToFullSpeed(int target, int state)
         => Assert.Equal(state, FanOutputMapping.ResolveCurve(target, States).HardwareState);
 
+    [Theory]
+    [InlineData(0, 4)]
+    [InlineData(40, 5)]
+    [InlineData(50, 7)]
+    [InlineData(60, 7)]
+    [InlineData(100, 0x40)]
+    public void ManualTarget_UsesNearestStableMeasuredSpeedNotCeiling(int target, int hardwareState)
+        => Assert.Equal(hardwareState, FanOutputMapping.ResolveManual(target, States)?.HardwareState);
+
+    [Fact]
+    public void ManualTarget_RefusesHiddenFullSpeedOrUnstableFallback()
+    {
+        Assert.Null(FanOutputMapping.ResolveManual(80, States));
+        Assert.Null(FanOutputMapping.ResolveManual(50, States, new HashSet<int> { 4, 5, 6, 7 }));
+        Assert.Equal(6, FanOutputMapping.ResolveManual(50, States, new HashSet<int> { 7 })?.HardwareState);
+        Assert.Null(FanOutputMapping.ResolveManual(100, States, new HashSet<int> { 0x40 }));
+    }
+
     [Fact]
     public void BoundaryNoise_HoldsCurrentStateUntilMeaningfulChange()
     {

@@ -283,16 +283,16 @@ internal sealed class TouchpadFeatureHost : IDisposable
         }
     }
 
-    private void QueueGestureVolume(int value)
+    private int? QueueGestureVolume(int value)
     {
         if (Volatile.Read(ref _volumeGestureActive) == 0)
-            return;
+            return null;
 
         int confirmed = Volatile.Read(ref _confirmedVolume);
         if (confirmed < 0)
         {
             if (_nativeInput.TryGetVolumePercent() is not int live)
-                return;
+                return null;
             confirmed = live;
             Interlocked.Exchange(ref _confirmedVolume, confirmed);
         }
@@ -303,6 +303,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
             Math.Min(100, confirmed + ContinuousVolumeLeadLimit));
         int generation = Volatile.Read(ref _volumeGestureGeneration);
         QueueVolume(bounded, generation);
+        return bounded;
     }
 
     private int? ReadGestureBrightnessBaseline()
@@ -316,16 +317,16 @@ internal sealed class TouchpadFeatureHost : IDisposable
         return live;
     }
 
-    private void QueueGestureBrightness(int value)
+    private int? QueueGestureBrightness(int value)
     {
         if (Volatile.Read(ref _brightnessGestureActive) == 0)
-            return;
+            return null;
 
         int confirmed = Volatile.Read(ref _confirmedBrightness);
         if (confirmed < 0)
         {
             if (_app.DisplayService.GetBrightness() is not int live)
-                return;
+                return null;
             confirmed = Math.Clamp(live, 0, 100);
             Interlocked.Exchange(ref _confirmedBrightness, confirmed);
         }
@@ -336,6 +337,7 @@ internal sealed class TouchpadFeatureHost : IDisposable
             Math.Min(100, confirmed + ContinuousBrightnessLeadLimit));
         int generation = Volatile.Read(ref _brightnessGestureGeneration);
         QueueBrightness(bounded, generation);
+        return bounded;
     }
 
     private void QueueVolume(int value, int gestureGeneration = -1)

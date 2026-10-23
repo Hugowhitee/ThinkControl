@@ -1,5 +1,15 @@
 # Release readiness
 
+## v0.1.0-alpha.76 — notification, manual cooling and touchpad stabilization
+
+- Issue #150: WPF-owned notification windows can close when their owner closes. The attention service now discards a closed window and creates a fresh one for subsequent update/hardware notifications; a real WPF shell smoke replays close → show again.
+- X9 manual cooling target correction: a measured calibration such as ~37/39/43/47% plus isolated full-speed ~100% made a requested 50% jump to full 0x40 through the old ceiling mapping. Manual targets now select a nearby stable calibrated non-maximum level, report unavailable intermediate requests instead of pretending to achieve them, and reserve full for explicit 100%. Curve/hot-input behavior and automatic firmware Auto recovery are unchanged.
+- Reversing volume/brightness touchpad slides feeds the OS-bounded accepted target back to the gesture router, removing speculative backlog and clamping excursions at 0/100%; retains fractional slow travel. Tests cover both axes and direction changes.
+- Smart App Control remains an external publisher trust blocker on unsigned alpha binaries, tracked by issue #152. The exact blocked file must be identified in CodeIntegrity 3077/3089 before trusted CA-backed signing. This release does not bypass Windows safeguards or claim signed artifacts.
+
+Validation: stabilization source `1a589adbfca6894b7fd8633d9256a05fd82ab083` passed Windows CI including 342 core tests and the real WPF shell smoke, plus Windows package/installer/service/IPC and oldest-supported upgrade checks. Final alpha.76 release-metadata head, merged main, tag and published assets must pass their own gates. Actual on-device fan tachometer, touchpad gesture reversal, Smart App Control block and thermal behavior are UNVERIFIED and are alpha acceptance targets.
+
+
 ## v0.1.0-alpha.75 — Windows startup & touchpad recovery
 
 This prerelease preserves the per-user Start with Windows choice across upgrades, validates the Run command, respects Windows Startup Apps' separate disabled state, and adds bounded touchpad Raw Input startup retries (1/3/7/15 seconds) independently of optional firmware identity probing. The Windows-disabled state is never bypassed silently. No fan/EC write permissions or device-support scope changed.
