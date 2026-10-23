@@ -17,8 +17,11 @@ public static class ContinuousGestureTargetPolicy
         if (!double.IsFinite(accumulatedPercent) || acceptedPercent is null)
             return 0;
 
+        // The Windows 0/100 boundary is also backpressure: once the control
+        // reaches an endpoint, discard travel beyond it so reversing does not
+        // first have to unwind an invisible overshoot.
         if (acceptedPercent.Value == requestedPercent)
-            return Math.Clamp(accumulatedPercent, -100, 100);
+            return Math.Clamp(accumulatedPercent, -startingPercent, 100 - startingPercent);
 
         return Math.Clamp(acceptedPercent.Value - startingPercent, -100, 100);
     }
