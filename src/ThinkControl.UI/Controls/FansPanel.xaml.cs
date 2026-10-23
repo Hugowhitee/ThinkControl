@@ -59,6 +59,7 @@ public partial class FansPanel : UserControl
         SyncProfileSelector(app.State.CoolingProfile, RuntimeProfileIdForDisplay(app.State.CoolingProfile));
         ApplyProviderCopy(canControl, _fanControlKind);
         ApplyCalibrationUi(app.FanCalibrationState, canControl);
+        SyncManualSpeedChoices(null);
         SyncStatusSubscription();
     }
 
