@@ -14,6 +14,7 @@ public partial class FansPanel : UserControl
     public static readonly DependencyProperty EmbeddedProperty = DependencyProperty.Register(nameof(Embedded), typeof(bool), typeof(FansPanel), new PropertyMetadata(false));
     public bool Embedded { get => (bool)GetValue(EmbeddedProperty); set => SetValue(EmbeddedProperty, value); }
     private readonly ObservableCollection<CalibrationRow> _calibrationRows = [];
+    private readonly ObservableCollection<ManualFanSpeedChoices.Choice> _manualSpeedChoices = [];
     private readonly ObservableCollection<FanProfileChoice> _profileChoices = [];
     private readonly FanCurveGraph _activeCurveGraph = new() { IsReadOnly = true, ShowLiveLabel = false };
     private App? _app;
@@ -36,6 +37,7 @@ public partial class FansPanel : UserControl
         InitializeComponent();
         ActiveCurvePreviewHost.Content = _activeCurveGraph;
         CalibrationResults.ItemsSource = _calibrationRows;
+        ManualSpeedComboBox.ItemsSource = _manualSpeedChoices;
         ProfileComboBox.ItemsSource = _profileChoices;
         Loaded += (_, _) => SyncStatusSubscription();
         Unloaded += (_, _) => UnsubscribeStatus();
@@ -105,6 +107,7 @@ public partial class FansPanel : UserControl
                 Status: "Calibration required before percentage fan profiles and manual targets are enabled.")
             : FanCalibrationUiState.None;
         ApplyCalibrationUi(calibration, canControl);
+        SyncManualSpeedChoices(null);
         _calibrationRows.Clear();
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, state.ControlTemperatureC, state.FanRpm);
     }
@@ -260,6 +263,7 @@ public partial class FansPanel : UserControl
         FanCalibrationUiState calibration = _app?.FanCalibrationState ?? FanCalibrationUiState.None;
         ApplyCalibrationUi(calibration, canControl);
         BuildCalibrationRows(characterization);
+        SyncManualSpeedChoices(characterization);
         UpdateActiveCurvePreview(ProfileComboBox.SelectedItem as FanProfileChoice, telemetry?.ControlTemperatureC, telemetry?.FanRpm);
         UpdateManualFanTestControls();
     }
@@ -331,6 +335,57 @@ public partial class FansPanel : UserControl
                 ? "Calibration currently owns fan output. Profile controls return after the run finishes or is stopped."
                 : "Measure fan speeds to enable curves. Auto and Max remain available.";
         }
+    }
+
+    private void SyncManualSpeedChoices(FanCharacterizationSnapshot? characterization)
+    {
+        bool discrete = string.Equals(_fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
+        ManualPercentSlider.Visibility = discrete ? Visibility.Collapsed : Visibility.Visible;
+        ManualSpeedComboBox.Visibility = discrete ? Visibility.Visible : Visibility.Collapsed;
+        ManualSpeedHintText.Visibility = discrete ? Visibility.Visible : Visibility.Collapsed;
+        ManualTargetTitle.Text = discrete ? "Measured fan speed" : "Temporary fan target";
+
+        if (!discrete)
+        {
+            _manualSpeedChoices.Clear();
+            ManualSpeedComboBox.SelectedItem = null;
+            ManualSpeedComboBox.IsEnabled = false;
+            return;
+        }
+
+        IReadOnlyList<ManualFanSpeedChoices.Choice> next = ManualFanSpeedChoices.FromCalibration(characterization);
+        if (!_manualSpeedChoices.SequenceEqual(next))
+        {
+            int? previousLevel = (ManualSpeedComboBox.SelectedItem as ManualFanSpeedChoices.Choice)?.Level;
+            _manualSpeedChoices.Clear();
+            foreach (ManualFanSpeedChoices.Choice choice in next)
+                _manualSpeedChoices.Add(choice);
+
+            ManualFanSpeedChoices.Choice? selected = next.FirstOrDefault(choice => choice.Level == previousLevel)
+                ?? next.Where(choice => !choice.FullSpeed)
+                    .OrderBy(choice => Math.Abs(choice.PercentOfMax - 50))
+                    .FirstOrDefault();
+            ManualSpeedComboBox.SelectedItem = selected;
+        }
+
+        bool ready = _app?.State.CanFanControl == true && !_app.FanCalibrationState.Required;
+        ManualSpeedComboBox.IsEnabled = ready && !_manualFanTestActive &&
+            !_manualFanTestEnding && _manualSpeedChoices.Count > 0;
+
+        ManualSpeedHintText.Text = _manualSpeedChoices.Count == 0
+            ? "No verified stable fan steps available. Run fan calibration before testing."
+            : "Stored calibration, not live RPM. The actual fan speed may differ; live tachometer readback is shown above when available.";
+        ManualSpeedComboBox_SelectionChanged(null, null!);
+    }
+
+    private void ManualSpeedComboBox_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (ManualPercentValue is null ||
+            !string.Equals(_fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal))
+            return;
+        ManualPercentValue.Text = ManualSpeedComboBox.SelectedItem is ManualFanSpeedChoices.Choice choice
+            ? choice.FullSpeed ? "Full speed" : $"~{choice.PercentOfMax}% max"
+            : "—";
     }
 
     private void BuildCalibrationRows(FanCharacterizationSnapshot? characterization)
@@ -645,7 +700,7 @@ public partial class FansPanel : UserControl
                     : "Advanced controls depend on the active fan controller.";
         FanProviderDetailText.ToolTip = null;
         if (discreteEcWriter)
-            FanMappingDetailText.Text = "Curves use the closest measured speed. 0% means the minimum measured running speed, not fan off. Use Auto to let firmware stop the fans.";
+            FanMappingDetailText.Text = "Curves map to measured fan steps. Manual tests offer only calibrated, stable speeds; full speed is an explicit choice. Auto returns cooling to firmware.";
 
         // Raw EC diagnostics exist only for a provider that explicitly advertises
         // the discrete-EC semantic contract. They are never a generic laptop option.
@@ -656,7 +711,7 @@ public partial class FansPanel : UserControl
             : oemTargetRpm
                 ? "Temporary 30-second test. 0% requests the provider-reported minimum running target and 100% its reported maximum target RPM; the previous profile is restored automatically. Firmware Auto remains a separate ownership state."
                 : discreteEcWriter
-                    ? "Try a measured speed for 30 seconds. Targets use the next available speed; low targets keep the fan running. The previous profile is restored afterwards."
+                    ? "Choose one calibrated running speed for a 30-second test. Full speed is a separate, explicit choice. Your previous cooling profile is restored automatically."
                     : "Temporary tests use only the active provider's verified output range and restore the previous profile automatically. Provider-specific raw diagnostics appear only when that exact semantic contract is exposed.";
         ManualControlExpander.IsEnabled = directWriter;
         EditCurvesButton.IsEnabled = directWriter && !_app?.FanCalibrationState.Required == true;
