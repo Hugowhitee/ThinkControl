@@ -36,6 +36,18 @@ public sealed class ContinuousGestureTargetPolicyTests
     }
 
     [Fact]
+    public void EndpointClamping_DoesNotStoreTravelPastHundredOrZero()
+    {
+        Assert.Equal(30,
+            ContinuousGestureTargetPolicy.Reconcile(90, 70, 100, 100));
+        Assert.Equal(-70,
+            ContinuousGestureTargetPolicy.Reconcile(-90, 70, 0, 0));
+
+        double reversed = ContinuousGestureTargetPolicy.Reconcile(90, 70, 100, 100) - 3;
+        Assert.Equal(97, 70 + (int)Math.Round(reversed));
+    }
+
+    [Fact]
     public void BrightnessBackpressure_UsesSameBidirectionalBoundary()
     {
         Assert.Equal(-8,
