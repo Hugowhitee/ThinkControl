@@ -961,6 +961,24 @@ internal static partial class Program
         AssertPrimarySurface(app, compact: true, full: false, "after ThinkControl toast dismiss");
         AssertAlive(app, "after ThinkControl toast dismiss");
 
+        // Issue #150: if WPF closes an owned notification with its owner, the
+        // next update check must create a fresh Window, not call Show() on the
+        // permanently closed old instance and crash the dispatcher.
+        toast.Close();
+        Pump(app.Dispatcher);
+        app.ShowAttentionForShellSmoke(static () => { });
+        Pump(app.Dispatcher);
+        Window recoveredToast = app.AttentionWindowForShellSmoke
+            ?? throw new InvalidOperationException("Attention lifecycle: closed toast was not recreated.");
+        if (ReferenceEquals(recoveredToast, toast) || !recoveredToast.IsVisible)
+            throw new InvalidOperationException("Attention lifecycle: attempted to reuse a closed WPF Window.");
+        Button recoveredDismiss = FindVisualChild<Button>(recoveredToast, button =>
+                string.Equals(button.Content?.ToString(), "Later", StringComparison.Ordinal))
+            ?? throw new InvalidOperationException("Attention lifecycle: replacement Later button missing.");
+        InvokeButton(recoveredDismiss);
+        Pump(app.Dispatcher);
+        AssertAlive(app, "after closed notification recreation");
+
         // Return to hosted-runner isolation only after both real notification
         // deactivation paths have completed successfully.
         app.SetExternalAutoHideSuppressedForShellSmoke(true);
