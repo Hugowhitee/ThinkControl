@@ -33,6 +33,49 @@ public static class FanOutputMapping
         return states[^1];
     }
 
+    /// <summary>
+    /// Manual percentages are requests for the closest calibrated running speed,
+    /// not lower bounds that can silently turn 50% into full-speed mode. Reserve the
+    /// measured maximum for an explicit 100% command. A non-maximum request with
+    /// no reasonably nearby stable speed must be rejected rather than misrepresented.
+    /// The zero endpoint intentionally means the lowest verified running speed,
+    /// never a firmware fan-off instruction.
+    /// </summary>
+    public static State? ResolveManual(
+        int targetPercent,
+        IReadOnlyList<State> measuredStates,
+        IReadOnlySet<int>? unstableStates = null)
+    {
+        if (measuredStates.Count < 2)
+            return null;
+
+        State[] stable = measuredStates
+            .Where(state => unstableStates?.Contains(state.HardwareState) != true)
+            .OrderBy(state => state.EstimatedPercent)
+            .ToArray();
+        if (stable.Length == 0)
+            return null;
+
+        int target = Math.Clamp(targetPercent, 0, 100);
+        if (target == 100)
+            return stable.FirstOrDefault(state => state.HardwareState == measuredStates[^1].HardwareState);
+        if (target == 0)
+            return stable[0];
+
+        State[] normal = stable
+            .Where(state => state.HardwareState != measuredStates[^1].HardwareState)
+            .ToArray();
+        if (normal.Length == 0)
+            return null;
+
+        State closest = normal
+            .OrderBy(state => Math.Abs(state.EstimatedPercent - target))
+            .ThenBy(state => state.EstimatedPercent)
+            .First();
+
+        return Math.Abs(closest.EstimatedPercent - target) <= 20 ? closest : null;
+    }
+
     /// <summary>Curves choose the closest measured speed rather than rounding a
     /// small target increase across a large hardware gap to full speed. A three
     /// percentage-point improvement is required before leaving the current state.
