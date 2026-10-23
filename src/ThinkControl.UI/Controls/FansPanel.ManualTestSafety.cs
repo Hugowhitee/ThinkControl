@@ -312,7 +312,7 @@ public partial class FansPanel
         if (_app is null)
             return;
 
-        bool canControl = _app.State.CanFanControl && !_app.FanCalibrationState.Required;
+        bool canControl = _manualServiceCanControl && !_app.FanCalibrationState.Required;
         bool discrete = string.Equals(_fanControlKind, FanControlKinds.DiscreteEc, StringComparison.Ordinal);
         bool hasChoice = !discrete || ManualSpeedComboBox.SelectedItem is ManualFanSpeedChoices.Choice;
         if (_manualFanApplyButton is not null)
