@@ -160,7 +160,9 @@ public sealed class LenovoOtherModeFanProviderSourceTests
         Assert.Contains("SetHardwarePercentSerialized(percent", source, StringComparison.Ordinal);
         Assert.Contains("preflight.FanControlKind != LenovoFanControlKind.ThinkPadEcDiscrete", source, StringComparison.Ordinal);
         Assert.Contains("seven-step EC calibration is not used", source, StringComparison.Ordinal);
-        Assert.Contains("FanOutputMapping.State output = ResolveOutputState(percent)", source, StringComparison.Ordinal);
+        Assert.Contains("FanOutputMapping.State? output = ResolveOutputState(percent)", source, StringComparison.Ordinal);
+        Assert.Contains("FanOutputMapping.ResolveManual(targetPercent, states, unstable)", source, StringComparison.Ordinal);
+        Assert.Contains("No stable measured fan speed is close to that target", source, StringComparison.Ordinal);
     }
 
     [Fact]
