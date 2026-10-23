@@ -25,7 +25,7 @@ public sealed class ManualFanSpeedChoicesTests
         Assert.Equal(5, choices.Count);
         Assert.Equal(new[] { 4, 5, 6, 7, 0x40 }, choices.Select(c => c.Level));
         Assert.Equal(new[] { 37, 39, 43, 47, 100 }, choices.Select(c => c.PercentOfMax));
-        Assert.Single(choices.Where(c => c.FullSpeed));
+        Assert.Single(choices, c => c.FullSpeed);
         Assert.Contains("Full speed", choices[^1].Label);
         Assert.Contains("calibrated RPM", choices[0].Label);
     }
