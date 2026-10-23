@@ -313,7 +313,13 @@ internal sealed class FanSupervisor : IDisposable
                 error = "Measure the supported fan speeds before setting a percentage.";
                 return false;
             }
-            FanOutputMapping.State output = ResolveOutputState(percent);
+            FanOutputMapping.State? output = ResolveOutputState(percent);
+            if (output is null)
+            {
+                error = "No stable measured fan speed is close to that target. " +
+                    "Choose a calibrated running speed or use 100% explicitly for full speed.";
+                return false;
+            }
             if (!ApplyOutputStateSerialized(output, out hardwareDetail, out error))
                 return false;
             appliedLevel = output.HardwareState;
@@ -1050,18 +1056,14 @@ internal sealed class FanSupervisor : IDisposable
         return sample;
     }
 
-    private FanOutputMapping.State ResolveOutputState(int targetPercent)
+    private FanOutputMapping.State? ResolveOutputState(int targetPercent)
     {
         Dictionary<int, int> rpm = CalibrationRpmByState();
-        IReadOnlyList<FanOutputMapping.State> states = FanOutputMapping.BuildStates(rpm, _hardware.FanCalibrationStates);
-        FanOutputMapping.State selected = states.First(state => state.EstimatedPercent >= Math.Clamp(targetPercent, 0, 100));
-
+        IReadOnlyList<FanOutputMapping.State> states =
+            FanOutputMapping.BuildStates(rpm, _hardware.FanCalibrationStates);
         HashSet<int> unstable;
         lock (_gate) unstable = new HashSet<int>(_unstableLevels);
-        int index = states.ToList().FindIndex(state => state.HardwareState == selected.HardwareState);
-        while (index < states.Count - 1 && unstable.Contains(states[index].HardwareState))
-            index++;
-        return states[index];
+        return FanOutputMapping.ResolveManual(targetPercent, states, unstable);
     }
 
     private int EstimatePercentForState(int state)
