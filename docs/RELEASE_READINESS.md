@@ -7,7 +7,7 @@
 - Reversing volume/brightness touchpad slides feeds the OS-bounded accepted target back to the gesture router, removing speculative backlog and clamping excursions at 0/100%; retains fractional slow travel. Tests cover both axes and direction changes.
 - Smart App Control remains an external publisher trust blocker on unsigned alpha binaries, tracked by issue #152. The exact blocked file must be identified in CodeIntegrity 3077/3089 before trusted CA-backed signing. This release does not bypass Windows safeguards or claim signed artifacts.
 
-Validation: stabilization source `1a589adbfca6894b7fd8633d9256a05fd82ab083` passed Windows CI including 342 core tests and the real WPF shell smoke, plus Windows package/installer/service/IPC and oldest-supported upgrade checks. Final alpha.76 release-metadata head, merged main, tag and published assets must pass their own gates. Actual on-device fan tachometer, touchscreen gesture reversal, Smart App Control block and thermal behavior are UNVERIFIED and are alpha acceptance targets.
+Validation: stabilization source `1a589adbfca6894b7fd8633d9256a05fd82ab083` passed Windows CI including 342 core tests and the real WPF shell smoke, plus Windows package/installer/service/IPC and oldest-supported upgrade checks. Final alpha.76 release-metadata head, merged main, tag and published assets must pass their own gates. Actual on-device fan tachometer, touchpad gesture reversal, Smart App Control block and thermal behavior are UNVERIFIED and are alpha acceptance targets.
 
 
 ## v0.1.0-alpha.75 — Windows startup & touchpad recovery
