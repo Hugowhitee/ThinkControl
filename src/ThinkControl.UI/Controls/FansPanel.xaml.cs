@@ -24,6 +24,7 @@ public partial class FansPanel : UserControl
     private string _currentProfileId = "Lenovo Auto";
     private string _fanControlKind = FanControlKinds.None;
     private bool _autoRecoveryConfirmed;
+    private bool _manualServiceCanControl;
 
     private bool UsesFirmwarePolicy =>
         _fanControlKind is FanControlKinds.FirmwarePolicy or FanControlKinds.FullSpeedOnly;
@@ -54,6 +55,7 @@ public partial class FansPanel : UserControl
         }
 
         bool canControl = app.State.CanFanControl;
+        _manualServiceCanControl = canControl;
         _fanControlKind = ResolveFanControlKind(app.State.FanControlKind, canControl);
 
         SyncProfileSelector(app.State.CoolingProfile, RuntimeProfileIdForDisplay(app.State.CoolingProfile));
@@ -69,6 +71,7 @@ public partial class FansPanel : UserControl
         UnsubscribeStatus();
         DataContext = state;
         bool canControl = state.CanFanControl;
+        _manualServiceCanControl = canControl;
         _fanControlKind = ResolveFanControlKind(state.FanControlKind, canControl);
         SyncProfileSelector(state.CoolingProfile, state.CoolingProfile);
         ApplyProviderCopy(canControl, _fanControlKind);
@@ -182,6 +185,7 @@ public partial class FansPanel : UserControl
     {
         TelemetrySnapshot? telemetry = response?.Success == true ? response.Telemetry : null;
         bool canControl = response?.Capabilities?.FanControl == true;
+        _manualServiceCanControl = canControl;
         bool canFanTelemetry = response?.Capabilities?.FanTelemetry == true;
         bool hasTelemetry = canFanTelemetry || response?.Capabilities?.SensorTelemetry == true;
         string? explicitKind = response?.Capabilities?.FanControlKind;
@@ -369,7 +373,7 @@ public partial class FansPanel : UserControl
             ManualSpeedComboBox.SelectedItem = selected;
         }
 
-        bool ready = _app?.State.CanFanControl == true && !_app.FanCalibrationState.Required;
+        bool ready = _manualServiceCanControl && _app?.FanCalibrationState.Required != true;
         ManualSpeedComboBox.IsEnabled = ready && !_manualFanTestActive &&
             !_manualFanTestEnding && _manualSpeedChoices.Count > 0;
 
