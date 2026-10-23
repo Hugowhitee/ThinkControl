@@ -25,6 +25,7 @@ public partial class AdvancedWindow : Window
     private bool _syncing;
     private bool _positioned;
     private bool _panelNavigationSubscribed;
+    private readonly HashSet<string> _initializedFeatureGroups = new(StringComparer.Ordinal);
     private UpdateCheckResult? _lastUpdate;
 
     public AdvancedWindow(App app)
@@ -40,19 +41,44 @@ public partial class AdvancedWindow : Window
         SourceInitialized += (_, _) => ApplyThemeToChrome();
     }
 
-    private void InitializeFeaturePanels()
+    private void EnsureFeaturePanelsForPage(string page)
     {
-        ModesPanelControl.Initialize(_app);
-        AutomationPanelControl.Initialize(_app, automationSurface: true);
-        if (!_panelNavigationSubscribed)
+        // One shell, one initialization owner: the Home surface paints without
+        // instantiating each unrelated feature's hardware/UI subscriptions.
+        // Lazy groups are still initialized synchronously before first interaction
+        // with their own page, with regular cached/empty state until telemetry arrives.
+        string group = page switch
         {
-            _panelNavigationSubscribed = true;
+            "Modes" or "Automation" => "Modes",
+            "Performance" or "Fans" => "Cooling",
+            "Audio" => "Audio",
+            "Touchpad" => "Touchpad",
+            _ => "Home"
+        };
+        if (!_initializedFeatureGroups.Add(group))
+            return;
+
+        switch (group)
+        {
+            case "Modes":
+                ModesPanelControl.Initialize(_app);
+                AutomationPanelControl.Initialize(_app, automationSurface: true);
+                _panelNavigationSubscribed = true;
+                break;
+            case "Cooling":
+                PerformancePanelControl.Initialize(_app);
+                FansPanelControl.Initialize(_app);
+                break;
+            case "Audio":
+                AudioPanelControl.Initialize(_app);
+                break;
+            case "Touchpad":
+                TouchpadPanelControl.Initialize(_app);
+                break;
+            default:
+                HomeAudioControl.Initialize(_app);
+                break;
         }
-        PerformancePanelControl.Initialize(_app);
-        FansPanelControl.Initialize(_app);
-        AudioPanelControl.Initialize(_app);
-        HomeAudioControl.Initialize(_app);
-        TouchpadPanelControl.Initialize(_app);
     }
 
     public void ApplyThemeToChrome()
@@ -125,7 +151,7 @@ public partial class AdvancedWindow : Window
         if (DataContext is AppState state)
             state.PropertyChanged += State_PropertyChanged;
 
-        InitializeFeaturePanels();
+        EnsureFeaturePanelsForPage(GetSelectedPage());
         RefreshStartupSwitch();
         Activated -= RefreshStartupSwitchOnActivation;
         Activated += RefreshStartupSwitchOnActivation;
@@ -225,6 +251,9 @@ public partial class AdvancedWindow : Window
     {
         if (PageHome is null)
             return;
+
+        if (IsLoaded)
+            EnsureFeaturePanelsForPage(page);
 
         FrameworkElement selected = page switch
         {
