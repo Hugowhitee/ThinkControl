@@ -253,7 +253,9 @@ public partial class FansPanel : UserControl
             if (_fanControlKind == FanControlKinds.OemTargetRpm && telemetry.CoolingAppliedLevel is null)
                 AppliedLevelText.Text = $"{percent}% OEM target";
             else
-                AppliedLevelText.Text = $"Approx. {percent}%";
+                AppliedLevelText.Text = telemetry.FanRpm is > 0
+                    ? $"Calibrated ~{percent}%"
+                    : $"~{percent}% target";
         }
         else if (telemetry?.CoolingAppliedLevel is int legacyLevel)
         {
@@ -263,6 +265,10 @@ public partial class FansPanel : UserControl
         {
             AppliedLevelText.Text = "Auto";
         }
+
+        AppliedLevelText.ToolTip = telemetry?.CoolingAppliedPercent is not null && telemetry?.FanRpm is not > 0
+            ? "The command target is known, but real fan RPM is unavailable. Output is not confirmed by tachometer."
+            : null;
 
         FanCharacterizationSnapshot? characterization = telemetry?.FanCharacterization;
         FanCalibrationUiState calibration = _app?.FanCalibrationState ?? FanCalibrationUiState.None;
